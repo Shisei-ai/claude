@@ -222,6 +222,7 @@ pub fn render(f: &mut Frame, game: &Game) {
         GameMode::Crafting   => render_crafting(f, game, area),
         GameMode::Event      => render_event(f, game, area),
         GameMode::LevelUp    => render_levelup(f, game, area),
+        GameMode::Help       => { render_main(f, game, area); render_help(f, area); }
         _                    => render_main(f, game, area),
     }
 }
@@ -1046,4 +1047,99 @@ fn trim_str(s: &str, max: usize) -> String {
     } else {
         format!("{}…", chars[..max-1].iter().collect::<String>())
     }
+}
+
+// ── Help overlay ──────────────────────────────────────────────────────────────
+fn render_help(f: &mut Frame, area: Rect) {
+    // Semi-transparent dark backdrop
+    f.render_widget(
+        Paragraph::new("").style(Style::default().bg(Color::Rgb(4, 4, 10))),
+        area,
+    );
+
+    let w = area.width.min(72);
+    let h = area.height.min(40);
+    let popup = Rect {
+        x: area.x + (area.width.saturating_sub(w)) / 2,
+        y: area.y + (area.height.saturating_sub(h)) / 2,
+        width: w, height: h,
+    };
+
+    fn sec(label: &'static str) -> Line<'static> {
+        Line::from(vec![
+            Span::styled("  ", Style::default()),
+            Span::styled(label, Style::default()
+                .fg(Color::Rgb(60, 100, 140))
+                .add_modifier(Modifier::BOLD)),
+        ])
+    }
+    fn row(keys: &'static str, desc: &'static str) -> Line<'static> {
+        Line::from(vec![
+            Span::styled(format!("  {:<24}", keys), Style::default().fg(Color::Rgb(190, 170, 110))),
+            Span::styled(desc, Style::default().fg(Color::Rgb(110, 120, 140))),
+        ])
+    }
+    fn div() -> Line<'static> {
+        Line::from(Span::styled(
+            format!("  {}", "─".repeat(62)),
+            Style::default().fg(Color::Rgb(30, 40, 55)),
+        ))
+    }
+
+    let lines: Vec<Line> = vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            "   ✦  CONTROLS  ✦   press any key to close",
+            Style::default().fg(Color::Rgb(220, 170, 50)).add_modifier(Modifier::BOLD),
+        )),
+        div(),
+        Line::from(""),
+        sec("MOVEMENT"),
+        row("WASD  /  Arrow Keys",   "Move up · left · down · right"),
+        row("Y U B N",               "Diagonal (↖ ↗ ↙ ↘)"),
+        row(".  or  5",              "Wait one turn (let enemies act)"),
+        Line::from(""),
+        div(),
+        sec("INTERACTION"),
+        row("G",                     "Pick up item  /  open chest (◆)"),
+        row(">",                     "Descend stairs (≫)"),
+        row("<",                     "Ascend stairs (≪)"),
+        row("E  (on ✦)",             "Activate shrine — random blessing"),
+        row("C  (on ⚒)",             "Open crafting menu at anvil"),
+        Line::from(""),
+        div(),
+        sec("COMBAT  &  SKILLS"),
+        row("Move into enemy",       "Attack that enemy"),
+        row("1 · 2 · 3 · 4",        "Use skill in hotbar slot"),
+        row("S  (shift+s)",          "Open skill tree — spend skill points"),
+        Line::from(""),
+        div(),
+        sec("INVENTORY"),
+        row("I",                     "Open inventory"),
+        row("↑ ↓  (in inventory)",   "Select item"),
+        row("Enter  or  U",          "Use / drink / equip item"),
+        row("E  (in inventory)",     "Equip highlighted item"),
+        row("D",                     "Drop item on floor"),
+        Line::from(""),
+        div(),
+        sec("MAP LEGEND"),
+        row("@  Player    ·  Floor   ▓ Wall",  ""),
+        row("≫  Stairs↓   ≪  Stairs↑",         ""),
+        row("⚒  Crafting  ✦  Shrine   ◆  Chest",""),
+        row("†≡⌥◇§  Items on floor",            "rarity: gray/green/blue/purple/gold"),
+        Line::from(""),
+        div(),
+        row("?",                     "Toggle this help screen"),
+        row("Q",                     "Quit game"),
+        Line::from(""),
+    ];
+
+    f.render_widget(
+        Paragraph::new(lines)
+            .block(Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Rgb(45, 60, 85))))
+            .style(Style::default().bg(Color::Rgb(6, 7, 14))),
+        popup,
+    );
 }

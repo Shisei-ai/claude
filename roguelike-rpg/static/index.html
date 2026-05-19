@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚔ Roguelike RPG</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css"/>
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #08080e;
+    color: #c0c0c0;
+    font-family: 'Consolas', 'DejaVu Sans Mono', monospace;
+    overflow: hidden;
+    width: 100vw; height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #terminal-wrap {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* xterm.js injects a div.xterm inside #terminal */
+  #terminal {
+    /* size is set by FitAddon */
+  }
+
+  /* ── Overlay ── */
+  #overlay {
+    position: fixed; inset: 0;
+    background: rgba(8, 8, 14, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: opacity .2s;
+  }
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+
+  #overlay-box {
+    border: 1px solid #2d3749;
+    background: #0c0c18;
+    padding: 28px 36px;
+    max-width: 560px;
+    width: 90vw;
+    border-radius: 4px;
+    box-shadow: 0 0 40px rgba(80,120,200,.15);
+  }
+
+  #overlay-box h1 {
+    font-size: 1.5rem;
+    color: #dba832;
+    margin-bottom: 6px;
+    letter-spacing: .1em;
+  }
+  #overlay-box .sub {
+    color: #4a5870;
+    font-size: .85rem;
+    margin-bottom: 20px;
+  }
+
+  .key-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  .key-table th {
+    text-align: left;
+    color: #4a6890;
+    font-size: .75rem;
+    letter-spacing: .12em;
+    padding: 10px 0 4px;
+    border-bottom: 1px solid #1e2535;
+  }
+  .key-table td { padding: 3px 0; }
+  .key-table td:first-child {
+    width: 42%;
+    color: #c0c0c0;
+  }
+  .key-table td:last-child { color: #606878; }
+
+  kbd {
+    background: #1a2030;
+    border: 1px solid #2d3749;
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-family: inherit;
+    font-size: .85em;
+    color: #aec0d8;
+  }
+
+  .hint {
+    margin-top: 18px;
+    color: #3a4558;
+    font-size: .82rem;
+    text-align: center;
+  }
+
+  /* ── Status bar ── */
+  #statusbar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 22px;
+    background: #0a0a12;
+    border-top: 1px solid #1a2030;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 16px;
+    font-size: 11px;
+    color: #3a4558;
+    z-index: 50;
+  }
+  #statusbar .item { display: flex; gap: 6px; }
+  #statusbar .label { color: #2d3749; }
+  #statusbar .val   { color: #506080; }
+  #status-ws { margin-left: auto; }
+  #status-ws.connected { color: #408040; }
+  #status-ws.disconnected { color: #804040; }
+</style>
+</head>
+<body>
+
+<!-- ── Loading/Help overlay ───────────────────────────────────────────── -->
+<div id="overlay">
+  <div id="overlay-box">
+    <h1>⚔ Roguelike RPG</h1>
+    <p class="sub">Press any key to start · <kbd>?</kbd> in-game for help</p>
+
+    <table class="key-table">
+      <tr><th colspan="2">MOVEMENT</th></tr>
+      <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Arrows</td><td>Move up / left / down / right</td></tr>
+      <tr><td><kbd>Y</kbd><kbd>U</kbd><kbd>B</kbd><kbd>N</kbd></td><td>Diagonal movement</td></tr>
+      <tr><td><kbd>.</kbd> or <kbd>5</kbd></td><td>Wait one turn</td></tr>
+
+      <tr><th colspan="2">ACTION</th></tr>
+      <tr><td><kbd>G</kbd></td><td>Pick up item / open chest</td></tr>
+      <tr><td><kbd>&gt;</kbd></td><td>Descend stairs (≫)</td></tr>
+      <tr><td><kbd>&lt;</kbd></td><td>Ascend stairs (≪)</td></tr>
+      <tr><td><kbd>E</kbd></td><td>Activate shrine (✦)</td></tr>
+
+      <tr><th colspan="2">MENUS</th></tr>
+      <tr><td><kbd>I</kbd></td><td>Inventory  (U:use · E:equip · D:drop)</td></tr>
+      <tr><td><kbd>S</kbd> (shift)</td><td>Skill tree  (Enter to learn)</td></tr>
+      <tr><td><kbd>C</kbd> on ⚒</td><td>Crafting anvil</td></tr>
+
+      <tr><th colspan="2">SKILLS</th></tr>
+      <tr><td><kbd>1</kbd>–<kbd>4</kbd></td><td>Use active skill in hotbar</td></tr>
+
+      <tr><th colspan="2">OTHER</th></tr>
+      <tr><td><kbd>?</kbd></td><td>Toggle this help screen</td></tr>
+      <tr><td><kbd>Q</kbd></td><td>Quit game</td></tr>
+    </table>
+
+    <p class="hint">Click anywhere or press any key to dismiss</p>
+  </div>
+</div>
+
+<!-- ── Terminal ───────────────────────────────────────────────────────── -->
+<div id="terminal-wrap">
+  <div id="terminal"></div>
+</div>
+
+<!-- ── Status bar ─────────────────────────────────────────────────────── -->
+<div id="statusbar">
+  <span class="item"><span class="label">Floor</span><span class="val" id="s-floor">—</span></span>
+  <span class="item"><span class="label">Ping</span><span class="val" id="s-ping">—</span></span>
+  <span id="status-ws" class="disconnected">● Connecting…</span>
+</div>
+
+<script>
+// ── Terminal setup ──────────────────────────────────────────────────────
+const term = new Terminal({
+  fontFamily: '"Cascadia Code", Consolas, "DejaVu Sans Mono", monospace',
+  fontSize: 15,
+  lineHeight: 1.0,
+  letterSpacing: 0,
+  cursorBlink: false,
+  cursorStyle: 'block',
+  theme: {
+    background:   '#08080e',
+    foreground:   '#b0b8c8',
+    cursor:       '#dba832',
+    black:        '#0a0a14',
+    red:          '#c83232',
+    green:        '#3cc85a',
+    yellow:       '#dba832',
+    blue:         '#3c78c8',
+    magenta:      '#a040c8',
+    cyan:         '#28a0b4',
+    white:        '#b0b8c8',
+    brightBlack:  '#404858',
+    brightRed:    '#e05050',
+    brightGreen:  '#50e070',
+    brightYellow: '#f0c040',
+    brightBlue:   '#5090e0',
+    brightMagenta:'#c060e0',
+    brightCyan:   '#40c8d8',
+    brightWhite:  '#d0d8e8',
+  },
+  allowTransparency: true,
+  scrollback: 0,
+  disableStdin: false,
+});
+
+const fitAddon = new FitAddon.FitAddon();
+term.loadAddon(fitAddon);
+term.open(document.getElementById('terminal'));
+fitAddon.fit();
+
+// ── WebSocket ──────────────────────────────────────────────────────────
+const wsUrl = `ws://${location.host}/ws`;
+let ws = null;
+let pingStart = 0;
+let overlayDismissed = false;
+
+function connect() {
+  document.getElementById('status-ws').textContent = '● Connecting…';
+  document.getElementById('status-ws').className = 'disconnected';
+
+  ws = new WebSocket(wsUrl);
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => {
+    document.getElementById('status-ws').textContent = '● Connected';
+    document.getElementById('status-ws').className = 'connected';
+    sendResize();
+  };
+
+  ws.onmessage = (e) => {
+    if (e.data instanceof ArrayBuffer) {
+      term.write(new Uint8Array(e.data));
+    }
+  };
+
+  ws.onclose = () => {
+    document.getElementById('status-ws').textContent = '● Disconnected — reload to reconnect';
+    document.getElementById('status-ws').className = 'disconnected';
+    setTimeout(connect, 3000);
+  };
+
+  ws.onerror = () => {
+    ws.close();
+  };
+}
+
+function sendResize() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+  }
+}
+
+function sendKey(key, code, shiftKey) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'key', key, code, shiftKey }));
+  }
+}
+
+// ── Input ──────────────────────────────────────────────────────────────
+term.onKey(({ key, domEvent }) => {
+  // Dismiss overlay on first key
+  if (!overlayDismissed) {
+    dismissOverlay();
+    overlayDismissed = true;
+    // Still send the key that dismissed it (except pure modifier keys)
+    if (['Control','Alt','Shift','Meta'].includes(domEvent.key)) return;
+  }
+  sendKey(domEvent.key, domEvent.code, domEvent.shiftKey);
+});
+
+// ── Overlay ────────────────────────────────────────────────────────────
+function dismissOverlay() {
+  document.getElementById('overlay').classList.add('hidden');
+}
+
+document.getElementById('overlay').addEventListener('click', () => {
+  dismissOverlay();
+  overlayDismissed = true;
+  term.focus();
+});
+
+// ── Resize ────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  fitAddon.fit();
+  sendResize();
+});
+
+// ── Fullscreen toggle on F11 / double-click ────────────────────────────
+document.addEventListener('dblclick', () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen().catch(() => {});
+  }
+});
+
+// ── Focus terminal on click ────────────────────────────────────────────
+document.addEventListener('click', () => term.focus());
+
+// ── Boot ──────────────────────────────────────────────────────────────
+connect();
+term.focus();
+</script>
+</body>
+</html>

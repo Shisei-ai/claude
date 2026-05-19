@@ -13,6 +13,7 @@ pub const FOV_RADIUS: i32 = 8;
 #[derive(Clone, PartialEq, Eq)]
 pub enum GameMode {
     Exploring,
+    Help,
     Inventory,
     Skills,
     Crafting,
