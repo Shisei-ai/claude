@@ -19,25 +19,28 @@ void Player::init(CharClass cls) {
 
     switch (cls) {
         case CharClass::WARRIOR:
+            // 重装備の戦士: 高い物理防御、魔法防御は低い
             maxHp = 40; hp = 40;
             maxMp = 5;  mp = 5;
-            attack = 10; defense = 6;
+            attack = 10; defense = 6; magicDefense = 2;
             magicAttack = 3;
             critChance = 0.05f;
             name = "Warrior";
             break;
         case CharClass::MAGE:
+            // 魔法使い: 物理防御は最低、魔法防御は最高
             maxHp = 20; hp = 20;
             maxMp = 30; mp = 30;
-            attack = 4; defense = 2;
+            attack = 4; defense = 2; magicDefense = 8;
             magicAttack = 14;
             critChance = 0.10f;
             name = "Mage";
             break;
         case CharClass::ROGUE:
+            // 盗賊: 物理・魔法ともにバランス型
             maxHp = 28; hp = 28;
             maxMp = 12; mp = 12;
-            attack = 7; defense = 4;
+            attack = 7; defense = 4; magicDefense = 4;
             magicAttack = 5;
             critChance = 0.25f;
             name = "Rogue";
@@ -64,6 +67,7 @@ void Player::levelUpStats() {
             maxMp += 2;
             attack += 3;
             defense += 2;
+            magicDefense += 1;
             magicAttack += 1;
             break;
         case CharClass::MAGE:
@@ -71,6 +75,7 @@ void Player::levelUpStats() {
             maxMp += 10;
             attack += 1;
             defense += 1;
+            magicDefense += 3;
             magicAttack += 4;
             break;
         case CharClass::ROGUE:
@@ -78,6 +83,7 @@ void Player::levelUpStats() {
             maxMp += 3;
             attack += 2;
             defense += 1;
+            magicDefense += 1;
             magicAttack += 1;
             critChance = std::min(0.5f, critChance + 0.01f);
             break;
@@ -97,6 +103,12 @@ int Player::totalDefense() const {
     int def = defense;
     if (armor) def += armor->def->defense_bonus;
     return def;
+}
+
+int Player::totalMagicDefense() const {
+    int mdef = magicDefense;
+    if (armor) mdef += armor->def->magic_defense_bonus;
+    return mdef;
 }
 
 bool Player::addItem(Item item) {

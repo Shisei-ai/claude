@@ -56,7 +56,7 @@ CombatResult monsterAttackPlayer(Monster& m, Player& p, uint32_t& rng) {
     CombatResult result;
 
     int atk = m.attack;
-    int def = p.totalDefense();
+    int def = p.totalDefense();  // 物理防御を使用
 
     int variance = rngRange(rng, -2, 2);
     int dmg = std::max(1, atk - def / 2 + variance);
@@ -88,15 +88,15 @@ CombatResult monsterAttackPlayer(Monster& m, Player& p, uint32_t& rng) {
     return result;
 }
 
-CombatResult magicAttack(int magicAtk, int targetDefense, int& targetHp,
+CombatResult magicAttack(int magicAtk, int targetMagicDefense, int& targetHp,
                          const std::string& attackerName,
                          const std::string& targetName,
                          uint32_t& rng) {
     CombatResult result;
 
     int variance = rngRange(rng, -3, 3);
-    // Magic bypasses defense partially
-    int dmg = std::max(1, magicAtk - targetDefense / 4 + variance);
+    // 魔法攻撃は魔法防御で軽減
+    int dmg = std::max(1, magicAtk - targetMagicDefense / 2 + variance);
 
     targetHp -= dmg;
     result.damage = dmg;

@@ -26,6 +26,7 @@ struct MonsterDef {
     int hp;
     int attack;
     int defense;
+    int magicDefense;
     int magicAttack;
     int xp;
     int minFloor;
@@ -39,6 +40,7 @@ struct Monster : Entity {
     int maxHp = 10;
     int attack = 4;
     int defense = 1;
+    int magicDefense = 0;
     int magicAttack = 0;
     int xpValue = 15;
     int alertRadius = 6;

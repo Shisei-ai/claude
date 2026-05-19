@@ -10,6 +10,7 @@ struct ItemDef {
     ItemType type;
     int attack_bonus = 0;
     int defense_bonus = 0;
+    int magic_defense_bonus = 0;
     int hp_restore = 0;
     int mp_restore = 0;
     int damage = 0;       // for scrolls

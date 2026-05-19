@@ -269,11 +269,13 @@ void Renderer::drawPanel(const Player& player, int floor) {
     y += lh + 4;
 
     // Stats
-    renderTextLine(x, y, "ATK: " + std::to_string(player.totalAttack()), Colors::ORANGE);
+    renderTextLine(x, y, "ATK:  " + std::to_string(player.totalAttack()), Colors::ORANGE);
     y += lh;
-    renderTextLine(x, y, "DEF: " + std::to_string(player.totalDefense()), Colors::CYAN);
+    renderTextLine(x, y, "MATK: " + std::to_string(player.magicAttack), Colors::PURPLE);
     y += lh;
-    renderTextLine(x, y, "MGK: " + std::to_string(player.magicAttack), Colors::PURPLE);
+    renderTextLine(x, y, "PDEF: " + std::to_string(player.totalDefense()), Colors::CYAN);
+    y += lh;
+    renderTextLine(x, y, "MDEF: " + std::to_string(player.totalMagicDefense()), Color(100, 180, 255));
     y += lh;
 
     int critPct = (int)(player.critChance * 100.0f);
@@ -380,11 +382,12 @@ void Renderer::drawInventory(const Player& player, int selectedIdx) {
 
         // Show stats
         std::string stats;
-        if (item.def->attack_bonus > 0) stats += " +ATK" + std::to_string(item.def->attack_bonus);
-        if (item.def->defense_bonus > 0) stats += " +DEF" + std::to_string(item.def->defense_bonus);
-        if (item.def->hp_restore > 0) stats += " HP+" + std::to_string(item.def->hp_restore);
-        if (item.def->mp_restore > 0) stats += " MP+" + std::to_string(item.def->mp_restore);
-        if (item.def->damage > 0)     stats += " DMG" + std::to_string(item.def->damage);
+        if (item.def->attack_bonus > 0)        stats += " +ATK"  + std::to_string(item.def->attack_bonus);
+        if (item.def->defense_bonus > 0)       stats += " +PDEF" + std::to_string(item.def->defense_bonus);
+        if (item.def->magic_defense_bonus > 0) stats += " +MDEF" + std::to_string(item.def->magic_defense_bonus);
+        if (item.def->hp_restore > 0)          stats += " HP+"   + std::to_string(item.def->hp_restore);
+        if (item.def->mp_restore > 0)          stats += " MP+"   + std::to_string(item.def->mp_restore);
+        if (item.def->damage > 0)              stats += " DMG"   + std::to_string(item.def->damage);
 
         Color itemColor = equipped ? Colors::GREEN : item.def->color;
         renderTextLine(x, y, prefix + name + stats, itemColor);

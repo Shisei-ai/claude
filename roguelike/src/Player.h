@@ -17,6 +17,7 @@ struct Player : Entity {
 
     int attack = 10;
     int defense = 6;
+    int magicDefense = 2;
     int magicAttack = 3;
     float critChance = 0.05f;
 
@@ -32,6 +33,7 @@ struct Player : Entity {
     bool gainXP(int amount);  // returns true if leveled up
     int totalAttack() const;
     int totalDefense() const;
+    int totalMagicDefense() const;
     bool addItem(Item item);
     bool useItem(int idx);
     bool equip(int idx);

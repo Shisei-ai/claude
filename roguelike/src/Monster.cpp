@@ -3,21 +3,22 @@
 #include <algorithm>
 #include <vector>
 
+// Fields: name, glyph, color, hp, attack, defense, magicDefense, magicAttack, xp, minFloor, movePattern, alertRadius
 const MonsterDef MONSTER_DEFS[] = {
-    // GOBLIN
-    { "Goblin",    'g', Colors::GREEN,      10,  4,  1,  0,  15, 1, MovePattern::CHASE, 6 },
-    // ORC
-    { "Orc",       'o', Colors::OLIVE,      25,  8,  4,  0,  35, 2, MovePattern::CHASE, 7 },
-    // SKELETON
-    { "Skeleton",  's', Colors::GRAY,       18,  7,  3,  0,  30, 2, MovePattern::CHASE, 6 },
-    // TROLL
-    { "Troll",     'T', Colors::DARK_GREEN, 50, 12,  6,  0,  75, 4, MovePattern::CHASE, 8 },
-    // DARK_MAGE
-    { "Dark Mage", 'm', Colors::PURPLE,     22,  5,  2, 15,  60, 3, MovePattern::CHASE, 7 },
-    // VAMPIRE
-    { "Vampire",   'V', Colors::DARK_RED,   40, 10,  5,  5,  90, 5, MovePattern::CHASE, 8 },
-    // DRAGON
-    { "Dragon",    'D', Colors::RED,       100, 18, 10, 10, 200, 7, MovePattern::CHASE, 10 },
+    // GOBLIN  - 素早い小鬼、魔法耐性なし
+    { "Goblin",    'g', Colors::GREEN,      10,  4,  1,  0,  0,  15, 1, MovePattern::CHASE, 6 },
+    // ORC     - 屈強な戦士、物理特化
+    { "Orc",       'o', Colors::OLIVE,      25,  8,  4,  1,  0,  35, 2, MovePattern::CHASE, 7 },
+    // SKELETON - 不死骸骨、魔法に耐性あり
+    { "Skeleton",  's', Colors::GRAY,       18,  7,  3,  4,  0,  30, 2, MovePattern::CHASE, 6 },
+    // TROLL   - 再生能力持ち、若干の耐性
+    { "Troll",     'T', Colors::DARK_GREEN, 50, 12,  6,  2,  0,  75, 4, MovePattern::CHASE, 8 },
+    // DARK_MAGE - 魔法使い、魔法防御が高い
+    { "Dark Mage", 'm', Colors::PURPLE,     22,  5,  2,  8, 15,  60, 3, MovePattern::CHASE, 7 },
+    // VAMPIRE - 超自然的存在、両防御が高い
+    { "Vampire",   'V', Colors::DARK_RED,   40, 10,  5,  5,  5,  90, 5, MovePattern::CHASE, 8 },
+    // DRAGON  - 最強の存在、全能力が高い
+    { "Dragon",    'D', Colors::RED,       100, 18, 10,  6, 10, 200, 7, MovePattern::CHASE, 10 },
 };
 
 const int MONSTER_DEF_COUNT = 7;
@@ -37,6 +38,7 @@ Monster createMonster(MonsterType type, Vec2 pos) {
     m.maxHp = def.hp;
     m.attack = def.attack;
     m.defense = def.defense;
+    m.magicDefense = def.magicDefense;
     m.magicAttack = def.magicAttack;
     m.xpValue = def.xp;
     m.alertRadius = def.alertRadius;

@@ -1,62 +1,68 @@
 #include "Item.h"
 #include <algorithm>
 
+// Field order: name, glyph, color, type, attack_bonus, defense_bonus, magic_defense_bonus,
+//              hp_restore, mp_restore, damage, minFloor, value
 namespace ItemDefs {
+    // 武器: 物理攻撃力ボーナス
     const ItemDef DAGGER = {
         "Dagger", ')', Colors::GRAY, ItemType::WEAPON,
-        3, 0, 0, 0, 0, 1, 15
+        /*atk*/3, /*def*/0, /*mdef*/0, /*hp*/0, /*mp*/0, /*dmg*/0, /*fl*/1, /*val*/15
     };
     const ItemDef SWORD = {
         "Sword", ')', Colors::WHITE, ItemType::WEAPON,
-        6, 0, 0, 0, 0, 2, 40
+        6, 0, 0, 0, 0, 0, 2, 40
     };
     const ItemDef GREAT_SWORD = {
         "Great Sword", ')', Colors::CYAN, ItemType::WEAPON,
-        10, 0, 0, 0, 0, 4, 80
+        10, 0, 0, 0, 0, 0, 4, 80
     };
+    // スタッフは魔法攻撃ボーナス (attack_bonusを魔法に流用)
     const ItemDef STAFF = {
         "Magic Staff", '/', Colors::PURPLE, ItemType::WEAPON,
-        2, 0, 0, 0, 0, 2, 50
+        2, 0, 0, 0, 0, 0, 2, 50
     };
     const ItemDef BOW = {
         "Bow", ')', Colors::BROWN, ItemType::WEAPON,
-        5, 0, 0, 0, 0, 2, 35
+        5, 0, 0, 0, 0, 0, 2, 35
     };
 
+    // 防具: 物理防御 + 魔法防御ボーナス
     const ItemDef LEATHER_ARMOR = {
         "Leather Armor", '[', Colors::BROWN, ItemType::ARMOR,
-        0, 2, 0, 0, 0, 1, 20
+        /*atk*/0, /*def*/2, /*mdef*/1, /*hp*/0, /*mp*/0, /*dmg*/0, /*fl*/1, /*val*/20
     };
     const ItemDef CHAIN_MAIL = {
         "Chain Mail", '[', Colors::GRAY, ItemType::ARMOR,
-        0, 5, 0, 0, 0, 3, 60
+        0, 5, 3, 0, 0, 0, 3, 60
     };
     const ItemDef PLATE_ARMOR = {
         "Plate Armor", '[', Colors::WHITE, ItemType::ARMOR,
-        0, 8, 0, 0, 0, 5, 100
+        0, 8, 2, 0, 0, 0, 5, 100
     };
 
+    // 消費アイテム
     const ItemDef POTION_HP = {
         "Health Potion", '!', Colors::RED, ItemType::POTION_HP,
-        0, 0, 25, 0, 0, 1, 10
+        0, 0, 0, /*hp*/25, 0, 0, 1, 10
     };
     const ItemDef POTION_MP = {
         "Mana Potion", '!', Colors::BLUE, ItemType::POTION_MP,
-        0, 0, 0, 15, 0, 1, 10
+        0, 0, 0, 0, /*mp*/15, 0, 1, 10
     };
 
     const ItemDef SCROLL_FIRE = {
         "Scroll of Fire", '?', Colors::ORANGE, ItemType::SCROLL_FIRE,
-        0, 0, 0, 0, 30, 2, 25
+        0, 0, 0, 0, 0, /*dmg*/30, 2, 25
     };
     const ItemDef SCROLL_IDENTIFY = {
         "Scroll of Identify", '?', Colors::YELLOW, ItemType::SCROLL_IDENTIFY,
-        0, 0, 0, 0, 0, 1, 15
+        0, 0, 0, 0, 0, 0, 1, 15
     };
 
     const ItemDef GOLD = {
         "Gold", '$', Colors::YELLOW, ItemType::GOLD,
-        0, 0, 0, 0, 0, 1, 1
+        0, 0, 0, 0, 0, 0, 1, 1
     };
 }
 

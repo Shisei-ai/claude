@@ -7,7 +7,7 @@
 
 CombatResult playerAttackMonster(Player& p, Monster& m, uint32_t& rng);
 CombatResult monsterAttackPlayer(Monster& m, Player& p, uint32_t& rng);
-CombatResult magicAttack(int magicAtk, int targetDefense, int& targetHp,
+CombatResult magicAttack(int magicAtk, int targetMagicDefense, int& targetHp,
                          const std::string& attackerName,
                          const std::string& targetName,
                          uint32_t& rng);

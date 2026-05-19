@@ -247,7 +247,7 @@ void Game::handleInventoryInput(SDL_Keycode key) {
                             if (!map.inBounds(m.pos)) continue;
                             if (!map.tiles[m.pos.y][m.pos.x].visible) continue;
                             auto res = magicAttack(player.magicAttack + it.def->damage,
-                                                   m.defense, m.hp,
+                                                   m.magicDefense, m.hp,
                                                    "Fire scroll", m.name, rngState);
                             totalDmg += res.damage;
                             if (m.hp <= 0) {
@@ -514,7 +514,7 @@ void Game::processMonsterTurns() {
             // Dark mage uses magic if has magicAttack
             CombatResult result;
             if (m.magicAttack > 0 && rngRange(0, 2) == 0) {
-                result = magicAttack(m.magicAttack, player.totalDefense(),
+                result = magicAttack(m.magicAttack, player.totalMagicDefense(),
                                      player.hp, m.name, player.name, rngState);
             } else {
                 result = monsterAttackPlayer(m, player, rngState);
