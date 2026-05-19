@@ -277,9 +277,14 @@ void Renderer::drawPanel(const Player& player, int floor) {
     y += lh;
     renderTextLine(x, y, "MDEF: " + std::to_string(player.totalMagicDefense()), Color(100, 180, 255));
     y += lh;
+    renderTextLine(x, y, "SPD:  " + std::to_string(player.speed), Colors::GREEN);
+    y += lh;
+    renderTextLine(x, y, "LCK:  " + std::to_string(player.luck), Colors::YELLOW);
+    y += lh;
 
-    int critPct = (int)(player.critChance * 100.0f);
-    renderTextLine(x, y, "CRIT: " + std::to_string(critPct) + "%", Colors::YELLOW);
+    // 実効クリティカル率 = 基礎値 + 運×0.5%
+    int critPct = (int)(player.effectiveCritChance() * 100.0f);
+    renderTextLine(x, y, "CRIT: " + std::to_string(critPct) + "%", Color(255, 200, 50));
     y += lh;
 
     renderTextLine(x, y, "GOLD: " + std::to_string(player.gold), Colors::YELLOW);

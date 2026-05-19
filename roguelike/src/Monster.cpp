@@ -3,22 +3,24 @@
 #include <algorithm>
 #include <vector>
 
-// Fields: name, glyph, color, hp, attack, defense, magicDefense, magicAttack, xp, minFloor, movePattern, alertRadius
+// Fields: name, glyph, color, hp, attack, defense, magicDefense, magicAttack,
+//         speed, luck, xp, minFloor, movePattern, alertRadius
 const MonsterDef MONSTER_DEFS[] = {
+    //            name         gl  color                hp  atk def mdf mat spd lck  xp fl  pattern               alert
     // GOBLIN  - 素早い小鬼、魔法耐性なし
-    { "Goblin",    'g', Colors::GREEN,      10,  4,  1,  0,  0,  15, 1, MovePattern::CHASE, 6 },
-    // ORC     - 屈強な戦士、物理特化
-    { "Orc",       'o', Colors::OLIVE,      25,  8,  4,  1,  0,  35, 2, MovePattern::CHASE, 7 },
-    // SKELETON - 不死骸骨、魔法に耐性あり
-    { "Skeleton",  's', Colors::GRAY,       18,  7,  3,  4,  0,  30, 2, MovePattern::CHASE, 6 },
-    // TROLL   - 再生能力持ち、若干の耐性
-    { "Troll",     'T', Colors::DARK_GREEN, 50, 12,  6,  2,  0,  75, 4, MovePattern::CHASE, 8 },
-    // DARK_MAGE - 魔法使い、魔法防御が高い
-    { "Dark Mage", 'm', Colors::PURPLE,     22,  5,  2,  8, 15,  60, 3, MovePattern::CHASE, 7 },
-    // VAMPIRE - 超自然的存在、両防御が高い
-    { "Vampire",   'V', Colors::DARK_RED,   40, 10,  5,  5,  5,  90, 5, MovePattern::CHASE, 8 },
-    // DRAGON  - 最強の存在、全能力が高い
-    { "Dragon",    'D', Colors::RED,       100, 18, 10,  6, 10, 200, 7, MovePattern::CHASE, 10 },
+    { "Goblin",    'g', Colors::GREEN,      10,  4,  1,  0,  0,  8,  3,  15, 1, MovePattern::CHASE,  6 },
+    // ORC     - 屈強な戦士、物理特化、鈍足
+    { "Orc",       'o', Colors::OLIVE,      25,  8,  4,  1,  0,  5,  4,  35, 2, MovePattern::CHASE,  7 },
+    // SKELETON - 不死骸骨、魔法耐性、中程度の素早さ
+    { "Skeleton",  's', Colors::GRAY,       18,  7,  3,  4,  0,  6,  2,  30, 2, MovePattern::CHASE,  6 },
+    // TROLL   - 再生力あり、非常に鈍足
+    { "Troll",     'T', Colors::DARK_GREEN, 50, 12,  6,  2,  0,  4,  3,  75, 4, MovePattern::CHASE,  8 },
+    // DARK_MAGE - 魔法使い、高魔法防御、高運
+    { "Dark Mage", 'm', Colors::PURPLE,     22,  5,  2,  8, 15,  7,  6,  60, 3, MovePattern::CHASE,  7 },
+    // VAMPIRE - 超自然的存在、高素早さ・高運
+    { "Vampire",   'V', Colors::DARK_RED,   40, 10,  5,  5,  5,  9,  7,  90, 5, MovePattern::CHASE,  8 },
+    // DRAGON  - 最強、全能力が高く高運
+    { "Dragon",    'D', Colors::RED,       100, 18, 10,  6, 10,  6,  8, 200, 7, MovePattern::CHASE, 10 },
 };
 
 const int MONSTER_DEF_COUNT = 7;
@@ -40,6 +42,8 @@ Monster createMonster(MonsterType type, Vec2 pos) {
     m.defense = def.defense;
     m.magicDefense = def.magicDefense;
     m.magicAttack = def.magicAttack;
+    m.speed = def.speed;
+    m.luck = def.luck;
     m.xpValue = def.xp;
     m.alertRadius = def.alertRadius;
     m.alerted = false;

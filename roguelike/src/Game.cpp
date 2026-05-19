@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "Combat.h"
 #include <algorithm>
+#include <functional>
 #include <cstdio>
 #include <ctime>
 #include <cstring>
@@ -481,7 +482,7 @@ void Game::spawnItems(int floor, int count) {
             if (!map.isWalkable(pos)) { attempts++; continue; }
             if (pos == player.pos) { attempts++; continue; }
 
-            Item item = randomItem(floor, rngState);
+            Item item = randomItem(floor, rngState, player.luck);
             item.pos = pos;
             groundItems.push_back(item);
             break;
@@ -489,76 +490,110 @@ void Game::spawnItems(int floor, int count) {
     }
 }
 
+// 1体のモンスターが行動する内部処理 (trueを返すとプレイヤー死亡)
+static bool monsterAct(Monster& m, Player& player, const Map& map,
+                        std::vector<Monster>& monsters, uint32_t& rngState,
+                        std::function<Monster*(Vec2)> getMonsterAt,
+                        std::function<void(const std::string&)> addMsg)
+{
+    Vec2 diff = {player.pos.x - m.pos.x, player.pos.y - m.pos.y};
+    int manhattan = std::abs(diff.x) + std::abs(diff.y);
+
+    if (manhattan <= 1 && manhattan > 0) {
+        CombatResult result;
+        if (m.magicAttack > 0) {
+            // 魔法使い系は1/3の確率で魔法攻撃
+            uint32_t roll = rngState ^ (rngState << 5);
+            rngState = roll;
+            if (roll % 3 == 0) {
+                result = magicAttack(m.magicAttack, player.totalMagicDefense(),
+                                     player.hp, m.name, player.name, rngState);
+            } else {
+                result = monsterAttackPlayer(m, player, rngState);
+            }
+        } else {
+            result = monsterAttackPlayer(m, player, rngState);
+        }
+        addMsg(result.message);
+        if (!player.alive) return true;
+        return false;
+    }
+
+    // プレイヤーに向かって移動
+    int ax = std::abs(diff.x);
+    int ay = std::abs(diff.y);
+    Vec2 moves[4]; int nm = 0;
+    if (ax >= ay) {
+        if (diff.x != 0) moves[nm++] = {(diff.x > 0) ? 1 : -1, 0};
+        if (diff.y != 0) moves[nm++] = {0, (diff.y > 0) ? 1 : -1};
+        if (diff.x != 0) moves[nm++] = {(diff.x > 0) ? -1 : 1, 0};
+        if (diff.y != 0) moves[nm++] = {0, (diff.y > 0) ? -1 : 1};
+    } else {
+        if (diff.y != 0) moves[nm++] = {0, (diff.y > 0) ? 1 : -1};
+        if (diff.x != 0) moves[nm++] = {(diff.x > 0) ? 1 : -1, 0};
+        if (diff.y != 0) moves[nm++] = {0, (diff.y > 0) ? -1 : 1};
+        if (diff.x != 0) moves[nm++] = {(diff.x > 0) ? -1 : 1, 0};
+    }
+    for (int mi = 0; mi < nm; ++mi) {
+        Vec2 target = m.pos + moves[mi];
+        if (!map.isWalkable(target)) continue;
+        if (target == player.pos) continue;
+        if (getMonsterAt(target)) continue;
+        m.pos = target;
+        break;
+    }
+    return false;
+}
+
 void Game::processMonsterTurns() {
-    for (auto& m : monsters) {
+    // 素早さの降順でインデックスをソートし、速いモンスターから先に行動させる
+    std::vector<int> order;
+    order.reserve(monsters.size());
+    for (int i = 0; i < (int)monsters.size(); ++i) order.push_back(i);
+    std::sort(order.begin(), order.end(), [&](int a, int b){
+        return monsters[a].speed > monsters[b].speed;
+    });
+
+    for (int idx : order) {
+        Monster& m = monsters[idx];
         if (!m.alive) continue;
         if (m.stunTurns > 0) {
             m.stunTurns--;
             continue;
         }
 
-        // Check if player is in alert radius
+        // 索敵チェック
         float dist = m.pos.dist(player.pos);
-
-        if (!m.alerted && dist <= (float)m.alertRadius) {
-            m.alerted = true;
-        }
-
+        if (!m.alerted && dist <= (float)m.alertRadius) m.alerted = true;
         if (!m.alerted) continue;
 
-        // Adjacent to player -> attack
-        Vec2 diff = {player.pos.x - m.pos.x, player.pos.y - m.pos.y};
-        int manhattan = abs(diff.x) + abs(diff.y);
-
-        if (manhattan <= 1 && manhattan > 0) {
-            // Dark mage uses magic if has magicAttack
-            CombatResult result;
-            if (m.magicAttack > 0 && rngRange(0, 2) == 0) {
-                result = magicAttack(m.magicAttack, player.totalMagicDefense(),
-                                     player.hp, m.name, player.name, rngState);
-            } else {
-                result = monsterAttackPlayer(m, player, rngState);
-            }
-            addMessage(result.message);
-
-            if (!player.alive) {
-                gameState = GameState::GAME_OVER;
-                addMessage("You have died! Game over.");
-                return;
-            }
-            continue;
+        // 通常行動
+        auto getAt = [&](Vec2 p) -> Monster* { return getMonsterAt(p); };
+        auto addMsg = [&](const std::string& s) { addMessage(s); };
+        bool dead = monsterAct(m, player, map, monsters, rngState, getAt, addMsg);
+        if (dead) {
+            gameState = GameState::GAME_OVER;
+            addMessage("You have died! Game over.");
+            return;
         }
+        if (!m.alive) continue;
 
-        // Move toward player
-        Vec2 dir{0, 0};
-        // Try to move in the direction with bigger difference first
-        int ax = abs(diff.x);
-        int ay = abs(diff.y);
-
-        // Build candidate moves
-        Vec2 moves[4];
-        int nm = 0;
-
-        if (ax >= ay) {
-            if (diff.x != 0) moves[nm++] = {(diff.x > 0) ? 1 : -1, 0};
-            if (diff.y != 0) moves[nm++] = {0, (diff.y > 0) ? 1 : -1};
-            if (diff.x != 0) moves[nm++] = {(diff.x > 0) ? -1 : 1, 0};
-            if (diff.y != 0) moves[nm++] = {0, (diff.y > 0) ? -1 : 1};
-        } else {
-            if (diff.y != 0) moves[nm++] = {0, (diff.y > 0) ? 1 : -1};
-            if (diff.x != 0) moves[nm++] = {(diff.x > 0) ? 1 : -1, 0};
-            if (diff.y != 0) moves[nm++] = {0, (diff.y > 0) ? -1 : 1};
-            if (diff.x != 0) moves[nm++] = {(diff.x > 0) ? -1 : 1, 0};
-        }
-
-        // Try moves in order
-        for (int mi = 0; mi < nm; ++mi) {
-            Vec2 target = m.pos + moves[mi];
-            if (!map.isWalkable(target)) continue;
-            if (target == player.pos) continue;
-            if (getMonsterAt(target)) continue;
-            m.pos = target;
-            break;
+        // --- 追加行動 (素早さが大きくプレイヤーを上回る場合) ---
+        // 確率 = clamp((モンスター速 - プレイヤー速 - 3) * 8%, 0%, 60%)
+        int speedDelta = m.speed - player.speed - 3;
+        if (speedDelta > 0) {
+            float extraChance = std::min(0.60f, speedDelta * 0.08f);
+            uint32_t roll = rngState ^ (rngState << 7);
+            rngState = roll;
+            float r = (float)(roll % 1000) / 1000.0f;
+            if (r < extraChance) {
+                dead = monsterAct(m, player, map, monsters, rngState, getAt, addMsg);
+                if (dead) {
+                    gameState = GameState::GAME_OVER;
+                    addMessage("You have died! Game over.");
+                    return;
+                }
+            }
         }
     }
 

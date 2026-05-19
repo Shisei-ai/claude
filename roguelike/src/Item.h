@@ -13,9 +13,9 @@ struct ItemDef {
     int magic_defense_bonus = 0;
     int hp_restore = 0;
     int mp_restore = 0;
-    int damage = 0;       // for scrolls
+    int damage = 0;
     int minFloor = 1;
-    int value = 0;        // gold value
+    int value = 0;
 };
 
 struct Item {
@@ -68,7 +68,8 @@ Item createArmor(const ItemDef& def);
 Item createPotion(const ItemDef& def);
 Item createScroll(const ItemDef& def);
 Item createGold(int amount);
-Item randomItem(int floor, uint32_t& rngState);
+// luckBonus: プレイヤーの運によるアイテム品質補正 (運5ごとに有効フロア+1)
+Item randomItem(int floor, uint32_t& rngState, int luckBonus = 0);
 
 uint32_t itemRng(uint32_t& state);
 int itemRngRange(uint32_t& state, int lo, int hi);

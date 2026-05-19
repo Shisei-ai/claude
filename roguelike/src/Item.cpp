@@ -118,13 +118,18 @@ Item createGold(int amount) {
     return item;
 }
 
-Item randomItem(int floor, uint32_t& rngState) {
-    // Weighted random item selection based on floor
+Item randomItem(int floor, uint32_t& rngState, int luckBonus) {
+    // 運による有効フロア補正 (運5ごとに+1、最大+4)
+    int effectiveFloor = floor + std::min(4, luckBonus / 5);
+    // 運による追加ゴールド補正 (運1につき2%加算)
+    float goldMult = 1.0f + luckBonus * 0.02f;
+
     int roll = itemRngRange(rngState, 1, 100);
 
     if (roll <= 5) {
-        // Gold
-        int amount = itemRngRange(rngState, floor * 5, floor * 20);
+        // ゴールド: 運が高いほど多く手に入る
+        int base = itemRngRange(rngState, floor * 5, floor * 20);
+        int amount = (int)(base * goldMult);
         return createGold(amount);
     } else if (roll <= 30) {
         // Potion
@@ -137,13 +142,13 @@ Item randomItem(int floor, uint32_t& rngState) {
         if (sr <= 60) return createScroll(ItemDefs::SCROLL_FIRE);
         return createScroll(ItemDefs::SCROLL_IDENTIFY);
     } else if (roll <= 70) {
-        // Weapon
-        if (floor >= 7) {
+        // 武器: 有効フロアが高いほど上位武器が出やすい
+        if (effectiveFloor >= 7) {
             int wr = itemRngRange(rngState, 1, 100);
             if (wr <= 40) return createWeapon(ItemDefs::GREAT_SWORD);
             if (wr <= 70) return createWeapon(ItemDefs::STAFF);
             return createWeapon(ItemDefs::SWORD);
-        } else if (floor >= 4) {
+        } else if (effectiveFloor >= 4) {
             int wr = itemRngRange(rngState, 1, 100);
             if (wr <= 35) return createWeapon(ItemDefs::SWORD);
             if (wr <= 60) return createWeapon(ItemDefs::BOW);
@@ -156,12 +161,12 @@ Item randomItem(int floor, uint32_t& rngState) {
             return createWeapon(ItemDefs::SWORD);
         }
     } else {
-        // Armor
-        if (floor >= 6) {
+        // 防具: 有効フロアが高いほど上位防具が出やすい
+        if (effectiveFloor >= 6) {
             int ar = itemRngRange(rngState, 1, 100);
             if (ar <= 40) return createArmor(ItemDefs::PLATE_ARMOR);
             return createArmor(ItemDefs::CHAIN_MAIL);
-        } else if (floor >= 3) {
+        } else if (effectiveFloor >= 3) {
             int ar = itemRngRange(rngState, 1, 100);
             if (ar <= 50) return createArmor(ItemDefs::CHAIN_MAIL);
             return createArmor(ItemDefs::LEATHER_ARMOR);

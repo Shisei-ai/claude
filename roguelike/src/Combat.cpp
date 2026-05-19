@@ -15,19 +15,31 @@ static int rngRange(uint32_t& state, int lo, int hi) {
     return lo + (int)(xorshift(state) % (uint32_t)(hi - lo + 1));
 }
 
+static float rollFloat(uint32_t& state) {
+    return (float)(xorshift(state) % 1000) / 1000.0f;
+}
+
 CombatResult playerAttackMonster(Player& p, Monster& m, uint32_t& rng) {
     CombatResult result;
+
+    // --- 回避判定 ---
+    // モンスターの素早さがプレイヤーより高いと回避が発生
+    float dodgeChance = std::max(0.0f, std::min(0.35f, (m.speed - p.speed) * 0.015f));
+    if (rollFloat(rng) < dodgeChance) {
+        result.dodged = true;
+        result.message = m.name + " dodges the attack!";
+        return result;
+    }
 
     int atk = p.totalAttack();
     int def = m.defense;
 
-    // Variance
     int variance = rngRange(rng, -2, 2);
     int dmg = std::max(1, atk - def / 2 + variance);
 
-    // Check crit
-    float critRoll = (float)(xorshift(rng) % 100) / 100.0f;
-    if (critRoll < p.critChance) {
+    // --- クリティカル判定 (基礎値 + 運 × 0.5%) ---
+    float crit = p.effectiveCritChance();
+    if (rollFloat(rng) < crit) {
         dmg *= 2;
         result.is_crit = true;
     }
@@ -40,13 +52,12 @@ CombatResult playerAttackMonster(Player& p, Monster& m, uint32_t& rng) {
         m.alive = false;
         result.killed = true;
         result.message = p.name + " kills the " + m.name + "!";
+    } else if (result.is_crit) {
+        result.message = "CRITICAL! " + p.name + " hits " + m.name +
+                         " for " + std::to_string(dmg) + " damage!";
     } else {
-        if (result.is_crit)
-            result.message = "CRITICAL HIT! " + p.name + " hits " + m.name +
-                             " for " + std::to_string(dmg) + " damage!";
-        else
-            result.message = p.name + " hits " + m.name +
-                             " for " + std::to_string(dmg) + " damage.";
+        result.message = p.name + " hits " + m.name +
+                         " for " + std::to_string(dmg) + " damage.";
     }
 
     return result;
@@ -55,15 +66,25 @@ CombatResult playerAttackMonster(Player& p, Monster& m, uint32_t& rng) {
 CombatResult monsterAttackPlayer(Monster& m, Player& p, uint32_t& rng) {
     CombatResult result;
 
+    // --- 回避判定 ---
+    // プレイヤーの素早さがモンスターより高いと回避が発生
+    float dodgeChance = p.evasionChance(m.speed);
+    if (rollFloat(rng) < dodgeChance) {
+        result.dodged = true;
+        result.message = "You dodge " + m.name + "'s attack!";
+        return result;
+    }
+
     int atk = m.attack;
-    int def = p.totalDefense();  // 物理防御を使用
+    int def = p.totalDefense();
 
     int variance = rngRange(rng, -2, 2);
     int dmg = std::max(1, atk - def / 2 + variance);
 
-    // Monster crit chance: 5%
-    float critRoll = (float)(xorshift(rng) % 100) / 100.0f;
-    if (critRoll < 0.05f) {
+    // --- モンスタークリティカル判定 (運に基づく) ---
+    // 基礎3% + 運 × 0.3%
+    float monsterCrit = 0.03f + m.luck * 0.003f;
+    if (rollFloat(rng) < monsterCrit) {
         dmg = (int)(dmg * 1.5f);
         result.is_crit = true;
     }
@@ -76,13 +97,12 @@ CombatResult monsterAttackPlayer(Monster& m, Player& p, uint32_t& rng) {
         p.alive = false;
         result.killed = true;
         result.message = m.name + " kills " + p.name + "!";
+    } else if (result.is_crit) {
+        result.message = m.name + " critically hits you for " +
+                         std::to_string(dmg) + " damage!";
     } else {
-        if (result.is_crit)
-            result.message = m.name + " critically hits you for " +
-                             std::to_string(dmg) + " damage!";
-        else
-            result.message = m.name + " hits you for " +
-                             std::to_string(dmg) + " damage.";
+        result.message = m.name + " hits you for " +
+                         std::to_string(dmg) + " damage.";
     }
 
     return result;
@@ -95,7 +115,6 @@ CombatResult magicAttack(int magicAtk, int targetMagicDefense, int& targetHp,
     CombatResult result;
 
     int variance = rngRange(rng, -3, 3);
-    // 魔法攻撃は魔法防御で軽減
     int dmg = std::max(1, magicAtk - targetMagicDefense / 2 + variance);
 
     targetHp -= dmg;

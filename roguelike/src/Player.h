@@ -19,7 +19,9 @@ struct Player : Entity {
     int defense = 6;
     int magicDefense = 2;
     int magicAttack = 3;
-    float critChance = 0.05f;
+    int speed = 6;
+    int luck = 5;
+    float baseCritChance = 0.05f;
 
     int gold = 0;
     int floor = 1;
@@ -34,6 +36,11 @@ struct Player : Entity {
     int totalAttack() const;
     int totalDefense() const;
     int totalMagicDefense() const;
+
+    // 実効クリティカル率: 基礎値 + 運 × 0.5%
+    float effectiveCritChance() const;
+    // 回避率: 素早さの差に基づく (上限40%)
+    float evasionChance(int attackerSpeed) const;
     bool addItem(Item item);
     bool useItem(int idx);
     bool equip(int idx);

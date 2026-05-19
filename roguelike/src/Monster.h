@@ -28,6 +28,8 @@ struct MonsterDef {
     int defense;
     int magicDefense;
     int magicAttack;
+    int speed;
+    int luck;
     int xp;
     int minFloor;
     MovePattern movePattern;
@@ -42,6 +44,8 @@ struct Monster : Entity {
     int defense = 1;
     int magicDefense = 0;
     int magicAttack = 0;
+    int speed = 5;
+    int luck = 3;
     int xpValue = 15;
     int alertRadius = 6;
     bool alerted = false;

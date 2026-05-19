@@ -101,6 +101,7 @@ struct Rect {
 struct CombatResult {
     int damage = 0;
     bool is_crit = false;
+    bool dodged = false;
     bool killed = false;
     std::string message;
 };

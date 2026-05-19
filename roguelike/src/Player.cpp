@@ -19,30 +19,33 @@ void Player::init(CharClass cls) {
 
     switch (cls) {
         case CharClass::WARRIOR:
-            // 重装備の戦士: 高い物理防御、魔法防御は低い
+            // 重装備の戦士: 高物理防御・魔法防御低・低素早さ・平均運
             maxHp = 40; hp = 40;
             maxMp = 5;  mp = 5;
             attack = 10; defense = 6; magicDefense = 2;
             magicAttack = 3;
-            critChance = 0.05f;
+            speed = 6;  luck = 5;
+            baseCritChance = 0.05f;
             name = "Warrior";
             break;
         case CharClass::MAGE:
-            // 魔法使い: 物理防御は最低、魔法防御は最高
+            // 魔法使い: 物理防御最低・魔法防御最高・中程度の素早さ・高運
             maxHp = 20; hp = 20;
             maxMp = 30; mp = 30;
             attack = 4; defense = 2; magicDefense = 8;
             magicAttack = 14;
-            critChance = 0.10f;
+            speed = 7;  luck = 8;
+            baseCritChance = 0.08f;
             name = "Mage";
             break;
         case CharClass::ROGUE:
-            // 盗賊: 物理・魔法ともにバランス型
+            // 盗賊: バランス型防御・最高素早さ・最高運・高クリティカル
             maxHp = 28; hp = 28;
             maxMp = 12; mp = 12;
             attack = 7; defense = 4; magicDefense = 4;
             magicAttack = 5;
-            critChance = 0.25f;
+            speed = 12; luck = 10;
+            baseCritChance = 0.20f;
             name = "Rogue";
             break;
     }
@@ -63,29 +66,38 @@ bool Player::gainXP(int amount) {
 void Player::levelUpStats() {
     switch (charClass) {
         case CharClass::WARRIOR:
+            // 戦士: HP・物理攻防が主な成長。素早さ・運は伸びない
             maxHp += 12;
             maxMp += 2;
             attack += 3;
             defense += 2;
             magicDefense += 1;
             magicAttack += 1;
+            // speed: 成長なし (重装備の宿命)
+            luck += 1;
             break;
         case CharClass::MAGE:
+            // 魔法使い: MP・魔法攻防・運が成長。素早さは変わらない
             maxHp += 5;
             maxMp += 10;
             attack += 1;
             defense += 1;
             magicDefense += 3;
             magicAttack += 4;
+            // speed: 成長なし
+            luck += 2;
             break;
         case CharClass::ROGUE:
+            // 盗賊: 素早さ・運が伸び続ける。攻防はほどほど
             maxHp += 7;
             maxMp += 3;
             attack += 2;
             defense += 1;
             magicDefense += 1;
             magicAttack += 1;
-            critChance = std::min(0.5f, critChance + 0.01f);
+            speed += 1;
+            luck += 2;
+            baseCritChance = std::min(0.50f, baseCritChance + 0.01f);
             break;
     }
     // Restore some health on level up
@@ -109,6 +121,16 @@ int Player::totalMagicDefense() const {
     int mdef = magicDefense;
     if (armor) mdef += armor->def->magic_defense_bonus;
     return mdef;
+}
+
+float Player::effectiveCritChance() const {
+    return std::min(0.60f, baseCritChance + luck * 0.005f);
+}
+
+float Player::evasionChance(int attackerSpeed) const {
+    // 素早さの差が大きいほど回避率が上がる (上限40%)
+    float evade = (speed - attackerSpeed) * 0.015f;
+    return std::max(0.0f, std::min(0.40f, evade));
 }
 
 bool Player::addItem(Item item) {
