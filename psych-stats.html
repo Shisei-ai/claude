@@ -145,10 +145,29 @@
         <div id="methodDesc"></div>
     </div>
 
+    <div id="regOptions" class="nav-section" style="display:none;">
+        <span class="label">回帰分析オプション</span>
+        <div style="display:flex; gap:16px; margin-top:4px; margin-bottom:8px;">
+            <label style="font-size:0.85rem; color:#cbd5e1; display:flex; align-items:center; gap:5px; cursor:pointer;">
+                <input type="radio" name="regMethod" value="enter" checked> 強制投入法
+            </label>
+            <label style="font-size:0.85rem; color:#cbd5e1; display:flex; align-items:center; gap:5px; cursor:pointer;">
+                <input type="radio" name="regMethod" value="hierarchical"> 階層的投入法
+            </label>
+        </div>
+        <div id="hierHint" style="display:none; font-size:0.75rem; color:#94a3b8; background:#0f172a; padding:8px; border-radius:4px; border-left:3px solid var(--warning); margin-bottom:8px; line-height:1.8;">
+            変数ブロックを <span style="color:#fbbf24; font-weight:bold;">|</span> で区切って投入順を指定<br>
+            例: <code style="color:#fbbf24;">年齢, 性別 | ストレス | 不安, 抑うつ</code>
+        </div>
+        <span class="label" style="margin-top:4px;">ダミー変数 (カテゴリ変数を自動コード化)</span>
+        <input type="text" id="dummyVars" placeholder="例: 性別, 教育歴 (カンマ区切り)" onfocus="activeIn='dummyVars'">
+        <p style="font-size:0.72rem; color:#64748b; margin: 4px 0 0 0;">指定変数から (k−1) 個のダミー変数を自動生成。基準カテゴリ = データ内最初の出現値。</p>
+    </div>
+
     <div class="nav-section">
         <span class="label">4. 変数の指定 (クリックで入力)</span>
         <input type="text" id="yTarget" placeholder="従属変数(Y) / 変数1 / 群分け変数(X)" onfocus="activeIn='yTarget'">
-        <textarea id="xPredictor" rows="2" placeholder="独立変数(X) / 変数2 / ALL可" onfocus="activeIn='xPredictor'" style="margin-top:6px;"></textarea>
+        <textarea id="xPredictor" rows="2" placeholder="独立変数(X) / 変数2 / ALL可 [階層的: ブロックを | で区切る]" onfocus="activeIn='xPredictor'" style="margin-top:6px;"></textarea>
     </div>
 
     <button class="btn" style="padding: 15px; font-size:1.1rem; border-radius: 8px;" onclick="execute()">🚀 分析実行 &amp; レポート生成</button>
@@ -187,7 +206,7 @@
         ttest_unpaired: "異なる2群間の平均値の差を検証します。Student・Welch両方を算出し、平均差の95%CIも出力します。",
         ttest_paired: "同一対象から得た2変数間の平均値の差を検証します。Cohen's dzと平均差の95%CIも出力します。",
         anova: "3群以上の平均値の差を検証します。F値・偏η²に加え、ボンフェローニ補正による全ペア比較を出力します。",
-        reg: "各変数のB、SE、β、t値、p値、95%CIに加え、VIF（多重共線性指標）を出力します。",
+        reg: "【強制投入法 / 階層的投入法】各変数のB、SE、β、t値、p値、95%CI、VIFを出力します。階層的投入法ではΔR²・ΔF検定も算出。カテゴリ変数はダミー自動コード化可。",
         corr: "2変数間の相関係数(r)、p値、Fisher's z変換による95%CIを出力します。",
         chisq: "2つのカテゴリ変数間の関連性を検証します。クロス集計表とカイ二乗値を出力します。",
         mwu: "正規分布が仮定できない場合に行う、対応のない2群の順位和検定です。",
@@ -195,9 +214,18 @@
     };
 
     function updateDesc() {
-        document.getElementById('methodDesc').textContent = descriptions[document.getElementById('methodIn').value];
+        const method = document.getElementById('methodIn').value;
+        document.getElementById('methodDesc').textContent = descriptions[method];
+        document.getElementById('regOptions').style.display = method === 'reg' ? 'block' : 'none';
     }
     updateDesc();
+
+    document.querySelectorAll('input[name="regMethod"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            const isHier = document.querySelector('input[name="regMethod"]:checked').value === 'hierarchical';
+            document.getElementById('hierHint').style.display = isHier ? 'block' : 'none';
+        });
+    });
 
     // --- 統計＆行列演算エンジン ---
     const StatsLib = {
@@ -462,7 +490,13 @@
             else if (method === 'ttest_unpaired') runDualTTest(y, xs[0], out);
             else if (method === 'ttest_paired')   runPairedTTest(y, xs[0], out);
             else if (method === 'anova')     runANOVA(y, xs[0], out);
-            else if (method === 'reg')       runRegression(y, xs, out);
+            else if (method === 'reg') {
+                const regMethod = document.querySelector('input[name="regMethod"]:checked').value;
+                const dummyVarInput = document.getElementById('dummyVars').value;
+                const dummyVarNames = dummyVarInput.split(',').map(s => s.trim()).filter(s => s);
+                const xRaw = document.getElementById('xPredictor').value;
+                runRegression(y, xRaw, out, regMethod, dummyVarNames);
+            }
             else if (method === 'corr')      runCorrelation([y, ...xs], out);
             else if (method === 'chisq')     runChiSquare(y, xs[0], out);
             else if (method === 'mwu')       runMannWhitney(y, xs[0], out);
@@ -727,165 +761,287 @@
         });
     }
 
-    // --- 重回帰分析 (VIF完備 + 各係数の95%CI 追加) ---
-    function runRegression(y, xs, out) {
-        if (!xs || xs.length === 0) throw new Error("独立変数を指定してください。");
-        const valid = rawData.filter(d => !isNaN(parseFloat(d[y])) && xs.every(x => !isNaN(parseFloat(d[x]))));
-        const n = valid.length, k = xs.length;
-        if (n <= k + 1) throw new Error("サンプルサイズが少なすぎます。");
+    // --- ダミー変数コード化エンジン ---
+    function applyDummyCoding(data, dummyVarNames) {
+        let workData = data.map(row => ({ ...row }));
+        const dummyInfo = {};
+        dummyVarNames.forEach(varName => {
+            if (!workData.length || workData[0][varName] === undefined) return;
+            const seen = new Set(), orderedVals = [];
+            workData.forEach(row => {
+                const v = row[varName];
+                if (v !== null && v !== undefined && v !== "" && !seen.has(v)) { seen.add(v); orderedVals.push(v); }
+            });
+            if (orderedVals.length < 2) return;
+            const refCat = orderedVals[0];
+            const dummyNames = [];
+            for (let i = 1; i < orderedVals.length; i++) {
+                const cat = orderedVals[i];
+                const dName = `${varName}_${cat}`;
+                dummyNames.push(dName);
+                const catStr = String(cat);
+                workData = workData.map(row => {
+                    const nr = { ...row };
+                    const cv = row[varName];
+                    nr[dName] = (cv !== null && cv !== undefined && cv !== "" && String(cv) === catStr) ? 1 : 0;
+                    return nr;
+                });
+            }
+            dummyInfo[varName] = { refCat, categories: orderedVals, dummyNames };
+        });
+        return { workData, dummyInfo };
+    }
 
+    // --- OLS共通エンジン ---
+    function computeOLS(y, xs, data) {
+        const valid = data.filter(d => !isNaN(parseFloat(d[y])) && xs.every(x => !isNaN(parseFloat(d[x]))));
+        const n = valid.length, k = xs.length;
+        if (n <= k + 1) throw new Error(`サンプルサイズ(${n})が変数数に対して少なすぎます。`);
         const Y = valid.map(d => [parseFloat(d[y])]);
         const X = valid.map(d => [1, ...xs.map(x => parseFloat(d[x]))]);
-
         const Xt = StatsLib.transpose(X);
         const XtX = StatsLib.multiply(Xt, X);
         const XtX_inv = StatsLib.invertMatrix(XtX);
         if (!XtX_inv) throw new Error("逆行列が計算できません。多重共線性が極めて強い状態です。");
-
-        const XtY = StatsLib.multiply(Xt, Y);
-        const B = StatsLib.multiply(XtX_inv, XtY).map(v => v[0]);
-
+        const B = StatsLib.multiply(XtX_inv, StatsLib.multiply(Xt, Y)).map(v => v[0]);
         const actual = Y.map(v => v[0]);
-        const pred = X.map(row => row.reduce((sum, val, i) => sum + val * B[i], 0));
+        const pred = X.map(row => row.reduce((s, v, i) => s + v * B[i], 0));
         const meanY = ss.mean(actual);
         const ssTot = ss.sum(actual.map(v => Math.pow(v - meanY, 2)));
         const ssRes = ss.sum(actual.map((v, i) => Math.pow(v - pred[i], 2)));
-
-        const r2 = 1 - (ssRes / ssTot);
-        const adjR2 = 1 - ((ssRes / (n - k - 1)) / (ssTot / (n - 1)));
-        const fMod = ((ssTot - ssRes) / k) / (ssRes / (n - k - 1));
+        const r2 = 1 - ssRes / ssTot;
+        const adjR2 = 1 - (ssRes / (n - k - 1)) / (ssTot / (n - 1));
+        const msRes = ssRes / (n - k - 1);
+        const fMod = ((ssTot - ssRes) / k) / msRes;
         const pMod = StatsLib.fP(fMod, k, n - k - 1);
-
-        const varE = ssRes / (n - k - 1);
-        const SE = XtX_inv.map((row, i) => Math.sqrt(varE * row[i]));
+        const SE = XtX_inv.map((row, i) => Math.sqrt(msRes * row[i]));
         const tVals = B.map((b, i) => SE[i] !== 0 ? b / SE[i] : 0);
         const pVals = tVals.map(t => StatsLib.tP(t, n - k - 1));
-
-        // 95%CI for each coefficient
         const tCrit = StatsLib.tInv(0.05, n - k - 1);
         const ciLows = B.map((b, i) => b - tCrit * SE[i]);
         const ciHighs = B.map((b, i) => b + tCrit * SE[i]);
-
         const sdY = ss.sampleStandardDeviation(actual);
         const sdXs = xs.map(x => ss.sampleStandardDeviation(valid.map(d => parseFloat(d[x]))));
-        const Beta = B.map((b, i) => {
-            if (i === 0) return 0;
-            return (sdXs[i - 1] && sdY) ? b * (sdXs[i - 1] / sdY) : 0;
-        });
-
-        // VIF
-        let vifVals = [];
-        let maxVif = 1;
-        if (xs.length === 1) {
+        const Beta = B.map((b, i) => i === 0 ? 0 : (sdXs[i-1] && sdY ? b * sdXs[i-1] / sdY : 0));
+        let vifVals;
+        if (k === 1) {
             vifVals = [1];
         } else {
-            let R_matrix = [];
-            for (let i = 0; i < k; i++) {
-                R_matrix[i] = [];
-                for (let j = 0; j < k; j++) {
-                    if (i === j) { R_matrix[i][j] = 1; }
-                    else {
-                        const vi = valid.map(d => parseFloat(d[xs[i]]));
-                        const vj = valid.map(d => parseFloat(d[xs[j]]));
-                        R_matrix[i][j] = ss.sampleCorrelation(vi, vj);
-                    }
-                }
-            }
-            const R_inv = StatsLib.invertMatrix(R_matrix);
-            if (!R_inv) { vifVals = xs.map(() => Infinity); maxVif = Infinity; }
-            else { vifVals = R_inv.map((row, i) => row[i]); maxVif = Math.max(...vifVals); }
+            const Rm = xs.map((xi, i) => xs.map((xj, j) => {
+                if (i === j) return 1;
+                return ss.sampleCorrelation(valid.map(d => parseFloat(d[xi])), valid.map(d => parseFloat(d[xj])));
+            }));
+            const Rm_inv = StatsLib.invertMatrix(Rm);
+            vifVals = Rm_inv ? Rm_inv.map((row, i) => row[i]) : xs.map(() => Infinity);
         }
+        return { valid, n, k, xs, actual, pred, B, SE, Beta, tVals, pVals, ciLows, ciHighs, r2, adjR2, fMod, pMod, ssTot, ssRes, vifVals };
+    }
+
+    // --- VIF警告HTML ---
+    function vifWarningHTML(vifVals) {
+        const maxVif = Math.max(...vifVals);
+        if (maxVif >= 10) return `<div style="background:#fee2e2; border:1px solid #ef4444; color:#b91c1c; padding:12px; border-radius:6px; margin-bottom:15px;"><strong>⚠️ 強い警告: 多重共線性の疑い</strong><br>VIFが10を超えています。回帰係数・p値の信頼性が著しく低下しています。</div>`;
+        if (maxVif >= 5) return `<div style="background:#fef3c7; border:1px solid #f59e0b; color:#b45309; padding:12px; border-radius:6px; margin-bottom:15px;"><strong>⚠️ 注意: 多重共線性の懸念</strong><br>VIFが5を超えています。結果の解釈に注意が必要です。</div>`;
+        return '';
+    }
+
+    // --- 係数テーブルHTML生成 ---
+    function buildCoeffTableHTML(model) {
+        const { xs, B, SE, Beta, tVals, pVals, ciLows, ciHighs, vifVals } = model;
+        let h = `<table class="stats-table">
+            <tr><th>変数</th><th>B</th><th>SE</th><th>β</th><th>t値</th><th>p値</th><th>95%CI</th><th>VIF</th></tr>
+            <tr><td>(切片)</td><td>${B[0].toFixed(4)}</td><td>${SE[0].toFixed(4)}</td><td>-</td><td>${tVals[0].toFixed(3)}</td><td>${StatsLib.getSigLabel(pVals[0])}</td><td>[${ciLows[0].toFixed(4)}, ${ciHighs[0].toFixed(4)}]</td><td>-</td></tr>`;
+        xs.forEach((name, i) => {
+            const idx = i + 1;
+            const vif = vifVals[i];
+            let vd = vif === Infinity ? "計算不能" : vif.toFixed(3);
+            if (vif >= 10) vd = `<span class="vif-warn">${vd}</span>`;
+            else if (vif >= 5) vd = `<span class="vif-caution">${vd}</span>`;
+            h += `<tr>
+                <td>${escapeHtml(name)}</td>
+                <td>${B[idx].toFixed(4)}</td><td>${SE[idx].toFixed(4)}</td>
+                <td><b>${Beta[idx].toFixed(4)}</b></td>
+                <td>${tVals[idx].toFixed(3)}</td><td>${StatsLib.getSigLabel(pVals[idx])}</td>
+                <td>[${ciLows[idx].toFixed(4)}, ${ciHighs[idx].toFixed(4)}]</td>
+                <td>${vd}</td>
+            </tr>`;
+        });
+        return h + '</table>';
+    }
+
+    // --- 散布図レンダリング共通 ---
+    function renderRegressionChart(cId, actual, pred, xs, model) {
+        let chartData, lineData, xAxisLabel, noteHtml = '';
+        if (xs.length === 1) {
+            xAxisLabel = escapeHtml(xs[0]);
+            const xVals = model.valid.map(d => parseFloat(d[xs[0]]));
+            const minX = Math.min(...xVals), maxX = Math.max(...xVals);
+            chartData = actual.map((v, i) => ({ x: xVals[i], y: v }));
+            lineData = [{ x: minX, y: model.B[0] + model.B[1] * minX }, { x: maxX, y: model.B[0] + model.B[1] * maxX }];
+        } else {
+            xAxisLabel = `予測値 (Predicted)`;
+            const minP = Math.min(...pred), maxP = Math.max(...pred);
+            chartData = actual.map((v, i) => ({ x: pred[i], y: v }));
+            lineData = [{ x: minP, y: minP }, { x: maxP, y: maxP }];
+            noteHtml = `<p style="font-size:0.8rem;color:#64748b;margin-top:8px;">※散布図は予測値と実測値の関係を示します。</p>`;
+        }
+        renderChartAsImage(cId, {
+            type: 'scatter',
+            data: { datasets: [
+                { label: '実際のデータ', data: chartData, backgroundColor: '#4f46e5', pointRadius: 4 },
+                { type: 'line', label: '予測直線', data: lineData, borderColor: '#ef4444', borderWidth: 2, fill: false, pointRadius: 0 }
+            ]},
+            options: { maintainAspectRatio: false, scales: {
+                x: { type: 'linear', position: 'bottom', title: { display: true, text: xAxisLabel } },
+                y: { title: { display: true, text: `実測値` } }
+            }}
+        });
+        return noteHtml;
+    }
+
+    // --- 回帰分析ディスパッチャー ---
+    function runRegression(y, xRaw, out, regMethod = 'enter', dummyVarNames = []) {
+        const { workData, dummyInfo } = applyDummyCoding(rawData, dummyVarNames);
+
+        // ダミー変数コード化の情報パネル
+        let dummyHtml = '';
+        if (Object.keys(dummyInfo).length > 0) {
+            dummyHtml = `<div style="background:#f0f9ff; border:1px solid #bae6fd; padding:12px; border-radius:6px; margin-bottom:15px; font-size:0.85rem;">
+                <strong style="color:#0369a1;">ダミー変数コード化の情報</strong>`;
+            for (const [varName, info] of Object.entries(dummyInfo)) {
+                dummyHtml += `<div style="margin-top:6px;">
+                    <b>${escapeHtml(varName)}</b>:
+                    基準カテゴリ = <span style="background:#0369a1;color:white;padding:1px 6px;border-radius:3px;">${escapeHtml(String(info.refCat))}</span>
+                    → ダミー変数: ${info.dummyNames.map(n => `<code style="background:#e0f2fe;color:#0369a1;padding:1px 4px;border-radius:2px;">${escapeHtml(n)}</code>`).join(', ')}
+                </div>`;
+            }
+            dummyHtml += '</div>';
+        }
+
+        // ブロックをパース（階層的: | で区切り、強制投入: ALL対応）
+        let blocks;
+        if (regMethod === 'hierarchical') {
+            blocks = xRaw.split('|').map(block =>
+                block.split(',').map(s => s.trim()).filter(s => s)
+            ).filter(b => b.length > 0);
+            if (blocks.length === 0) throw new Error("独立変数を指定してください。");
+        } else {
+            let xsList = xRaw.split(',').map(s => s.trim()).filter(s => s);
+            if (xsList[0]?.toUpperCase() === 'ALL') xsList = Object.keys(rawData[0]).filter(k => k !== y);
+            blocks = [xsList];
+        }
+
+        // ブロック内のダミー変数名を展開
+        blocks = blocks.map(block =>
+            block.flatMap(varName => dummyInfo[varName] ? dummyInfo[varName].dummyNames : [varName])
+        );
+
+        if (blocks.some(b => b.length === 0)) throw new Error("独立変数を指定してください。");
+
+        if (regMethod === 'hierarchical' && blocks.length > 1) {
+            runHierarchicalOLS(y, blocks, workData, dummyHtml, out);
+        } else {
+            runEnterOLS(y, blocks[0], workData, dummyHtml, out);
+        }
+    }
+
+    // --- 強制投入法 ---
+    function runEnterOLS(y, xs, workData, dummyHtml, out) {
+        if (!xs || xs.length === 0) throw new Error("独立変数を指定してください。");
+        const model = computeOLS(y, xs, workData);
+        const { n, actual, pred, B, r2, adjR2, fMod, pMod, vifVals } = model;
 
         let equation = `${escapeHtml(y)} = ${B[0].toFixed(3)}`;
         xs.forEach((name, i) => {
             const bVal = B[i + 1];
-            equation += ` ${bVal >= 0 ? '+' : '-'} ${Math.abs(bVal).toFixed(3)} * ${escapeHtml(name)}`;
+            equation += ` ${bVal >= 0 ? '+' : '-'} ${Math.abs(bVal).toFixed(3)} × ${escapeHtml(name)}`;
         });
-
-        let alertHtml = '';
-        if (maxVif >= 10) {
-            alertHtml = `<div style="background:#fee2e2; border:1px solid #ef4444; color:#b91c1c; padding:12px; border-radius:6px; margin-bottom:15px;">
-                            <strong>⚠️ 強い警告: 多重共線性の疑い</strong><br>VIFが10を超えています。回帰係数・p値の信頼性が著しく低下しています。
-                         </div>`;
-        } else if (maxVif >= 5) {
-            alertHtml = `<div style="background:#fef3c7; border:1px solid #f59e0b; color:#b45309; padding:12px; border-radius:6px; margin-bottom:15px;">
-                            <strong>⚠️ 注意: 多重共線性の懸念</strong><br>VIFが5を超えています。結果の解釈に注意が必要です。
-                         </div>`;
-        }
-
-        let h = `<div class="report-card">
-                 <h2>${xs.length === 1 ? '単回帰分析' : '重回帰分析'}: ${escapeHtml(y)}</h2>
-                 <p>有効 N = ${n}</p>
-                 ${alertHtml}
-                 <table class="stats-table" style="margin-top:10px; margin-bottom:15px; width:auto;">
-                    <tr><th>R²</th><th>Adjusted R²</th><th>F値</th><th>モデル p値</th></tr>
-                    <tr><td>${r2.toFixed(3)}</td><td>${adjR2.toFixed(3)}</td><td>${fMod.toFixed(3)}</td><td>${StatsLib.getSigLabel(pMod)}</td></tr>
-                 </table>
-                 <div style="background:#f8fafc; padding:12px; border:1px solid #cbd5e1; border-radius:6px; margin-bottom:15px;">
-                    <strong style="color:#1e293b; font-size:0.9rem;">算定された回帰式:</strong><br>
-                    <code style="color:#4f46e5; font-size:1rem; display:block; margin-top:5px;">${equation}</code>
-                 </div>
-                 <table class="stats-table">
-                    <tr><th>独立変数 / 項</th><th>B</th><th>SE</th><th>β</th><th>t値</th><th>p値</th><th>95%CI</th><th>VIF</th></tr>`;
-
-        h += `<tr><td>(切片)</td><td>${B[0].toFixed(4)}</td><td>${SE[0].toFixed(4)}</td><td>-</td><td>${tVals[0].toFixed(3)}</td><td>${StatsLib.getSigLabel(pVals[0])}</td><td>[${ciLows[0].toFixed(4)}, ${ciHighs[0].toFixed(4)}]</td><td>-</td></tr>`;
-
-        xs.forEach((name, i) => {
-            const idx = i + 1;
-            const vif = vifVals[i];
-            let vifDisplay = vif === Infinity ? "計算不能" : vif.toFixed(3);
-            if (vif >= 10) vifDisplay = `<span class="vif-warn">${vifDisplay}</span>`;
-            else if (vif >= 5) vifDisplay = `<span class="vif-caution">${vifDisplay}</span>`;
-
-            h += `<tr>
-                    <td>${escapeHtml(name)}</td>
-                    <td>${B[idx].toFixed(4)}</td>
-                    <td>${SE[idx].toFixed(4)}</td>
-                    <td><b>${Beta[idx].toFixed(4)}</b></td>
-                    <td>${tVals[idx].toFixed(3)}</td>
-                    <td>${StatsLib.getSigLabel(pVals[idx])}</td>
-                    <td>[${ciLows[idx].toFixed(4)}, ${ciHighs[idx].toFixed(4)}]</td>
-                    <td>${vifDisplay}</td>
-                  </tr>`;
-        });
-
-        let chartData = [], lineData = [], xAxisLabel = '';
-        if (xs.length === 1) {
-            xAxisLabel = xs[0];
-            const xVals = valid.map(d => parseFloat(d[xs[0]]));
-            const minX = Math.min(...xVals), maxX = Math.max(...xVals);
-            for (let i = 0; i < actual.length; i++) chartData.push({ x: xVals[i], y: actual[i] });
-            lineData.push({ x: minX, y: B[0] + B[1] * minX });
-            lineData.push({ x: maxX, y: B[0] + B[1] * maxX });
-        } else {
-            xAxisLabel = `予測値 (Predicted ${escapeHtml(y)})`;
-            const minPred = Math.min(...pred), maxPred = Math.max(...pred);
-            for (let i = 0; i < actual.length; i++) chartData.push({ x: pred[i], y: actual[i] });
-            lineData.push({ x: minPred, y: minPred });
-            lineData.push({ x: maxPred, y: maxPred });
-            h += `<p style="font-size:0.8rem; color:#64748b; margin-top:10px;">※重回帰の散布図は「モデル予測値」と「実測値」の関係を示します。</p>`;
-        }
 
         const cId = `regC_${chartCounter++}`;
-        h += `</table><div class="chart-container"><canvas id="${cId}"></canvas></div></div>`;
+        let h = `<div class="report-card">
+            <h2>${xs.length === 1 ? '単回帰分析' : '重回帰分析 (強制投入法)'}: ${escapeHtml(y)}</h2>
+            <p>有効 N = ${n}</p>
+            ${dummyHtml}
+            ${vifWarningHTML(vifVals)}
+            <table class="stats-table" style="margin-bottom:15px; width:auto;">
+                <tr><th>R²</th><th>Adjusted R²</th><th>F値</th><th>モデル p値</th></tr>
+                <tr><td>${r2.toFixed(3)}</td><td>${adjR2.toFixed(3)}</td><td>${fMod.toFixed(3)}</td><td>${StatsLib.getSigLabel(pMod)}</td></tr>
+            </table>
+            <div style="background:#f8fafc;padding:12px;border:1px solid #cbd5e1;border-radius:6px;margin-bottom:15px;">
+                <strong style="font-size:0.9rem;">回帰式:</strong>
+                <code style="color:#4f46e5;font-size:0.95rem;display:block;margin-top:5px;">${equation}</code>
+            </div>
+            ${buildCoeffTableHTML(model)}
+            <div class="chart-container"><canvas id="${cId}"></canvas></div>
+        </div>`;
         out.innerHTML += h;
+        renderRegressionChart(cId, actual, pred, xs, model);
+    }
 
-        renderChartAsImage(cId, {
-            type: 'scatter',
-            data: {
-                datasets: [
-                    { label: '実際のデータ', data: chartData, backgroundColor: '#4f46e5', pointRadius: 4 },
-                    { type: 'line', label: '予測直線', data: lineData, borderColor: '#ef4444', borderWidth: 2, fill: false, pointRadius: 0 }
-                ]
-            },
-            options: {
-                maintainAspectRatio: false,
-                scales: {
-                    x: { type: 'linear', position: 'bottom', title: { display: true, text: xAxisLabel } },
-                    y: { title: { display: true, text: `実測値 (${escapeHtml(y)})` } }
-                }
+    // --- 階層的投入法 ---
+    function runHierarchicalOLS(y, blocks, workData, dummyHtml, out) {
+        // 累積ブロックでOLSを順次実行
+        const models = [];
+        let cumulativeXs = [];
+        for (let bi = 0; bi < blocks.length; bi++) {
+            cumulativeXs = [...cumulativeXs, ...blocks[bi]];
+            const model = computeOLS(y, [...cumulativeXs], workData);
+            models.push({ ...model, blockNum: bi + 1, addedXs: blocks[bi] });
+        }
+
+        // モデル適合度サマリーテーブル (ΔR², ΔF)
+        let summaryRows = '';
+        models.forEach((m, i) => {
+            let dR2Html = '-', dFHtml = '-', ddf1 = '-', ddf2 = '-', dPHtml = '-';
+            if (i > 0) {
+                const prev = models[i - 1];
+                const deltaR2 = m.r2 - prev.r2;
+                const deltaSsReg = prev.ssRes - m.ssRes;
+                const deltaDf1 = blocks[i].length;
+                const deltaDf2 = m.n - m.k - 1;
+                const deltaF = (deltaSsReg / deltaDf1) / (m.ssRes / deltaDf2);
+                const deltaP = StatsLib.fP(deltaF, deltaDf1, deltaDf2);
+                dR2Html = `<b>${deltaR2.toFixed(3)}</b>`;
+                dFHtml = deltaF.toFixed(3);
+                ddf1 = deltaDf1; ddf2 = deltaDf2;
+                dPHtml = StatsLib.getSigLabel(deltaP);
             }
+            summaryRows += `<tr>
+                <td><b>Block ${m.blockNum}</b></td>
+                <td style="font-size:0.8rem;">${m.addedXs.map(x => escapeHtml(x)).join(', ')}</td>
+                <td>${m.r2.toFixed(3)}</td><td>${dR2Html}</td><td>${m.adjR2.toFixed(3)}</td>
+                <td>${m.fMod.toFixed(3)}</td><td>${dFHtml}</td><td>${ddf1}</td><td>${ddf2}</td><td>${dPHtml}</td>
+            </tr>`;
         });
+
+        // 各ブロックの係数テーブル
+        let coeffHtml = '';
+        models.forEach(m => {
+            coeffHtml += `
+            <h3 style="color:#1e293b;margin-top:22px;font-size:1rem;border-top:1px dashed #cbd5e1;padding-top:15px;">
+                Block ${m.blockNum} の係数表 &nbsp;<span style="font-size:0.85rem;color:#64748b;font-weight:normal;">(投入変数: ${m.addedXs.map(x => escapeHtml(x)).join(', ')})</span>
+            </h3>
+            ${vifWarningHTML(m.vifVals)}
+            ${buildCoeffTableHTML(m)}`;
+        });
+
+        const final = models[models.length - 1];
+        const cId = `regC_${chartCounter++}`;
+        out.innerHTML += `<div class="report-card">
+            <h2>重回帰分析 (階層的投入法): ${escapeHtml(y)}</h2>
+            <p>有効 N = ${final.n} &nbsp;|&nbsp; ブロック数 = ${blocks.length}</p>
+            ${dummyHtml}
+            <h3 style="color:#1e293b;font-size:1rem;margin-top:15px;">モデル適合度サマリー</h3>
+            <table class="stats-table">
+                <tr><th>Block</th><th>追加変数</th><th>R²</th><th>ΔR²</th><th>Adj.R²</th>
+                    <th>F(モデル)</th><th>ΔF</th><th>Δdf₁</th><th>Δdf₂</th><th>p(ΔF)</th></tr>
+                ${summaryRows}
+            </table>
+            ${coeffHtml}
+            <p style="font-size:0.8rem;color:#64748b;margin-top:15px;">※散布図は最終モデル(Block ${final.blockNum})の予測値と実測値の関係を示します。</p>
+            <div class="chart-container"><canvas id="${cId}"></canvas></div>
+        </div>`;
+        renderRegressionChart(cId, final.actual, final.pred, final.xs, final);
     }
 
     // --- 相関マトリックス (Fisher's z による95%CI 追加) ---
