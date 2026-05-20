@@ -87,10 +87,12 @@ jobs:
           cp "$src" "${{ matrix.name }}${{ matrix.ext }}"
 
       # ── Package as ZIP (avoids security-software blocks on raw .exe) ──
+      # Use PowerShell (pwsh) which is available on all runners (Windows/Mac/Linux)
       - name: Package into ZIP
-        shell: bash
+        shell: pwsh
         run: |
-          zip "${{ matrix.name }}.zip" "${{ matrix.name }}${{ matrix.ext }}"
+          Compress-Archive -Path "${{ matrix.name }}${{ matrix.ext }}" `
+                           -DestinationPath "${{ matrix.name }}.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
