@@ -8,8 +8,8 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{background:#06060d;color:#a0aabb;font-family:'Consolas','Cascadia Code',monospace;overflow:hidden;width:100vw;height:100vh;display:flex;flex-direction:column;user-select:none}
 #layout{display:flex;flex:1;overflow:hidden;gap:2px;padding:2px;min-height:0}
-#canvas-wrap{flex:1;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#02020a}
-canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block;max-width:100%;max-height:100%}
+#canvas-wrap{position:relative;flex:1;min-width:0;min-height:0;overflow:hidden;background:#02020a}
+canvas{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);image-rendering:pixelated;image-rendering:crisp-edges}
 #sidebar{width:240px;display:flex;flex-direction:column;gap:5px;overflow:hidden;padding:4px 2px}
 .panel{background:#0b0b18;border:1px solid #1e2535;padding:8px 10px;border-radius:3px}
 .panel-title{font-size:9px;letter-spacing:.18em;color:#2d3d5a;margin-bottom:6px;text-transform:uppercase;border-bottom:1px solid #141e2e;padding-bottom:4px}
@@ -1427,8 +1427,7 @@ function fitCanvas() {
   _fitRetry = 0;
   const scale = Math.min(aw / canvas.width, ah / canvas.height);
   if (scale <= 0) return;
-  canvas.style.width  = Math.floor(canvas.width  * scale) + 'px';
-  canvas.style.height = Math.floor(canvas.height * scale) + 'px';
+  canvas.style.transform = `translate(-50%, -50%) scale(${scale})`;
 }
 
 window.addEventListener('resize', fitCanvas);
