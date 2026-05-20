@@ -10,41 +10,41 @@ body{background:#06060d;color:#a0aabb;font-family:'Consolas','Cascadia Code',mon
 #layout{display:flex;flex:1;overflow:hidden;gap:2px;padding:2px}
 #canvas-wrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden}
 canvas{image-rendering:pixelated;image-rendering:crisp-edges}
-#sidebar{width:220px;display:flex;flex-direction:column;gap:4px;overflow:hidden;padding:2px 0}
-.panel{background:#0b0b18;border:1px solid #1e2535;padding:6px 8px;border-radius:2px}
-.panel-title{font-size:9px;letter-spacing:.15em;color:#3a4a6a;margin-bottom:4px;text-transform:uppercase}
-#log-wrap{height:130px;background:#07070f;border-top:1px solid #14192a;padding:4px 8px;overflow:hidden;display:flex;flex-direction:column-reverse}
-.log-line{font-size:10px;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#sidebar{width:240px;display:flex;flex-direction:column;gap:5px;overflow:hidden;padding:4px 2px}
+.panel{background:#0b0b18;border:1px solid #1e2535;padding:8px 10px;border-radius:3px}
+.panel-title{font-size:9px;letter-spacing:.18em;color:#2d3d5a;margin-bottom:6px;text-transform:uppercase;border-bottom:1px solid #141e2e;padding-bottom:4px}
+#log-wrap{height:140px;background:#07070f;border-top:1px solid #14192a;padding:5px 10px;overflow:hidden;display:flex;flex-direction:column-reverse}
+.log-line{font-size:11px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .log-Normal{color:#7a8898}
-.log-Combat{color:#c84040}
-.log-Loot{color:#c8a020}
-.log-System{color:#4880c0}
-.log-Event{color:#a040c8}
-.log-Warning{color:#c87020}
-.log-Good{color:#40b060}
-.bar-wrap{display:flex;align-items:center;gap:4px;margin:2px 0}
-.bar-label{font-size:9px;color:#445566;width:22px}
-.bar-track{flex:1;height:7px;background:#0d0d1c;border:1px solid #1a2030;border-radius:1px;overflow:hidden}
-.bar-fill{height:100%;border-radius:1px;transition:width .1s}
-.bar-hp{background:linear-gradient(90deg,#802020,#c03030)}
-.bar-mp{background:linear-gradient(90deg,#203080,#3060c0)}
-.bar-xp{background:linear-gradient(90deg,#305020,#50a030)}
-.bar-shd{background:linear-gradient(90deg,#206080,#40b8e0)}
-.bar-val{font-size:9px;color:#445566;width:40px;text-align:right}
-.stat-row{display:flex;justify-content:space-between;font-size:10px;padding:1px 0}
-.stat-key{color:#3a4a5a}
-.stat-val{color:#8090a8}
-.stat-val.good{color:#50b870}
-.stat-val.warn{color:#c87020}
-.stat-val.bad{color:#c84040}
-.equip-row{font-size:9px;padding:1px 0;display:flex;gap:4px}
-.equip-slot{color:#2a3a4a;width:42px}
-.equip-name{color:#6a7a8a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hotbar{display:flex;gap:3px;margin-top:2px}
-.hb-slot{flex:1;background:#0d0d1e;border:1px solid #1e2535;border-radius:2px;padding:3px 2px;text-align:center;font-size:9px;position:relative}
-.hb-slot .hb-key{color:#2a3a5a;font-size:8px}
-.hb-slot .hb-name{color:#5a6a7a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hb-slot .hb-cd{position:absolute;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-size:8px;color:#c87020}
+.log-Combat{color:#d04040}
+.log-Loot{color:#d0a820}
+.log-System{color:#4890d0}
+.log-Event{color:#b040d0}
+.log-Warning{color:#d08020}
+.log-Good{color:#40c060}
+.bar-wrap{display:flex;align-items:center;gap:6px;margin:3px 0}
+.bar-label{font-size:10px;color:#506070;width:26px;font-weight:bold}
+.bar-track{flex:1;height:10px;background:#080810;border:1px solid #1a2030;border-radius:2px;overflow:hidden}
+.bar-fill{height:100%;border-radius:2px;transition:width .1s}
+.bar-hp{background:linear-gradient(90deg,#801818,#c83030)}
+.bar-mp{background:linear-gradient(90deg,#182878,#3060c8)}
+.bar-xp{background:linear-gradient(90deg,#284818,#4a9828)}
+.bar-shd{background:linear-gradient(90deg,#185878,#30a8d8)}
+.bar-val{font-size:10px;color:#506070;width:52px;text-align:right}
+.stat-row{display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid #0e1420}
+.stat-key{color:#3a4a5a;letter-spacing:.05em}
+.stat-val{color:#8898b0;font-weight:bold}
+.stat-val.good{color:#50c870}
+.stat-val.warn{color:#d08020}
+.stat-val.bad{color:#d03030}
+.equip-row{font-size:10px;padding:2px 0;display:flex;gap:6px;border-bottom:1px solid #0a0e18}
+.equip-slot{color:#283848;width:44px;flex-shrink:0}
+.equip-name{color:#6a8090;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hotbar{display:flex;gap:4px;margin-top:4px}
+.hb-slot{flex:1;background:#0a0a1c;border:1px solid #1c2334;border-radius:3px;padding:4px 3px;text-align:center;font-size:9px;position:relative}
+.hb-slot .hb-key{color:#2a3a5a;font-size:8px;margin-bottom:2px}
+.hb-slot .hb-name{color:#5a7080;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px}
+.hb-slot .hb-cd{position:absolute;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;font-size:9px;color:#c87020;border-radius:3px}
 #overlay{position:fixed;inset:0;background:rgba(4,4,12,.88);display:flex;align-items:center;justify-content:center;z-index:100;transition:opacity .15s}
 #overlay.hidden{opacity:0;pointer-events:none}
 #overlay-box{border:1px solid #2a3650;background:#08081a;padding:20px 28px;max-width:520px;width:92vw;border-radius:3px;max-height:85vh;overflow-y:auto}
@@ -1415,6 +1415,7 @@ function fitCanvas() {
   const wrap = document.getElementById('canvas-wrap');
   const aw = wrap.clientWidth;
   const ah = wrap.clientHeight;
+  if (aw <= 0 || ah <= 0) return;
   const scaleX = aw / canvas.width;
   const scaleY = ah / canvas.height;
   const scale  = Math.min(scaleX, scaleY);
@@ -1423,7 +1424,13 @@ function fitCanvas() {
 }
 
 window.addEventListener('resize', fitCanvas);
-fitCanvas();
+
+// Use ResizeObserver so fitCanvas runs after layout is fully computed
+const _ro = new ResizeObserver(() => fitCanvas());
+_ro.observe(document.getElementById('canvas-wrap'));
+
+// Also attempt after first paint as a fallback
+requestAnimationFrame(() => { fitCanvas(); });
 
 connect();
 </script>
