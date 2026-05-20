@@ -22,20 +22,25 @@ enum WebInput {
     Resize(u16, u16),
 }
 
+/// Start server on an already-bound std::net::TcpListener (preferred path).
+pub async fn run_web_server_with_listener(std_listener: std::net::TcpListener) {
+    std_listener.set_nonblocking(true).expect("set_nonblocking failed");
+    let listener = tokio::net::TcpListener::from_std(std_listener)
+        .expect("tokio listener conversion failed");
+    serve(listener).await;
+}
+
+/// Fallback: bind by port number (used by --terminal path and tests).
 pub async fn run_web_server(port: u16) {
-    let addr = format!("0.0.0.0:{port}");
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await
+        .unwrap_or_else(|e| panic!("Failed to bind port {port}: {e}"));
+    serve(listener).await;
+}
+
+async fn serve(listener: tokio::net::TcpListener) {
     let app = Router::new()
         .route("/",   get(serve_html))
         .route("/ws", get(ws_handler));
-
-    println!("\n  ✦  Open your browser: http://localhost:{port}");
-    println!("  ✦  Press Ctrl+C to stop the server\n");
-
-    let listener = tokio::net::TcpListener::bind(&addr).await
-        .unwrap_or_else(|e| {
-            eprintln!("[ERROR] Cannot bind to {addr}: {e}");
-            std::process::exit(1);
-        });
     axum::serve(listener, app).await.ok();
 }
 
@@ -89,7 +94,6 @@ fn run_game_thread(
 ) {
     let mut game = Game::new();
 
-    // Consume initial resize (optional)
     let _ = input_rx.recv_timeout(Duration::from_secs(5));
 
     send_snapshot(&game, &output_tx);

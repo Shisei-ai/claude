@@ -11,7 +11,7 @@ mod ui;
 mod web_backend;
 mod web_server;
 
-use std::io;
+use std::io::{self, Write};
 use std::time::Duration;
 
 use crossterm::{
@@ -25,6 +25,18 @@ use crate::game::Game;
 use crate::input::handle_input;
 
 fn main() {
+    // Catch ANY unhandled panic: print the message and wait for Enter
+    // so the console window doesn't vanish before the user can read it.
+    std::panic::set_hook(Box::new(|info| {
+        let _ = writeln!(io::stderr(), "\n==============================");
+        let _ = writeln!(io::stderr(), "  ERROR / エラーが発生しました");
+        let _ = writeln!(io::stderr(), "==============================");
+        let _ = writeln!(io::stderr(), "{info}");
+        let _ = writeln!(io::stderr(), "\nPress Enter to close... / Enter キーで閉じる");
+        let mut buf = String::new();
+        let _ = io::stdin().read_line(&mut buf);
+    }));
+
     let args: Vec<String> = std::env::args().collect();
 
     let terminal_mode = args.iter().any(|a| a == "--terminal");
@@ -40,53 +52,66 @@ fn main() {
         return;
     }
 
-    // Find a free port (8080-8090) or use the --port argument
-    let port = match fixed_port {
-        Some(p) => p,
-        None => match find_free_port(8080, 8090) {
-            Some(p) => p,
-            None => {
-                fatal_error(
-                    "ポート 8080〜8090 が全て使用中です。\n\
-                     他のアプリを閉じてから再度実行してください。\n\n\
-                     Port 8080-8090 are all in use.\n\
-                     Close other applications and try again."
-                );
-                return;
-            }
-        },
+    // Bind the listener here so we hold the port until the server starts.
+    // This also avoids the "port free → port grabbed by someone else" race.
+    let listener = match fixed_port {
+        Some(p) => bind_port(p),
+        None    => try_ports(8080, 8090),
     };
 
-    // Default: web mode — start server then open browser
-    let rt = tokio::runtime::Runtime::new().unwrap_or_else(|e| {
-        fatal_error(&format!("Failed to start async runtime: {e}"));
-        std::process::exit(1);
-    });
+    let port = listener.local_addr()
+        .expect("listener has no local address")
+        .port();
+
+    println!("\n  ✦  ゲームを起動中... / Starting game...");
+    println!("  ✦  ブラウザで開く / Open in browser: http://localhost:{port}");
+    println!("  ✦  このウィンドウは閉じないでください / Keep this window open");
+    println!("  ✦  Ctrl+C で終了 / Ctrl+C to quit\n");
+
+    let rt = tokio::runtime::Runtime::new()
+        .expect("Failed to start tokio runtime");
+
     rt.block_on(async move {
-        let url  = format!("http://localhost:{port}");
-        let url2 = url.clone();
+        let url = format!("http://localhost:{port}");
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(800)).await;
-            open_browser(&url2);
+            open_browser(&url);
         });
-        web_server::run_web_server(port).await;
+        web_server::run_web_server_with_listener(listener).await;
     });
 }
 
-/// Try ports from `start` to `end` and return the first free one.
-fn find_free_port(start: u16, end: u16) -> Option<u16> {
-    for port in start..=end {
-        if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
-            return Some(port);
+fn bind_port(port: u16) -> std::net::TcpListener {
+    match std::net::TcpListener::bind(("0.0.0.0", port)) {
+        Ok(l) => l,
+        Err(e) => {
+            fatal_error(&format!(
+                "ポート {port} を使用できません: {e}\n\
+                 Port {port} is not available: {e}"
+            ));
+            std::process::exit(1);
         }
     }
-    None
 }
 
-/// Print an error and wait for Enter so the console window stays visible.
+fn try_ports(start: u16, end: u16) -> std::net::TcpListener {
+    for port in start..=end {
+        if let Ok(l) = std::net::TcpListener::bind(("0.0.0.0", port)) {
+            return l;
+        }
+    }
+    fatal_error(&format!(
+        "ポート {start}〜{end} が全て使用中です。\n\
+         他のアプリを閉じてから再度実行してください。\n\n\
+         Port {start}-{end} are all in use.\n\
+         Close other applications and try again."
+    ));
+    std::process::exit(1);
+}
+
 fn fatal_error(msg: &str) {
-    eprintln!("\n[ERROR]\n{msg}\n");
-    eprintln!("Press Enter to close...");
+    let _ = writeln!(io::stderr(), "\n[ERROR]\n{msg}\n");
+    let _ = writeln!(io::stderr(), "Press Enter to close... / Enter キーで閉じる");
     let mut buf = String::new();
     let _ = io::stdin().read_line(&mut buf);
 }
