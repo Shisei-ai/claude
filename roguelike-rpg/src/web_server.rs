@@ -32,8 +32,11 @@ pub async fn run_web_server(port: u16) {
     println!("  ✦  Press Ctrl+C to stop the server\n");
 
     let listener = tokio::net::TcpListener::bind(&addr).await
-        .unwrap_or_else(|e| panic!("Failed to bind {addr}: {e}"));
-    axum::serve(listener, app).await.expect("server error");
+        .unwrap_or_else(|e| {
+            eprintln!("[ERROR] Cannot bind to {addr}: {e}");
+            std::process::exit(1);
+        });
+    axum::serve(listener, app).await.ok();
 }
 
 async fn serve_html() -> impl IntoResponse {
