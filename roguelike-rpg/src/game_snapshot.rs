@@ -184,16 +184,16 @@ impl GameSnapshot {
         let tiles: Vec<TileSnap> = (0..MAP_HEIGHT).flat_map(|y| {
             (0..MAP_WIDTH).map(move |x| {
                 TileSnap {
-                    t: tile_id(game.map.tiles[y][x]),
-                    v: game.map.visible[y][x],
-                    e: game.map.explored[y][x],
+                    t: tile_id(game.map.tiles[x][y]),
+                    v: game.map.visible[x][y],
+                    e: game.map.explored[x][y],
                 }
             })
         }).collect();
 
         let vis = |x: i32, y: i32| -> bool {
             if x < 0 || y < 0 || x >= MAP_WIDTH as i32 || y >= MAP_HEIGHT as i32 { return false; }
-            game.map.visible[y as usize][x as usize]
+            game.map.visible[x as usize][y as usize]
         };
 
         let monsters: Vec<MonsterSnap> = game.monsters.iter()

@@ -25,17 +25,23 @@ use crate::game::Game;
 use crate::input::handle_input;
 
 fn main() {
-    // Catch ANY unhandled panic: print the message and wait for Enter
-    // so the console window doesn't vanish before the user can read it.
-    std::panic::set_hook(Box::new(|info| {
+    // Catch panics on the main thread only (e.g. startup failures).
+    // Spawned game-session threads must NOT block on stdin — they just log.
+    let is_main_thread = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let is_main_clone = is_main_thread.clone();
+    std::panic::set_hook(Box::new(move |info| {
         let _ = writeln!(io::stderr(), "\n==============================");
         let _ = writeln!(io::stderr(), "  ERROR / エラーが発生しました");
         let _ = writeln!(io::stderr(), "==============================");
         let _ = writeln!(io::stderr(), "{info}");
-        let _ = writeln!(io::stderr(), "\nPress Enter to close... / Enter キーで閉じる");
-        let mut buf = String::new();
-        let _ = io::stdin().read_line(&mut buf);
+        if is_main_clone.load(std::sync::atomic::Ordering::Relaxed) {
+            let _ = writeln!(io::stderr(), "\nPress Enter to close... / Enter キーで閉じる");
+            let mut buf = String::new();
+            let _ = io::stdin().read_line(&mut buf);
+        }
     }));
+    // After this point, spawned threads will not block stdin on panic.
+    is_main_thread.store(false, std::sync::atomic::Ordering::Relaxed);
 
     let args: Vec<String> = std::env::args().collect();
 
