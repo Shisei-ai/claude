@@ -4,308 +4,876 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>⚔ Roguelike RPG</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css"/>
-<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#06060d;color:#a0aabb;font-family:'Consolas','Cascadia Code',monospace;overflow:hidden;width:100vw;height:100vh;display:flex;flex-direction:column;user-select:none}
+#layout{display:flex;flex:1;overflow:hidden;gap:2px;padding:2px}
+#canvas-wrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges}
+#sidebar{width:220px;display:flex;flex-direction:column;gap:4px;overflow:hidden;padding:2px 0}
+.panel{background:#0b0b18;border:1px solid #1e2535;padding:6px 8px;border-radius:2px}
+.panel-title{font-size:9px;letter-spacing:.15em;color:#3a4a6a;margin-bottom:4px;text-transform:uppercase}
+#log-wrap{height:130px;background:#07070f;border-top:1px solid #14192a;padding:4px 8px;overflow:hidden;display:flex;flex-direction:column-reverse}
+.log-line{font-size:10px;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log-Normal{color:#7a8898}
+.log-Combat{color:#c84040}
+.log-Loot{color:#c8a020}
+.log-System{color:#4880c0}
+.log-Event{color:#a040c8}
+.log-Warning{color:#c87020}
+.log-Good{color:#40b060}
+.bar-wrap{display:flex;align-items:center;gap:4px;margin:2px 0}
+.bar-label{font-size:9px;color:#445566;width:22px}
+.bar-track{flex:1;height:7px;background:#0d0d1c;border:1px solid #1a2030;border-radius:1px;overflow:hidden}
+.bar-fill{height:100%;border-radius:1px;transition:width .1s}
+.bar-hp{background:linear-gradient(90deg,#802020,#c03030)}
+.bar-mp{background:linear-gradient(90deg,#203080,#3060c0)}
+.bar-xp{background:linear-gradient(90deg,#305020,#50a030)}
+.bar-shd{background:linear-gradient(90deg,#206080,#40b8e0)}
+.bar-val{font-size:9px;color:#445566;width:40px;text-align:right}
+.stat-row{display:flex;justify-content:space-between;font-size:10px;padding:1px 0}
+.stat-key{color:#3a4a5a}
+.stat-val{color:#8090a8}
+.stat-val.good{color:#50b870}
+.stat-val.warn{color:#c87020}
+.stat-val.bad{color:#c84040}
+.equip-row{font-size:9px;padding:1px 0;display:flex;gap:4px}
+.equip-slot{color:#2a3a4a;width:42px}
+.equip-name{color:#6a7a8a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hotbar{display:flex;gap:3px;margin-top:2px}
+.hb-slot{flex:1;background:#0d0d1e;border:1px solid #1e2535;border-radius:2px;padding:3px 2px;text-align:center;font-size:9px;position:relative}
+.hb-slot .hb-key{color:#2a3a5a;font-size:8px}
+.hb-slot .hb-name{color:#5a6a7a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hb-slot .hb-cd{position:absolute;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-size:8px;color:#c87020}
+#overlay{position:fixed;inset:0;background:rgba(4,4,12,.88);display:flex;align-items:center;justify-content:center;z-index:100;transition:opacity .15s}
+#overlay.hidden{opacity:0;pointer-events:none}
+#overlay-box{border:1px solid #2a3650;background:#08081a;padding:20px 28px;max-width:520px;width:92vw;border-radius:3px;max-height:85vh;overflow-y:auto}
+#overlay-box h1{font-size:1.3rem;color:#d8a030;margin-bottom:4px;letter-spacing:.1em}
+#overlay-box .sub{color:#3a4860;font-size:.8rem;margin-bottom:16px}
+.key-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.key-table th{text-align:left;color:#3a5878;font-size:.72rem;letter-spacing:.12em;padding:8px 0 3px;border-bottom:1px solid #151e30}
+.key-table td{padding:2px 0}
+.key-table td:first-child{width:44%;color:#8090a8}
+.key-table td:last-child{color:#4a5868}
+kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5px;font-size:.8em;color:#8098b8;font-family:inherit}
+.hint{margin-top:14px;color:#2a3848;font-size:.78rem;text-align:center}
+#ws-status{position:fixed;top:4px;right:8px;font-size:9px;z-index:200}
+#ws-status.ok{color:#305030}
+#ws-status.err{color:#503030}
 
-  body {
-    background: #08080e;
-    color: #c0c0c0;
-    font-family: 'Consolas', 'DejaVu Sans Mono', monospace;
-    overflow: hidden;
-    width: 100vw; height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
-
-  #terminal-wrap {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  /* xterm.js injects a div.xterm inside #terminal */
-  #terminal {
-    /* size is set by FitAddon */
-  }
-
-  /* ── Overlay ── */
-  #overlay {
-    position: fixed; inset: 0;
-    background: rgba(8, 8, 14, 0.92);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-    transition: opacity .2s;
-  }
-  #overlay.hidden { opacity: 0; pointer-events: none; }
-
-  #overlay-box {
-    border: 1px solid #2d3749;
-    background: #0c0c18;
-    padding: 28px 36px;
-    max-width: 560px;
-    width: 90vw;
-    border-radius: 4px;
-    box-shadow: 0 0 40px rgba(80,120,200,.15);
-  }
-
-  #overlay-box h1 {
-    font-size: 1.5rem;
-    color: #dba832;
-    margin-bottom: 6px;
-    letter-spacing: .1em;
-  }
-  #overlay-box .sub {
-    color: #4a5870;
-    font-size: .85rem;
-    margin-bottom: 20px;
-  }
-
-  .key-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
-  .key-table th {
-    text-align: left;
-    color: #4a6890;
-    font-size: .75rem;
-    letter-spacing: .12em;
-    padding: 10px 0 4px;
-    border-bottom: 1px solid #1e2535;
-  }
-  .key-table td { padding: 3px 0; }
-  .key-table td:first-child {
-    width: 42%;
-    color: #c0c0c0;
-  }
-  .key-table td:last-child { color: #606878; }
-
-  kbd {
-    background: #1a2030;
-    border: 1px solid #2d3749;
-    border-radius: 3px;
-    padding: 1px 6px;
-    font-family: inherit;
-    font-size: .85em;
-    color: #aec0d8;
-  }
-
-  .hint {
-    margin-top: 18px;
-    color: #3a4558;
-    font-size: .82rem;
-    text-align: center;
-  }
-
-  /* ── Status bar ── */
-  #statusbar {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    height: 22px;
-    background: #0a0a12;
-    border-top: 1px solid #1a2030;
-    display: flex;
-    align-items: center;
-    padding: 0 12px;
-    gap: 16px;
-    font-size: 11px;
-    color: #3a4558;
-    z-index: 50;
-  }
-  #statusbar .item { display: flex; gap: 6px; }
-  #statusbar .label { color: #2d3749; }
-  #statusbar .val   { color: #506080; }
-  #status-ws { margin-left: auto; }
-  #status-ws.connected { color: #408040; }
-  #status-ws.disconnected { color: #804040; }
+/* Inventory / Skills / Event / Crafting overlay panels */
+.modal{position:fixed;inset:0;background:rgba(4,4,12,.85);display:flex;align-items:center;justify-content:center;z-index:90}
+.modal-box{background:#090916;border:1px solid #202840;border-radius:3px;padding:0;overflow:hidden;max-height:90vh;display:flex;flex-direction:column}
+.modal-header{background:#0c0c20;padding:8px 14px;font-size:10px;letter-spacing:.15em;color:#3a5878;border-bottom:1px solid #161e30;display:flex;justify-content:space-between}
+.modal-header .close-hint{color:#1e2838}
+.modal-body{display:flex;flex:1;overflow:hidden}
+.modal-list{width:220px;overflow-y:auto;border-right:1px solid #161e30}
+.modal-list-item{padding:6px 12px;font-size:10px;cursor:pointer;border-bottom:1px solid #0e1220}
+.modal-list-item.sel{background:#0e1428;color:#a0b8d0}
+.modal-list-item.sel .item-rarity-Common{color:#8090a0}
+.modal-list-item.sel .item-rarity-Uncommon{color:#40c080}
+.modal-list-item.sel .item-rarity-Rare{color:#4080e0}
+.modal-list-item.sel .item-rarity-Epic{color:#a040e0}
+.modal-list-item.sel .item-rarity-Legendary{color:#e08020}
+.item-rarity-Common{color:#485868}
+.item-rarity-Uncommon{color:#286040}
+.item-rarity-Rare{color:#284890}
+.item-rarity-Epic{color:#602090}
+.item-rarity-Legendary{color:#905010}
+.modal-detail{flex:1;padding:12px 14px;overflow-y:auto;min-width:200px}
+.modal-detail .item-name{font-size:12px;color:#a0b0c8;margin-bottom:4px}
+.modal-detail .item-desc{font-size:9px;color:#3a4858;line-height:1.5;margin-bottom:8px}
+.modal-detail .stat-line{font-size:9px;color:#4a6080;padding:1px 0}
+.modal-detail .stat-line span{color:#6080a0}
+.modal-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.action-btn{background:#0e1428;border:1px solid #202840;border-radius:2px;padding:3px 8px;font-size:9px;color:#4a6080;letter-spacing:.1em}
+.skill-branch-Warrior{color:#c06030}
+.skill-branch-Mage{color:#5080c8}
+.skill-branch-Rogue{color:#40a060}
+.skill-branch-Universal{color:#a080c0}
+.skill-learned{color:#a0c870}
+.skill-unlocked{color:#506070}
+.skill-locked{color:#282838}
+.event-box{max-width:420px;padding:16px 20px}
+.event-title{font-size:1rem;color:#c0a030;margin-bottom:6px}
+.event-irrev{font-size:8px;color:#903020;letter-spacing:.1em;margin-bottom:10px}
+.event-desc{font-size:10px;color:#4a6080;line-height:1.6;margin-bottom:14px}
+.event-choice{padding:6px 10px;margin:4px 0;font-size:10px;border:1px solid #1a2030;border-radius:2px;cursor:pointer}
+.event-choice.sel{border-color:#304050;background:#0c1420;color:#8090a8}
+.dead-box{text-align:center;padding:20px 30px}
+.dead-title{font-size:1.6rem;color:#802020;margin-bottom:8px;letter-spacing:.15em}
+.dead-sub{font-size:.85rem;color:#2a3040;margin-bottom:16px}
+.dead-stats{font-size:.8rem;color:#3a4858;line-height:1.8}
+.victory-title{font-size:1.6rem;color:#d8a030;margin-bottom:8px;letter-spacing:.15em}
 </style>
 </head>
 <body>
-
-<!-- ── Loading/Help overlay ───────────────────────────────────────────── -->
+<!-- Help overlay -->
 <div id="overlay">
   <div id="overlay-box">
     <h1>⚔ Roguelike RPG</h1>
-    <p class="sub">Press any key to start · <kbd>?</kbd> in-game for help</p>
-
+    <p class="sub">Press any key to start &nbsp;·&nbsp; <kbd>?</kbd> in-game for help</p>
     <table class="key-table">
       <tr><th colspan="2">MOVEMENT</th></tr>
-      <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Arrows</td><td>Move up / left / down / right</td></tr>
-      <tr><td><kbd>Y</kbd><kbd>U</kbd><kbd>B</kbd><kbd>N</kbd></td><td>Diagonal movement</td></tr>
-      <tr><td><kbd>.</kbd> or <kbd>5</kbd></td><td>Wait one turn</td></tr>
-
+      <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Arrows</td><td>Move</td></tr>
+      <tr><td><kbd>Y</kbd><kbd>U</kbd><kbd>B</kbd><kbd>N</kbd></td><td>Diagonal</td></tr>
+      <tr><td><kbd>.</kbd> or <kbd>5</kbd></td><td>Wait</td></tr>
       <tr><th colspan="2">ACTION</th></tr>
-      <tr><td><kbd>G</kbd></td><td>Pick up item / open chest</td></tr>
-      <tr><td><kbd>&gt;</kbd></td><td>Descend stairs (≫)</td></tr>
-      <tr><td><kbd>&lt;</kbd></td><td>Ascend stairs (≪)</td></tr>
-      <tr><td><kbd>E</kbd></td><td>Activate shrine (✦)</td></tr>
-
+      <tr><td><kbd>G</kbd></td><td>Pick up / open chest</td></tr>
+      <tr><td><kbd>&gt;</kbd></td><td>Descend stairs</td></tr>
+      <tr><td><kbd>&lt;</kbd></td><td>Ascend stairs</td></tr>
+      <tr><td><kbd>E</kbd></td><td>Activate shrine</td></tr>
       <tr><th colspan="2">MENUS</th></tr>
-      <tr><td><kbd>I</kbd></td><td>Inventory  (U:use · E:equip · D:drop)</td></tr>
-      <tr><td><kbd>S</kbd> (shift)</td><td>Skill tree  (Enter to learn)</td></tr>
-      <tr><td><kbd>C</kbd> on ⚒</td><td>Crafting anvil</td></tr>
-
+      <tr><td><kbd>I</kbd></td><td>Inventory (U:use · E:equip · D:drop)</td></tr>
+      <tr><td><kbd>S</kbd> (shift)</td><td>Skill tree</td></tr>
+      <tr><td><kbd>C</kbd> on anvil</td><td>Crafting</td></tr>
       <tr><th colspan="2">SKILLS</th></tr>
-      <tr><td><kbd>1</kbd>–<kbd>4</kbd></td><td>Use active skill in hotbar</td></tr>
-
+      <tr><td><kbd>1</kbd>–<kbd>4</kbd></td><td>Use active skill</td></tr>
       <tr><th colspan="2">OTHER</th></tr>
-      <tr><td><kbd>?</kbd></td><td>Toggle this help screen</td></tr>
-      <tr><td><kbd>Q</kbd></td><td>Quit game</td></tr>
+      <tr><td><kbd>?</kbd></td><td>Toggle help</td></tr>
+      <tr><td><kbd>Q</kbd></td><td>Quit</td></tr>
     </table>
-
-    <p class="hint">Click anywhere or press any key to dismiss</p>
+    <p class="hint">Click or press any key to dismiss</p>
   </div>
 </div>
 
-<!-- ── Terminal ───────────────────────────────────────────────────────── -->
-<div id="terminal-wrap">
-  <div id="terminal"></div>
+<div id="ws-status" class="err">● —</div>
+
+<div id="layout">
+  <div id="canvas-wrap"><canvas id="gc"></canvas></div>
+  <div id="sidebar">
+    <!-- Floor / status -->
+    <div class="panel" id="p-status">
+      <div class="panel-title">STATUS</div>
+      <div class="bar-wrap"><span class="bar-label">HP</span><div class="bar-track"><div class="bar-fill bar-hp" id="b-hp"></div></div><span class="bar-val" id="v-hp"></span></div>
+      <div class="bar-wrap"><span class="bar-label">MP</span><div class="bar-track"><div class="bar-fill bar-mp" id="b-mp"></div></div><span class="bar-val" id="v-mp"></span></div>
+      <div class="bar-wrap" id="shd-wrap" style="display:none"><span class="bar-label">SHD</span><div class="bar-track"><div class="bar-fill bar-shd" id="b-shd"></div></div><span class="bar-val" id="v-shd"></span></div>
+      <div class="bar-wrap"><span class="bar-label">XP</span><div class="bar-track"><div class="bar-fill bar-xp" id="b-xp"></div></div><span class="bar-val" id="v-xp"></span></div>
+    </div>
+    <!-- Stats -->
+    <div class="panel" id="p-stats">
+      <div class="panel-title" id="p-stats-title">LV 1 · FLOOR 1</div>
+      <div class="stat-row"><span class="stat-key">GOLD</span><span class="stat-val" id="s-gold">0</span></div>
+      <div class="stat-row"><span class="stat-key">ATK</span><span class="stat-val" id="s-atk">0</span></div>
+      <div class="stat-row"><span class="stat-key">DEF</span><span class="stat-val" id="s-def">0</span></div>
+      <div class="stat-row"><span class="stat-key">TURN</span><span class="stat-val" id="s-turn">0</span></div>
+      <div id="s-flags" style="font-size:9px;margin-top:3px"></div>
+    </div>
+    <!-- Equipment -->
+    <div class="panel" id="p-equip">
+      <div class="panel-title">EQUIPMENT</div>
+      <div class="equip-row"><span class="equip-slot">Weapon</span><span class="equip-name" id="eq-weapon">—</span></div>
+      <div class="equip-row"><span class="equip-slot">Armor</span><span class="equip-name" id="eq-armor">—</span></div>
+      <div class="equip-row"><span class="equip-slot">Helmet</span><span class="equip-name" id="eq-helmet">—</span></div>
+      <div class="equip-row"><span class="equip-slot">Boots</span><span class="equip-name" id="eq-boots">—</span></div>
+      <div class="equip-row"><span class="equip-slot">Ring</span><span class="equip-name" id="eq-ring">—</span></div>
+      <div class="equip-row"><span class="equip-slot">Amulet</span><span class="equip-name" id="eq-amulet">—</span></div>
+    </div>
+    <!-- Skill hotbar -->
+    <div class="panel">
+      <div class="panel-title">SKILLS</div>
+      <div class="hotbar" id="hotbar">
+        <div class="hb-slot"><div class="hb-key">1</div><div class="hb-name">—</div></div>
+        <div class="hb-slot"><div class="hb-key">2</div><div class="hb-name">—</div></div>
+        <div class="hb-slot"><div class="hb-key">3</div><div class="hb-name">—</div></div>
+        <div class="hb-slot"><div class="hb-key">4</div><div class="hb-name">—</div></div>
+      </div>
+    </div>
+    <!-- Skill pts -->
+    <div class="panel" id="p-sp" style="display:none">
+      <div style="font-size:9px;color:#806030">Skill points: <span id="skill-pts">0</span> · Press S to spend</div>
+    </div>
+  </div>
 </div>
 
-<!-- ── Status bar ─────────────────────────────────────────────────────── -->
-<div id="statusbar">
-  <span class="item"><span class="label">Floor</span><span class="val" id="s-floor">—</span></span>
-  <span class="item"><span class="label">Ping</span><span class="val" id="s-ping">—</span></span>
-  <span id="status-ws" class="disconnected">● Connecting…</span>
+<!-- Message log -->
+<div id="log-wrap"><div id="log"></div></div>
+
+<!-- Modal overlay for Inventory / Skills / Event / Crafting / Help (in-game) -->
+<div id="modal" class="modal" style="display:none">
+  <div id="modal-inner"></div>
 </div>
 
 <script>
-// ── Terminal setup ──────────────────────────────────────────────────────
-const term = new Terminal({
-  fontFamily: '"Cascadia Code", Consolas, "DejaVu Sans Mono", monospace',
-  fontSize: 15,
-  lineHeight: 1.0,
-  letterSpacing: 0,
-  cursorBlink: false,
-  cursorStyle: 'block',
-  theme: {
-    background:   '#08080e',
-    foreground:   '#b0b8c8',
-    cursor:       '#dba832',
-    black:        '#0a0a14',
-    red:          '#c83232',
-    green:        '#3cc85a',
-    yellow:       '#dba832',
-    blue:         '#3c78c8',
-    magenta:      '#a040c8',
-    cyan:         '#28a0b4',
-    white:        '#b0b8c8',
-    brightBlack:  '#404858',
-    brightRed:    '#e05050',
-    brightGreen:  '#50e070',
-    brightYellow: '#f0c040',
-    brightBlue:   '#5090e0',
-    brightMagenta:'#c060e0',
-    brightCyan:   '#40c8d8',
-    brightWhite:  '#d0d8e8',
+// ─────────────────────────────────────────────────────────────
+//  Pixel-art sprite engine
+// ─────────────────────────────────────────────────────────────
+const TS = 20; // tile size in px (rendered)
+
+// Colour palette
+const C = {
+  void:      '#02020a',
+  wallDark:  '#14111c',
+  wallMid:   '#201c2c',
+  wallLight: '#2c2840',
+  wallHigh:  '#3c344e',
+  floorA:    '#100e18',
+  floorB:    '#0e0c14',
+  floorC:    '#120f1a',
+  doorBrown: '#5c3a1e',
+  doorFrame: '#2a1e10',
+  stairDn:   '#1e3450',
+  stairUp:   '#183028',
+  anvilGray: '#3a3848',
+  anvilDark: '#1a1828',
+  shrineGld: '#a07820',
+  shrineBlue:'#2050a0',
+  chestBrn:  '#6b4220',
+  chestGld:  '#c89030',
+  chestDark: '#3a2010',
+  playerBlue:'#2858c0',
+  playerGray:'#4a5870',
+  playerHelm:'#384868',
+  ratBrown:  '#6a4820',
+  gobGreen:  '#3a6820',
+  orcGreen:  '#285020',
+  skelWhite: '#b0b8c0',
+  skelDark:  '#404858',
+  zombiGrn:  '#2a4020',
+  trollGray: '#4a5458',
+  mageViol:  '#5830a0',
+  vampDark:  '#280830',
+  vampRed:   '#a01830',
+  dragonRed: '#a02010',
+  dragonOrg: '#e06010',
+  demonDark: '#300830',
+  demonPurp: '#601090',
+  ghostBlue: '#183860',
+  ghostCyan: '#2080b0',
+  golemStone:'#505868',
+  golemDark: '#303840',
+  swordSilv: '#8090a8',
+  armorBlue: '#304878',
+  potRed:    '#a02020',
+  potBlue:   '#203080',
+  crystal:   '#4080c0',
+  bookBrn:   '#704820',
+  gold:      '#c8a020',
+  darkBg:    '#0a0814',
+};
+
+// ─── sprite definitions ─────────────────────────────────────
+// Each is a 5×5 mini grid of colour keys (null = transparent)
+// Scaled up 4× to fill TS px
+const S = 4; // scale: each "pixel" is S×S real px → 5*S = 20px
+
+function px(ctx, x, y, col) {
+  if (!col) return;
+  ctx.fillStyle = col;
+  ctx.fillRect(x * S, y * S, S, S);
+}
+
+// Tile sprites
+const TILES = {
+  0: (ctx) => { // Void
+    ctx.fillStyle = C.void; ctx.fillRect(0,0,TS,TS);
   },
-  allowTransparency: true,
-  scrollback: 0,
-  disableStdin: false,
-});
+  1: (ctx, bright) => { // Wall
+    ctx.fillStyle = bright ? C.wallMid : C.wallDark; ctx.fillRect(0,0,TS,TS);
+    const b = bright ? 1 : 0;
+    // stone brick pattern
+    [[0,0],[2,0],[4,0],[1,1],[3,1],[0,2],[2,2],[4,2],[1,3],[3,3],[0,4],[2,4],[4,4]].forEach(([x,y])=>{
+      px(ctx, x, y, bright ? C.wallHigh : C.wallLight);
+    });
+    if(bright){
+      [[0,0],[4,0],[0,4]].forEach(([x,y])=>px(ctx,x,y,C.wallHigh));
+    }
+  },
+  2: (ctx, bright) => { // Floor
+    const base = bright ? C.floorC : C.floorA;
+    ctx.fillStyle = base; ctx.fillRect(0,0,TS,TS);
+    if(bright){
+      px(ctx,1,1,C.floorB); px(ctx,3,3,C.floorB);
+      px(ctx,2,4,C.floorC); px(ctx,4,2,C.floorC);
+    }
+  },
+  3: (ctx) => { // Door
+    ctx.fillStyle = C.doorFrame; ctx.fillRect(0,0,TS,TS);
+    // door panel
+    ctx.fillStyle = C.doorBrown;
+    ctx.fillRect(S,0,3*S,TS);
+    // handle
+    px(ctx,3,2,C.chestGld);
+    px(ctx,3,3,C.chestGld);
+    // frame highlights
+    px(ctx,1,0,C.doorFrame); px(ctx,1,4,C.doorFrame);
+  },
+  4: (ctx) => { // StairsDown
+    ctx.fillStyle = C.stairDn; ctx.fillRect(0,0,TS,TS);
+    [0,1,2,3,4].forEach(i=>{
+      ctx.fillStyle = i%2===0 ? '#2a4870' : '#1a3458';
+      ctx.fillRect(0, i*S, (5-i)*S, S);
+    });
+    px(ctx,4,4,'#3060a0');
+  },
+  5: (ctx) => { // StairsUp
+    ctx.fillStyle = C.stairUp; ctx.fillRect(0,0,TS,TS);
+    [0,1,2,3,4].forEach(i=>{
+      ctx.fillStyle = i%2===0 ? '#285040' : '#183428';
+      ctx.fillRect(i*S, i*S, (5-i)*S, S);
+    });
+    px(ctx,0,0,'#40b060');
+  },
+  6: (ctx) => { // CraftingAnvil
+    ctx.fillStyle = C.floorA; ctx.fillRect(0,0,TS,TS);
+    // anvil body
+    [[1,1],[2,1],[3,1],[1,2],[2,2],[3,2],[2,3],[1,3],[3,3]].forEach(([x,y])=>px(ctx,x,y,C.anvilGray));
+    [[2,0],[3,0]].forEach(([x,y])=>px(ctx,x,y,C.anvilGray));
+    px(ctx,2,0,C.wallHigh);
+    // base
+    [[0,4],[1,4],[2,4],[3,4],[4,4]].forEach(([x,y])=>px(ctx,x,y,C.anvilDark));
+    px(ctx,2,3,'#5060a0');
+  },
+  7: (ctx) => { // Shrine
+    ctx.fillStyle = C.floorA; ctx.fillRect(0,0,TS,TS);
+    // pillar
+    [[1,0],[3,0],[1,1],[3,1],[1,2],[3,2]].forEach(([x,y])=>px(ctx,x,y,C.wallLight));
+    // gem
+    px(ctx,2,1,C.shrineBlue); px(ctx,2,2,'#4090e0');
+    // top
+    px(ctx,2,0,C.shrineGld);
+    // base
+    [[0,3],[1,3],[2,3],[3,3],[4,3]].forEach(([x,y])=>px(ctx,x,y,C.wallMid));
+  },
+  8: (ctx) => { // Chest
+    ctx.fillStyle = C.floorA; ctx.fillRect(0,0,TS,TS);
+    // chest body
+    [[0,1],[1,1],[2,1],[3,1],[4,1],[0,2],[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[2,3],[3,3],[4,3]].forEach(([x,y])=>px(ctx,x,y,C.chestBrn));
+    // lid
+    [[0,0],[1,0],[2,0],[3,0],[4,0]].forEach(([x,y])=>px(ctx,x,y,C.chestGld));
+    // lock
+    px(ctx,2,2,C.chestGld); px(ctx,2,1,C.chestGld);
+    // shadow
+    [[0,4],[1,4],[2,4],[3,4],[4,4]].forEach(([x,y])=>px(ctx,x,y,C.chestDark));
+  },
+};
 
-const fitAddon = new FitAddon.FitAddon();
-term.loadAddon(fitAddon);
-term.open(document.getElementById('terminal'));
-fitAddon.fit();
+// Monster sprites (5×5)
+const MONSTERS = {
+  Rat:       (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,2],[2,2],[3,2],[2,3],[1,1]].forEach(([x,y])=>px(ctx,x,y,C.ratBrown)); px(ctx,3,1,'#c8a060'); px(ctx,0,3,C.ratBrown); px(ctx,4,3,C.ratBrown); },
+  Goblin:    (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,1],[2,1],[3,1],[1,2],[2,2],[3,2],[2,3]].forEach(([x,y])=>px(ctx,x,y,C.gobGreen)); px(ctx,1,0,'#e0e000'); px(ctx,3,0,'#e0e000'); px(ctx,2,0,'#a8c030'); px(ctx,2,4,C.gobGreen); },
+  Orc:       (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[0,1],[1,1],[2,1],[3,1],[4,1],[0,2],[1,2],[2,2],[3,2],[4,2],[1,3],[2,3],[3,3]].forEach(([x,y])=>px(ctx,x,y,C.orcGreen)); [[1,0],[3,0]].forEach(([x,y])=>px(ctx,x,y,'#a0a000')); px(ctx,2,0,C.orcGreen); px(ctx,2,4,'#8030a0'); },
+  Skeleton:  (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[1,1],[2,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,C.skelWhite)); [[0,2],[4,2],[1,2],[3,2],[2,3]].forEach(([x,y])=>px(ctx,x,y,C.skelWhite)); [[2,2]].forEach(([x,y])=>px(ctx,x,y,C.skelDark)); [[1,4],[3,4]].forEach(([x,y])=>px(ctx,x,y,C.skelWhite)); },
+  Zombie:    (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[0,1],[1,1],[2,1],[3,1],[4,1],[0,2],[1,2],[3,2],[4,2],[1,3],[2,3],[3,3]].forEach(([x,y])=>px(ctx,x,y,C.zombiGrn)); [[2,1]].forEach(([x,y])=>px(ctx,x,y,'#c03020')); [[0,4],[1,4],[3,4],[4,4]].forEach(([x,y])=>px(ctx,x,y,C.zombiGrn)); },
+  Troll:     (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); ctx.fillStyle=C.trollGray; ctx.fillRect(0,0,TS,TS*0.8); [[0,0],[4,0]].forEach(([x,y])=>px(ctx,x,y,'#606870')); px(ctx,2,0,'#808898'); [[1,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,'#202830')); },
+  Mage:      (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[1,1],[2,1],[3,1],[2,2]].forEach(([x,y])=>px(ctx,x,y,C.mageViol)); [[0,2],[4,2],[0,3],[4,3],[1,4],[2,4],[3,4]].forEach(([x,y])=>px(ctx,x,y,'#6040b8')); px(ctx,2,0,'#f0e040'); [[1,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,'#a080e0')); },
+  Vampire:   (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[1,1],[2,1],[3,1],[1,2],[2,2],[3,2]].forEach(([x,y])=>px(ctx,x,y,C.vampDark)); [[1,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,'#e03030')); [[0,1],[4,1],[0,3],[4,3],[1,4],[3,4]].forEach(([x,y])=>px(ctx,x,y,C.vampDark)); px(ctx,2,3,C.vampRed); },
+  Dragon:    (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); ctx.fillStyle=C.dragonRed; ctx.fillRect(0,S,TS,3*S); [[0,0],[4,0]].forEach(([x,y])=>px(ctx,x,y,C.dragonOrg)); [[1,0],[3,0],[2,0]].forEach(([x,y])=>px(ctx,x,y,C.dragonRed)); [[1,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,'#f0a000')); px(ctx,2,2,'#f06010'); [[4,2],[4,3]].forEach(([x,y])=>px(ctx,x,y,C.dragonOrg)); },
+  Demon:     (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); ctx.fillStyle=C.demonDark; ctx.fillRect(0,0,TS,TS); [[0,0],[4,0]].forEach(([x,y])=>px(ctx,x,y,C.demonPurp)); [[1,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,'#e03090')); [[1,2],[2,2],[3,2],[1,3],[3,3]].forEach(([x,y])=>px(ctx,x,y,C.demonPurp)); px(ctx,2,0,'#f040c0'); [[0,4],[4,4]].forEach(([x,y])=>px(ctx,x,y,C.demonPurp)); },
+  Ghost:     (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); ctx.globalAlpha=0.7; [[1,0],[2,0],[3,0],[0,1],[1,1],[2,1],[3,1],[4,1],[0,2],[1,2],[2,2],[3,2],[4,2],[1,3],[2,3],[3,3],[0,4],[2,4],[4,4]].forEach(([x,y])=>px(ctx,x,y,C.ghostBlue)); [[1,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,C.ghostCyan)); ctx.globalAlpha=1; },
+  Golem:     (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); ctx.fillStyle=C.golemStone; ctx.fillRect(S,0,3*S,TS); ctx.fillStyle=C.golemDark; ctx.fillRect(0,S,S,3*S); ctx.fillRect(4*S,S,S,3*S); [[1,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,'#80a8e0')); px(ctx,2,2,'#304060'); },
+};
 
-// ── WebSocket ──────────────────────────────────────────────────────────
+// Item sprites (floor items)
+const ITEMS = {
+  Weapon:     (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[2,0],[2,1],[2,2],[1,3],[2,3],[3,3],[2,4]].forEach(([x,y])=>px(ctx,x,y,C.swordSilv)); px(ctx,2,0,'#d0d8e8'); },
+  Armor:      (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[0,1],[1,1],[2,1],[3,1],[4,1],[0,2],[1,2],[3,2],[4,2],[1,3],[3,3],[2,4]].forEach(([x,y])=>px(ctx,x,y,C.armorBlue)); px(ctx,2,2,C.crystal); },
+  Helmet:     (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[0,1],[1,1],[2,1],[3,1],[4,1],[0,2],[1,2],[2,2],[3,2],[4,2]].forEach(([x,y])=>px(ctx,x,y,C.armorBlue)); px(ctx,2,0,'#6080c0'); },
+  Boots:      (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,2],[2,2],[1,3],[2,3],[0,4],[1,4],[2,4],[3,2],[4,2],[3,3],[4,3],[3,4],[4,4],[5,4]].forEach(([x,y])=>{ if(x<5)px(ctx,x,y,C.armorBlue); }); },
+  Ring:       (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[0,1],[4,1],[0,2],[4,2],[1,3],[2,3],[3,3]].forEach(([x,y])=>px(ctx,x,y,C.gold)); px(ctx,2,0,C.crystal); },
+  Amulet:     (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[2,0],[1,1],[3,1],[0,2],[4,2],[1,3],[3,3],[2,4]].forEach(([x,y])=>px(ctx,x,y,C.gold)); px(ctx,2,2,'#e040a0'); },
+  Consumable: (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); px(ctx,2,0,'#c0c0c8'); [[1,1],[2,1],[3,1],[1,2],[2,2],[3,2],[1,3],[2,3],[3,3],[2,4]].forEach(([x,y])=>px(ctx,x,y,C.potRed)); },
+  Material:   (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,1],[2,0],[3,1],[4,2],[3,3],[2,4],[1,3],[0,2]].forEach(([x,y])=>px(ctx,x,y,C.crystal)); px(ctx,2,2,'#80d0ff'); },
+  SkillTome:  (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[0,0],[1,0],[2,0],[3,0],[0,1],[0,2],[0,3],[0,4],[1,4],[2,4],[3,4]].forEach(([x,y])=>px(ctx,x,y,C.bookBrn)); [[1,1],[2,1],[1,2],[2,2],[1,3],[2,3]].forEach(([x,y])=>px(ctx,x,y,'#d0c8a0')); px(ctx,3,2,'#e0c040'); },
+};
+
+// Player sprite
+function drawPlayer(ctx) {
+  ctx.fillStyle = C.floorA; ctx.fillRect(0,0,TS,TS);
+  [[1,0],[2,0],[3,0]].forEach(([x,y])=>px(ctx,x,y,C.playerHelm));
+  [[1,1],[2,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,'#a0b0c8'));
+  [[0,2],[1,2],[2,2],[3,2],[4,2]].forEach(([x,y])=>px(ctx,x,y,C.playerBlue));
+  [[0,3],[1,3],[2,3],[3,3],[4,3]].forEach(([x,y])=>px(ctx,x,y,C.playerBlue));
+  [[1,4],[3,4]].forEach(([x,y])=>px(ctx,x,y,C.playerGray));
+  px(ctx,4,1,C.swordSilv); px(ctx,4,0,C.swordSilv);
+}
+
+// Build sprite cache
+const spriteCache = {};
+function getSprite(type, key, bright) {
+  const cacheKey = `${type}:${key}:${bright?1:0}`;
+  if (spriteCache[cacheKey]) return spriteCache[cacheKey];
+  const oc = document.createElement('canvas');
+  oc.width = oc.height = TS;
+  const octx = oc.getContext('2d');
+  if (type === 'tile') {
+    const fn = TILES[key];
+    if (fn) fn(octx, bright);
+  } else if (type === 'monster') {
+    const fn = MONSTERS[key];
+    if (fn) fn(octx); else { octx.fillStyle='#ff0080'; octx.fillRect(0,0,TS,TS); }
+  } else if (type === 'item') {
+    const fn = ITEMS[key] || ITEMS.Material;
+    fn(octx);
+  } else if (type === 'player') {
+    drawPlayer(octx);
+  }
+  spriteCache[cacheKey] = oc;
+  return oc;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Canvas renderer
+// ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById('gc');
+const ctx    = canvas.getContext('2d');
+
+// Viewport: how many tiles visible
+const VP_W = 33, VP_H = 22;
+canvas.width  = VP_W * TS;
+canvas.height = VP_H * TS;
+
+let state = null;
+
+function render() {
+  if (!state) return;
+  const g = state;
+  const mw = g.map_w, mh = g.map_h;
+  const px0 = g.px, py0 = g.py;
+
+  // Camera: clamp to map
+  let cx = Math.max(0, Math.min(mw - VP_W, px0 - Math.floor(VP_W/2)));
+  let cy = Math.max(0, Math.min(mh - VP_H, py0 - Math.floor(VP_H/2)));
+
+  ctx.fillStyle = C.void;
+  ctx.fillRect(0,0,canvas.width, canvas.height);
+
+  // Draw tiles
+  for (let vy = 0; vy < VP_H; vy++) {
+    for (let vx = 0; vx < VP_W; vx++) {
+      const mx = cx + vx, my = cy + vy;
+      if (mx < 0 || my < 0 || mx >= mw || my >= mh) continue;
+      const tile = g.tiles[my * mw + mx];
+      if (!tile.e) continue;
+      const bright = tile.v;
+      // Darken explored-but-not-visible tiles
+      const spr = getSprite('tile', tile.t, bright);
+      if (!bright) {
+        ctx.globalAlpha = 0.38;
+      }
+      ctx.drawImage(spr, vx * TS, vy * TS);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Floor items
+  for (const item of g.items) {
+    const vx = item.x - cx, vy = item.y - cy;
+    if (vx < 0 || vy < 0 || vx >= VP_W || vy >= VP_H) continue;
+    const spr = getSprite('item', item.kind);
+    ctx.drawImage(spr, vx * TS, vy * TS);
+  }
+
+  // Monsters
+  for (const m of g.monsters) {
+    const vx = m.x - cx, vy = m.y - cy;
+    if (vx < 0 || vy < 0 || vx >= VP_W || vy >= VP_H) continue;
+    const spr = getSprite('monster', m.kind);
+    ctx.drawImage(spr, vx * TS, vy * TS);
+    // HP bar above monster
+    const hpPct = m.hp / m.max_hp;
+    const bw = TS - 2;
+    ctx.fillStyle = '#1a0a0a';
+    ctx.fillRect(vx*TS+1, vy*TS, bw, 3);
+    ctx.fillStyle = hpPct > 0.5 ? '#40c050' : hpPct > 0.25 ? '#c0a020' : '#c02020';
+    ctx.fillRect(vx*TS+1, vy*TS, Math.round(bw * hpPct), 3);
+    // Status icons
+    if (m.poisoned) {
+      ctx.fillStyle = '#60c040';
+      ctx.fillRect(vx*TS+TS-4, vy*TS+3, 3, 3);
+    }
+    if (m.stunned) {
+      ctx.fillStyle = '#f0e040';
+      ctx.fillRect(vx*TS, vy*TS+3, 3, 3);
+    }
+  }
+
+  // Player
+  const pvx = px0 - cx, pvy = py0 - cy;
+  const pspr = getSprite('player','player');
+  ctx.drawImage(pspr, pvx * TS, pvy * TS);
+  // Player status effects
+  if (g.poison > 0) {
+    ctx.fillStyle = 'rgba(80,200,40,0.4)';
+    ctx.fillRect(pvx*TS, pvy*TS, TS, TS);
+  }
+  if (g.stun > 0) {
+    ctx.fillStyle = 'rgba(240,220,40,0.3)';
+    ctx.fillRect(pvx*TS, pvy*TS, TS, TS);
+  }
+
+  // Cursor / floor highlight under player
+  ctx.strokeStyle = 'rgba(100,150,220,0.3)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(pvx*TS+0.5, pvy*TS+0.5, TS-1, TS-1);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  UI panel update
+// ─────────────────────────────────────────────────────────────
+function setBar(barId, valId, cur, max) {
+  const pct = max > 0 ? Math.max(0, Math.min(1, cur/max)) : 0;
+  document.getElementById(barId).style.width = (pct*100).toFixed(1)+'%';
+  document.getElementById(valId).textContent = `${cur}/${max}`;
+}
+
+function updateUI(g) {
+  setBar('b-hp','v-hp', g.hp, g.max_hp);
+  setBar('b-mp','v-mp', g.mp, g.max_mp);
+  setBar('b-xp','v-xp', g.exp, g.exp_next);
+
+  const shdWrap = document.getElementById('shd-wrap');
+  if (g.shield > 0) {
+    shdWrap.style.display = 'flex';
+    document.getElementById('b-shd').style.width = '100%';
+    document.getElementById('v-shd').textContent = g.shield;
+  } else {
+    shdWrap.style.display = 'none';
+  }
+
+  document.getElementById('p-stats-title').textContent = `LV ${g.level} · FLOOR ${g.floor}`;
+  document.getElementById('s-gold').textContent = g.gold;
+  document.getElementById('s-atk').textContent  = g.atk;
+  document.getElementById('s-def').textContent  = g.def;
+  document.getElementById('s-turn').textContent = g.turn;
+
+  const flags = [];
+  if (g.cursed)  flags.push('<span style="color:#a03020">✦ Cursed</span>');
+  if (g.blessed) flags.push('<span style="color:#60b030">✦ Blessed</span>');
+  if (g.poison > 0) flags.push(`<span style="color:#60c040">☠ Poisoned (${g.poison})</span>`);
+  if (g.stun   > 0) flags.push(`<span style="color:#f0e040">⚡ Stunned (${g.stun})</span>`);
+  document.getElementById('s-flags').innerHTML = flags.join(' ');
+
+  // Equipment
+  ['weapon','armor','helmet','boots','ring','amulet'].forEach(slot => {
+    const el = document.getElementById('eq-'+slot);
+    el.textContent = g['eq_'+slot] || '—';
+    el.style.color = g['eq_'+slot] ? '#8098b8' : '#282838';
+  });
+
+  // Hotbar
+  const hotbar = document.getElementById('hotbar');
+  hotbar.innerHTML = '';
+  for (let i = 0; i < 4; i++) {
+    const slot = g.hotbar[i];
+    const div = document.createElement('div');
+    div.className = 'hb-slot';
+    if (slot) {
+      div.innerHTML = `<div class="hb-key">${i+1}</div><div class="hb-name">${slot.name}</div>`;
+      if (slot.cd_left > 0) {
+        const cd = document.createElement('div');
+        cd.className = 'hb-cd';
+        cd.textContent = slot.cd_left;
+        div.appendChild(cd);
+      }
+    } else {
+      div.innerHTML = `<div class="hb-key">${i+1}</div><div class="hb-name" style="color:#1a2030">—</div>`;
+    }
+    hotbar.appendChild(div);
+  }
+
+  // Skill points badge
+  const sp = document.getElementById('p-sp');
+  const spEl = document.getElementById('skill-pts');
+  if (g.skill_pts > 0) { sp.style.display = ''; spEl.textContent = g.skill_pts; }
+  else { sp.style.display = 'none'; }
+
+  // Message log
+  const log = document.getElementById('log');
+  log.innerHTML = '';
+  for (const msg of g.messages) {
+    const div = document.createElement('div');
+    div.className = `log-line log-${msg.kind}`;
+    div.textContent = msg.text;
+    log.appendChild(div);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Modal panels
+// ─────────────────────────────────────────────────────────────
+function rarityClass(r) { return 'item-rarity-'+r; }
+function rarityColor(r) {
+  return {Common:'#485868',Uncommon:'#40c080',Rare:'#4080e0',Epic:'#a040e0',Legendary:'#e08020'}[r]||'#485868';
+}
+
+function showModal(html) {
+  const m = document.getElementById('modal');
+  document.getElementById('modal-inner').innerHTML = html;
+  m.style.display = 'flex';
+}
+function hideModal() {
+  document.getElementById('modal').style.display = 'none';
+}
+
+function buildInventory(g) {
+  if (!g.inventory.length) return '<div class="modal-box" style="padding:20px 24px;color:#3a4858;font-size:10px">Inventory is empty.<br><br><span style="color:#1e2838">Press I or Esc to close.</span></div>';
+  const sel = g.inv_cursor;
+  const item = g.inventory[sel];
+  let list = g.inventory.map((it,i)=>
+    `<div class="modal-list-item${i===sel?' sel':''}">
+      <span class="${rarityClass(it.rarity)}">${it.name}</span>${it.equipped?' <span style="color:#408040;font-size:8px">E</span>':''}
+    </div>`
+  ).join('');
+  let detail = '';
+  if (item) {
+    const stats = [];
+    if(item.atk) stats.push(`ATK +${item.atk}`);
+    if(item.def) stats.push(`DEF +${item.def}`);
+    if(item.hp)  stats.push(`HP +${item.hp}`);
+    if(item.mp)  stats.push(`MP +${item.mp}`);
+    detail = `<div class="item-name" style="color:${rarityColor(item.rarity)}">${item.name}</div>
+      <div style="font-size:8px;color:#3a5060;margin-bottom:6px">${item.rarity} ${item.kind}</div>
+      <div class="item-desc">${item.desc}</div>
+      ${stats.map(s=>`<div class="stat-line"><span>${s}</span></div>`).join('')}
+      <div class="modal-actions">
+        <span class="action-btn">U: Use</span>
+        <span class="action-btn">E: Equip</span>
+        <span class="action-btn">D: Drop</span>
+      </div>
+      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ navigate · Esc close</div>`;
+  }
+  return `<div class="modal-box" style="width:480px">
+    <div class="modal-header"><span>INVENTORY (${g.inventory.length})</span><span class="close-hint">Esc</span></div>
+    <div class="modal-body">
+      <div class="modal-list">${list}</div>
+      <div class="modal-detail">${detail}</div>
+    </div>
+  </div>`;
+}
+
+function buildSkills(g) {
+  const branches = ['Warrior','Mage','Rogue','Universal'];
+  const sel = g.skill_cursor;
+  const skill = g.skills[sel];
+  let list = g.skills.map((s,i)=>{
+    let cls = s.learned ? 'skill-learned' : s.unlocked ? 'skill-unlocked' : 'skill-locked';
+    return `<div class="modal-list-item${i===sel?' sel':''}">
+      <span class="skill-branch-${s.branch}" style="font-size:8px">${s.branch[0]}</span>
+      <span class="${cls}" style="font-size:9px"> ${s.name}</span>${s.learned?'<span style="color:#406020;font-size:8px"> ✓</span>':''}
+    </div>`;
+  }).join('');
+  let detail = '';
+  if (skill) {
+    detail = `<div class="item-name skill-branch-${skill.branch}">${skill.name}</div>
+      <div style="font-size:8px;margin-bottom:6px">
+        <span class="skill-branch-${skill.branch}">${skill.branch}</span>
+        ${skill.passive ? ' · Passive' : ` · MP ${skill.mp_cost} · CD ${skill.cooldown}`}
+      </div>
+      <div class="item-desc">${skill.desc}</div>
+      <div class="stat-line" style="margin-top:6px">
+        ${skill.learned ? '<span class="skill-learned">✓ Learned</span>' : skill.unlocked ? '<span style="color:#506070">Available (1 pt)</span>' : '<span class="skill-locked">🔒 Locked</span>'}
+      </div>
+      ${!skill.learned && skill.unlocked && g.skill_pts > 0 ? '<div class="modal-actions"><span class="action-btn">Enter: Learn</span></div>' : ''}
+      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ navigate · Esc close · Pts: ${g.skill_pts}</div>`;
+  }
+  return `<div class="modal-box" style="width:480px">
+    <div class="modal-header"><span>SKILL TREE</span><span class="close-hint">Esc</span></div>
+    <div class="modal-body">
+      <div class="modal-list">${list}</div>
+      <div class="modal-detail">${detail}</div>
+    </div>
+  </div>`;
+}
+
+function buildEvent(g) {
+  if (!g.event) return '';
+  const ev = g.event;
+  const choices = ev.choices.map((c,i)=>
+    `<div class="event-choice${i===ev.selected?' sel':''}">
+      ${i===ev.selected ? '▶ ' : '  '}${c}
+    </div>`
+  ).join('');
+  return `<div class="event-box modal-box">
+    <div style="padding:16px 20px">
+      <div class="event-title">${ev.title}</div>
+      ${ev.irreversible ? '<div class="event-irrev">⚠ IRREVERSIBLE CHOICE</div>' : '<div style="height:12px"></div>'}
+      <div class="event-desc">${ev.desc}</div>
+      ${choices}
+      <div style="margin-top:12px;font-size:8px;color:#1e2838">↑↓ select · Enter confirm</div>
+    </div>
+  </div>`;
+}
+
+function buildCrafting(g) {
+  const sel = g.craft_cursor;
+  const rec = g.recipes[sel];
+  let list = g.recipes.map((r,i)=>
+    `<div class="modal-list-item${i===sel?' sel':''}">
+      <span style="color:${r.can_craft ? '#c8a030' : '#3a4858'}">${r.name}</span>
+    </div>`
+  ).join('');
+  let detail = '';
+  if (rec) {
+    detail = `<div class="item-name" style="color:${rec.can_craft?'#c8a030':'#4a5868'}">${rec.name}</div>
+      <div style="margin-top:8px;font-size:9px;color:#3a5060">Ingredients:</div>
+      ${rec.ingredients.map(ing=>`<div class="stat-line"><span>${ing}</span></div>`).join('')}
+      ${rec.can_craft ? '<div class="modal-actions"><span class="action-btn" style="color:#a08020">Enter: Craft</span></div>' : '<div style="margin-top:6px;font-size:8px;color:#502010">Insufficient materials</div>'}
+      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ navigate · Esc close</div>`;
+  }
+  return `<div class="modal-box" style="width:480px">
+    <div class="modal-header"><span>⚒ CRAFTING ANVIL</span><span class="close-hint">Esc</span></div>
+    <div class="modal-body">
+      <div class="modal-list">${list}</div>
+      <div class="modal-detail">${detail}</div>
+    </div>
+  </div>`;
+}
+
+function buildHelp() {
+  return `<div class="modal-box" style="max-width:500px;padding:20px 26px">
+    <div style="font-size:1.1rem;color:#d8a030;margin-bottom:12px;letter-spacing:.1em">⚔ CONTROLS</div>
+    <table class="key-table">
+      <tr><th colspan="2">MOVEMENT</th></tr>
+      <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Arrows</td><td>Move</td></tr>
+      <tr><td><kbd>Y</kbd><kbd>U</kbd><kbd>B</kbd><kbd>N</kbd></td><td>Diagonal</td></tr>
+      <tr><td><kbd>.</kbd> / <kbd>5</kbd></td><td>Wait</td></tr>
+      <tr><th colspan="2">ACTION</th></tr>
+      <tr><td><kbd>G</kbd></td><td>Pick up / open chest</td></tr>
+      <tr><td><kbd>&gt;</kbd></td><td>Descend stairs</td></tr>
+      <tr><td><kbd>&lt;</kbd></td><td>Ascend stairs</td></tr>
+      <tr><td><kbd>E</kbd></td><td>Activate shrine</td></tr>
+      <tr><th colspan="2">MENUS</th></tr>
+      <tr><td><kbd>I</kbd></td><td>Inventory (U:use · E:equip · D:drop)</td></tr>
+      <tr><td><kbd>S</kbd> (shift)</td><td>Skill tree</td></tr>
+      <tr><td><kbd>1</kbd>–<kbd>4</kbd></td><td>Use active skill</td></tr>
+      <tr><th colspan="2">OTHER</th></tr>
+      <tr><td><kbd>?</kbd></td><td>Toggle help</td></tr>
+      <tr><td><kbd>Q</kbd></td><td>Quit</td></tr>
+    </table>
+    <div style="margin-top:12px;font-size:8px;color:#1e2838;text-align:center">Any key to close</div>
+  </div>`;
+}
+
+function buildDead(g) {
+  return `<div class="dead-box modal-box" style="padding:28px 36px">
+    <div class="dead-title">YOU DIED</div>
+    <div class="dead-sub">Floor ${g.floor} · Level ${g.level}</div>
+    <div class="dead-stats">
+      Turns: ${g.turn}<br>
+      Gold: ${g.gold}<br>
+      ATK/DEF: ${g.atk} / ${g.def}
+    </div>
+    <div style="margin-top:16px;font-size:9px;color:#1e2838">Press Q to quit</div>
+  </div>`;
+}
+
+function buildVictory(g) {
+  return `<div class="dead-box modal-box" style="padding:28px 36px">
+    <div class="victory-title">VICTORY!</div>
+    <div class="dead-sub">You escaped the dungeon!</div>
+    <div class="dead-stats">
+      Floor reached: ${g.floor}<br>
+      Level: ${g.level}<br>
+      Turns: ${g.turn}
+    </div>
+    <div style="margin-top:16px;font-size:9px;color:#1e2838">Press Q to quit</div>
+  </div>`;
+}
+
+function renderModal(g) {
+  switch (g.mode) {
+    case 'Inventory': showModal(buildInventory(g)); break;
+    case 'Skills':    showModal(buildSkills(g));    break;
+    case 'Event':     showModal(buildEvent(g));     break;
+    case 'Crafting':  showModal(buildCrafting(g));  break;
+    case 'Help':      showModal(buildHelp());        break;
+    case 'Dead':      showModal(buildDead(g));       break;
+    case 'Victory':   showModal(buildVictory(g));    break;
+    default: hideModal();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  WebSocket
+// ─────────────────────────────────────────────────────────────
 const wsUrl = `ws://${location.host}/ws`;
 let ws = null;
-let pingStart = 0;
 let overlayDismissed = false;
 
 function connect() {
-  document.getElementById('status-ws').textContent = '● Connecting…';
-  document.getElementById('status-ws').className = 'disconnected';
-
   ws = new WebSocket(wsUrl);
-  ws.binaryType = 'arraybuffer';
+  const statusEl = document.getElementById('ws-status');
+  statusEl.textContent = '● Connecting…';
+  statusEl.className = 'err';
 
   ws.onopen = () => {
-    document.getElementById('status-ws').textContent = '● Connected';
-    document.getElementById('status-ws').className = 'connected';
-    sendResize();
+    statusEl.textContent = '● Connected';
+    statusEl.className = 'ok';
+    ws.send(JSON.stringify({ type:'resize', cols:VP_W, rows:VP_H }));
   };
 
   ws.onmessage = (e) => {
-    if (e.data instanceof ArrayBuffer) {
-      term.write(new Uint8Array(e.data));
-    }
+    try {
+      state = JSON.parse(e.data);
+      render();
+      updateUI(state);
+      renderModal(state);
+    } catch(err) {}
   };
 
   ws.onclose = () => {
-    document.getElementById('status-ws').textContent = '● Disconnected — reload to reconnect';
-    document.getElementById('status-ws').className = 'disconnected';
+    statusEl.textContent = '● Disconnected';
+    statusEl.className = 'err';
     setTimeout(connect, 3000);
   };
-
-  ws.onerror = () => {
-    ws.close();
-  };
-}
-
-function sendResize() {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
-  }
+  ws.onerror = () => ws.close();
 }
 
 function sendKey(key, code, shiftKey) {
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'key', key, code, shiftKey }));
+    ws.send(JSON.stringify({ type:'key', key, code, shiftKey }));
   }
 }
 
-// ── Input ──────────────────────────────────────────────────────────────
-term.onKey(({ key, domEvent }) => {
-  // Dismiss overlay on first key
+// ─────────────────────────────────────────────────────────────
+//  Input
+// ─────────────────────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
   if (!overlayDismissed) {
-    dismissOverlay();
-    overlayDismissed = true;
-    // Still send the key that dismissed it (except pure modifier keys)
-    if (['Control','Alt','Shift','Meta'].includes(domEvent.key)) return;
+    if (!['Control','Alt','Shift','Meta'].includes(e.key)) {
+      dismissOverlay();
+      overlayDismissed = true;
+    }
   }
-  sendKey(domEvent.key, domEvent.code, domEvent.shiftKey);
+  // Prevent default for game keys
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) {
+    e.preventDefault();
+  }
+  sendKey(e.key, e.code, e.shiftKey);
 });
 
-// ── Overlay ────────────────────────────────────────────────────────────
 function dismissOverlay() {
   document.getElementById('overlay').classList.add('hidden');
 }
-
 document.getElementById('overlay').addEventListener('click', () => {
-  dismissOverlay();
-  overlayDismissed = true;
-  term.focus();
+  dismissOverlay(); overlayDismissed = true;
 });
 
-// ── Resize ────────────────────────────────────────────────────────────
-window.addEventListener('resize', () => {
-  fitAddon.fit();
-  sendResize();
-});
-
-// ── Fullscreen toggle on F11 / double-click ────────────────────────────
+// Fullscreen on double-click
 document.addEventListener('dblclick', () => {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(() => {});
-  } else {
-    document.exitFullscreen().catch(() => {});
-  }
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+  else document.exitFullscreen().catch(()=>{});
 });
 
-// ── Focus terminal on click ────────────────────────────────────────────
-document.addEventListener('click', () => term.focus());
+// ─────────────────────────────────────────────────────────────
+//  Canvas fit
+// ─────────────────────────────────────────────────────────────
+function fitCanvas() {
+  const wrap = document.getElementById('canvas-wrap');
+  const aw = wrap.clientWidth;
+  const ah = wrap.clientHeight;
+  const scaleX = aw / canvas.width;
+  const scaleY = ah / canvas.height;
+  const scale  = Math.min(scaleX, scaleY);
+  canvas.style.width  = (canvas.width  * scale) + 'px';
+  canvas.style.height = (canvas.height * scale) + 'px';
+}
 
-// ── Boot ──────────────────────────────────────────────────────────────
+window.addEventListener('resize', fitCanvas);
+fitCanvas();
+
 connect();
-term.focus();
 </script>
 </body>
 </html>

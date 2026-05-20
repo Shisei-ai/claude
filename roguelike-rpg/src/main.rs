@@ -5,6 +5,7 @@ mod event;
 mod monster;
 mod player;
 mod game;
+mod game_snapshot;
 mod input;
 mod ui;
 mod web_backend;

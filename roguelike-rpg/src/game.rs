@@ -47,6 +47,7 @@ pub struct Game {
 }
 
 #[derive(Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum MessageKind {
     Normal,
     Combat,
