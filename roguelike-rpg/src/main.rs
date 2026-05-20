@@ -26,18 +26,49 @@ use crate::input::handle_input;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let web_mode = args.iter().any(|a| a == "--web");
+
+    let terminal_mode = args.iter().any(|a| a == "--terminal");
     let port: u16 = args.iter()
         .position(|a| a == "--port")
         .and_then(|i| args.get(i + 1))
         .and_then(|p| p.parse().ok())
         .unwrap_or(8080);
 
-    if web_mode {
-        let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
-        rt.block_on(web_server::run_web_server(port));
-    } else {
+    if terminal_mode {
         run_terminal().expect("terminal error");
+    } else {
+        // Default: web mode with auto browser open
+        let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
+        rt.block_on(async move {
+            // Open browser slightly after server starts
+            let url = format!("http://localhost:{port}");
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(600)).await;
+                open_browser(&url);
+            });
+            web_server::run_web_server(port).await;
+        });
+    }
+}
+
+fn open_browser(url: &str) {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/c", "start", url])
+            .spawn().ok();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(url)
+            .spawn().ok();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(url)
+            .spawn().ok();
     }
 }
 
