@@ -7,9 +7,17 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version label (e.g. v1.0.0)'
+        description: 'Version label (e.g. v1.1.0)'
+        required: true
+        default: 'v1.1.0'
+      release:
+        description: 'Create GitHub Release?'
         required: false
-        default: 'dev'
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 jobs:
   build:
@@ -43,7 +51,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: claude/roguelike-rpg-game-LkUQp
+          # On tag push: check out the tagged commit.
+          # On workflow_dispatch: check out the feature branch with the game.
+          ref: ${{ startsWith(github.ref, 'refs/tags/') && github.ref || 'claude/roguelike-rpg-game-LkUQp' }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -81,9 +91,19 @@ jobs:
           name: ${{ matrix.name }}
           path: ${{ matrix.name }}${{ matrix.ext }}
 
-      - name: Upload to Release
+      # ── Attach to GitHub Release ─────────────────────────────────
+      - name: Upload to Release (tag push)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.name }}${{ matrix.ext }}
           generate_release_notes: true
+
+      - name: Upload to Release (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          name: ${{ github.event.inputs.version }}
+          files: ${{ matrix.name }}${{ matrix.ext }}
+          generate_release_notes: false
