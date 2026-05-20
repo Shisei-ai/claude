@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version label (e.g. v1.1.0)'
+        description: 'Version label (e.g. v1.2.0)'
         required: true
-        default: 'v1.1.0'
+        default: 'v1.2.0'
       release:
         description: 'Create GitHub Release?'
         required: false
@@ -84,21 +84,26 @@ jobs:
         shell: bash
         run: |
           src="roguelike-rpg/target/${{ matrix.target }}/release/roguelike-rpg${{ matrix.ext }}"
-          dst="${{ matrix.name }}${{ matrix.ext }}"
-          cp "$src" "$dst"
+          cp "$src" "${{ matrix.name }}${{ matrix.ext }}"
+
+      # ── Package as ZIP (avoids security-software blocks on raw .exe) ──
+      - name: Package into ZIP
+        shell: bash
+        run: |
+          zip "${{ matrix.name }}.zip" "${{ matrix.name }}${{ matrix.ext }}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
-          path: ${{ matrix.name }}${{ matrix.ext }}
+          path: ${{ matrix.name }}.zip
 
-      # ── Attach to GitHub Release ───────────────────────────────────
+      # ── Attach ZIP to GitHub Release ───────────────────────────────
       - name: Upload to Release (tag push)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.name }}${{ matrix.ext }}
+          files: ${{ matrix.name }}.zip
           generate_release_notes: true
 
       - name: Upload to Release (workflow_dispatch)
@@ -107,6 +112,6 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.version }}
           name: ${{ github.event.inputs.version }}
-          files: ${{ matrix.name }}${{ matrix.ext }}
+          files: ${{ matrix.name }}.zip
           generate_release_notes: false
           target_commitish: claude/roguelike-rpg-game-LkUQp
