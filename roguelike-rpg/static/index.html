@@ -7,9 +7,9 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{background:#06060d;color:#a0aabb;font-family:'Consolas','Cascadia Code',monospace;overflow:hidden;width:100vw;height:100vh;display:flex;flex-direction:column;user-select:none}
-#layout{display:flex;flex:1;overflow:hidden;gap:2px;padding:2px}
-#canvas-wrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden}
-canvas{image-rendering:pixelated;image-rendering:crisp-edges}
+#layout{display:flex;flex:1;overflow:hidden;gap:2px;padding:2px;min-height:0}
+#canvas-wrap{flex:1;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#02020a}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block;max-width:100%;max-height:100%}
 #sidebar{width:240px;display:flex;flex-direction:column;gap:5px;overflow:hidden;padding:4px 2px}
 .panel{background:#0b0b18;border:1px solid #1e2535;padding:8px 10px;border-radius:3px}
 .panel-title{font-size:9px;letter-spacing:.18em;color:#2d3d5a;margin-bottom:6px;text-transform:uppercase;border-bottom:1px solid #141e2e;padding-bottom:4px}
@@ -1357,7 +1357,9 @@ function connect() {
 
   ws.onmessage = (e) => {
     try {
+      const first = !state;
       state = JSON.parse(e.data);
+      if (first) fitCanvas(); // ensure canvas is sized when game data first arrives
       render();
       updateUI(state);
       renderModal(state);
@@ -1411,26 +1413,27 @@ document.addEventListener('dblclick', () => {
 // ─────────────────────────────────────────────────────────────
 //  Canvas fit
 // ─────────────────────────────────────────────────────────────
+let _fitRetry = 0;
+
 function fitCanvas() {
   const wrap = document.getElementById('canvas-wrap');
   const aw = wrap.clientWidth;
   const ah = wrap.clientHeight;
-  if (aw <= 0 || ah <= 0) return;
-  const scaleX = aw / canvas.width;
-  const scaleY = ah / canvas.height;
-  const scale  = Math.min(scaleX, scaleY);
-  canvas.style.width  = (canvas.width  * scale) + 'px';
-  canvas.style.height = (canvas.height * scale) + 'px';
+  if (aw <= 0 || ah <= 0) {
+    // Dimensions not ready yet — retry up to 30 frames
+    if (_fitRetry < 30) { _fitRetry++; requestAnimationFrame(fitCanvas); }
+    return;
+  }
+  _fitRetry = 0;
+  const scale = Math.min(aw / canvas.width, ah / canvas.height);
+  if (scale <= 0) return;
+  canvas.style.width  = Math.floor(canvas.width  * scale) + 'px';
+  canvas.style.height = Math.floor(canvas.height * scale) + 'px';
 }
 
 window.addEventListener('resize', fitCanvas);
-
-// Use ResizeObserver so fitCanvas runs after layout is fully computed
-const _ro = new ResizeObserver(() => fitCanvas());
-_ro.observe(document.getElementById('canvas-wrap'));
-
-// Also attempt after first paint as a fallback
-requestAnimationFrame(() => { fitCanvas(); });
+new ResizeObserver(fitCanvas).observe(document.getElementById('canvas-wrap'));
+requestAnimationFrame(fitCanvas);
 
 connect();
 </script>
