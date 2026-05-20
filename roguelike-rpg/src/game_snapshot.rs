@@ -89,6 +89,37 @@ pub struct HotbarSlot {
 }
 
 #[derive(Serialize)]
+pub struct BattleSkillSnap {
+    pub id: usize,
+    pub name: String,
+    pub mp_cost: i32,
+    pub cd_left: u32,
+}
+
+#[derive(Serialize)]
+pub struct BattleItemSnap {
+    pub idx: usize,
+    pub name: String,
+}
+
+#[derive(Serialize)]
+pub struct BattleSnap {
+    pub enemy_kind: String,
+    pub enemy_name: String,
+    pub enemy_hp: i32,
+    pub enemy_max_hp: i32,
+    pub enemy_poisoned: bool,
+    pub enemy_stunned: bool,
+    pub menu: usize,
+    pub sub_mode: u8,
+    pub sub_cursor: usize,
+    pub log: Vec<MsgSnap>,
+    pub turn: u32,
+    pub active_skills: Vec<BattleSkillSnap>,
+    pub consumables: Vec<BattleItemSnap>,
+}
+
+#[derive(Serialize)]
 pub struct GameSnapshot {
     pub mode: String,
     pub floor: u32,
@@ -131,6 +162,7 @@ pub struct GameSnapshot {
     pub hotbar: Vec<Option<HotbarSlot>>,
     pub cursed: bool,
     pub blessed: bool,
+    pub battle: Option<BattleSnap>,
 }
 
 fn tile_id(t: Tile) -> u8 {
@@ -278,6 +310,7 @@ impl GameSnapshot {
         let mode_str = match game.mode {
             GameMode::Exploring => "Exploring",
             GameMode::Help      => "Help",
+            GameMode::Battle    => "Battle",
             GameMode::Inventory => "Inventory",
             GameMode::Skills    => "Skills",
             GameMode::Crafting  => "Crafting",
@@ -286,6 +319,51 @@ impl GameSnapshot {
             GameMode::Victory   => "Victory",
             GameMode::LevelUp   => "LevelUp",
         }.to_string();
+
+        let battle = if game.mode == crate::game::GameMode::Battle {
+            game.battle_enemy_idx.and_then(|idx| {
+                game.monsters.get(idx).map(|m| {
+                    use crate::monster::StatusEffect;
+                    let poisoned = m.status_effects.iter().any(|s| matches!(s, StatusEffect::Poisoned{..}));
+                    let stunned  = m.status_effects.iter().any(|s| matches!(s, StatusEffect::Stunned{..}));
+                    let active_skills: Vec<BattleSkillSnap> = game.player.skills.iter()
+                        .enumerate()
+                        .filter(|(_, s)| s.learned && !s.is_passive)
+                        .map(|(i, s)| BattleSkillSnap {
+                            id: i,
+                            name: s.name.clone(),
+                            mp_cost: s.mp_cost,
+                            cd_left: s.current_cooldown,
+                        })
+                        .collect();
+                    let consumables: Vec<BattleItemSnap> = game.player.inventory.iter()
+                        .enumerate()
+                        .filter(|(_, it)| it.kind == crate::item::ItemKind::Consumable)
+                        .map(|(i, it)| BattleItemSnap { idx: i, name: it.name.clone() })
+                        .collect();
+                    let log: Vec<MsgSnap> = game.battle_log.iter().rev().take(5).rev()
+                        .map(|(t, k)| MsgSnap { text: t.clone(), kind: format!("{:?}", k) })
+                        .collect();
+                    BattleSnap {
+                        enemy_kind: format!("{:?}", m.kind),
+                        enemy_name: m.kind.name().to_string(),
+                        enemy_hp: m.hp,
+                        enemy_max_hp: m.max_hp,
+                        enemy_poisoned: poisoned,
+                        enemy_stunned: stunned,
+                        menu: game.battle_menu,
+                        sub_mode: game.battle_sub_mode,
+                        sub_cursor: game.battle_sub_cursor,
+                        log,
+                        turn: game.battle_turn,
+                        active_skills,
+                        consumables,
+                    }
+                })
+            })
+        } else {
+            None
+        };
 
         GameSnapshot {
             mode: mode_str,
@@ -325,6 +403,7 @@ impl GameSnapshot {
             hotbar,
             cursed: game.cursed_floor,
             blessed: game.blessed_floor,
+            battle,
         }
     }
 }

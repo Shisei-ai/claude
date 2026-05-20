@@ -117,6 +117,18 @@ pub fn handle_input(game: &mut Game, key: KeyCode, _modifiers: KeyModifiers) -> 
             _ => {}
         },
 
+        GameMode::Battle => {
+            match key {
+                KeyCode::Left  | KeyCode::Char('a') | KeyCode::Char('A') => game.battle_navigate(-1),
+                KeyCode::Right | KeyCode::Char('d') | KeyCode::Char('D') => game.battle_navigate(1),
+                KeyCode::Up    | KeyCode::Char('w') | KeyCode::Char('W') => game.battle_navigate(-1),
+                KeyCode::Down  | KeyCode::Char('s') | KeyCode::Char('S') => game.battle_navigate(1),
+                KeyCode::Enter => game.battle_confirm(),
+                KeyCode::Esc   => game.battle_back(),
+                _ => {}
+            }
+        }
+
         GameMode::Exploring => match key {
             KeyCode::Char('q') => return true,
 

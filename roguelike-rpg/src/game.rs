@@ -14,6 +14,7 @@ pub const FOV_RADIUS: i32 = 8;
 pub enum GameMode {
     Exploring,
     Help,
+    Battle,
     Inventory,
     Skills,
     Crafting,
@@ -41,6 +42,12 @@ pub struct Game {
     pub blessed_floor: bool,
     pub floor_exp_mult: f32,
     pub show_map_revealed: bool,
+    pub battle_enemy_idx: Option<usize>,
+    pub battle_menu: usize,       // 0=Attack 1=Skill 2=Item 3=Run
+    pub battle_sub_mode: u8,      // 0=main 1=skill-select 2=item-select
+    pub battle_sub_cursor: usize,
+    pub battle_log: Vec<(String, MessageKind)>,
+    pub battle_turn: u32,
     pub collection_unlocked: Vec<String>,
     pub camera_x: i32,
     pub camera_y: i32,
@@ -83,6 +90,12 @@ impl Game {
             blessed_floor: false,
             floor_exp_mult: 1.0,
             show_map_revealed: false,
+            battle_enemy_idx: None,
+            battle_menu: 0,
+            battle_sub_mode: 0,
+            battle_sub_cursor: 0,
+            battle_log: Vec::new(),
+            battle_turn: 0,
             collection_unlocked: Vec::new(),
             camera_x: 0,
             camera_y: 0,
@@ -161,10 +174,17 @@ impl Game {
         let nx = self.player.x + dx;
         let ny = self.player.y + dy;
 
-        // Check for monster at target
+        // Check for monster at target → enter battle
         if let Some(idx) = self.monster_at(nx, ny) {
-            self.attack_monster(idx);
-            self.end_player_turn();
+            let name = self.monsters[idx].kind.name().to_string();
+            self.battle_enemy_idx = Some(idx);
+            self.battle_menu = 0;
+            self.battle_sub_mode = 0;
+            self.battle_sub_cursor = 0;
+            self.battle_log.clear();
+            self.battle_turn = 0;
+            self.battle_log.push((format!("⚔ {} appeared!", name), MessageKind::Event));
+            self.mode = GameMode::Battle;
             return true;
         }
 
@@ -881,6 +901,319 @@ impl Game {
         }
 
         self.update_stats();
+    }
+
+    // ── Battle navigation ────────────────────────────────────────────
+    pub fn battle_navigate(&mut self, dir: i32) {
+        match self.battle_sub_mode {
+            0 => {
+                self.battle_menu = ((self.battle_menu as i32 + dir + 4) % 4) as usize;
+            }
+            1 => {
+                let n = self.player.skills.iter()
+                    .filter(|s| s.learned && !s.is_passive)
+                    .count() as i32;
+                if n > 0 {
+                    self.battle_sub_cursor = ((self.battle_sub_cursor as i32 + dir + n) % n) as usize;
+                }
+            }
+            2 => {
+                let n = self.player.inventory.iter()
+                    .filter(|i| i.kind == crate::item::ItemKind::Consumable)
+                    .count() as i32;
+                if n > 0 {
+                    self.battle_sub_cursor = ((self.battle_sub_cursor as i32 + dir + n) % n) as usize;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    pub fn battle_back(&mut self) {
+        if self.battle_sub_mode > 0 {
+            self.battle_sub_mode = 0;
+        }
+    }
+
+    pub fn battle_confirm(&mut self) {
+        match self.battle_sub_mode {
+            0 => match self.battle_menu {
+                0 => self.battle_do_attack(),
+                1 => {
+                    let n = self.player.skills.iter()
+                        .filter(|s| s.learned && !s.is_passive)
+                        .count();
+                    if n == 0 {
+                        self.battle_log.push(("No active skills learned!".into(), MessageKind::Warning));
+                    } else {
+                        self.battle_sub_mode = 1;
+                        self.battle_sub_cursor = 0;
+                    }
+                }
+                2 => {
+                    let n = self.player.inventory.iter()
+                        .filter(|i| i.kind == crate::item::ItemKind::Consumable)
+                        .count();
+                    if n == 0 {
+                        self.battle_log.push(("No items!".into(), MessageKind::Warning));
+                    } else {
+                        self.battle_sub_mode = 2;
+                        self.battle_sub_cursor = 0;
+                    }
+                }
+                3 => self.battle_do_run(),
+                _ => {}
+            },
+            1 => {
+                let indices: Vec<usize> = self.player.skills.iter()
+                    .enumerate()
+                    .filter(|(_, s)| s.learned && !s.is_passive)
+                    .map(|(i, _)| i)
+                    .collect();
+                if let Some(&skill_idx) = indices.get(self.battle_sub_cursor) {
+                    self.battle_do_skill(skill_idx);
+                }
+            }
+            2 => {
+                let indices: Vec<usize> = self.player.inventory.iter()
+                    .enumerate()
+                    .filter(|(_, i)| i.kind == crate::item::ItemKind::Consumable)
+                    .map(|(i, _)| i)
+                    .collect();
+                if let Some(&item_idx) = indices.get(self.battle_sub_cursor) {
+                    self.battle_do_item(item_idx);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn battle_do_attack(&mut self) {
+        let idx = match self.battle_enemy_idx { Some(i) => i, None => return };
+        if idx >= self.monsters.len() { self.battle_end_return(); return; }
+
+        let is_crit = self.rng.gen_range(0..100) < self.player.crit_rate();
+        let base = self.player.effective_attack() + self.rng.gen_range(0..5);
+        let dmg = if is_crit { base * 2 } else { base };
+        let actual = self.monsters[idx].take_damage(dmg);
+        let name = self.monsters[idx].kind.name().to_string();
+
+        if self.player.lifesteal_pct > 0 {
+            let heal = (actual as f32 * self.player.lifesteal_pct as f32 / 100.0) as i32;
+            self.player.heal(heal);
+        }
+
+        let msg = if is_crit {
+            format!("⚡ CRITICAL! You strike {} for {} damage!", name, actual)
+        } else {
+            format!("⚔ You attack {} for {} damage.", name, actual)
+        };
+        self.battle_log.push((msg, MessageKind::Combat));
+        self.add_message(self.battle_log.last().unwrap().0.clone(), MessageKind::Combat);
+
+        self.battle_turn += 1;
+        self.battle_sub_mode = 0;
+
+        if !self.monsters[idx].is_alive() {
+            self.battle_end_victory(idx);
+        } else {
+            self.battle_enemy_turn();
+        }
+    }
+
+    fn battle_do_skill(&mut self, skill_idx: usize) {
+        let idx = match self.battle_enemy_idx { Some(i) => i, None => return };
+        if idx >= self.monsters.len() { self.battle_end_return(); return; }
+
+        if skill_idx >= self.player.skills.len() { return; }
+        let skill = self.player.skills[skill_idx].clone();
+
+        if !skill.can_use(self.player.mp) {
+            let msg = if skill.current_cooldown > 0 {
+                format!("On cooldown ({} turns left).", skill.current_cooldown)
+            } else {
+                "Not enough MP!".to_string()
+            };
+            self.battle_log.push((msg, MessageKind::Warning));
+            return;
+        }
+
+        self.player.mp -= skill.mp_cost;
+        self.player.skills[skill_idx].current_cooldown = skill.cooldown;
+        self.player.skills_used += 1;
+
+        let msg = match &skill.effect {
+            SkillEffect::AttackMult(pct) => {
+                let dmg = (self.player.effective_attack() as f32 * *pct as f32 / 100.0) as i32;
+                let actual = self.monsters[idx].take_damage(dmg);
+                let name = self.monsters[idx].kind.name().to_string();
+                format!("✦ {}: {} takes {} damage!", skill.name, name, actual)
+            }
+            SkillEffect::TeleportStrike => {
+                let dmg = self.player.effective_attack() * 2;
+                let actual = self.monsters[idx].take_damage(dmg);
+                let name = self.monsters[idx].kind.name().to_string();
+                format!("✦ {}: Blink strike on {} for {} CRIT!", skill.name, name, actual)
+            }
+            SkillEffect::DoubleAttack => {
+                let mut total = 0;
+                for _ in 0..2 {
+                    if self.monsters[idx].is_alive() {
+                        let d = self.player.effective_attack();
+                        total += self.monsters[idx].take_damage(d);
+                    }
+                }
+                let name = self.monsters[idx].kind.name().to_string();
+                format!("✦ {}: Double strike on {} for {} total!", skill.name, name, total)
+            }
+            SkillEffect::DotPoison(dmg, turns) => {
+                self.monsters[idx].status_effects.push(
+                    crate::monster::StatusEffect::Poisoned { damage: *dmg, turns_left: *turns }
+                );
+                let name = self.monsters[idx].kind.name().to_string();
+                format!("✦ {}: {} is poisoned! ({}/turn)", skill.name, name, dmg)
+            }
+            SkillEffect::Stun(turns) => {
+                self.monsters[idx].status_effects.push(
+                    crate::monster::StatusEffect::Stunned { turns_left: *turns }
+                );
+                let name = self.monsters[idx].kind.name().to_string();
+                format!("✦ {}: {} is stunned for {} turns!", skill.name, name, turns)
+            }
+            SkillEffect::Heal(amount) => {
+                self.player.heal(*amount);
+                format!("✦ {}: Healed {} HP!", skill.name, amount)
+            }
+            SkillEffect::MpHeal(amount) => {
+                self.player.heal_mp(*amount);
+                format!("✦ {}: Recovered {} MP!", skill.name, amount)
+            }
+            SkillEffect::Shield(amount, _) => {
+                self.player.shield_hp += amount;
+                format!("✦ {}: Shield +{}!", skill.name, amount)
+            }
+            SkillEffect::CritBoost(pct) => {
+                self.player.crit_bonus = *pct;
+                self.player.crit_bonus_turns = 5;
+                format!("✦ {}: Crit rate +{}% for 5 turns!", skill.name, pct)
+            }
+            SkillEffect::AoeDamage(dmg) => {
+                let actual = self.monsters[idx].take_damage(*dmg);
+                let name = self.monsters[idx].kind.name().to_string();
+                format!("✦ {}: Arcane blast on {} for {}!", skill.name, name, actual)
+            }
+            _ => format!("✦ {}: Used.", skill.name),
+        };
+
+        self.battle_log.push((msg.clone(), MessageKind::Combat));
+        self.add_message(msg, MessageKind::Combat);
+        self.battle_turn += 1;
+        self.battle_sub_mode = 0;
+
+        if idx < self.monsters.len() && !self.monsters[idx].is_alive() {
+            self.battle_end_victory(idx);
+        } else if idx < self.monsters.len() {
+            self.battle_enemy_turn();
+        }
+    }
+
+    fn battle_do_item(&mut self, item_idx: usize) {
+        if item_idx >= self.player.inventory.len() { return; }
+        let item = self.player.inventory[item_idx].clone();
+        let msg = format!("🧪 Used: {}", item.name);
+        self.battle_log.push((msg.clone(), MessageKind::Loot));
+        self.add_message(msg, MessageKind::Loot);
+
+        if let Some(ref effect) = item.consumable_effect {
+            match effect {
+                crate::item::ConsumableEffect::HealHp(amt) => { let a = *amt; self.player.heal(a); }
+                crate::item::ConsumableEffect::HealMp(amt) => { let a = *amt; self.player.heal_mp(a); }
+                crate::item::ConsumableEffect::TempStrBoost(s, t) => {
+                    let (s, t) = (*s, *t);
+                    self.player.temp_buffs.push(crate::player::TempBuff { str_bonus: s, def_bonus: 0, turns_left: t });
+                }
+                crate::item::ConsumableEffect::TempDefBoost(d, t) => {
+                    let (d, t) = (*d, *t);
+                    self.player.temp_buffs.push(crate::player::TempBuff { str_bonus: 0, def_bonus: d, turns_left: t });
+                }
+                crate::item::ConsumableEffect::PoisonResist(_) => { self.player.poison_turns = 0; }
+                _ => {}
+            }
+        }
+        self.player.inventory.remove(item_idx);
+
+        self.battle_turn += 1;
+        self.battle_sub_mode = 0;
+        self.battle_enemy_turn();
+    }
+
+    fn battle_do_run(&mut self) {
+        let idx = match self.battle_enemy_idx { Some(i) => i, None => { self.battle_end_return(); return; } };
+        let escape_chance = 40u32 + self.player.base_dex as u32;
+        if self.rng.gen_range(0..100) < escape_chance {
+            self.battle_log.push(("🏃 You escaped!".into(), MessageKind::Good));
+            self.add_message("You escaped from battle!", MessageKind::Good);
+            self.battle_end_return();
+        } else {
+            self.battle_log.push(("Failed to run!".into(), MessageKind::Warning));
+            self.add_message("Failed to escape!", MessageKind::Warning);
+            self.battle_enemy_turn();
+        }
+    }
+
+    fn battle_enemy_turn(&mut self) {
+        let idx = match self.battle_enemy_idx { Some(i) => i, None => { self.battle_end_return(); return; } };
+        if idx >= self.monsters.len() { self.battle_end_return(); return; }
+
+        // Tick monster status
+        self.monsters[idx].tick_status();
+
+        if !self.monsters[idx].is_alive() {
+            self.battle_end_victory(idx);
+            return;
+        }
+
+        if self.monsters[idx].is_stunned() {
+            let name = self.monsters[idx].kind.name().to_string();
+            self.battle_log.push((format!("💫 {} is stunned!", name), MessageKind::Warning));
+            // Player turn tick
+            self.player.tick_buffs();
+            self.player.tick_skill_cooldowns();
+            return;
+        }
+
+        let atk = self.monsters[idx].attack + self.rng.gen_range(0..4);
+        let bonus = if self.cursed_floor { atk / 4 } else { 0 };
+        let dmg = self.player.take_damage(atk + bonus);
+        let name = self.monsters[idx].kind.name().to_string();
+        let msg = format!("💥 {} attacks you for {} damage!", name, dmg);
+        self.battle_log.push((msg.clone(), MessageKind::Combat));
+        self.add_message(msg, MessageKind::Combat);
+
+        self.player.tick_buffs();
+        self.player.tick_skill_cooldowns();
+
+        if !self.player.is_alive() {
+            self.battle_log.push(("💀 You have fallen...".into(), MessageKind::Warning));
+            self.mode = GameMode::Dead;
+            self.add_message("You have died! Game Over.", MessageKind::Warning);
+        }
+    }
+
+    fn battle_end_victory(&mut self, idx: usize) {
+        let name = self.monsters[idx].kind.name().to_string();
+        self.battle_log.push((format!("✨ {} is defeated!", name), MessageKind::Good));
+        self.on_monster_death(idx);
+        self.battle_enemy_idx = None;
+        if self.mode == GameMode::Battle {
+            self.mode = GameMode::Exploring;
+        }
+        self.end_player_turn();
+    }
+
+    fn battle_end_return(&mut self) {
+        self.battle_enemy_idx = None;
+        self.mode = GameMode::Exploring;
     }
 
     fn monster_at(&self, x: i32, y: i32) -> Option<usize> {
