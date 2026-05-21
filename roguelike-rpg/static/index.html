@@ -86,7 +86,24 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 .modal-detail .stat-line{font-size:9px;color:#4a6080;padding:1px 0}
 .modal-detail .stat-line span{color:#6080a0}
 .modal-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
-.action-btn{background:#0e1428;border:1px solid #202840;border-radius:2px;padding:3px 8px;font-size:9px;color:#4a6080;letter-spacing:.1em}
+.action-btn{background:#0e1428;border:1px solid #202840;border-radius:2px;padding:3px 8px;font-size:9px;color:#4a6080;letter-spacing:.1em;cursor:pointer}
+.action-btn:hover{background:#131c38;color:#6888a8}
+.action-btn:active{background:#0a1020}
+/* ── On-screen control pad ── */
+#ctrl-bar{display:flex;align-items:center;justify-content:center;gap:12px;padding:4px 8px;background:#04040c;border-top:1px solid #10141e;flex-shrink:0}
+.ctrl-dpad{display:grid;grid-template-columns:repeat(3,32px);grid-template-rows:repeat(3,32px);gap:2px}
+.ctrl-dpad-btn{background:#0a0a1c;border:1px solid #1c2438;border-radius:3px;color:#3a5070;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;user-select:none}
+.ctrl-dpad-btn:hover{background:#101830;color:#5878a0}
+.ctrl-dpad-btn:active,.ctrl-dpad-btn.pressed{background:#0c1428;border-color:#2a4060;color:#80a8d0}
+.ctrl-dpad-center{background:#06060e;color:#1e2838;font-size:10px}
+.ctrl-acts{display:flex;flex-direction:column;gap:4px}
+.ctrl-act-row{display:flex;gap:4px}
+.ctrl-act-btn{background:#0a0a1c;border:1px solid #1c2438;border-radius:3px;color:#3a5070;font-size:9px;padding:0 8px;height:32px;cursor:pointer;letter-spacing:.05em;-webkit-tap-highlight-color:transparent;user-select:none;white-space:nowrap}
+.ctrl-act-btn:hover{background:#101830;color:#5878a0}
+.ctrl-act-btn:active{background:#0c1428;border-color:#2a4060;color:#80a8d0}
+.ctrl-act-btn .act-key{color:#2a3850;font-size:8px;margin-right:3px}
+.hb-slot{cursor:pointer}
+.hb-slot:hover{background:#0e102a;border-color:#2a3450}
 .skill-branch-Warrior{color:#c06030}
 .skill-branch-Mage{color:#5080c8}
 .skill-branch-Rogue{color:#40a060}
@@ -147,22 +164,26 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
     <p class="sub">Press any key to start &nbsp;·&nbsp; <kbd>?</kbd> in-game for help</p>
     <table class="key-table">
       <tr><th colspan="2">MOVEMENT</th></tr>
-      <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Arrows</td><td>Move</td></tr>
-      <tr><td><kbd>Y</kbd><kbd>U</kbd><kbd>B</kbd><kbd>N</kbd></td><td>Diagonal</td></tr>
-      <tr><td><kbd>.</kbd> or <kbd>5</kbd></td><td>Wait</td></tr>
-      <tr><th colspan="2">ACTION</th></tr>
-      <tr><td><kbd>G</kbd></td><td>Pick up / open chest</td></tr>
+      <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Arrows</td><td>Move (4 directions)</td></tr>
+      <tr><td><kbd>Y</kbd><kbd>U</kbd><kbd>B</kbd><kbd>N</kbd></td><td>Diagonal move</td></tr>
+      <tr><td><kbd>Space</kbd> / <kbd>.</kbd></td><td>Wait (skip turn)</td></tr>
+      <tr><th colspan="2">INTERACT</th></tr>
+      <tr><td><kbd>F</kbd> / <kbd>Enter</kbd></td><td>Smart interact (pickup / stairs / shrine)</td></tr>
       <tr><td><kbd>&gt;</kbd></td><td>Descend stairs</td></tr>
       <tr><td><kbd>&lt;</kbd></td><td>Ascend stairs</td></tr>
-      <tr><td><kbd>E</kbd></td><td>Activate shrine</td></tr>
       <tr><th colspan="2">MENUS</th></tr>
-      <tr><td><kbd>I</kbd></td><td>Inventory (U:use · E:equip · D:drop)</td></tr>
-      <tr><td><kbd>S</kbd> (shift)</td><td>Skill tree</td></tr>
-      <tr><td><kbd>C</kbd> on anvil</td><td>Crafting</td></tr>
-      <tr><th colspan="2">SKILLS</th></tr>
-      <tr><td><kbd>1</kbd>–<kbd>4</kbd></td><td>Use active skill</td></tr>
+      <tr><td><kbd>I</kbd></td><td>Inventory</td></tr>
+      <tr><td><kbd>K</kbd></td><td>Skill tree</td></tr>
+      <tr><td><kbd>C</kbd> (on anvil)</td><td>Crafting</td></tr>
+      <tr><th colspan="2">INVENTORY</th></tr>
+      <tr><td><kbd>↑</kbd><kbd>↓</kbd> select · <kbd>Enter</kbd></td><td>Use item</td></tr>
+      <tr><td><kbd>E</kbd></td><td>Equip / unequip</td></tr>
+      <tr><td><kbd>D</kbd></td><td>Drop item</td></tr>
+      <tr><th colspan="2">SKILLS &amp; BATTLE</th></tr>
+      <tr><td><kbd>1</kbd>–<kbd>4</kbd></td><td>Use active skill (hotbar)</td></tr>
+      <tr><td><kbd>←</kbd><kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Esc</kbd></td><td>Battle menu</td></tr>
       <tr><th colspan="2">OTHER</th></tr>
-      <tr><td><kbd>?</kbd></td><td>Toggle help</td></tr>
+      <tr><td><kbd>?</kbd></td><td>This help</td></tr>
       <tr><td><kbd>Q</kbd></td><td>Quit</td></tr>
     </table>
     <p class="hint">Click or press any key to dismiss</p>
@@ -213,7 +234,36 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
     </div>
     <!-- Skill pts -->
     <div class="panel" id="p-sp" style="display:none">
-      <div style="font-size:9px;color:#806030">Skill points: <span id="skill-pts">0</span> · Press S to spend</div>
+      <div style="font-size:9px;color:#806030">Skill points: <span id="skill-pts">0</span> · Press <kbd style="font-size:8px">K</kbd> to spend</div>
+    </div>
+  </div>
+</div>
+
+<!-- On-screen control bar -->
+<div id="ctrl-bar">
+  <!-- D-pad -->
+  <div class="ctrl-dpad">
+    <div></div>
+    <button class="ctrl-dpad-btn" id="cb-up"    onclick="sendKey('ArrowUp','ArrowUp',false)">▲</button>
+    <div></div>
+    <button class="ctrl-dpad-btn" id="cb-left"  onclick="sendKey('ArrowLeft','ArrowLeft',false)">◀</button>
+    <button class="ctrl-dpad-btn ctrl-dpad-center" onclick="sendKey(' ','Space',false)" title="Wait">·</button>
+    <button class="ctrl-dpad-btn" id="cb-right" onclick="sendKey('ArrowRight','ArrowRight',false)">▶</button>
+    <div></div>
+    <button class="ctrl-dpad-btn" id="cb-down"  onclick="sendKey('ArrowDown','ArrowDown',false)">▼</button>
+    <div></div>
+  </div>
+  <!-- Action buttons -->
+  <div class="ctrl-acts">
+    <div class="ctrl-act-row">
+      <button class="ctrl-act-btn" onclick="sendKey('f','KeyF',false)"><span class="act-key">F</span>インタラクト</button>
+      <button class="ctrl-act-btn" onclick="sendKey('i','KeyI',false)"><span class="act-key">I</span>インベントリ</button>
+      <button class="ctrl-act-btn" onclick="sendKey('k','KeyK',false)"><span class="act-key">K</span>スキル</button>
+    </div>
+    <div class="ctrl-act-row">
+      <button class="ctrl-act-btn" onclick="sendKey('Enter','Enter',false)"><span class="act-key">↩</span>決定</button>
+      <button class="ctrl-act-btn" onclick="sendKey('Escape','Escape',false)"><span class="act-key">✕</span>閉じる/戻る</button>
+      <button class="ctrl-act-btn" onclick="sendKey('?','Slash',true)"><span class="act-key">?</span>ヘルプ</button>
     </div>
   </div>
 </div>
@@ -583,13 +633,16 @@ function updateUI(g) {
     el.style.color = g['eq_'+slot] ? '#8098b8' : '#282838';
   });
 
-  // Hotbar
+  // Hotbar (clickable)
   const hotbar = document.getElementById('hotbar');
   hotbar.innerHTML = '';
   for (let i = 0; i < 4; i++) {
     const slot = g.hotbar[i];
     const div = document.createElement('div');
     div.className = 'hb-slot';
+    const keyStr = String(i + 1);
+    div.title = slot ? `[${keyStr}] ${slot.name}` : `Slot ${keyStr} empty`;
+    div.onclick = () => sendKey(keyStr, `Digit${keyStr}`, false);
     if (slot) {
       div.innerHTML = `<div class="hb-key">${i+1}</div><div class="hb-name">${slot.name}</div>`;
       if (slot.cd_left > 0) {
@@ -659,11 +712,11 @@ function buildInventory(g) {
       <div class="item-desc">${item.desc}</div>
       ${stats.map(s=>`<div class="stat-line"><span>${s}</span></div>`).join('')}
       <div class="modal-actions">
-        <span class="action-btn">U: Use</span>
-        <span class="action-btn">E: Equip</span>
-        <span class="action-btn">D: Drop</span>
+        <span class="action-btn" onclick="sendKey('Enter','Enter',false)">↩ 使う</span>
+        <span class="action-btn" onclick="sendKey('e','KeyE',false)">E 装備</span>
+        <span class="action-btn" onclick="sendKey('d','KeyD',false)">D 捨てる</span>
       </div>
-      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ navigate · Esc close</div>`;
+      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ navigate · Esc / I close</div>`;
   }
   return `<div class="modal-box" style="width:480px">
     <div class="modal-header"><span>INVENTORY (${g.inventory.length})</span><span class="close-hint">Esc</span></div>
@@ -696,8 +749,8 @@ function buildSkills(g) {
       <div class="stat-line" style="margin-top:6px">
         ${skill.learned ? '<span class="skill-learned">✓ Learned</span>' : skill.unlocked ? '<span style="color:#506070">Available (1 pt)</span>' : '<span class="skill-locked">🔒 Locked</span>'}
       </div>
-      ${!skill.learned && skill.unlocked && g.skill_pts > 0 ? '<div class="modal-actions"><span class="action-btn">Enter: Learn</span></div>' : ''}
-      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ navigate · Esc close · Pts: ${g.skill_pts}</div>`;
+      ${!skill.learned && skill.unlocked && g.skill_pts > 0 ? '<div class="modal-actions"><span class="action-btn" onclick="sendKey(\'Enter\',\'Enter\',false)">↩ 習得</span></div>' : ''}
+      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ navigate · Esc / K close · Pts: ${g.skill_pts}</div>`;
   }
   return `<div class="modal-box" style="width:480px">
     <div class="modal-header"><span>SKILL TREE</span><span class="close-hint">Esc</span></div>
@@ -712,7 +765,7 @@ function buildEvent(g) {
   if (!g.event) return '';
   const ev = g.event;
   const choices = ev.choices.map((c,i)=>
-    `<div class="event-choice${i===ev.selected?' sel':''}">
+    `<div class="event-choice${i===ev.selected?' sel':''}" onclick="eventChoiceClick(${i})">
       ${i===ev.selected ? '▶ ' : '  '}${c}
     </div>`
   ).join('');
@@ -722,7 +775,7 @@ function buildEvent(g) {
       ${ev.irreversible ? '<div class="event-irrev">⚠ IRREVERSIBLE CHOICE</div>' : '<div style="height:12px"></div>'}
       <div class="event-desc">${ev.desc}</div>
       ${choices}
-      <div style="margin-top:12px;font-size:8px;color:#1e2838">↑↓ select · Enter confirm</div>
+      <div style="margin-top:12px;font-size:8px;color:#1e2838">↑↓ select · Enter / click to confirm</div>
     </div>
   </div>`;
 }
@@ -740,8 +793,8 @@ function buildCrafting(g) {
     detail = `<div class="item-name" style="color:${rec.can_craft?'#c8a030':'#4a5868'}">${rec.name}</div>
       <div style="margin-top:8px;font-size:9px;color:#3a5060">Ingredients:</div>
       ${rec.ingredients.map(ing=>`<div class="stat-line"><span>${ing}</span></div>`).join('')}
-      ${rec.can_craft ? '<div class="modal-actions"><span class="action-btn" style="color:#a08020">Enter: Craft</span></div>' : '<div style="margin-top:6px;font-size:8px;color:#502010">Insufficient materials</div>'}
-      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ navigate · Esc close</div>`;
+      ${rec.can_craft ? '<div class="modal-actions"><span class="action-btn" style="color:#a08020" onclick="sendKey(\'Enter\',\'Enter\',false)">↩ 製作</span></div>' : '<div style="margin-top:6px;font-size:8px;color:#502010">素材が不足しています</div>'}
+      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ navigate · Esc / C close</div>`;
   }
   return `<div class="modal-box" style="width:480px">
     <div class="modal-header"><span>⚒ CRAFTING ANVIL</span><span class="close-hint">Esc</span></div>
@@ -753,25 +806,31 @@ function buildCrafting(g) {
 }
 
 function buildHelp() {
-  return `<div class="modal-box" style="max-width:500px;padding:20px 26px">
+  return `<div class="modal-box" style="max-width:520px;padding:20px 26px">
     <div style="font-size:1.1rem;color:#d8a030;margin-bottom:12px;letter-spacing:.1em">⚔ CONTROLS</div>
     <table class="key-table">
       <tr><th colspan="2">MOVEMENT</th></tr>
-      <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Arrows</td><td>Move</td></tr>
-      <tr><td><kbd>Y</kbd><kbd>U</kbd><kbd>B</kbd><kbd>N</kbd></td><td>Diagonal</td></tr>
-      <tr><td><kbd>.</kbd> / <kbd>5</kbd></td><td>Wait</td></tr>
-      <tr><th colspan="2">ACTION</th></tr>
-      <tr><td><kbd>G</kbd></td><td>Pick up / open chest</td></tr>
-      <tr><td><kbd>&gt;</kbd></td><td>Descend stairs</td></tr>
-      <tr><td><kbd>&lt;</kbd></td><td>Ascend stairs</td></tr>
-      <tr><td><kbd>E</kbd></td><td>Activate shrine</td></tr>
-      <tr><th colspan="2">MENUS</th></tr>
-      <tr><td><kbd>I</kbd></td><td>Inventory (U:use · E:equip · D:drop)</td></tr>
-      <tr><td><kbd>S</kbd> (shift)</td><td>Skill tree</td></tr>
-      <tr><td><kbd>1</kbd>–<kbd>4</kbd></td><td>Use active skill</td></tr>
-      <tr><th colspan="2">OTHER</th></tr>
-      <tr><td><kbd>?</kbd></td><td>Toggle help</td></tr>
-      <tr><td><kbd>Q</kbd></td><td>Quit</td></tr>
+      <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Arrows</td><td>4方向移動</td></tr>
+      <tr><td><kbd>Y</kbd><kbd>U</kbd><kbd>B</kbd><kbd>N</kbd></td><td>斜め移動</td></tr>
+      <tr><td><kbd>Space</kbd> / <kbd>.</kbd></td><td>1ターン待機</td></tr>
+      <tr><th colspan="2">インタラクト</th></tr>
+      <tr><td><kbd>F</kbd> / <kbd>Enter</kbd></td><td>スマートインタラクト (拾う/階段/祠)</td></tr>
+      <tr><td><kbd>&gt;</kbd></td><td>下の階段を降りる</td></tr>
+      <tr><td><kbd>&lt;</kbd></td><td>上の階段を上る</td></tr>
+      <tr><th colspan="2">メニュー</th></tr>
+      <tr><td><kbd>I</kbd></td><td>インベントリ</td></tr>
+      <tr><td><kbd>K</kbd></td><td>スキルツリー</td></tr>
+      <tr><td><kbd>C</kbd> (鍛冶台の上)</td><td>クラフト</td></tr>
+      <tr><th colspan="2">インベントリ内</th></tr>
+      <tr><td><kbd>↑</kbd><kbd>↓</kbd> 選択 · <kbd>Enter</kbd></td><td>使う</td></tr>
+      <tr><td><kbd>E</kbd></td><td>装備する / 外す</td></tr>
+      <tr><td><kbd>D</kbd></td><td>捨てる</td></tr>
+      <tr><th colspan="2">スキル・バトル</th></tr>
+      <tr><td><kbd>1</kbd>–<kbd>4</kbd></td><td>スキルホットバー使用</td></tr>
+      <tr><td><kbd>←</kbd><kbd>→</kbd> · <kbd>Enter</kbd> · <kbd>Esc</kbd></td><td>バトルメニュー操作</td></tr>
+      <tr><th colspan="2">その他</th></tr>
+      <tr><td><kbd>?</kbd></td><td>このヘルプ</td></tr>
+      <tr><td><kbd>Q</kbd></td><td>終了</td></tr>
     </table>
     <div style="margin-top:12px;font-size:8px;color:#1e2838;text-align:center">Any key to close</div>
   </div>`;
@@ -1390,10 +1449,12 @@ document.addEventListener('keydown', (e) => {
       overlayDismissed = true;
     }
   }
-  // Prevent default for game keys
+  // Prevent default for game keys to avoid page scroll
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) {
     e.preventDefault();
   }
+  // Prevent Tab from leaving the page
+  if (e.key === 'Tab') { e.preventDefault(); }
   sendKey(e.key, e.code, e.shiftKey);
 });
 
@@ -1403,6 +1464,23 @@ function dismissOverlay() {
 document.getElementById('overlay').addEventListener('click', () => {
   dismissOverlay(); overlayDismissed = true;
 });
+
+// Event screen: click a choice to move cursor there, double-click to confirm
+let _lastEventClick = -1, _lastEventTime = 0;
+function eventChoiceClick(idx) {
+  const now = Date.now();
+  if (_lastEventClick === idx && now - _lastEventTime < 500) {
+    // Double-click: confirm
+    sendKey('Enter', 'Enter', false);
+  } else {
+    // Single click: move cursor to this choice
+    const diff = idx - (state && state.event ? state.event.selected : 0);
+    const key = diff > 0 ? 'ArrowDown' : 'ArrowUp';
+    for (let i = 0; i < Math.abs(diff); i++) sendKey(key, key, false);
+  }
+  _lastEventClick = idx;
+  _lastEventTime = now;
+}
 
 // Fullscreen on double-click
 document.addEventListener('dblclick', () => {

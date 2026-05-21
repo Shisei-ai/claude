@@ -1245,4 +1245,20 @@ impl Game {
             self.add_message("Not enough materials for this recipe.", MessageKind::Warning);
         }
     }
+
+    /// Context-aware interact: descend/ascend/pickup/shrine depending on current tile.
+    pub fn smart_interact(&mut self) {
+        let px = self.player.x;
+        let py = self.player.y;
+        match self.map.get(px, py) {
+            Tile::StairsDown   => self.descend(),
+            Tile::StairsUp     => self.ascend(),
+            Tile::Shrine       => self.activate_shrine(),
+            Tile::CraftingAnvil => {
+                self.mode = GameMode::Crafting;
+                self.craft_selection = 0;
+            }
+            _ => self.pickup_item(),
+        }
+    }
 }

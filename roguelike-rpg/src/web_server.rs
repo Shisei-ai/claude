@@ -140,6 +140,7 @@ fn parse_ws_message(text: &str) -> Option<WebInput> {
                 "ArrowDown"  => KeyCode::Down,
                 "Enter"      => KeyCode::Enter,
                 "Escape"     => KeyCode::Esc,
+                "Space"      => KeyCode::Char(' '),
                 "F1" => KeyCode::F(1), "F2" => KeyCode::F(2),
                 "F3" => KeyCode::F(3), "F4" => KeyCode::F(4),
                 _ => {
