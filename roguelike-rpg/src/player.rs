@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use crate::item::{Item, ItemKind};
 use crate::skill::Skill;
+use crate::relic::{Relic, RelicEffect};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Equipment {
@@ -111,6 +112,9 @@ pub struct Player {
     pub blessed_floors: Vec<u32>,
     pub cursed_floors: Vec<u32>,
     pub bestiary: Vec<String>,
+    // 秘宝・呪物
+    pub relics: Vec<Relic>,
+    pub relic_revive_available: bool,
 }
 
 impl Player {
@@ -156,19 +160,21 @@ impl Player {
             blessed_floors: Vec::new(),
             cursed_floors: Vec::new(),
             bestiary: Vec::new(),
+            relics: Vec::new(),
+            relic_revive_available: false,
         }
     }
 
     pub fn effective_attack(&self) -> i32 {
         let base = self.base_str + self.equipment.total_attack() + self.equipment.total_str_bonus();
         let temp: i32 = self.temp_buffs.iter().map(|b| b.str_bonus).sum();
-        base + temp
+        (base + temp + self.relic_attack_delta()).max(1)
     }
 
     pub fn effective_defense(&self) -> i32 {
         let base = self.base_def + self.equipment.total_defense();
         let temp: i32 = self.temp_buffs.iter().map(|b| b.def_bonus).sum();
-        base + temp
+        (base + temp + self.relic_defense_delta()).max(0)
     }
 
     pub fn effective_magic(&self) -> i32 {
@@ -176,17 +182,19 @@ impl Player {
     }
 
     pub fn recalc_max_hp(&self) -> i32 {
-        80 + (self.level as i32 - 1) * 12
+        (80 + (self.level as i32 - 1) * 12
             + self.base_vit * 4
             + self.equipment.total_hp_bonus()
             + self.passive_hp_bonus()
+            + self.relic_max_hp_delta()).max(1)
     }
 
     pub fn recalc_max_mp(&self) -> i32 {
-        50 + (self.level as i32 - 1) * 6
+        (50 + (self.level as i32 - 1) * 6
             + self.base_int * 3
             + self.equipment.total_mp_bonus()
             + self.passive_mp_bonus()
+            + self.relic_max_mp_delta()).max(0)
     }
 
     fn passive_hp_bonus(&self) -> i32 {
@@ -213,13 +221,14 @@ impl Player {
 
     pub fn passive_regen_hp(&self) -> i32 {
         use crate::skill::SkillEffect;
-        self.skills.iter()
+        let skill_regen: i32 = self.skills.iter()
             .filter(|s| s.learned && s.is_passive)
             .map(|s| match s.effect {
                 SkillEffect::PassiveRegenHp(v) => v,
                 _ => 0,
             })
-            .sum()
+            .sum();
+        skill_regen + self.relic_hp_regen()
     }
 
     pub fn passive_regen_mp(&self) -> i32 {
@@ -361,14 +370,6 @@ impl Player {
         }
     }
 
-    pub fn tick_skill_cooldowns(&mut self) {
-        for skill in self.skills.iter_mut() {
-            if skill.current_cooldown > 0 {
-                skill.current_cooldown -= 1;
-            }
-        }
-    }
-
     pub fn add_to_bestiary(&mut self, monster_name: String) {
         if !self.bestiary.contains(&monster_name) {
             self.bestiary.push(monster_name);
@@ -380,6 +381,150 @@ impl Player {
     }
 
     pub fn crit_rate(&self) -> u32 {
-        5u32.saturating_add((self.base_luk / 2) as u32).saturating_add(self.crit_bonus)
+        let luk = self.base_luk + self.relic_luk_delta();
+        5u32.saturating_add((luk / 2) as u32).saturating_add(self.crit_bonus)
+    }
+
+    // ────────────────────────────────────────────
+    //  秘宝・呪物 ヘルパーメソッド
+    // ────────────────────────────────────────────
+
+    pub fn relic_max_hp_delta(&self) -> i32 {
+        self.relics.iter().map(|r| match r.effect {
+            RelicEffect::MaxHpBoost(v) => v,
+            RelicEffect::MaxHpPenalty(v) => -v,
+            _ => 0,
+        }).sum()
+    }
+
+    pub fn relic_max_mp_delta(&self) -> i32 {
+        self.relics.iter().map(|r| match r.effect {
+            RelicEffect::MaxMpBoost(v) => v,
+            RelicEffect::MaxMpPenalty(v) => -v,
+            _ => 0,
+        }).sum()
+    }
+
+    pub fn relic_attack_delta(&self) -> i32 {
+        self.relics.iter().map(|r| match r.effect {
+            RelicEffect::AttackBoost(v) => v,
+            RelicEffect::AttackPenalty(v) => -v,
+            _ => 0,
+        }).sum()
+    }
+
+    pub fn relic_defense_delta(&self) -> i32 {
+        self.relics.iter().map(|r| match r.effect {
+            RelicEffect::DefensePenalty(v) => -(v as i32),
+            _ => 0,
+        }).sum()
+    }
+
+    pub fn relic_luk_delta(&self) -> i32 {
+        self.relics.iter().map(|r| match r.effect {
+            RelicEffect::LukBoost(v) => v,
+            _ => 0,
+        }).sum()
+    }
+
+    pub fn relic_hp_regen(&self) -> i32 {
+        self.relics.iter().map(|r| match r.effect {
+            RelicEffect::HpRegenBoost(v) => v,
+            _ => 0,
+        }).sum()
+    }
+
+    pub fn relic_exp_multiplier(&self) -> f32 {
+        let mut mult = 1.0f32;
+        for r in &self.relics {
+            match r.effect {
+                RelicEffect::ExpMultiplier(p) => mult *= p as f32 / 100.0,
+                RelicEffect::ExpPenalty(p)    => mult *= p as f32 / 100.0,
+                _ => {}
+            }
+        }
+        mult
+    }
+
+    pub fn relic_gold_multiplier(&self) -> f32 {
+        self.relics.iter().fold(1.0f32, |acc, r| {
+            if let RelicEffect::GoldMultiplier(p) = r.effect { acc * p as f32 / 100.0 } else { acc }
+        })
+    }
+
+    pub fn relic_lifesteal(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::LifeStealBoost(p) = r.effect { p } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_damage_reflect(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::DamageReflect(p) = r.effect { p } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_cooldown_accelerate(&self) -> bool {
+        self.relics.iter().any(|r| r.effect == RelicEffect::CooldownAccelerate)
+    }
+
+    pub fn relic_turn_skip_chance(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::TurnSkipChance(p) = r.effect { p } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_turn_poison_chance(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::TurnPoisonChance(p) = r.effect { p } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_cooldown_penalty(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::CooldownPenalty(p) = r.effect { p } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_mp_cost_multiplier(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::MpCostMultiplier(p) = r.effect { p } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_skill_hp_cost(&self) -> i32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::SkillHpCost(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_step_drain(&self) -> Option<(u32, i32)> {
+        self.relics.iter().find_map(|r| {
+            if let RelicEffect::StepHpDrain(every, dmg) = r.effect {
+                Some((every, dmg))
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn relic_gold_on_damage(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::GoldOnDamage(p) = r.effect { p } else { 0 }
+        }).sum()
+    }
+
+    pub fn has_revive_relic(&self) -> bool {
+        self.relics.iter().any(|r| r.effect == RelicEffect::ReviveOnce)
+    }
+
+    pub fn tick_skill_cooldowns(&mut self) {
+        let extra_tick = if self.relic_cooldown_accelerate() { 1u32 } else { 0u32 };
+        for skill in self.skills.iter_mut() {
+            if skill.current_cooldown > 0 {
+                let reduction = (1 + extra_tick).min(skill.current_cooldown);
+                skill.current_cooldown -= reduction;
+            }
+        }
     }
 }

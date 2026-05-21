@@ -5,6 +5,7 @@ use crate::monster::{Monster, AiState};
 use crate::item::{Item, ItemKind, ConsumableEffect, generate_floor_item};
 use crate::skill::{SkillEffect};
 use crate::event::{RandomEvent, EventConsequence, generate_floor_event};
+use crate::relic::{Relic, RelicEffect, random_relic};
 
 pub const MSG_LOG_SIZE: usize = 100;
 pub const INVENTORY_MAX: usize = 30;
@@ -29,6 +30,7 @@ pub struct Game {
     pub player: Player,
     pub monsters: Vec<Monster>,
     pub floor_items: Vec<(i32, i32, Item)>,
+    pub floor_relics: Vec<(i32, i32, Relic)>,
     pub messages: Vec<(String, MessageKind)>,
     pub mode: GameMode,
     pub rng: rand::rngs::ThreadRng,
@@ -77,6 +79,7 @@ impl Game {
             player,
             monsters: Vec::new(),
             floor_items: Vec::new(),
+            floor_relics: Vec::new(),
             messages: Vec::new(),
             mode: GameMode::Exploring,
             rng,
@@ -162,6 +165,17 @@ impl Game {
                 self.floor_items.push((cx + 1, cy, item));
             }
         }
+
+        // Spawn 1 relic per floor in a random room (not room 0 = player start)
+        if rooms.len() > 2 {
+            let room_idx = self.rng.gen_range(1..rooms.len());
+            let (cx, cy) = rooms[room_idx].center();
+            // Place slightly offset so it doesn't overlap with stairs etc.
+            let rx = cx - 1;
+            let ry = cy + 1;
+            let relic = random_relic(&mut self.rng, floor);
+            self.floor_relics.push((rx, ry, relic));
+        }
     }
 
     pub fn player_move(&mut self, dx: i32, dy: i32) -> bool {
@@ -188,6 +202,14 @@ impl Game {
             return true;
         }
 
+        // TurnSkipChance: 亡霊の鎖による行動不能
+        let skip_chance = self.player.relic_turn_skip_chance();
+        if skip_chance > 0 && self.rng.gen_range(0..100) < skip_chance {
+            self.add_message("亡霊の鎖に囚われ、動けない！", MessageKind::Warning);
+            self.end_player_turn();
+            return true;
+        }
+
         if self.map.is_walkable(nx, ny) {
             self.player.x = nx;
             self.player.y = ny;
@@ -195,12 +217,23 @@ impl Game {
             self.map.compute_fov(self.player.x, self.player.y, FOV_RADIUS);
             self.update_camera();
 
+            // StepHpDrain: 餓鬼の縄
+            if let Some((every, drain)) = self.player.relic_step_drain() {
+                if every > 0 && self.player.steps_taken % every == 0 {
+                    self.player.hp = (self.player.hp - drain).max(0);
+                    self.add_message(format!("餓鬼の縄が締め上がる…HP-{}！", drain), MessageKind::Warning);
+                }
+            }
+
             // Auto-pick logic: display items under player
             if let Some(idx) = self.item_at(nx, ny) {
                 let (_, _, ref item) = self.floor_items[idx];
                 let name = item.name.clone();
                 self.add_message(format!("発見：{}", name), MessageKind::Normal);
             }
+
+            // Auto-acquire relic
+            self.try_pickup_relic(nx, ny);
 
             // Check tile interaction
             match self.map.get(nx, ny) {
@@ -374,7 +407,14 @@ impl Game {
         }
 
         let skill = self.player.skills[skill_idx].clone();
-        if !skill.can_use(self.player.mp) {
+
+        // 魔力枯渇: MP消費増加
+        let mp_extra_pct = self.player.relic_mp_cost_multiplier();
+        let actual_mp_cost = skill.mp_cost + (skill.mp_cost as f32 * mp_extra_pct as f32 / 100.0) as i32;
+
+        let can_use = !skill.is_passive && skill.learned && skill.current_cooldown == 0
+            && self.player.mp >= actual_mp_cost;
+        if !can_use {
             if !skill.learned {
                 self.add_message("スキルを習得していない！", MessageKind::Warning);
             } else if skill.current_cooldown > 0 {
@@ -385,9 +425,21 @@ impl Game {
             return;
         }
 
-        self.player.mp -= skill.mp_cost;
-        self.player.skills[skill_idx].current_cooldown = skill.cooldown;
+        self.player.mp -= actual_mp_cost;
+        // 暗黒の封印: CD追加
+        let cd_penalty = self.player.relic_cooldown_penalty();
+        self.player.skills[skill_idx].current_cooldown = skill.cooldown + cd_penalty;
         self.player.skills_used += 1;
+
+        // 血の石板: スキル使用時HP追加消費
+        let hp_cost = self.player.relic_skill_hp_cost();
+        if hp_cost > 0 {
+            self.player.hp = (self.player.hp - hp_cost).max(0);
+            self.add_message(format!("血の石板の代償…HP-{}！", hp_cost), MessageKind::Warning);
+            if !self.player.is_alive() {
+                let _ = self.check_revive();
+            }
+        }
 
         match skill.effect {
             SkillEffect::AttackMult(pct) => {
@@ -516,9 +568,10 @@ impl Game {
         let actual = self.monsters[idx].take_damage(dmg);
         let name = self.monsters[idx].kind.name().to_string();
 
-        // Lifesteal
-        if self.player.lifesteal_pct > 0 {
-            let heal = (actual as f32 * self.player.lifesteal_pct as f32 / 100.0) as i32;
+        // Lifesteal (スキル由来 + 秘宝由来)
+        let ls_pct = self.player.lifesteal_pct + self.player.relic_lifesteal();
+        if ls_pct > 0 {
+            let heal = (actual as f32 * ls_pct as f32 / 100.0) as i32;
             self.player.heal(heal);
         }
 
@@ -549,14 +602,19 @@ impl Game {
         if self.cursed_floor {
             exp = (exp as f32 * 1.5) as u32;
         }
+        // 秘宝・呪物のEXP倍率
+        exp = (exp as f32 * self.player.relic_exp_multiplier()) as u32;
 
-        self.add_message(format!("{}を倒した！EXP+{}、ゴールド+{}", name, exp, gold), MessageKind::Good);
+        // 秘宝・呪物のゴールド倍率
+        let actual_gold = (gold as f32 * self.player.relic_gold_multiplier()) as u32;
+
+        self.add_message(format!("{}を倒した！EXP+{}、ゴールド+{}", name, exp, actual_gold), MessageKind::Good);
 
         self.player.monsters_killed += 1;
         self.player.add_to_bestiary(name.clone());
 
         let leveled = self.player.gain_exp(exp);
-        self.player.gold += gold;
+        self.player.gold += actual_gold;
 
         if leveled {
             self.add_message(format!("レベルアップ！ レベル{}になった！", self.player.level), MessageKind::Good);
@@ -582,7 +640,7 @@ impl Game {
         self.player.hp = self.player.hp.min(self.player.max_hp);
         self.player.mp = self.player.mp.min(self.player.max_mp);
 
-        // Update lifesteal from skills
+        // Update lifesteal from skills (relic bonus is added at runtime in attack_monster)
         let ls: u32 = self.player.skills.iter()
             .filter(|s| s.learned && s.is_passive)
             .map(|s| match s.effect {
@@ -593,22 +651,45 @@ impl Game {
         self.player.lifesteal_pct = ls;
     }
 
+    fn check_revive(&mut self) -> bool {
+        if self.player.hp <= 0 && self.player.relic_revive_available && self.player.has_revive_relic() {
+            self.player.hp = 1;
+            self.player.relic_revive_available = false;
+            self.add_message("不死鳥の羽が輝く！死の淵から甦った！", MessageKind::Good);
+            return true;
+        }
+        false
+    }
+
     fn end_player_turn(&mut self) {
         self.turn += 1;
         self.player.tick_buffs();
         self.player.tick_skill_cooldowns();
 
+        // 疫病の壺: 毎ターン確率でダメージ
+        let poison_chance = self.player.relic_turn_poison_chance();
+        if poison_chance > 0 && self.rng.gen_range(0..100) < poison_chance {
+            let dmg = 5i32;
+            self.player.hp = (self.player.hp - dmg).max(0);
+            self.add_message(format!("疫病の壺から毒が漏れる…HP-{}！", dmg), MessageKind::Warning);
+        }
+
         if !self.player.is_alive() {
-            self.mode = GameMode::Dead;
-            self.add_message("あなたは力尽きた… ゲームオーバー。", MessageKind::Warning);
-            return;
+            if self.check_revive() { /* 復活 */ }
+            else {
+                self.mode = GameMode::Dead;
+                self.add_message("あなたは力尽きた… ゲームオーバー。", MessageKind::Warning);
+                return;
+            }
         }
 
         self.run_monster_turns();
 
         if !self.player.is_alive() {
-            self.mode = GameMode::Dead;
-            self.add_message("あなたは力尽きた… ゲームオーバー。", MessageKind::Warning);
+            if !self.check_revive() {
+                self.mode = GameMode::Dead;
+                self.add_message("あなたは力尽きた… ゲームオーバー。", MessageKind::Warning);
+            }
         }
     }
 
@@ -653,6 +734,22 @@ impl Game {
                     let dmg = self.player.take_damage(atk + curse_bonus);
                     let name = self.monsters[i].kind.name().to_string();
                     self.add_message(format!("{}の攻撃！{}ダメージ！", name, dmg), MessageKind::Combat);
+
+                    // 貧乏神の祟り: ダメージ時ゴールド喪失
+                    let gold_pct = self.player.relic_gold_on_damage();
+                    if gold_pct > 0 && dmg > 0 {
+                        let lost = ((self.player.gold as f32 * gold_pct as f32 / 100.0) as u32).max(1);
+                        self.player.gold = self.player.gold.saturating_sub(lost);
+                        self.add_message(format!("貧乏神の祟り！ゴールド-{}…", lost), MessageKind::Warning);
+                    }
+
+                    // 反射の盾: ダメージ反射
+                    let reflect_pct = self.player.relic_damage_reflect();
+                    if reflect_pct > 0 && dmg > 0 {
+                        let reflect = ((dmg as f32 * reflect_pct as f32 / 100.0) as i32).max(1);
+                        self.monsters[i].take_damage(reflect);
+                        self.add_message(format!("反射の盾！{}に{}ダメージを反射！", name, reflect), MessageKind::Good);
+                    }
                 } else {
                     // Move toward player
                     let (nx, ny) = self.monsters[i].ai_move_toward(px, py);
@@ -809,6 +906,9 @@ impl Game {
         self.player.floor = floor;
         self.monsters.clear();
         self.floor_items.clear();
+        self.floor_relics.clear();
+        // 不死鳥の羽はフロアごとにリセット
+        self.player.relic_revive_available = self.player.has_revive_relic();
         self.spawn_floor_content();
         self.map.compute_fov(px, py, FOV_RADIUS);
         self.update_camera();
@@ -1028,7 +1128,11 @@ impl Game {
         if skill_idx >= self.player.skills.len() { return; }
         let skill = self.player.skills[skill_idx].clone();
 
-        if !skill.can_use(self.player.mp) {
+        let mp_extra_pct = self.player.relic_mp_cost_multiplier();
+        let actual_mp_cost = skill.mp_cost + (skill.mp_cost as f32 * mp_extra_pct as f32 / 100.0) as i32;
+        let can_use = !skill.is_passive && skill.learned && skill.current_cooldown == 0
+            && self.player.mp >= actual_mp_cost;
+        if !can_use {
             let msg = if skill.current_cooldown > 0 {
                 format!("クールダウン中（残り{}ターン）。", skill.current_cooldown)
             } else {
@@ -1038,9 +1142,18 @@ impl Game {
             return;
         }
 
-        self.player.mp -= skill.mp_cost;
-        self.player.skills[skill_idx].current_cooldown = skill.cooldown;
+        self.player.mp -= actual_mp_cost;
+        let cd_penalty = self.player.relic_cooldown_penalty();
+        self.player.skills[skill_idx].current_cooldown = skill.cooldown + cd_penalty;
         self.player.skills_used += 1;
+
+        // 血の石板: スキル使用時HP追加消費
+        let hp_cost = self.player.relic_skill_hp_cost();
+        if hp_cost > 0 {
+            self.player.hp = (self.player.hp - hp_cost).max(0);
+            let hcmsg = format!("血の石板の代償…HP-{}！", hp_cost);
+            self.battle_log.push((hcmsg.clone(), MessageKind::Warning));
+        }
 
         let msg = match &skill.effect {
             SkillEffect::AttackMult(pct) => {
@@ -1190,13 +1303,36 @@ impl Game {
         self.battle_log.push((msg.clone(), MessageKind::Combat));
         self.add_message(msg, MessageKind::Combat);
 
+        // 貧乏神の祟り
+        let gold_pct = self.player.relic_gold_on_damage();
+        if gold_pct > 0 && dmg > 0 {
+            let lost = ((self.player.gold as f32 * gold_pct as f32 / 100.0) as u32).max(1);
+            self.player.gold = self.player.gold.saturating_sub(lost);
+        }
+
+        // 反射の盾 (battle)
+        let reflect_pct = self.player.relic_damage_reflect();
+        if reflect_pct > 0 && dmg > 0 && idx < self.monsters.len() {
+            let reflect = ((dmg as f32 * reflect_pct as f32 / 100.0) as i32).max(1);
+            self.monsters[idx].take_damage(reflect);
+            let rname = self.monsters[idx].kind.name().to_string();
+            let rmsg = format!("✨ 反射の盾！{}に{}ダメージを反射！", rname, reflect);
+            self.battle_log.push((rmsg.clone(), MessageKind::Good));
+        }
+
         self.player.tick_buffs();
         self.player.tick_skill_cooldowns();
 
         if !self.player.is_alive() {
-            self.battle_log.push(("💀 あなたは倒れた…".into(), MessageKind::Warning));
-            self.mode = GameMode::Dead;
-            self.add_message("あなたは力尽きた… ゲームオーバー。", MessageKind::Warning);
+            if self.check_revive() {
+                let rmsg = "✨ 不死鳥の羽が輝く！甦った！".to_string();
+                self.battle_log.push((rmsg.clone(), MessageKind::Good));
+                self.add_message(rmsg, MessageKind::Good);
+            } else {
+                self.battle_log.push(("💀 あなたは倒れた…".into(), MessageKind::Warning));
+                self.mode = GameMode::Dead;
+                self.add_message("あなたは力尽きた… ゲームオーバー。", MessageKind::Warning);
+            }
         }
     }
 
@@ -1222,6 +1358,37 @@ impl Game {
 
     fn item_at(&self, x: i32, y: i32) -> Option<usize> {
         self.floor_items.iter().position(|(ix, iy, _)| *ix == x && *iy == y)
+    }
+
+    fn relic_at(&self, x: i32, y: i32) -> Option<usize> {
+        self.floor_relics.iter().position(|(rx, ry, _)| *rx == x && *ry == y)
+    }
+
+    pub fn try_pickup_relic(&mut self, x: i32, y: i32) {
+        if let Some(idx) = self.relic_at(x, y) {
+            let (_, _, relic) = self.floor_relics.remove(idx);
+            let kind_label = if relic.is_cursed { "呪物" } else { "秘宝" };
+            self.add_message(
+                format!("【{}】「{}」を獲得！{}", kind_label, relic.name, relic.description),
+                if relic.is_cursed { MessageKind::Warning } else { MessageKind::Good },
+            );
+
+            // MapReveal: 千里眼の宝珠
+            if relic.effect == RelicEffect::MapReveal {
+                for col in self.map.explored.iter_mut() {
+                    for cell in col.iter_mut() {
+                        *cell = true;
+                    }
+                }
+                self.add_message("このフロアの全マップが解明された！", MessageKind::System);
+            }
+
+            self.player.relics.push(relic);
+            // リレックのステータス変動を反映
+            self.update_stats();
+            // 不死鳥の羽: 取得したらすぐ有効化
+            self.player.relic_revive_available = self.player.has_revive_relic();
+        }
     }
 
     pub fn try_craft(&mut self, recipe_idx: usize) {

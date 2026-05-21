@@ -1,6 +1,7 @@
 mod map;
 mod item;
 mod skill;
+mod relic;
 mod event;
 mod monster;
 mod player;

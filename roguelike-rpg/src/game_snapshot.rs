@@ -120,6 +120,21 @@ pub struct BattleSnap {
 }
 
 #[derive(Serialize)]
+pub struct RelicFloorSnap {
+    pub name: String,
+    pub x: i32,
+    pub y: i32,
+    pub is_cursed: bool,
+}
+
+#[derive(Serialize)]
+pub struct PlayerRelicSnap {
+    pub name: String,
+    pub is_cursed: bool,
+    pub description: String,
+}
+
+#[derive(Serialize)]
 pub struct GameSnapshot {
     pub mode: String,
     pub floor: u32,
@@ -163,6 +178,8 @@ pub struct GameSnapshot {
     pub cursed: bool,
     pub blessed: bool,
     pub battle: Option<BattleSnap>,
+    pub floor_relics: Vec<RelicFloorSnap>,
+    pub player_relics: Vec<PlayerRelicSnap>,
 }
 
 fn tile_id(t: Tile) -> u8 {
@@ -365,6 +382,23 @@ impl GameSnapshot {
             None
         };
 
+        let floor_relics: Vec<RelicFloorSnap> = game.floor_relics.iter()
+            .filter(|(x, y, _)| vis(*x, *y))
+            .map(|(x, y, r)| RelicFloorSnap {
+                name: r.name.clone(),
+                x: *x, y: *y,
+                is_cursed: r.is_cursed,
+            })
+            .collect();
+
+        let player_relics: Vec<PlayerRelicSnap> = game.player.relics.iter()
+            .map(|r| PlayerRelicSnap {
+                name: r.name.clone(),
+                is_cursed: r.is_cursed,
+                description: r.description.clone(),
+            })
+            .collect();
+
         GameSnapshot {
             mode: mode_str,
             floor: game.player.floor,
@@ -404,6 +438,8 @@ impl GameSnapshot {
             cursed: game.cursed_floor,
             blessed: game.blessed_floor,
             battle,
+            floor_relics,
+            player_relics,
         }
     }
 }

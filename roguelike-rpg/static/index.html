@@ -111,6 +111,13 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 .skill-learned{color:#a0c870}
 .skill-unlocked{color:#506070}
 .skill-locked{color:#282838}
+/* 秘宝・呪物パネル */
+.relic-row{font-size:12px;padding:4px 0;display:flex;gap:8px;border-bottom:1px solid #0a0e18;align-items:flex-start}
+.relic-icon{font-size:14px;flex-shrink:0;width:20px;text-align:center}
+.relic-info{flex:1;min-width:0}
+.relic-name{color:#c8a030;font-size:12px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.relic-name.cursed{color:#a03050}
+.relic-desc{color:#445060;font-size:10px;line-height:1.4;margin-top:2px}
 .event-box{max-width:460px;padding:20px 24px}
 .event-title{font-size:1.25rem;color:#c0a030;margin-bottom:8px}
 .event-irrev{font-size:10px;color:#903020;letter-spacing:.1em;margin-bottom:12px}
@@ -235,6 +242,11 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
     <!-- Skill pts -->
     <div class="panel" id="p-sp" style="display:none">
       <div style="font-size:12px;color:#806030">スキルポイント: <span id="skill-pts">0</span> · <kbd style="font-size:11px">K</kbd> で習得</div>
+    </div>
+    <!-- 秘宝・呪物 -->
+    <div class="panel" id="p-relics" style="display:none">
+      <div class="panel-title">秘宝・呪物</div>
+      <div id="relic-list"></div>
     </div>
   </div>
 </div>
@@ -457,6 +469,10 @@ const ITEMS = {
   Consumable: (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); px(ctx,2,0,'#c0c0c8'); [[1,1],[2,1],[3,1],[1,2],[2,2],[3,2],[1,3],[2,3],[3,3],[2,4]].forEach(([x,y])=>px(ctx,x,y,C.potRed)); },
   Material:   (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,1],[2,0],[3,1],[4,2],[3,3],[2,4],[1,3],[0,2]].forEach(([x,y])=>px(ctx,x,y,C.crystal)); px(ctx,2,2,'#80d0ff'); },
   SkillTome:  (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[0,0],[1,0],[2,0],[3,0],[0,1],[0,2],[0,3],[0,4],[1,4],[2,4],[3,4]].forEach(([x,y])=>px(ctx,x,y,C.bookBrn)); [[1,1],[2,1],[1,2],[2,2],[1,3],[2,3]].forEach(([x,y])=>px(ctx,x,y,'#d0c8a0')); px(ctx,3,2,'#e0c040'); },
+  // 秘宝: 黄金に輝く宝珠
+  Relic: (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[0,1],[4,1],[0,2],[4,2],[1,3],[2,3],[3,3]].forEach(([x,y])=>px(ctx,x,y,'#d09010')); [[1,1],[2,1],[3,1],[1,2],[2,2],[3,2]].forEach(([x,y])=>px(ctx,x,y,'#f0d040')); px(ctx,2,1,'#ffffff'); px(ctx,2,4,'#a07010'); [[1,4],[3,4]].forEach(([x,y])=>px(ctx,x,y,'#c08820')); },
+  // 呪物: 暗黒の頭蓋骨
+  CursedObject: (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[0,1],[4,1],[0,2],[4,2],[1,3],[2,3],[3,3]].forEach(([x,y])=>px(ctx,x,y,'#4a1830')); [[1,1],[2,1],[3,1],[1,2],[2,2],[3,2]].forEach(([x,y])=>px(ctx,x,y,'#8030a0')); [[1,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,'#e02060')); px(ctx,2,2,'#500850'); [[1,4],[2,4],[3,4]].forEach(([x,y])=>px(ctx,x,y,'#3a0820')); },
 };
 
 // Player sprite
@@ -544,6 +560,24 @@ function render() {
     if (vx < 0 || vy < 0 || vx >= VP_W || vy >= VP_H) continue;
     const spr = getSprite('item', item.kind);
     ctx.drawImage(spr, vx * TS, vy * TS);
+  }
+
+  // Floor relics (秘宝・呪物)
+  if (g.floor_relics) {
+    for (const r of g.floor_relics) {
+      const vx = r.x - cx, vy = r.y - cy;
+      if (vx < 0 || vy < 0 || vx >= VP_W || vy >= VP_H) continue;
+      const kind = r.is_cursed ? 'CursedObject' : 'Relic';
+      const spr = getSprite('item', kind);
+      ctx.drawImage(spr, vx * TS, vy * TS);
+      // 輝きエフェクト
+      if (!r.is_cursed) {
+        ctx.fillStyle = 'rgba(240,200,40,0.18)';
+      } else {
+        ctx.fillStyle = 'rgba(160,20,80,0.18)';
+      }
+      ctx.fillRect(vx * TS, vy * TS, TS, TS);
+    }
   }
 
   // Monsters
@@ -662,6 +696,23 @@ function updateUI(g) {
   const spEl = document.getElementById('skill-pts');
   if (g.skill_pts > 0) { sp.style.display = ''; spEl.textContent = g.skill_pts; }
   else { sp.style.display = 'none'; }
+
+  // 秘宝・呪物パネル
+  const relicPanel = document.getElementById('p-relics');
+  const relicList  = document.getElementById('relic-list');
+  if (g.player_relics && g.player_relics.length > 0) {
+    relicPanel.style.display = '';
+    relicList.innerHTML = g.player_relics.map(r => `
+      <div class="relic-row">
+        <div class="relic-icon">${r.is_cursed ? '☠' : '✦'}</div>
+        <div class="relic-info">
+          <div class="relic-name${r.is_cursed ? ' cursed' : ''}">${r.name}</div>
+          <div class="relic-desc">${r.description}</div>
+        </div>
+      </div>`).join('');
+  } else {
+    relicPanel.style.display = 'none';
+  }
 
   // Message log
   const log = document.getElementById('log');
