@@ -7,14 +7,14 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{background:#06060d;color:#a0aabb;font-family:'Consolas','Cascadia Code',monospace;overflow:hidden;width:100vw;height:100vh;display:flex;flex-direction:column;user-select:none}
-#layout{display:flex;flex:1;overflow:hidden;gap:2px;padding:2px;min-height:0}
+#layout{display:flex;flex:1;overflow:hidden;gap:3px;padding:3px;min-height:0}
 #canvas-wrap{position:relative;flex:1;min-width:0;min-height:0;overflow:hidden;background:#02020a}
 canvas{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);image-rendering:pixelated;image-rendering:crisp-edges}
-#sidebar{width:240px;display:flex;flex-direction:column;gap:5px;overflow:hidden;padding:4px 2px}
-.panel{background:#0b0b18;border:1px solid #1e2535;padding:8px 10px;border-radius:3px}
-.panel-title{font-size:9px;letter-spacing:.18em;color:#2d3d5a;margin-bottom:6px;text-transform:uppercase;border-bottom:1px solid #141e2e;padding-bottom:4px}
-#log-wrap{height:140px;background:#07070f;border-top:1px solid #14192a;padding:5px 10px;overflow:hidden;display:flex;flex-direction:column-reverse}
-.log-line{font-size:11px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#sidebar{width:300px;display:flex;flex-direction:column;gap:6px;overflow:hidden;padding:4px 3px}
+.panel{background:#0b0b18;border:1px solid #1e2535;padding:10px 12px;border-radius:3px}
+.panel-title{font-size:11px;letter-spacing:.18em;color:#2d3d5a;margin-bottom:8px;text-transform:uppercase;border-bottom:1px solid #141e2e;padding-bottom:5px}
+#log-wrap{height:200px;background:#07070f;border-top:1px solid #14192a;padding:7px 12px;overflow:hidden;display:flex;flex-direction:column-reverse}
+.log-line{font-size:13px;line-height:1.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .log-Normal{color:#7a8898}
 .log-Combat{color:#d04040}
 .log-Loot{color:#d0a820}
@@ -22,29 +22,29 @@ canvas{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);image-r
 .log-Event{color:#b040d0}
 .log-Warning{color:#d08020}
 .log-Good{color:#40c060}
-.bar-wrap{display:flex;align-items:center;gap:6px;margin:3px 0}
-.bar-label{font-size:10px;color:#506070;width:26px;font-weight:bold}
-.bar-track{flex:1;height:10px;background:#080810;border:1px solid #1a2030;border-radius:2px;overflow:hidden}
+.bar-wrap{display:flex;align-items:center;gap:8px;margin:5px 0}
+.bar-label{font-size:13px;color:#506070;width:34px;font-weight:bold}
+.bar-track{flex:1;height:14px;background:#080810;border:1px solid #1a2030;border-radius:2px;overflow:hidden}
 .bar-fill{height:100%;border-radius:2px;transition:width .1s}
 .bar-hp{background:linear-gradient(90deg,#801818,#c83030)}
 .bar-mp{background:linear-gradient(90deg,#182878,#3060c8)}
 .bar-xp{background:linear-gradient(90deg,#284818,#4a9828)}
 .bar-shd{background:linear-gradient(90deg,#185878,#30a8d8)}
-.bar-val{font-size:10px;color:#506070;width:52px;text-align:right}
-.stat-row{display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid #0e1420}
+.bar-val{font-size:12px;color:#506070;width:72px;text-align:right}
+.stat-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid #0e1420}
 .stat-key{color:#3a4a5a;letter-spacing:.05em}
 .stat-val{color:#8898b0;font-weight:bold}
 .stat-val.good{color:#50c870}
 .stat-val.warn{color:#d08020}
 .stat-val.bad{color:#d03030}
-.equip-row{font-size:10px;padding:2px 0;display:flex;gap:6px;border-bottom:1px solid #0a0e18}
-.equip-slot{color:#283848;width:44px;flex-shrink:0}
+.equip-row{font-size:13px;padding:4px 0;display:flex;gap:8px;border-bottom:1px solid #0a0e18}
+.equip-slot{color:#283848;width:58px;flex-shrink:0}
 .equip-name{color:#6a8090;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hotbar{display:flex;gap:4px;margin-top:4px}
-.hb-slot{flex:1;background:#0a0a1c;border:1px solid #1c2334;border-radius:3px;padding:4px 3px;text-align:center;font-size:9px;position:relative}
-.hb-slot .hb-key{color:#2a3a5a;font-size:8px;margin-bottom:2px}
-.hb-slot .hb-name{color:#5a7080;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px}
-.hb-slot .hb-cd{position:absolute;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;font-size:9px;color:#c87020;border-radius:3px}
+.hotbar{display:flex;gap:5px;margin-top:5px}
+.hb-slot{flex:1;background:#0a0a1c;border:1px solid #1c2334;border-radius:3px;padding:7px 4px;text-align:center;font-size:11px;position:relative}
+.hb-slot .hb-key{color:#2a3a5a;font-size:11px;margin-bottom:3px}
+.hb-slot .hb-name{color:#5a7080;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}
+.hb-slot .hb-cd{position:absolute;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;font-size:11px;color:#c87020;border-radius:3px}
 #overlay{position:fixed;inset:0;background:rgba(4,4,12,.88);display:flex;align-items:center;justify-content:center;z-index:100;transition:opacity .15s}
 #overlay.hidden{opacity:0;pointer-events:none}
 #overlay-box{border:1px solid #2a3650;background:#08081a;padding:20px 28px;max-width:520px;width:92vw;border-radius:3px;max-height:85vh;overflow-y:auto}
@@ -57,18 +57,18 @@ canvas{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);image-r
 .key-table td:last-child{color:#4a5868}
 kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5px;font-size:.8em;color:#8098b8;font-family:inherit}
 .hint{margin-top:14px;color:#2a3848;font-size:.78rem;text-align:center}
-#ws-status{position:fixed;top:4px;right:8px;font-size:9px;z-index:200}
+#ws-status{position:fixed;top:5px;right:10px;font-size:12px;z-index:200}
 #ws-status.ok{color:#305030}
 #ws-status.err{color:#503030}
 
 /* Inventory / Skills / Event / Crafting overlay panels */
 .modal{position:fixed;inset:0;background:rgba(4,4,12,.85);display:flex;align-items:center;justify-content:center;z-index:90}
 .modal-box{background:#090916;border:1px solid #202840;border-radius:3px;padding:0;overflow:hidden;max-height:90vh;display:flex;flex-direction:column}
-.modal-header{background:#0c0c20;padding:8px 14px;font-size:10px;letter-spacing:.15em;color:#3a5878;border-bottom:1px solid #161e30;display:flex;justify-content:space-between}
+.modal-header{background:#0c0c20;padding:10px 16px;font-size:13px;letter-spacing:.15em;color:#3a5878;border-bottom:1px solid #161e30;display:flex;justify-content:space-between}
 .modal-header .close-hint{color:#1e2838}
 .modal-body{display:flex;flex:1;overflow:hidden}
-.modal-list{width:220px;overflow-y:auto;border-right:1px solid #161e30}
-.modal-list-item{padding:6px 12px;font-size:10px;cursor:pointer;border-bottom:1px solid #0e1220}
+.modal-list{width:240px;overflow-y:auto;border-right:1px solid #161e30}
+.modal-list-item{padding:8px 14px;font-size:12px;cursor:pointer;border-bottom:1px solid #0e1220}
 .modal-list-item.sel{background:#0e1428;color:#a0b8d0}
 .modal-list-item.sel .item-rarity-Common{color:#8090a0}
 .modal-list-item.sel .item-rarity-Uncommon{color:#40c080}
@@ -80,28 +80,28 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 .item-rarity-Rare{color:#284890}
 .item-rarity-Epic{color:#602090}
 .item-rarity-Legendary{color:#905010}
-.modal-detail{flex:1;padding:12px 14px;overflow-y:auto;min-width:200px}
-.modal-detail .item-name{font-size:12px;color:#a0b0c8;margin-bottom:4px}
-.modal-detail .item-desc{font-size:9px;color:#3a4858;line-height:1.5;margin-bottom:8px}
-.modal-detail .stat-line{font-size:9px;color:#4a6080;padding:1px 0}
+.modal-detail{flex:1;padding:14px 16px;overflow-y:auto;min-width:200px}
+.modal-detail .item-name{font-size:14px;color:#a0b0c8;margin-bottom:5px}
+.modal-detail .item-desc{font-size:12px;color:#3a4858;line-height:1.6;margin-bottom:10px}
+.modal-detail .stat-line{font-size:12px;color:#4a6080;padding:2px 0}
 .modal-detail .stat-line span{color:#6080a0}
-.modal-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
-.action-btn{background:#0e1428;border:1px solid #202840;border-radius:2px;padding:3px 8px;font-size:9px;color:#4a6080;letter-spacing:.1em;cursor:pointer}
+.modal-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.action-btn{background:#0e1428;border:1px solid #202840;border-radius:2px;padding:5px 12px;font-size:12px;color:#4a6080;letter-spacing:.1em;cursor:pointer}
 .action-btn:hover{background:#131c38;color:#6888a8}
 .action-btn:active{background:#0a1020}
 /* ── On-screen control pad ── */
-#ctrl-bar{display:flex;align-items:center;justify-content:center;gap:12px;padding:4px 8px;background:#04040c;border-top:1px solid #10141e;flex-shrink:0}
-.ctrl-dpad{display:grid;grid-template-columns:repeat(3,32px);grid-template-rows:repeat(3,32px);gap:2px}
-.ctrl-dpad-btn{background:#0a0a1c;border:1px solid #1c2438;border-radius:3px;color:#3a5070;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;user-select:none}
+#ctrl-bar{display:flex;align-items:center;justify-content:center;gap:16px;padding:6px 12px;background:#04040c;border-top:1px solid #10141e;flex-shrink:0}
+.ctrl-dpad{display:grid;grid-template-columns:repeat(3,48px);grid-template-rows:repeat(3,48px);gap:3px}
+.ctrl-dpad-btn{background:#0a0a1c;border:1px solid #1c2438;border-radius:4px;color:#3a5070;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;user-select:none}
 .ctrl-dpad-btn:hover{background:#101830;color:#5878a0}
 .ctrl-dpad-btn:active,.ctrl-dpad-btn.pressed{background:#0c1428;border-color:#2a4060;color:#80a8d0}
-.ctrl-dpad-center{background:#06060e;color:#1e2838;font-size:10px}
-.ctrl-acts{display:flex;flex-direction:column;gap:4px}
-.ctrl-act-row{display:flex;gap:4px}
-.ctrl-act-btn{background:#0a0a1c;border:1px solid #1c2438;border-radius:3px;color:#3a5070;font-size:9px;padding:0 8px;height:32px;cursor:pointer;letter-spacing:.05em;-webkit-tap-highlight-color:transparent;user-select:none;white-space:nowrap}
+.ctrl-dpad-center{background:#06060e;color:#1e2838;font-size:14px}
+.ctrl-acts{display:flex;flex-direction:column;gap:5px}
+.ctrl-act-row{display:flex;gap:5px}
+.ctrl-act-btn{background:#0a0a1c;border:1px solid #1c2438;border-radius:4px;color:#3a5070;font-size:13px;padding:0 14px;height:48px;cursor:pointer;letter-spacing:.05em;-webkit-tap-highlight-color:transparent;user-select:none;white-space:nowrap}
 .ctrl-act-btn:hover{background:#101830;color:#5878a0}
 .ctrl-act-btn:active{background:#0c1428;border-color:#2a4060;color:#80a8d0}
-.ctrl-act-btn .act-key{color:#2a3850;font-size:8px;margin-right:3px}
+.ctrl-act-btn .act-key{color:#2a3850;font-size:11px;margin-right:5px}
 .hb-slot{cursor:pointer}
 .hb-slot:hover{background:#0e102a;border-color:#2a3450}
 .skill-branch-Warrior{color:#c06030}
@@ -111,47 +111,47 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 .skill-learned{color:#a0c870}
 .skill-unlocked{color:#506070}
 .skill-locked{color:#282838}
-.event-box{max-width:420px;padding:16px 20px}
-.event-title{font-size:1rem;color:#c0a030;margin-bottom:6px}
-.event-irrev{font-size:8px;color:#903020;letter-spacing:.1em;margin-bottom:10px}
-.event-desc{font-size:10px;color:#4a6080;line-height:1.6;margin-bottom:14px}
-.event-choice{padding:6px 10px;margin:4px 0;font-size:10px;border:1px solid #1a2030;border-radius:2px;cursor:pointer}
+.event-box{max-width:460px;padding:20px 24px}
+.event-title{font-size:1.25rem;color:#c0a030;margin-bottom:8px}
+.event-irrev{font-size:10px;color:#903020;letter-spacing:.1em;margin-bottom:12px}
+.event-desc{font-size:13px;color:#4a6080;line-height:1.7;margin-bottom:16px}
+.event-choice{padding:10px 14px;margin:5px 0;font-size:13px;border:1px solid #1a2030;border-radius:2px;cursor:pointer}
 .event-choice.sel{border-color:#304050;background:#0c1420;color:#8090a8}
-.dead-box{text-align:center;padding:20px 30px}
-.dead-title{font-size:1.6rem;color:#802020;margin-bottom:8px;letter-spacing:.15em}
-.dead-sub{font-size:.85rem;color:#2a3040;margin-bottom:16px}
-.dead-stats{font-size:.8rem;color:#3a4858;line-height:1.8}
-.victory-title{font-size:1.6rem;color:#d8a030;margin-bottom:8px;letter-spacing:.15em}
+.dead-box{text-align:center;padding:26px 36px}
+.dead-title{font-size:1.8rem;color:#802020;margin-bottom:10px;letter-spacing:.15em}
+.dead-sub{font-size:1rem;color:#2a3040;margin-bottom:18px}
+.dead-stats{font-size:.95rem;color:#3a4858;line-height:2}
+.victory-title{font-size:1.8rem;color:#d8a030;margin-bottom:10px;letter-spacing:.15em}
 
 /* ── Battle screen ── */
 #battle-wrap{position:fixed;inset:0;background:#050510;display:flex;flex-direction:column;z-index:90}
 #battle-arena{display:flex;flex:1;align-items:stretch;min-height:0}
 .battle-side{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:20px 24px 14px;gap:10px}
 .battle-side.enemy-side{justify-content:flex-start;padding-top:30px}
-.battle-name{font-size:13px;letter-spacing:.12em;color:#6080a0;margin-bottom:2px}
+.battle-name{font-size:15px;letter-spacing:.12em;color:#6080a0;margin-bottom:4px}
 .battle-sprite-wrap{position:relative;width:128px;height:128px}
 .battle-sprite-wrap canvas{width:128px;height:128px;image-rendering:pixelated}
-.battle-hp-wrap{width:160px}
-.battle-hp-label{font-size:9px;color:#445566;margin-bottom:2px}
-.battle-hp-track{height:8px;background:#0d0d1c;border:1px solid #1a2030;border-radius:1px;overflow:hidden;margin-bottom:2px}
+.battle-hp-wrap{width:180px}
+.battle-hp-label{font-size:11px;color:#445566;margin-bottom:3px}
+.battle-hp-track{height:10px;background:#0d0d1c;border:1px solid #1a2030;border-radius:1px;overflow:hidden;margin-bottom:3px}
 .battle-hp-fill{height:100%;border-radius:1px;transition:width .15s}
-.battle-hp-val{font-size:8px;color:#3a4858;text-align:right}
-.battle-status{font-size:9px;margin-top:4px;min-height:14px}
+.battle-hp-val{font-size:10px;color:#3a4858;text-align:right}
+.battle-status{font-size:11px;margin-top:5px;min-height:16px}
 .battle-divider{width:1px;background:linear-gradient(to bottom,transparent,#1e2840 30%,#1e2840 70%,transparent);margin:20px 0}
-#battle-log{height:90px;background:#06060f;border-top:1px solid #111828;border-bottom:1px solid #111828;padding:6px 16px;display:flex;flex-direction:column-reverse;overflow:hidden}
-.battle-log-line{font-size:10px;line-height:1.5;color:#4a5868}
+#battle-log{height:110px;background:#06060f;border-top:1px solid #111828;border-bottom:1px solid #111828;padding:8px 18px;display:flex;flex-direction:column-reverse;overflow:hidden}
+.battle-log-line{font-size:12px;line-height:1.6;color:#4a5868}
 .battle-log-line.log-Combat{color:#b84040}
 .battle-log-line.log-Event{color:#9040b8}
 .battle-log-line.log-Good{color:#3a9850}
 .battle-log-line.log-Warning{color:#b07020}
 .battle-log-line.log-Loot{color:#b09020}
 #battle-menu{background:#08080f;padding:10px 16px;display:flex;gap:8px;border-top:1px solid #0e1420}
-.battle-cmd{flex:1;background:#0c0c1e;border:1px solid #1a2030;border-radius:3px;padding:8px 4px;text-align:center;font-size:10px;color:#3a4858;letter-spacing:.08em;cursor:pointer;transition:all .08s;position:relative}
+.battle-cmd{flex:1;background:#0c0c1e;border:1px solid #1a2030;border-radius:3px;padding:10px 4px;text-align:center;font-size:13px;color:#3a4858;letter-spacing:.08em;cursor:pointer;transition:all .08s;position:relative}
 .battle-cmd.sel{border-color:#3060a0;background:#0e1630;color:#6090c8}
 .battle-cmd.sel::before{content:'▶';position:absolute;left:4px;top:50%;transform:translateY(-50%);font-size:8px;color:#3060a0}
 .battle-cmd.sub-open{color:#a09030;border-color:#605020}
 .battle-sub-list{background:#0a0a1a;border:1px solid #1a2030;border-radius:3px;padding:4px 0;margin-top:4px;position:absolute;left:0;right:0;bottom:calc(100% + 6px);z-index:10}
-.battle-sub-item{padding:4px 10px;font-size:9px;color:#3a4858;cursor:pointer}
+.battle-sub-item{padding:6px 12px;font-size:12px;color:#3a4858;cursor:pointer}
 .battle-sub-item.sel{background:#0e1428;color:#6090c8}
 .battle-turn-badge{font-size:8px;color:#202838;position:absolute;right:12px;top:6px}
 </style>
@@ -210,7 +210,7 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
       <div class="stat-row"><span class="stat-key">攻撃</span><span class="stat-val" id="s-atk">0</span></div>
       <div class="stat-row"><span class="stat-key">防御</span><span class="stat-val" id="s-def">0</span></div>
       <div class="stat-row"><span class="stat-key">ターン</span><span class="stat-val" id="s-turn">0</span></div>
-      <div id="s-flags" style="font-size:9px;margin-top:3px"></div>
+      <div id="s-flags" style="font-size:12px;margin-top:4px"></div>
     </div>
     <!-- Equipment -->
     <div class="panel" id="p-equip">
@@ -234,7 +234,7 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
     </div>
     <!-- Skill pts -->
     <div class="panel" id="p-sp" style="display:none">
-      <div style="font-size:9px;color:#806030">Skill points: <span id="skill-pts">0</span> · Press <kbd style="font-size:8px">K</kbd> to spend</div>
+      <div style="font-size:12px;color:#806030">スキルポイント: <span id="skill-pts">0</span> · <kbd style="font-size:11px">K</kbd> で習得</div>
     </div>
   </div>
 </div>
@@ -697,7 +697,7 @@ function buildInventory(g) {
   const item = g.inventory[sel];
   let list = g.inventory.map((it,i)=>
     `<div class="modal-list-item${i===sel?' sel':''}">
-      <span class="${rarityClass(it.rarity)}">${it.name}</span>${it.equipped?' <span style="color:#408040;font-size:8px">E</span>':''}
+      <span class="${rarityClass(it.rarity)}">${it.name}</span>${it.equipped?' <span style="color:#408040;font-size:11px">E</span>':''}
     </div>`
   ).join('');
   let detail = '';
@@ -708,7 +708,7 @@ function buildInventory(g) {
     if(item.hp)  stats.push(`HP +${item.hp}`);
     if(item.mp)  stats.push(`MP +${item.mp}`);
     detail = `<div class="item-name" style="color:${rarityColor(item.rarity)}">${item.name}</div>
-      <div style="font-size:8px;color:#3a5060;margin-bottom:6px">${item.rarity} ${item.kind}</div>
+      <div style="font-size:11px;color:#3a5060;margin-bottom:8px">${item.rarity} ${item.kind}</div>
       <div class="item-desc">${item.desc}</div>
       ${stats.map(s=>`<div class="stat-line"><span>${s}</span></div>`).join('')}
       <div class="modal-actions">
@@ -716,7 +716,7 @@ function buildInventory(g) {
         <span class="action-btn" onclick="sendKey('e','KeyE',false)">E 装備</span>
         <span class="action-btn" onclick="sendKey('d','KeyD',false)">D 捨てる</span>
       </div>
-      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ 選択 · Esc / I 閉じる</div>`;
+      <div style="margin-top:10px;font-size:11px;color:#1e2838">↑↓ 選択 · Esc / I 閉じる</div>`;
   }
   return `<div class="modal-box" style="width:480px">
     <div class="modal-header"><span>インベントリ (${g.inventory.length})</span><span class="close-hint">Esc / I</span></div>
@@ -734,14 +734,14 @@ function buildSkills(g) {
   let list = g.skills.map((s,i)=>{
     let cls = s.learned ? 'skill-learned' : s.unlocked ? 'skill-unlocked' : 'skill-locked';
     return `<div class="modal-list-item${i===sel?' sel':''}">
-      <span class="skill-branch-${s.branch}" style="font-size:8px">${s.branch[0]}</span>
-      <span class="${cls}" style="font-size:9px"> ${s.name}</span>${s.learned?'<span style="color:#406020;font-size:8px"> ✓</span>':''}
+      <span class="skill-branch-${s.branch}" style="font-size:11px">${s.branch[0]}</span>
+      <span class="${cls}" style="font-size:12px"> ${s.name}</span>${s.learned?'<span style="color:#406020;font-size:11px"> ✓</span>':''}
     </div>`;
   }).join('');
   let detail = '';
   if (skill) {
     detail = `<div class="item-name skill-branch-${skill.branch}">${skill.name}</div>
-      <div style="font-size:8px;margin-bottom:6px">
+      <div style="font-size:11px;margin-bottom:8px">
         <span class="skill-branch-${skill.branch}">${skill.branch}</span>
         ${skill.passive ? ' · パッシブ' : ` · MP ${skill.mp_cost} · CD ${skill.cooldown}`}
       </div>
@@ -750,7 +750,7 @@ function buildSkills(g) {
         ${skill.learned ? '<span class="skill-learned">✓ 習得済み</span>' : skill.unlocked ? '<span style="color:#506070">習得可能（1 SP）</span>' : '<span class="skill-locked">🔒 ロック中</span>'}
       </div>
       ${!skill.learned && skill.unlocked && g.skill_pts > 0 ? '<div class="modal-actions"><span class="action-btn" onclick="sendKey(\'Enter\',\'Enter\',false)">↩ 習得</span></div>' : ''}
-      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ 選択 · Esc / K 閉じる · SP: ${g.skill_pts}</div>`;
+      <div style="margin-top:10px;font-size:11px;color:#1e2838">↑↓ 選択 · Esc / K 閉じる · SP: ${g.skill_pts}</div>`;
   }
   return `<div class="modal-box" style="width:480px">
     <div class="modal-header"><span>スキルツリー</span><span class="close-hint">Esc / K</span></div>
@@ -775,7 +775,7 @@ function buildEvent(g) {
       ${ev.irreversible ? '<div class="event-irrev">⚠ 取り消せない選択</div>' : '<div style="height:12px"></div>'}
       <div class="event-desc">${ev.desc}</div>
       ${choices}
-      <div style="margin-top:12px;font-size:8px;color:#1e2838">↑↓ 選択 · Enter / クリックで決定</div>
+      <div style="margin-top:14px;font-size:11px;color:#1e2838">↑↓ 選択 · Enter / クリックで決定</div>
     </div>
   </div>`;
 }
@@ -793,8 +793,8 @@ function buildCrafting(g) {
     detail = `<div class="item-name" style="color:${rec.can_craft?'#c8a030':'#4a5868'}">${rec.name}</div>
       <div style="margin-top:8px;font-size:9px;color:#3a5060">素材:</div>
       ${rec.ingredients.map(ing=>`<div class="stat-line"><span>${ing}</span></div>`).join('')}
-      ${rec.can_craft ? '<div class="modal-actions"><span class="action-btn" style="color:#a08020" onclick="sendKey(\'Enter\',\'Enter\',false)">↩ 製作</span></div>' : '<div style="margin-top:6px;font-size:8px;color:#502010">素材が不足しています</div>'}
-      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ 選択 · Esc / C 閉じる</div>`;
+      ${rec.can_craft ? '<div class="modal-actions"><span class="action-btn" style="color:#a08020" onclick="sendKey(\'Enter\',\'Enter\',false)">↩ 製作</span></div>' : '<div style="margin-top:8px;font-size:11px;color:#502010">素材が不足しています</div>'}
+      <div style="margin-top:10px;font-size:11px;color:#1e2838">↑↓ 選択 · Esc / C 閉じる</div>`;
   }
   return `<div class="modal-box" style="width:480px">
     <div class="modal-header"><span>⚒ 鍛冶台</span><span class="close-hint">Esc / C</span></div>
@@ -832,7 +832,7 @@ function buildHelp() {
       <tr><td><kbd>?</kbd></td><td>このヘルプ</td></tr>
       <tr><td><kbd>Q</kbd></td><td>終了</td></tr>
     </table>
-    <div style="margin-top:12px;font-size:8px;color:#1e2838;text-align:center">何かキーを押して閉じる</div>
+    <div style="margin-top:14px;font-size:11px;color:#1e2838;text-align:center">何かキーを押して閉じる</div>
   </div>`;
 }
 
@@ -845,7 +845,7 @@ function buildDead(g) {
       ゴールド: ${g.gold}<br>
       攻撃/防御: ${g.atk} / ${g.def}
     </div>
-    <div style="margin-top:16px;font-size:9px;color:#1e2838">Q で終了</div>
+    <div style="margin-top:18px;font-size:12px;color:#1e2838">Q で終了</div>
   </div>`;
 }
 
@@ -858,7 +858,7 @@ function buildVictory(g) {
       レベル: ${g.level}<br>
       ターン数: ${g.turn}
     </div>
-    <div style="margin-top:16px;font-size:9px;color:#1e2838">Q で終了</div>
+    <div style="margin-top:18px;font-size:12px;color:#1e2838">Q で終了</div>
   </div>`;
 }
 
@@ -1312,7 +1312,7 @@ function buildBattle(g) {
         : b.active_skills.map((s,i)=>`
           <div class="battle-sub-item${i===b.sub_cursor?' sel':''}">
             ${i===b.sub_cursor?'▶ ':'  '}${s.name}
-            <span style="color:${s.cd_left>0?'#b07020':'#3a6060'};font-size:8px;margin-left:6px">${s.cd_left>0?`CD:${s.cd_left}`:`MP:${s.mp_cost}`}</span>
+            <span style="color:${s.cd_left>0?'#b07020':'#3a6060'};font-size:11px;margin-left:8px">${s.cd_left>0?`CD:${s.cd_left}`:`MP:${s.mp_cost}`}</span>
           </div>`).join('')
       }
     </div>`;
@@ -1343,8 +1343,8 @@ function buildBattle(g) {
   el.style.display = 'flex';
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:#06060f;border-bottom:1px solid #0e1428;font-size:9px">
-      <span style="color:#2a3858;letter-spacing:.15em">⚔ バトル</span>
-      <span style="color:#1e2838">ターン ${b.turn} · ←→ 選択 · Enter 決定 · Esc 戻る</span>
+      <span style="color:#2a3858;letter-spacing:.15em;font-size:13px">⚔ バトル</span>
+      <span style="color:#1e2838;font-size:12px">ターン ${b.turn} · ←→ 選択 · Enter 決定 · Esc 戻る</span>
     </div>
     <div id="battle-arena">
       <div class="battle-side">
