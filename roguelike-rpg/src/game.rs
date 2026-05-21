@@ -1095,14 +1095,14 @@ impl Game {
             SkillEffect::CritBoost(pct) => {
                 self.player.crit_bonus = *pct;
                 self.player.crit_bonus_turns = 5;
-                format!("✦ {}: Crit rate +{}% for 5 turns!", skill.name, pct)
+                format!("✦ {}：クリット率+{}%（5ターン）！", skill.name, pct)
             }
             SkillEffect::AoeDamage(dmg) => {
                 let actual = self.monsters[idx].take_damage(*dmg);
                 let name = self.monsters[idx].kind.name().to_string();
-                format!("✦ {}: Arcane blast on {} for {}!", skill.name, name, actual)
+                format!("✦ {}：{}に魔法爆発{}ダメージ！", skill.name, name, actual)
             }
-            _ => format!("✦ {}: Used.", skill.name),
+            _ => format!("✦ {}：発動！", skill.name),
         };
 
         self.battle_log.push((msg.clone(), MessageKind::Combat));
@@ -1120,7 +1120,7 @@ impl Game {
     fn battle_do_item(&mut self, item_idx: usize) {
         if item_idx >= self.player.inventory.len() { return; }
         let item = self.player.inventory[item_idx].clone();
-        let msg = format!("🧪 Used: {}", item.name);
+        let msg = format!("🧪 使用：{}", item.name);
         self.battle_log.push((msg.clone(), MessageKind::Loot));
         self.add_message(msg, MessageKind::Loot);
 
@@ -1151,12 +1151,12 @@ impl Game {
         let idx = match self.battle_enemy_idx { Some(i) => i, None => { self.battle_end_return(); return; } };
         let escape_chance = 40u32 + self.player.base_dex as u32;
         if self.rng.gen_range(0..100) < escape_chance {
-            self.battle_log.push(("🏃 You escaped!".into(), MessageKind::Good));
-            self.add_message("You escaped from battle!", MessageKind::Good);
+            self.battle_log.push(("🏃 逃走成功！".into(), MessageKind::Good));
+            self.add_message("戦闘から逃げた！", MessageKind::Good);
             self.battle_end_return();
         } else {
-            self.battle_log.push(("Failed to run!".into(), MessageKind::Warning));
-            self.add_message("Failed to escape!", MessageKind::Warning);
+            self.battle_log.push(("逃走失敗！".into(), MessageKind::Warning));
+            self.add_message("逃走に失敗した！", MessageKind::Warning);
             self.battle_enemy_turn();
         }
     }
@@ -1175,7 +1175,7 @@ impl Game {
 
         if self.monsters[idx].is_stunned() {
             let name = self.monsters[idx].kind.name().to_string();
-            self.battle_log.push((format!("💫 {} is stunned!", name), MessageKind::Warning));
+            self.battle_log.push((format!("💫 {}はスタン状態！", name), MessageKind::Warning));
             // Player turn tick
             self.player.tick_buffs();
             self.player.tick_skill_cooldowns();
@@ -1186,7 +1186,7 @@ impl Game {
         let bonus = if self.cursed_floor { atk / 4 } else { 0 };
         let dmg = self.player.take_damage(atk + bonus);
         let name = self.monsters[idx].kind.name().to_string();
-        let msg = format!("💥 {} attacks you for {} damage!", name, dmg);
+        let msg = format!("💥 {}の攻撃！{}ダメージ！", name, dmg);
         self.battle_log.push((msg.clone(), MessageKind::Combat));
         self.add_message(msg, MessageKind::Combat);
 
@@ -1194,7 +1194,7 @@ impl Game {
         self.player.tick_skill_cooldowns();
 
         if !self.player.is_alive() {
-            self.battle_log.push(("💀 You have fallen...".into(), MessageKind::Warning));
+            self.battle_log.push(("💀 あなたは倒れた…".into(), MessageKind::Warning));
             self.mode = GameMode::Dead;
             self.add_message("あなたは力尽きた… ゲームオーバー。", MessageKind::Warning);
         }
@@ -1202,7 +1202,7 @@ impl Game {
 
     fn battle_end_victory(&mut self, idx: usize) {
         let name = self.monsters[idx].kind.name().to_string();
-        self.battle_log.push((format!("✨ {} is defeated!", name), MessageKind::Good));
+        self.battle_log.push((format!("✨ {}を倒した！", name), MessageKind::Good));
         self.on_monster_death(idx);
         self.battle_enemy_idx = None;
         if self.mode == GameMode::Battle {
@@ -1237,12 +1237,12 @@ impl Game {
             if self.player.inventory.len() < INVENTORY_MAX {
                 self.player.inventory.push(crafted);
                 self.player.items_collected += 1;
-                self.add_message(format!("Crafted: {}!", name), MessageKind::Good);
+                self.add_message(format!("{}を製作した！", name), MessageKind::Good);
             } else {
-                self.add_message("Inventory full! Can't craft.", MessageKind::Warning);
+                self.add_message("インベントリがいっぱいで製作できない！", MessageKind::Warning);
             }
         } else {
-            self.add_message("Not enough materials for this recipe.", MessageKind::Warning);
+            self.add_message("素材が不足している。", MessageKind::Warning);
         }
     }
 

@@ -161,32 +161,32 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 <div id="overlay">
   <div id="overlay-box">
     <h1>⚔ Roguelike RPG</h1>
-    <p class="sub">Press any key to start &nbsp;·&nbsp; <kbd>?</kbd> in-game for help</p>
+    <p class="sub">何かキーを押してスタート &nbsp;·&nbsp; ゲーム中 <kbd>?</kbd> でヘルプ</p>
     <table class="key-table">
-      <tr><th colspan="2">MOVEMENT</th></tr>
-      <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Arrows</td><td>Move (4 directions)</td></tr>
-      <tr><td><kbd>Y</kbd><kbd>U</kbd><kbd>B</kbd><kbd>N</kbd></td><td>Diagonal move</td></tr>
-      <tr><td><kbd>Space</kbd> / <kbd>.</kbd></td><td>Wait (skip turn)</td></tr>
-      <tr><th colspan="2">INTERACT</th></tr>
-      <tr><td><kbd>F</kbd> / <kbd>Enter</kbd></td><td>Smart interact (pickup / stairs / shrine)</td></tr>
-      <tr><td><kbd>&gt;</kbd></td><td>Descend stairs</td></tr>
-      <tr><td><kbd>&lt;</kbd></td><td>Ascend stairs</td></tr>
-      <tr><th colspan="2">MENUS</th></tr>
-      <tr><td><kbd>I</kbd></td><td>Inventory</td></tr>
-      <tr><td><kbd>K</kbd></td><td>Skill tree</td></tr>
-      <tr><td><kbd>C</kbd> (on anvil)</td><td>Crafting</td></tr>
-      <tr><th colspan="2">INVENTORY</th></tr>
-      <tr><td><kbd>↑</kbd><kbd>↓</kbd> select · <kbd>Enter</kbd></td><td>Use item</td></tr>
-      <tr><td><kbd>E</kbd></td><td>Equip / unequip</td></tr>
-      <tr><td><kbd>D</kbd></td><td>Drop item</td></tr>
-      <tr><th colspan="2">SKILLS &amp; BATTLE</th></tr>
-      <tr><td><kbd>1</kbd>–<kbd>4</kbd></td><td>Use active skill (hotbar)</td></tr>
-      <tr><td><kbd>←</kbd><kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Esc</kbd></td><td>Battle menu</td></tr>
-      <tr><th colspan="2">OTHER</th></tr>
-      <tr><td><kbd>?</kbd></td><td>This help</td></tr>
-      <tr><td><kbd>Q</kbd></td><td>Quit</td></tr>
+      <tr><th colspan="2">移動</th></tr>
+      <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / 矢印キー</td><td>4方向移動</td></tr>
+      <tr><td><kbd>Y</kbd><kbd>U</kbd><kbd>B</kbd><kbd>N</kbd></td><td>斜め移動</td></tr>
+      <tr><td><kbd>Space</kbd> / <kbd>.</kbd></td><td>1ターン待機</td></tr>
+      <tr><th colspan="2">インタラクト</th></tr>
+      <tr><td><kbd>F</kbd> / <kbd>Enter</kbd></td><td>スマートインタラクト（拾う/階段/祠）</td></tr>
+      <tr><td><kbd>&gt;</kbd></td><td>下の階段を降りる</td></tr>
+      <tr><td><kbd>&lt;</kbd></td><td>上の階段を上る</td></tr>
+      <tr><th colspan="2">メニュー</th></tr>
+      <tr><td><kbd>I</kbd></td><td>インベントリ</td></tr>
+      <tr><td><kbd>K</kbd></td><td>スキルツリー</td></tr>
+      <tr><td><kbd>C</kbd>（鍛冶台の上）</td><td>クラフト</td></tr>
+      <tr><th colspan="2">インベントリ内</th></tr>
+      <tr><td><kbd>↑</kbd><kbd>↓</kbd> 選択 · <kbd>Enter</kbd></td><td>使う</td></tr>
+      <tr><td><kbd>E</kbd></td><td>装備する / 外す</td></tr>
+      <tr><td><kbd>D</kbd></td><td>捨てる</td></tr>
+      <tr><th colspan="2">スキル・バトル</th></tr>
+      <tr><td><kbd>1</kbd>–<kbd>4</kbd></td><td>スキルホットバー使用</td></tr>
+      <tr><td><kbd>←</kbd><kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Esc</kbd></td><td>バトルメニュー操作</td></tr>
+      <tr><th colspan="2">その他</th></tr>
+      <tr><td><kbd>?</kbd></td><td>このヘルプ</td></tr>
+      <tr><td><kbd>Q</kbd></td><td>終了</td></tr>
     </table>
-    <p class="hint">Click or press any key to dismiss</p>
+    <p class="hint">クリックまたは何かキーを押して閉じる</p>
   </div>
 </div>
 
@@ -205,7 +205,7 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
     </div>
     <!-- Stats -->
     <div class="panel" id="p-stats">
-      <div class="panel-title" id="p-stats-title">LV 1 · FLOOR 1</div>
+      <div class="panel-title" id="p-stats-title">LV 1 · 1階</div>
       <div class="stat-row"><span class="stat-key">ゴールド</span><span class="stat-val" id="s-gold">0</span></div>
       <div class="stat-row"><span class="stat-key">攻撃</span><span class="stat-val" id="s-atk">0</span></div>
       <div class="stat-row"><span class="stat-key">防御</span><span class="stat-val" id="s-def">0</span></div>
@@ -613,7 +613,7 @@ function updateUI(g) {
     shdWrap.style.display = 'none';
   }
 
-  document.getElementById('p-stats-title').textContent = `LV ${g.level} · FLOOR ${g.floor}`;
+  document.getElementById('p-stats-title').textContent = `LV ${g.level} · ${g.floor}階`;
   document.getElementById('s-gold').textContent = g.gold;
   document.getElementById('s-atk').textContent  = g.atk;
   document.getElementById('s-def').textContent  = g.def;
@@ -692,7 +692,7 @@ function hideModal() {
 }
 
 function buildInventory(g) {
-  if (!g.inventory.length) return '<div class="modal-box" style="padding:20px 24px;color:#3a4858;font-size:10px">Inventory is empty.<br><br><span style="color:#1e2838">Press I or Esc to close.</span></div>';
+  if (!g.inventory.length) return '<div class="modal-box" style="padding:20px 24px;color:#3a4858;font-size:10px">インベントリは空です。<br><br><span style="color:#1e2838">I または Esc で閉じる。</span></div>';
   const sel = g.inv_cursor;
   const item = g.inventory[sel];
   let list = g.inventory.map((it,i)=>
@@ -772,7 +772,7 @@ function buildEvent(g) {
   return `<div class="event-box modal-box">
     <div style="padding:16px 20px">
       <div class="event-title">${ev.title}</div>
-      ${ev.irreversible ? '<div class="event-irrev">⚠ IRREVERSIBLE CHOICE</div>' : '<div style="height:12px"></div>'}
+      ${ev.irreversible ? '<div class="event-irrev">⚠ 取り消せない選択</div>' : '<div style="height:12px"></div>'}
       <div class="event-desc">${ev.desc}</div>
       ${choices}
       <div style="margin-top:12px;font-size:8px;color:#1e2838">↑↓ 選択 · Enter / クリックで決定</div>
@@ -791,7 +791,7 @@ function buildCrafting(g) {
   let detail = '';
   if (rec) {
     detail = `<div class="item-name" style="color:${rec.can_craft?'#c8a030':'#4a5868'}">${rec.name}</div>
-      <div style="margin-top:8px;font-size:9px;color:#3a5060">Ingredients:</div>
+      <div style="margin-top:8px;font-size:9px;color:#3a5060">素材:</div>
       ${rec.ingredients.map(ing=>`<div class="stat-line"><span>${ing}</span></div>`).join('')}
       ${rec.can_craft ? '<div class="modal-actions"><span class="action-btn" style="color:#a08020" onclick="sendKey(\'Enter\',\'Enter\',false)">↩ 製作</span></div>' : '<div style="margin-top:6px;font-size:8px;color:#502010">素材が不足しています</div>'}
       <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ 選択 · Esc / C 閉じる</div>`;
@@ -807,9 +807,9 @@ function buildCrafting(g) {
 
 function buildHelp() {
   return `<div class="modal-box" style="max-width:520px;padding:20px 26px">
-    <div style="font-size:1.1rem;color:#d8a030;margin-bottom:12px;letter-spacing:.1em">⚔ CONTROLS</div>
+    <div style="font-size:1.1rem;color:#d8a030;margin-bottom:12px;letter-spacing:.1em">⚔ 操作方法</div>
     <table class="key-table">
-      <tr><th colspan="2">MOVEMENT</th></tr>
+      <tr><th colspan="2">移動</th></tr>
       <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Arrows</td><td>4方向移動</td></tr>
       <tr><td><kbd>Y</kbd><kbd>U</kbd><kbd>B</kbd><kbd>N</kbd></td><td>斜め移動</td></tr>
       <tr><td><kbd>Space</kbd> / <kbd>.</kbd></td><td>1ターン待機</td></tr>
@@ -832,7 +832,7 @@ function buildHelp() {
       <tr><td><kbd>?</kbd></td><td>このヘルプ</td></tr>
       <tr><td><kbd>Q</kbd></td><td>終了</td></tr>
     </table>
-    <div style="margin-top:12px;font-size:8px;color:#1e2838;text-align:center">Any key to close</div>
+    <div style="margin-top:12px;font-size:8px;color:#1e2838;text-align:center">何かキーを押して閉じる</div>
   </div>`;
 }
 
