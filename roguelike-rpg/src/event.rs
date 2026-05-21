@@ -16,11 +16,21 @@ pub enum EventConsequence {
     GainMaxMp(i32),
     LoseRandomItem,
     GainRandomItem,
-    CursedFloor,          // enemies stronger on this floor
-    BlessedFloor,         // double exp on this floor
+    CursedFloor,
+    BlessedFloor,
     LearnRandomSkill,
     UnlockSkillBranch,
     TeleportToFloor(u32),
+    // ── 祠専用 ──────────────────────────────────────────────
+    FullRestoreHpMp,        // HP・MP完全回復＋状態異常解除
+    LoseHpPct(u32),         // 最大HPの何%を失う（直接ダメージ）
+    LoseAllGold,            // 全ゴールドを失う
+    GainPositiveRelic,      // ランダム秘宝を授与
+    GainNegativeRelic,      // ランダム呪物を授与
+    KillAllMonsters,        // このフロアの全モンスターを消滅
+    ResetSkillCooldowns,    // 全スキルのクールダウンをリセット
+    SetHpToOne,             // HPを強制的に1にする（防御無視）
+    GainLevelUp,            // 強制レベルアップ
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -37,6 +47,7 @@ pub struct RandomEvent {
     pub description: String,
     pub choices: Vec<EventChoice>,
     pub is_irreversible: bool,
+    pub triggers_floor_reload: bool,  // false = 祠イベントなど、階層を再生成しない
 }
 
 pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
@@ -51,7 +62,7 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
             description: "暗黒のエネルギーが脈動する古代の祭壇を発見した。声がつぶやく：「血を捧げよ、そうすれば力を授けよう…」".to_string(),
             choices: vec![
                 EventChoice {
-                    label: "血を捧げる（最大HP永続-20%）".to_string(),
+                    label: "血を捧げる（最大HP永続-20）".to_string(),
                     description: "闇の力のための永続的な犠牲。".to_string(),
                     consequences: vec![
                         EventConsequence::GainStrPermanent(8),
@@ -74,6 +85,7 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
                 },
             ],
             is_irreversible: true,
+            triggers_floor_reload: true,
         },
         1 => RandomEvent {
             title: "瀕死の冒険者".to_string(),
@@ -106,6 +118,7 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
                 },
             ],
             is_irreversible: true,
+            triggers_floor_reload: true,
         },
         2 => RandomEvent {
             title: "古代の書庫".to_string(),
@@ -134,6 +147,7 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
                 },
             ],
             is_irreversible: true,
+            triggers_floor_reload: true,
         },
         3 => RandomEvent {
             title: "賭博師".to_string(),
@@ -163,6 +177,7 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
                 },
             ],
             is_irreversible: true,
+            triggers_floor_reload: true,
         },
         4 => RandomEvent {
             title: "呪われた宝物庫".to_string(),
@@ -195,6 +210,7 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
                 },
             ],
             is_irreversible: true,
+            triggers_floor_reload: true,
         },
         5 => RandomEvent {
             title: "虚無の裂け目".to_string(),
@@ -224,6 +240,7 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
                 },
             ],
             is_irreversible: true,
+            triggers_floor_reload: true,
         },
         6 => RandomEvent {
             title: "商人の亡霊".to_string(),
@@ -260,6 +277,7 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
                 },
             ],
             is_irreversible: false,
+            triggers_floor_reload: true,
         },
         7 => RandomEvent {
             title: "竜の卵".to_string(),
@@ -296,13 +314,14 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
                 },
             ],
             is_irreversible: true,
+            triggers_floor_reload: true,
         },
         8 => RandomEvent {
             title: "魂の鏡".to_string(),
             description: "巨大な黒曜石の鏡が体ではなく魂を映し出す。映った自分が手を伸ばす：「一緒になれ——完全体になれ。」".to_string(),
             choices: vec![
                 EventChoice {
-                    label: "鏡と融合する（全ステータス+3、最大HP-30%）".to_string(),
+                    label: "鏡と融合する（全ステータス+3、最大HP-30）".to_string(),
                     description: "肉体と魂の危険な融合。".to_string(),
                     consequences: vec![
                         EventConsequence::GainStrPermanent(3),
@@ -330,6 +349,7 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
                 },
             ],
             is_irreversible: true,
+            triggers_floor_reload: true,
         },
         9 => RandomEvent {
             title: "戦士の墓".to_string(),
@@ -356,10 +376,11 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
                 },
             ],
             is_irreversible: true,
+            triggers_floor_reload: true,
         },
         10 => RandomEvent {
             title: "運命の十字路".to_string(),
-            description: "三つの道が目の前で分かれている。それぞれに紋章が刻まれている：⚔️ 力、🌟 魔法、🗡️ 策略。前に進める道は一つだけ。".to_string(),
+            description: "三つの道が目の前で分かれている。それぞれに紋章が刻まれている：⚔ 力、✦ 魔法、🗡 策略。前に進める道は一つだけ。".to_string(),
             choices: vec![
                 EventChoice {
                     label: "戦士の道を進む（STR+8、HP+40）".to_string(),
@@ -380,7 +401,7 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
                     is_risky: false,
                 },
                 EventChoice {
-                    label: "盗賊の道を進む（DEX+8、LUK+8）".to_string(),
+                    label: "盗賊の道を進む（DEF+4、LUK+8）".to_string(),
                     description: "策略の道を歩む。".to_string(),
                     consequences: vec![
                         EventConsequence::GainDefPermanent(4),
@@ -390,13 +411,14 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
                 },
             ],
             is_irreversible: true,
+            triggers_floor_reload: true,
         },
         _ => RandomEvent {
             title: "最終試練".to_string(),
             description: "轟く声がダンジョンに響き渡る：「深く潜り込んだな。価値を証明せよ——試練を生き延びよ！」".to_string(),
             choices: vec![
                 EventChoice {
-                    label: "試練を受ける（強敵と戦う、レジェンダリーアイテム獲得）".to_string(),
+                    label: "試練を受ける（ダメージ、EXP大量獲得）".to_string(),
                     description: "伝説の報酬のために強力な挑戦に立ち向かう。".to_string(),
                     consequences: vec![
                         EventConsequence::LoseHp(50),
@@ -406,15 +428,334 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
                     is_risky: true,
                 },
                 EventChoice {
-                    label: "試練から逃げる（スキップ、EXP-100）".to_string(),
+                    label: "試練から逃げる".to_string(),
                     description: "危険を避けるが報酬を逃す。".to_string(),
                     consequences: vec![],
                     is_risky: false,
                 },
             ],
             is_irreversible: true,
+            triggers_floor_reload: true,
         },
     };
 
     Some(event)
 }
+
+// ────────────────────────────────────────────────────────────────
+//  祠専用ランダムイベント（ハイリスク・ハイリターン）
+// ────────────────────────────────────────────────────────────────
+pub fn generate_shrine_event(floor: u32) -> RandomEvent {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    let roll = rng.gen_range(0..8u32);
+
+    match roll {
+        // ── 古代の審判の祠 ──────────────────────────────────────
+        0 => RandomEvent {
+            title: "古代の審判の祠".to_string(),
+            description: "神の眼差しがお前を測る。純粋なる力を証明すれば報酬を。財を捧げれば癒しを。去れば神の怒りはない。".to_string(),
+            choices: vec![
+                EventChoice {
+                    label: "試練を受ける（最大HPの50%消費 → STR+12、DEF+8、最大HP+40）".to_string(),
+                    description: "神に自身の体を賭け、代わりに永続強化を得る。高リスク・高リターン。".to_string(),
+                    consequences: vec![
+                        EventConsequence::LoseHpPct(50),
+                        EventConsequence::GainStrPermanent(12),
+                        EventConsequence::GainDefPermanent(8),
+                        EventConsequence::GainMaxHp(40),
+                    ],
+                    is_risky: true,
+                },
+                EventChoice {
+                    label: format!("財を捧げる（ゴールド{}消費 → HP・MP完全回復）", 300 * floor.max(1)),
+                    description: "金で神の御心を買う。".to_string(),
+                    consequences: vec![
+                        EventConsequence::LoseGold(300 * floor.max(1)),
+                        EventConsequence::FullRestoreHpMp,
+                        EventConsequence::GainLukPermanent(3),
+                    ],
+                    is_risky: false,
+                },
+                EventChoice {
+                    label: "立ち去る".to_string(),
+                    description: "神は去る者を追わない。".to_string(),
+                    consequences: vec![],
+                    is_risky: false,
+                },
+            ],
+            is_irreversible: true,
+            triggers_floor_reload: false,
+        },
+
+        // ── 血の誓約の祠 ────────────────────────────────────────
+        1 => RandomEvent {
+            title: "血の誓約の祠".to_string(),
+            description: "赤黒い石板に刻まれた言葉：「血の誓いを立てよ。我はお前を最強の戦士に変えよう」。祠が脈動している。".to_string(),
+            choices: vec![
+                EventChoice {
+                    label: "全てを捧げる（HP1まで失う → STR+15、DEF+10、最大HP+60）".to_string(),
+                    description: "死の淵まで血を流し、神格の力を得る。超高リスク。".to_string(),
+                    consequences: vec![
+                        EventConsequence::SetHpToOne,
+                        EventConsequence::GainStrPermanent(15),
+                        EventConsequence::GainDefPermanent(10),
+                        EventConsequence::GainMaxHp(60),
+                    ],
+                    is_risky: true,
+                },
+                EventChoice {
+                    label: "半分を捧げる（最大HPの50%消費 → ランダム秘宝）".to_string(),
+                    description: "中程度の犠牲でランダムな秘宝を授かる。".to_string(),
+                    consequences: vec![
+                        EventConsequence::LoseHpPct(50),
+                        EventConsequence::GainPositiveRelic,
+                    ],
+                    is_risky: true,
+                },
+                EventChoice {
+                    label: "断る（神の小さな怒り：HP-10）".to_string(),
+                    description: "誓いを拒めば、神は去り際に小さな痛みを与える。".to_string(),
+                    consequences: vec![EventConsequence::LoseHp(10)],
+                    is_risky: false,
+                },
+            ],
+            is_irreversible: true,
+            triggers_floor_reload: false,
+        },
+
+        // ── 運命の天秤の祠 ──────────────────────────────────────
+        2 => {
+            let lucky = rng.gen_bool(0.5);
+            RandomEvent {
+                title: "運命の天秤の祠".to_string(),
+                description: "二つの皿を持つ天秤が浮かんでいる。「全てを賭けるか、それとも確実な中庸を選ぶか？」".to_string(),
+                choices: vec![
+                    EventChoice {
+                        label: "天秤に全てを賭ける（50/50：完全回復+EXP大量 か HP1）".to_string(),
+                        description: if lucky { "★ 今は幸運が微笑む——完全回復とEXPが待っている。".to_string() }
+                                     else { "★ 今は運命が牙を剥く——HP1まで落ちる。".to_string() },
+                        consequences: if lucky {
+                            vec![EventConsequence::FullRestoreHpMp, EventConsequence::GainExp(floor * 250)]
+                        } else {
+                            vec![EventConsequence::SetHpToOne]
+                        },
+                        is_risky: true,
+                    },
+                    EventChoice {
+                        label: "均衡を選ぶ（最大HPの50%消費 → STR+8、INT+8）".to_string(),
+                        description: "犠牲は確実だが、見返りも確実。".to_string(),
+                        consequences: vec![
+                            EventConsequence::LoseHpPct(50),
+                            EventConsequence::GainStrPermanent(8),
+                            EventConsequence::GainIntPermanent(8),
+                        ],
+                        is_risky: true,
+                    },
+                    EventChoice {
+                        label: "立ち去る".to_string(),
+                        description: "賭けに参加しない選択も勇気の一つ。".to_string(),
+                        consequences: vec![],
+                        is_risky: false,
+                    },
+                ],
+                is_irreversible: true,
+                triggers_floor_reload: false,
+            }
+        },
+
+        // ── 禁忌の聖域 ──────────────────────────────────────────
+        3 => RandomEvent {
+            title: "禁忌の聖域".to_string(),
+            description: "封印された扉の奥に禁断の力が眠る。二つの選択肢が浮かぶ：禁断の力を解き放つか、扉ごと砕くか。".to_string(),
+            choices: vec![
+                EventChoice {
+                    label: "禁忌を解放（秘宝と呪物を同時取得）".to_string(),
+                    description: "光と闇が同時に降り注ぐ。祝福と呪いを共に受け入れる覚悟があるか？".to_string(),
+                    consequences: vec![
+                        EventConsequence::GainPositiveRelic,
+                        EventConsequence::GainNegativeRelic,
+                    ],
+                    is_risky: true,
+                },
+                EventChoice {
+                    label: "扉を砕く（HP1 → 全モンスター消滅）".to_string(),
+                    description: "全身全霊の一撃で扉を粉砕。爆発でHP1になるが、フロア全ての敵が消える。".to_string(),
+                    consequences: vec![
+                        EventConsequence::SetHpToOne,
+                        EventConsequence::KillAllMonsters,
+                    ],
+                    is_risky: true,
+                },
+                EventChoice {
+                    label: "立ち去る".to_string(),
+                    description: "禁断には触れないのが賢明かもしれない。".to_string(),
+                    consequences: vec![],
+                    is_risky: false,
+                },
+            ],
+            is_irreversible: true,
+            triggers_floor_reload: false,
+        },
+
+        // ── 魂の坩堝の祠 ────────────────────────────────────────
+        4 => RandomEvent {
+            title: "魂の坩堝の祠".to_string(),
+            description: "これまで倒した敵の魂が坩堝の中で渦巻いている。「その魂を再び汝に還そう」と声がする。".to_string(),
+            choices: vec![
+                EventChoice {
+                    label: format!("魂を全て吸収（EXP+{}）", floor * 200 + 100),
+                    description: "倒した魂のエネルギーを全てEXPに変換する。".to_string(),
+                    consequences: vec![EventConsequence::GainExp(floor * 200 + 100)],
+                    is_risky: false,
+                },
+                EventChoice {
+                    label: "魂と融合する（最大HP-30 → STR+12、DEF+8）".to_string(),
+                    description: "魂が肉体に溶け込む。HPの上限は落ちるが永続的な力を得る。".to_string(),
+                    consequences: vec![
+                        EventConsequence::GainMaxHp(-30),
+                        EventConsequence::GainStrPermanent(12),
+                        EventConsequence::GainDefPermanent(8),
+                    ],
+                    is_risky: true,
+                },
+                EventChoice {
+                    label: "魂を解放する（HP・MP完全回復、魂が祝福）".to_string(),
+                    description: "魂を安らかに送り出す。見返りに癒しの祝福を受ける。".to_string(),
+                    consequences: vec![
+                        EventConsequence::FullRestoreHpMp,
+                        EventConsequence::GainLukPermanent(5),
+                    ],
+                    is_risky: false,
+                },
+            ],
+            is_irreversible: true,
+            triggers_floor_reload: false,
+        },
+
+        // ── 黄金神の祠 ──────────────────────────────────────────
+        5 => RandomEvent {
+            title: "黄金神の祠".to_string(),
+            description: "黄金に輝く神像が鎮座している。「財を全て捧げれば、汝を次の段階へ引き上げよう」という声が聞こえる。".to_string(),
+            choices: vec![
+                EventChoice {
+                    label: "全財産を捧げる（全ゴールド消費 → レベルアップ＋完全回復）".to_string(),
+                    description: "お金は全て消えるが、一気にレベルアップし完全回復する。究極のトレードオフ。".to_string(),
+                    consequences: vec![
+                        EventConsequence::LoseAllGold,
+                        EventConsequence::GainLevelUp,
+                        EventConsequence::FullRestoreHpMp,
+                    ],
+                    is_risky: true,
+                },
+                EventChoice {
+                    label: format!("一部を捧げる（ゴールド{}消費 → 最大HP+40、最大MP+30）", 200 * floor.max(1)),
+                    description: "それなりの金を捧げ、確実な永続強化を得る。".to_string(),
+                    consequences: vec![
+                        EventConsequence::LoseGold(200 * floor.max(1)),
+                        EventConsequence::GainMaxHp(40),
+                        EventConsequence::GainMaxMp(30),
+                    ],
+                    is_risky: false,
+                },
+                EventChoice {
+                    label: "立ち去る".to_string(),
+                    description: "財布を守る。".to_string(),
+                    consequences: vec![],
+                    is_risky: false,
+                },
+            ],
+            is_irreversible: true,
+            triggers_floor_reload: false,
+        },
+
+        // ── 時の神の祠 ──────────────────────────────────────────
+        6 => RandomEvent {
+            title: "時の神の祠".to_string(),
+            description: "砂時計の形をした祠。時間そのものが歪んでいる。「過去・現在・未来——どの時を望む？」".to_string(),
+            choices: vec![
+                EventChoice {
+                    label: format!("時を止める（ゴールド{}消費 → 全CDリセット＋MP完全回復）", 400 * floor.max(1)),
+                    description: "時を一瞬止め、全スキルのクールダウンをリセット。戦術的に極めて強力。".to_string(),
+                    consequences: vec![
+                        EventConsequence::LoseGold(400 * floor.max(1)),
+                        EventConsequence::ResetSkillCooldowns,
+                        EventConsequence::GainMp(999),
+                    ],
+                    is_risky: false,
+                },
+                EventChoice {
+                    label: format!("時を加速する（最大HPの50%消費 → {}階へ転送）", floor + 3),
+                    description: "3フロア先へ一気に飛ぶ。ただし時の加速の代償で半分のHPを失う。".to_string(),
+                    consequences: vec![
+                        EventConsequence::LoseHpPct(50),
+                        EventConsequence::TeleportToFloor(floor + 3),
+                    ],
+                    is_risky: true,
+                },
+                EventChoice {
+                    label: "立ち去る".to_string(),
+                    description: "時の流れには逆らわない。".to_string(),
+                    consequences: vec![],
+                    is_risky: false,
+                },
+            ],
+            is_irreversible: true,
+            triggers_floor_reload: false,
+        },
+
+        // ── 狂気の神の祠 ────────────────────────────────────────
+        _ => {
+            let good_outcome = rng.gen_bool(0.45);
+            RandomEvent {
+                title: "狂気の神の祠".to_string(),
+                description: "祠全体がぐにゃりと歪んでいる。笑い声が響き渡る。「全てを賭けるか？さあさあ——狂気に飛び込め！」".to_string(),
+                choices: vec![
+                    EventChoice {
+                        label: "狂気を取り込む（45%：全能力大幅強化 / 55%：全能力大幅弱体）".to_string(),
+                        description: if good_outcome {
+                            "★ 狂気が力に変わる——全能力が大幅上昇する！".to_string()
+                        } else {
+                            "★ 狂気に飲み込まれた——全能力が大幅低下する…".to_string()
+                        },
+                        consequences: if good_outcome {
+                            vec![
+                                EventConsequence::GainStrPermanent(18),
+                                EventConsequence::GainDefPermanent(10),
+                                EventConsequence::GainIntPermanent(12),
+                                EventConsequence::GainLukPermanent(8),
+                                EventConsequence::GainMaxHp(60),
+                            ]
+                        } else {
+                            vec![
+                                EventConsequence::GainStrPermanent(-10),
+                                EventConsequence::GainDefPermanent(-6),
+                                EventConsequence::GainMaxHp(-50),
+                                EventConsequence::GainMaxMp(-30),
+                            ]
+                        },
+                        is_risky: true,
+                    },
+                    EventChoice {
+                        label: "秘宝と呪物を同時に受け取る".to_string(),
+                        description: "狂気の神は必ず光と影の両方を与える。結果は確実だが内容は選べない。".to_string(),
+                        consequences: vec![
+                            EventConsequence::GainPositiveRelic,
+                            EventConsequence::GainNegativeRelic,
+                        ],
+                        is_risky: true,
+                    },
+                    EventChoice {
+                        label: "立ち去る（狂気の神の嘲笑を受ける：HP-15）".to_string(),
+                        description: "逃げることもできるが、神は嘲笑いながら痛みを与える。".to_string(),
+                        consequences: vec![EventConsequence::LoseHp(15)],
+                        is_risky: false,
+                    },
+                ],
+                is_irreversible: true,
+                triggers_floor_reload: false,
+            }
+        }
+    }
+}
+

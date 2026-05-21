@@ -889,11 +889,85 @@ impl Game {
                         self.load_floor(f);
                         return;
                     }
+                    EventConsequence::FullRestoreHpMp => {
+                        self.player.hp = self.player.max_hp;
+                        self.player.mp = self.player.max_mp;
+                        self.player.poison_turns = 0;
+                        self.player.stun_turns = 0;
+                        self.add_message("HP・MP完全回復！状態異常も解除！", MessageKind::Good);
+                    }
+                    EventConsequence::LoseHpPct(pct) => {
+                        let loss = (self.player.max_hp * *pct as i32 / 100).max(1);
+                        self.player.hp = (self.player.hp - loss).max(1);
+                        self.add_message(format!("HP-{}（最大HPの{}%）！", loss, pct), MessageKind::Warning);
+                    }
+                    EventConsequence::LoseAllGold => {
+                        let lost = self.player.gold;
+                        self.player.gold = 0;
+                        self.add_message(format!("ゴールド{}枚を全て失った！", lost), MessageKind::Warning);
+                    }
+                    EventConsequence::GainPositiveRelic => {
+                        let floor = self.player.floor;
+                        let mut relic = random_relic(&mut self.rng, floor);
+                        while relic.is_cursed {
+                            relic = random_relic(&mut self.rng, floor);
+                        }
+                        let name = relic.name.clone();
+                        let desc = relic.description.clone();
+                        if relic.effect == RelicEffect::MapReveal {
+                            for col in self.map.explored.iter_mut() {
+                                for cell in col.iter_mut() { *cell = true; }
+                            }
+                        }
+                        self.player.relics.push(relic);
+                        self.update_stats();
+                        self.player.relic_revive_available = self.player.has_revive_relic();
+                        self.add_message(format!("【秘宝】「{}」を授与された！{}", name, desc), MessageKind::Good);
+                    }
+                    EventConsequence::GainNegativeRelic => {
+                        let floor = self.player.floor;
+                        let mut relic = random_relic(&mut self.rng, floor);
+                        while !relic.is_cursed {
+                            relic = random_relic(&mut self.rng, floor);
+                        }
+                        let name = relic.name.clone();
+                        let desc = relic.description.clone();
+                        self.player.relics.push(relic);
+                        self.update_stats();
+                        self.add_message(format!("【呪物】「{}」が憑依した！{}", name, desc), MessageKind::Warning);
+                    }
+                    EventConsequence::KillAllMonsters => {
+                        let count = self.monsters.len();
+                        self.monsters.clear();
+                        self.add_message(format!("フロアの全モンスター{}体が消滅した！", count), MessageKind::Good);
+                    }
+                    EventConsequence::ResetSkillCooldowns => {
+                        for skill in self.player.skills.iter_mut() {
+                            skill.current_cooldown = 0;
+                        }
+                        self.add_message("全スキルのクールダウンがリセットされた！", MessageKind::Good);
+                    }
+                    EventConsequence::SetHpToOne => {
+                        self.player.hp = 1;
+                        self.add_message("HPが強制的に1になった！", MessageKind::Warning);
+                    }
+                    EventConsequence::GainLevelUp => {
+                        let exp_needed = self.player.exp_to_next.saturating_sub(self.player.exp);
+                        let leveled = self.player.gain_exp(exp_needed + 1);
+                        if leveled {
+                            self.add_message(format!("強制レベルアップ！レベル{}になった！", self.player.level), MessageKind::Good);
+                            self.update_stats();
+                        }
+                    }
                 }
             }
 
             self.add_message(format!("選択：「{}」", choice.label), MessageKind::Event);
-            self.load_floor(floor);
+            if event.triggers_floor_reload {
+                self.load_floor(floor);
+            } else {
+                self.mode = GameMode::Exploring;
+            }
         }
     }
 
@@ -940,26 +1014,11 @@ impl Game {
             return;
         }
         self.map.set(px, py, Tile::Floor);
-        let roll = self.rng.gen_range(0..4);
-        match roll {
-            0 => {
-                let heal = self.player.max_hp / 3;
-                self.player.heal(heal);
-                self.add_message(format!("祠の祝福！HP+{}！", heal), MessageKind::Good);
-            }
-            1 => {
-                self.player.heal_mp(self.player.max_mp / 2);
-                self.add_message("祠の祝福！MPが全回復！", MessageKind::Good);
-            }
-            2 => {
-                self.player.base_luk += 3;
-                self.add_message("祠の祝福！LUK+3！", MessageKind::Good);
-            }
-            _ => {
-                self.player.gain_exp(self.player.level * 50);
-                self.add_message("祠の祝福！EXPが増加！", MessageKind::Good);
-            }
-        }
+        let floor = self.player.floor;
+        let event = crate::event::generate_shrine_event(floor);
+        self.current_event = Some(event);
+        self.event_selection = 0;
+        self.mode = GameMode::Event;
     }
 
     pub fn learn_skill(&mut self, skill_idx: usize) {
