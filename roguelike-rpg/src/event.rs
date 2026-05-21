@@ -43,12 +43,6 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
     use rand::Rng;
     let mut rng = rand::thread_rng();
 
-    // Events become more common and dramatic deeper in the dungeon
-    let event_chance = 40 + floor.min(20) as u32 * 3;
-    if rng.gen_range(0..100) >= event_chance {
-        return None;
-    }
-
     let event_roll = rng.gen_range(0..12u32);
 
     let event = match event_roll {
