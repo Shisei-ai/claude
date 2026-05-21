@@ -140,11 +140,11 @@ pub fn generate_weapon<R: Rng>(rng: &mut R, floor: u32) -> Item {
     let power = floor as i32;
     let rarity = roll_rarity(rng, floor);
     let (wtype, base_name) = match rng.gen_range(0..5) {
-        0 => (WeaponType::Sword, "Sword"),
-        1 => (WeaponType::Axe, "Axe"),
-        2 => (WeaponType::Staff, "Staff"),
-        3 => (WeaponType::Dagger, "Dagger"),
-        _ => (WeaponType::Bow, "Bow"),
+        0 => (WeaponType::Sword, "剣"),
+        1 => (WeaponType::Axe, "斧"),
+        2 => (WeaponType::Staff, "杖"),
+        3 => (WeaponType::Dagger, "短剣"),
+        _ => (WeaponType::Bow, "弓"),
     };
 
     let base_atk = match wtype {
@@ -176,7 +176,7 @@ pub fn generate_weapon<R: Rng>(rng: &mut R, floor: u32) -> Item {
         material_type: None,
         skill_tome_id: None,
         enchant_level: 0,
-        description: format!("A {} weapon.", rarity.label().to_lowercase()),
+        description: format!("{}の武器。", rarity.label()),
         value: ((atk * 10) as f32 * rarity_mult) as u32,
     }
 }
@@ -185,10 +185,10 @@ pub fn generate_armor<R: Rng>(rng: &mut R, floor: u32) -> Item {
     let power = floor as i32;
     let rarity = roll_rarity(rng, floor);
     let (kind, base_name, base_def) = match rng.gen_range(0..4) {
-        0 => (ItemKind::Armor, "Armor", 5),
-        1 => (ItemKind::Helmet, "Helmet", 2),
-        2 => (ItemKind::Boots, "Boots", 1),
-        _ => (ItemKind::Ring, "Ring", 0),
+        0 => (ItemKind::Armor, "鎧", 5),
+        1 => (ItemKind::Helmet, "兜", 2),
+        2 => (ItemKind::Boots, "靴", 1),
+        _ => (ItemKind::Ring, "指輪", 0),
     };
 
     let rarity_mult = rarity_multiplier(&rarity);
@@ -211,7 +211,7 @@ pub fn generate_armor<R: Rng>(rng: &mut R, floor: u32) -> Item {
         material_type: None,
         skill_tome_id: None,
         enchant_level: 0,
-        description: format!("A {} piece of protection.", rarity.label().to_lowercase()),
+        description: format!("{}の防具。", rarity.label()),
         value: ((def * 8) as f32 * rarity_mult) as u32,
     }
 }
@@ -221,25 +221,25 @@ pub fn generate_consumable<R: Rng>(rng: &mut R, floor: u32) -> Item {
     let (name, effect, desc, value) = match rng.gen_range(0..6) {
         0 => {
             let heal = 20 + power * 5;
-            ("HP Potion".to_string(), ConsumableEffect::HealHp(heal), "Restores HP.".to_string(), 50)
+            ("HP回復薬".to_string(), ConsumableEffect::HealHp(heal), "HPを回復する。".to_string(), 50)
         }
         1 => {
             let heal = 10 + power * 3;
-            ("MP Potion".to_string(), ConsumableEffect::HealMp(heal), "Restores MP.".to_string(), 40)
+            ("MP回復薬".to_string(), ConsumableEffect::HealMp(heal), "MPを回復する。".to_string(), 40)
         }
         2 => {
             let boost = 5 + power;
-            ("Strength Tonic".to_string(), ConsumableEffect::TempStrBoost(boost, 10), "Temporarily boosts STR.".to_string(), 80)
+            ("力の秘薬".to_string(), ConsumableEffect::TempStrBoost(boost, 10), "一時的にSTRを上昇させる。".to_string(), 80)
         }
         3 => {
             let boost = 5 + power;
-            ("Iron Skin Potion".to_string(), ConsumableEffect::TempDefBoost(boost, 10), "Temporarily boosts DEF.".to_string(), 80)
+            ("鉄皮の秘薬".to_string(), ConsumableEffect::TempDefBoost(boost, 10), "一時的にDEFを上昇させる。".to_string(), 80)
         }
         4 => {
-            ("Scroll of Teleport".to_string(), ConsumableEffect::Teleport, "Teleports you to a random location.".to_string(), 100)
+            ("転送の巻物".to_string(), ConsumableEffect::Teleport, "ランダムな場所へ転送される。".to_string(), 100)
         }
         _ => {
-            ("Map Scroll".to_string(), ConsumableEffect::RevealMap, "Reveals the entire floor map.".to_string(), 120)
+            ("地図の巻物".to_string(), ConsumableEffect::RevealMap, "このフロアの全マップを表示する。".to_string(), 120)
         }
     };
 
@@ -260,14 +260,14 @@ pub fn generate_consumable<R: Rng>(rng: &mut R, floor: u32) -> Item {
 
 pub fn generate_material<R: Rng>(rng: &mut R) -> Item {
     let (mat_type, name, desc, value) = match rng.gen_range(0..8) {
-        0 => ("iron_ore", "Iron Ore", "Used in crafting metal equipment.", 20),
-        1 => ("magic_crystal", "Magic Crystal", "Imbued with arcane energy.", 50),
-        2 => ("leather_hide", "Leather Hide", "Sturdy animal hide.", 15),
-        3 => ("mythril_shard", "Mythril Shard", "A rare lightweight metal.", 100),
-        4 => ("dragon_scale", "Dragon Scale", "Scales from a dragon. Extremely tough.", 200),
-        5 => ("soul_essence", "Soul Essence", "The distilled essence of a defeated foe.", 80),
-        6 => ("ancient_bone", "Ancient Bone", "Bone of something old and powerful.", 60),
-        _ => ("enchant_dust", "Enchant Dust", "Used to enhance equipment.", 40),
+        0 => ("iron_ore", "鉄鉱石", "金属装備の製作に使用する。", 20),
+        1 => ("magic_crystal", "魔法水晶", "魔法エネルギーが宿っている。", 50),
+        2 => ("leather_hide", "革", "丈夫な動物の皮。", 15),
+        3 => ("mythril_shard", "ミスリルの欠片", "稀少な軽量金属。", 100),
+        4 => ("dragon_scale", "竜の鱗", "ドラゴンの鱗。非常に硬い。", 200),
+        5 => ("soul_essence", "魂の精髄", "倒した敵から抽出された精髄。", 80),
+        6 => ("ancient_bone", "古代の骨", "古く強力な何かの骨。", 60),
+        _ => ("enchant_dust", "魔法の粉", "装備品の強化に使用する。", 40),
     };
 
     Item {
@@ -288,7 +288,7 @@ pub fn generate_material<R: Rng>(rng: &mut R) -> Item {
 pub fn generate_skill_tome<R: Rng>(rng: &mut R, skill_id: usize) -> Item {
     Item {
         id: next_item_id(),
-        name: format!("Skill Tome #{}", skill_id),
+        name: format!("スキル書 第{}巻", skill_id),
         kind: ItemKind::SkillTome,
         rarity: Rarity::Rare,
         stats: Default::default(),
@@ -296,7 +296,7 @@ pub fn generate_skill_tome<R: Rng>(rng: &mut R, skill_id: usize) -> Item {
         material_type: None,
         skill_tome_id: Some(skill_id),
         enchant_level: 0,
-        description: "A tome containing the knowledge of a new skill.".to_string(),
+        description: "新しいスキルの知識が記された書。".to_string(),
         value: 300,
     }
 }
@@ -344,23 +344,23 @@ fn rarity_multiplier(r: &Rarity) -> f32 {
 fn rarity_prefix<R: Rng>(r: &Rarity, rng: &mut R) -> &'static str {
     match r {
         Rarity::Common => {
-            let opts = ["Old", "Worn", "Basic", "Simple"];
+            let opts = ["古びた", "くたびれた", "粗末な", "簡素な"];
             opts[rng.gen_range(0..opts.len())]
         }
         Rarity::Uncommon => {
-            let opts = ["Iron", "Steel", "Keen", "Sturdy"];
+            let opts = ["鉄の", "鋼の", "鋭い", "頑丈な"];
             opts[rng.gen_range(0..opts.len())]
         }
         Rarity::Rare => {
-            let opts = ["Arcane", "Tempered", "Blessed", "Shadow"];
+            let opts = ["魔法の", "鍛錬の", "祝福の", "影の"];
             opts[rng.gen_range(0..opts.len())]
         }
         Rarity::Epic => {
-            let opts = ["Mythril", "Soulbound", "Ancient", "Radiant"];
+            let opts = ["ミスリルの", "魂縛の", "古代の", "輝く"];
             opts[rng.gen_range(0..opts.len())]
         }
         Rarity::Legendary => {
-            let opts = ["Dragon", "Divine", "Void", "Eternal"];
+            let opts = ["竜の", "神聖な", "虚無の", "永遠の"];
             opts[rng.gen_range(0..opts.len())]
         }
     }
@@ -374,39 +374,39 @@ pub struct CraftingRecipe {
 
 pub const CRAFTING_RECIPES: &[CraftingRecipe] = &[
     CraftingRecipe {
-        name: "Iron Sword",
+        name: "鉄の剣",
         ingredients: &[("iron_ore", 3), ("leather_hide", 1)],
-        result_description: "A reliable iron sword.",
+        result_description: "信頼性の高い鉄の剣。",
     },
     CraftingRecipe {
-        name: "Mythril Armor",
+        name: "ミスリルの鎧",
         ingredients: &[("mythril_shard", 3), ("leather_hide", 2)],
-        result_description: "Light but strong mythril armor.",
+        result_description: "軽量だが強力なミスリルの鎧。",
     },
     CraftingRecipe {
-        name: "Arcane Staff",
+        name: "魔法の杖",
         ingredients: &[("magic_crystal", 3), ("ancient_bone", 1)],
-        result_description: "A staff crackling with magic.",
+        result_description: "魔力がほとばしる杖。",
     },
     CraftingRecipe {
-        name: "Dragon Scale Armor",
+        name: "竜鱗の鎧",
         ingredients: &[("dragon_scale", 4), ("mythril_shard", 2)],
-        result_description: "Nigh-impenetrable dragon scale armor.",
+        result_description: "ほぼ無敵の竜鱗の鎧。",
     },
     CraftingRecipe {
-        name: "Soul Weapon",
+        name: "魂の武器",
         ingredients: &[("soul_essence", 5), ("iron_ore", 2)],
-        result_description: "A weapon imbued with fallen souls.",
+        result_description: "倒れた魂が宿る武器。",
     },
     CraftingRecipe {
-        name: "Enchant Weapon",
+        name: "武器強化",
         ingredients: &[("enchant_dust", 3)],
-        result_description: "Enhance a weapon with magic dust.",
+        result_description: "魔法の粉で武器を強化する。",
     },
     CraftingRecipe {
-        name: "Mega HP Potion",
+        name: "超回復薬",
         ingredients: &[("magic_crystal", 1), ("leather_hide", 1)],
-        result_description: "A powerful healing potion.",
+        result_description: "強力な回復薬。",
     },
 ];
 
@@ -443,53 +443,53 @@ pub fn try_craft<R: Rng>(
 
     // Generate result
     let item = match recipe.name {
-        "Iron Sword" => {
+        "鉄の剣" => {
             let mut w = generate_weapon(rng, floor);
-            w.name = "Iron Sword".to_string();
+            w.name = "鉄の剣".to_string();
             w.stats.attack += 5;
             w.rarity = Rarity::Uncommon;
             w
         }
-        "Mythril Armor" => {
+        "ミスリルの鎧" => {
             let mut a = generate_armor(rng, floor);
-            a.name = "Mythril Armor".to_string();
+            a.name = "ミスリルの鎧".to_string();
             a.kind = ItemKind::Armor;
             a.stats.defense += 8;
             a.stats.hp_bonus += 30;
             a.rarity = Rarity::Rare;
             a
         }
-        "Arcane Staff" => {
+        "魔法の杖" => {
             let mut s = generate_weapon(rng, floor);
-            s.name = "Arcane Staff".to_string();
+            s.name = "魔法の杖".to_string();
             s.stats.attack += 3;
             s.stats.int_bonus += 15;
             s.stats.mp_bonus += 30;
             s.rarity = Rarity::Rare;
             s
         }
-        "Dragon Scale Armor" => {
+        "竜鱗の鎧" => {
             let mut a = generate_armor(rng, floor);
-            a.name = "Dragon Scale Armor".to_string();
+            a.name = "竜鱗の鎧".to_string();
             a.kind = ItemKind::Armor;
             a.stats.defense += 25;
             a.stats.hp_bonus += 80;
             a.rarity = Rarity::Legendary;
             a
         }
-        "Soul Weapon" => {
+        "魂の武器" => {
             let mut w = generate_weapon(rng, floor);
-            w.name = "Soul Blade".to_string();
+            w.name = "魂の刃".to_string();
             w.stats.attack += 20;
             w.stats.str_bonus += 5;
             w.rarity = Rarity::Epic;
             w
         }
-        "Mega HP Potion" => {
+        "超回復薬" => {
             let heal = 100 + floor as i32 * 10;
             Item {
                 id: next_item_id(),
-                name: "Mega HP Potion".to_string(),
+                name: "超回復薬".to_string(),
                 kind: ItemKind::Consumable,
                 rarity: Rarity::Uncommon,
                 stats: Default::default(),
@@ -497,7 +497,7 @@ pub fn try_craft<R: Rng>(
                 material_type: None,
                 skill_tome_id: None,
                 enchant_level: 0,
-                description: "A potent healing potion.".to_string(),
+                description: "強力な回復薬。".to_string(),
                 value: 200,
             }
         }

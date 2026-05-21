@@ -103,7 +103,7 @@ impl Game {
 
         game.spawn_floor_content();
         game.map.compute_fov(game.player.x, game.player.y, FOV_RADIUS);
-        game.add_message("Welcome to the Dungeon! (? for help)", MessageKind::System);
+        game.add_message("ダンジョンへようこそ！（? でヘルプ）", MessageKind::System);
         game
     }
 
@@ -166,7 +166,7 @@ impl Game {
 
     pub fn player_move(&mut self, dx: i32, dy: i32) -> bool {
         if !self.player.can_move() {
-            self.add_message("You are stunned!", MessageKind::Warning);
+            self.add_message("スタン状態！", MessageKind::Warning);
             self.end_player_turn();
             return true;
         }
@@ -199,25 +199,25 @@ impl Game {
             if let Some(idx) = self.item_at(nx, ny) {
                 let (_, _, ref item) = self.floor_items[idx];
                 let name = item.name.clone();
-                self.add_message(format!("You see: {}", name), MessageKind::Normal);
+                self.add_message(format!("発見：{}", name), MessageKind::Normal);
             }
 
             // Check tile interaction
             match self.map.get(nx, ny) {
                 Tile::StairsDown => {
-                    self.add_message("Press '>' to descend.", MessageKind::System);
+                    self.add_message("[F/Enter] で降りる", MessageKind::System);
                 }
                 Tile::StairsUp => {
-                    self.add_message("Press '<' to ascend.", MessageKind::System);
+                    self.add_message("[F/Enter] で上る", MessageKind::System);
                 }
                 Tile::CraftingAnvil => {
-                    self.add_message("Crafting Anvil! Press 'c' to craft.", MessageKind::System);
+                    self.add_message("鍛冶台！[F/Enter] でクラフト", MessageKind::System);
                 }
                 Tile::Shrine => {
-                    self.add_message("Ancient Shrine! Press 'e' to interact.", MessageKind::System);
+                    self.add_message("古代の祠！[F/Enter] で祈る", MessageKind::System);
                 }
                 Tile::Chest => {
-                    self.add_message("A chest! Press 'g' to open.", MessageKind::System);
+                    self.add_message("宝箱！[F/Enter] で開ける", MessageKind::System);
                 }
                 _ => {}
             }
@@ -248,7 +248,7 @@ impl Game {
                 if self.player.inventory.len() < INVENTORY_MAX {
                     self.player.inventory.push(item);
                     self.player.items_collected += 1;
-                    self.add_message(format!("Chest! Found: {}", name), MessageKind::Loot);
+                    self.add_message(format!("宝箱を開けた！{}を入手", name), MessageKind::Loot);
                 }
             }
             return;
@@ -256,16 +256,16 @@ impl Game {
 
         if let Some(idx) = self.item_at(px, py) {
             if self.player.inventory.len() >= INVENTORY_MAX {
-                self.add_message("Inventory full!", MessageKind::Warning);
+                self.add_message("インベントリがいっぱい！", MessageKind::Warning);
                 return;
             }
             let (_, _, item) = self.floor_items.remove(idx);
             let name = item.name.clone();
             self.player.inventory.push(item);
             self.player.items_collected += 1;
-            self.add_message(format!("Picked up: {}", name), MessageKind::Loot);
+            self.add_message(format!("{}を拾った", name), MessageKind::Loot);
         } else {
-            self.add_message("Nothing here to pick up.", MessageKind::Normal);
+            self.add_message("ここには何もない。", MessageKind::Normal);
         }
     }
 
@@ -285,10 +285,10 @@ impl Game {
             _ if item.is_equippable() => {
                 self.player.equip(idx);
                 self.update_stats();
-                self.add_message(format!("Equipped: {}", item.name), MessageKind::Loot);
+                self.add_message(format!("{}を装備した", item.name), MessageKind::Loot);
             }
             _ => {
-                self.add_message("Can't use this item.", MessageKind::Warning);
+                self.add_message("このアイテムは使えない。", MessageKind::Warning);
             }
         }
         self.mode = GameMode::Exploring;
@@ -300,11 +300,11 @@ impl Game {
             match effect {
                 ConsumableEffect::HealHp(amount) => {
                     self.player.heal(amount);
-                    self.add_message(format!("Recovered {} HP!", amount), MessageKind::Good);
+                    self.add_message(format!("HP+{}回復！", amount), MessageKind::Good);
                 }
                 ConsumableEffect::HealMp(amount) => {
                     self.player.heal_mp(amount);
-                    self.add_message(format!("Recovered {} MP!", amount), MessageKind::Good);
+                    self.add_message(format!("MP+{}回復！", amount), MessageKind::Good);
                 }
                 ConsumableEffect::TempStrBoost(amount, turns) => {
                     self.player.temp_buffs.push(crate::player::TempBuff {
@@ -312,7 +312,7 @@ impl Game {
                         def_bonus: 0,
                         turns_left: turns,
                     });
-                    self.add_message(format!("+{} STR for {} turns!", amount, turns), MessageKind::Good);
+                    self.add_message(format!("STR+{} ({}ターン)！", amount, turns), MessageKind::Good);
                 }
                 ConsumableEffect::TempDefBoost(amount, turns) => {
                     self.player.temp_buffs.push(crate::player::TempBuff {
@@ -320,11 +320,11 @@ impl Game {
                         def_bonus: amount,
                         turns_left: turns,
                     });
-                    self.add_message(format!("+{} DEF for {} turns!", amount, turns), MessageKind::Good);
+                    self.add_message(format!("DEF+{} ({}ターン)！", amount, turns), MessageKind::Good);
                 }
                 ConsumableEffect::Teleport => {
                     self.teleport_player();
-                    self.add_message("You teleport to a random location!", MessageKind::System);
+                    self.add_message("ランダムな場所へ転送された！", MessageKind::System);
                 }
                 ConsumableEffect::RevealMap => {
                     self.show_map_revealed = true;
@@ -333,14 +333,14 @@ impl Game {
                             self.map.explored[x][y] = true;
                         }
                     }
-                    self.add_message("The entire floor is revealed!", MessageKind::System);
+                    self.add_message("このフロアのマップが解明された！", MessageKind::System);
                 }
                 ConsumableEffect::IdentifyItem => {
-                    self.add_message("All items identified! (Already known)", MessageKind::System);
+                    self.add_message("全アイテム鑑定済み！（既知）", MessageKind::System);
                 }
                 ConsumableEffect::PoisonResist(_) => {
                     self.player.poison_turns = 0;
-                    self.add_message("Poison cured!", MessageKind::Good);
+                    self.add_message("毒が治った！", MessageKind::Good);
                 }
             }
         }
@@ -352,17 +352,17 @@ impl Game {
         if let Some(skill_id) = item.skill_tome_id {
             if skill_id < self.player.skills.len() {
                 if self.player.skills[skill_id].learned {
-                    self.add_message("You already know this skill.", MessageKind::Warning);
+                    self.add_message("このスキルは習得済みだ。", MessageKind::Warning);
                     return;
                 }
                 if !self.player.skills[skill_id].unlocked {
-                    self.add_message("This skill is not yet unlocked.", MessageKind::Warning);
+                    self.add_message("このスキルはまだ解放されていない。", MessageKind::Warning);
                     return;
                 }
                 let name = self.player.skills[skill_id].name.clone();
                 self.player.skills[skill_id].learned = true;
                 self.player.inventory.remove(idx);
-                self.add_message(format!("Learned skill: {}!", name), MessageKind::Good);
+                self.add_message(format!("スキル「{}」を習得！", name), MessageKind::Good);
                 self.update_stats();
             }
         }
@@ -376,11 +376,11 @@ impl Game {
         let skill = self.player.skills[skill_idx].clone();
         if !skill.can_use(self.player.mp) {
             if !skill.learned {
-                self.add_message("Skill not learned!", MessageKind::Warning);
+                self.add_message("スキルを習得していない！", MessageKind::Warning);
             } else if skill.current_cooldown > 0 {
-                self.add_message(format!("On cooldown: {} turns", skill.current_cooldown), MessageKind::Warning);
+                self.add_message(format!("クールダウン中：残り{}ターン", skill.current_cooldown), MessageKind::Warning);
             } else {
-                self.add_message("Not enough MP!", MessageKind::Warning);
+                self.add_message("MPが足りない！", MessageKind::Warning);
             }
             return;
         }
@@ -396,7 +396,7 @@ impl Game {
                     let dmg = (base_dmg as f32 * pct as f32 / 100.0) as i32;
                     let actual = self.monsters[closest].take_damage(dmg);
                     let name = self.monsters[closest].kind.name().to_string();
-                    self.add_message(format!("{}: attack hits {} for {} damage!", skill.name, name, actual), MessageKind::Combat);
+                    self.add_message(format!("{}：{}に{}ダメージ！", skill.name, name, actual), MessageKind::Combat);
                     if !self.monsters[closest].is_alive() {
                         self.on_monster_death(closest);
                     }
@@ -419,7 +419,7 @@ impl Game {
                     self.monsters[*i].take_damage(total_dmg);
                     hit_count += 1;
                 }
-                self.add_message(format!("{}: Hits {} enemies for {} magic damage!", skill.name, hit_count, total_dmg), MessageKind::Combat);
+                self.add_message(format!("{}：敵{}体に魔法{}ダメージ！", skill.name, hit_count, total_dmg), MessageKind::Combat);
                 for i in dead.into_iter().rev() {
                     if !self.monsters[i].is_alive() {
                         self.on_monster_death(i);
@@ -428,15 +428,15 @@ impl Game {
             }
             SkillEffect::Heal(amount) => {
                 self.player.heal(amount);
-                self.add_message(format!("{}: Healed {} HP!", skill.name, amount), MessageKind::Good);
+                self.add_message(format!("{}：HP+{}回復！", skill.name, amount), MessageKind::Good);
             }
             SkillEffect::MpHeal(amount) => {
                 self.player.heal_mp(amount);
-                self.add_message(format!("{}: Recovered {} MP!", skill.name, amount), MessageKind::Good);
+                self.add_message(format!("{}：MP+{}回復！", skill.name, amount), MessageKind::Good);
             }
             SkillEffect::Shield(amount, turns) => {
                 self.player.shield_hp += amount;
-                self.add_message(format!("{}: Shield +{} for {} turns!", skill.name, amount, turns), MessageKind::Good);
+                self.add_message(format!("{}：シールド+{}（{}ターン）！", skill.name, amount, turns), MessageKind::Good);
             }
             SkillEffect::DotPoison(dmg, turns) => {
                 if let Some(closest) = self.closest_monster() {
@@ -444,7 +444,7 @@ impl Game {
                         crate::monster::StatusEffect::Poisoned { damage: dmg, turns_left: turns }
                     );
                     let name = self.monsters[closest].kind.name().to_string();
-                    self.add_message(format!("{}: {} is poisoned! ({}/turn x {})", skill.name, name, dmg, turns), MessageKind::Combat);
+                    self.add_message(format!("{}：{}を毒状態に！({}/turn × {})", skill.name, name, dmg, turns), MessageKind::Combat);
                 }
             }
             SkillEffect::Stun(turns) => {
@@ -453,7 +453,7 @@ impl Game {
                         crate::monster::StatusEffect::Stunned { turns_left: turns }
                     );
                     let name = self.monsters[closest].kind.name().to_string();
-                    self.add_message(format!("{}: {} is stunned for {} turns!", skill.name, name, turns), MessageKind::Combat);
+                    self.add_message(format!("{}：{}をスタン状態に！({}ターン)", skill.name, name, turns), MessageKind::Combat);
                 }
             }
             SkillEffect::TeleportStrike => {
@@ -461,7 +461,7 @@ impl Game {
                     let dmg = self.player.effective_attack() * 2;
                     let actual = self.monsters[closest].take_damage(dmg);
                     let name = self.monsters[closest].kind.name().to_string();
-                    self.add_message(format!("{}: Blink strike on {} for {} damage! (CRIT)", skill.name, name, actual), MessageKind::Combat);
+                    self.add_message(format!("{}：{}に瞬間移動攻撃{}ダメージ！（クリティカル）", skill.name, name, actual), MessageKind::Combat);
                     if !self.monsters[closest].is_alive() {
                         self.on_monster_death(closest);
                     }
@@ -474,7 +474,7 @@ impl Game {
                             let dmg = self.player.effective_attack();
                             let actual = self.monsters[closest].take_damage(dmg);
                             let name = self.monsters[closest].kind.name().to_string();
-                            self.add_message(format!("{}: Attack {} for {}!", skill.name, name, actual), MessageKind::Combat);
+                            self.add_message(format!("{}：{}に{}ダメージ！", skill.name, name, actual), MessageKind::Combat);
                             if !self.monsters[closest].is_alive() {
                                 self.on_monster_death(closest);
                             }
@@ -485,10 +485,10 @@ impl Game {
             SkillEffect::CritBoost(pct) => {
                 self.player.crit_bonus = pct;
                 self.player.crit_bonus_turns = 5;
-                self.add_message(format!("{}: Crit rate +{}% for 5 turns!", skill.name, pct), MessageKind::Good);
+                self.add_message(format!("{}：クリット率+{}%（5ターン）！", skill.name, pct), MessageKind::Good);
             }
             _ => {
-                self.add_message(format!("{}: Passive skill.", skill.name), MessageKind::Warning);
+                self.add_message(format!("{}：パッシブスキルのため使用不可。", skill.name), MessageKind::Warning);
             }
         }
 
@@ -496,7 +496,7 @@ impl Game {
     }
 
     fn describe_crit(&mut self, is_crit: bool) -> &'static str {
-        if is_crit { "CRITICAL STRIKE" } else { "attack" }
+        if is_crit { "必殺" } else { "攻撃" }
     }
 
     fn closest_monster(&self) -> Option<usize> {
@@ -523,9 +523,9 @@ impl Game {
         }
 
         if is_crit {
-            self.add_message(format!("CRITICAL! You strike {} for {} damage!", name, actual), MessageKind::Combat);
+            self.add_message(format!("クリティカル！{}に{}ダメージ！", name, actual), MessageKind::Combat);
         } else {
-            self.add_message(format!("You attack {} for {} damage.", name, actual), MessageKind::Combat);
+            self.add_message(format!("{}に{}ダメージ。", name, actual), MessageKind::Combat);
         }
 
         if !self.monsters[idx].is_alive() {
@@ -550,7 +550,7 @@ impl Game {
             exp = (exp as f32 * 1.5) as u32;
         }
 
-        self.add_message(format!("{} is defeated! +{} EXP, +{} gold", name, exp, gold), MessageKind::Good);
+        self.add_message(format!("{}を倒した！EXP+{}、ゴールド+{}", name, exp, gold), MessageKind::Good);
 
         self.player.monsters_killed += 1;
         self.player.add_to_bestiary(name.clone());
@@ -559,7 +559,7 @@ impl Game {
         self.player.gold += gold;
 
         if leveled {
-            self.add_message(format!("LEVEL UP! Now level {}!", self.player.level), MessageKind::Good);
+            self.add_message(format!("レベルアップ！ レベル{}になった！", self.player.level), MessageKind::Good);
             self.mode = GameMode::LevelUp;
             self.update_stats();
         }
@@ -567,7 +567,7 @@ impl Game {
         if self.rng.gen_range(0..100) < drop_chance {
             let item = generate_floor_item(&mut self.rng, self.map.floor);
             let iname = item.name.clone();
-            self.add_message(format!("{} dropped: {}!", name, iname), MessageKind::Loot);
+            self.add_message(format!("{}が{}を落とした！", name, iname), MessageKind::Loot);
             self.floor_items.push((x, y, item));
         }
 
@@ -600,7 +600,7 @@ impl Game {
 
         if !self.player.is_alive() {
             self.mode = GameMode::Dead;
-            self.add_message("You have died! Game Over.", MessageKind::Warning);
+            self.add_message("あなたは力尽きた… ゲームオーバー。", MessageKind::Warning);
             return;
         }
 
@@ -608,7 +608,7 @@ impl Game {
 
         if !self.player.is_alive() {
             self.mode = GameMode::Dead;
-            self.add_message("You have died! Game Over.", MessageKind::Warning);
+            self.add_message("あなたは力尽きた… ゲームオーバー。", MessageKind::Warning);
         }
     }
 
@@ -652,7 +652,7 @@ impl Game {
                     let curse_bonus = if self.cursed_floor { atk / 4 } else { 0 };
                     let dmg = self.player.take_damage(atk + curse_bonus);
                     let name = self.monsters[i].kind.name().to_string();
-                    self.add_message(format!("{} attacks you for {} damage!", name, dmg), MessageKind::Combat);
+                    self.add_message(format!("{}の攻撃！{}ダメージ！", name, dmg), MessageKind::Combat);
                 } else {
                     // Move toward player
                     let (nx, ny) = self.monsters[i].ai_move_toward(px, py);
@@ -675,7 +675,7 @@ impl Game {
         let px = self.player.x;
         let py = self.player.y;
         if self.map.get(px, py) != Tile::StairsDown {
-            self.add_message("No stairs here.", MessageKind::Warning);
+            self.add_message("ここには階段がない。", MessageKind::Warning);
             return;
         }
 
@@ -695,7 +695,7 @@ impl Game {
 
         if next_floor >= 30 {
             self.mode = GameMode::Victory;
-            self.add_message("YOU HAVE CONQUERED THE DUNGEON! VICTORY!", MessageKind::Good);
+            self.add_message("ダンジョン制覇！勝利！", MessageKind::Good);
         }
     }
 
@@ -703,11 +703,11 @@ impl Game {
         let px = self.player.x;
         let py = self.player.y;
         if self.map.get(px, py) != Tile::StairsUp {
-            self.add_message("No ascending stairs here.", MessageKind::Warning);
+            self.add_message("ここには上り階段がない。", MessageKind::Warning);
             return;
         }
         if self.map.floor <= 1 {
-            self.add_message("You're already on the first floor!", MessageKind::Warning);
+            self.add_message("すでに1階にいる！", MessageKind::Warning);
             return;
         }
         let prev_floor = self.map.floor - 1;
@@ -746,7 +746,7 @@ impl Game {
                         if !self.player.inventory.is_empty() {
                             let idx = self.rng.gen_range(0..self.player.inventory.len());
                             let name = self.player.inventory.remove(idx).name;
-                            self.add_message(format!("Lost: {}", name), MessageKind::Warning);
+                            self.add_message(format!("{}を失った", name), MessageKind::Warning);
                         }
                     }
                     EventConsequence::GainRandomItem => {
@@ -754,16 +754,16 @@ impl Game {
                         let name = item.name.clone();
                         if self.player.inventory.len() < INVENTORY_MAX {
                             self.player.inventory.push(item);
-                            self.add_message(format!("Gained: {}", name), MessageKind::Loot);
+                            self.add_message(format!("{}を入手した", name), MessageKind::Loot);
                         }
                     }
                     EventConsequence::CursedFloor => {
                         self.cursed_floor = true;
-                        self.add_message("The next floor is CURSED!", MessageKind::Warning);
+                        self.add_message("次のフロアは呪われている！", MessageKind::Warning);
                     }
                     EventConsequence::BlessedFloor => {
                         self.blessed_floor = true;
-                        self.add_message("The next floor is BLESSED! 2x EXP!", MessageKind::Good);
+                        self.add_message("次のフロアは祝福されている！EXP×2！", MessageKind::Good);
                     }
                     EventConsequence::LearnRandomSkill => {
                         let unlearned: Vec<usize> = self.player.skills.iter().enumerate()
@@ -773,9 +773,9 @@ impl Game {
                         if let Some(&skill_idx) = unlearned.first() {
                             let name = self.player.skills[skill_idx].name.clone();
                             self.player.skills[skill_idx].learned = true;
-                            self.add_message(format!("Learned: {}!", name), MessageKind::Good);
+                            self.add_message(format!("スキル「{}」を習得！", name), MessageKind::Good);
                         } else {
-                            self.add_message("No new skills available.", MessageKind::Normal);
+                            self.add_message("習得できるスキルがない。", MessageKind::Normal);
                         }
                     }
                     EventConsequence::UnlockSkillBranch => {
@@ -788,14 +788,14 @@ impl Game {
                     }
                     EventConsequence::TeleportToFloor(target) => {
                         let f = *target;
-                        self.add_message(format!("Teleported to floor {}!", f), MessageKind::Event);
+                        self.add_message(format!("{}階へ転送された！", f), MessageKind::Event);
                         self.load_floor(f);
                         return;
                     }
                 }
             }
 
-            self.add_message(format!("Choice: '{}'", choice.label), MessageKind::Event);
+            self.add_message(format!("選択：「{}」", choice.label), MessageKind::Event);
             self.load_floor(floor);
         }
     }
@@ -813,7 +813,7 @@ impl Game {
         self.map.compute_fov(px, py, FOV_RADIUS);
         self.update_camera();
         self.mode = GameMode::Exploring;
-        self.add_message(format!("Floor {} — Descending deeper...", floor), MessageKind::System);
+        self.add_message(format!("{}階へ — さらに深く潜る…", floor), MessageKind::System);
     }
 
     fn teleport_player(&mut self) {
@@ -836,7 +836,7 @@ impl Game {
         let px = self.player.x;
         let py = self.player.y;
         if self.map.get(px, py) != Tile::Shrine {
-            self.add_message("No shrine here.", MessageKind::Warning);
+            self.add_message("ここには祠がない。", MessageKind::Warning);
             return;
         }
         self.map.set(px, py, Tile::Floor);
@@ -845,19 +845,19 @@ impl Game {
             0 => {
                 let heal = self.player.max_hp / 3;
                 self.player.heal(heal);
-                self.add_message(format!("Shrine blesses you! +{} HP", heal), MessageKind::Good);
+                self.add_message(format!("祠の祝福！HP+{}！", heal), MessageKind::Good);
             }
             1 => {
                 self.player.heal_mp(self.player.max_mp / 2);
-                self.add_message("Shrine restores your mana!", MessageKind::Good);
+                self.add_message("祠の祝福！MPが全回復！", MessageKind::Good);
             }
             2 => {
                 self.player.base_luk += 3;
-                self.add_message("Shrine grants you fortune! LUK +3", MessageKind::Good);
+                self.add_message("祠の祝福！LUK+3！", MessageKind::Good);
             }
             _ => {
                 self.player.gain_exp(self.player.level * 50);
-                self.add_message("Shrine grants knowledge! +EXP", MessageKind::Good);
+                self.add_message("祠の祝福！EXPが増加！", MessageKind::Good);
             }
         }
     }
@@ -867,23 +867,23 @@ impl Game {
             return;
         }
         if self.player.skill_points == 0 {
-            self.add_message("No skill points available!", MessageKind::Warning);
+            self.add_message("スキルポイントが足りない！", MessageKind::Warning);
             return;
         }
 
         let skill = &self.player.skills[skill_idx];
         if skill.learned {
-            self.add_message("Already learned!", MessageKind::Warning);
+            self.add_message("すでに習得済み！", MessageKind::Warning);
             return;
         }
         if !skill.unlocked {
-            self.add_message("Skill locked! Need prerequisites.", MessageKind::Warning);
+            self.add_message("スキルがロックされている！前提条件を満たせ。", MessageKind::Warning);
             return;
         }
         if let Some(prereq) = skill.prerequisite {
             if !self.player.skills[prereq].learned {
                 let prereq_name = self.player.skills[prereq].name.clone();
-                self.add_message(format!("Need to learn {} first!", prereq_name), MessageKind::Warning);
+                self.add_message(format!("先に「{}」を習得する必要がある！", prereq_name), MessageKind::Warning);
                 return;
             }
         }
@@ -891,7 +891,7 @@ impl Game {
         let name = self.player.skills[skill_idx].name.clone();
         self.player.skills[skill_idx].learned = true;
         self.player.skill_points -= 1;
-        self.add_message(format!("Learned: {}! ({} SP left)", name, self.player.skill_points), MessageKind::Good);
+        self.add_message(format!("スキル「{}」を習得！（残りSP：{}）", name, self.player.skill_points), MessageKind::Good);
 
         // Unlock prerequisites for next tier
         for i in 0..self.player.skills.len() {
@@ -944,7 +944,7 @@ impl Game {
                         .filter(|s| s.learned && !s.is_passive)
                         .count();
                     if n == 0 {
-                        self.battle_log.push(("No active skills learned!".into(), MessageKind::Warning));
+                        self.battle_log.push(("アクティブスキルを習得していない！".into(), MessageKind::Warning));
                     } else {
                         self.battle_sub_mode = 1;
                         self.battle_sub_cursor = 0;
@@ -955,7 +955,7 @@ impl Game {
                         .filter(|i| i.kind == crate::item::ItemKind::Consumable)
                         .count();
                     if n == 0 {
-                        self.battle_log.push(("No items!".into(), MessageKind::Warning));
+                        self.battle_log.push(("アイテムがない！".into(), MessageKind::Warning));
                     } else {
                         self.battle_sub_mode = 2;
                         self.battle_sub_cursor = 0;
@@ -1004,9 +1004,9 @@ impl Game {
         }
 
         let msg = if is_crit {
-            format!("⚡ CRITICAL! You strike {} for {} damage!", name, actual)
+            format!("⚡ クリティカル！{}に{}ダメージ！", name, actual)
         } else {
-            format!("⚔ You attack {} for {} damage.", name, actual)
+            format!("⚔ {}に{}ダメージ。", name, actual)
         };
         self.battle_log.push((msg, MessageKind::Combat));
         self.add_message(self.battle_log.last().unwrap().0.clone(), MessageKind::Combat);
@@ -1030,9 +1030,9 @@ impl Game {
 
         if !skill.can_use(self.player.mp) {
             let msg = if skill.current_cooldown > 0 {
-                format!("On cooldown ({} turns left).", skill.current_cooldown)
+                format!("クールダウン中（残り{}ターン）。", skill.current_cooldown)
             } else {
-                "Not enough MP!".to_string()
+                "MPが足りない！".to_string()
             };
             self.battle_log.push((msg, MessageKind::Warning));
             return;
@@ -1047,13 +1047,13 @@ impl Game {
                 let dmg = (self.player.effective_attack() as f32 * *pct as f32 / 100.0) as i32;
                 let actual = self.monsters[idx].take_damage(dmg);
                 let name = self.monsters[idx].kind.name().to_string();
-                format!("✦ {}: {} takes {} damage!", skill.name, name, actual)
+                format!("✦ {}：{}に{}ダメージ！", skill.name, name, actual)
             }
             SkillEffect::TeleportStrike => {
                 let dmg = self.player.effective_attack() * 2;
                 let actual = self.monsters[idx].take_damage(dmg);
                 let name = self.monsters[idx].kind.name().to_string();
-                format!("✦ {}: Blink strike on {} for {} CRIT!", skill.name, name, actual)
+                format!("✦ {}：{}に瞬間移動攻撃{}ダメージ！（必殺）", skill.name, name, actual)
             }
             SkillEffect::DoubleAttack => {
                 let mut total = 0;
@@ -1064,33 +1064,33 @@ impl Game {
                     }
                 }
                 let name = self.monsters[idx].kind.name().to_string();
-                format!("✦ {}: Double strike on {} for {} total!", skill.name, name, total)
+                format!("✦ {}：{}に2連撃{}ダメージ！", skill.name, name, total)
             }
             SkillEffect::DotPoison(dmg, turns) => {
                 self.monsters[idx].status_effects.push(
                     crate::monster::StatusEffect::Poisoned { damage: *dmg, turns_left: *turns }
                 );
                 let name = self.monsters[idx].kind.name().to_string();
-                format!("✦ {}: {} is poisoned! ({}/turn)", skill.name, name, dmg)
+                format!("✦ {}：{}を毒状態に！({}毎ターン)", skill.name, name, dmg)
             }
             SkillEffect::Stun(turns) => {
                 self.monsters[idx].status_effects.push(
                     crate::monster::StatusEffect::Stunned { turns_left: *turns }
                 );
                 let name = self.monsters[idx].kind.name().to_string();
-                format!("✦ {}: {} is stunned for {} turns!", skill.name, name, turns)
+                format!("✦ {}：{}をスタン！({}ターン)", skill.name, name, turns)
             }
             SkillEffect::Heal(amount) => {
                 self.player.heal(*amount);
-                format!("✦ {}: Healed {} HP!", skill.name, amount)
+                format!("✦ {}：HP+{}回復！", skill.name, amount)
             }
             SkillEffect::MpHeal(amount) => {
                 self.player.heal_mp(*amount);
-                format!("✦ {}: Recovered {} MP!", skill.name, amount)
+                format!("✦ {}：MP+{}回復！", skill.name, amount)
             }
             SkillEffect::Shield(amount, _) => {
                 self.player.shield_hp += amount;
-                format!("✦ {}: Shield +{}!", skill.name, amount)
+                format!("✦ {}：シールド+{}！", skill.name, amount)
             }
             SkillEffect::CritBoost(pct) => {
                 self.player.crit_bonus = *pct;
@@ -1196,7 +1196,7 @@ impl Game {
         if !self.player.is_alive() {
             self.battle_log.push(("💀 You have fallen...".into(), MessageKind::Warning));
             self.mode = GameMode::Dead;
-            self.add_message("You have died! Game Over.", MessageKind::Warning);
+            self.add_message("あなたは力尽きた… ゲームオーバー。", MessageKind::Warning);
         }
     }
 

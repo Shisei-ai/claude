@@ -197,7 +197,7 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
   <div id="sidebar">
     <!-- Floor / status -->
     <div class="panel" id="p-status">
-      <div class="panel-title">STATUS</div>
+      <div class="panel-title">ステータス</div>
       <div class="bar-wrap"><span class="bar-label">HP</span><div class="bar-track"><div class="bar-fill bar-hp" id="b-hp"></div></div><span class="bar-val" id="v-hp"></span></div>
       <div class="bar-wrap"><span class="bar-label">MP</span><div class="bar-track"><div class="bar-fill bar-mp" id="b-mp"></div></div><span class="bar-val" id="v-mp"></span></div>
       <div class="bar-wrap" id="shd-wrap" style="display:none"><span class="bar-label">SHD</span><div class="bar-track"><div class="bar-fill bar-shd" id="b-shd"></div></div><span class="bar-val" id="v-shd"></span></div>
@@ -206,25 +206,25 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
     <!-- Stats -->
     <div class="panel" id="p-stats">
       <div class="panel-title" id="p-stats-title">LV 1 · FLOOR 1</div>
-      <div class="stat-row"><span class="stat-key">GOLD</span><span class="stat-val" id="s-gold">0</span></div>
-      <div class="stat-row"><span class="stat-key">ATK</span><span class="stat-val" id="s-atk">0</span></div>
-      <div class="stat-row"><span class="stat-key">DEF</span><span class="stat-val" id="s-def">0</span></div>
-      <div class="stat-row"><span class="stat-key">TURN</span><span class="stat-val" id="s-turn">0</span></div>
+      <div class="stat-row"><span class="stat-key">ゴールド</span><span class="stat-val" id="s-gold">0</span></div>
+      <div class="stat-row"><span class="stat-key">攻撃</span><span class="stat-val" id="s-atk">0</span></div>
+      <div class="stat-row"><span class="stat-key">防御</span><span class="stat-val" id="s-def">0</span></div>
+      <div class="stat-row"><span class="stat-key">ターン</span><span class="stat-val" id="s-turn">0</span></div>
       <div id="s-flags" style="font-size:9px;margin-top:3px"></div>
     </div>
     <!-- Equipment -->
     <div class="panel" id="p-equip">
-      <div class="panel-title">EQUIPMENT</div>
-      <div class="equip-row"><span class="equip-slot">Weapon</span><span class="equip-name" id="eq-weapon">—</span></div>
-      <div class="equip-row"><span class="equip-slot">Armor</span><span class="equip-name" id="eq-armor">—</span></div>
-      <div class="equip-row"><span class="equip-slot">Helmet</span><span class="equip-name" id="eq-helmet">—</span></div>
-      <div class="equip-row"><span class="equip-slot">Boots</span><span class="equip-name" id="eq-boots">—</span></div>
-      <div class="equip-row"><span class="equip-slot">Ring</span><span class="equip-name" id="eq-ring">—</span></div>
-      <div class="equip-row"><span class="equip-slot">Amulet</span><span class="equip-name" id="eq-amulet">—</span></div>
+      <div class="panel-title">装備</div>
+      <div class="equip-row"><span class="equip-slot">武器</span><span class="equip-name" id="eq-weapon">—</span></div>
+      <div class="equip-row"><span class="equip-slot">鎧</span><span class="equip-name" id="eq-armor">—</span></div>
+      <div class="equip-row"><span class="equip-slot">兜</span><span class="equip-name" id="eq-helmet">—</span></div>
+      <div class="equip-row"><span class="equip-slot">靴</span><span class="equip-name" id="eq-boots">—</span></div>
+      <div class="equip-row"><span class="equip-slot">指輪</span><span class="equip-name" id="eq-ring">—</span></div>
+      <div class="equip-row"><span class="equip-slot">首飾り</span><span class="equip-name" id="eq-amulet">—</span></div>
     </div>
     <!-- Skill hotbar -->
     <div class="panel">
-      <div class="panel-title">SKILLS</div>
+      <div class="panel-title">スキル</div>
       <div class="hotbar" id="hotbar">
         <div class="hb-slot"><div class="hb-key">1</div><div class="hb-name">—</div></div>
         <div class="hb-slot"><div class="hb-key">2</div><div class="hb-name">—</div></div>
@@ -620,10 +620,10 @@ function updateUI(g) {
   document.getElementById('s-turn').textContent = g.turn;
 
   const flags = [];
-  if (g.cursed)  flags.push('<span style="color:#a03020">✦ Cursed</span>');
-  if (g.blessed) flags.push('<span style="color:#60b030">✦ Blessed</span>');
-  if (g.poison > 0) flags.push(`<span style="color:#60c040">☠ Poisoned (${g.poison})</span>`);
-  if (g.stun   > 0) flags.push(`<span style="color:#f0e040">⚡ Stunned (${g.stun})</span>`);
+  if (g.cursed)  flags.push('<span style="color:#a03020">✦ 呪われている</span>');
+  if (g.blessed) flags.push('<span style="color:#60b030">✦ 祝福されている</span>');
+  if (g.poison > 0) flags.push(`<span style="color:#60c040">☠ 毒 (${g.poison})</span>`);
+  if (g.stun   > 0) flags.push(`<span style="color:#f0e040">⚡ スタン (${g.stun})</span>`);
   document.getElementById('s-flags').innerHTML = flags.join(' ');
 
   // Equipment
@@ -716,10 +716,10 @@ function buildInventory(g) {
         <span class="action-btn" onclick="sendKey('e','KeyE',false)">E 装備</span>
         <span class="action-btn" onclick="sendKey('d','KeyD',false)">D 捨てる</span>
       </div>
-      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ navigate · Esc / I close</div>`;
+      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ 選択 · Esc / I 閉じる</div>`;
   }
   return `<div class="modal-box" style="width:480px">
-    <div class="modal-header"><span>INVENTORY (${g.inventory.length})</span><span class="close-hint">Esc</span></div>
+    <div class="modal-header"><span>インベントリ (${g.inventory.length})</span><span class="close-hint">Esc / I</span></div>
     <div class="modal-body">
       <div class="modal-list">${list}</div>
       <div class="modal-detail">${detail}</div>
@@ -743,17 +743,17 @@ function buildSkills(g) {
     detail = `<div class="item-name skill-branch-${skill.branch}">${skill.name}</div>
       <div style="font-size:8px;margin-bottom:6px">
         <span class="skill-branch-${skill.branch}">${skill.branch}</span>
-        ${skill.passive ? ' · Passive' : ` · MP ${skill.mp_cost} · CD ${skill.cooldown}`}
+        ${skill.passive ? ' · パッシブ' : ` · MP ${skill.mp_cost} · CD ${skill.cooldown}`}
       </div>
       <div class="item-desc">${skill.desc}</div>
       <div class="stat-line" style="margin-top:6px">
-        ${skill.learned ? '<span class="skill-learned">✓ Learned</span>' : skill.unlocked ? '<span style="color:#506070">Available (1 pt)</span>' : '<span class="skill-locked">🔒 Locked</span>'}
+        ${skill.learned ? '<span class="skill-learned">✓ 習得済み</span>' : skill.unlocked ? '<span style="color:#506070">習得可能（1 SP）</span>' : '<span class="skill-locked">🔒 ロック中</span>'}
       </div>
       ${!skill.learned && skill.unlocked && g.skill_pts > 0 ? '<div class="modal-actions"><span class="action-btn" onclick="sendKey(\'Enter\',\'Enter\',false)">↩ 習得</span></div>' : ''}
-      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ navigate · Esc / K close · Pts: ${g.skill_pts}</div>`;
+      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ 選択 · Esc / K 閉じる · SP: ${g.skill_pts}</div>`;
   }
   return `<div class="modal-box" style="width:480px">
-    <div class="modal-header"><span>SKILL TREE</span><span class="close-hint">Esc</span></div>
+    <div class="modal-header"><span>スキルツリー</span><span class="close-hint">Esc / K</span></div>
     <div class="modal-body">
       <div class="modal-list">${list}</div>
       <div class="modal-detail">${detail}</div>
@@ -775,7 +775,7 @@ function buildEvent(g) {
       ${ev.irreversible ? '<div class="event-irrev">⚠ IRREVERSIBLE CHOICE</div>' : '<div style="height:12px"></div>'}
       <div class="event-desc">${ev.desc}</div>
       ${choices}
-      <div style="margin-top:12px;font-size:8px;color:#1e2838">↑↓ select · Enter / click to confirm</div>
+      <div style="margin-top:12px;font-size:8px;color:#1e2838">↑↓ 選択 · Enter / クリックで決定</div>
     </div>
   </div>`;
 }
@@ -794,10 +794,10 @@ function buildCrafting(g) {
       <div style="margin-top:8px;font-size:9px;color:#3a5060">Ingredients:</div>
       ${rec.ingredients.map(ing=>`<div class="stat-line"><span>${ing}</span></div>`).join('')}
       ${rec.can_craft ? '<div class="modal-actions"><span class="action-btn" style="color:#a08020" onclick="sendKey(\'Enter\',\'Enter\',false)">↩ 製作</span></div>' : '<div style="margin-top:6px;font-size:8px;color:#502010">素材が不足しています</div>'}
-      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ navigate · Esc / C close</div>`;
+      <div style="margin-top:8px;font-size:8px;color:#1e2838">↑↓ 選択 · Esc / C 閉じる</div>`;
   }
   return `<div class="modal-box" style="width:480px">
-    <div class="modal-header"><span>⚒ CRAFTING ANVIL</span><span class="close-hint">Esc</span></div>
+    <div class="modal-header"><span>⚒ 鍛冶台</span><span class="close-hint">Esc / C</span></div>
     <div class="modal-body">
       <div class="modal-list">${list}</div>
       <div class="modal-detail">${detail}</div>
@@ -838,27 +838,27 @@ function buildHelp() {
 
 function buildDead(g) {
   return `<div class="dead-box modal-box" style="padding:28px 36px">
-    <div class="dead-title">YOU DIED</div>
-    <div class="dead-sub">Floor ${g.floor} · Level ${g.level}</div>
+    <div class="dead-title">全滅…</div>
+    <div class="dead-sub">${g.floor}階 · レベル${g.level}</div>
     <div class="dead-stats">
-      Turns: ${g.turn}<br>
-      Gold: ${g.gold}<br>
-      ATK/DEF: ${g.atk} / ${g.def}
+      ターン数: ${g.turn}<br>
+      ゴールド: ${g.gold}<br>
+      攻撃/防御: ${g.atk} / ${g.def}
     </div>
-    <div style="margin-top:16px;font-size:9px;color:#1e2838">Press Q to quit</div>
+    <div style="margin-top:16px;font-size:9px;color:#1e2838">Q で終了</div>
   </div>`;
 }
 
 function buildVictory(g) {
   return `<div class="dead-box modal-box" style="padding:28px 36px">
-    <div class="victory-title">VICTORY!</div>
-    <div class="dead-sub">You escaped the dungeon!</div>
+    <div class="victory-title">勝利！</div>
+    <div class="dead-sub">ダンジョンを脱出した！</div>
     <div class="dead-stats">
-      Floor reached: ${g.floor}<br>
-      Level: ${g.level}<br>
-      Turns: ${g.turn}
+      到達階層: ${g.floor}階<br>
+      レベル: ${g.level}<br>
+      ターン数: ${g.turn}
     </div>
-    <div style="margin-top:16px;font-size:9px;color:#1e2838">Press Q to quit</div>
+    <div style="margin-top:16px;font-size:9px;color:#1e2838">Q で終了</div>
   </div>`;
 }
 
@@ -1284,7 +1284,7 @@ function buildBattle(g) {
   const ehpCol = b.enemy_hp/b.enemy_max_hp > 0.5 ? '#3a9840' : b.enemy_hp/b.enemy_max_hp > 0.25 ? '#c09020' : '#c02020';
 
   // Build command menu
-  const cmds = ['⚔  ATTACK','✦  SKILL','🧪  ITEM','🏃  RUN'];
+  const cmds = ['⚔  攻撃','✦  スキル','🧪  アイテム','🏃  逃走'];
   const menuHtml = cmds.map((label, i) => {
     const isSel = b.sub_mode === 0 && b.menu === i;
     let subHtml = '';
@@ -1308,7 +1308,7 @@ function buildBattle(g) {
   if (b.sub_mode === 1) {
     subListHtml = `<div style="padding:6px 16px;background:#080818;border-top:1px solid #0e1428">
       ${b.active_skills.length === 0
-        ? '<div style="font-size:9px;color:#3a4858;padding:4px 0">No active skills</div>'
+        ? '<div style="font-size:9px;color:#3a4858;padding:4px 0">アクティブスキルなし</div>'
         : b.active_skills.map((s,i)=>`
           <div class="battle-sub-item${i===b.sub_cursor?' sel':''}">
             ${i===b.sub_cursor?'▶ ':'  '}${s.name}
@@ -1319,7 +1319,7 @@ function buildBattle(g) {
   } else if (b.sub_mode === 2) {
     subListHtml = `<div style="padding:6px 16px;background:#080818;border-top:1px solid #0e1428">
       ${b.consumables.length === 0
-        ? '<div style="font-size:9px;color:#3a4858;padding:4px 0">No items</div>'
+        ? '<div style="font-size:9px;color:#3a4858;padding:4px 0">アイテムなし</div>'
         : b.consumables.map((it,i)=>`
           <div class="battle-sub-item${i===b.sub_cursor?' sel':''}">${i===b.sub_cursor?'▶ ':'  '}${it.name}</div>`).join('')
       }
@@ -1327,14 +1327,14 @@ function buildBattle(g) {
   }
 
   const statusP = [
-    g.poison>0 ? `<span style="color:#60c040">☠ Poisoned(${g.poison})</span>` : '',
-    g.stun>0   ? `<span style="color:#f0e040">💫 Stunned(${g.stun})</span>`   : '',
-    g.shield>0 ? `<span style="color:#40b8e0">🛡 Shield:${g.shield}</span>`   : '',
+    g.poison>0 ? `<span style="color:#60c040">☠ 毒(${g.poison})</span>` : '',
+    g.stun>0   ? `<span style="color:#f0e040">💫 スタン(${g.stun})</span>`   : '',
+    g.shield>0 ? `<span style="color:#40b8e0">🛡 シールド:${g.shield}</span>`   : '',
   ].filter(Boolean).join(' ');
 
   const statusE = [
-    b.enemy_poisoned ? '<span style="color:#60c040">☠ Poisoned</span>' : '',
-    b.enemy_stunned  ? '<span style="color:#f0e040">💫 Stunned</span>'  : '',
+    b.enemy_poisoned ? '<span style="color:#60c040">☠ 毒</span>' : '',
+    b.enemy_stunned  ? '<span style="color:#f0e040">💫 スタン</span>'  : '',
   ].filter(Boolean).join(' ');
 
   const logHtml = b.log.map(m=>`<div class="battle-log-line log-${m.kind}">${m.text}</div>`).join('');
@@ -1343,12 +1343,12 @@ function buildBattle(g) {
   el.style.display = 'flex';
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:#06060f;border-bottom:1px solid #0e1428;font-size:9px">
-      <span style="color:#2a3858;letter-spacing:.15em">⚔ BATTLE</span>
-      <span style="color:#1e2838">TURN ${b.turn} · ←→ menu · Enter confirm · Esc back</span>
+      <span style="color:#2a3858;letter-spacing:.15em">⚔ バトル</span>
+      <span style="color:#1e2838">ターン ${b.turn} · ←→ 選択 · Enter 決定 · Esc 戻る</span>
     </div>
     <div id="battle-arena">
       <div class="battle-side">
-        <div class="battle-name" style="color:#6080a0">PLAYER · LV.${g.level}</div>
+        <div class="battle-name" style="color:#6080a0">プレイヤー · LV.${g.level}</div>
         <div class="battle-sprite-wrap">
           <canvas id="bspr-player" width="${16*BS}" height="${16*BS}"></canvas>
         </div>

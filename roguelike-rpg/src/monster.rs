@@ -37,18 +37,18 @@ impl MonsterKind {
 
     pub fn name(&self) -> &'static str {
         match self {
-            MonsterKind::Rat => "Rat",
-            MonsterKind::Goblin => "Goblin",
-            MonsterKind::Orc => "Orc",
-            MonsterKind::Skeleton => "Skeleton",
-            MonsterKind::Zombie => "Zombie",
-            MonsterKind::Troll => "Troll",
-            MonsterKind::Mage => "Dark Mage",
-            MonsterKind::Vampire => "Vampire",
-            MonsterKind::Dragon => "Dragon",
-            MonsterKind::Demon => "Demon",
-            MonsterKind::Ghost => "Ghost",
-            MonsterKind::Golem => "Stone Golem",
+            MonsterKind::Rat => "ネズミ",
+            MonsterKind::Goblin => "ゴブリン",
+            MonsterKind::Orc => "オーク",
+            MonsterKind::Skeleton => "スケルトン",
+            MonsterKind::Zombie => "ゾンビ",
+            MonsterKind::Troll => "トロール",
+            MonsterKind::Mage => "闇の魔法使い",
+            MonsterKind::Vampire => "ヴァンパイア",
+            MonsterKind::Dragon => "ドラゴン",
+            MonsterKind::Demon => "悪魔",
+            MonsterKind::Ghost => "亡霊",
+            MonsterKind::Golem => "石のゴーレム",
         }
     }
 
