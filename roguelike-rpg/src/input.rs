@@ -21,6 +21,13 @@ pub fn handle_input(game: &mut Game, key: KeyCode, _modifiers: KeyModifiers) -> 
             }
         }
 
+        // ── Floor map (Esc / Enter / m closes) ────────────────────────
+        GameMode::FloorMap => {
+            if matches!(key, KeyCode::Esc | KeyCode::Enter | KeyCode::Char('m') | KeyCode::Char(' ')) {
+                game.mode = GameMode::Exploring;
+            }
+        }
+
         // ── Level-up notification (any key dismisses) ─────────────────
         GameMode::LevelUp => {
             game.mode = GameMode::Exploring;
@@ -204,10 +211,10 @@ pub fn handle_input(game: &mut Game, key: KeyCode, _modifiers: KeyModifiers) -> 
             // Smart interact (context-aware: pickup / stairs / shrine / craft)
             KeyCode::Char('f') | KeyCode::Enter => game.smart_interact(),
 
-            // Explicit action aliases kept for keyboard users
+            // Explicit action aliases
             KeyCode::Char('g') => game.pickup_item(),
             KeyCode::Char('>') => game.descend(),
-            KeyCode::Char('<') => game.ascend(),
+            KeyCode::Char('m') => game.activate_tablet(),
             KeyCode::Char('e') => game.activate_shrine(),
 
             // Open menus

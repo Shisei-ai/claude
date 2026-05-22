@@ -1,4 +1,5 @@
 mod map;
+mod floor_graph;
 mod item;
 mod skill;
 mod relic;

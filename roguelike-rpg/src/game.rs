@@ -6,6 +6,7 @@ use crate::item::{Item, ItemKind, ConsumableEffect, generate_floor_item, generat
 use crate::skill::{SkillEffect};
 use crate::event::{RandomEvent, EventConsequence, generate_floor_event};
 use crate::relic::{Relic, RelicEffect, random_relic};
+use crate::floor_graph::{FloorGraph, FloorId};
 
 pub const MSG_LOG_SIZE: usize = 100;
 pub const INVENTORY_MAX: usize = 30;
@@ -17,6 +18,7 @@ pub enum GameMode {
     Help,
     Battle,
     BattleReward,
+    FloorMap,
     Inventory,
     Skills,
     Crafting,
@@ -62,6 +64,13 @@ pub struct Game {
     pub camera_x: i32,
     pub camera_y: i32,
     pub pending_rewards: Vec<RewardEntry>,
+    // ── Floor graph ──────────────────────────────────────────────────────────
+    pub floor_graph: FloorGraph,
+    pub current_floor_id: FloorId,
+    /// Maps staircase tile positions to destination floor IDs.
+    pub stair_destinations: Vec<(i32, i32, FloorId)>,
+    /// Destination to load after a transition event resolves.
+    pub pending_floor_id: Option<FloorId>,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -79,9 +88,11 @@ pub enum MessageKind {
 impl Game {
     pub fn new() -> Self {
         let mut rng = rand::thread_rng();
-        let mut map = Map::new(1, FloorType::Exploration);
-        let (px, py) = map.generate(&mut rng);
-        let player = Player::new(px, py);
+        let floor_graph = FloorGraph::new(&mut rng);
+
+        // Placeholder map/player — overwritten immediately by load_floor_by_id
+        let map = Map::new(1, FloorType::Exploration);
+        let player = Player::new(0, 0);
 
         let mut game = Game {
             map,
@@ -112,11 +123,14 @@ impl Game {
             camera_x: 0,
             camera_y: 0,
             pending_rewards: Vec::new(),
+            floor_graph,
+            current_floor_id: 1,
+            stair_destinations: Vec::new(),
+            pending_floor_id: None,
         };
 
-        game.spawn_floor_content();
-        game.map.compute_fov(game.player.x, game.player.y, FOV_RADIUS);
-        game.add_message("ダンジョンへようこそ！（? でヘルプ）", MessageKind::System);
+        game.load_floor_by_id(1);
+        game.add_message("ダンジョンへようこそ！（? でヘルプ、m で石板を読む）", MessageKind::System);
         game
     }
 
@@ -402,10 +416,10 @@ impl Game {
             // Check tile interaction
             match self.map.get(nx, ny) {
                 Tile::StairsDown => {
-                    self.add_message("[F/Enter] で降りる", MessageKind::System);
+                    self.add_message("[F/Enter] で次のフロアへ降りる", MessageKind::System);
                 }
-                Tile::StairsUp => {
-                    self.add_message("[F/Enter] で上る", MessageKind::System);
+                Tile::Tablet => {
+                    self.add_message("石板 — [F/Enter/m] でフロア分岐地図を読む", MessageKind::System);
                 }
                 Tile::CraftingAnvil => {
                     self.add_message("鍛冶台！[F/Enter] でクラフト", MessageKind::System);
@@ -939,40 +953,36 @@ impl Game {
             self.add_message("ここには階段がない。", MessageKind::Warning);
             return;
         }
+        // Find which destination this staircase leads to
+        let dest = self.stair_destinations.iter()
+            .find(|(sx, sy, _)| *sx == px && *sy == py)
+            .map(|(_, _, id)| *id);
 
-        let next_floor = self.map.floor + 1;
-        self.player.floor = next_floor;
-        if next_floor > self.player.deepest_floor {
-            self.player.deepest_floor = next_floor;
+        let dest_id = match dest {
+            Some(id) => id,
+            None => {
+                self.add_message("この階段の行き先は不明…", MessageKind::Warning);
+                return;
+            }
+        };
+
+        let next_depth = self.floor_graph.depth_of(dest_id);
+
+        // Victory at depth 30
+        if next_depth >= 30 {
+            self.mode = GameMode::Victory;
+            self.add_message("ダンジョン制覇！勝利！", MessageKind::Good);
+            return;
         }
 
-        // Check for random event
-        if let Some(event) = generate_floor_event(next_floor) {
+        // Check for random floor-transition event
+        if let Some(event) = generate_floor_event(next_depth) {
+            self.pending_floor_id = Some(dest_id);
             self.current_event = Some(event);
             self.mode = GameMode::Event;
         } else {
-            self.load_floor(next_floor);
+            self.load_floor_by_id(dest_id);
         }
-
-        if next_floor >= 30 {
-            self.mode = GameMode::Victory;
-            self.add_message("ダンジョン制覇！勝利！", MessageKind::Good);
-        }
-    }
-
-    pub fn ascend(&mut self) {
-        let px = self.player.x;
-        let py = self.player.y;
-        if self.map.get(px, py) != Tile::StairsUp {
-            self.add_message("ここには上り階段がない。", MessageKind::Warning);
-            return;
-        }
-        if self.map.floor <= 1 {
-            self.add_message("すでに1階にいる！", MessageKind::Warning);
-            return;
-        }
-        let prev_floor = self.map.floor - 1;
-        self.load_floor(prev_floor);
     }
 
     pub fn apply_event_choice(&mut self, choice_idx: usize) {
@@ -1047,10 +1057,16 @@ impl Game {
                             }
                         }
                     }
-                    EventConsequence::TeleportToFloor(target) => {
-                        let f = *target;
-                        self.add_message(format!("{}階へ転送された！", f), MessageKind::Event);
-                        self.load_floor(f);
+                    EventConsequence::TeleportToFloor(target_depth) => {
+                        let td = *target_depth;
+                        self.floor_graph.ensure_depth(td + 4, &mut self.rng);
+                        if let Some(fid) = self.floor_graph.reachable_at_depth(self.current_floor_id, td, &mut self.rng) {
+                            self.add_message(format!("深度{}へ転送された！", td), MessageKind::Event);
+                            self.pending_floor_id = None;
+                            self.load_floor_by_id(fid);
+                        } else {
+                            self.add_message("転送失敗…", MessageKind::Warning);
+                        }
                         return;
                     }
                     EventConsequence::FullRestoreHpMp => {
@@ -1128,55 +1144,66 @@ impl Game {
 
             self.add_message(format!("選択：「{}」", choice.label), MessageKind::Event);
             if event.triggers_floor_reload {
-                self.load_floor(floor);
+                if let Some(pending_id) = self.pending_floor_id.take() {
+                    self.load_floor_by_id(pending_id);
+                } else {
+                    self.reload_current_floor();
+                }
             } else {
                 self.mode = GameMode::Exploring;
             }
         }
     }
 
-    fn pick_floor_type(&mut self, floor: u32) -> FloorType {
-        // Floor 1 is always a tutorial exploration floor
-        if floor == 1 { return FloorType::Exploration; }
-        // Every 5th floor is a guaranteed mini-boss
-        if floor % 5 == 0 { return FloorType::MiniBoss; }
-        // Weighted random for remaining floors
-        let roll = self.rng.gen_range(0..100u32);
-        match roll {
-            0..=34  => FloorType::Exploration,
-            35..=48 => FloorType::Treasury,
-            49..=62 => FloorType::Horde,
-            63..=74 => FloorType::Trial,
-            75..=84 => FloorType::Sanctuary,
-            _       => FloorType::Cursed,
-        }
-    }
+    pub fn load_floor_by_id(&mut self, floor_id: FloorId) {
+        let depth = self.floor_graph.depth_of(floor_id);
+        let ft    = self.floor_graph.floor_type_of(floor_id);
 
-    fn load_floor(&mut self, floor: u32) {
-        let ft = self.pick_floor_type(floor);
-        let mut new_map = Map::new(floor, ft);
-        let (px, py) = new_map.generate(&mut self.rng);
+        // Ensure at least 4 depths ahead are generated
+        self.floor_graph.ensure_depth(depth + 6, &mut self.rng);
+
+        let exits = self.floor_graph.exits_of(floor_id);
+        let num_exits = exits.len().max(1);
+
+        let mut new_map = Map::new(depth, ft);
+        let (px, py, stair_positions) = new_map.generate(&mut self.rng, num_exits);
+
         self.map = new_map;
+        self.current_floor_id = floor_id;
         self.player.x = px;
         self.player.y = py;
-        self.player.floor = floor;
+        self.player.floor = depth;
+        if depth > self.player.deepest_floor {
+            self.player.deepest_floor = depth;
+        }
         self.monsters.clear();
         self.floor_items.clear();
         self.floor_relics.clear();
         self.cursed_floor = false;
         self.blessed_floor = false;
-        // 不死鳥の羽はフロアごとにリセット
+        self.stair_destinations = stair_positions.into_iter()
+            .zip(exits.into_iter())
+            .map(|((x, y), dest)| (x, y, dest))
+            .collect();
+
         self.player.relic_revive_available = self.player.has_revive_relic();
         self.spawn_floor_content();
         self.map.compute_fov(px, py, FOV_RADIUS);
         self.update_camera();
         self.mode = GameMode::Exploring;
-        let ft_name = self.map.floor_type.name();
-        let ft_desc = self.map.floor_type.description();
+
+        let ft_name = ft.name();
+        let ft_desc = ft.description();
         self.add_message(
-            format!("{}階 ─ 【{}】{}", floor, ft_name, ft_desc),
+            format!("深度{}階 ─ 【{}】{}", depth, ft_name, ft_desc),
             MessageKind::System,
         );
+    }
+
+    /// Reload the current floor (regenerate from same floor_id).
+    fn reload_current_floor(&mut self) {
+        let id = self.current_floor_id;
+        self.load_floor_by_id(id);
     }
 
     fn teleport_player(&mut self) {
@@ -1657,6 +1684,16 @@ impl Game {
             self.player.relics.push(relic);
         }
 
+        // Boss floor (depth % 5 == 0): guaranteed 秘宝 drop
+        if self.map.floor_type == FloorType::MiniBoss && self.map.floor % 5 == 0 {
+            let mut relic = random_relic(&mut self.rng, floor);
+            while relic.is_cursed { relic = random_relic(&mut self.rng, floor); }
+            let rname = relic.name.clone();
+            rewards.push(RewardEntry { category: "relic".into(), name: rname.clone(), is_cursed: false });
+            self.add_message(format!("【ボス報酬】秘宝「{}」を手に入れた！", rname), MessageKind::Good);
+            self.player.relics.push(relic);
+        }
+
         self.pending_rewards = rewards;
         self.mode = GameMode::BattleReward;
         self.end_player_turn();
@@ -1733,14 +1770,23 @@ impl Game {
         }
     }
 
-    /// Context-aware interact: descend/ascend/pickup/shrine depending on current tile.
+    pub fn activate_tablet(&mut self) {
+        let (px, py) = (self.player.x, self.player.y);
+        if self.map.get(px, py) != Tile::Tablet {
+            self.add_message("ここには石板がない。", MessageKind::Warning);
+            return;
+        }
+        self.mode = GameMode::FloorMap;
+    }
+
+    /// Context-aware interact: descend/shrine/tablet/pickup.
     pub fn smart_interact(&mut self) {
         let px = self.player.x;
         let py = self.player.y;
         match self.map.get(px, py) {
-            Tile::StairsDown   => self.descend(),
-            Tile::StairsUp     => self.ascend(),
-            Tile::Shrine       => self.activate_shrine(),
+            Tile::StairsDown    => self.descend(),
+            Tile::Tablet        => self.activate_tablet(),
+            Tile::Shrine        => self.activate_shrine(),
             Tile::CraftingAnvil => {
                 self.mode = GameMode::Crafting;
                 self.craft_selection = 0;

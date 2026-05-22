@@ -128,6 +128,14 @@ fn tile_span(tile: Tile, visible: bool, explored: bool, dist: f32) -> Span<'stat
             };
             Span::styled("◆", Style::default().fg(color).add_modifier(Modifier::BOLD))
         }
+        Tile::Tablet => {
+            let color = if visible {
+                lerp((160, 160, 140), (80, 80, 70), 1.0 - falloff * 0.5)
+            } else {
+                Color::Rgb(70, 70, 60)
+            };
+            Span::styled("𝄿", Style::default().fg(color).add_modifier(Modifier::BOLD))
+        }
         Tile::Void => Span::raw(" "),
     }
 }

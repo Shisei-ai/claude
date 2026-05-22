@@ -172,6 +172,16 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 .battle-sub-item.sel{background:#0e1428;color:#6090c8}
 .battle-turn-badge{font-size:8px;color:#202838;position:absolute;right:12px;top:6px}
 
+/* ── Floor map overlay ── */
+#floormap-wrap{position:fixed;inset:0;background:rgba(3,3,12,.92);display:flex;align-items:center;justify-content:center;z-index:95}
+#floormap-box{background:#07071a;border:1px solid #1e2a40;border-radius:6px;padding:20px 26px;min-width:420px;max-width:600px}
+.fmtitle{font-size:14px;letter-spacing:.2em;color:#6090c0;text-align:center;margin-bottom:4px}
+.fmsub{font-size:9px;color:#1e2838;text-align:center;letter-spacing:.12em;margin-bottom:14px}
+.fmcanvas-wrap{display:flex;justify-content:center;margin-bottom:14px}
+#fmcanvas{background:transparent}
+.fm-confirm{display:block;width:100%;padding:8px;background:#0e1428;border:1px solid #2a3858;border-radius:4px;color:#4a6888;font-family:inherit;font-size:12px;letter-spacing:.1em;cursor:pointer;text-align:center;transition:all .1s}
+.fm-confirm:hover,.fm-confirm:focus{background:#121c32;color:#6090b8;border-color:#3a5878;outline:none}
+
 /* ── Encounter flash ── */
 #encounter-flash{position:fixed;inset:0;background:#fff;pointer-events:none;z-index:200;opacity:0;transition:opacity .12s}
 #encounter-flash.active{opacity:.55}
@@ -198,6 +208,8 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 <body>
 <!-- Encounter flash overlay -->
 <div id="encounter-flash"></div>
+<!-- Floor map overlay -->
+<div id="floormap-wrap" style="display:none"></div>
 <!-- Battle reward screen -->
 <div id="reward-wrap" style="display:none"></div>
 <!-- Help overlay -->
@@ -211,9 +223,9 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
       <tr><td><kbd>Y</kbd><kbd>U</kbd><kbd>B</kbd><kbd>N</kbd></td><td>斜め移動</td></tr>
       <tr><td><kbd>Space</kbd> / <kbd>.</kbd></td><td>1ターン待機</td></tr>
       <tr><th colspan="2">インタラクト</th></tr>
-      <tr><td><kbd>F</kbd> / <kbd>Enter</kbd></td><td>スマートインタラクト（拾う/階段/祠）</td></tr>
-      <tr><td><kbd>&gt;</kbd></td><td>下の階段を降りる</td></tr>
-      <tr><td><kbd>&lt;</kbd></td><td>上の階段を上る</td></tr>
+      <tr><td><kbd>F</kbd> / <kbd>Enter</kbd></td><td>スマートインタラクト（拾う/階段/石板/祠）</td></tr>
+      <tr><td><kbd>&gt;</kbd></td><td>階段を降りる（次フロアへ）</td></tr>
+      <tr><td><kbd>M</kbd></td><td>石板を読む（フロア分岐地図）</td></tr>
       <tr><th colspan="2">メニュー</th></tr>
       <tr><td><kbd>I</kbd></td><td>インベントリ</td></tr>
       <tr><td><kbd>K</kbd></td><td>スキルツリー</td></tr>
@@ -702,6 +714,33 @@ const TILES = {
     dr(ctx,0,12,3,2,'#3a5820'); dr(ctx,2,13,2,2,'#304a18');
     // Warm gold glow
     dr(ctx,2,0,16,18,'rgba(178,138,18,0.06)');
+  },
+  // ── Tablet (石板) — worn stone slab with etched runes ──────────
+  9: (ctx) => {
+    ctx.fillStyle='#0d0b14'; ctx.fillRect(0,0,20,20);
+    // Stone slab body
+    const sg=ctx.createLinearGradient(3,1,17,19);
+    sg.addColorStop(0,'#7a7a6e'); sg.addColorStop(0.4,'#5e5e52'); sg.addColorStop(1,'#484840');
+    ctx.fillStyle=sg; ctx.fillRect(3,1,14,18);
+    // Bevel edges
+    dr(ctx,3,1,14,2,'rgba(255,255,255,0.18)');   // top light
+    dr(ctx,3,1,1,18,'rgba(255,255,255,0.12)');    // left light
+    dr(ctx,3,17,14,2,'rgba(0,0,0,0.45)');         // bottom shadow
+    dr(ctx,16,1,1,18,'rgba(0,0,0,0.35)');         // right shadow
+    // Rune lines (glowing)
+    const runeGlow = ctx.createLinearGradient(5,0,15,0);
+    runeGlow.addColorStop(0,'#304880'); runeGlow.addColorStop(0.5,'#4060a8'); runeGlow.addColorStop(1,'#304880');
+    ctx.fillStyle=runeGlow;
+    dr(ctx,5,4,10,1,null); ctx.fillRect(5,4,10,1);
+    dr(ctx,5,7,8,1,null);  ctx.fillRect(5,7,8,1);
+    dr(ctx,5,10,10,1,null); ctx.fillRect(5,10,10,1);
+    dr(ctx,5,13,6,1,null); ctx.fillRect(5,13,6,1);
+    // Rune dot accents
+    ['#5080c8','#6090d8','#4870b0'].forEach((c,i)=>dr(ctx,14,7+i*3,2,1,c));
+    // Soft blue glow overlay
+    dr(ctx,3,1,14,18,'rgba(48,80,168,0.08)');
+    // Ground shadow
+    dr(ctx,4,18,13,2,'rgba(0,0,0,0.4)');
   },
 };
 
@@ -1201,15 +1240,26 @@ function renderModal(g) {
   if (g.mode === 'BattleReward') {
     hideModal();
     hideBattleEl();
+    hideFloormapEl();
     buildBattleReward(g);
     document.getElementById('layout').style.display = 'none';
     document.getElementById('log-wrap').style.display = 'none';
     return;
   }
 
-  // Not in battle or reward — restore layout
+  if (g.mode === 'FloorMap' && g.floor_map) {
+    hideModal();
+    hideBattleEl();
+    hideRewardEl();
+    buildFloorMap(g);
+    // Keep layout visible so the map is still visible behind the overlay
+    return;
+  }
+
+  // Not in battle/reward/map — restore layout
   hideBattleEl();
   hideRewardEl();
+  hideFloormapEl();
   document.getElementById('layout').style.display = 'flex';
   document.getElementById('log-wrap').style.display = 'flex';
 
@@ -1745,6 +1795,155 @@ function maybeEncounterFlash(newMode) {
     setTimeout(() => flashEl.classList.remove('active'), 140);
   }
   _prevMode = newMode;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Floor map (stone tablet)
+// ─────────────────────────────────────────────────────────────
+const floormapWrapEl = document.getElementById('floormap-wrap');
+
+const FT_NODE_COLOR = {
+  '探索フロア':     { fill:'#1a2840', stroke:'#3060a0', text:'#4a80c8' },
+  '宝物庫':         { fill:'#201808', stroke:'#806010', text:'#c09030' },
+  '中ボスフロア':   { fill:'#200c08', stroke:'#902010', text:'#e04020' },
+  '群衆フロア':     { fill:'#201008', stroke:'#804010', text:'#c06020' },
+  '試練の間':       { fill:'#180820', stroke:'#702090', text:'#a030d0' },
+  '聖域':           { fill:'#08200e', stroke:'#206040', text:'#40c070' },
+  '呪われたフロア': { fill:'#200810', stroke:'#801030', text:'#e02050' },
+};
+
+function buildFloorMap(g) {
+  const fm = g.floor_map;
+  if (!fm) { hideFloormapEl(); return; }
+
+  // Layout: Y = depth, X = column position among siblings
+  // Canvas size is determined by depth span and max sibling count
+  const depthSet = [...new Set(fm.nodes.map(n => n.depth))].sort((a,b)=>a-b);
+  const maxSiblings = Math.max(1, ...depthSet.map(d =>
+    fm.nodes.filter(n => n.depth === d).length
+  ));
+
+  const nodeW = 88, nodeH = 36, hGap = 16, vGap = 44;
+  const colW = nodeW + hGap;
+  const rowH = nodeH + vGap;
+  const cw = maxSiblings * colW + hGap;
+  const ch = depthSet.length * rowH + vGap;
+
+  // Position each node
+  const posMap = {}; // id → {cx, cy}
+  depthSet.forEach((depth, row) => {
+    const nodesAtDepth = fm.nodes.filter(n => n.depth === depth);
+    nodesAtDepth.forEach((n, col) => {
+      const totalCols = nodesAtDepth.length;
+      const baseX = (cw - totalCols * colW) / 2 + hGap / 2;
+      const cx = baseX + col * colW + nodeW / 2;
+      const cy = row * rowH + vGap + nodeH / 2;
+      posMap[n.id] = { cx, cy };
+    });
+  });
+
+  floormapWrapEl.style.display = 'flex';
+  floormapWrapEl.innerHTML = `
+    <div id="floormap-box">
+      <div class="fmtitle">🗺 フロア分岐地図</div>
+      <div class="fmsub">深度 ${fm.current_depth}階 · 先3深度まで表示 · Esc/Enter で閉じる</div>
+      <div class="fmcanvas-wrap">
+        <canvas id="fmcanvas" width="${cw}" height="${ch}"></canvas>
+      </div>
+      <button class="fm-confirm" id="fmclose-btn">閉じる [Enter]</button>
+    </div>
+  `;
+
+  const canvas = document.getElementById('fmcanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Draw edges first
+  ctx.save();
+  fm.edges.forEach(e => {
+    const from = posMap[e.from];
+    const to   = posMap[e.to];
+    if (!from || !to) return;
+    const fromNode = fm.nodes.find(n => n.id === e.from);
+    const isCurrent = fromNode && fromNode.is_current;
+    ctx.beginPath();
+    ctx.moveTo(from.cx, from.cy + nodeH / 2);
+    // Bezier for organic look
+    const midY = (from.cy + to.cy) / 2;
+    ctx.bezierCurveTo(from.cx, midY, to.cx, midY, to.cx, to.cy - nodeH / 2);
+    ctx.strokeStyle = isCurrent ? 'rgba(80,140,220,0.55)' : 'rgba(40,60,90,0.7)';
+    ctx.lineWidth = isCurrent ? 2 : 1.5;
+    ctx.stroke();
+  });
+  ctx.restore();
+
+  // Draw nodes
+  fm.nodes.forEach(n => {
+    const pos = posMap[n.id];
+    if (!pos) return;
+    const x = pos.cx - nodeW / 2;
+    const y = pos.cy - nodeH / 2;
+    const col = FT_NODE_COLOR[n.floor_type] || FT_NODE_COLOR['探索フロア'];
+
+    // Node background
+    ctx.save();
+    ctx.fillStyle = col.fill;
+    ctx.strokeStyle = n.is_current ? '#80c0ff' : col.stroke;
+    ctx.lineWidth = n.is_current ? 2.5 : 1;
+    // Rounded rect
+    const r = 5;
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.lineTo(x+nodeW-r, y);
+    ctx.quadraticCurveTo(x+nodeW, y, x+nodeW, y+r);
+    ctx.lineTo(x+nodeW, y+nodeH-r);
+    ctx.quadraticCurveTo(x+nodeW, y+nodeH, x+nodeW-r, y+nodeH);
+    ctx.lineTo(x+r, y+nodeH);
+    ctx.quadraticCurveTo(x, y+nodeH, x, y+nodeH-r);
+    ctx.lineTo(x, y+r);
+    ctx.quadraticCurveTo(x, y, x+r, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Glow for current
+    if (n.is_current) {
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = '#60a0ff';
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    // Depth label
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${n.depth}階`, x + nodeW - 4, y + 11);
+
+    // Floor type name
+    ctx.fillStyle = n.is_current ? '#c0e0ff' : col.text;
+    ctx.font = `${n.is_current ? 'bold ' : ''}11px monospace`;
+    ctx.textAlign = 'center';
+    const label = n.is_boss ? `👑 ${n.floor_type}` : n.floor_type;
+    ctx.fillText(label, pos.cx, pos.cy + 4);
+
+    // "現在地" indicator
+    if (n.is_current) {
+      ctx.fillStyle = '#80c0ff';
+      ctx.font = '9px monospace';
+      ctx.fillText('◀ 現在地', pos.cx, pos.cy + 16);
+    }
+
+    ctx.restore();
+  });
+
+  document.getElementById('fmclose-btn').addEventListener('click', () => {
+    sendKey('Escape', 'Escape', false);
+  });
+}
+
+function hideFloormapEl() {
+  floormapWrapEl.style.display = 'none';
+  floormapWrapEl.innerHTML = '';
 }
 
 // ─────────────────────────────────────────────────────────────

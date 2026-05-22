@@ -2,6 +2,7 @@ use serde::Serialize;
 use crate::game::{Game, GameMode};
 use crate::map::{Tile, MAP_WIDTH, MAP_HEIGHT};
 use crate::item::CRAFTING_RECIPES;
+use crate::floor_graph::FloorId;
 
 #[derive(Serialize)]
 pub struct TileSnap {
@@ -127,6 +128,30 @@ pub struct RewardEntrySnap {
 }
 
 #[derive(Serialize)]
+pub struct FloorMapNodeSnap {
+    pub id: FloorId,
+    pub depth: u32,
+    pub floor_type: String,
+    pub is_current: bool,
+    pub is_boss: bool,
+    pub col: usize,   // X position among siblings at this depth
+    pub siblings: usize, // total floors at this depth
+}
+
+#[derive(Serialize)]
+pub struct FloorMapEdgeSnap {
+    pub from: FloorId,
+    pub to: FloorId,
+}
+
+#[derive(Serialize)]
+pub struct FloorMapSnap {
+    pub nodes: Vec<FloorMapNodeSnap>,
+    pub edges: Vec<FloorMapEdgeSnap>,
+    pub current_depth: u32,
+}
+
+#[derive(Serialize)]
 pub struct RelicFloorSnap {
     pub name: String,
     pub x: i32,
@@ -189,19 +214,21 @@ pub struct GameSnapshot {
     pub floor_relics: Vec<RelicFloorSnap>,
     pub player_relics: Vec<PlayerRelicSnap>,
     pub battle_reward: Option<Vec<RewardEntrySnap>>,
+    pub floor_map: Option<FloorMapSnap>,
 }
 
 fn tile_id(t: Tile) -> u8 {
     match t {
-        Tile::Void        => 0,
-        Tile::Wall        => 1,
-        Tile::Floor       => 2,
-        Tile::Door        => 3,
-        Tile::StairsDown  => 4,
-        Tile::StairsUp    => 5,
+        Tile::Void          => 0,
+        Tile::Wall          => 1,
+        Tile::Floor         => 2,
+        Tile::Door          => 3,
+        Tile::StairsDown    => 4,
+        Tile::StairsUp      => 5,
         Tile::CraftingAnvil => 6,
-        Tile::Shrine      => 7,
-        Tile::Chest       => 8,
+        Tile::Shrine        => 7,
+        Tile::Chest         => 8,
+        Tile::Tablet        => 9,
     }
 }
 
@@ -338,6 +365,7 @@ impl GameSnapshot {
             GameMode::Help          => "Help",
             GameMode::Battle        => "Battle",
             GameMode::BattleReward  => "BattleReward",
+            GameMode::FloorMap      => "FloorMap",
             GameMode::Inventory     => "Inventory",
             GameMode::Skills        => "Skills",
             GameMode::Crafting      => "Crafting",
@@ -409,6 +437,41 @@ impl GameSnapshot {
             })
             .collect();
 
+        // ── Floor map (for stone tablet view) ─────────────────────────────────
+        let floor_map = if game.mode == GameMode::FloorMap {
+            let current_id = game.current_floor_id;
+            let current_depth = game.floor_graph.depth_of(current_id);
+            let show_from = current_depth.saturating_sub(1);
+            let show_to   = current_depth + 3;
+
+            let mut nodes: Vec<FloorMapNodeSnap> = Vec::new();
+            let mut edges: Vec<FloorMapEdgeSnap> = Vec::new();
+
+            for depth in show_from..=show_to {
+                let siblings = game.floor_graph.floors_at_depth(depth);
+                let total = siblings.len();
+                for (col, &id) in siblings.iter().enumerate() {
+                    let node = match game.floor_graph.get_node(id) { Some(n) => n, None => continue };
+                    nodes.push(FloorMapNodeSnap {
+                        id,
+                        depth,
+                        floor_type: node.floor_type.name().to_string(),
+                        is_current: id == current_id,
+                        is_boss: depth % 5 == 0,
+                        col,
+                        siblings: total,
+                    });
+                    for &exit_id in &node.exits {
+                        let exit_depth = game.floor_graph.depth_of(exit_id);
+                        if exit_depth <= show_to {
+                            edges.push(FloorMapEdgeSnap { from: id, to: exit_id });
+                        }
+                    }
+                }
+            }
+            Some(FloorMapSnap { nodes, edges, current_depth })
+        } else { None };
+
         let battle_reward = if game.mode == GameMode::BattleReward {
             Some(game.pending_rewards.iter().map(|r| RewardEntrySnap {
                 category: r.category.clone(),
@@ -462,6 +525,7 @@ impl GameSnapshot {
             floor_relics,
             player_relics,
             battle_reward,
+            floor_map,
         }
     }
 }

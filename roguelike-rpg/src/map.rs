@@ -16,10 +16,11 @@ pub enum Tile {
     Floor,
     Door,
     StairsDown,
-    StairsUp,
+    StairsUp,   // kept in enum for save-compat; no longer generated
     CraftingAnvil,
     Shrine,
     Chest,
+    Tablet,
     Void,
 }
 
@@ -30,10 +31,10 @@ impl Tile {
             Tile::Floor
                 | Tile::Door
                 | Tile::StairsDown
-                | Tile::StairsUp
                 | Tile::CraftingAnvil
                 | Tile::Shrine
                 | Tile::Chest
+                | Tile::Tablet
         )
     }
 
@@ -51,6 +52,7 @@ impl Tile {
             Tile::CraftingAnvil => 'A',
             Tile::Shrine => '!',
             Tile::Chest => '$',
+            Tile::Tablet => '|',
             Tile::Void => ' ',
         }
     }
@@ -202,14 +204,16 @@ impl Map {
 
     // ── Map generation ────────────────────────────────────────────────────────
 
-    pub fn generate<R: Rng>(&mut self, rng: &mut R) -> (i32, i32) {
+    /// Generate the map layout.
+    /// `num_exits`: how many staircases to place (1 for boss floors, 2-3 for others).
+    /// Returns (player_start_x, player_start_y, stair_positions).
+    pub fn generate<R: Rng>(&mut self, rng: &mut R, num_exits: usize) -> (i32, i32, Vec<(i32, i32)>) {
         let ft = self.floor_type;
         let floor = self.floor;
 
         let max_rooms = ft.max_rooms(floor);
         let (min_rs, max_rs) = ft.room_size_range();
 
-        // Placement zone: compact types use the centre of the grid
         let (zone_x1, zone_y1, zone_x2, zone_y2) = if ft.is_compact() {
             (CZ_X1, CZ_Y1, CZ_X2, CZ_Y2)
         } else {
@@ -226,12 +230,8 @@ impl Map {
             let y = rng.gen_range(zone_y1..=(zone_y2 - h - 1).max(zone_y1 + 1));
             let room = Room::new(x, y, w, h);
 
-            if rooms.iter().any(|r| r.intersects(&room)) {
-                continue;
-            }
-
+            if rooms.iter().any(|r| r.intersects(&room)) { continue; }
             self.carve_room(&room);
-
             if rooms.is_empty() {
                 start_pos = room.center();
             } else {
@@ -246,24 +246,46 @@ impl Map {
                 }
             }
             rooms.push(room);
-            if rooms.len() as i32 >= max_rooms {
-                break;
+            if rooms.len() as i32 >= max_rooms { break; }
+        }
+
+        // ── Staircase placement ───────────────────────────────────────────────
+        // Place `num_exits` staircases in the last N rooms.
+        // Place the Stone Tablet in the room just before the stair rooms.
+        let stair_count = num_exits.min(rooms.len().saturating_sub(1)).max(1);
+        let mut stair_positions: Vec<(i32, i32)> = Vec::new();
+
+        let stair_start = rooms.len().saturating_sub(stair_count);
+        for room in rooms[stair_start..].iter() {
+            let (cx, cy) = room.center();
+            // Offset each stair slightly within the room so they're not on top of each other
+            let offset = stair_positions.len() as i32;
+            let sx = cx + offset;
+            let sy = cy;
+            self.set(sx, sy, Tile::StairsDown);
+            stair_positions.push((sx, sy));
+        }
+
+        // Tablet in the room just before the stair rooms (if it exists)
+        if stair_start > 1 {
+            let tablet_room = &rooms[stair_start - 1];
+            let (tx, ty) = tablet_room.center();
+            self.set(tx, ty, Tile::Tablet);
+        } else if rooms.len() > 1 {
+            // Fallback: place tablet next to the first stair
+            if let Some(&(sx, sy)) = stair_positions.first() {
+                let tx = (sx - 2).max(1);
+                if self.is_walkable(tx, sy) {
+                    self.set(tx, sy, Tile::Tablet);
+                }
             }
         }
 
-        // ── Stairs ───────────────────────────────────────────────────────────
-        if let Some(last) = rooms.last() {
-            let (sx, sy) = last.center();
-            self.set(sx, sy, Tile::StairsDown);
-        }
-        if floor > 1 {
-            self.set(start_pos.0, start_pos.1, Tile::StairsUp);
-        }
-
         // ── Type-specific special tiles ───────────────────────────────────────
+        let special_rooms = &rooms[1..stair_start.saturating_sub(1)];
         match ft {
             FloorType::Exploration | FloorType::Cursed => {
-                for room in rooms.iter().skip(2) {
+                for room in special_rooms {
                     let roll = rng.gen_range(0..10);
                     let (cx, cy) = room.center();
                     match roll {
@@ -275,18 +297,14 @@ impl Map {
                 }
             }
             FloorType::Treasury => {
-                // Chest in every non-start room except last (boss/guard room)
-                for room in rooms.iter().skip(1).rev().skip(1) {
+                for room in special_rooms {
                     let (cx, cy) = room.center();
                     self.set(cx, cy, Tile::Chest);
                 }
             }
-            FloorType::MiniBoss => {
-                // No special tiles — game.rs places reward chest after boss death
-            }
+            FloorType::MiniBoss => {}
             FloorType::Horde => {
-                // Occasional crafting anvil only
-                for room in rooms.iter().skip(2) {
+                for room in special_rooms {
                     if rng.gen_range(0..20) == 0 {
                         let (cx, cy) = room.center();
                         self.set(cx, cy, Tile::CraftingAnvil);
@@ -294,27 +312,22 @@ impl Map {
                 }
             }
             FloorType::Trial => {
-                // Shrine in every room except start/exit
-                for room in rooms.iter().skip(1).rev().skip(1) {
+                for room in special_rooms {
                     let (cx, cy) = room.center();
                     self.set(cx, cy, Tile::Shrine);
                 }
             }
             FloorType::Sanctuary => {
-                // Alternating Shrine / CraftingAnvil in every non-start room
-                for (i, room) in rooms.iter().skip(1).enumerate() {
+                for (i, room) in special_rooms.iter().enumerate() {
                     let (cx, cy) = room.center();
-                    if i % 2 == 0 {
-                        self.set(cx, cy, Tile::Shrine);
-                    } else {
-                        self.set(cx, cy, Tile::CraftingAnvil);
-                    }
+                    if i % 2 == 0 { self.set(cx, cy, Tile::Shrine); }
+                    else          { self.set(cx, cy, Tile::CraftingAnvil); }
                 }
             }
         }
 
         self.rooms = rooms;
-        start_pos
+        (start_pos.0, start_pos.1, stair_positions)
     }
 
     // ── Carving helpers ───────────────────────────────────────────────────────
