@@ -14,12 +14,52 @@ pub fn handle_input(game: &mut Game, key: KeyCode, _modifiers: KeyModifiers) -> 
             }
         }
 
-        // ── Battle Reward (any key confirms) ──────────────────────────
-        GameMode::BattleReward => {
-            if matches!(key, KeyCode::Enter | KeyCode::Char(' ') | KeyCode::Esc | KeyCode::Char('q')) {
+        // ── Battle Reward ─────────────────────────────────────────────
+        // ↑ / k  : skill cursor up
+        // ↓ / j  : skill cursor down
+        // Enter  : learn selected skill (if skill_pts > 0 and skill valid)
+        // Esc / Space / q : confirm and close
+        GameMode::BattleReward => match key {
+            KeyCode::Esc | KeyCode::Char(' ') | KeyCode::Char('q') => {
                 game.confirm_battle_rewards();
             }
-        }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if game.reward_skill_cursor > 0 {
+                    game.reward_skill_cursor -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                let learnable_count = game.player.skills.iter()
+                    .filter(|s| s.unlocked && !s.learned)
+                    .count();
+                if game.reward_skill_cursor + 1 < learnable_count {
+                    game.reward_skill_cursor += 1;
+                }
+            }
+            KeyCode::Enter => {
+                if game.player.skill_points > 0 {
+                    // Find the Nth learnable skill
+                    let idx_opt = game.player.skills.iter()
+                        .enumerate()
+                        .filter(|(_, s)| s.unlocked && !s.learned)
+                        .nth(game.reward_skill_cursor)
+                        .map(|(i, _)| i);
+                    if let Some(idx) = idx_opt {
+                        game.learn_skill(idx);
+                        // clamp cursor
+                        let learnable_count = game.player.skills.iter()
+                            .filter(|s| s.unlocked && !s.learned)
+                            .count();
+                        if game.reward_skill_cursor >= learnable_count && game.reward_skill_cursor > 0 {
+                            game.reward_skill_cursor -= 1;
+                        }
+                    }
+                } else {
+                    game.confirm_battle_rewards();
+                }
+            }
+            _ => {}
+        },
 
         // ── Floor map (Esc / Enter / m closes) ────────────────────────
         GameMode::FloorMap => {

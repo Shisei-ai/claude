@@ -63,6 +63,7 @@ pub struct SkillSnap {
     pub mp_cost: i32,
     pub cooldown: u32,
     pub cd_left: u32,
+    pub sp_cost: u32,
 }
 
 #[derive(Serialize)]
@@ -215,6 +216,8 @@ pub struct GameSnapshot {
     pub player_relics: Vec<PlayerRelicSnap>,
     pub battle_reward: Option<Vec<RewardEntrySnap>>,
     pub floor_map: Option<FloorMapSnap>,
+    pub reward_skill_cursor: usize,
+    pub reward_learnable_skills: Vec<SkillSnap>,
 }
 
 fn tile_id(t: Tile) -> u8 {
@@ -317,6 +320,7 @@ impl GameSnapshot {
                     mp_cost: s.mp_cost,
                     cooldown: s.cooldown,
                     cd_left: s.current_cooldown,
+                    sp_cost: s.sp_cost,
                 }
             })
             .collect();
@@ -482,6 +486,27 @@ impl GameSnapshot {
             None
         };
 
+        let reward_learnable_skills: Vec<SkillSnap> = if game.mode == GameMode::BattleReward {
+            game.player.skills.iter()
+                .filter(|s| s.unlocked && !s.learned)
+                .map(|s| SkillSnap {
+                    id: s.id,
+                    name: s.name.clone(),
+                    desc: s.description.clone(),
+                    learned: s.learned,
+                    unlocked: s.unlocked,
+                    branch: format!("{:?}", s.branch),
+                    passive: s.is_passive,
+                    mp_cost: s.mp_cost,
+                    cooldown: s.cooldown,
+                    cd_left: s.current_cooldown,
+                    sp_cost: s.sp_cost,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+
         GameSnapshot {
             mode: mode_str,
             floor: game.player.floor,
@@ -526,6 +551,8 @@ impl GameSnapshot {
             player_relics,
             battle_reward,
             floor_map,
+            reward_skill_cursor: game.reward_skill_cursor,
+            reward_learnable_skills,
         }
     }
 }

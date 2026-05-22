@@ -651,6 +651,9 @@ fn render_skills(f: &mut Frame, game: &Game, area: Rect) {
             SkillBranch::Mage      => "★",
             SkillBranch::Rogue     => "✦",
             SkillBranch::Universal => "◉",
+            SkillBranch::Knight    => "🛡",
+            SkillBranch::Shaman    => "☽",
+            SkillBranch::Alchemist => "⚗",
         };
         let prefix = if selected { "▶ " } else { "  " };
         let passive = if skill.is_passive { " ◈" } else { "" };
@@ -683,12 +686,18 @@ fn render_skills(f: &mut Frame, game: &Game, area: Rect) {
             SkillBranch::Mage      => Color::Rgb(180,80,240),
             SkillBranch::Rogue     => Color::Rgb(80,200,120),
             SkillBranch::Universal => Color::Rgb(200,160,80),
+            SkillBranch::Knight    => Color::Rgb(100,160,220),
+            SkillBranch::Shaman    => Color::Rgb(180,100,200),
+            SkillBranch::Alchemist => Color::Rgb(100,200,180),
         };
         let branch_name = match skill.branch {
             SkillBranch::Warrior   => "⚔  Warrior Path",
             SkillBranch::Mage      => "★  Arcane Path",
             SkillBranch::Rogue     => "✦  Shadow Path",
             SkillBranch::Universal => "◉  Universal",
+            SkillBranch::Knight    => "🛡  Knight Path",
+            SkillBranch::Shaman    => "☽  Shaman Path",
+            SkillBranch::Alchemist => "⚗  Alchemist Path",
         };
         let mut lines = vec![
             Line::from(Span::styled(skill.name.clone(), Style::default().fg(color).add_modifier(Modifier::BOLD))),

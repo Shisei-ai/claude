@@ -64,6 +64,7 @@ pub struct Game {
     pub camera_x: i32,
     pub camera_y: i32,
     pub pending_rewards: Vec<RewardEntry>,
+    pub reward_skill_cursor: usize,
     // ── Floor graph ──────────────────────────────────────────────────────────
     pub floor_graph: FloorGraph,
     pub current_floor_id: FloorId,
@@ -123,6 +124,7 @@ impl Game {
             camera_x: 0,
             camera_y: 0,
             pending_rewards: Vec::new(),
+            reward_skill_cursor: 0,
             floor_graph,
             current_floor_id: 1,
             stair_destinations: Vec::new(),
@@ -717,6 +719,30 @@ impl Game {
                 self.player.crit_bonus_turns = 5;
                 self.add_message(format!("{}：クリット率+{}%（5ターン）！", skill.name, pct), MessageKind::Good);
             }
+            SkillEffect::SoulDrain(pct) => {
+                if let Some(closest) = self.closest_monster() {
+                    let base_dmg = self.player.effective_attack();
+                    let dmg = (base_dmg as f32 * pct as f32 / 100.0) as i32;
+                    let actual = self.monsters[closest].take_damage(dmg);
+                    self.player.hp = (self.player.hp + actual).min(self.player.max_hp);
+                    let name = self.monsters[closest].kind.name().to_string();
+                    self.add_message(format!("{}：{}から{}を吸収！HP+{}！", skill.name, name, actual, actual), MessageKind::Combat);
+                    if !self.monsters[closest].is_alive() {
+                        self.on_monster_death(closest);
+                    }
+                }
+            }
+            SkillEffect::AttackBuff(bonus, _turns) => {
+                if let Some(closest) = self.closest_monster() {
+                    let base_dmg = self.player.effective_attack() + bonus;
+                    let actual = self.monsters[closest].take_damage(base_dmg);
+                    let name = self.monsters[closest].kind.name().to_string();
+                    self.add_message(format!("{}：{}に{}ダメージ！", skill.name, name, actual), MessageKind::Combat);
+                    if !self.monsters[closest].is_alive() {
+                        self.on_monster_death(closest);
+                    }
+                }
+            }
             _ => {
                 self.add_message(format!("{}：パッシブスキルのため使用不可。", skill.name), MessageKind::Warning);
             }
@@ -1241,7 +1267,8 @@ impl Game {
         if skill_idx >= self.player.skills.len() {
             return;
         }
-        if self.player.skill_points == 0 {
+        let sp_cost = self.player.skills[skill_idx].sp_cost;
+        if self.player.skill_points < sp_cost {
             self.add_message("スキルポイントが足りない！", MessageKind::Warning);
             return;
         }
@@ -1265,7 +1292,7 @@ impl Game {
 
         let name = self.player.skills[skill_idx].name.clone();
         self.player.skills[skill_idx].learned = true;
-        self.player.skill_points -= 1;
+        self.player.skill_points -= sp_cost;
         self.add_message(format!("スキル「{}」を習得！（残りSP：{}）", name, self.player.skill_points), MessageKind::Good);
 
         // Unlock prerequisites for next tier
@@ -1490,6 +1517,20 @@ impl Game {
                 let name = self.monsters[idx].kind.name().to_string();
                 format!("✦ {}：{}に魔法爆発{}ダメージ！", skill.name, name, actual)
             }
+            SkillEffect::SoulDrain(pct) => {
+                let base_dmg = self.player.effective_attack();
+                let dmg = (base_dmg as f32 * *pct as f32 / 100.0) as i32;
+                let actual = self.monsters[idx].take_damage(dmg);
+                self.player.hp = (self.player.hp + actual).min(self.player.max_hp);
+                let name = self.monsters[idx].kind.name().to_string();
+                format!("✦ {}：{}から{}吸収！HP+{}！", skill.name, name, actual, actual)
+            }
+            SkillEffect::AttackBuff(bonus, _turns) => {
+                let base_dmg = self.player.effective_attack() + bonus;
+                let actual = self.monsters[idx].take_damage(base_dmg);
+                let name = self.monsters[idx].kind.name().to_string();
+                format!("✦ {}：{}に{}ダメージ！", skill.name, name, actual)
+            }
             _ => format!("✦ {}：発動！", skill.name),
         };
 
@@ -1695,6 +1736,7 @@ impl Game {
         }
 
         self.pending_rewards = rewards;
+        self.reward_skill_cursor = 0;
         self.mode = GameMode::BattleReward;
         self.end_player_turn();
     }
