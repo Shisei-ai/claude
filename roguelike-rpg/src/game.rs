@@ -14,6 +14,7 @@ pub const FOV_RADIUS: i32 = 8;
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum GameMode {
+    StartSkillSelect,
     Exploring,
     Help,
     Battle,
@@ -65,6 +66,7 @@ pub struct Game {
     pub camera_y: i32,
     pub pending_rewards: Vec<RewardEntry>,
     pub reward_skill_cursor: usize,
+    pub start_skill_cursor: usize,
     // ── Floor graph ──────────────────────────────────────────────────────────
     pub floor_graph: FloorGraph,
     pub current_floor_id: FloorId,
@@ -102,7 +104,7 @@ impl Game {
             floor_items: Vec::new(),
             floor_relics: Vec::new(),
             messages: Vec::new(),
-            mode: GameMode::Exploring,
+            mode: GameMode::StartSkillSelect,
             rng,
             current_event: None,
             inv_selection: 0,
@@ -125,6 +127,7 @@ impl Game {
             camera_y: 0,
             pending_rewards: Vec::new(),
             reward_skill_cursor: 0,
+            start_skill_cursor: 0,
             floor_graph,
             current_floor_id: 1,
             stair_destinations: Vec::new(),
@@ -134,6 +137,43 @@ impl Game {
         game.load_floor_by_id(1);
         game.add_message("ダンジョンへようこそ！（? でヘルプ、m で石板を読む）", MessageKind::System);
         game
+    }
+
+    /// Returns the skill indices that appear on the start-skill selection screen.
+    /// One entry per branch: the first (lowest ID) unlocked skill with no prerequisite.
+    pub fn start_skill_options(&self) -> Vec<usize> {
+        use crate::skill::SkillBranch;
+        let order = [
+            SkillBranch::Warrior,
+            SkillBranch::Mage,
+            SkillBranch::Rogue,
+            SkillBranch::Knight,
+            SkillBranch::Shaman,
+            SkillBranch::Alchemist,
+            SkillBranch::Universal,
+        ];
+        order.iter().filter_map(|branch| {
+            self.player.skills.iter().position(|s| {
+                &s.branch == branch && s.unlocked && s.prerequisite.is_none()
+            })
+        }).collect()
+    }
+
+    pub fn confirm_start_skill(&mut self) {
+        let options = self.start_skill_options();
+        if let Some(&skill_idx) = options.get(self.start_skill_cursor) {
+            let name = self.player.skills[skill_idx].name.clone();
+            self.player.skills[skill_idx].learned = true;
+            // Unlock next-tier skills that have this as prerequisite
+            for i in 0..self.player.skills.len() {
+                if self.player.skills[i].prerequisite == Some(skill_idx) {
+                    self.player.skills[i].unlocked = true;
+                }
+            }
+            self.add_message(format!("【スタータースキル】「{}」を習得した！", name), MessageKind::Good);
+            self.update_stats();
+        }
+        self.mode = GameMode::Exploring;
     }
 
     pub fn add_message(&mut self, msg: impl Into<String>, kind: MessageKind) {

@@ -218,6 +218,8 @@ pub struct GameSnapshot {
     pub floor_map: Option<FloorMapSnap>,
     pub reward_skill_cursor: usize,
     pub reward_learnable_skills: Vec<SkillSnap>,
+    pub start_skill_options: Vec<SkillSnap>,
+    pub start_skill_cursor: usize,
 }
 
 fn tile_id(t: Tile) -> u8 {
@@ -365,6 +367,7 @@ impl GameSnapshot {
             .collect();
 
         let mode_str = match game.mode {
+            GameMode::StartSkillSelect => "StartSkillSelect",
             GameMode::Exploring     => "Exploring",
             GameMode::Help          => "Help",
             GameMode::Battle        => "Battle",
@@ -507,6 +510,26 @@ impl GameSnapshot {
             Vec::new()
         };
 
+        let start_skill_options: Vec<SkillSnap> = {
+            let indices = game.start_skill_options();
+            indices.iter().map(|&i| {
+                let s = &game.player.skills[i];
+                SkillSnap {
+                    id: s.id,
+                    name: s.name.clone(),
+                    desc: s.description.clone(),
+                    learned: s.learned,
+                    unlocked: s.unlocked,
+                    branch: format!("{:?}", s.branch),
+                    passive: s.is_passive,
+                    mp_cost: s.mp_cost,
+                    cooldown: s.cooldown,
+                    cd_left: s.current_cooldown,
+                    sp_cost: s.sp_cost,
+                }
+            }).collect()
+        };
+
         GameSnapshot {
             mode: mode_str,
             floor: game.player.floor,
@@ -553,6 +576,8 @@ impl GameSnapshot {
             floor_map,
             reward_skill_cursor: game.reward_skill_cursor,
             reward_learnable_skills,
+            start_skill_options,
+            start_skill_cursor: game.start_skill_cursor,
         }
     }
 }

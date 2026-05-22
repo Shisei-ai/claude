@@ -230,8 +230,9 @@ pub fn render(f: &mut Frame, game: &Game) {
         GameMode::Crafting   => render_crafting(f, game, area),
         GameMode::Event      => render_event(f, game, area),
         GameMode::LevelUp    => render_levelup(f, game, area),
-        GameMode::Help       => { render_main(f, game, area); render_help(f, area); }
-        _                    => render_main(f, game, area),
+        GameMode::Help            => { render_main(f, game, area); render_help(f, area); }
+        GameMode::StartSkillSelect => render_start_skill_select(f, game, area),
+        _                         => render_main(f, game, area),
     }
 }
 
@@ -1157,6 +1158,81 @@ fn render_help(f: &mut Frame, area: Rect) {
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Rgb(45, 60, 85))))
             .style(Style::default().bg(Color::Rgb(6, 7, 14))),
+        popup,
+    );
+}
+
+// ── Start skill selection ─────────────────────────────────────────────────────
+fn render_start_skill_select(f: &mut Frame, game: &Game, area: Rect) {
+    f.render_widget(Paragraph::new("").style(Style::default().bg(rgb(PAL_BG))), area);
+
+    let pw = area.width.min(64);
+    let ph = area.height.min(44);
+    let popup = Rect {
+        x: area.x + (area.width.saturating_sub(pw)) / 2,
+        y: area.y + (area.height.saturating_sub(ph)) / 2,
+        width: pw, height: ph,
+    };
+    let options = game.start_skill_options();
+
+    let title_line = Line::from(vec![
+        Span::styled("── スタータースキルを選択 ──", Style::default().fg(Color::Rgb(255, 220, 80)).add_modifier(Modifier::BOLD)),
+    ]);
+    let hint_line = Line::from(Span::styled(
+        "↑↓ 選択  Enter 決定",
+        Style::default().fg(Color::Rgb(100, 120, 160)),
+    ));
+
+    let mut lines: Vec<Line> = vec![title_line, Line::from(""), Line::from(
+        Span::styled("ゲーム開始前に1つのスキルを無料で習得できます。", Style::default().fg(Color::Rgb(180, 180, 200)))
+    ), Line::from("")];
+
+    for (row, &skill_idx) in options.iter().enumerate() {
+        let skill = &game.player.skills[skill_idx];
+        let selected = row == game.start_skill_cursor;
+        let branch_icon = match skill.branch {
+            SkillBranch::Warrior   => "⚔",
+            SkillBranch::Mage      => "★",
+            SkillBranch::Rogue     => "✦",
+            SkillBranch::Universal => "◉",
+            SkillBranch::Knight    => "🛡",
+            SkillBranch::Shaman    => "☽",
+            SkillBranch::Alchemist => "⚗",
+        };
+        let branch_color = match skill.branch {
+            SkillBranch::Warrior   => Color::Rgb(220, 80, 80),
+            SkillBranch::Mage      => Color::Rgb(100, 160, 255),
+            SkillBranch::Rogue     => Color::Rgb(180, 100, 220),
+            SkillBranch::Universal => Color::Rgb(80, 200, 200),
+            SkillBranch::Knight    => Color::Rgb(220, 180, 60),
+            SkillBranch::Shaman    => Color::Rgb(140, 90, 180),
+            SkillBranch::Alchemist => Color::Rgb(80, 200, 120),
+        };
+        let prefix = if selected { "▶ " } else { "  " };
+        let bg = if selected { Color::Rgb(30, 40, 60) } else { Color::Reset };
+        let name_style = Style::default().fg(if selected { Color::Rgb(255, 240, 120) } else { Color::Rgb(220, 220, 220) }).bg(bg);
+        let passive_tag = if skill.is_passive { " [パッシブ]" } else { "" };
+        lines.push(Line::from(vec![
+            Span::raw(prefix),
+            Span::styled(format!("{} ", branch_icon), Style::default().fg(branch_color).bg(bg)),
+            Span::styled(format!("{}{}", skill.name, passive_tag), name_style),
+        ]));
+        lines.push(Line::from(vec![
+            Span::raw("    "),
+            Span::styled(&skill.description, Style::default().fg(Color::Rgb(140, 160, 180))),
+        ]));
+        lines.push(Line::from(""));
+    }
+
+    lines.push(hint_line);
+
+    f.render_widget(
+        Paragraph::new(lines)
+            .block(Block::default()
+                .borders(Borders::ALL)
+                .title(" 初期スキル選択 ")
+                .border_style(Style::default().fg(Color::Rgb(255, 200, 60))))
+            .style(Style::default().bg(Color::Rgb(8, 10, 18))),
         popup,
     );
 }

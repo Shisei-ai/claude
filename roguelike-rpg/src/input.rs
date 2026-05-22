@@ -7,6 +7,24 @@ use crate::map::Tile;
 /// Returns true if the game should quit.
 pub fn handle_input(game: &mut Game, key: KeyCode, _modifiers: KeyModifiers) -> bool {
     match &game.mode {
+        // ── Start skill selection ─────────────────────────────────────
+        // ↑ / k  : cursor up
+        // ↓ / j  : cursor down
+        // Enter  : confirm selection
+        GameMode::StartSkillSelect => match key {
+            KeyCode::Up | KeyCode::Char('k') => {
+                if game.start_skill_cursor > 0 { game.start_skill_cursor -= 1; }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                let n = game.start_skill_options().len();
+                if game.start_skill_cursor + 1 < n { game.start_skill_cursor += 1; }
+            }
+            KeyCode::Enter | KeyCode::Char(' ') => {
+                game.confirm_start_skill();
+            }
+            _ => {}
+        },
+
         // ── Dead / Victory ────────────────────────────────────────────
         GameMode::Dead | GameMode::Victory => {
             if matches!(key, KeyCode::Char('q') | KeyCode::Esc) {

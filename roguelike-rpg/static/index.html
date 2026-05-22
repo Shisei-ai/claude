@@ -222,6 +222,18 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 .skill-cost{font-size:11px;min-width:36px;text-align:right}
 .skill-desc{font-size:10px;color:#607080;flex:2}
 .reward-skill-hint{font-size:10px;color:#2a3848;text-align:center;letter-spacing:.08em}
+/* ── Start skill select ── */
+#start-skill-box{background:#06060f;border:2px solid #3a2a00;border-radius:8px;padding:32px 40px;min-width:400px;max-width:560px;box-shadow:0 0 40px rgba(220,180,60,.15)}
+.sss-title{font-size:20px;font-weight:bold;color:#ffe060;text-align:center;letter-spacing:.12em;margin-bottom:8px}
+.sss-subtitle{font-size:12px;color:#8090a8;text-align:center;margin-bottom:20px;line-height:1.6}
+.sss-list{display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto;margin-bottom:20px;padding-right:4px}
+.sss-item{padding:12px 14px;border-radius:5px;cursor:default;transition:background .1s}
+.sss-item-header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.sss-branch-tag{font-size:10px;padding:2px 7px;border-radius:3px;letter-spacing:.06em;white-space:nowrap}
+.sss-skill-name{font-size:15px;font-weight:bold;color:#dde0e8}
+.sss-passive{font-size:10px;color:#70a090;margin-left:6px;border:1px solid #2a4a3a;padding:1px 4px;border-radius:2px}
+.sss-skill-desc{font-size:12px;color:#6a7888;padding-left:2px}
+.sss-hint{font-size:11px;color:#3a4858;text-align:center;letter-spacing:.1em}
 </style>
 </head>
 <body>
@@ -1256,6 +1268,17 @@ function renderModal(g) {
     return;
   }
 
+  if (g.mode === 'StartSkillSelect') {
+    hideModal();
+    hideBattleEl();
+    hideRewardEl();
+    hideFloormapEl();
+    buildStartSkillSelect(g);
+    document.getElementById('layout').style.display = 'none';
+    document.getElementById('log-wrap').style.display = 'none';
+    return;
+  }
+
   if (g.mode === 'BattleReward') {
     hideModal();
     hideBattleEl();
@@ -2031,6 +2054,57 @@ const REWARD_ICON = {
   relic:    '💎',
   cursed:   '💀',
 };
+
+const BRANCH_COLOR = {
+  warrior:   '#e05050',
+  mage:      '#6090ff',
+  rogue:     '#b464dc',
+  universal: '#50c8c8',
+  knight:    '#dcb43c',
+  shaman:    '#8c5ab4',
+  alchemist: '#50c878',
+};
+
+const BRANCH_LABEL = {
+  warrior:   '戦士',
+  mage:      '魔法使い',
+  rogue:     '盗賊',
+  universal: '共通',
+  knight:    '騎士',
+  shaman:    '呪術師',
+  alchemist: '錬金術師',
+};
+
+function buildStartSkillSelect(g) {
+  const skills = g.start_skill_options || [];
+  const cursor = g.start_skill_cursor || 0;
+
+  let rows = '';
+  skills.forEach((s, i) => {
+    const sel = i === cursor;
+    const branch = s.branch.toLowerCase();
+    const color = BRANCH_COLOR[branch] || '#aaa';
+    const jpLabel = BRANCH_LABEL[branch] || s.branch;
+    const passiveTag = s.passive ? ' <span class="sss-passive">パッシブ</span>' : '';
+    rows += `<div class="sss-item${sel ? ' sss-selected' : ''}" style="${sel ? `border-left:3px solid ${color};background:rgba(255,255,255,0.05)` : 'border-left:3px solid transparent'}">
+      <div class="sss-item-header">
+        <span class="sss-branch-tag" style="background:${color}22;color:${color};border:1px solid ${color}66">${jpLabel}</span>
+        <span class="sss-skill-name">${s.name}</span>${passiveTag}
+      </div>
+      <div class="sss-skill-desc">${s.desc}</div>
+    </div>`;
+  });
+
+  rewardWrapEl.style.display = 'flex';
+  rewardWrapEl.innerHTML = `
+    <div id="start-skill-box">
+      <div class="sss-title">⚔ スタータースキル選択</div>
+      <div class="sss-subtitle">冒険を始める前に、1つのスキルを無料で習得できます。<br>あなたの戦い方を選んでください。</div>
+      <div class="sss-list">${rows}</div>
+      <div class="sss-hint">↑ / ↓ &nbsp; 選択 &nbsp;&nbsp; Enter &nbsp; 決定</div>
+    </div>
+  `;
+}
 
 function buildBattleReward(g) {
   const entries = g.battle_reward || [];
