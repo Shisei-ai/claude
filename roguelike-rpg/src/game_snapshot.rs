@@ -120,6 +120,13 @@ pub struct BattleSnap {
 }
 
 #[derive(Serialize)]
+pub struct RewardEntrySnap {
+    pub category: String,
+    pub name: String,
+    pub is_cursed: bool,
+}
+
+#[derive(Serialize)]
 pub struct RelicFloorSnap {
     pub name: String,
     pub x: i32,
@@ -180,6 +187,7 @@ pub struct GameSnapshot {
     pub battle: Option<BattleSnap>,
     pub floor_relics: Vec<RelicFloorSnap>,
     pub player_relics: Vec<PlayerRelicSnap>,
+    pub battle_reward: Option<Vec<RewardEntrySnap>>,
 }
 
 fn tile_id(t: Tile) -> u8 {
@@ -325,16 +333,17 @@ impl GameSnapshot {
             .collect();
 
         let mode_str = match game.mode {
-            GameMode::Exploring => "Exploring",
-            GameMode::Help      => "Help",
-            GameMode::Battle    => "Battle",
-            GameMode::Inventory => "Inventory",
-            GameMode::Skills    => "Skills",
-            GameMode::Crafting  => "Crafting",
-            GameMode::Event     => "Event",
-            GameMode::Dead      => "Dead",
-            GameMode::Victory   => "Victory",
-            GameMode::LevelUp   => "LevelUp",
+            GameMode::Exploring     => "Exploring",
+            GameMode::Help          => "Help",
+            GameMode::Battle        => "Battle",
+            GameMode::BattleReward  => "BattleReward",
+            GameMode::Inventory     => "Inventory",
+            GameMode::Skills        => "Skills",
+            GameMode::Crafting      => "Crafting",
+            GameMode::Event         => "Event",
+            GameMode::Dead          => "Dead",
+            GameMode::Victory       => "Victory",
+            GameMode::LevelUp       => "LevelUp",
         }.to_string();
 
         let battle = if game.mode == crate::game::GameMode::Battle {
@@ -399,6 +408,16 @@ impl GameSnapshot {
             })
             .collect();
 
+        let battle_reward = if game.mode == GameMode::BattleReward {
+            Some(game.pending_rewards.iter().map(|r| RewardEntrySnap {
+                category: r.category.clone(),
+                name: r.name.clone(),
+                is_cursed: r.is_cursed,
+            }).collect())
+        } else {
+            None
+        };
+
         GameSnapshot {
             mode: mode_str,
             floor: game.player.floor,
@@ -440,6 +459,7 @@ impl GameSnapshot {
             battle,
             floor_relics,
             player_relics,
+            battle_reward,
         }
     }
 }

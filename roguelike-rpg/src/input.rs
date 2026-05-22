@@ -3,6 +3,7 @@ use crate::game::{Game, GameMode, MessageKind};
 use crate::item::CRAFTING_RECIPES;
 use crate::map::Tile;
 
+
 /// Returns true if the game should quit.
 pub fn handle_input(game: &mut Game, key: KeyCode, _modifiers: KeyModifiers) -> bool {
     match &game.mode {
@@ -10,6 +11,13 @@ pub fn handle_input(game: &mut Game, key: KeyCode, _modifiers: KeyModifiers) -> 
         GameMode::Dead | GameMode::Victory => {
             if matches!(key, KeyCode::Char('q') | KeyCode::Esc) {
                 return true;
+            }
+        }
+
+        // ── Battle Reward (any key confirms) ──────────────────────────
+        GameMode::BattleReward => {
+            if matches!(key, KeyCode::Enter | KeyCode::Char(' ') | KeyCode::Esc | KeyCode::Char('q')) {
+                game.confirm_battle_rewards();
             }
         }
 

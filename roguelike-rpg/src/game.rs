@@ -2,7 +2,7 @@ use rand::Rng;
 use crate::map::{Map, Tile};
 use crate::player::Player;
 use crate::monster::{Monster, AiState};
-use crate::item::{Item, ItemKind, ConsumableEffect, generate_floor_item};
+use crate::item::{Item, ItemKind, ConsumableEffect, generate_floor_item, generate_weapon, generate_armor, generate_material};
 use crate::skill::{SkillEffect};
 use crate::event::{RandomEvent, EventConsequence, generate_floor_event};
 use crate::relic::{Relic, RelicEffect, random_relic};
@@ -16,6 +16,7 @@ pub enum GameMode {
     Exploring,
     Help,
     Battle,
+    BattleReward,
     Inventory,
     Skills,
     Crafting,
@@ -23,6 +24,13 @@ pub enum GameMode {
     Dead,
     Victory,
     LevelUp,
+}
+
+#[derive(Clone)]
+pub struct RewardEntry {
+    pub category: String, // "exp", "gold", "material", "weapon", "armor", "relic", "cursed"
+    pub name: String,
+    pub is_cursed: bool,
 }
 
 pub struct Game {
@@ -53,6 +61,7 @@ pub struct Game {
     pub collection_unlocked: Vec<String>,
     pub camera_x: i32,
     pub camera_y: i32,
+    pub pending_rewards: Vec<RewardEntry>,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -102,6 +111,7 @@ impl Game {
             collection_unlocked: Vec::new(),
             camera_x: 0,
             camera_y: 0,
+            pending_rewards: Vec::new(),
         };
 
         game.spawn_floor_content();
@@ -1398,12 +1408,84 @@ impl Game {
     fn battle_end_victory(&mut self, idx: usize) {
         let name = self.monsters[idx].kind.name().to_string();
         self.battle_log.push((format!("✨ {}を倒した！", name), MessageKind::Good));
+
+        // Collect base stats before on_monster_death mutates the list
+        let raw_exp = self.monsters[idx].exp_reward;
+        let gold = self.monsters[idx].gold_reward;
+        let floor = self.map.floor;
+
+        let mut exp = raw_exp;
+        if self.blessed_floor { exp = (exp as f32 * 2.0) as u32; }
+        if self.cursed_floor  { exp = (exp as f32 * 1.5) as u32; }
+        exp = (exp as f32 * self.player.relic_exp_multiplier()) as u32;
+        let actual_gold = (gold as f32 * self.player.relic_gold_multiplier()) as u32;
+
         self.on_monster_death(idx);
         self.battle_enemy_idx = None;
-        if self.mode == GameMode::Battle {
-            self.mode = GameMode::Exploring;
+
+        // Build reward list
+        let mut rewards: Vec<RewardEntry> = Vec::new();
+        rewards.push(RewardEntry { category: "exp".into(),  name: format!("EXP +{}", exp),       is_cursed: false });
+        rewards.push(RewardEntry { category: "gold".into(), name: format!("ゴールド +{}", actual_gold), is_cursed: false });
+
+        // Material drop ~45%
+        if self.rng.gen_range(0..100) < 45 {
+            let mat = generate_material(&mut self.rng);
+            let mat_name = mat.name.clone();
+            if self.player.inventory.len() < crate::game::INVENTORY_MAX {
+                self.player.inventory.push(mat);
+            }
+            rewards.push(RewardEntry { category: "material".into(), name: mat_name, is_cursed: false });
         }
+
+        // Weapon drop ~10%
+        if self.rng.gen_range(0..100) < 10 {
+            let w = generate_weapon(&mut self.rng, floor);
+            let wname = w.name.clone();
+            if self.player.inventory.len() < crate::game::INVENTORY_MAX {
+                self.player.inventory.push(w);
+            }
+            rewards.push(RewardEntry { category: "weapon".into(), name: wname, is_cursed: false });
+        }
+
+        // Armor drop ~10%
+        if self.rng.gen_range(0..100) < 10 {
+            let a = generate_armor(&mut self.rng, floor);
+            let aname = a.name.clone();
+            if self.player.inventory.len() < crate::game::INVENTORY_MAX {
+                self.player.inventory.push(a);
+            }
+            rewards.push(RewardEntry { category: "armor".into(), name: aname, is_cursed: false });
+        }
+
+        // Relic (秘宝) drop ~4%
+        if self.rng.gen_range(0..100) < 4 {
+            let mut relic = random_relic(&mut self.rng, floor);
+            while relic.is_cursed { relic = random_relic(&mut self.rng, floor); }
+            let rname = relic.name.clone();
+            rewards.push(RewardEntry { category: "relic".into(), name: rname.clone(), is_cursed: false });
+            self.add_message(format!("秘宝「{}」を入手した！", rname), MessageKind::Loot);
+            self.player.relics.push(relic);
+        }
+
+        // Cursed relic (呪物) drop ~2%
+        if self.rng.gen_range(0..100) < 2 {
+            let mut relic = random_relic(&mut self.rng, floor);
+            while !relic.is_cursed { relic = random_relic(&mut self.rng, floor); }
+            let rname = relic.name.clone();
+            rewards.push(RewardEntry { category: "cursed".into(), name: rname.clone(), is_cursed: true });
+            self.add_message(format!("呪物「{}」が取り憑いた！", rname), MessageKind::Warning);
+            self.player.relics.push(relic);
+        }
+
+        self.pending_rewards = rewards;
+        self.mode = GameMode::BattleReward;
         self.end_player_turn();
+    }
+
+    pub fn confirm_battle_rewards(&mut self) {
+        self.pending_rewards.clear();
+        self.mode = GameMode::Exploring;
     }
 
     fn battle_end_return(&mut self) {
