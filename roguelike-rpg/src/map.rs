@@ -4,6 +4,12 @@ use serde::{Deserialize, Serialize};
 pub const MAP_WIDTH: usize = 80;
 pub const MAP_HEIGHT: usize = 45;
 
+// ── Compact zone for small floor types (centered in the 80×45 grid) ──────────
+const CZ_X1: i32 = 15;
+const CZ_Y1: i32 = 8;
+const CZ_X2: i32 = 65;
+const CZ_Y2: i32 = 37;
+
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Tile {
     Wall,
@@ -50,6 +56,80 @@ impl Tile {
     }
 }
 
+// ── Floor type ────────────────────────────────────────────────────────────────
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub enum FloorType {
+    /// Standard multi-room exploration dungeon.
+    Exploration,
+    /// Small floor packed with chests, guarded by elite enemies.
+    Treasury,
+    /// Compact arena: one elite boss + a handful of minions.
+    MiniBoss,
+    /// Large, swarming floor filled with waves of weak enemies.
+    Horde,
+    /// Compact floor of shrines — spend resources for big rewards.
+    Trial,
+    /// Peaceful sanctuary: no enemies, multiple shrines and anvils, free heal.
+    Sanctuary,
+    /// Dark, cursed floor with powerful enemies and exceptional loot.
+    Cursed,
+}
+
+impl FloorType {
+    pub fn name(self) -> &'static str {
+        match self {
+            FloorType::Exploration => "探索フロア",
+            FloorType::Treasury    => "宝物庫",
+            FloorType::MiniBoss    => "中ボスフロア",
+            FloorType::Horde       => "群衆フロア",
+            FloorType::Trial       => "試練の間",
+            FloorType::Sanctuary   => "聖域",
+            FloorType::Cursed      => "呪われたフロア",
+        }
+    }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            FloorType::Exploration => "広大なダンジョン — 探索と戦闘が待つ",
+            FloorType::Treasury    => "宝箱が並ぶが、番人が守っている",
+            FloorType::MiniBoss    => "強敵が待ち受ける試練の間",
+            FloorType::Horde       => "無数の魔物が徘徊する修羅場",
+            FloorType::Trial       => "資源を賭けた選択が待つ祠の間",
+            FloorType::Sanctuary   => "安らぎの地 — ゆっくり休んで準備を整えよう",
+            FloorType::Cursed      => "呪いに満ちた闇の層 — 危険だが報酬は大きい",
+        }
+    }
+
+    fn is_compact(self) -> bool {
+        matches!(self, FloorType::Trial | FloorType::MiniBoss | FloorType::Sanctuary | FloorType::Treasury)
+    }
+
+    fn max_rooms(self, floor: u32) -> i32 {
+        match self {
+            FloorType::Exploration => 15 + (floor as i32 / 3).min(10),
+            FloorType::Treasury    => 7 + (floor as i32 / 5).min(3),
+            FloorType::MiniBoss    => 5,
+            FloorType::Horde       => 22 + (floor as i32 / 4).min(8),
+            FloorType::Trial       => 6,
+            FloorType::Sanctuary   => 7,
+            FloorType::Cursed      => 16 + (floor as i32 / 3).min(8),
+        }
+    }
+
+    fn room_size_range(self) -> (i32, i32) {
+        match self {
+            FloorType::MiniBoss    => (5, 10),
+            FloorType::Horde       => (5, 14),
+            FloorType::Trial       => (5, 9),
+            FloorType::Sanctuary   => (5, 10),
+            _                      => (4, 12),
+        }
+    }
+}
+
+// ── Room ──────────────────────────────────────────────────────────────────────
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Room {
     pub x: i32,
@@ -75,6 +155,8 @@ impl Room {
     }
 }
 
+// ── Map ───────────────────────────────────────────────────────────────────────
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Map {
     pub tiles: Vec<Vec<Tile>>,
@@ -84,10 +166,11 @@ pub struct Map {
     pub width: usize,
     pub height: usize,
     pub floor: u32,
+    pub floor_type: FloorType,
 }
 
 impl Map {
-    pub fn new(floor: u32) -> Self {
+    pub fn new(floor: u32, floor_type: FloorType) -> Self {
         Map {
             tiles: vec![vec![Tile::Void; MAP_HEIGHT]; MAP_WIDTH],
             visible: vec![vec![false; MAP_HEIGHT]; MAP_WIDTH],
@@ -96,6 +179,7 @@ impl Map {
             width: MAP_WIDTH,
             height: MAP_HEIGHT,
             floor,
+            floor_type,
         }
     }
 
@@ -116,19 +200,30 @@ impl Map {
         self.get(x, y).walkable()
     }
 
+    // ── Map generation ────────────────────────────────────────────────────────
+
     pub fn generate<R: Rng>(&mut self, rng: &mut R) -> (i32, i32) {
-        let max_rooms = 15 + (self.floor as i32 / 3).min(10);
-        let min_room_size = 4;
-        let max_room_size = 12;
+        let ft = self.floor_type;
+        let floor = self.floor;
+
+        let max_rooms = ft.max_rooms(floor);
+        let (min_rs, max_rs) = ft.room_size_range();
+
+        // Placement zone: compact types use the centre of the grid
+        let (zone_x1, zone_y1, zone_x2, zone_y2) = if ft.is_compact() {
+            (CZ_X1, CZ_Y1, CZ_X2, CZ_Y2)
+        } else {
+            (1, 1, MAP_WIDTH as i32 - 1, MAP_HEIGHT as i32 - 1)
+        };
 
         let mut rooms: Vec<Room> = Vec::new();
-        let mut start_pos = (1, 1);
+        let mut start_pos = ((zone_x1 + zone_x2) / 2, (zone_y1 + zone_y2) / 2);
 
-        for _ in 0..200 {
-            let w = rng.gen_range(min_room_size..=max_room_size);
-            let h = rng.gen_range(min_room_size..=(max_room_size - 2));
-            let x = rng.gen_range(1..self.width as i32 - w - 1);
-            let y = rng.gen_range(1..self.height as i32 - h - 1);
+        for _ in 0..400 {
+            let w = rng.gen_range(min_rs..=max_rs);
+            let h = rng.gen_range(min_rs..=(max_rs - 2).max(min_rs));
+            let x = rng.gen_range(zone_x1..=(zone_x2 - w - 1).max(zone_x1 + 1));
+            let y = rng.gen_range(zone_y1..=(zone_y2 - h - 1).max(zone_y1 + 1));
             let room = Room::new(x, y, w, h);
 
             if rooms.iter().any(|r| r.intersects(&room)) {
@@ -140,14 +235,14 @@ impl Map {
             if rooms.is_empty() {
                 start_pos = room.center();
             } else {
-                let prev_center = rooms.last().unwrap().center();
-                let new_center = room.center();
+                let prev = rooms.last().unwrap().center();
+                let next = room.center();
                 if rng.gen_bool(0.5) {
-                    self.carve_h_tunnel(prev_center.0, new_center.0, prev_center.1);
-                    self.carve_v_tunnel(prev_center.1, new_center.1, new_center.0);
+                    self.carve_h_tunnel(prev.0, next.0, prev.1);
+                    self.carve_v_tunnel(prev.1, next.1, next.0);
                 } else {
-                    self.carve_v_tunnel(prev_center.1, new_center.1, prev_center.0);
-                    self.carve_h_tunnel(prev_center.0, new_center.0, new_center.1);
+                    self.carve_v_tunnel(prev.1, next.1, prev.0);
+                    self.carve_h_tunnel(prev.0, next.0, next.1);
                 }
             }
             rooms.push(room);
@@ -156,29 +251,65 @@ impl Map {
             }
         }
 
-        // Place stairs
-        if let Some(last_room) = rooms.last() {
-            let (sx, sy) = last_room.center();
+        // ── Stairs ───────────────────────────────────────────────────────────
+        if let Some(last) = rooms.last() {
+            let (sx, sy) = last.center();
             self.set(sx, sy, Tile::StairsDown);
         }
-
-        // Place start stairs (only on floor > 1)
-        if self.floor > 1 {
+        if floor > 1 {
             self.set(start_pos.0, start_pos.1, Tile::StairsUp);
         }
 
-        // Place special tiles
-        for room in rooms.iter().skip(2) {
-            let roll = rng.gen_range(0..10);
-            if roll == 0 {
-                let (cx, cy) = room.center();
-                self.set(cx, cy, Tile::CraftingAnvil);
-            } else if roll == 1 {
-                let (cx, cy) = room.center();
-                self.set(cx, cy, Tile::Shrine);
-            } else if roll <= 3 {
-                let (cx, cy) = room.center();
-                self.set(cx, cy, Tile::Chest);
+        // ── Type-specific special tiles ───────────────────────────────────────
+        match ft {
+            FloorType::Exploration | FloorType::Cursed => {
+                for room in rooms.iter().skip(2) {
+                    let roll = rng.gen_range(0..10);
+                    let (cx, cy) = room.center();
+                    match roll {
+                        0 => self.set(cx, cy, Tile::CraftingAnvil),
+                        1 => self.set(cx, cy, Tile::Shrine),
+                        2 | 3 => self.set(cx, cy, Tile::Chest),
+                        _ => {}
+                    }
+                }
+            }
+            FloorType::Treasury => {
+                // Chest in every non-start room except last (boss/guard room)
+                for room in rooms.iter().skip(1).rev().skip(1) {
+                    let (cx, cy) = room.center();
+                    self.set(cx, cy, Tile::Chest);
+                }
+            }
+            FloorType::MiniBoss => {
+                // No special tiles — game.rs places reward chest after boss death
+            }
+            FloorType::Horde => {
+                // Occasional crafting anvil only
+                for room in rooms.iter().skip(2) {
+                    if rng.gen_range(0..20) == 0 {
+                        let (cx, cy) = room.center();
+                        self.set(cx, cy, Tile::CraftingAnvil);
+                    }
+                }
+            }
+            FloorType::Trial => {
+                // Shrine in every room except start/exit
+                for room in rooms.iter().skip(1).rev().skip(1) {
+                    let (cx, cy) = room.center();
+                    self.set(cx, cy, Tile::Shrine);
+                }
+            }
+            FloorType::Sanctuary => {
+                // Alternating Shrine / CraftingAnvil in every non-start room
+                for (i, room) in rooms.iter().skip(1).enumerate() {
+                    let (cx, cy) = room.center();
+                    if i % 2 == 0 {
+                        self.set(cx, cy, Tile::Shrine);
+                    } else {
+                        self.set(cx, cy, Tile::CraftingAnvil);
+                    }
+                }
             }
         }
 
@@ -186,13 +317,14 @@ impl Map {
         start_pos
     }
 
+    // ── Carving helpers ───────────────────────────────────────────────────────
+
     fn carve_room(&mut self, room: &Room) {
         for x in room.x..room.x + room.w {
             for y in room.y..room.y + room.h {
                 self.set(x, y, Tile::Floor);
             }
         }
-        // Walls are already Void; add explicit wall border
         for x in room.x - 1..=room.x + room.w {
             for y in room.y - 1..=room.y + room.h {
                 if self.get(x, y) == Tile::Void {
@@ -208,12 +340,10 @@ impl Map {
                 self.set(x, y, Tile::Floor);
             }
         }
-        // Wall borders
         for x in x1.min(x2)..=x1.max(x2) {
             for dy in [-1i32, 1] {
-                let ny = y + dy;
-                if self.get(x, ny) == Tile::Void {
-                    self.set(x, ny, Tile::Wall);
+                if self.get(x, y + dy) == Tile::Void {
+                    self.set(x, y + dy, Tile::Wall);
                 }
             }
         }
@@ -227,13 +357,14 @@ impl Map {
         }
         for y in y1.min(y2)..=y1.max(y2) {
             for dx in [-1i32, 1] {
-                let nx = x + dx;
-                if self.get(nx, y) == Tile::Void {
-                    self.set(nx, y, Tile::Wall);
+                if self.get(x + dx, y) == Tile::Void {
+                    self.set(x + dx, y, Tile::Wall);
                 }
             }
         }
     }
+
+    // ── FOV ───────────────────────────────────────────────────────────────────
 
     pub fn compute_fov(&mut self, origin_x: i32, origin_y: i32, radius: i32) {
         for row in self.visible.iter_mut() {
@@ -274,22 +405,15 @@ impl Map {
                 let l_slope = (dx as f32 - 0.5) / (dy as f32 + 0.5);
                 let r_slope = (dx as f32 + 0.5) / (dy as f32 - 0.5);
 
-                if start_slope < r_slope {
-                    continue;
-                }
-                if end_slope > l_slope {
-                    break;
-                }
+                if start_slope < r_slope { continue; }
+                if end_slope > l_slope   { break; }
 
-                if (dx * dx + dy * dy) as f32 <= radius_sq {
-                    if mx >= 0
-                        && my >= 0
-                        && mx < self.width as i32
-                        && my < self.height as i32
-                    {
-                        self.visible[mx as usize][my as usize] = true;
-                        self.explored[mx as usize][my as usize] = true;
-                    }
+                if (dx * dx + dy * dy) as f32 <= radius_sq
+                    && mx >= 0 && my >= 0
+                    && mx < self.width as i32 && my < self.height as i32
+                {
+                    self.visible[mx as usize][my as usize] = true;
+                    self.explored[mx as usize][my as usize] = true;
                 }
 
                 if blocked {
@@ -305,9 +429,7 @@ impl Map {
                     self.cast_light(ox, oy, radius, dist + 1, start_slope, l_slope, octant);
                 }
             }
-            if blocked {
-                break 'outer;
-            }
+            if blocked { break 'outer; }
         }
     }
 

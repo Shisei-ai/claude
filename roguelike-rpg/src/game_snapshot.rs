@@ -145,6 +145,7 @@ pub struct PlayerRelicSnap {
 pub struct GameSnapshot {
     pub mode: String,
     pub floor: u32,
+    pub floor_type: String,
     pub turn: u64,
     pub map_w: usize,
     pub map_h: usize,
@@ -421,6 +422,7 @@ impl GameSnapshot {
         GameSnapshot {
             mode: mode_str,
             floor: game.player.floor,
+            floor_type: game.map.floor_type.name().to_string(),
             turn: game.turn,
             map_w: MAP_WIDTH,
             map_h: MAP_HEIGHT,

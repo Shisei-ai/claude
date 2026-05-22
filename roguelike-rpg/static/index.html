@@ -13,6 +13,16 @@ canvas{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);image-r
 #sidebar{width:300px;display:flex;flex-direction:column;gap:6px;overflow:hidden;padding:4px 3px}
 .panel{background:#0b0b18;border:1px solid #1e2535;padding:10px 12px;border-radius:3px}
 .panel-title{font-size:11px;letter-spacing:.18em;color:#2d3d5a;margin-bottom:8px;text-transform:uppercase;border-bottom:1px solid #141e2e;padding-bottom:5px}
+.floor-type-badge{font-size:10px;letter-spacing:.12em;padding:3px 7px;margin-bottom:8px;border-radius:2px;text-align:center;border:1px solid #1a2030;color:#3a5878;background:#080818}
+.ft-{color:#3a5878;border-color:#1a2030}
+.ft-{color:#3a5878}
+.ft-Exploration,.ft-{color:#4a7898;border-color:#1e3448}
+.ft-Treasury{color:#c09020;border-color:#604810;background:#100e04}
+.ft-MiniBoss{color:#d05030;border-color:#702010;background:#110804}
+.ft-Horde{color:#b06020;border-color:#603010;background:#100a04}
+.ft-Trial{color:#a040c0;border-color:#502060;background:#0e0814}
+.ft-Sanctuary{color:#40b878;border-color:#206040;background:#040e08}
+.ft-Cursed{color:#e04060;border-color:#801828;background:#110408}
 #log-wrap{height:200px;background:#07070f;border-top:1px solid #14192a;padding:7px 12px;overflow:hidden;display:flex;flex-direction:column-reverse}
 .log-line{font-size:13px;line-height:1.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .log-Normal{color:#7a8898}
@@ -239,6 +249,7 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
     <!-- Stats -->
     <div class="panel" id="p-stats">
       <div class="panel-title" id="p-stats-title">LV 1 · 1階</div>
+      <div id="floor-type-badge" class="floor-type-badge">探索フロア</div>
       <div class="stat-row"><span class="stat-key">ゴールド</span><span class="stat-val" id="s-gold">0</span></div>
       <div class="stat-row"><span class="stat-key">攻撃</span><span class="stat-val" id="s-atk">0</span></div>
       <div class="stat-row"><span class="stat-key">防御</span><span class="stat-val" id="s-def">0</span></div>
@@ -904,6 +915,12 @@ function updateUI(g) {
   }
 
   document.getElementById('p-stats-title').textContent = `LV ${g.level} · ${g.floor}階`;
+  // Floor type badge
+  const ftEl = document.getElementById('floor-type-badge');
+  if (ftEl) {
+    ftEl.textContent = g.floor_type || '';
+    ftEl.className = 'floor-type-badge ft-' + (g.floor_type || '').replace(/[^a-zA-Z]/g,'');
+  }
   document.getElementById('s-gold').textContent = g.gold;
   document.getElementById('s-atk').textContent  = g.atk;
   document.getElementById('s-def').textContent  = g.def;
@@ -1731,6 +1748,58 @@ function maybeEncounterFlash(newMode) {
 }
 
 // ─────────────────────────────────────────────────────────────
+//  Floor entry banner
+// ─────────────────────────────────────────────────────────────
+let _prevFloor = 0;
+let _prevFloorType = '';
+
+const FT_COLORS = {
+  '探索フロア':       '#4a7898',
+  '宝物庫':           '#c09020',
+  '中ボスフロア':     '#d05030',
+  '群衆フロア':       '#b06020',
+  '試練の間':         '#a040c0',
+  '聖域':             '#40b878',
+  '呪われたフロア':   '#e04060',
+};
+
+let _floorBannerTimer = null;
+const floorBannerEl = (function() {
+  const el = document.createElement('div');
+  el.id = 'floor-banner';
+  el.style.cssText = [
+    'position:fixed','top:48px','left:50%','transform:translateX(-50%)',
+    'background:rgba(4,4,14,.88)','border:1px solid #1e2840',
+    'border-radius:4px','padding:10px 24px','z-index:180',
+    'text-align:center','pointer-events:none',
+    'transition:opacity .3s','opacity:0',
+  ].join(';');
+  document.body.appendChild(el);
+  return el;
+})();
+
+function showFloorBanner(floor, floorType) {
+  const col = FT_COLORS[floorType] || '#4a7898';
+  floorBannerEl.innerHTML =
+    `<div style="font-size:9px;letter-spacing:.2em;color:#2a3848;margin-bottom:3px">${floor}階</div>` +
+    `<div style="font-size:15px;letter-spacing:.18em;color:${col}">${floorType}</div>`;
+  floorBannerEl.style.opacity = '1';
+  if (_floorBannerTimer) clearTimeout(_floorBannerTimer);
+  _floorBannerTimer = setTimeout(() => { floorBannerEl.style.opacity = '0'; }, 2800);
+}
+
+function maybeShowFloorBanner(g) {
+  if ((g.floor !== _prevFloor || g.floor_type !== _prevFloorType) && g.floor > 0) {
+    // Only show on actual floor change (skip initial load)
+    if (_prevFloor > 0 || _prevFloorType !== '') {
+      showFloorBanner(g.floor, g.floor_type);
+    }
+    _prevFloor = g.floor;
+    _prevFloorType = g.floor_type;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 //  Battle reward screen
 // ─────────────────────────────────────────────────────────────
 const rewardWrapEl = document.getElementById('reward-wrap');
@@ -1801,6 +1870,7 @@ function connect() {
       render();
       updateUI(state);
       renderModal(state);
+      maybeShowFloorBanner(state);
     } catch(err) {}
   };
 

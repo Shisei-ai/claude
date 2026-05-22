@@ -1,5 +1,5 @@
 use rand::Rng;
-use crate::map::{Map, Tile};
+use crate::map::{Map, Tile, FloorType};
 use crate::player::Player;
 use crate::monster::{Monster, AiState};
 use crate::item::{Item, ItemKind, ConsumableEffect, generate_floor_item, generate_weapon, generate_armor, generate_material};
@@ -79,7 +79,7 @@ pub enum MessageKind {
 impl Game {
     pub fn new() -> Self {
         let mut rng = rand::thread_rng();
-        let mut map = Map::new(1);
+        let mut map = Map::new(1, FloorType::Exploration);
         let (px, py) = map.generate(&mut rng);
         let player = Player::new(px, py);
 
@@ -129,63 +129,217 @@ impl Game {
     }
 
     fn spawn_floor_content(&mut self) {
+        match self.map.floor_type {
+            FloorType::Exploration => self.spawn_exploration(),
+            FloorType::Treasury    => self.spawn_treasury(),
+            FloorType::MiniBoss    => self.spawn_miniboss(),
+            FloorType::Horde       => self.spawn_horde(),
+            FloorType::Trial       => self.spawn_trial(),
+            FloorType::Sanctuary   => self.spawn_sanctuary(),
+            FloorType::Cursed      => self.spawn_cursed(),
+        }
+    }
+
+    // ── Exploration ───────────────────────────────────────────────────────────
+    fn spawn_exploration(&mut self) {
         let floor = self.map.floor;
         let num_monsters = 5 + floor as usize + self.rng.gen_range(0..4);
         let num_items = 3 + self.rng.gen_range(0..3);
-
         let rooms = self.map.rooms.clone();
-        let player_start = (self.player.x, self.player.y);
+        let ps = (self.player.x, self.player.y);
 
-        // Spawn monsters (skip room 0 = player start)
         for room in rooms.iter().skip(1) {
-            if self.monsters.len() >= num_monsters {
-                break;
-            }
+            if self.monsters.len() >= num_monsters { break; }
             let (cx, cy) = room.center();
-            if (cx - player_start.0).abs() + (cy - player_start.1).abs() < 5 {
-                continue;
-            }
-            // Occasional boss
+            if (cx - ps.0).abs() + (cy - ps.1).abs() < 5 { continue; }
             let is_boss = floor >= 5 && self.rng.gen_range(0..15) == 0;
-            let m = crate::monster::spawn_monster(&mut self.rng, cx, cy, floor, is_boss);
-            self.monsters.push(m);
-
-            // Extra monsters in room
+            self.monsters.push(crate::monster::spawn_monster(&mut self.rng, cx, cy, floor, is_boss));
             for _ in 0..self.rng.gen_range(0..3) {
-                if self.monsters.len() >= num_monsters {
-                    break;
-                }
+                if self.monsters.len() >= num_monsters { break; }
                 let ox = cx + self.rng.gen_range(-2..=2);
                 let oy = cy + self.rng.gen_range(-1..=1);
                 if self.map.is_walkable(ox, oy) {
-                    let m2 = crate::monster::spawn_monster(&mut self.rng, ox, oy, floor, false);
-                    self.monsters.push(m2);
+                    self.monsters.push(crate::monster::spawn_monster(&mut self.rng, ox, oy, floor, false));
                 }
             }
         }
-
-        // Spawn items
         for room in rooms.iter().skip(1) {
-            if self.floor_items.len() >= num_items {
-                break;
-            }
+            if self.floor_items.len() >= num_items { break; }
             if self.rng.gen_range(0..3) == 0 {
                 let (cx, cy) = room.center();
                 let item = generate_floor_item(&mut self.rng, floor);
                 self.floor_items.push((cx + 1, cy, item));
             }
         }
+        self.spawn_relic_in_random_room(1);
+    }
 
-        // Spawn 1 relic per floor in a random room (not room 0 = player start)
-        if rooms.len() > 2 {
-            let room_idx = self.rng.gen_range(1..rooms.len());
-            let (cx, cy) = rooms[room_idx].center();
-            // Place slightly offset so it doesn't overlap with stairs etc.
-            let rx = cx - 1;
-            let ry = cy + 1;
-            let relic = random_relic(&mut self.rng, floor);
-            self.floor_relics.push((rx, ry, relic));
+    // ── Treasury ──────────────────────────────────────────────────────────────
+    // Few elite guardians, lots of chests (already placed by map gen), no relic.
+    fn spawn_treasury(&mut self) {
+        let floor = self.map.floor;
+        let num_guards = 2 + self.rng.gen_range(0..3usize);
+        let rooms = self.map.rooms.clone();
+        let ps = (self.player.x, self.player.y);
+
+        // Guardians: elite enemies in rooms other than start
+        let mut spawned = 0;
+        for room in rooms.iter().skip(1).rev() {
+            if spawned >= num_guards { break; }
+            let (cx, cy) = room.center();
+            if (cx - ps.0).abs() + (cy - ps.1).abs() < 3 { continue; }
+            // All guardians are boss-tier on this floor
+            self.monsters.push(crate::monster::spawn_monster(&mut self.rng, cx, cy, floor, true));
+            spawned += 1;
         }
+        // No loose items — rewards come from chests
+    }
+
+    // ── MiniBoss ──────────────────────────────────────────────────────────────
+    // 1 boss in the last room + a few minions. Reward item near boss spawn.
+    fn spawn_miniboss(&mut self) {
+        let floor = self.map.floor;
+        let rooms = self.map.rooms.clone();
+
+        // Boss in last room
+        if let Some(boss_room) = rooms.last() {
+            let (bx, by) = boss_room.center();
+            self.monsters.push(crate::monster::spawn_monster(&mut self.rng, bx, by, floor, true));
+            // 2-4 minions scattered in the boss room
+            let num_minions = 2 + self.rng.gen_range(0..3usize);
+            for _ in 0..num_minions {
+                let mx = bx + self.rng.gen_range(-2..=2);
+                let my = by + self.rng.gen_range(-1..=1);
+                if self.map.is_walkable(mx, my) && self.monster_at(mx, my).is_none() {
+                    self.monsters.push(crate::monster::spawn_monster(&mut self.rng, mx, my, floor, false));
+                }
+            }
+            // Guaranteed reward chest offset from center
+            let cx = bx + 2;
+            let cy = by;
+            if self.map.is_walkable(cx, cy) {
+                self.map.set(cx, cy, Tile::Chest);
+            }
+        }
+        // A relic in a non-boss room as well
+        self.spawn_relic_in_random_room(1);
+    }
+
+    // ── Horde ─────────────────────────────────────────────────────────────────
+    // Many weak enemies, minimal items.
+    fn spawn_horde(&mut self) {
+        let floor = self.map.floor;
+        let num_monsters = 15 + floor as usize + self.rng.gen_range(0..8);
+        let rooms = self.map.rooms.clone();
+        let ps = (self.player.x, self.player.y);
+
+        for room in rooms.iter().skip(1) {
+            if self.monsters.len() >= num_monsters { break; }
+            let (cx, cy) = room.center();
+            if (cx - ps.0).abs() + (cy - ps.1).abs() < 4 { continue; }
+            // Pack of 2-5 weak enemies per room
+            let pack = 2 + self.rng.gen_range(0..4usize);
+            for i in 0..pack {
+                if self.monsters.len() >= num_monsters { break; }
+                let ox = cx + (i as i32 % 3) - 1;
+                let oy = cy + (i as i32 / 3) - 1;
+                if self.map.is_walkable(ox, oy) {
+                    self.monsters.push(crate::monster::spawn_monster(&mut self.rng, ox, oy, floor, false));
+                }
+            }
+        }
+        // Small item scatter (rewards mainly from kills)
+        if let Some(room) = rooms.get(rooms.len().saturating_sub(2)) {
+            let (cx, cy) = room.center();
+            let item = generate_floor_item(&mut self.rng, floor);
+            self.floor_items.push((cx, cy, item));
+        }
+    }
+
+    // ── Trial ─────────────────────────────────────────────────────────────────
+    // No enemies. Multiple shrines (placed by map gen). No items, no relics.
+    fn spawn_trial(&mut self) {
+        // All content comes from shrines — nothing to spawn here
+    }
+
+    // ── Sanctuary ─────────────────────────────────────────────────────────────
+    // No enemies. Heal player on entry. 1 item + 1 relic to pick up.
+    fn spawn_sanctuary(&mut self) {
+        let floor = self.map.floor;
+        // Full HP/MP restore
+        self.player.hp = self.player.max_hp;
+        self.player.mp = self.player.max_mp;
+        self.player.poison_turns = 0;
+        self.player.stun_turns = 0;
+        self.add_message("聖域に踏み入れた。体力が全回復した！", MessageKind::Good);
+
+        let rooms = self.map.rooms.clone();
+        // 1-2 items in corner rooms
+        let num_items = 1 + self.rng.gen_range(0..2usize);
+        for room in rooms.iter().skip(1) {
+            if self.floor_items.len() >= num_items { break; }
+            let (cx, cy) = room.center();
+            let item = generate_floor_item(&mut self.rng, floor);
+            self.floor_items.push((cx + 1, cy + 1, item));
+        }
+        self.spawn_relic_in_random_room(1);
+    }
+
+    // ── Cursed ────────────────────────────────────────────────────────────────
+    // Powered-up enemies, more relics (mixed), better item drops.
+    fn spawn_cursed(&mut self) {
+        let floor = self.map.floor;
+        self.cursed_floor = true;
+        let num_monsters = 8 + floor as usize + self.rng.gen_range(0..5);
+        let num_items = 4 + self.rng.gen_range(0..3);
+        let rooms = self.map.rooms.clone();
+        let ps = (self.player.x, self.player.y);
+
+        for room in rooms.iter().skip(1) {
+            if self.monsters.len() >= num_monsters { break; }
+            let (cx, cy) = room.center();
+            if (cx - ps.0).abs() + (cy - ps.1).abs() < 5 { continue; }
+            // Higher boss spawn rate on cursed floor
+            let is_boss = floor >= 3 && self.rng.gen_range(0..8) == 0;
+            self.monsters.push(crate::monster::spawn_monster(&mut self.rng, cx, cy, floor + 2, is_boss));
+            for _ in 0..self.rng.gen_range(0..3) {
+                if self.monsters.len() >= num_monsters { break; }
+                let ox = cx + self.rng.gen_range(-2..=2);
+                let oy = cy + self.rng.gen_range(-1..=1);
+                if self.map.is_walkable(ox, oy) {
+                    self.monsters.push(crate::monster::spawn_monster(&mut self.rng, ox, oy, floor + 1, false));
+                }
+            }
+        }
+        for room in rooms.iter().skip(1) {
+            if self.floor_items.len() >= num_items { break; }
+            if self.rng.gen_range(0..2) == 0 {
+                let (cx, cy) = room.center();
+                let item = generate_floor_item(&mut self.rng, floor);
+                self.floor_items.push((cx + 1, cy, item));
+            }
+        }
+        // 2 relics — at least one cursed
+        self.spawn_relic_in_random_room(1);
+        if rooms.len() > 3 {
+            // Force a cursed relic in the last room
+            if let Some(room) = rooms.last() {
+                let (cx, cy) = room.center();
+                let mut relic = random_relic(&mut self.rng, floor);
+                while !relic.is_cursed { relic = random_relic(&mut self.rng, floor); }
+                self.floor_relics.push((cx - 1, cy + 1, relic));
+            }
+        }
+    }
+
+    // ── Helper ───────────────────────────────────────────────────────────────
+    fn spawn_relic_in_random_room(&mut self, skip: usize) {
+        let rooms = self.map.rooms.clone();
+        if rooms.len() <= skip + 1 { return; }
+        let room_idx = self.rng.gen_range(skip..rooms.len());
+        let (cx, cy) = rooms[room_idx].center();
+        let relic = random_relic(&mut self.rng, self.map.floor);
+        self.floor_relics.push((cx - 1, cy + 1, relic));
     }
 
     pub fn player_move(&mut self, dx: i32, dy: i32) -> bool {
@@ -981,8 +1135,26 @@ impl Game {
         }
     }
 
+    fn pick_floor_type(&mut self, floor: u32) -> FloorType {
+        // Floor 1 is always a tutorial exploration floor
+        if floor == 1 { return FloorType::Exploration; }
+        // Every 5th floor is a guaranteed mini-boss
+        if floor % 5 == 0 { return FloorType::MiniBoss; }
+        // Weighted random for remaining floors
+        let roll = self.rng.gen_range(0..100u32);
+        match roll {
+            0..=34  => FloorType::Exploration,
+            35..=48 => FloorType::Treasury,
+            49..=62 => FloorType::Horde,
+            63..=74 => FloorType::Trial,
+            75..=84 => FloorType::Sanctuary,
+            _       => FloorType::Cursed,
+        }
+    }
+
     fn load_floor(&mut self, floor: u32) {
-        let mut new_map = Map::new(floor);
+        let ft = self.pick_floor_type(floor);
+        let mut new_map = Map::new(floor, ft);
         let (px, py) = new_map.generate(&mut self.rng);
         self.map = new_map;
         self.player.x = px;
@@ -991,13 +1163,20 @@ impl Game {
         self.monsters.clear();
         self.floor_items.clear();
         self.floor_relics.clear();
+        self.cursed_floor = false;
+        self.blessed_floor = false;
         // 不死鳥の羽はフロアごとにリセット
         self.player.relic_revive_available = self.player.has_revive_relic();
         self.spawn_floor_content();
         self.map.compute_fov(px, py, FOV_RADIUS);
         self.update_camera();
         self.mode = GameMode::Exploring;
-        self.add_message(format!("{}階へ — さらに深く潜る…", floor), MessageKind::System);
+        let ft_name = self.map.floor_type.name();
+        let ft_desc = self.map.floor_type.description();
+        self.add_message(
+            format!("{}階 ─ 【{}】{}", floor, ft_name, ft_desc),
+            MessageKind::System,
+        );
     }
 
     fn teleport_player(&mut self) {
