@@ -119,6 +119,8 @@ pub struct BattleSnap {
     pub turn: u32,
     pub active_skills: Vec<BattleSkillSnap>,
     pub consumables: Vec<BattleItemSnap>,
+    pub last_player_action: Option<String>,
+    pub last_enemy_action: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -424,6 +426,8 @@ impl GameSnapshot {
                         turn: game.battle_turn,
                         active_skills,
                         consumables,
+                        last_player_action: game.battle_last_player_action.clone(),
+                        last_enemy_action: game.battle_last_enemy_action.clone(),
                     }
                 })
             })

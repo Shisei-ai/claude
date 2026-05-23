@@ -62,6 +62,8 @@ pub struct Game {
     pub battle_sub_cursor: usize,
     pub battle_log: Vec<(String, MessageKind)>,
     pub battle_turn: u32,
+    pub battle_last_player_action: Option<String>,
+    pub battle_last_enemy_action: Option<String>,
     pub collection_unlocked: Vec<String>,
     pub camera_x: i32,
     pub camera_y: i32,
@@ -132,6 +134,8 @@ impl Game {
             battle_sub_cursor: 0,
             battle_log: Vec::new(),
             battle_turn: 0,
+            battle_last_player_action: None,
+            battle_last_enemy_action: None,
             collection_unlocked: Vec::new(),
             camera_x: 0,
             camera_y: 0,
@@ -526,6 +530,8 @@ impl Game {
             self.battle_sub_cursor = 0;
             self.battle_log.clear();
             self.battle_turn = 0;
+            self.battle_last_player_action = None;
+            self.battle_last_enemy_action = None;
             self.battle_log.push((format!("⚔ {} appeared!", name), MessageKind::Event));
             self.mode = GameMode::Battle;
             return true;
@@ -1574,11 +1580,15 @@ impl Game {
         let idx = match self.battle_enemy_idx { Some(i) => i, None => return };
         if idx >= self.monsters.len() { self.battle_end_return(); return; }
 
+        self.battle_last_player_action = None;
+        self.battle_last_enemy_action = None;
+
         let is_crit = self.rng.gen_range(0..100) < self.player.crit_rate();
         let base = self.player.effective_attack() + self.rng.gen_range(0..5);
         let dmg = if is_crit { base * 2 } else { base };
         let actual = self.monsters[idx].take_damage(dmg);
         let name = self.monsters[idx].kind.name().to_string();
+        self.battle_last_player_action = Some(if is_crit { "crit" } else { "slash" }.to_string());
 
         if self.player.lifesteal_pct > 0 {
             let heal = (actual as f32 * self.player.lifesteal_pct as f32 / 100.0) as i32;
@@ -1606,6 +1616,9 @@ impl Game {
     fn battle_do_skill(&mut self, skill_idx: usize) {
         let idx = match self.battle_enemy_idx { Some(i) => i, None => return };
         if idx >= self.monsters.len() { self.battle_end_return(); return; }
+
+        self.battle_last_player_action = None;
+        self.battle_last_enemy_action = None;
 
         if skill_idx >= self.player.skills.len() { return; }
         let skill = self.player.skills[skill_idx].clone();
@@ -1636,6 +1649,15 @@ impl Game {
             let hcmsg = format!("血の石板の代償…HP-{}！", hp_cost);
             self.battle_log.push((hcmsg.clone(), MessageKind::Warning));
         }
+
+        self.battle_last_player_action = Some(match &skill.effect {
+            SkillEffect::Heal(_) | SkillEffect::MpHeal(_) => "skill_heal",
+            SkillEffect::Shield(..) | SkillEffect::CritBoost(_) => "skill_buff",
+            SkillEffect::DotPoison(..) | SkillEffect::Stun(_) => "skill_debuff",
+            SkillEffect::SoulDrain(_) => "skill_drain",
+            SkillEffect::AoeDamage(_) => "skill_magic",
+            _ => "skill_atk",
+        }.to_string());
 
         let msg = match &skill.effect {
             SkillEffect::AttackMult(pct) => {
@@ -1727,6 +1749,8 @@ impl Game {
     }
 
     fn battle_do_item(&mut self, item_idx: usize) {
+        self.battle_last_player_action = Some("item".to_string());
+        self.battle_last_enemy_action = None;
         if item_idx >= self.player.inventory.len() { return; }
         let item = self.player.inventory[item_idx].clone();
         let msg = format!("🧪 使用：{}", item.name);
@@ -1757,6 +1781,8 @@ impl Game {
     }
 
     fn battle_do_run(&mut self) {
+        self.battle_last_player_action = Some("flee".to_string());
+        self.battle_last_enemy_action = None;
         let idx = match self.battle_enemy_idx { Some(i) => i, None => { self.battle_end_return(); return; } };
         let escape_chance = 40u32 + self.player.base_dex as u32;
         if self.rng.gen_range(0..100) < escape_chance {
@@ -1783,6 +1809,7 @@ impl Game {
         }
 
         if self.monsters[idx].is_stunned() {
+            self.battle_last_enemy_action = Some("stun_skip".to_string());
             let name = self.monsters[idx].kind.name().to_string();
             self.battle_log.push((format!("💫 {}はスタン状態！", name), MessageKind::Warning));
             // Player turn tick
@@ -1791,6 +1818,7 @@ impl Game {
             return;
         }
 
+        self.battle_last_enemy_action = Some("enemy_slash".to_string());
         let atk = self.monsters[idx].attack + self.rng.gen_range(0..4);
         let bonus = if self.cursed_floor { atk / 4 } else { 0 };
         let dmg = self.player.take_damage(atk + bonus);
