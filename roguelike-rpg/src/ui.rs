@@ -239,6 +239,7 @@ pub fn render(f: &mut Frame, game: &Game) {
         GameMode::Help               => { render_main(f, game, area); render_help(f, area); }
         GameMode::StartSkillSelect   => render_start_skill_select(f, game, area),
         GameMode::EndingAnnouncement => render_ending_announcement(f, game, area),
+        GameMode::BattleVictoryEffect => render_main(f, game, area),
         _                            => render_main(f, game, area),
     }
 }

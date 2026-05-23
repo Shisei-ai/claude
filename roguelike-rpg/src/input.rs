@@ -31,6 +31,11 @@ pub fn handle_input(game: &mut Game, key: KeyCode, _modifiers: KeyModifiers) -> 
             game.mode = GameMode::Exploring;
         }
 
+        // ── Battle victory effect (any key → advance to rewards) ─────
+        GameMode::BattleVictoryEffect => {
+            game.confirm_battle_victory_effect();
+        }
+
         // ── Dead / Victory ────────────────────────────────────────────
         GameMode::Dead | GameMode::Victory => {
             if matches!(key, KeyCode::Char('q') | KeyCode::Esc) {

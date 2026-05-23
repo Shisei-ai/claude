@@ -121,6 +121,10 @@ pub struct BattleSnap {
     pub consumables: Vec<BattleItemSnap>,
     pub last_player_action: Option<String>,
     pub last_enemy_action: Option<String>,
+    pub turn_order: String,
+    pub player_speed: i32,
+    pub enemy_speed: i32,
+    pub is_victory_effect: bool,
 }
 
 #[derive(Serialize)]
@@ -377,6 +381,7 @@ impl GameSnapshot {
             GameMode::Exploring     => "Exploring",
             GameMode::Help          => "Help",
             GameMode::Battle        => "Battle",
+            GameMode::BattleVictoryEffect => "BattleVictoryEffect",
             GameMode::BattleReward  => "BattleReward",
             GameMode::FloorMap      => "FloorMap",
             GameMode::Inventory     => "Inventory",
@@ -388,7 +393,8 @@ impl GameSnapshot {
             GameMode::LevelUp       => "LevelUp",
         }.to_string();
 
-        let battle = if game.mode == crate::game::GameMode::Battle {
+        let is_victory_effect = game.mode == crate::game::GameMode::BattleVictoryEffect;
+        let battle = if matches!(game.mode, crate::game::GameMode::Battle | crate::game::GameMode::BattleVictoryEffect) {
             game.battle_enemy_idx.and_then(|idx| {
                 game.monsters.get(idx).map(|m| {
                     use crate::monster::StatusEffect;
@@ -428,6 +434,10 @@ impl GameSnapshot {
                         consumables,
                         last_player_action: game.battle_last_player_action.clone(),
                         last_enemy_action: game.battle_last_enemy_action.clone(),
+                        turn_order: game.battle_turn_order.clone(),
+                        player_speed: game.battle_player_speed,
+                        enemy_speed: game.battle_enemy_speed,
+                        is_victory_effect,
                     }
                 })
             })

@@ -203,6 +203,10 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 .bfx-drain{animation:bfxDrain .55s ease-in-out both}
 .bfx-stun-pulse{animation:bfxStunPulse .5s ease-in-out both}
 
+/* ── Battle phase banner ── */
+#battle-phase-bar{position:fixed;top:64px;left:50%;transform:translateX(-50%) translateY(-12px);background:rgba(4,4,16,.92);border:1px solid #2a3858;border-radius:5px;padding:7px 22px;font-size:13px;letter-spacing:.1em;z-index:98;display:none;pointer-events:none;white-space:nowrap;opacity:0;transition:opacity .14s,transform .14s;text-align:center}
+#battle-phase-bar.bpb-show{display:block;opacity:1;transform:translateX(-50%) translateY(0)}
+
 /* ── Floor map overlay ── */
 #floormap-wrap{position:fixed;inset:0;background:rgba(3,3,12,.92);display:flex;align-items:center;justify-content:center;z-index:95}
 #floormap-box{background:#07071a;border:1px solid #1e2a40;border-radius:6px;padding:20px 26px;min-width:420px;max-width:600px}
@@ -280,6 +284,8 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 <!-- Battle visual FX overlay -->
 <canvas id="battle-fx-canvas"></canvas>
 <div id="battle-hit-flash"></div>
+<!-- Turn order / phase announcement bar -->
+<div id="battle-phase-bar"></div>
 <!-- Floor map overlay -->
 <div id="floormap-wrap" style="display:none"></div>
 <!-- Battle reward screen -->
@@ -1312,13 +1318,15 @@ function buildVictory(g) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  Battle FX  — particle system + sprite animation triggers
+//  Battle FX  — particle system + staged action animations
 // ─────────────────────────────────────────────────────────────
 const BFX = (() => {
   let canvas, ctx;
   let particles = [], floaters = [], projectiles = [];
   let active = false, rafId = null;
   let prevKey = '';
+  let _victoryDone = false;
+  let phaseBarEl = null, phaseBarTimer = null;
 
   function init() {
     canvas = document.getElementById('battle-fx-canvas');
@@ -1336,15 +1344,18 @@ const BFX = (() => {
   function start() {
     if (!canvas) init();
     active = true;
+    _victoryDone = false;
     canvas.style.display = 'block';
     if (!rafId) loop();
   }
 
   function stop() {
     active = false;
+    _victoryDone = false;
     if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     particles = []; floaters = []; projectiles = [];
     prevKey = '';
+    hidePhaseBanner();
     if (canvas) {
       canvas.style.display = 'none';
       ctx && ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1360,16 +1371,10 @@ const BFX = (() => {
 
   function update() {
     particles = particles.filter(p => {
-      p.life -= 16;
-      p.x += p.vx; p.y += p.vy;
-      p.vy += p.grav || 0;
+      p.life -= 16; p.x += p.vx; p.y += p.vy; p.vy += p.grav || 0;
       return p.life > 0;
     });
-    floaters = floaters.filter(f => {
-      f.life -= 16;
-      f.y += f.vy;
-      return f.life > 0;
-    });
+    floaters = floaters.filter(f => { f.life -= 16; f.y += f.vy; return f.life > 0; });
     projectiles = projectiles.filter(pr => {
       pr.life -= 16;
       const t = Math.max(0, 1 - pr.life / pr.maxLife);
@@ -1385,108 +1390,73 @@ const BFX = (() => {
   function draw() {
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Projectile trails
     projectiles.forEach(pr => {
       pr.trail.forEach((pt, i) => {
         const a = (i + 1) / pr.trail.length;
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, pr.r * a * 0.7, 0, Math.PI * 2);
-        ctx.fillStyle = pr.color + Math.floor(a * 180).toString(16).padStart(2, '0');
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, pr.r * a * 0.7, 0, Math.PI * 2);
+        ctx.fillStyle = pr.color + Math.floor(a * 180).toString(16).padStart(2, '0'); ctx.fill();
       });
-      ctx.beginPath();
-      ctx.arc(pr.x, pr.y, pr.r, 0, Math.PI * 2);
-      ctx.fillStyle = pr.color;
-      ctx.shadowBlur = 14;
-      ctx.shadowColor = pr.color;
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      ctx.beginPath(); ctx.arc(pr.x, pr.y, pr.r, 0, Math.PI * 2);
+      ctx.fillStyle = pr.color; ctx.shadowBlur = 14; ctx.shadowColor = pr.color; ctx.fill(); ctx.shadowBlur = 0;
     });
-
-    // Particles
     particles.forEach(p => {
       const a = Math.max(0, p.life / p.maxLife);
       ctx.globalAlpha = a;
       if (p.type === 'slash') {
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.angle);
-        ctx.fillStyle = p.color;
-        ctx.fillRect(-p.len / 2, -p.w / 2, p.len, p.w);
-        ctx.restore();
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle);
+        ctx.fillStyle = p.color; ctx.fillRect(-p.len/2, -p.w/2, p.len, p.w); ctx.restore();
       } else if (p.type === 'spark') {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, Math.max(0.1, p.r * (0.3 + 0.7 * a)), 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.1, p.r*(0.3+0.7*a)), 0, Math.PI*2);
+        ctx.fillStyle = p.color; ctx.fill();
       } else if (p.type === 'orb') {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = p.color;
-        ctx.fill();
-        ctx.shadowBlur = 0;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+        ctx.fillStyle = p.color; ctx.shadowBlur = 8; ctx.shadowColor = p.color; ctx.fill(); ctx.shadowBlur = 0;
       } else if (p.type === 'ring') {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r * (1.5 - 0.5 * a), 0, Math.PI * 2);
-        ctx.strokeStyle = p.color;
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r*(1.5-0.5*a), 0, Math.PI*2);
+        ctx.strokeStyle = p.color; ctx.lineWidth = 2; ctx.stroke();
       } else if (p.type === 'smoke') {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r * (1.3 - 0.3 * a), 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r*(1.3-0.3*a), 0, Math.PI*2);
+        ctx.fillStyle = p.color; ctx.fill();
       }
       ctx.globalAlpha = 1;
     });
-
-    // Floating text
     floaters.forEach(f => {
       const a = Math.min(1, f.life / (f.maxLife * 0.35));
       ctx.globalAlpha = a;
-      ctx.font = `bold ${f.size}px monospace`;
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#00000066';
-      ctx.fillText(f.text, f.x + 1, f.y + 1);
-      ctx.fillStyle = f.color;
-      ctx.fillText(f.text, f.x, f.y);
+      ctx.font = `bold ${f.size}px monospace`; ctx.textAlign = 'center';
+      ctx.fillStyle = '#00000088'; ctx.fillText(f.text, f.x+1, f.y+1);
+      ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
       ctx.globalAlpha = 1;
     });
   }
 
+  // ── Utilities ────────────────────────────────────────────────
+
   function spawnImpact(x, y, color, n) {
     for (let i = 0; i < n; i++) {
-      const a = (Math.PI * 2 / n) * i + Math.random() * 0.4;
-      const spd = 2 + Math.random() * 3.5;
-      particles.push({ type: 'spark', x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd - 1, grav: 0.12, r: 2 + Math.random() * 2.5, color, life: 350 + Math.random() * 200, maxLife: 550 });
+      const a = (Math.PI*2/n)*i + Math.random()*0.4, spd = 2+Math.random()*3.5;
+      particles.push({ type:'spark', x, y, vx:Math.cos(a)*spd, vy:Math.sin(a)*spd-1, grav:0.12, r:2+Math.random()*2.5, color, life:350+Math.random()*200, maxLife:550 });
     }
   }
 
   function spawnSlash(x, y, color, n) {
     for (let i = 0; i < n; i++) {
-      const angle = -Math.PI / 4 + Math.random() * (Math.PI / 2);
-      particles.push({ type: 'slash', x: x + (Math.random() - 0.5) * 24, y: y + (Math.random() - 0.5) * 24, vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4, grav: 0, angle, len: 22 + Math.random() * 28, w: 2 + Math.random() * 2, color, life: 200 + Math.random() * 120, maxLife: 320 });
+      const angle = -Math.PI/4 + Math.random()*(Math.PI/2);
+      particles.push({ type:'slash', x:x+(Math.random()-0.5)*24, y:y+(Math.random()-0.5)*24, vx:(Math.random()-0.5)*0.4, vy:(Math.random()-0.5)*0.4, grav:0, angle, len:22+Math.random()*28, w:2+Math.random()*2, color, life:200+Math.random()*120, maxLife:320 });
     }
     for (let i = 0; i < 7; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const spd = 1.5 + Math.random() * 2.5;
-      particles.push({ type: 'spark', x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd - 0.5, grav: 0.1, r: 1.5 + Math.random() * 2, color: '#cc3333', life: 280 + Math.random() * 180, maxLife: 460 });
+      const a = Math.random()*Math.PI*2, spd = 1.5+Math.random()*2.5;
+      particles.push({ type:'spark', x, y, vx:Math.cos(a)*spd, vy:Math.sin(a)*spd-0.5, grav:0.1, r:1.5+Math.random()*2, color:'#cc3333', life:280+Math.random()*180, maxLife:460 });
     }
   }
 
   function getPos() {
     const pEl = document.querySelector('#bspr-player')?.closest('.battle-sprite-wrap');
     const eEl = document.querySelector('#bspr-enemy')?.closest('.battle-sprite-wrap');
-    const pr = pEl?.getBoundingClientRect();
-    const er = eEl?.getBoundingClientRect();
+    const pr = pEl?.getBoundingClientRect(), er = eEl?.getBoundingClientRect();
     return {
-      px: pr ? pr.left + pr.width / 2 : window.innerWidth * 0.25,
-      py: pr ? pr.top + pr.height / 2 : window.innerHeight * 0.4,
-      ex: er ? er.left + er.width / 2 : window.innerWidth * 0.75,
-      ey: er ? er.top + er.height / 2 : window.innerHeight * 0.4,
+      px: pr ? pr.left+pr.width/2 : window.innerWidth*0.25, py: pr ? pr.top+pr.height/2 : window.innerHeight*0.4,
+      ex: er ? er.left+er.width/2 : window.innerWidth*0.75, ey: er ? er.top+er.height/2 : window.innerHeight*0.4,
     };
   }
 
@@ -1494,160 +1464,172 @@ const BFX = (() => {
     const wrap = document.getElementById(canvasId)?.closest('.battle-sprite-wrap');
     if (!wrap) return;
     const ALL = ['bfx-p-slash','bfx-e-slash','bfx-p-hit','bfx-e-hit','bfx-p-hit-h','bfx-e-hit-h','bfx-skill-cast','bfx-heal','bfx-debuff','bfx-shield','bfx-drain','bfx-stun-pulse'];
-    wrap.classList.remove(...ALL);
-    void wrap.offsetWidth; // force reflow to restart animation
+    wrap.classList.remove(...ALL); void wrap.offsetWidth;
     wrap.classList.add(cls);
-    setTimeout(() => wrap.classList.remove(cls), dur + 50);
+    setTimeout(() => wrap.classList.remove(cls), dur+50);
   }
 
   function flashScreen(color, dur) {
-    const fl = document.getElementById('battle-hit-flash');
-    if (!fl) return;
-    fl.style.background = color;
-    fl.style.transition = 'none';
-    fl.style.opacity = '1';
-    requestAnimationFrame(() => {
-      fl.style.transition = `opacity ${dur}ms`;
-      fl.style.opacity = '0';
-    });
+    const fl = document.getElementById('battle-hit-flash'); if (!fl) return;
+    fl.style.background = color; fl.style.transition = 'none'; fl.style.opacity = '1';
+    requestAnimationFrame(() => { fl.style.transition = `opacity ${dur}ms`; fl.style.opacity = '0'; });
   }
 
   function fireProjectile(sx, sy, tx, ty, color, r, delay) {
     const maxLife = 320;
-    setTimeout(() => {
-      projectiles.push({ sx, sy, tx, ty, x: sx, y: sy, life: maxLife, maxLife, color, r, trail: [] });
-    }, delay || 0);
+    setTimeout(() => projectiles.push({ sx, sy, tx, ty, x:sx, y:sy, life:maxLife, maxLife, color, r, trail:[] }), delay||0);
   }
+
+  function showPhaseBanner(text, color) {
+    if (!phaseBarEl) phaseBarEl = document.getElementById('battle-phase-bar');
+    if (!phaseBarEl) return;
+    phaseBarEl.textContent = text;
+    phaseBarEl.style.color = color;
+    phaseBarEl.style.borderColor = color + '50';
+    clearTimeout(phaseBarTimer);
+    phaseBarEl.classList.add('bpb-show');
+    phaseBarTimer = setTimeout(() => phaseBarEl?.classList.remove('bpb-show'), 850);
+  }
+
+  function hidePhaseBanner() {
+    if (!phaseBarEl) phaseBarEl = document.getElementById('battle-phase-bar');
+    phaseBarEl?.classList.remove('bpb-show');
+    clearTimeout(phaseBarTimer);
+  }
+
+  // ── Player action animation ──────────────────────────────────
+
+  function doPlayerAnim(action, px, py, ex, ey) {
+    if (action === 'slash') {
+      setAnim('bspr-player', 'bfx-p-slash', 380);
+      setTimeout(() => { spawnSlash(ex, ey, '#d8ccc0', 6); setAnim('bspr-enemy', 'bfx-e-hit', 320); }, 200);
+    } else if (action === 'crit') {
+      setAnim('bspr-player', 'bfx-p-slash', 420); flashScreen('#ffcc0030', 180);
+      setTimeout(() => {
+        spawnSlash(ex, ey, '#ffdd44', 10);
+        for (let i = 0; i < 14; i++) { const a = Math.random()*Math.PI*2, spd = 2.5+Math.random()*4; particles.push({ type:'spark', x:ex, y:ey, vx:Math.cos(a)*spd, vy:Math.sin(a)*spd-1.5, grav:0.1, r:2+Math.random()*3.5, color:'#ffcc00', life:420+Math.random()*250, maxLife:670 }); }
+        setAnim('bspr-enemy', 'bfx-e-hit-h', 420);
+        floaters.push({ x:ex, y:ey-40, vy:-1.6, text:'CRITICAL!', color:'#ffcc00', size:18, life:850, maxLife:850 });
+      }, 200);
+    } else if (action === 'skill_atk') {
+      setAnim('bspr-player', 'bfx-skill-cast', 480); fireProjectile(px, py, ex, ey, '#a040ff', 9, 160);
+      setTimeout(() => setAnim('bspr-enemy', 'bfx-e-hit', 320), 500);
+    } else if (action === 'skill_magic') {
+      setAnim('bspr-player', 'bfx-skill-cast', 480); fireProjectile(px, py, ex, ey, '#00aaff', 11, 160);
+      setTimeout(() => { spawnImpact(ex, ey, '#00aaff', 18); for (let i = 0; i < 6; i++) particles.push({ type:'ring', x:ex, y:ey, vx:0, vy:0, grav:0, r:10+i*8, color:'#4080ff', life:400-i*40, maxLife:400 }); setAnim('bspr-enemy', 'bfx-e-hit-h', 420); }, 520);
+    } else if (action === 'skill_heal') {
+      setAnim('bspr-player', 'bfx-heal', 550);
+      for (let i = 0; i < 14; i++) setTimeout(() => particles.push({ type:'ring', x:px+(Math.random()-0.5)*35, y:py+30, vx:(Math.random()-0.5)*0.6, vy:-1.8-Math.random()*2, grav:0, r:4+Math.random()*5, color:'#40ff80', life:600+Math.random()*300, maxLife:900 }), i*35);
+      floaters.push({ x:px, y:py-35, vy:-1.4, text:'HEAL', color:'#40ff80', size:16, life:750, maxLife:750 });
+    } else if (action === 'skill_buff') {
+      setAnim('bspr-player', 'bfx-skill-cast', 500);
+      for (let i = 0; i < 12; i++) { const a = (Math.PI*2/12)*i; particles.push({ type:'orb', x:px+Math.cos(a)*34, y:py+Math.sin(a)*34, vx:Math.cos(a-1.57)*1.4, vy:Math.sin(a-1.57)*1.4-0.8, grav:0, r:3+Math.random()*2, color:'#ffd040', life:550+Math.random()*300, maxLife:850 }); }
+      floaters.push({ x:px, y:py-35, vy:-1.3, text:'BUFF!', color:'#ffd040', size:15, life:700, maxLife:700 });
+    } else if (action === 'skill_debuff') {
+      setAnim('bspr-player', 'bfx-skill-cast', 480); fireProjectile(px, py, ex, ey, '#80ff40', 8, 160);
+      setTimeout(() => { setAnim('bspr-enemy', 'bfx-debuff', 480); for (let i = 0; i < 12; i++) particles.push({ type:'smoke', x:ex+(Math.random()-0.5)*36, y:ey+(Math.random()-0.5)*36, vx:(Math.random()-0.5)*0.9, vy:-0.6-Math.random()*1.2, grav:0, r:8+Math.random()*9, color:'#60cc30', life:450+Math.random()*300, maxLife:750 }); }, 380);
+    } else if (action === 'skill_shield') {
+      setAnim('bspr-player', 'bfx-shield', 500);
+      for (let i = 0; i < 3; i++) setTimeout(() => particles.push({ type:'ring', x:px, y:py, vx:0, vy:0, grav:0, r:20+i*14, color:'#40c0ff', life:500, maxLife:500 }), i*80);
+      floaters.push({ x:px, y:py-35, vy:-1.3, text:'SHIELD', color:'#40c0ff', size:15, life:700, maxLife:700 });
+    } else if (action === 'skill_drain') {
+      setAnim('bspr-player', 'bfx-drain', 550);
+      for (let i = 0; i < 8; i++) { const maxL = 500+Math.random()*200; setTimeout(() => projectiles.push({ sx:ex+(Math.random()-0.5)*30, sy:ey+(Math.random()-0.5)*30, tx:px, ty:py, x:ex, y:ey, life:maxL, maxLife:maxL, color:'#ff2040', r:5, trail:[] }), i*55); }
+      floaters.push({ x:px, y:py-35, vy:-1.3, text:'DRAIN', color:'#ff2040', size:15, life:700, maxLife:700 });
+    } else if (action === 'item') {
+      setAnim('bspr-player', 'bfx-heal', 450);
+      for (let i = 0; i < 10; i++) particles.push({ type:'ring', x:px+(Math.random()-0.5)*30, y:py+10, vx:(Math.random()-0.5)*0.8, vy:-1.2-Math.random()*1.8, grav:0, r:3+Math.random()*5, color:'#80ffcc', life:420+Math.random()*280, maxLife:700 });
+    } else if (action === 'flee') {
+      for (let i = 0; i < 8; i++) particles.push({ type:'smoke', x:px+(Math.random()-0.5)*22, y:py, vx:(Math.random()-0.5)*2, vy:-0.8-Math.random()*1.4, grav:0, r:7+Math.random()*7, color:'#505060', life:320+Math.random()*200, maxLife:520 });
+    }
+  }
+
+  // ── Enemy action animation ───────────────────────────────────
+
+  function doEnemyAnim(action, px, py, ex, ey) {
+    if (action === 'enemy_slash') {
+      setAnim('bspr-enemy', 'bfx-e-slash', 380);
+      setTimeout(() => { spawnSlash(px, py, '#cc2020', 5); setAnim('bspr-player', 'bfx-p-hit', 320); flashScreen('#ff000018', 200); }, 200);
+    } else if (action === 'stun_skip') {
+      setAnim('bspr-enemy', 'bfx-stun-pulse', 500);
+      for (let i = 0; i < 7; i++) { const a = (Math.PI*2/7)*i; particles.push({ type:'orb', x:ex+Math.cos(a)*28, y:ey+Math.sin(a)*28, vx:-Math.sin(a)*1.2, vy:Math.cos(a)*1.2-0.6, grav:0, r:4, color:'#ffee40', life:600+Math.random()*200, maxLife:800 }); }
+      floaters.push({ x:ex, y:ey-35, vy:-1.2, text:'STUN!', color:'#ffee40', size:14, life:650, maxLife:650 });
+    }
+  }
+
+  // ── Main trigger (staged: banner → first actor → second actor) ─
 
   function trigger(playerAction, enemyAction, b) {
     const key = `${b.enemy_kind}:${b.turn}`;
     if (key === prevKey) return;
     prevKey = key;
 
-    const pos = getPos();
-    const px = pos.px, py = pos.py, ex = pos.ex, ey = pos.ey;
-
-    // ── Player action ──────────────────────────────────────────
-    if (playerAction === 'slash') {
-      setAnim('bspr-player', 'bfx-p-slash', 380);
-      setTimeout(() => {
-        spawnSlash(ex, ey, '#d8ccc0', 6);
-        setAnim('bspr-enemy', 'bfx-e-hit', 320);
-      }, 200);
-
-    } else if (playerAction === 'crit') {
-      setAnim('bspr-player', 'bfx-p-slash', 420);
-      flashScreen('#ffcc0030', 180);
-      setTimeout(() => {
-        spawnSlash(ex, ey, '#ffdd44', 10);
-        for (let i = 0; i < 14; i++) {
-          const a = Math.random() * Math.PI * 2, spd = 2.5 + Math.random() * 4;
-          particles.push({ type: 'spark', x: ex, y: ey, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd - 1.5, grav: 0.1, r: 2 + Math.random() * 3.5, color: '#ffcc00', life: 420 + Math.random() * 250, maxLife: 670 });
-        }
-        setAnim('bspr-enemy', 'bfx-e-hit-h', 420);
-        floaters.push({ x: ex, y: ey - 40, vy: -1.6, text: 'CRITICAL!', color: '#ffcc00', size: 18, life: 850, maxLife: 850 });
-      }, 200);
-
-    } else if (playerAction === 'skill_atk') {
-      setAnim('bspr-player', 'bfx-skill-cast', 480);
-      fireProjectile(px, py, ex, ey, '#a040ff', 9, 160);
-      setTimeout(() => setAnim('bspr-enemy', 'bfx-e-hit', 320), 500);
-
-    } else if (playerAction === 'skill_magic') {
-      setAnim('bspr-player', 'bfx-skill-cast', 480);
-      fireProjectile(px, py, ex, ey, '#00aaff', 11, 160);
-      setTimeout(() => {
-        spawnImpact(ex, ey, '#00aaff', 18);
-        for (let i = 0; i < 6; i++) {
-          particles.push({ type: 'ring', x: ex, y: ey, vx: 0, vy: 0, grav: 0, r: 10 + i * 8, color: '#4080ff', life: 400 - i * 40, maxLife: 400 });
-        }
-        setAnim('bspr-enemy', 'bfx-e-hit-h', 420);
-      }, 520);
-
-    } else if (playerAction === 'skill_heal') {
-      setAnim('bspr-player', 'bfx-heal', 550);
-      for (let i = 0; i < 14; i++) {
-        setTimeout(() => {
-          particles.push({ type: 'ring', x: px + (Math.random() - 0.5) * 35, y: py + 30, vx: (Math.random() - 0.5) * 0.6, vy: -1.8 - Math.random() * 2, grav: 0, r: 4 + Math.random() * 5, color: '#40ff80', life: 600 + Math.random() * 300, maxLife: 900 });
-        }, i * 35);
-      }
-      floaters.push({ x: px, y: py - 35, vy: -1.4, text: 'HEAL', color: '#40ff80', size: 16, life: 750, maxLife: 750 });
-
-    } else if (playerAction === 'skill_buff') {
-      setAnim('bspr-player', 'bfx-skill-cast', 500);
-      for (let i = 0; i < 12; i++) {
-        const a = (Math.PI * 2 / 12) * i;
-        particles.push({ type: 'orb', x: px + Math.cos(a) * 34, y: py + Math.sin(a) * 34, vx: Math.cos(a - 1.57) * 1.4, vy: Math.sin(a - 1.57) * 1.4 - 0.8, grav: 0, r: 3 + Math.random() * 2, color: '#ffd040', life: 550 + Math.random() * 300, maxLife: 850 });
-      }
-      floaters.push({ x: px, y: py - 35, vy: -1.3, text: 'BUFF!', color: '#ffd040', size: 15, life: 700, maxLife: 700 });
-
-    } else if (playerAction === 'skill_debuff') {
-      setAnim('bspr-player', 'bfx-skill-cast', 480);
-      fireProjectile(px, py, ex, ey, '#80ff40', 8, 160);
-      setTimeout(() => {
-        setAnim('bspr-enemy', 'bfx-debuff', 480);
-        for (let i = 0; i < 12; i++) {
-          particles.push({ type: 'smoke', x: ex + (Math.random() - 0.5) * 36, y: ey + (Math.random() - 0.5) * 36, vx: (Math.random() - 0.5) * 0.9, vy: -0.6 - Math.random() * 1.2, grav: 0, r: 8 + Math.random() * 9, color: '#60cc30', life: 450 + Math.random() * 300, maxLife: 750 });
-        }
-      }, 380);
-
-    } else if (playerAction === 'skill_shield') {
-      setAnim('bspr-player', 'bfx-shield', 500);
-      for (let i = 0; i < 3; i++) {
-        setTimeout(() => {
-          particles.push({ type: 'ring', x: px, y: py, vx: 0, vy: 0, grav: 0, r: 20 + i * 14, color: '#40c0ff', life: 500, maxLife: 500 });
-        }, i * 80);
-      }
-      floaters.push({ x: px, y: py - 35, vy: -1.3, text: 'SHIELD', color: '#40c0ff', size: 15, life: 700, maxLife: 700 });
-
-    } else if (playerAction === 'skill_drain') {
-      setAnim('bspr-player', 'bfx-drain', 550);
-      for (let i = 0; i < 8; i++) {
-        const maxL = 500 + Math.random() * 200;
-        setTimeout(() => {
-          projectiles.push({ sx: ex + (Math.random() - 0.5) * 30, sy: ey + (Math.random() - 0.5) * 30, tx: px, ty: py, x: ex, y: ey, life: maxL, maxLife: maxL, color: '#ff2040', r: 5, trail: [] });
-        }, i * 55);
-      }
-      floaters.push({ x: px, y: py - 35, vy: -1.3, text: 'DRAIN', color: '#ff2040', size: 15, life: 700, maxLife: 700 });
-
-    } else if (playerAction === 'item') {
-      setAnim('bspr-player', 'bfx-heal', 450);
-      for (let i = 0; i < 10; i++) {
-        particles.push({ type: 'ring', x: px + (Math.random() - 0.5) * 30, y: py + 10, vx: (Math.random() - 0.5) * 0.8, vy: -1.2 - Math.random() * 1.8, grav: 0, r: 3 + Math.random() * 5, color: '#80ffcc', life: 420 + Math.random() * 280, maxLife: 700 });
-      }
-
-    } else if (playerAction === 'flee') {
-      for (let i = 0; i < 8; i++) {
-        particles.push({ type: 'smoke', x: px + (Math.random() - 0.5) * 22, y: py, vx: (Math.random() - 0.5) * 2, vy: -0.8 - Math.random() * 1.4, grav: 0, r: 7 + Math.random() * 7, color: '#505060', life: 320 + Math.random() * 200, maxLife: 520 });
-      }
+    // Turn order banner
+    if (b.turn > 0 && b.turn_order) {
+      const pFirst = b.turn_order === 'player_first';
+      showPhaseBanner(
+        pFirst ? `⚡ プレイヤー先制 [速さ ${b.player_speed} vs 敵 ${b.enemy_speed}]`
+               : `💀 敵先制！ [速さ 敵 ${b.enemy_speed} vs あなた ${b.player_speed}]`,
+        pFirst ? '#60ffaa' : '#ff6060'
+      );
     }
 
-    // ── Enemy action (delayed if player also acted) ─────────────
-    const eDelay = playerAction && playerAction !== 'flee' ? 440 : 0;
+    const DELAY = 360; // wait for banner
+    const SEQ   = 460; // gap between actor 1 → actor 2
 
-    if (enemyAction === 'enemy_slash') {
-      setTimeout(() => {
-        setAnim('bspr-enemy', 'bfx-e-slash', 380);
-        setTimeout(() => {
-          spawnSlash(px, py, '#cc2020', 5);
-          setAnim('bspr-player', 'bfx-p-hit', 320);
-          flashScreen('#ff000018', 200);
-        }, 200);
-      }, eDelay);
+    const playerFirst = !b.turn_order || b.turn_order === 'player_first';
 
-    } else if (enemyAction === 'stun_skip') {
-      setTimeout(() => {
-        setAnim('bspr-enemy', 'bfx-stun-pulse', 500);
-        for (let i = 0; i < 7; i++) {
-          const a = (Math.PI * 2 / 7) * i;
-          particles.push({ type: 'orb', x: ex + Math.cos(a) * 28, y: ey + Math.sin(a) * 28, vx: -Math.sin(a) * 1.2, vy: Math.cos(a) * 1.2 - 0.6, grav: 0, r: 4, color: '#ffee40', life: 600 + Math.random() * 200, maxLife: 800 });
-        }
-        floaters.push({ x: ex, y: ey - 35, vy: -1.2, text: 'STUN!', color: '#ffee40', size: 14, life: 650, maxLife: 650 });
-      }, eDelay);
+    if (playerFirst) {
+      if (playerAction) setTimeout(() => { const p = getPos(); doPlayerAnim(playerAction, p.px, p.py, p.ex, p.ey); }, DELAY);
+      if (enemyAction)  setTimeout(() => { const p = getPos(); doEnemyAnim(enemyAction,  p.px, p.py, p.ex, p.ey); }, DELAY + SEQ);
+    } else {
+      if (enemyAction)  setTimeout(() => { const p = getPos(); doEnemyAnim(enemyAction,  p.px, p.py, p.ex, p.ey); }, DELAY);
+      if (playerAction) setTimeout(() => { const p = getPos(); doPlayerAnim(playerAction, p.px, p.py, p.ex, p.ey); }, DELAY + SEQ);
     }
   }
 
-  return { init, start, stop, trigger };
+  // ── Victory dissolve ─────────────────────────────────────────
+
+  function triggerDissolve(enemyName) {
+    if (_victoryDone) return;
+    _victoryDone = true;
+
+    const eEl = document.getElementById('bspr-enemy');
+    if (!eEl) return;
+
+    const eRect = eEl.getBoundingClientRect();
+    const ctx2 = eEl.getContext('2d');
+    const iw = eEl.width, ih = eEl.height;
+    const imgData = ctx2.getImageData(0, 0, iw, ih);
+    const px = imgData.data;
+    const cx = eRect.left + eRect.width/2, cy = eRect.top + eRect.height/2;
+    const sw = eRect.width/iw, sh = eRect.height/ih;
+
+    const step = 4;
+    for (let y = 0; y < ih; y += step) {
+      for (let x = 0; x < iw; x += step) {
+        const i = (y*iw+x)*4;
+        const r = px[i], g = px[i+1], b = px[i+2], a = px[i+3];
+        if (a < 30) continue;
+        const sx = eRect.left + x*sw, sy = eRect.top + y*sh;
+        const dx = sx-cx, dy = sy-cy, dist = Math.sqrt(dx*dx+dy*dy)||1;
+        const spd = 1+Math.random()*3.5;
+        const vx = (dx/dist)*spd + (Math.random()-0.5)*1.8;
+        const vy = (dy/dist)*spd - Math.random()*2.5;
+        const life = 900+Math.random()*700;
+        const col = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+        particles.push({ type:'spark', x:sx, y:sy, vx, vy, grav:0.06, r:2+Math.random()*2.5, color:col, life, maxLife:life });
+      }
+    }
+
+    // Clear the sprite canvas so it disappears
+    ctx2.clearRect(0, 0, iw, ih);
+
+    floaters.push({ x:cx, y:cy-30, vy:-1.3, text:`✨ ${enemyName}を倒した！`, color:'#ffcc40', size:18, life:2500, maxLife:2500 });
+    setTimeout(() => floaters.push({ x:cx, y:cy+65, vy:-0.2, text:'[ Enter ] 続けて報酬を受け取る', color:'#4080c0', size:12, life:4000, maxLife:4000 }), 1300);
+  }
+
+  return { init, start, stop, trigger, triggerDissolve };
 })();
 
 function renderModal(g) {
@@ -1681,6 +1663,18 @@ function renderModal(g) {
     hideRewardEl();
     hideFloormapEl();
     buildStartSkillSelect(g);
+    document.getElementById('layout').style.display = 'none';
+    document.getElementById('log-wrap').style.display = 'none';
+    return;
+  }
+
+  if (g.mode === 'BattleVictoryEffect' && g.battle) {
+    hideModal();
+    hideRewardEl();
+    hideEndingEl();
+    buildBattle(g);
+    BFX.start();
+    BFX.triggerDissolve(g.battle.enemy_name);
     document.getElementById('layout').style.display = 'none';
     document.getElementById('log-wrap').style.display = 'none';
     return;
@@ -2227,8 +2221,8 @@ function buildBattle(g) {
   drawBigSpriteOn(document.getElementById('bspr-player'), 'player');
   drawBigSpriteOn(document.getElementById('bspr-enemy'), b.enemy_kind);
 
-  // Trigger action animations
-  if (b.last_player_action || b.last_enemy_action) {
+  // Trigger action animations (skip during victory dissolve effect)
+  if (!b.is_victory_effect && (b.last_player_action || b.last_enemy_action)) {
     BFX.trigger(b.last_player_action, b.last_enemy_action, b);
   }
 }

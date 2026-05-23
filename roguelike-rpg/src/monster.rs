@@ -118,6 +118,7 @@ pub struct Monster {
     pub max_hp: i32,
     pub attack: i32,
     pub defense: i32,
+    pub speed: i32,
     pub exp_reward: u32,
     pub gold_reward: u32,
     pub status_effects: Vec<StatusEffect>,
@@ -165,13 +166,14 @@ pub fn spawn_monster<R: Rng>(rng: &mut R, x: i32, y: i32, floor: u32, is_boss: b
 
     Monster {
         id: next_monster_id(),
-        kind,
+        kind: kind.clone(),
         x,
         y,
         hp,
         max_hp: hp,
         attack: atk,
         defense: def,
+        speed: speed_for(&kind),
         exp_reward: exp,
         gold_reward: gold,
         status_effects: Vec::new(),
@@ -179,6 +181,29 @@ pub fn spawn_monster<R: Rng>(rng: &mut R, x: i32, y: i32, floor: u32, is_boss: b
         ai_state: AiState::Idle,
         seen_player: false,
         item_drop_chance: drop_chance,
+    }
+}
+
+pub fn speed_for(kind: &MonsterKind) -> i32 {
+    match kind {
+        MonsterKind::Rat       => 12,
+        MonsterKind::Goblin    =>  8,
+        MonsterKind::Skeleton  =>  5,
+        MonsterKind::Zombie    =>  2,
+        MonsterKind::Orc       =>  6,
+        MonsterKind::Ghost     => 11,
+        MonsterKind::Troll     =>  3,
+        MonsterKind::Mage      =>  7,
+        MonsterKind::Golem     =>  2,
+        MonsterKind::Vampire   => 10,
+        MonsterKind::Dragon    =>  7,
+        MonsterKind::Demon     =>  9,
+        MonsterKind::FinalDemonLord  =>  8,
+        MonsterKind::AbyssLord       => 10,
+        MonsterKind::FlameEmperor    => 12,
+        MonsterKind::IceSovereign    =>  6,
+        MonsterKind::ChaosAvatar     => 11,
+        MonsterKind::AncientGuardian =>  5,
     }
 }
 
@@ -240,12 +265,13 @@ pub fn spawn_final_boss(boss_key: Option<&str>, x: i32, y: i32) -> Monster {
 
     Monster {
         id: next_monster_id(),
-        kind,
+        kind: kind.clone(),
         x, y,
         hp,
         max_hp: hp,
         attack: atk,
         defense: def,
+        speed: speed_for(&kind),
         exp_reward: exp,
         gold_reward: gold,
         status_effects: Vec::new(),

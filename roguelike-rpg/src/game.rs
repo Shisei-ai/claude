@@ -18,6 +18,7 @@ pub enum GameMode {
     Exploring,
     Help,
     Battle,
+    BattleVictoryEffect, // 敵撃破エフェクト演出（→ BattleReward へ）
     BattleReward,
     FloorMap,
     Inventory,
@@ -64,6 +65,9 @@ pub struct Game {
     pub battle_turn: u32,
     pub battle_last_player_action: Option<String>,
     pub battle_last_enemy_action: Option<String>,
+    pub battle_turn_order: String,   // "player_first" | "enemy_first"
+    pub battle_player_speed: i32,
+    pub battle_enemy_speed: i32,
     pub collection_unlocked: Vec<String>,
     pub camera_x: i32,
     pub camera_y: i32,
@@ -136,6 +140,9 @@ impl Game {
             battle_turn: 0,
             battle_last_player_action: None,
             battle_last_enemy_action: None,
+            battle_turn_order: "player_first".to_string(),
+            battle_player_speed: 0,
+            battle_enemy_speed: 0,
             collection_unlocked: Vec::new(),
             camera_x: 0,
             camera_y: 0,
@@ -532,6 +539,9 @@ impl Game {
             self.battle_turn = 0;
             self.battle_last_player_action = None;
             self.battle_last_enemy_action = None;
+            self.battle_turn_order = "player_first".to_string();
+            self.battle_player_speed = self.player.base_dex;
+            self.battle_enemy_speed = self.monsters[idx].speed;
             self.battle_log.push((format!("⚔ {} appeared!", name), MessageKind::Event));
             self.mode = GameMode::Battle;
             return true;
@@ -1576,6 +1586,35 @@ impl Game {
         }
     }
 
+    fn determine_turn_order(&mut self, enemy_idx: usize) -> bool {
+        let p_spd = self.player.base_dex;
+        let e_spd = self.monsters.get(enemy_idx).map(|m| m.speed).unwrap_or(5);
+        self.battle_player_speed = p_spd;
+        self.battle_enemy_speed = e_spd;
+        if p_spd != e_spd { p_spd > e_spd } else { self.rng.gen_bool(0.5) }
+    }
+
+    fn execute_player_attack(&mut self, idx: usize) -> bool {
+        let is_crit = self.rng.gen_range(0..100) < self.player.crit_rate();
+        let base = self.player.effective_attack() + self.rng.gen_range(0..5);
+        let dmg = if is_crit { base * 2 } else { base };
+        let actual = self.monsters[idx].take_damage(dmg);
+        let name = self.monsters[idx].kind.name().to_string();
+        self.battle_last_player_action = Some(if is_crit { "crit" } else { "slash" }.to_string());
+        if self.player.lifesteal_pct > 0 {
+            let heal = (actual as f32 * self.player.lifesteal_pct as f32 / 100.0) as i32;
+            self.player.heal(heal);
+        }
+        let msg = if is_crit {
+            format!("⚡ クリティカル！{}に{}ダメージ！", name, actual)
+        } else {
+            format!("⚔ {}に{}ダメージ。", name, actual)
+        };
+        self.battle_log.push((msg.clone(), MessageKind::Combat));
+        self.add_message(msg, MessageKind::Combat);
+        !self.monsters[idx].is_alive()
+    }
+
     fn battle_do_attack(&mut self) {
         let idx = match self.battle_enemy_idx { Some(i) => i, None => return };
         if idx >= self.monsters.len() { self.battle_end_return(); return; }
@@ -1583,33 +1622,23 @@ impl Game {
         self.battle_last_player_action = None;
         self.battle_last_enemy_action = None;
 
-        let is_crit = self.rng.gen_range(0..100) < self.player.crit_rate();
-        let base = self.player.effective_attack() + self.rng.gen_range(0..5);
-        let dmg = if is_crit { base * 2 } else { base };
-        let actual = self.monsters[idx].take_damage(dmg);
-        let name = self.monsters[idx].kind.name().to_string();
-        self.battle_last_player_action = Some(if is_crit { "crit" } else { "slash" }.to_string());
-
-        if self.player.lifesteal_pct > 0 {
-            let heal = (actual as f32 * self.player.lifesteal_pct as f32 / 100.0) as i32;
-            self.player.heal(heal);
-        }
-
-        let msg = if is_crit {
-            format!("⚡ クリティカル！{}に{}ダメージ！", name, actual)
-        } else {
-            format!("⚔ {}に{}ダメージ。", name, actual)
-        };
-        self.battle_log.push((msg, MessageKind::Combat));
-        self.add_message(self.battle_log.last().unwrap().0.clone(), MessageKind::Combat);
-
+        let player_first = self.determine_turn_order(idx);
+        self.battle_turn_order = if player_first { "player_first" } else { "enemy_first" }.to_string();
         self.battle_turn += 1;
         self.battle_sub_mode = 0;
 
-        if !self.monsters[idx].is_alive() {
-            self.battle_end_victory(idx);
+        if player_first {
+            let killed = self.execute_player_attack(idx);
+            if killed { self.battle_end_victory(idx); return; }
+            if self.mode == GameMode::Battle { self.battle_enemy_turn(); }
         } else {
             self.battle_enemy_turn();
+            if !self.player.is_alive() || self.mode != GameMode::Battle { return; }
+            let idx2 = match self.battle_enemy_idx { Some(i) => i, None => return };
+            if idx2 < self.monsters.len() && self.monsters[idx2].is_alive() {
+                let killed = self.execute_player_attack(idx2);
+                if killed { self.battle_end_victory(idx2); }
+            }
         }
     }
 
@@ -1635,6 +1664,14 @@ impl Game {
             };
             self.battle_log.push((msg, MessageKind::Warning));
             return;
+        }
+
+        // Determine turn order; enemy-first gets to hit before skill resolves
+        let player_first = self.determine_turn_order(idx);
+        self.battle_turn_order = if player_first { "player_first" } else { "enemy_first" }.to_string();
+        if !player_first {
+            self.battle_enemy_turn();
+            if !self.player.is_alive() || self.mode != GameMode::Battle { return; }
         }
 
         self.player.mp -= actual_mp_cost;
@@ -1743,15 +1780,25 @@ impl Game {
 
         if idx < self.monsters.len() && !self.monsters[idx].is_alive() {
             self.battle_end_victory(idx);
-        } else if idx < self.monsters.len() {
+        } else if player_first && idx < self.monsters.len() {
             self.battle_enemy_turn();
         }
+        // !player_first case: enemy already acted before skill; no retaliation
     }
 
     fn battle_do_item(&mut self, item_idx: usize) {
         self.battle_last_player_action = Some("item".to_string());
         self.battle_last_enemy_action = None;
         if item_idx >= self.player.inventory.len() { return; }
+
+        let idx = match self.battle_enemy_idx { Some(i) => i, None => { self.battle_end_return(); return; } };
+        let player_first = self.determine_turn_order(idx);
+        self.battle_turn_order = if player_first { "player_first" } else { "enemy_first" }.to_string();
+        if !player_first {
+            self.battle_enemy_turn();
+            if !self.player.is_alive() || self.mode != GameMode::Battle { return; }
+        }
+
         let item = self.player.inventory[item_idx].clone();
         let msg = format!("🧪 使用：{}", item.name);
         self.battle_log.push((msg.clone(), MessageKind::Loot));
@@ -1777,7 +1824,9 @@ impl Game {
 
         self.battle_turn += 1;
         self.battle_sub_mode = 0;
-        self.battle_enemy_turn();
+        if player_first {
+            self.battle_enemy_turn();
+        }
     }
 
     fn battle_do_run(&mut self) {
@@ -1957,6 +2006,18 @@ impl Game {
 
         self.pending_rewards = rewards;
         self.reward_skill_cursor = 0;
+        // Enter dissolve-effect mode first; monster stays in list at HP=0
+        // confirm_battle_victory_effect() will clean up and advance to BattleReward
+        self.mode = GameMode::BattleVictoryEffect;
+    }
+
+    pub fn confirm_battle_victory_effect(&mut self) {
+        if let Some(idx) = self.battle_enemy_idx {
+            if idx < self.monsters.len() {
+                self.on_monster_death(idx);
+            }
+        }
+        self.battle_enemy_idx = None;
         self.mode = GameMode::BattleReward;
         self.end_player_turn();
     }
