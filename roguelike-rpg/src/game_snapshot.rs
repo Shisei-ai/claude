@@ -220,6 +220,9 @@ pub struct GameSnapshot {
     pub reward_learnable_skills: Vec<SkillSnap>,
     pub start_skill_options: Vec<SkillSnap>,
     pub start_skill_cursor: usize,
+    pub ending_announcement: Option<[String; 3]>, // [title, flavor, body]
+    pub victory_ending: Option<String>,
+    pub is_final_floor: bool,
 }
 
 fn tile_id(t: Tile) -> u8 {
@@ -367,7 +370,8 @@ impl GameSnapshot {
             .collect();
 
         let mode_str = match game.mode {
-            GameMode::StartSkillSelect => "StartSkillSelect",
+            GameMode::StartSkillSelect    => "StartSkillSelect",
+            GameMode::EndingAnnouncement  => "EndingAnnouncement",
             GameMode::Exploring     => "Exploring",
             GameMode::Help          => "Help",
             GameMode::Battle        => "Battle",
@@ -578,6 +582,11 @@ impl GameSnapshot {
             reward_learnable_skills,
             start_skill_options,
             start_skill_cursor: game.start_skill_cursor,
+            ending_announcement: game.ending_announcement.as_ref().map(|(t, f, b)| {
+                [t.clone(), f.clone(), b.clone()]
+            }),
+            victory_ending: game.victory_ending.clone(),
+            is_final_floor: game.is_final_floor,
         }
     }
 }

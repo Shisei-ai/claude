@@ -222,6 +222,13 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 .skill-cost{font-size:11px;min-width:36px;text-align:right}
 .skill-desc{font-size:10px;color:#607080;flex:2}
 .reward-skill-hint{font-size:10px;color:#2a3848;text-align:center;letter-spacing:.08em}
+/* ── Ending announcement ── */
+#ending-wrap{position:fixed;inset:0;background:rgba(1,1,6,.96);display:flex;align-items:center;justify-content:center;z-index:200}
+#ending-box{background:#04040e;border:2px solid #604010;border-radius:8px;padding:40px 52px;min-width:440px;max-width:600px;box-shadow:0 0 80px rgba(200,140,20,.2);text-align:center}
+.ea-title{font-size:22px;font-weight:bold;color:#ffcc40;letter-spacing:.18em;margin-bottom:14px;text-shadow:0 0 20px #c08020}
+.ea-flavor{font-size:13px;color:#c0a0e0;font-style:italic;margin-bottom:18px;letter-spacing:.08em}
+.ea-body{font-size:13px;color:#b0b8cc;line-height:1.9;white-space:pre-line;margin-bottom:22px;text-align:left}
+.ea-hint{font-size:11px;color:#302840;letter-spacing:.1em}
 /* ── Start skill select ── */
 #start-skill-box{background:#06060f;border:2px solid #3a2a00;border-radius:8px;padding:32px 40px;min-width:400px;max-width:560px;box-shadow:0 0 40px rgba(220,180,60,.15)}
 .sss-title{font-size:20px;font-weight:bold;color:#ffe060;text-align:center;letter-spacing:.12em;margin-bottom:8px}
@@ -243,6 +250,8 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 <div id="floormap-wrap" style="display:none"></div>
 <!-- Battle reward screen -->
 <div id="reward-wrap" style="display:none"></div>
+<!-- Ending announcement -->
+<div id="ending-wrap" style="display:none"></div>
 <!-- Help overlay -->
 <div id="overlay">
   <div id="overlay-box">
@@ -1243,10 +1252,22 @@ function buildDead(g) {
   </div>`;
 }
 
+const ENDING_DATA = {
+  normal:  { title: '【真の支配者】',         color: '#d8a030', icon: '👑', msg: 'ダンジョンの魔王を打ち倒した。ダンジョンに平和が訪れた。お前の名は伝説となった。' },
+  abyss:   { title: '【深淵征服】',           color: '#6040c8', icon: '🌑', msg: '深淵の支配者を滅ぼした。虚無の王の力が、お前の意志の前に屈した。深淵はついに静寂を取り戻した。' },
+  flame:   { title: '【炎帝継承】',           color: '#e06020', icon: '🔥', msg: '炎帝アグニを撃退した。炎の審判を乗り越えたお前は、炎帝の後継者として認められた。世界は再び輝きを取り戻した。' },
+  ice:     { title: '【永遠の春】',           color: '#60c0e8', icon: '❄', msg: 'フリゲル女王を倒した。永遠の冬は終わりを告げ、大地に春が戻ってきた。お前の温もりが世界を救った。' },
+  chaos:   { title: '【秩序の回復】',         color: '#a020e0', icon: '🌀', msg: '混沌の化身を消滅させた。秩序が世界に戻り、混沌の夜は明けた。お前の意志が現実を取り戻した。' },
+  ancient: { title: '【番人の資格証明】',     color: '#90a840', icon: '🏛', msg: '古代の番人ゴルゴンを倒した。太古の試練を乗り越えたお前に、番人は最後の言葉を残した：「合格だ」。' },
+};
+
 function buildVictory(g) {
-  return `<div class="dead-box modal-box" style="padding:28px 36px">
-    <div class="victory-title">勝利！</div>
-    <div class="dead-sub">ダンジョンを脱出した！</div>
+  const key = g.victory_ending || 'normal';
+  const ed = ENDING_DATA[key] || ENDING_DATA.normal;
+  return `<div class="dead-box modal-box" style="padding:28px 36px;border-color:${ed.color}44">
+    <div class="victory-title" style="color:${ed.color}">${ed.icon} 勝利！</div>
+    <div style="font-size:16px;font-weight:bold;color:${ed.color};margin-bottom:10px;letter-spacing:.1em">${ed.title}</div>
+    <div class="dead-sub" style="color:#b0b8c8;font-size:13px;margin-bottom:14px">${ed.msg}</div>
     <div class="dead-stats">
       到達階層: ${g.floor}階<br>
       レベル: ${g.level}<br>
@@ -1262,7 +1283,19 @@ function renderModal(g) {
   if (g.mode === 'Battle' && g.battle) {
     hideModal();
     hideRewardEl();
+    hideEndingEl();
     buildBattle(g);
+    document.getElementById('layout').style.display = 'none';
+    document.getElementById('log-wrap').style.display = 'none';
+    return;
+  }
+
+  if (g.mode === 'EndingAnnouncement' && g.ending_announcement) {
+    hideModal();
+    hideBattleEl();
+    hideRewardEl();
+    hideFloormapEl();
+    buildEndingAnnouncement(g);
     document.getElementById('layout').style.display = 'none';
     document.getElementById('log-wrap').style.display = 'none';
     return;
@@ -1302,6 +1335,7 @@ function renderModal(g) {
   hideBattleEl();
   hideRewardEl();
   hideFloormapEl();
+  hideEndingEl();
   document.getElementById('layout').style.display = 'flex';
   document.getElementById('log-wrap').style.display = 'flex';
 
@@ -2043,7 +2077,8 @@ function maybeShowFloorBanner(g) {
 // ─────────────────────────────────────────────────────────────
 //  Battle reward screen
 // ─────────────────────────────────────────────────────────────
-const rewardWrapEl = document.getElementById('reward-wrap');
+const rewardWrapEl   = document.getElementById('reward-wrap');
+const endingWrapEl   = document.getElementById('ending-wrap');
 
 const REWARD_ICON = {
   exp:      '✨',
@@ -2054,6 +2089,25 @@ const REWARD_ICON = {
   relic:    '💎',
   cursed:   '💀',
 };
+
+function buildEndingAnnouncement(g) {
+  const ann = g.ending_announcement; // [title, flavor, body]
+  if (!ann) return;
+  endingWrapEl.style.display = 'flex';
+  endingWrapEl.innerHTML = `
+    <div id="ending-box">
+      <div class="ea-title">${ann[0]}</div>
+      <div class="ea-flavor">${ann[1]}</div>
+      <div class="ea-body">${ann[2].replace(/\n/g,'<br>')}</div>
+      <div class="ea-hint">── 何かキーを押して続ける ──</div>
+    </div>
+  `;
+}
+
+function hideEndingEl() {
+  endingWrapEl.style.display = 'none';
+  endingWrapEl.innerHTML = '';
+}
 
 const BRANCH_COLOR = {
   warrior:   '#e05050',

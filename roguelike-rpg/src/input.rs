@@ -25,6 +25,12 @@ pub fn handle_input(game: &mut Game, key: KeyCode, _modifiers: KeyModifiers) -> 
             _ => {}
         },
 
+        // ── Ending announcement (any key dismisses) ───────────────────
+        GameMode::EndingAnnouncement => {
+            game.ending_announcement = None;
+            game.mode = GameMode::Exploring;
+        }
+
         // ── Dead / Victory ────────────────────────────────────────────
         GameMode::Dead | GameMode::Victory => {
             if matches!(key, KeyCode::Char('q') | KeyCode::Esc) {

@@ -31,6 +31,7 @@ pub enum EventConsequence {
     ResetSkillCooldowns,    // 全スキルのクールダウンをリセット
     SetHpToOne,             // HPを強制的に1にする（防御無視）
     GainLevelUp,            // 強制レベルアップ
+    GainEndingRelic(usize), // エンディング秘宝を獲得（ID指定）
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -436,6 +437,149 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
             ],
             is_irreversible: true,
             triggers_floor_reload: true,
+        },
+    };
+
+    Some(event)
+}
+
+/// フロア移動時に低確率で発生するエンディング変更イベント。
+/// already_acquired: プレイヤーが既に持っているエンディング秘宝のID一覧。
+/// 既に持っているものは出現しない。
+pub fn generate_ending_event(floor: u32, already_acquired: &[usize]) -> Option<RandomEvent> {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+
+    // フロア5未満 or 確率20%でのみ発生
+    if floor < 5 || rng.gen_range(0..100) >= 20 {
+        return None;
+    }
+
+    // 獲得済みを除いた候補を選ぶ
+    let candidates: Vec<usize> = (24..=28usize)
+        .filter(|id| !already_acquired.contains(id))
+        .collect();
+    if candidates.is_empty() {
+        return None;
+    }
+
+    let relic_id = candidates[rng.gen_range(0..candidates.len())];
+
+    let event = match relic_id {
+        24 => RandomEvent {
+            title: "深淵の呼び声".to_string(),
+            description: "暗い廊下の奥から、ひとつの眼が煌めいている。\n声が響く――「お前は深淵を覗いたことがあるか？\n覗けば、深淵もお前を覗く。それが契約だ……」".to_string(),
+            choices: vec![
+                EventChoice {
+                    label: "深淵を覗く（深淵の瞳を入手）".to_string(),
+                    description: "虚無の王との決戦が約束される。ただし、最終ボスが変わる。".to_string(),
+                    consequences: vec![
+                        EventConsequence::LoseHp(30),
+                        EventConsequence::GainEndingRelic(24),
+                    ],
+                    is_risky: true,
+                },
+                EventChoice {
+                    label: "目をそらして立ち去る".to_string(),
+                    description: "深淵の声は消え、廊下に静寂が戻る。".to_string(),
+                    consequences: vec![],
+                    is_risky: false,
+                },
+            ],
+            is_irreversible: true,
+            triggers_floor_reload: false,
+        },
+        25 => RandomEvent {
+            title: "炎帝の試練".to_string(),
+            description: "炎に包まれた祭壇が突如現れた。\n古代の書物が燃えながら浮かんでいる。\n「炎の審判を受けよ。お前が真の勇者ならば、炎は敵ではない」".to_string(),
+            choices: vec![
+                EventChoice {
+                    label: "聖典を手に取る（炎帝の聖典を入手）".to_string(),
+                    description: "炎帝との決戦が確定する。HP全回復の恩寵と引き換えに、最終ボスが変わる。".to_string(),
+                    consequences: vec![
+                        EventConsequence::GainEndingRelic(25),
+                        EventConsequence::FullRestoreHpMp,
+                    ],
+                    is_risky: true,
+                },
+                EventChoice {
+                    label: "祭壇の前で頭を垂れ立ち去る".to_string(),
+                    description: "炎は静かに消え、祭壇も消える。EXPだけが残る。".to_string(),
+                    consequences: vec![EventConsequence::GainExp(floor * 60)],
+                    is_risky: false,
+                },
+            ],
+            is_irreversible: true,
+            triggers_floor_reload: false,
+        },
+        26 => RandomEvent {
+            title: "永遠の冬の残滓".to_string(),
+            description: "床に半ば埋もれた氷の結晶が薄く輝いている。\n触れると周囲の空気が凍りつき、女性の声が聞こえる。\n「この結晶を持っていきなさい……そして私の元に来なさい」".to_string(),
+            choices: vec![
+                EventChoice {
+                    label: "氷晶を砕いて吸収する（永遠氷晶を入手）".to_string(),
+                    description: "氷の女王との決戦が約束される。最大HPが増加するが最終ボスが変わる。".to_string(),
+                    consequences: vec![
+                        EventConsequence::GainEndingRelic(26),
+                        EventConsequence::GainMaxHp(50),
+                    ],
+                    is_risky: true,
+                },
+                EventChoice {
+                    label: "結晶に触れずに立ち去る".to_string(),
+                    description: "氷の声は遠ざかり、結晶は元通りに光を失う。".to_string(),
+                    consequences: vec![],
+                    is_risky: false,
+                },
+            ],
+            is_irreversible: true,
+            triggers_floor_reload: false,
+        },
+        27 => RandomEvent {
+            title: "混沌の亀裂".to_string(),
+            description: "壁に巨大な亀裂が走り、その奥から不規則な光が漏れている。\n現実と夢の境界が溶けていくような感覚に陥る。\n「入れ。それとも逃げるか。どちらでも構わん――結末は同じだ」".to_string(),
+            choices: vec![
+                EventChoice {
+                    label: "亀裂に手を伸ばす（混沌の欠片を入手）".to_string(),
+                    description: "混沌の化身との決戦が確定する。スキルポイント＋3と引き換えに最終ボスが変わる。".to_string(),
+                    consequences: vec![
+                        EventConsequence::GainEndingRelic(27),
+                        EventConsequence::GainLevelUp,
+                    ],
+                    is_risky: true,
+                },
+                EventChoice {
+                    label: "亀裂から距離を置く".to_string(),
+                    description: "光は弱まり、亀裂は静かに閉じていく。".to_string(),
+                    consequences: vec![EventConsequence::GainGold(200 * floor)],
+                    is_risky: false,
+                },
+            ],
+            is_irreversible: true,
+            triggers_floor_reload: false,
+        },
+        _ => RandomEvent {
+            title: "古代の番人の碑文".to_string(),
+            description: "苔むした石板に、解読困難な古代文字が刻まれている。\nじっと見つめると文字が光り始め、意味が脳裏に流れ込んでくる。\n「汝、この石を持ちて、番人の試練を受けよ」".to_string(),
+            choices: vec![
+                EventChoice {
+                    label: "碑文から魂石を取り出す（古代魂石を入手）".to_string(),
+                    description: "古代の番人との決戦が確定する。全スキルのクールダウンがリセットされる。".to_string(),
+                    consequences: vec![
+                        EventConsequence::GainEndingRelic(28),
+                        EventConsequence::ResetSkillCooldowns,
+                    ],
+                    is_risky: true,
+                },
+                EventChoice {
+                    label: "碑文を写して立ち去る".to_string(),
+                    description: "石板は光を失う。しかし記録は残った。EXPを得る。".to_string(),
+                    consequences: vec![EventConsequence::GainExp(floor * 80)],
+                    is_risky: false,
+                },
+            ],
+            is_irreversible: true,
+            triggers_floor_reload: false,
         },
     };
 

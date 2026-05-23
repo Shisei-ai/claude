@@ -16,6 +16,8 @@ pub enum RelicEffect {
     HpRegenBoost(i32),      // 毎ターンHP回復増加
     AttackBoost(i32),       // 攻撃力増加
     MapReveal,              // 取得時にフロア全体を解明
+    // ── エンディング変更（特殊イベント限定）──
+    EndingBoss(String),     // 最終ボスの種類を変える
 
     // ── 呪物（マイナス効果）──
     MaxHpPenalty(i32),      // 最大HP減少
@@ -213,16 +215,66 @@ pub fn all_relics() -> Vec<Relic> {
             effect: RelicEffect::MpCostMultiplier(50),
             description: "魔力を浪費させる呪い。全スキルのMP消費が50%増加する。".to_string(),
         },
+        // ═════ エンディング秘宝（特殊イベントのみ入手可）═════
+        Relic {
+            id: 24,
+            name: "深淵の瞳".to_string(),
+            is_cursed: false,
+            effect: RelicEffect::EndingBoss("abyss".to_string()),
+            description: "深淵から覗く瞳。持つ者の運命を、虚無の王との戦いへ導く。".to_string(),
+        },
+        Relic {
+            id: 25,
+            name: "炎帝の聖典".to_string(),
+            is_cursed: false,
+            effect: RelicEffect::EndingBoss("flame".to_string()),
+            description: "炎神の審判が記された禁断の書。持つ者に炎帝との決戦を約束する。".to_string(),
+        },
+        Relic {
+            id: 26,
+            name: "永遠氷晶".to_string(),
+            is_cursed: false,
+            effect: RelicEffect::EndingBoss("ice".to_string()),
+            description: "永遠の冬を閉じ込めた結晶。持つ者を氷の支配者との戦いへ誘う。".to_string(),
+        },
+        Relic {
+            id: 27,
+            name: "混沌の欠片".to_string(),
+            is_cursed: false,
+            effect: RelicEffect::EndingBoss("chaos".to_string()),
+            description: "混沌そのものの破片。持つ者の世界を混沌の化身が支配しようとする。".to_string(),
+        },
+        Relic {
+            id: 28,
+            name: "古代魂石".to_string(),
+            is_cursed: false,
+            effect: RelicEffect::EndingBoss("ancient".to_string()),
+            description: "千年の眠りを封じた魂石。持つ者の前に太古の番人が復活する。".to_string(),
+        },
     ]
+}
+
+/// エンディング秘宝のIDリスト（通常ドロップから除外する）
+pub const ENDING_RELIC_IDS: &[usize] = &[24, 25, 26, 27, 28];
+
+/// 指定IDのエンディング秘宝を返す
+pub fn ending_relic(id: usize) -> Relic {
+    all_relics().into_iter().find(|r| r.id == id).expect("ending relic id valid")
 }
 
 /// フロアに応じたランダムな秘宝または呪物を返す
 pub fn random_relic(rng: &mut impl Rng, floor: u32) -> Relic {
     let all = all_relics();
-    // 深いフロアほど呪物が出やすい
     let cursed_chance = 35u32.saturating_add(floor.min(15) * 2);
     let want_cursed = rng.gen_range(0..100) < cursed_chance;
-    let candidates: Vec<&Relic> = all.iter().filter(|r| r.is_cursed == want_cursed).collect();
-    let pool = if candidates.is_empty() { all.iter().collect() } else { candidates };
+    // エンディング秘宝は通常ドロップに含めない
+    let candidates: Vec<&Relic> = all.iter()
+        .filter(|r| r.is_cursed == want_cursed && !ENDING_RELIC_IDS.contains(&r.id))
+        .collect();
+    let pool = if candidates.is_empty() {
+        all.iter().filter(|r| !ENDING_RELIC_IDS.contains(&r.id)).collect()
+    } else {
+        candidates
+    };
     pool[rng.gen_range(0..pool.len())].clone()
 }

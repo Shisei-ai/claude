@@ -15,6 +15,13 @@ pub enum MonsterKind {
     Demon,
     Ghost,
     Golem,
+    // ── 最終ボス ──────────────────────────────────────────────
+    FinalDemonLord,   // 通常エンディング: ダンジョンの魔王
+    AbyssLord,        // 深淵エンディング: 深淵の支配者
+    FlameEmperor,     // 炎帝エンディング: 炎帝アグニ
+    IceSovereign,     // 氷エンディング:   氷の女王フリゲル
+    ChaosAvatar,      // 混沌エンディング: 混沌の化身
+    AncientGuardian,  // 古代エンディング: 古代の番人ゴルゴン
 }
 
 impl MonsterKind {
@@ -32,6 +39,12 @@ impl MonsterKind {
             MonsterKind::Demon => '&',
             MonsterKind::Ghost => 'G',
             MonsterKind::Golem => 'P',
+            MonsterKind::FinalDemonLord  => '魔',
+            MonsterKind::AbyssLord       => '淵',
+            MonsterKind::FlameEmperor    => '炎',
+            MonsterKind::IceSovereign    => '氷',
+            MonsterKind::ChaosAvatar     => '沌',
+            MonsterKind::AncientGuardian => '古',
         }
     }
 
@@ -49,11 +62,42 @@ impl MonsterKind {
             MonsterKind::Demon => "悪魔",
             MonsterKind::Ghost => "亡霊",
             MonsterKind::Golem => "石のゴーレム",
+            MonsterKind::FinalDemonLord  => "ダンジョンの魔王",
+            MonsterKind::AbyssLord       => "深淵の支配者",
+            MonsterKind::FlameEmperor    => "炎帝アグニ",
+            MonsterKind::IceSovereign    => "氷の女王フリゲル",
+            MonsterKind::ChaosAvatar     => "混沌の化身",
+            MonsterKind::AncientGuardian => "古代の番人ゴルゴン",
         }
     }
 
     pub fn is_boss(&self) -> bool {
-        matches!(self, MonsterKind::Dragon | MonsterKind::Demon)
+        matches!(self,
+            MonsterKind::Dragon | MonsterKind::Demon
+            | MonsterKind::FinalDemonLord | MonsterKind::AbyssLord
+            | MonsterKind::FlameEmperor   | MonsterKind::IceSovereign
+            | MonsterKind::ChaosAvatar    | MonsterKind::AncientGuardian
+        )
+    }
+
+    pub fn is_final_boss(&self) -> bool {
+        matches!(self,
+            MonsterKind::FinalDemonLord | MonsterKind::AbyssLord
+            | MonsterKind::FlameEmperor | MonsterKind::IceSovereign
+            | MonsterKind::ChaosAvatar  | MonsterKind::AncientGuardian
+        )
+    }
+
+    pub fn ending_key(&self) -> Option<&'static str> {
+        match self {
+            MonsterKind::FinalDemonLord  => Some("normal"),
+            MonsterKind::AbyssLord       => Some("abyss"),
+            MonsterKind::FlameEmperor    => Some("flame"),
+            MonsterKind::IceSovereign    => Some("ice"),
+            MonsterKind::ChaosAvatar     => Some("chaos"),
+            MonsterKind::AncientGuardian => Some("ancient"),
+            _ => None,
+        }
     }
 }
 
@@ -171,6 +215,44 @@ fn base_stats_for(kind: &MonsterKind) -> (i32, i32, i32, u32, u32, u32) {
         MonsterKind::Vampire   => (60, 14, 8, 90, 60, 50),
         MonsterKind::Dragon    => (200,25, 15,500,200,80),
         MonsterKind::Demon     => (300,35, 20,1000,500,90),
+        // 最終ボス（スケーリング前の基準値。game側でfloor=30相当に掛け算される）
+        MonsterKind::FinalDemonLord  => (2000, 80, 40, 8000, 5000, 100),
+        MonsterKind::AbyssLord       => (2200, 95, 35, 8500, 5500, 100),
+        MonsterKind::FlameEmperor    => (1800,110, 25, 8500, 5500, 100),
+        MonsterKind::IceSovereign    => (2100, 70, 65, 8500, 5500, 100),
+        MonsterKind::ChaosAvatar     => (1900, 90, 45, 8500, 5500, 100),
+        MonsterKind::AncientGuardian => (2500, 75, 60, 8500, 5500, 100),
+    }
+}
+
+/// エンディング種別文字列に対応する最終ボスを生成する
+pub fn spawn_final_boss(boss_key: Option<&str>, x: i32, y: i32) -> Monster {
+    let kind = match boss_key {
+        Some("abyss")   => MonsterKind::AbyssLord,
+        Some("flame")   => MonsterKind::FlameEmperor,
+        Some("ice")     => MonsterKind::IceSovereign,
+        Some("chaos")   => MonsterKind::ChaosAvatar,
+        Some("ancient") => MonsterKind::AncientGuardian,
+        _               => MonsterKind::FinalDemonLord,
+    };
+
+    let (hp, atk, def, exp, gold, _) = base_stats_for(&kind);
+
+    Monster {
+        id: next_monster_id(),
+        kind,
+        x, y,
+        hp,
+        max_hp: hp,
+        attack: atk,
+        defense: def,
+        exp_reward: exp,
+        gold_reward: gold,
+        status_effects: Vec::new(),
+        is_confused: false,
+        ai_state: AiState::Idle,
+        seen_player: false,
+        item_drop_chance: 100,
     }
 }
 

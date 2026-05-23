@@ -27,6 +27,7 @@ pub enum GameMode {
     Dead,
     Victory,
     LevelUp,
+    EndingAnnouncement, // エンディング秘宝入手時の演出
 }
 
 #[derive(Clone)]
@@ -67,6 +68,15 @@ pub struct Game {
     pub pending_rewards: Vec<RewardEntry>,
     pub reward_skill_cursor: usize,
     pub start_skill_cursor: usize,
+    // ── マルチエンディング ───────────────────────────────────────────────────────
+    /// 獲得したエンディング秘宝のボス種別（"abyss"/"flame"/"ice"/"chaos"/"ancient"）
+    pub ending_boss_type: Option<String>,
+    /// 最終ボスフロアにいるか
+    pub is_final_floor: bool,
+    /// クリア時のエンディング種別（Victoryモードで参照）
+    pub victory_ending: Option<String>,
+    /// エンディング秘宝入手時の演出テキスト (タイトル, フレーバー, 本文)
+    pub ending_announcement: Option<(String, String, String)>,
     // ── Floor graph ──────────────────────────────────────────────────────────
     pub floor_graph: FloorGraph,
     pub current_floor_id: FloorId,
@@ -128,6 +138,10 @@ impl Game {
             pending_rewards: Vec::new(),
             reward_skill_cursor: 0,
             start_skill_cursor: 0,
+            ending_boss_type: None,
+            is_final_floor: false,
+            victory_ending: None,
+            ending_announcement: None,
             floor_graph,
             current_floor_id: 1,
             stair_destinations: Vec::new(),
@@ -174,6 +188,101 @@ impl Game {
             self.update_stats();
         }
         self.mode = GameMode::Exploring;
+    }
+
+    /// エンディング秘宝を入手したときの処理。
+    /// 演出テキストをセットして EndingAnnouncement モードに遷移する。
+    pub fn apply_ending_relic(&mut self, relic_id: usize) {
+        use crate::relic::ending_relic;
+        let relic = ending_relic(relic_id);
+        let boss_key = match &relic.effect {
+            crate::relic::RelicEffect::EndingBoss(k) => k.clone(),
+            _ => return,
+        };
+        let (title, flavor, body) = match boss_key.as_str() {
+            "abyss" => (
+                "【深淵の目醒め】".to_string(),
+                "深淵がお前を見つめている――".to_string(),
+                format!(
+                    "「{}」を手に入れた。\n虚無の王「深淵の支配者」が最終試練として君臨する。\n光すら届かぬ闇の底で、お前を待ち受けている。",
+                    relic.name
+                ),
+            ),
+            "flame" => (
+                "【炎帝の審判】".to_string(),
+                "炎よ、汝は選ばれた者か――".to_string(),
+                format!(
+                    "「{}」を手に入れた。\n炎神「炎帝アグニ」が最終試練として降臨する。\n世界を焼き尽くす炎の化身が、お前の真の力を試す。",
+                    relic.name
+                ),
+            ),
+            "ice" => (
+                "【永遠の冬の到来】".to_string(),
+                "すべてが凍りつく――時間すらも――".to_string(),
+                format!(
+                    "「{}」を手に入れた。\n氷の支配者「フリゲル女王」が最終試練として目醒める。\n永遠の冬を統べる者が、お前の熱を奪いに来る。",
+                    relic.name
+                ),
+            ),
+            "chaos" => (
+                "【混沌の夜明け】".to_string(),
+                "秩序は崩れ、混沌が支配する――".to_string(),
+                format!(
+                    "「{}」を手に入れた。\n「混沌の化身」が最終試練として具現化する。\n理の外に存在する者が、お前の理性を飲み込もうとしている。",
+                    relic.name
+                ),
+            ),
+            "ancient" => (
+                "【古代の番人の覚醒】".to_string(),
+                "千年の眠りが覚める――".to_string(),
+                format!(
+                    "「{}」を手に入れた。\n太古の守護者「ゴルゴン」が最終試練として復活する。\n文明の黎明期から眠る番人が、お前の資格を問う。",
+                    relic.name
+                ),
+            ),
+            _ => return,
+        };
+
+        self.ending_boss_type = Some(boss_key);
+        self.player.relics.push(relic.clone());
+        self.add_message(format!("【エンディング秘宝】「{}」を手に入れた！最終ボスが変わる！", relic.name), MessageKind::Good);
+        self.ending_announcement = Some((title, flavor, body));
+        self.mode = GameMode::EndingAnnouncement;
+    }
+
+    /// 最終ボスフロアをロードして、対応する最終ボスをスポーンする。
+    fn load_final_boss_floor(&mut self) {
+        use crate::map::FloorType;
+        use crate::monster::spawn_final_boss;
+
+        self.is_final_floor = true;
+        self.monsters.clear();
+        self.floor_items.clear();
+        self.floor_relics.clear();
+
+        // MiniBoss型のマップを生成（コンパクト）
+        self.map = crate::map::Map::new(30, FloorType::MiniBoss);
+        let (px, py, _stairs) = self.map.generate(&mut self.rng, 0);
+        self.player.x = px;
+        self.player.y = py;
+        self.player.floor = 30;
+        self.camera_x = px - 40;
+        self.camera_y = py - 22;
+
+        // ボスを最後の部屋の中央にスポーン
+        if let Some(boss_room) = self.map.rooms.last() {
+            let (bx, by) = boss_room.center();
+            let boss = spawn_final_boss(self.ending_boss_type.as_deref(), bx, by);
+            let boss_name = boss.kind.name().to_string();
+            self.monsters.push(boss);
+            self.add_message(
+                format!("【最終決戦】{}が現れた！！", boss_name),
+                MessageKind::Warning,
+            );
+        }
+
+        // 視界を更新
+        self.map.compute_fov(self.player.x, self.player.y, crate::game::FOV_RADIUS);
     }
 
     pub fn add_message(&mut self, msg: impl Into<String>, kind: MessageKind) {
@@ -833,11 +942,22 @@ impl Game {
     fn on_monster_death(&mut self, idx: usize) {
         // Extract all data before any mutable borrows
         let name = self.monsters[idx].kind.name().to_string();
+        let is_final = self.monsters[idx].kind.is_final_boss();
+        let ending_key = self.monsters[idx].kind.ending_key().map(|s| s.to_string());
         let raw_exp = self.monsters[idx].exp_reward;
         let gold = self.monsters[idx].gold_reward;
         let drop_chance = self.monsters[idx].item_drop_chance;
         let x = self.monsters[idx].x;
         let y = self.monsters[idx].y;
+
+        // 最終ボスを探索モード中に倒した場合もエンディングへ
+        if is_final && self.is_final_floor {
+            self.victory_ending = ending_key;
+            self.monsters.remove(idx);
+            self.mode = GameMode::Victory;
+            self.add_message(format!("【ダンジョン制覇】{}を撃破した！勝利！", name), MessageKind::Good);
+            return;
+        }
 
         let mut exp = raw_exp;
         if self.blessed_floor {
@@ -1034,10 +1154,21 @@ impl Game {
 
         let next_depth = self.floor_graph.depth_of(dest_id);
 
-        // Victory at depth 30
+        // Final boss floor at depth 30
         if next_depth >= 30 {
-            self.mode = GameMode::Victory;
-            self.add_message("ダンジョン制覇！勝利！", MessageKind::Good);
+            self.load_final_boss_floor();
+            return;
+        }
+
+        // Check for special ending events first (20% chance, floor >= 5)
+        let acquired_ending_ids: Vec<usize> = self.player.relics.iter()
+            .filter(|r| crate::relic::ENDING_RELIC_IDS.contains(&r.id))
+            .map(|r| r.id)
+            .collect();
+        if let Some(event) = crate::event::generate_ending_event(next_depth, &acquired_ending_ids) {
+            self.pending_floor_id = Some(dest_id);
+            self.current_event = Some(event);
+            self.mode = GameMode::Event;
             return;
         }
 
@@ -1203,6 +1334,15 @@ impl Game {
                         if leveled {
                             self.add_message(format!("強制レベルアップ！レベル{}になった！", self.player.level), MessageKind::Good);
                             self.update_stats();
+                        }
+                    }
+                    EventConsequence::GainEndingRelic(relic_id) => {
+                        let id = *relic_id;
+                        // 既に持っている場合はスキップ
+                        if !self.player.relics.iter().any(|r| r.id == id) {
+                            self.apply_ending_relic(id);
+                            // apply_ending_relic が EndingAnnouncement モードに遷移するため
+                            // イベント後フロアロードを抑制する
                         }
                     }
                 }
@@ -1694,7 +1834,19 @@ impl Game {
 
     fn battle_end_victory(&mut self, idx: usize) {
         let name = self.monsters[idx].kind.name().to_string();
+        let is_final = self.monsters[idx].kind.is_final_boss();
+        let ending_key = self.monsters[idx].kind.ending_key().map(|s| s.to_string());
         self.battle_log.push((format!("✨ {}を倒した！", name), MessageKind::Good));
+
+        // 最終ボスを倒した場合はエンディングへ
+        if is_final {
+            self.victory_ending = ending_key;
+            self.on_monster_death(idx);
+            self.battle_enemy_idx = None;
+            self.mode = GameMode::Victory;
+            self.add_message("【ダンジョン制覇】最終ボスを撃破した！勝利！", MessageKind::Good);
+            return;
+        }
 
         // Collect base stats before on_monster_death mutates the list
         let raw_exp = self.monsters[idx].exp_reward;

@@ -184,6 +184,12 @@ fn monster_span(kind: &MonsterKind, dist: f32) -> Span<'static> {
         MonsterKind::Demon    => ("Ω", (240, 20,  20)),
         MonsterKind::Ghost    => ("Ƨ", (160, 160, 255)),
         MonsterKind::Golem    => ("Ɣ", (110, 110, 110)),
+        MonsterKind::FinalDemonLord  => ("魔", (240, 80,  20)),
+        MonsterKind::AbyssLord       => ("淵", (80,  20,  200)),
+        MonsterKind::FlameEmperor    => ("炎", (255, 100, 10)),
+        MonsterKind::IceSovereign    => ("氷", (80,  200, 255)),
+        MonsterKind::ChaosAvatar     => ("沌", (200, 50,  220)),
+        MonsterKind::AncientGuardian => ("古", (150, 180, 50)),
     };
     let color = lerp(base_color, PAL_FLOOR_FAR, (1.0 - torch_falloff(dist)) * 0.3);
     let mut style = Style::default().fg(color);
@@ -230,9 +236,10 @@ pub fn render(f: &mut Frame, game: &Game) {
         GameMode::Crafting   => render_crafting(f, game, area),
         GameMode::Event      => render_event(f, game, area),
         GameMode::LevelUp    => render_levelup(f, game, area),
-        GameMode::Help            => { render_main(f, game, area); render_help(f, area); }
-        GameMode::StartSkillSelect => render_start_skill_select(f, game, area),
-        _                         => render_main(f, game, area),
+        GameMode::Help               => { render_main(f, game, area); render_help(f, area); }
+        GameMode::StartSkillSelect   => render_start_skill_select(f, game, area),
+        GameMode::EndingAnnouncement => render_ending_announcement(f, game, area),
+        _                            => render_main(f, game, area),
     }
 }
 
@@ -1233,6 +1240,54 @@ fn render_start_skill_select(f: &mut Frame, game: &Game, area: Rect) {
                 .title(" 初期スキル選択 ")
                 .border_style(Style::default().fg(Color::Rgb(255, 200, 60))))
             .style(Style::default().bg(Color::Rgb(8, 10, 18))),
+        popup,
+    );
+}
+
+// ── Ending Announcement ───────────────────────────────────────────────────────
+fn render_ending_announcement(f: &mut Frame, game: &Game, area: Rect) {
+    f.render_widget(Paragraph::new("").style(Style::default().bg(Color::Rgb(2, 2, 8))), area);
+
+    let pw = area.width.min(62);
+    let ph = area.height.min(20);
+    let popup = Rect {
+        x: area.x + (area.width.saturating_sub(pw)) / 2,
+        y: area.y + (area.height.saturating_sub(ph)) / 2,
+        width: pw, height: ph,
+    };
+
+    let (title, flavor, body) = match &game.ending_announcement {
+        Some(a) => (a.0.as_str(), a.1.as_str(), a.2.as_str()),
+        None    => ("【エンディング秘宝】", "", ""),
+    };
+
+    let mut lines = vec![
+        Line::from(""),
+        Line::from(Span::styled(title, Style::default()
+            .fg(Color::Rgb(255, 200, 60))
+            .add_modifier(Modifier::BOLD))),
+        Line::from(""),
+        Line::from(Span::styled(flavor, Style::default()
+            .fg(Color::Rgb(180, 140, 220))
+            .add_modifier(Modifier::ITALIC))),
+        Line::from(""),
+    ];
+    for line in body.lines() {
+        lines.push(Line::from(Span::styled(line.to_string(), Style::default().fg(Color::Rgb(200, 210, 230)))));
+    }
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "── 何かキーを押して続ける ──",
+        Style::default().fg(Color::Rgb(60, 80, 100)),
+    )));
+
+    f.render_widget(
+        Paragraph::new(lines)
+            .wrap(Wrap { trim: false })
+            .block(Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Rgb(180, 120, 40))))
+            .style(Style::default().bg(Color::Rgb(4, 4, 14))),
         popup,
     );
 }
