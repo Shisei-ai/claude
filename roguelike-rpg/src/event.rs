@@ -152,17 +152,17 @@ pub fn generate_floor_event(floor: u32) -> Option<RandomEvent> {
         },
         3 => RandomEvent {
             title: "賭博師".to_string(),
-            description: "マントを羽織った謎めいた人物が即席の机に座っている。「旅人よ、運命を賭けてみるか？倍か無か——お前の全てを。」".to_string(),
+            description: "マントを羽織った謎めいた人物が即席の机に座っている。「旅人よ、運命を賭けてみるか？カードはもう切った——お前が選ぶだけだ。」".to_string(),
             choices: vec![
                 EventChoice {
-                    label: "ゴールドを賭ける（50/50：×3か全額没収）".to_string(),
-                    description: "財布を使った純粋な博打。".to_string(),
+                    label: "ゴールドを賭ける".to_string(),
+                    description: "賭博師はにやりと笑う。何が起きるかは、カードをめくるまで分からない。".to_string(),
                     consequences: vec![EventConsequence::GainGold(rng.gen_range(0..2) * 300 * floor)],
                     is_risky: true,
                 },
                 EventChoice {
-                    label: "力を賭ける（STR+15かSTR-8）".to_string(),
-                    description: "肉体的な力を賭ける博打。".to_string(),
+                    label: "力を賭ける".to_string(),
+                    description: "運命が力を与えるか、奪うか——賭博師は何も言わない。".to_string(),
                     consequences: if rng.gen_bool(0.4) {
                         vec![EventConsequence::GainStrPermanent(15)]
                     } else {
@@ -676,9 +676,8 @@ pub fn generate_shrine_event(floor: u32) -> RandomEvent {
                 description: "二つの皿を持つ天秤が浮かんでいる。「全てを賭けるか、それとも確実な中庸を選ぶか？」".to_string(),
                 choices: vec![
                     EventChoice {
-                        label: "天秤に全てを賭ける（50/50：完全回復+EXP大量 か HP1）".to_string(),
-                        description: if lucky { "★ 今は幸運が微笑む——完全回復とEXPが待っている。".to_string() }
-                                     else { "★ 今は運命が牙を剥く——HP1まで落ちる。".to_string() },
+                        label: "天秤に全てを賭ける".to_string(),
+                        description: "天秤はすでに傾きを決めている。お前の目には見えないが。".to_string(),
                         consequences: if lucky {
                             vec![EventConsequence::FullRestoreHpMp, EventConsequence::GainExp(floor * 250)]
                         } else {
