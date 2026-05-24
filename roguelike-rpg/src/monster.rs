@@ -15,6 +15,20 @@ pub enum MonsterKind {
     Demon,
     Ghost,
     Golem,
+    // ── 中ボス (MiniBossフロア専用) ───────────────────────────
+    GiantRatKing,    // 巨大ネズミ王   floor 1-5
+    OrcWarlord,      // オーク戦士長   floor 5-10
+    BoneLord,        // 骸骨の騎士王   floor 9-14
+    DarkKnight,      // 暗黒騎士       floor 13-18
+    VoidMage,        // 虚空の魔道士   floor 17-22
+    AbyssalHydra,    // 深淵の多頭竜   floor 21-26
+    ChaosWarden,     // 混沌の番兵     floor 25-29
+    // ── 宝庫番人 (Treasuryフロア専用) ───────────────────────
+    TreasureGolem,   // 宝箱ゴーレム   floor 1-7
+    GoldenKnight,    // 黄金騎士       floor 6-13
+    TreasuryWitch,   // 宝蔵の��女     floor 11-18
+    StoneSentinel,   // 石の番兵       floor 16-23
+    DragonGuard,     // 守護竜         floor 21-29
     // ── 最終ボス ──────────────────────────────────────────────
     FinalDemonLord,   // 通常エンディング: ダンジョンの魔王
     AbyssLord,        // 深淵エンディング: 深淵の支配者
@@ -39,6 +53,18 @@ impl MonsterKind {
             MonsterKind::Demon => '&',
             MonsterKind::Ghost => 'G',
             MonsterKind::Golem => 'P',
+            MonsterKind::GiantRatKing  => '鼠',
+            MonsterKind::OrcWarlord    => '将',
+            MonsterKind::BoneLord      => '骸',
+            MonsterKind::DarkKnight    => '暗',
+            MonsterKind::VoidMage      => '虚',
+            MonsterKind::AbyssalHydra  => '竜',
+            MonsterKind::ChaosWarden   => '混',
+            MonsterKind::TreasureGolem => '宝',
+            MonsterKind::GoldenKnight  => '金',
+            MonsterKind::TreasuryWitch => '魔',
+            MonsterKind::StoneSentinel => '番',
+            MonsterKind::DragonGuard   => '護',
             MonsterKind::FinalDemonLord  => '魔',
             MonsterKind::AbyssLord       => '淵',
             MonsterKind::FlameEmperor    => '炎',
@@ -62,6 +88,18 @@ impl MonsterKind {
             MonsterKind::Demon => "悪魔",
             MonsterKind::Ghost => "亡霊",
             MonsterKind::Golem => "石のゴーレム",
+            MonsterKind::GiantRatKing  => "巨大ネズミ王",
+            MonsterKind::OrcWarlord    => "オーク戦士長",
+            MonsterKind::BoneLord      => "骸骨の騎士王",
+            MonsterKind::DarkKnight    => "暗黒騎士",
+            MonsterKind::VoidMage      => "虚空の魔道士",
+            MonsterKind::AbyssalHydra  => "深淵の多頭竜",
+            MonsterKind::ChaosWarden   => "混沌の番兵",
+            MonsterKind::TreasureGolem => "宝箱ゴーレム",
+            MonsterKind::GoldenKnight  => "黄金騎士",
+            MonsterKind::TreasuryWitch => "宝蔵の魔女",
+            MonsterKind::StoneSentinel => "石の番兵",
+            MonsterKind::DragonGuard   => "守護竜",
             MonsterKind::FinalDemonLord  => "ダンジョンの魔王",
             MonsterKind::AbyssLord       => "深淵の支配者",
             MonsterKind::FlameEmperor    => "炎帝アグニ",
@@ -74,6 +112,13 @@ impl MonsterKind {
     pub fn is_boss(&self) -> bool {
         matches!(self,
             MonsterKind::Dragon | MonsterKind::Demon
+            | MonsterKind::GiantRatKing | MonsterKind::OrcWarlord
+            | MonsterKind::BoneLord | MonsterKind::DarkKnight
+            | MonsterKind::VoidMage | MonsterKind::AbyssalHydra
+            | MonsterKind::ChaosWarden
+            | MonsterKind::TreasureGolem | MonsterKind::GoldenKnight
+            | MonsterKind::TreasuryWitch | MonsterKind::StoneSentinel
+            | MonsterKind::DragonGuard
             | MonsterKind::FinalDemonLord | MonsterKind::AbyssLord
             | MonsterKind::FlameEmperor   | MonsterKind::IceSovereign
             | MonsterKind::ChaosAvatar    | MonsterKind::AncientGuardian
@@ -156,19 +201,17 @@ pub fn spawn_monster<R: Rng>(rng: &mut R, x: i32, y: i32, floor: u32, is_boss: b
 
     let (base_hp, base_atk, base_def, base_exp, base_gold, drop_chance) = base_stats_for(&kind);
     let scale = 1.0 + (floor as f32 - 1.0) * 0.15;
-    let cursed_bonus = 1.0f32; // set externally if on cursed floor
 
-    let hp = ((base_hp as f32 * scale * cursed_bonus) as i32).max(1) + rng.gen_range(0..5);
-    let atk = ((base_atk as f32 * scale * cursed_bonus) as i32).max(1) + rng.gen_range(0..3);
+    let hp  = ((base_hp  as f32 * scale) as i32).max(1) + rng.gen_range(0..5);
+    let atk = ((base_atk as f32 * scale) as i32).max(1) + rng.gen_range(0..3);
     let def = ((base_def as f32 * scale) as i32).max(0) + rng.gen_range(0..2);
-    let exp = (base_exp as f32 * scale) as u32 + rng.gen_range(0..10);
-    let gold = (base_gold as f32 * scale) as u32 + rng.gen_range(0..5);
+    let exp = (base_exp  as f32 * scale) as u32 + rng.gen_range(0..10);
+    let gold= (base_gold as f32 * scale) as u32 + rng.gen_range(0..5);
 
     Monster {
         id: next_monster_id(),
         kind: kind.clone(),
-        x,
-        y,
+        x, y,
         hp,
         max_hp: hp,
         attack: atk,
@@ -181,6 +224,91 @@ pub fn spawn_monster<R: Rng>(rng: &mut R, x: i32, y: i32, floor: u32, is_boss: b
         ai_state: AiState::Idle,
         seen_player: false,
         item_drop_chance: drop_chance,
+    }
+}
+
+/// MiniBossフロア専用の中ボスを生成する
+pub fn spawn_mini_boss<R: Rng>(rng: &mut R, x: i32, y: i32, floor: u32) -> Monster {
+    let kind = pick_mini_boss_kind(floor);
+    let (base_hp, base_atk, base_def, base_exp, base_gold, drop_chance) = base_stats_for(&kind);
+    let scale = 1.0 + (floor as f32 - 1.0) * 0.15;
+
+    // 中ボスは通常モンスターより強いが、スケーリング分散を大きく
+    let hp  = ((base_hp  as f32 * scale) as i32).max(1) + rng.gen_range(0..20);
+    let atk = ((base_atk as f32 * scale) as i32).max(1) + rng.gen_range(0..5);
+    let def = ((base_def as f32 * scale) as i32).max(0) + rng.gen_range(0..3);
+    let exp = (base_exp  as f32 * scale) as u32 + rng.gen_range(0..30);
+    let gold= (base_gold as f32 * scale) as u32 + rng.gen_range(0..20);
+
+    Monster {
+        id: next_monster_id(),
+        kind: kind.clone(),
+        x, y,
+        hp,
+        max_hp: hp,
+        attack: atk,
+        defense: def,
+        speed: speed_for(&kind),
+        exp_reward: exp,
+        gold_reward: gold,
+        status_effects: Vec::new(),
+        is_confused: false,
+        ai_state: AiState::Idle,
+        seen_player: false,
+        item_drop_chance: drop_chance,
+    }
+}
+
+/// Treasuryフロア専用の番人を生成する
+pub fn spawn_treasury_guardian<R: Rng>(rng: &mut R, x: i32, y: i32, floor: u32) -> Monster {
+    let kind = pick_guardian_kind(floor);
+    let (base_hp, base_atk, base_def, base_exp, base_gold, drop_chance) = base_stats_for(&kind);
+    let scale = 1.0 + (floor as f32 - 1.0) * 0.15;
+
+    let hp  = ((base_hp  as f32 * scale) as i32).max(1) + rng.gen_range(0..15);
+    let atk = ((base_atk as f32 * scale) as i32).max(1) + rng.gen_range(0..5);
+    let def = ((base_def as f32 * scale) as i32).max(0) + rng.gen_range(0..3);
+    let exp = (base_exp  as f32 * scale) as u32 + rng.gen_range(0..30);
+    let gold= (base_gold as f32 * scale) as u32 + rng.gen_range(0..20);
+
+    Monster {
+        id: next_monster_id(),
+        kind: kind.clone(),
+        x, y,
+        hp,
+        max_hp: hp,
+        attack: atk,
+        defense: def,
+        speed: speed_for(&kind),
+        exp_reward: exp,
+        gold_reward: gold,
+        status_effects: Vec::new(),
+        is_confused: false,
+        ai_state: AiState::Idle,
+        seen_player: false,
+        item_drop_chance: drop_chance,
+    }
+}
+
+fn pick_mini_boss_kind(floor: u32) -> MonsterKind {
+    match floor {
+        1..=5   => MonsterKind::GiantRatKing,
+        6..=9   => MonsterKind::OrcWarlord,
+        10..=13 => MonsterKind::BoneLord,
+        14..=17 => MonsterKind::DarkKnight,
+        18..=21 => MonsterKind::VoidMage,
+        22..=25 => MonsterKind::AbyssalHydra,
+        _       => MonsterKind::ChaosWarden,
+    }
+}
+
+fn pick_guardian_kind(floor: u32) -> MonsterKind {
+    match floor {
+        1..=6   => MonsterKind::TreasureGolem,
+        7..=11  => MonsterKind::GoldenKnight,
+        12..=16 => MonsterKind::TreasuryWitch,
+        17..=21 => MonsterKind::StoneSentinel,
+        _       => MonsterKind::DragonGuard,
     }
 }
 
@@ -198,6 +326,21 @@ pub fn speed_for(kind: &MonsterKind) -> i32 {
         MonsterKind::Vampire   => 10,
         MonsterKind::Dragon    =>  7,
         MonsterKind::Demon     =>  9,
+        // 中ボス
+        MonsterKind::GiantRatKing  => 10,
+        MonsterKind::OrcWarlord    =>  7,
+        MonsterKind::BoneLord      =>  5,
+        MonsterKind::DarkKnight    =>  8,
+        MonsterKind::VoidMage      =>  9,
+        MonsterKind::AbyssalHydra  =>  6,
+        MonsterKind::ChaosWarden   => 11,
+        // 宝庫番人
+        MonsterKind::TreasureGolem =>  3,
+        MonsterKind::GoldenKnight  =>  7,
+        MonsterKind::TreasuryWitch =>  8,
+        MonsterKind::StoneSentinel =>  2,
+        MonsterKind::DragonGuard   =>  8,
+        // 最終ボス
         MonsterKind::FinalDemonLord  =>  8,
         MonsterKind::AbyssLord       => 10,
         MonsterKind::FlameEmperor    => 12,
@@ -240,7 +383,21 @@ fn base_stats_for(kind: &MonsterKind) -> (i32, i32, i32, u32, u32, u32) {
         MonsterKind::Vampire   => (60, 14, 8, 90, 60, 50),
         MonsterKind::Dragon    => (200,25, 15,500,200,80),
         MonsterKind::Demon     => (300,35, 20,1000,500,90),
-        // 最終ボス（スケーリング前の基準値。game側でfloor=30相当に掛け算される）
+        // ── 中ボス（通常モンスターの3〜5倍HP、2倍ATK、豊富な報酬）─
+        MonsterKind::GiantRatKing  => (120, 14,  4,  300, 180, 90),
+        MonsterKind::OrcWarlord    => (280, 28, 14,  700, 400, 90),
+        MonsterKind::BoneLord      => (380, 38, 24, 1200, 700, 90),
+        MonsterKind::DarkKnight    => (520, 52, 36, 2000,1200, 90),
+        MonsterKind::VoidMage      => (360, 75,  8, 2800,1800, 90),
+        MonsterKind::AbyssalHydra  => (800, 65, 22, 4500,3000, 90),
+        MonsterKind::ChaosWarden   => (950, 88, 42, 7000,5000, 90),
+        // ── 宝庫番人（高HP、高DEF、高報酬）────────────────────────
+        MonsterKind::TreasureGolem => (200, 18, 22,  500, 800, 90),
+        MonsterKind::GoldenKnight  => (400, 38, 28, 1100,1800, 90),
+        MonsterKind::TreasuryWitch => (300, 65, 10, 1800,3000, 90),
+        MonsterKind::StoneSentinel => (800, 42, 55, 3200,5000, 90),
+        MonsterKind::DragonGuard   => (1000,68, 38, 6000,8000, 90),
+        // ── 最終ボス（スケーリング前の基準値）──────────────────────
         MonsterKind::FinalDemonLord  => (2000, 80, 40, 8000, 5000, 100),
         MonsterKind::AbyssLord       => (2200, 95, 35, 8500, 5500, 100),
         MonsterKind::FlameEmperor    => (1800,110, 25, 8500, 5500, 100),

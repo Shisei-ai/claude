@@ -398,47 +398,37 @@ impl Game {
     // Few elite guardians, lots of chests (already placed by map gen), no relic.
     fn spawn_treasury(&mut self) {
         let floor = self.map.floor;
-        let num_guards = 2 + self.rng.gen_range(0..3usize);
         let rooms = self.map.rooms.clone();
         let ps = (self.player.x, self.player.y);
 
-        // Guardians: elite enemies in rooms other than start
-        let mut spawned = 0;
-        for room in rooms.iter().skip(1).rev() {
-            if spawned >= num_guards { break; }
-            let (cx, cy) = room.center();
-            if (cx - ps.0).abs() + (cy - ps.1).abs() < 3 { continue; }
-            // All guardians are boss-tier on this floor
-            self.monsters.push(crate::monster::spawn_monster(&mut self.rng, cx, cy, floor, true));
-            spawned += 1;
+        // 専用番人を奥の部屋に1体だけ配置
+        if let Some(boss_room) = rooms.iter().skip(1).rev().find(|r| {
+            let (cx, cy) = r.center();
+            (cx - ps.0).abs() + (cy - ps.1).abs() >= 3
+        }) {
+            let (bx, by) = boss_room.center();
+            self.monsters.push(crate::monster::spawn_treasury_guardian(&mut self.rng, bx, by, floor));
         }
         // No loose items — rewards come from chests
     }
 
     // ── MiniBoss ──────────────────────────────────────────────────────────────
-    // 1 boss in the last room + a few minions. Reward item near boss spawn.
+    // 専用中ボス1体のみ。雑魚は出現しない。
     fn spawn_miniboss(&mut self) {
         let floor = self.map.floor;
         let rooms = self.map.rooms.clone();
 
-        // Boss in last room
+        // 中ボスを奥の部屋に1体配置
         if let Some(boss_room) = rooms.last() {
             let (bx, by) = boss_room.center();
-            self.monsters.push(crate::monster::spawn_monster(&mut self.rng, bx, by, floor, true));
-            // 2-4 minions scattered in the boss room
-            let num_minions = 2 + self.rng.gen_range(0..3usize);
-            for _ in 0..num_minions {
-                let mx = bx + self.rng.gen_range(-2..=2);
-                let my = by + self.rng.gen_range(-1..=1);
-                if self.map.is_walkable(mx, my) && self.monster_at(mx, my).is_none() {
-                    self.monsters.push(crate::monster::spawn_monster(&mut self.rng, mx, my, floor, false));
-                }
-            }
-            // Guaranteed reward chest offset from center
+            self.monsters.push(crate::monster::spawn_mini_boss(&mut self.rng, bx, by, floor));
+            // 戦闘後の報酬チェスト
             let cx = bx + 2;
             let cy = by;
             if self.map.is_walkable(cx, cy) {
                 self.map.set(cx, cy, Tile::Chest);
+            } else if self.map.is_walkable(bx - 2, by) {
+                self.map.set(bx - 2, by, Tile::Chest);
             }
         }
         // 秘宝・呪物はフィールドに発生しない（戦闘・イベントのみ）

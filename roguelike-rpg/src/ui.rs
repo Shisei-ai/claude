@@ -184,6 +184,21 @@ fn monster_span(kind: &MonsterKind, dist: f32) -> Span<'static> {
         MonsterKind::Demon    => ("Ω", (240, 20,  20)),
         MonsterKind::Ghost    => ("Ƨ", (160, 160, 255)),
         MonsterKind::Golem    => ("Ɣ", (110, 110, 110)),
+        // 中ボス
+        MonsterKind::GiantRatKing  => ("鼠", (180, 120,  60)),
+        MonsterKind::OrcWarlord    => ("将", ( 80, 180,  40)),
+        MonsterKind::BoneLord      => ("骸", (220, 210, 190)),
+        MonsterKind::DarkKnight    => ("暗", ( 60,  60, 160)),
+        MonsterKind::VoidMage      => ("虚", (160,  40, 240)),
+        MonsterKind::AbyssalHydra  => ("竜", (180,  20,  80)),
+        MonsterKind::ChaosWarden   => ("混", (220,  80, 220)),
+        // 宝庫番人
+        MonsterKind::TreasureGolem => ("宝", (200, 160,  20)),
+        MonsterKind::GoldenKnight  => ("金", (240, 200,  30)),
+        MonsterKind::TreasuryWitch => ("魔", (180,  60, 200)),
+        MonsterKind::StoneSentinel => ("番", (140, 130, 120)),
+        MonsterKind::DragonGuard   => ("護", (200,  50,  50)),
+        // 最終ボス
         MonsterKind::FinalDemonLord  => ("魔", (240, 80,  20)),
         MonsterKind::AbyssLord       => ("淵", (80,  20,  200)),
         MonsterKind::FlameEmperor    => ("炎", (255, 100, 10)),
