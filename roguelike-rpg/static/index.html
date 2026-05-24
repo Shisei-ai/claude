@@ -146,8 +146,8 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 .battle-side{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:20px 24px 14px;gap:10px}
 .battle-side.enemy-side{justify-content:flex-start;padding-top:30px}
 .battle-name{font-size:15px;letter-spacing:.12em;color:#6080a0;margin-bottom:4px}
-.battle-sprite-wrap{position:relative;width:128px;height:128px}
-.battle-sprite-wrap canvas{width:128px;height:128px;image-rendering:pixelated}
+.battle-sprite-wrap{position:relative;width:192px;height:192px}
+.battle-sprite-wrap canvas{width:192px;height:192px;image-rendering:pixelated;image-rendering:crisp-edges}
 .battle-hp-wrap{width:180px}
 .battle-hp-label{font-size:11px;color:#445566;margin-bottom:3px}
 .battle-hp-track{height:10px;background:#0d0d1c;border:1px solid #1a2030;border-radius:1px;overflow:hidden;margin-bottom:3px}
@@ -824,48 +824,779 @@ const TILES = {
   },
 };
 
-// Monster sprites (5×5)
+// Monster sprites (20×20 pixel-precise using dr())
 const MONSTERS = {
-  Rat:       (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,2],[2,2],[3,2],[2,3],[1,1]].forEach(([x,y])=>px(ctx,x,y,C.ratBrown)); px(ctx,3,1,'#c8a060'); px(ctx,0,3,C.ratBrown); px(ctx,4,3,C.ratBrown); },
-  Goblin:    (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,1],[2,1],[3,1],[1,2],[2,2],[3,2],[2,3]].forEach(([x,y])=>px(ctx,x,y,C.gobGreen)); px(ctx,1,0,'#e0e000'); px(ctx,3,0,'#e0e000'); px(ctx,2,0,'#a8c030'); px(ctx,2,4,C.gobGreen); },
-  Orc:       (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[0,1],[1,1],[2,1],[3,1],[4,1],[0,2],[1,2],[2,2],[3,2],[4,2],[1,3],[2,3],[3,3]].forEach(([x,y])=>px(ctx,x,y,C.orcGreen)); [[1,0],[3,0]].forEach(([x,y])=>px(ctx,x,y,'#a0a000')); px(ctx,2,0,C.orcGreen); px(ctx,2,4,'#8030a0'); },
-  Skeleton:  (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[1,1],[2,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,C.skelWhite)); [[0,2],[4,2],[1,2],[3,2],[2,3]].forEach(([x,y])=>px(ctx,x,y,C.skelWhite)); [[2,2]].forEach(([x,y])=>px(ctx,x,y,C.skelDark)); [[1,4],[3,4]].forEach(([x,y])=>px(ctx,x,y,C.skelWhite)); },
-  Zombie:    (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[0,1],[1,1],[2,1],[3,1],[4,1],[0,2],[1,2],[3,2],[4,2],[1,3],[2,3],[3,3]].forEach(([x,y])=>px(ctx,x,y,C.zombiGrn)); [[2,1]].forEach(([x,y])=>px(ctx,x,y,'#c03020')); [[0,4],[1,4],[3,4],[4,4]].forEach(([x,y])=>px(ctx,x,y,C.zombiGrn)); },
-  Troll:     (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); ctx.fillStyle=C.trollGray; ctx.fillRect(0,0,TS,TS*0.8); [[0,0],[4,0]].forEach(([x,y])=>px(ctx,x,y,'#606870')); px(ctx,2,0,'#808898'); [[1,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,'#202830')); },
-  Mage:      (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[1,1],[2,1],[3,1],[2,2]].forEach(([x,y])=>px(ctx,x,y,C.mageViol)); [[0,2],[4,2],[0,3],[4,3],[1,4],[2,4],[3,4]].forEach(([x,y])=>px(ctx,x,y,'#6040b8')); px(ctx,2,0,'#f0e040'); [[1,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,'#a080e0')); },
-  Vampire:   (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[1,1],[2,1],[3,1],[1,2],[2,2],[3,2]].forEach(([x,y])=>px(ctx,x,y,C.vampDark)); [[1,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,'#e03030')); [[0,1],[4,1],[0,3],[4,3],[1,4],[3,4]].forEach(([x,y])=>px(ctx,x,y,C.vampDark)); px(ctx,2,3,C.vampRed); },
-  Dragon:    (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); ctx.fillStyle=C.dragonRed; ctx.fillRect(0,S,TS,3*S); [[0,0],[4,0]].forEach(([x,y])=>px(ctx,x,y,C.dragonOrg)); [[1,0],[3,0],[2,0]].forEach(([x,y])=>px(ctx,x,y,C.dragonRed)); [[1,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,'#f0a000')); px(ctx,2,2,'#f06010'); [[4,2],[4,3]].forEach(([x,y])=>px(ctx,x,y,C.dragonOrg)); },
-  Demon:     (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); ctx.fillStyle=C.demonDark; ctx.fillRect(0,0,TS,TS); [[0,0],[4,0]].forEach(([x,y])=>px(ctx,x,y,C.demonPurp)); [[1,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,'#e03090')); [[1,2],[2,2],[3,2],[1,3],[3,3]].forEach(([x,y])=>px(ctx,x,y,C.demonPurp)); px(ctx,2,0,'#f040c0'); [[0,4],[4,4]].forEach(([x,y])=>px(ctx,x,y,C.demonPurp)); },
-  Ghost:     (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); ctx.globalAlpha=0.7; [[1,0],[2,0],[3,0],[0,1],[1,1],[2,1],[3,1],[4,1],[0,2],[1,2],[2,2],[3,2],[4,2],[1,3],[2,3],[3,3],[0,4],[2,4],[4,4]].forEach(([x,y])=>px(ctx,x,y,C.ghostBlue)); [[1,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,C.ghostCyan)); ctx.globalAlpha=1; },
-  Golem:     (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); ctx.fillStyle=C.golemStone; ctx.fillRect(S,0,3*S,TS); ctx.fillStyle=C.golemDark; ctx.fillRect(0,S,S,3*S); ctx.fillRect(4*S,S,S,3*S); [[1,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,'#80a8e0')); px(ctx,2,2,'#304060'); },
+  Rat: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Body (wide, low)
+    dr(ctx,3,10,14,6,'#5a3a14'); dr(ctx,4,9,12,7,'#6a4820'); dr(ctx,5,8,10,8,'#7a5830');
+    dr(ctx,6,8,8,6,'#8a6838'); // highlight
+    // Head (right side, facing left)
+    dr(ctx,2,7,8,7,'#6a4820'); dr(ctx,3,6,7,8,'#7a5030');
+    dr(ctx,3,6,6,6,'#8a6038'); // face
+    // Ears
+    dr(ctx,2,3,3,4,'#7a3818'); dr(ctx,3,3,2,4,'#9a4828');
+    dr(ctx,6,3,3,4,'#7a3818'); dr(ctx,7,3,2,4,'#9a4828');
+    dr(ctx,3,4,2,3,'#c06070'); dr(ctx,7,4,2,3,'#c06070'); // inner ear pink
+    // Eye (red glowing)
+    dr(ctx,4,8,2,2,'#ff2020'); dr(ctx,4,8,1,1,'#ff6060');
+    // Nose
+    dr(ctx,2,12,2,1,'#c07070'); dr(ctx,2,11,2,2,'#d08080');
+    // Fur texture
+    dr(ctx,7,9,2,1,'#9a7048',0.5); dr(ctx,11,10,2,1,'#9a7048',0.5);
+    // Tail (curves behind, left side)
+    dr(ctx,15,14,4,2,'#5a3010'); dr(ctx,17,12,3,3,'#5a3010');
+    dr(ctx,18,10,2,3,'#6a4018'); dr(ctx,18,8,2,3,'#7a5020');
+    // Feet
+    dr(ctx,5,16,2,2,'#4a2808'); dr(ctx,8,16,2,2,'#4a2808');
+    dr(ctx,11,16,2,2,'#4a2808'); dr(ctx,14,16,2,2,'#4a2808');
+    // Shadow
+    dr(ctx,3,17,14,2,'rgba(0,0,0,0.4)');
+  },
+  Goblin: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Body (hunched, greenish)
+    dr(ctx,6,11,8,8,'#2a5018'); dr(ctx,5,10,10,9,'#3a6028'); dr(ctx,6,9,8,10,'#4a7038');
+    // Chest highlight
+    dr(ctx,7,11,6,5,'#3a6828',0.7);
+    // Head (big)
+    dr(ctx,5,3,10,8,'#3a6028'); dr(ctx,6,2,8,9,'#4a7038'); dr(ctx,7,2,6,8,'#5a8048');
+    // Pointy ears
+    dr(ctx,3,3,3,4,'#3a6028'); dr(ctx,4,2,2,5,'#4a7038');
+    dr(ctx,14,3,3,4,'#3a6028'); dr(ctx,14,2,2,5,'#4a7038');
+    // Eyes (yellow glowing)
+    dr(ctx,7,5,3,2,'#d8e000'); dr(ctx,7,5,2,1,'#ffe030');
+    dr(ctx,12,5,3,2,'#d8e000'); dr(ctx,12,5,2,1,'#ffe030');
+    dr(ctx,8,5,1,1,'#181808'); dr(ctx,13,5,1,1,'#181808'); // pupils
+    // Nose (flat)
+    dr(ctx,9,8,2,1,'#2a4818'); dr(ctx,9,9,2,1,'#1a3810');
+    // Mouth (sneer)
+    dr(ctx,8,10,4,1,'#1a3010');
+    dr(ctx,8,10,1,1,'#d0c000'); dr(ctx,11,10,1,1,'#d0c000'); // fangs
+    // Dagger (left side)
+    dr(ctx,1,6,2,10,'#707888'); dr(ctx,0,5,3,2,'#b0b8c8');
+    dr(ctx,1,14,2,3,'#5a3010'); // handle
+    // Legs
+    dr(ctx,7,18,4,3,'#2a5018'); dr(ctx,7,19,2,2,'#1a3010');
+    dr(ctx,11,18,4,3,'#2a5018'); dr(ctx,13,19,2,2,'#1a3010');
+    // Shadow
+    dr(ctx,4,19,12,2,'rgba(0,0,0,0.4)');
+  },
+  Orc: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Body (massive, wide)
+    dr(ctx,2,9,16,11,'#284820'); dr(ctx,1,8,18,12,'#344e28'); dr(ctx,2,7,16,12,'#3a5830');
+    // Chest plate (crude iron)
+    dr(ctx,4,10,12,7,'#404848'); dr(ctx,5,10,10,6,'#505868'); dr(ctx,5,10,10,1,'rgba(255,255,255,0.12)');
+    // Head (small relative to body)
+    dr(ctx,5,2,10,7,'#344e28'); dr(ctx,6,1,8,8,'#3a5830'); dr(ctx,7,1,6,7,'#4a6838');
+    // Tusks
+    dr(ctx,6,7,2,3,'#d0c880'); dr(ctx,12,7,2,3,'#d0c880');
+    // Eyes (small, fierce)
+    dr(ctx,8,4,2,2,'#e04020'); dr(ctx,11,4,2,2,'#e04020');
+    dr(ctx,8,4,1,1,'#ff6020'); dr(ctx,11,4,1,1,'#ff6020');
+    // Nose
+    dr(ctx,9,6,2,2,'#283828');
+    // Arms (huge)
+    dr(ctx,0,9,3,8,'#344e28'); dr(ctx,17,9,3,8,'#344e28');
+    // Axe (left)
+    dr(ctx,0,4,2,6,'#505060'); // handle
+    dr(ctx,0,2,4,5,'#707888'); // blade
+    dr(ctx,0,2,4,1,'rgba(255,255,255,0.15)'); // edge glint
+    // Legs
+    dr(ctx,4,19,5,2,'#283820'); dr(ctx,11,19,5,2,'#283820');
+    // Shadow
+    dr(ctx,2,20,16,1,'rgba(0,0,0,0.45)');
+  },
+  Skeleton: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Skull
+    dr(ctx,6,1,8,7,'#b0b8c0'); dr(ctx,5,2,10,7,'#c0c8d0'); dr(ctx,6,1,8,6,'#d0d8e0');
+    // Skull shading
+    dr(ctx,5,2,1,7,'rgba(0,0,0,0.2)'); dr(ctx,14,2,1,7,'rgba(0,0,0,0.3)');
+    // Eye sockets (dark hollow)
+    dr(ctx,7,4,3,2,'#1c2028'); dr(ctx,11,4,3,2,'#1c2028');
+    dr(ctx,7,4,2,1,'#101418'); dr(ctx,11,4,2,1,'#101418'); // deep black
+    // Nose cavity
+    dr(ctx,9,6,2,2,'#202428');
+    // Jaw (teeth)
+    dr(ctx,6,7,8,2,'#b0b8c0'); dr(ctx,7,8,6,2,'#a0a8b0');
+    dr(ctx,7,8,1,2,'#d8e0e8'); dr(ctx,9,8,1,2,'#d8e0e8'); dr(ctx,11,8,1,2,'#d8e0e8');
+    // Spine/ribcage
+    dr(ctx,8,9,4,8,'#a0a8b0'); // spine
+    dr(ctx,5,10,10,1,'#b0b8c0'); dr(ctx,5,12,10,1,'#b0b8c0'); dr(ctx,5,14,10,1,'#b0b8c0'); // ribs
+    dr(ctx,5,10,1,5,'#b0b8c0'); dr(ctx,14,10,1,5,'#b0b8c0'); // sides
+    // Arms (bone)
+    dr(ctx,3,9,3,7,'#b0b8c0'); dr(ctx,15,9,3,7,'#b0b8c0');
+    dr(ctx,3,9,1,7,'rgba(255,255,255,0.2)');
+    // Sword (right)
+    dr(ctx,16,2,1,12,'#c0c8d0'); dr(ctx,16,2,1,1,'#e0e8f0'); // blade
+    dr(ctx,14,9,5,1,'#a08030'); // guard
+    // Legs (bones)
+    dr(ctx,7,17,3,4,'#a0a8b0'); dr(ctx,11,17,3,4,'#a0a8b0');
+    dr(ctx,7,17,1,4,'rgba(255,255,255,0.2)');
+    // Shadow
+    dr(ctx,5,20,10,1,'rgba(0,0,0,0.4)');
+  },
+  Zombie: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Body (shambling)
+    dr(ctx,5,10,10,10,'#2a3c1c'); dr(ctx,4,9,12,11,'#364826'); dr(ctx,5,8,10,11,'#405430');
+    // Clothing (tattered)
+    dr(ctx,5,11,10,6,'#3a3020'); dr(ctx,5,11,10,1,'rgba(0,0,0,0.2)');
+    dr(ctx,5,14,2,3,'rgba(0,0,0,0.25)'); dr(ctx,13,13,2,4,'rgba(0,0,0,0.25)');
+    // Head (tilted)
+    dr(ctx,5,2,10,8,'#364826'); dr(ctx,6,1,8,9,'#405430'); dr(ctx,7,1,6,8,'#4a5e38');
+    // Rotted skin texture
+    dr(ctx,7,4,3,2,'#c83828'); // wound
+    dr(ctx,8,7,2,1,'#1a2818'); // decay
+    // Eyes (glowing red, hollow)
+    dr(ctx,7,4,3,2,'#d03020'); dr(ctx,8,4,2,1,'#ff4030');
+    dr(ctx,12,4,3,2,'#d03020'); dr(ctx,13,4,2,1,'#ff4030');
+    // Mouth (open, rotted)
+    dr(ctx,7,7,6,2,'#181808'); dr(ctx,8,7,1,2,'#c8c8a8'); dr(ctx,10,7,1,2,'#c8c8a8'); // teeth
+    // Arms extended (reaching)
+    dr(ctx,0,9,5,3,'#364826'); dr(ctx,0,10,4,2,'#405430');
+    dr(ctx,15,9,5,3,'#364826'); dr(ctx,16,10,3,2,'#405430');
+    // Dangling fingers
+    dr(ctx,0,11,1,3,'#405430'); dr(ctx,2,12,1,3,'#405430');
+    // Legs
+    dr(ctx,6,18,4,3,'#2a3820'); dr(ctx,11,18,4,3,'#2a3820');
+    // Blood drip
+    dr(ctx,9,7,2,5,'#a02018',0.6);
+    // Shadow
+    dr(ctx,4,20,12,1,'rgba(0,0,0,0.45)');
+  },
+  Troll: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Massive body (fills most of canvas)
+    dr(ctx,1,6,18,14,'#3a4a40'); dr(ctx,0,5,20,15,'#424e44'); dr(ctx,1,4,18,15,'#4a5850');
+    // Stone-like hide texture
+    dr(ctx,3,7,4,4,'rgba(0,0,0,0.2)'); dr(ctx,10,9,4,5,'rgba(0,0,0,0.2)');
+    dr(ctx,6,14,3,4,'rgba(0,0,0,0.15)'); dr(ctx,14,11,4,4,'rgba(0,0,0,0.15)');
+    // Chest highlight
+    dr(ctx,4,8,12,8,'#525e54',0.6);
+    // Small head (top)
+    dr(ctx,6,1,8,5,'#4a5850'); dr(ctx,7,0,6,6,'#525e56'); dr(ctx,8,0,4,5,'#606a60');
+    // Tiny eyes (fierce)
+    dr(ctx,8,2,2,2,'#ff4020'); dr(ctx,11,2,2,2,'#ff4020');
+    dr(ctx,8,2,1,1,'#ff8040'); dr(ctx,11,2,1,1,'#ff8040');
+    // Nose (flat wide)
+    dr(ctx,8,4,4,2,'#3a4840');
+    // Huge arms (raised)
+    dr(ctx,0,3,3,12,'#424e44'); dr(ctx,17,3,3,12,'#424e44');
+    dr(ctx,0,3,2,10,'#525e54');
+    // Massive fists
+    dr(ctx,0,13,4,4,'#3a4440'); dr(ctx,16,13,4,4,'#3a4440');
+    dr(ctx,0,13,3,2,'rgba(255,255,255,0.08)');
+    // Claws
+    dr(ctx,0,16,1,3,'#505858'); dr(ctx,2,16,1,3,'#505858'); dr(ctx,17,16,1,3,'#505858'); dr(ctx,19,16,1,3,'#505858');
+    // Legs (short, wide)
+    dr(ctx,3,18,6,3,'#3a4840'); dr(ctx,11,18,6,3,'#3a4840');
+    // Shadow
+    dr(ctx,0,19,20,2,'rgba(0,0,0,0.5)');
+  },
+  Mage: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Robe (long)
+    dr(ctx,4,9,12,12,'#401880'); dr(ctx,5,8,10,13,'#501898'); dr(ctx,6,7,8,13,'#6020b0');
+    // Robe highlight/folds
+    dr(ctx,6,10,2,8,'rgba(255,255,255,0.08)'); dr(ctx,13,12,2,6,'rgba(0,0,0,0.2)');
+    dr(ctx,8,14,4,5,'#4818a0',0.6);
+    // Sleeves
+    dr(ctx,2,9,5,6,'#501898'); dr(ctx,13,9,5,6,'#501898');
+    // Hands
+    dr(ctx,2,14,3,2,'#c8b888'); dr(ctx,15,14,3,2,'#c8b888');
+    // Head
+    dr(ctx,6,4,8,5,'#c8b888'); dr(ctx,7,3,6,6,'#d8c898'); dr(ctx,8,3,4,5,'#dcd0a0');
+    // Eyes (glowing)
+    dr(ctx,8,5,2,1,'#a040ff'); dr(ctx,11,5,2,1,'#a040ff');
+    dr(ctx,8,5,1,1,'#d080ff'); dr(ctx,11,5,1,1,'#d080ff');
+    // Pointy hat
+    dr(ctx,7,0,6,4,'#501898'); dr(ctx,8,0,4,3,'#6020b0');
+    dr(ctx,9,0,2,3,'rgba(255,255,255,0.12)');
+    dr(ctx,5,3,10,2,'#401880'); // hat brim
+    // Hat star
+    dr(ctx,9,1,2,1,'#f0e040'); dr(ctx,9,1,1,1,'#ffffff');
+    // Staff (left hand, glowing orb)
+    dr(ctx,1,4,2,16,'#6a4010'); dr(ctx,1,4,1,14,'rgba(255,255,255,0.1)');
+    // Orb
+    dr(ctx,0,3,4,4,'#a040ff',0.7); dr(ctx,1,3,3,3,'#c060ff',0.8);
+    dr(ctx,1,3,2,2,'#e0a0ff',0.9); dr(ctx,1,4,1,1,'#ffffff',0.7);
+    // Magic aura glow
+    dr(ctx,0,2,6,6,'rgba(160,64,255,0.15)');
+    // Shadow
+    dr(ctx,4,20,12,1,'rgba(0,0,0,0.4)');
+  },
+  Vampire: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Cape (spread wide)
+    dr(ctx,0,5,3,15,'#1a0420'); dr(ctx,17,5,3,15,'#1a0420');
+    dr(ctx,0,7,5,12,'#220828'); dr(ctx,15,7,5,12,'#220828');
+    dr(ctx,1,9,4,8,'#2a0a30',0.9); dr(ctx,15,9,4,8,'#2a0a30',0.9);
+    // Cape inner (crimson lining)
+    dr(ctx,2,10,3,6,'#4a0810',0.8); dr(ctx,15,10,3,6,'#4a0810',0.8);
+    // Body
+    dr(ctx,5,9,10,12,'#180428'); dr(ctx,6,8,8,13,'#200530'); dr(ctx,7,8,6,12,'#280638');
+    // Collar (high)
+    dr(ctx,5,8,10,2,'#180428'); dr(ctx,6,7,8,3,'#200530');
+    dr(ctx,5,7,2,3,'#300840'); dr(ctx,13,7,2,3,'#300840'); // collar peaks
+    // Head (pale)
+    dr(ctx,6,2,8,7,'#b0a0b8'); dr(ctx,7,1,6,8,'#c0b0c8'); dr(ctx,8,1,4,7,'#cac0d0');
+    // Eyes (glowing red)
+    dr(ctx,8,4,2,2,'#ff1020'); dr(ctx,11,4,2,2,'#ff1020');
+    dr(ctx,8,4,1,1,'#ff6070'); dr(ctx,11,4,1,1,'#ff6070');
+    // Face
+    dr(ctx,9,6,2,1,'#a090a8'); // nose
+    dr(ctx,8,7,4,1,'#901020'); // mouth
+    dr(ctx,8,7,1,1,'#d8d0d8'); dr(ctx,11,7,1,1,'#d8d0d8'); // fangs
+    // Hair (slicked back)
+    dr(ctx,7,1,6,2,'#181018'); dr(ctx,8,0,4,2,'#201420');
+    dr(ctx,7,0,2,3,'rgba(255,255,255,0.06)');
+    // Hands (clawed)
+    dr(ctx,3,16,3,2,'#b0a0b8'); dr(ctx,14,16,3,2,'#b0a0b8');
+    dr(ctx,3,17,1,2,'#d0c0d0'); dr(ctx,5,17,1,2,'#d0c0d0'); // claws
+    dr(ctx,14,17,1,2,'#d0c0d0'); dr(ctx,16,17,1,2,'#d0c0d0');
+    // Shadow
+    dr(ctx,3,19,14,2,'rgba(0,0,0,0.45)');
+  },
+  Dragon: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Wings (spread)
+    dr(ctx,0,2,8,12,'#801010'); dr(ctx,0,3,9,10,'#901818');
+    dr(ctx,12,2,8,12,'#801010'); dr(ctx,11,3,9,10,'#901818');
+    // Wing membrane (translucent red)
+    dr(ctx,1,4,7,8,'#a02020',0.7); dr(ctx,12,4,7,8,'#a02020',0.7);
+    // Wing bone lines
+    dr(ctx,2,3,1,10,'#601010'); dr(ctx,5,2,1,11,'#601010'); dr(ctx,8,4,1,8,'#601010');
+    dr(ctx,13,3,1,10,'#601010'); dr(ctx,16,2,1,11,'#601010');
+    // Body
+    dr(ctx,6,7,8,12,'#a01808'); dr(ctx,7,6,6,13,'#b82010'); dr(ctx,8,5,4,13,'#c82818');
+    // Underbelly (lighter)
+    dr(ctx,8,9,4,7,'#d05030'); dr(ctx,9,10,2,5,'#e06040');
+    // Head (with neck)
+    dr(ctx,5,1,10,7,'#a01808'); dr(ctx,6,0,8,8,'#b02010'); dr(ctx,7,0,6,7,'#c02818');
+    // Horns
+    dr(ctx,7,0,2,3,'#801008'); dr(ctx,7,0,1,4,'#601008');
+    dr(ctx,13,0,2,3,'#801008'); dr(ctx,14,0,1,4,'#601008');
+    // Eyes (golden)
+    dr(ctx,8,3,2,2,'#f0a000'); dr(ctx,11,3,2,2,'#f0a000');
+    dr(ctx,8,3,1,1,'#ffcc00'); dr(ctx,11,3,1,1,'#ffcc00');
+    // Nostrils
+    dr(ctx,9,5,1,1,'#601010'); dr(ctx,11,5,1,1,'#601010');
+    // Teeth
+    dr(ctx,8,6,1,2,'#d8d8c0'); dr(ctx,10,6,1,2,'#d8d8c0'); dr(ctx,12,6,1,2,'#d8d8c0');
+    // Fire breath (from mouth, left)
+    dr(ctx,5,6,4,2,'#f06010',0.9); dr(ctx,2,6,5,1,'#e08020',0.8);
+    dr(ctx,0,7,5,1,'#f0a030',0.6); dr(ctx,1,5,4,2,'#ff6000',0.7);
+    // Tail
+    dr(ctx,14,17,5,2,'#a01808'); dr(ctx,17,15,3,4,'#901010');
+    dr(ctx,18,13,2,4,'#801010'); dr(ctx,18,11,2,4,'#901810');
+    // Legs/claws
+    dr(ctx,7,17,4,4,'#901010'); dr(ctx,10,17,4,4,'#901010');
+    dr(ctx,7,19,1,2,'#c8c8a8'); dr(ctx,9,19,1,2,'#c8c8a8'); // claws
+    dr(ctx,11,19,1,2,'#c8c8a8'); dr(ctx,13,19,1,2,'#c8c8a8');
+    // Shadow
+    dr(ctx,4,20,12,1,'rgba(0,0,0,0.5)');
+  },
+  Demon: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Dark form base
+    dr(ctx,4,8,12,12,'#280630'); dr(ctx,3,7,14,13,'#340840'); dr(ctx,4,6,12,13,'#400a50');
+    // Muscular chest
+    dr(ctx,5,9,10,8,'#4a0a5c'); dr(ctx,6,9,8,6,'#580c6a');
+    dr(ctx,6,10,3,4,'rgba(255,255,255,0.06)'); // muscle highlight
+    // Wings (folded behind)
+    dr(ctx,1,4,4,14,'#1a0220'); dr(ctx,15,4,4,14,'#1a0220');
+    dr(ctx,2,6,3,10,'#220428',0.8); dr(ctx,15,6,3,10,'#220428',0.8);
+    // Head
+    dr(ctx,5,1,10,7,'#340840'); dr(ctx,6,0,8,8,'#400a50'); dr(ctx,7,0,6,7,'#4e0c5e');
+    // Horns (curved)
+    dr(ctx,6,0,2,4,'#600a10'); dr(ctx,5,1,3,2,'#800c14'); // left horn
+    dr(ctx,13,0,2,4,'#600a10'); dr(ctx,13,1,3,2,'#800c14'); // right horn
+    dr(ctx,5,0,1,3,'#a01018'); dr(ctx,15,0,1,3,'#a01018'); // tips
+    // Eyes (glowing magenta)
+    dr(ctx,7,3,3,2,'#ff20c0'); dr(ctx,11,3,3,2,'#ff20c0');
+    dr(ctx,7,3,2,1,'#ff80e0'); dr(ctx,11,3,2,1,'#ff80e0');
+    // Face features
+    dr(ctx,9,5,2,1,'#280630'); // nose
+    dr(ctx,7,6,6,1,'#200428'); // mouth
+    dr(ctx,7,6,1,1,'#d0c0d0'); dr(ctx,12,6,1,1,'#d0c0d0'); // fangs
+    // Arms (muscular)
+    dr(ctx,1,9,4,8,'#340840'); dr(ctx,16,9,4,8,'#340840');
+    dr(ctx,1,9,2,6,'rgba(255,255,255,0.05)');
+    // Claws
+    dr(ctx,1,16,1,3,'#d080ff'); dr(ctx,3,17,1,3,'#d080ff');
+    dr(ctx,16,16,1,3,'#d080ff'); dr(ctx,18,17,1,3,'#d080ff');
+    // Aura glow
+    dr(ctx,0,0,20,20,'rgba(160,10,200,0.07)');
+    // Shadow
+    dr(ctx,3,19,14,2,'rgba(0,0,0,0.5)');
+  },
+  Ghost: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    ctx.globalAlpha=0.82;
+    // Ethereal form (wispy bottom)
+    dr(ctx,5,13,10,8,'#183060'); dr(ctx,4,11,12,10,'#1e3870'); dr(ctx,5,9,10,11,'#243e80');
+    dr(ctx,6,7,8,12,'#2a4890'); dr(ctx,7,5,6,12,'#304ea0');
+    // Wispy tendrils at bottom
+    dr(ctx,5,18,2,3,'#1a2e60',0.6); dr(ctx,8,19,2,3,'#1a2e60',0.5);
+    dr(ctx,11,18,2,3,'#1a2e60',0.6); dr(ctx,14,19,2,3,'#1a2e60',0.4);
+    // Head
+    dr(ctx,6,2,8,7,'#2a4890'); dr(ctx,7,1,6,8,'#304ea0'); dr(ctx,8,1,4,7,'#3a5ab0');
+    // Face (skull-like)
+    dr(ctx,7,3,3,3,'#102040'); dr(ctx,11,3,3,3,'#102040'); // eye sockets
+    dr(ctx,8,3,2,2,'#4080d0'); dr(ctx,11,3,2,2,'#4080d0'); // glowing eyes
+    dr(ctx,8,3,1,1,'#80c0ff'); dr(ctx,11,3,1,1,'#80c0ff');
+    dr(ctx,9,6,2,2,'#102040'); // nose cavity
+    dr(ctx,8,7,4,1,'#102040'); // mouth crack
+    // Inner glow
+    dr(ctx,7,5,6,5,'rgba(80,160,220,0.2)');
+    // Arms (wispy)
+    dr(ctx,3,9,4,5,'#2a4890',0.7); dr(ctx,13,9,4,5,'#2a4890',0.7);
+    dr(ctx,2,10,3,4,'rgba(80,140,200,0.5)'); dr(ctx,15,10,3,4,'rgba(80,140,200,0.5)');
+    // Overall glow
+    dr(ctx,4,1,12,18,'rgba(40,100,200,0.08)');
+    ctx.globalAlpha=1;
+  },
+  Golem: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Massive stone body (fills canvas)
+    dr(ctx,2,6,16,14,'#3a3c48'); dr(ctx,1,5,18,15,'#424452'); dr(ctx,2,4,16,15,'#4c4e5e');
+    // Stone texture cracks
+    dr(ctx,5,8,1,8,'rgba(0,0,0,0.3)'); dr(ctx,12,10,1,6,'rgba(0,0,0,0.25)');
+    dr(ctx,8,6,1,3,'rgba(0,0,0,0.2)'); dr(ctx,15,12,1,5,'rgba(0,0,0,0.2)');
+    // Chest highlight (lit from above)
+    dr(ctx,4,7,12,6,'#565869',0.6);
+    // Head (square, stone)
+    dr(ctx,5,0,10,6,'#4c4e5e'); dr(ctx,6,0,8,7,'#565869'); dr(ctx,7,0,6,6,'#606272');
+    dr(ctx,5,0,1,6,'rgba(255,255,255,0.08)'); // left highlight
+    dr(ctx,14,0,1,6,'rgba(0,0,0,0.35)'); // right shadow
+    // Glowing rune eyes
+    dr(ctx,7,2,3,2,'#4080e0'); dr(ctx,7,2,2,1,'#80c0ff'); // left eye rune
+    dr(ctx,11,2,3,2,'#4080e0'); dr(ctx,11,2,2,1,'#80c0ff'); // right eye rune
+    dr(ctx,7,1,3,4,'rgba(60,130,220,0.25)'); dr(ctx,11,1,3,4,'rgba(60,130,220,0.25)'); // glow
+    // Rune on chest
+    dr(ctx,8,10,4,3,'#3060c0',0.8); dr(ctx,9,10,2,2,'#6090d0',0.9);
+    dr(ctx,8,9,4,5,'rgba(50,100,200,0.2)');
+    // Arms (massive stone pillars)
+    dr(ctx,0,5,3,14,'#424452'); dr(ctx,17,5,3,14,'#424452');
+    dr(ctx,0,5,2,12,'#4c4e5e'); dr(ctx,18,5,2,12,'#4c4e5e');
+    // Fists (huge, raised)
+    dr(ctx,0,4,4,4,'#383a48'); dr(ctx,16,4,4,4,'#383a48');
+    dr(ctx,0,4,3,2,'rgba(255,255,255,0.07)');
+    // Legs (short wide columns)
+    dr(ctx,3,18,6,3,'#383a48'); dr(ctx,11,18,6,3,'#383a48');
+    dr(ctx,3,18,5,1,'rgba(255,255,255,0.06)');
+    // Ground shadow
+    dr(ctx,1,20,18,1,'rgba(0,0,0,0.55)');
+  },
+  // Final bosses (use same slot as their kind name)
+  FinalDemonLord: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    dr(ctx,2,5,16,15,'#300618'); dr(ctx,3,4,14,16,'#400820'); dr(ctx,4,3,12,16,'#500a28');
+    dr(ctx,5,4,10,8,'#600c30');
+    // Crown horns
+    dr(ctx,3,0,2,5,'#900a10'); dr(ctx,7,1,2,4,'#c01015'); dr(ctx,11,1,2,4,'#c01015'); dr(ctx,15,0,2,5,'#900a10');
+    // Head
+    dr(ctx,5,3,10,6,'#400820'); dr(ctx,6,2,8,7,'#500a28');
+    // Eyes (multiple, red)
+    dr(ctx,7,5,2,2,'#ff1020'); dr(ctx,11,5,2,2,'#ff1020'); dr(ctx,9,4,2,1,'#ff4050');
+    // Armor (dark, ornate)
+    dr(ctx,4,9,12,9,'#281018'); dr(ctx,5,9,10,7,'#380c20');
+    dr(ctx,6,10,8,1,'#c01018',0.6); dr(ctx,6,12,8,1,'#c01018',0.6);
+    // Cape (billowing)
+    dr(ctx,0,6,4,14,'#200410'); dr(ctx,16,6,4,14,'#200410');
+    // Shadow
+    dr(ctx,2,19,16,2,'rgba(0,0,0,0.55)');
+  },
+  AbyssLord: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Void core
+    dr(ctx,5,5,10,12,'#060412'); dr(ctx,6,4,8,13,'#080518'); dr(ctx,7,3,6,13,'#0c0820');
+    // Tentacles
+    dr(ctx,0,7,5,3,'#100820'); dr(ctx,0,12,6,3,'#100820'); dr(ctx,0,16,4,3,'#100820');
+    dr(ctx,15,7,5,3,'#100820'); dr(ctx,14,12,6,3,'#100820'); dr(ctx,16,16,4,3,'#100820');
+    // Multiple eyes (glowing)
+    dr(ctx,7,6,2,2,'#40ff80'); dr(ctx,12,6,2,2,'#40ff80');
+    dr(ctx,6,9,2,2,'#ff40a0'); dr(ctx,13,9,2,2,'#ff40a0');
+    dr(ctx,8,12,2,2,'#40a0ff'); dr(ctx,11,12,2,2,'#40a0ff');
+    dr(ctx,7,6,1,1,'#c0ffd0'); dr(ctx,12,6,1,1,'#c0ffd0');
+    // Void aura
+    dr(ctx,3,3,14,16,'rgba(60,20,120,0.12)');
+    // Shadow
+    dr(ctx,4,19,12,2,'rgba(0,0,0,0.6)');
+  },
+  FlameEmperor: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Body
+    dr(ctx,4,8,12,12,'#701808'); dr(ctx,5,7,10,13,'#901e0c'); dr(ctx,6,6,8,13,'#b02810');
+    // Flame armor
+    dr(ctx,5,9,10,7,'#c03010'); dr(ctx,6,9,8,5,'#d84010');
+    // Crown of flames
+    dr(ctx,6,1,8,5,'#f06010'); dr(ctx,7,0,6,5,'#f08020');
+    dr(ctx,8,0,4,3,'#f0a030'); dr(ctx,6,1,2,4,'#e04010'); dr(ctx,12,1,2,4,'#e04010');
+    // Head
+    dr(ctx,6,3,8,5,'#902010'); dr(ctx,7,2,6,6,'#b02818');
+    // Eyes (burning)
+    dr(ctx,8,4,2,2,'#fff040'); dr(ctx,11,4,2,2,'#fff040');
+    dr(ctx,8,4,1,1,'#ffffff'); dr(ctx,11,4,1,1,'#ffffff');
+    // Flame aura
+    dr(ctx,2,6,3,8,'#f06010',0.5); dr(ctx,15,6,3,8,'#f06010',0.5);
+    dr(ctx,1,5,4,10,'rgba(240,100,20,0.3)'); dr(ctx,15,5,4,10,'rgba(240,100,20,0.3)');
+    // Shadow
+    dr(ctx,3,19,14,2,'rgba(0,0,0,0.5)');
+  },
+  IceSovereign: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Body (crystalline)
+    dr(ctx,5,8,10,12,'#102848'); dr(ctx,6,7,8,13,'#183460'); dr(ctx,7,6,6,13,'#204070');
+    // Ice crystal armor
+    dr(ctx,5,9,10,8,'#1e3c5c'); dr(ctx,6,10,8,5,'#2a4e72');
+    dr(ctx,5,9,1,8,'rgba(255,255,255,0.15)'); // left facet
+    dr(ctx,14,9,1,8,'rgba(0,0,0,0.25)'); // right shadow
+    // Ice crown
+    dr(ctx,6,0,8,4,'#2060a0'); dr(ctx,8,0,4,2,'#4088c8');
+    dr(ctx,7,0,2,5,'#3070b0'); dr(ctx,12,0,2,5,'#3070b0');
+    dr(ctx,9,0,2,3,'#80c0e8');
+    // Head
+    dr(ctx,7,3,6,5,'#b8d0e8'); dr(ctx,8,2,4,7,'#c8e0f0');
+    // Eyes (ice blue)
+    dr(ctx,8,5,2,1,'#80d0ff'); dr(ctx,11,5,2,1,'#80d0ff');
+    // Ice aura
+    dr(ctx,3,5,3,10,'rgba(40,120,200,0.3)'); dr(ctx,14,5,3,10,'rgba(40,120,200,0.3)');
+    // Frozen effect
+    dr(ctx,0,0,20,20,'rgba(20,60,120,0.08)');
+    // Shadow
+    dr(ctx,4,19,12,2,'rgba(0,0,0,0.45)');
+  },
+  ChaosAvatar: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Fractured chaotic form
+    dr(ctx,4,6,12,14,'#200820'); dr(ctx,3,5,14,14,'#2c0c2c'); dr(ctx,4,4,12,14,'#380e38');
+    // Color fractures (multi-element)
+    dr(ctx,4,7,3,4,'#400080',0.8); dr(ctx,13,7,3,4,'#004000',0.8);
+    dr(ctx,5,14,3,4,'#800000',0.8); dr(ctx,12,14,3,4,'#004080',0.8);
+    // Chaotic core (center)
+    dr(ctx,8,8,4,6,'#600060'); dr(ctx,9,8,2,5,'#8000a0');
+    // Multiple random eyes
+    dr(ctx,6,7,2,2,'#ff0000'); dr(ctx,13,6,2,2,'#00ff80');
+    dr(ctx,7,13,2,2,'#0080ff'); dr(ctx,12,14,2,2,'#ff8000');
+    dr(ctx,9,9,2,2,'#ffffff',0.9);
+    // Chaotic limbs
+    dr(ctx,0,8,4,5,'#2c0c2c'); dr(ctx,16,8,4,5,'#2c0c2c');
+    dr(ctx,1,6,2,8,'rgba(180,0,220,0.4)'); dr(ctx,17,6,2,8,'rgba(0,200,100,0.4)');
+    // Shadow
+    dr(ctx,3,19,14,2,'rgba(0,0,0,0.5)');
+  },
+  AncientGuardian: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Ancient stone body
+    dr(ctx,2,5,16,15,'#4a3c28'); dr(ctx,1,4,18,16,'#5a4a34'); dr(ctx,2,3,16,16,'#6a5840');
+    // Stone texture
+    dr(ctx,4,7,3,5,'rgba(0,0,0,0.25)'); dr(ctx,13,9,4,6,'rgba(0,0,0,0.2)');
+    dr(ctx,7,14,2,4,'rgba(0,0,0,0.2)'); dr(ctx,5,4,2,3,'rgba(0,0,0,0.15)');
+    // Ancient runes (glowing gold)
+    dr(ctx,7,9,6,4,'#8a6020',0.7); dr(ctx,8,9,4,3,'#c08830',0.8);
+    dr(ctx,8,8,4,6,'rgba(180,130,40,0.2)');
+    // Head (ancient stone)
+    dr(ctx,5,0,10,5,'#5a4a34'); dr(ctx,6,0,8,6,'#6a5840'); dr(ctx,7,0,6,5,'#7a6850');
+    dr(ctx,5,0,1,5,'rgba(255,255,255,0.1)');
+    // Ancient eyes (golden)
+    dr(ctx,7,2,3,2,'#c09020'); dr(ctx,7,2,2,1,'#e0b030'); // left
+    dr(ctx,11,2,3,2,'#c09020'); dr(ctx,11,2,2,1,'#e0b030'); // right
+    dr(ctx,7,1,3,4,'rgba(200,160,40,0.2)'); dr(ctx,11,1,3,4,'rgba(200,160,40,0.2)');
+    // Massive arms
+    dr(ctx,0,4,3,14,'#5a4a34'); dr(ctx,17,4,3,14,'#5a4a34');
+    dr(ctx,0,4,2,12,'rgba(255,255,255,0.07)');
+    // Stone fists
+    dr(ctx,0,3,4,4,'#4a3c28'); dr(ctx,16,3,4,4,'#4a3c28');
+    // Legs
+    dr(ctx,3,18,6,3,'#4a3c28'); dr(ctx,11,18,6,3,'#4a3c28');
+    // Shadow
+    dr(ctx,1,20,18,1,'rgba(0,0,0,0.55)');
+  },
 };
 
-// Item sprites (floor items)
+// Item sprites (floor items — 20×20 pixel-precise)
 const ITEMS = {
-  Weapon:     (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[2,0],[2,1],[2,2],[1,3],[2,3],[3,3],[2,4]].forEach(([x,y])=>px(ctx,x,y,C.swordSilv)); px(ctx,2,0,'#d0d8e8'); },
-  Armor:      (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[0,1],[1,1],[2,1],[3,1],[4,1],[0,2],[1,2],[3,2],[4,2],[1,3],[3,3],[2,4]].forEach(([x,y])=>px(ctx,x,y,C.armorBlue)); px(ctx,2,2,C.crystal); },
-  Helmet:     (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[0,1],[1,1],[2,1],[3,1],[4,1],[0,2],[1,2],[2,2],[3,2],[4,2]].forEach(([x,y])=>px(ctx,x,y,C.armorBlue)); px(ctx,2,0,'#6080c0'); },
-  Boots:      (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,2],[2,2],[1,3],[2,3],[0,4],[1,4],[2,4],[3,2],[4,2],[3,3],[4,3],[3,4],[4,4],[5,4]].forEach(([x,y])=>{ if(x<5)px(ctx,x,y,C.armorBlue); }); },
-  Ring:       (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[0,1],[4,1],[0,2],[4,2],[1,3],[2,3],[3,3]].forEach(([x,y])=>px(ctx,x,y,C.gold)); px(ctx,2,0,C.crystal); },
-  Amulet:     (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[2,0],[1,1],[3,1],[0,2],[4,2],[1,3],[3,3],[2,4]].forEach(([x,y])=>px(ctx,x,y,C.gold)); px(ctx,2,2,'#e040a0'); },
-  Consumable: (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); px(ctx,2,0,'#c0c0c8'); [[1,1],[2,1],[3,1],[1,2],[2,2],[3,2],[1,3],[2,3],[3,3],[2,4]].forEach(([x,y])=>px(ctx,x,y,C.potRed)); },
-  Material:   (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,1],[2,0],[3,1],[4,2],[3,3],[2,4],[1,3],[0,2]].forEach(([x,y])=>px(ctx,x,y,C.crystal)); px(ctx,2,2,'#80d0ff'); },
-  SkillTome:  (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[0,0],[1,0],[2,0],[3,0],[0,1],[0,2],[0,3],[0,4],[1,4],[2,4],[3,4]].forEach(([x,y])=>px(ctx,x,y,C.bookBrn)); [[1,1],[2,1],[1,2],[2,2],[1,3],[2,3]].forEach(([x,y])=>px(ctx,x,y,'#d0c8a0')); px(ctx,3,2,'#e0c040'); },
-  // 秘宝: 黄金に輝く宝珠
-  Relic: (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[0,1],[4,1],[0,2],[4,2],[1,3],[2,3],[3,3]].forEach(([x,y])=>px(ctx,x,y,'#d09010')); [[1,1],[2,1],[3,1],[1,2],[2,2],[3,2]].forEach(([x,y])=>px(ctx,x,y,'#f0d040')); px(ctx,2,1,'#ffffff'); px(ctx,2,4,'#a07010'); [[1,4],[3,4]].forEach(([x,y])=>px(ctx,x,y,'#c08820')); },
-  // 呪物: 暗黒の頭蓋骨
-  CursedObject: (ctx)=>{ ctx.fillStyle=C.floorA;ctx.fillRect(0,0,TS,TS); [[1,0],[2,0],[3,0],[0,1],[4,1],[0,2],[4,2],[1,3],[2,3],[3,3]].forEach(([x,y])=>px(ctx,x,y,'#4a1830')); [[1,1],[2,1],[3,1],[1,2],[2,2],[3,2]].forEach(([x,y])=>px(ctx,x,y,'#8030a0')); [[1,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,'#e02060')); px(ctx,2,2,'#500850'); [[1,4],[2,4],[3,4]].forEach(([x,y])=>px(ctx,x,y,'#3a0820')); },
+  Weapon: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Sword: long blade, crossguard, grip
+    // Blade (diagonal, glinting)
+    dr(ctx,10,1,2,12,'#9098a8'); dr(ctx,10,1,2,1,'#e0e8f0'); // tip
+    dr(ctx,11,1,1,12,'#c0c8d8'); // right edge bright
+    dr(ctx,9,1,1,12,'#707888'); // left edge dark
+    // Fuller (central groove)
+    dr(ctx,10,3,1,8,'rgba(255,255,255,0.18)');
+    // Crossguard
+    dr(ctx,5,12,10,2,'#a08030'); dr(ctx,5,12,10,1,'#c89840'); // top face
+    dr(ctx,5,13,10,1,'rgba(0,0,0,0.3)'); // bottom shadow
+    dr(ctx,5,12,1,2,'rgba(255,255,255,0.15)');
+    // Grip (wrapped leather)
+    dr(ctx,9,14,2,5,'#6a3810');
+    dr(ctx,9,14,2,1,'rgba(255,255,255,0.15)');
+    dr(ctx,9,15,2,1,'rgba(0,0,0,0.2)'); dr(ctx,9,17,2,1,'rgba(0,0,0,0.2)');
+    // Pommel
+    dr(ctx,8,18,4,2,'#a08030'); dr(ctx,8,18,4,1,'#c89840');
+    dr(ctx,8,18,1,2,'rgba(255,255,255,0.12)');
+    // Glow/glint
+    dr(ctx,10,1,1,1,'#ffffff',0.8);
+    dr(ctx,11,4,1,1,'rgba(255,255,255,0.4)');
+  },
+  Armor: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Chest plate (front-facing)
+    // Main body
+    dr(ctx,4,5,12,13,'#283860'); dr(ctx,5,4,10,14,'#304878'); dr(ctx,6,3,8,14,'#3a5888');
+    // Central highlight
+    dr(ctx,9,4,2,11,'rgba(255,255,255,0.1)');
+    // Pauldron suggestions (shoulders)
+    dr(ctx,3,5,3,4,'#2c4068'); dr(ctx,14,5,3,4,'#2c4068');
+    dr(ctx,3,5,3,1,'rgba(255,255,255,0.1)');
+    // Gorget (collar)
+    dr(ctx,6,3,8,2,'#344870');
+    dr(ctx,6,3,8,1,'rgba(255,255,255,0.12)');
+    // Center gem/emblem
+    dr(ctx,9,9,2,3,'#60a0d0'); dr(ctx,9,9,2,1,'#90c8e8');
+    dr(ctx,9,9,1,1,'#c0e8ff');
+    // Gold trim
+    dr(ctx,5,4,10,1,'#c09030'); dr(ctx,5,16,10,1,'#c09030');
+    dr(ctx,4,5,1,11,'#b08028'); dr(ctx,15,5,1,11,'#b08028');
+    // Edge bevel
+    dr(ctx,5,4,1,12,'rgba(255,255,255,0.1)');
+    dr(ctx,14,4,1,12,'rgba(0,0,0,0.3)');
+    dr(ctx,5,16,10,1,'rgba(0,0,0,0.35)');
+    // Abdomen ridges
+    dr(ctx,6,12,8,1,'rgba(0,0,0,0.2)'); dr(ctx,6,14,8,1,'rgba(0,0,0,0.2)');
+  },
+  Helmet: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Dome
+    dr(ctx,5,3,10,8,'#283860'); dr(ctx,4,4,12,8,'#304878'); dr(ctx,5,2,10,9,'#3a5888');
+    // Dome highlight (top left)
+    dr(ctx,5,2,5,4,'rgba(255,255,255,0.12)'); dr(ctx,5,2,3,2,'rgba(255,255,255,0.18)');
+    // Brim
+    dr(ctx,3,10,14,2,'#283060'); dr(ctx,3,10,14,1,'#405080');
+    dr(ctx,3,10,1,2,'rgba(255,255,255,0.1)'); dr(ctx,16,10,1,2,'rgba(0,0,0,0.3)');
+    // Visor slit
+    dr(ctx,5,11,10,2,'#0a0e1a'); dr(ctx,5,11,10,1,'rgba(0,0,0,0.8)');
+    // Noseguard
+    dr(ctx,9,10,2,4,'#2a3868');
+    // Plume (red)
+    dr(ctx,8,0,4,3,'#a01818'); dr(ctx,9,0,2,3,'#c02020');
+    dr(ctx,9,0,1,3,'rgba(255,255,255,0.15)');
+    // Cheek guards
+    dr(ctx,3,11,3,4,'#283060'); dr(ctx,14,11,3,4,'#283060');
+    dr(ctx,3,11,1,4,'rgba(255,255,255,0.08)');
+    // Gold rim
+    dr(ctx,4,10,12,1,'#b08028');
+    // Shadow
+    dr(ctx,4,15,12,2,'rgba(0,0,0,0.3)');
+  },
+  Boots: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Left boot
+    dr(ctx,2,9,6,10,'#283060'); dr(ctx,2,8,6,11,'#304070');
+    dr(ctx,2,8,1,11,'rgba(255,255,255,0.1)'); dr(ctx,7,8,1,11,'rgba(0,0,0,0.3)');
+    dr(ctx,2,17,8,3,'#202848'); // sole (wider)
+    dr(ctx,2,8,6,2,'#3c5080'); // cuff highlight
+    // Right boot
+    dr(ctx,12,9,6,10,'#283060'); dr(ctx,12,8,6,11,'#304070');
+    dr(ctx,12,8,1,11,'rgba(255,255,255,0.1)'); dr(ctx,17,8,1,11,'rgba(0,0,0,0.3)');
+    dr(ctx,11,17,9,3,'#202848'); // sole
+    dr(ctx,12,8,6,2,'#3c5080'); // cuff highlight
+    // Buckles (gold)
+    dr(ctx,4,13,2,2,'#b08028'); dr(ctx,14,13,2,2,'#b08028');
+    dr(ctx,4,13,2,1,'rgba(255,255,255,0.2)');
+    // Gold trim at cuffs
+    dr(ctx,2,9,6,1,'#a07020'); dr(ctx,12,9,6,1,'#a07020');
+    // Shadow
+    dr(ctx,2,19,7,2,'rgba(0,0,0,0.3)'); dr(ctx,12,19,7,2,'rgba(0,0,0,0.3)');
+  },
+  Ring: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Gold band (circular)
+    dr(ctx,5,2,10,2,'#c09030'); dr(ctx,3,4,14,2,'#c09030'); // top arc
+    dr(ctx,2,6,2,8,'#c09030'); dr(ctx,16,6,2,8,'#c09030'); // sides
+    dr(ctx,3,14,14,2,'#c09030'); dr(ctx,5,16,10,2,'#b08028'); // bottom arc
+    // Band highlight
+    dr(ctx,5,2,10,1,'#e0b040'); dr(ctx,2,6,1,8,'#e0b040');
+    // Band shadow
+    dr(ctx,5,17,10,1,'rgba(0,0,0,0.3)'); dr(ctx,17,6,1,8,'rgba(0,0,0,0.3)');
+    // Gem setting (top center)
+    dr(ctx,7,0,6,5,'#2050a0'); dr(ctx,8,0,4,5,'#3060b8'); // bezel
+    dr(ctx,8,0,4,4,'#4080d0'); dr(ctx,9,0,2,3,'#60a0e8'); // gem face
+    dr(ctx,9,0,1,2,'#c0e0ff'); // gem highlight
+    dr(ctx,8,0,1,1,'rgba(255,255,255,0.5)'); // specular
+    // Band inner glow
+    dr(ctx,5,3,10,1,'rgba(255,255,255,0.12)');
+    dr(ctx,3,5,1,9,'rgba(255,255,255,0.08)');
+  },
+  Amulet: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Chain
+    dr(ctx,8,0,4,2,'#c09030'); dr(ctx,8,0,4,1,'#e0b040');
+    dr(ctx,4,2,4,2,'#b08028'); dr(ctx,12,2,4,2,'#b08028');
+    dr(ctx,2,4,3,3,'#b08028'); dr(ctx,15,4,3,3,'#b08028');
+    dr(ctx,2,7,2,3,'#b08028'); dr(ctx,16,7,2,3,'#b08028');
+    dr(ctx,3,10,2,2,'#b08028'); dr(ctx,15,10,2,2,'#b08028');
+    dr(ctx,4,12,3,1,'#b08028'); dr(ctx,13,12,3,1,'#b08028');
+    // Pendant (center diamond)
+    dr(ctx,8,11,4,2,'#c09030'); // top
+    dr(ctx,6,13,8,2,'#c09030'); // mid
+    dr(ctx,7,15,6,2,'#c09030'); // lower mid
+    dr(ctx,8,17,4,2,'#b08028'); // bottom
+    // Pendant gem (pink/magenta)
+    dr(ctx,8,12,4,4,'#e040a0'); dr(ctx,9,12,2,4,'#f060b8');
+    dr(ctx,9,12,2,1,'#ffa0d0'); // highlight
+    dr(ctx,9,12,1,1,'#ffffff',0.7); // specular
+    // Chain highlight
+    dr(ctx,8,0,3,1,'rgba(255,255,255,0.25)');
+  },
+  Consumable: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Bottle neck
+    dr(ctx,8,1,4,3,'#909098'); dr(ctx,9,0,2,5,'#a0a0a8'); dr(ctx,9,0,1,5,'rgba(255,255,255,0.3)');
+    // Cork
+    dr(ctx,8,3,4,2,'#8a5a28'); dr(ctx,8,3,3,1,'rgba(255,255,255,0.15)');
+    // Bottle body
+    dr(ctx,5,5,10,13,'#901818'); dr(ctx,6,4,8,14,'#a82020'); dr(ctx,7,4,6,14,'#c03030');
+    // Glass highlight (left curve)
+    dr(ctx,7,5,2,11,'rgba(255,255,255,0.2)'); dr(ctx,7,5,1,9,'rgba(255,255,255,0.15)');
+    // Liquid fill (bubbles)
+    dr(ctx,8,7,4,8,'#c83838'); // inner liquid
+    dr(ctx,9,9,2,2,'rgba(255,180,180,0.3)'); // bubble
+    dr(ctx,10,13,1,1,'rgba(255,180,180,0.25)'); // small bubble
+    // Bottom shadow
+    dr(ctx,5,17,10,2,'rgba(0,0,0,0.3)');
+    // Shine on bottle shoulder
+    dr(ctx,6,5,3,2,'rgba(255,255,255,0.12)');
+  },
+  Material: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Crystal cluster (irregular faceted shape)
+    // Main crystal
+    dr(ctx,8,2,4,14,'#3070b8'); dr(ctx,9,1,2,16,'#4080c8'); dr(ctx,9,1,1,16,'#60a0e0');
+    dr(ctx,8,2,1,14,'#2060a0'); // dark face
+    // Secondary crystals
+    dr(ctx,5,5,4,12,'#2860a0'); dr(ctx,5,5,1,12,'#3878b8'); // left crystal
+    dr(ctx,13,4,4,12,'#2860a0'); dr(ctx,13,4,1,12,'#3878b8'); // right crystal
+    // Highlight tips
+    dr(ctx,9,1,2,2,'rgba(255,255,255,0.5)'); dr(ctx,5,5,2,2,'rgba(255,255,255,0.3)');
+    dr(ctx,13,4,2,2,'rgba(255,255,255,0.3)');
+    // Inner glow
+    dr(ctx,8,5,4,8,'rgba(100,180,255,0.25)');
+    // Base
+    dr(ctx,5,16,10,3,'#244870'); dr(ctx,6,17,8,2,'#1c3860');
+    // Facet edges
+    dr(ctx,8,2,1,1,'#80c0ff',0.8); dr(ctx,11,2,1,1,'#80c0ff',0.5);
+  },
+  SkillTome: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Book cover
+    dr(ctx,2,2,16,16,'#5a3010'); dr(ctx,3,1,14,17,'#6a3c18'); dr(ctx,3,2,13,15,'#7a4820');
+    // Spine (left)
+    dr(ctx,2,2,2,16,'#4a2808'); dr(ctx,2,2,1,16,'rgba(255,255,255,0.07)');
+    // Cover highlight
+    dr(ctx,4,2,11,1,'rgba(255,255,255,0.1)'); dr(ctx,3,2,1,15,'rgba(255,255,255,0.07)');
+    // Cover shadow
+    dr(ctx,15,2,1,15,'rgba(0,0,0,0.35)'); dr(ctx,4,17,12,1,'rgba(0,0,0,0.3)');
+    // Pages (right side, visible)
+    dr(ctx,15,3,2,14,'#d0c898'); dr(ctx,15,3,1,14,'rgba(255,255,255,0.3)');
+    // Rune symbol (gold, glowing)
+    dr(ctx,6,5,8,9,'#181008');   // dark inset
+    dr(ctx,7,6,6,7,'#1e1408');
+    dr(ctx,9,6,2,7,'#c09020'); dr(ctx,7,9,6,2,'#c09020'); // cross rune
+    dr(ctx,9,6,2,1,'#e0b030'); dr(ctx,7,9,1,2,'#e0b030'); // bright edges
+    dr(ctx,9,9,2,2,'#f0c040'); // center bright
+    dr(ctx,10,9,1,1,'#ffffff',0.7); // specular
+    // Glow around rune
+    dr(ctx,7,6,6,7,'rgba(200,150,20,0.15)');
+    // Clasp (gold)
+    dr(ctx,14,9,3,3,'#b08028'); dr(ctx,14,9,3,1,'#e0b040'); dr(ctx,15,9,1,3,'rgba(255,255,255,0.2)');
+  },
+  Relic: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Pedestal
+    dr(ctx,5,16,10,3,'#7a6018'); dr(ctx,5,16,10,1,'#c0a030');
+    dr(ctx,4,17,12,2,'#6a5010'); dr(ctx,5,17,1,2,'rgba(255,255,255,0.1)');
+    // Staff/support
+    dr(ctx,9,12,2,5,'#b08020'); dr(ctx,9,12,1,5,'rgba(255,255,255,0.2)');
+    // Golden orb (main)
+    dr(ctx,5,4,10,10,'#b07810'); dr(ctx,6,3,8,11,'#c88c20'); dr(ctx,7,2,6,11,'#e0a028');
+    // Orb gradient (bright center)
+    dr(ctx,8,4,4,7,'#f0c040'); dr(ctx,9,5,2,5,'#f8d860'); dr(ctx,9,5,2,2,'#fce870');
+    // Orb highlight
+    dr(ctx,8,3,3,2,'rgba(255,255,255,0.4)'); dr(ctx,8,3,2,1,'rgba(255,255,255,0.6)');
+    // Orb inner glow ring
+    dr(ctx,6,4,8,8,'rgba(255,200,30,0.2)');
+    // Orbiting star accents
+    dr(ctx,5,7,2,2,'#f0e040',0.7); dr(ctx,13,7,2,2,'#f0e040',0.7);
+    dr(ctx,5,7,1,1,'#ffffff',0.5); dr(ctx,13,7,1,1,'#ffffff',0.5);
+    // Shadow
+    dr(ctx,5,18,10,2,'rgba(0,0,0,0.4)');
+    // Overall warm glow
+    dr(ctx,3,2,14,16,'rgba(240,180,20,0.07)');
+  },
+  CursedObject: (ctx)=>{
+    ctx.fillStyle=C.floorA; ctx.fillRect(0,0,TS,TS);
+    // Dark aura base
+    dr(ctx,4,3,12,16,'rgba(100,20,80,0.3)');
+    // Skull (main)
+    dr(ctx,5,3,10,10,'#3a1828'); dr(ctx,6,2,8,11,'#481e30'); dr(ctx,7,1,6,11,'#542438');
+    // Skull highlight (top)
+    dr(ctx,7,1,6,2,'rgba(255,255,255,0.08)');
+    // Eye sockets (glowing red)
+    dr(ctx,7,5,3,3,'#600a20'); dr(ctx,11,5,3,3,'#600a20');
+    dr(ctx,7,5,2,2,'#c01030'); dr(ctx,11,5,2,2,'#c01030');
+    dr(ctx,7,5,1,1,'#ff2040'); dr(ctx,11,5,1,1,'#ff2040'); // glow center
+    // Nose cavity
+    dr(ctx,9,8,2,2,'#200810');
+    // Teeth (jaw)
+    dr(ctx,6,10,8,2,'#3a1828'); dr(ctx,7,11,6,2,'#301424');
+    dr(ctx,7,11,1,2,'#c0c0a8'); dr(ctx,9,11,1,2,'#c0c0a8'); dr(ctx,11,11,1,2,'#c0c0a8'); // teeth
+    // Dark crown/horns
+    dr(ctx,6,0,2,3,'#601020'); dr(ctx,9,0,2,2,'#801428'); dr(ctx,13,0,2,3,'#601020');
+    // Cursed glow
+    dr(ctx,5,3,10,12,'rgba(180,20,60,0.1)');
+    dr(ctx,7,5,6,5,'rgba(255,30,60,0.08)');
+    // Base/altar
+    dr(ctx,5,13,10,4,'#2a0e18'); dr(ctx,6,13,8,1,'#401018');
+    // Shadow
+    dr(ctx,4,16,12,2,'rgba(0,0,0,0.5)');
+  },
 };
 
-// Player sprite
+// Player map sprite (detailed 20×20)
 function drawPlayer(ctx) {
   ctx.fillStyle = C.floorA; ctx.fillRect(0,0,TS,TS);
-  [[1,0],[2,0],[3,0]].forEach(([x,y])=>px(ctx,x,y,C.playerHelm));
-  [[1,1],[2,1],[3,1]].forEach(([x,y])=>px(ctx,x,y,'#a0b0c8'));
-  [[0,2],[1,2],[2,2],[3,2],[4,2]].forEach(([x,y])=>px(ctx,x,y,C.playerBlue));
-  [[0,3],[1,3],[2,3],[3,3],[4,3]].forEach(([x,y])=>px(ctx,x,y,C.playerBlue));
-  [[1,4],[3,4]].forEach(([x,y])=>px(ctx,x,y,C.playerGray));
-  px(ctx,4,1,C.swordSilv); px(ctx,4,0,C.swordSilv);
+  // Helm (blue plate)
+  dr(ctx,5,1,10,4,'#2c3a58'); dr(ctx,4,2,12,4,'#384870'); dr(ctx,5,1,9,3,'#4a5e88');
+  dr(ctx,5,1,8,1,'rgba(255,255,255,0.14)'); // top highlight
+  // Plume (red)
+  dr(ctx,8,0,4,2,'#c02020'); dr(ctx,9,0,2,2,'#e03030');
+  // Face (visor slit)
+  dr(ctx,6,4,8,2,'#c0a878'); dr(ctx,7,5,6,1,'#181820'); // eyes/visor
+  // Gorget
+  dr(ctx,6,6,8,1,'#2c3a58');
+  // Chest armor (blue plate)
+  dr(ctx,3,7,14,7,'#2040a0'); dr(ctx,4,6,12,8,'#2858b8'); dr(ctx,5,6,10,8,'#3060c0');
+  dr(ctx,5,6,3,6,'rgba(255,255,255,0.1)'); // chest highlight
+  // Gold trim
+  dr(ctx,3,13,14,1,'#b08028'); // belt
+  // Arms
+  dr(ctx,2,7,3,6,'#2040a0'); dr(ctx,15,7,3,6,'#2040a0');
+  // Sword (right side, vertical)
+  dr(ctx,17,3,1,9,'#a0a8b8'); dr(ctx,17,3,1,1,'#e0e8f0'); // blade+tip
+  dr(ctx,16,10,3,1,'#b08028'); // guard
+  dr(ctx,17,11,1,3,'#5a3010'); // grip
+  // Legs
+  dr(ctx,5,14,4,5,'#182040'); dr(ctx,11,14,4,5,'#182040');
+  // Boots
+  dr(ctx,4,18,5,3,'#181020'); dr(ctx,11,18,5,3,'#181020');
+  // Shadow
+  dr(ctx,4,19,12,2,'rgba(0,0,0,0.4)');
 }
 
 // Build sprite cache
@@ -1723,357 +2454,1059 @@ function renderModal(g) {
 // ─────────────────────────────────────────────────────────────
 //  Large battle sprites  (16×16 grid, 8px per cell = 128×128)
 // ─────────────────────────────────────────────────────────────
-const BS = 8; // big-sprite cell size
+const BS = 6;  // pixels per sprite cell
+const BSG = 32; // grid cells per side → 192×192 px canvas
 
-function bp(ctx, x, y, col, s) {
+function bp(ctx, x, y, col) {
   if (!col) return;
-  const sc = s || BS;
   ctx.fillStyle = col;
-  ctx.fillRect(x * sc, y * sc, sc, sc);
+  ctx.fillRect(x*BS, y*BS, BS, BS);
 }
 
-function bline(ctx, y, cols, s) {
-  const sc = s || BS;
-  cols.forEach((c, x) => { if (c) { ctx.fillStyle = c; ctx.fillRect(x*sc, y*sc, sc, sc); } });
+function bline(ctx, y, cols) {
+  cols.forEach((c, x) => { if (c) { ctx.fillStyle = c; ctx.fillRect(x*BS, y*BS, BS, BS); } });
+}
+
+// cell-coordinate rect (x,y in cells, w,h in cells)
+function dc(ctx, cx, cy, cw, ch, col, a) {
+  if (!col) return;
+  if (a !== undefined) ctx.globalAlpha = a;
+  ctx.fillStyle = col;
+  ctx.fillRect(cx*BS, cy*BS, cw*BS, ch*BS);
+  if (a !== undefined) ctx.globalAlpha = 1;
+}
+
+// cell-coordinate gradient fill
+function dg(ctx, cx, cy, cw, ch, g) {
+  ctx.fillStyle = g;
+  ctx.fillRect(cx*BS, cy*BS, cw*BS, ch*BS);
+}
+
+function lg(ctx, x0,y0,x1,y1, stops) {
+  const g = ctx.createLinearGradient(x0*BS,y0*BS,x1*BS,y1*BS);
+  stops.forEach(([p,c])=>g.addColorStop(p,c));
+  return g;
+}
+
+function rg(ctx, cx,cy,r0,r1, stops) {
+  const g = ctx.createRadialGradient(cx*BS,cy*BS,r0*BS,cx*BS,cy*BS,r1*BS);
+  stops.forEach(([p,c])=>g.addColorStop(p,c));
+  return g;
 }
 
 const BIG = {
-  player: (ctx) => {
-    const _ = null;
-    const rows = [
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],         // 0
-      [_,_,_,_,_,'#384c6e','#384c6e','#4a5e82','#4a5e82','#384c6e','#384c6e',_,_,_,_,_], // 1 helm
-      [_,_,_,_,'#2a3c58','#4a6090','#5070a8','#6080b8','#6080b8','#5070a8','#4a6090','#2a3c58',_,_,_,_], // 2
-      [_,_,_,_,'#3a4c6a','#c0b090','#c8b898','#d0c0a0','#d0c0a0','#c8b898','#c0b090','#3a4c6a',_,_,_,_], // 3 face
-      [_,_,_,_,'#3a4c6a','#c0b090','#202030','#d0c0a0','#d0c0a0','#202030','#c0b090','#3a4c6a',_,_,_,_], // 4 eyes
-      [_,_,_,'#2858c0','#3868d0','#4878e0','#5888f0','#2050b0','#2050b0','#5888f0','#4878e0','#3868d0','#2858c0',_,_,_], // 5 shoulders
-      [_,_,'#a08040','#3060c8','#4070d8','#5080e8','#6090f0','#4878e0','#4878e0','#6090f0','#5080e8','#4070d8','#3060c8','#a08040',_,_], // 6 sword/chest
-      [_,_,'#c0a060','#3060c8','#4070d8','#5080e8','#4878e0','#4070d8','#4070d8','#4878e0','#5080e8','#4070d8','#3060c8','#c0a060',_,_], // 7
-      [_,_,'#d8b870','#2858c0','#3868d0','#5878e0','#3060c8','#2858b8','#2858b8','#3060c8','#5878e0','#3868d0','#2858c0','#c0a060',_,_], // 8 belt
-      [_,_,_,_,'#203858','#304870','#3858a0','#283868','#283868','#3858a0','#304870','#203858',_,_,_,_], // 9 waist
-      [_,_,_,'#203050','#304060','#4858a0','#3858a0',_,_,'#3858a0','#4858a0','#304060','#203050',_,_,_], // 10 legs gap
-      [_,_,_,'#1a2840','#283858','#4060a0','#3858a0',_,_,'#3858a0','#4060a0','#283858','#1a2840',_,_,_], // 11
-      [_,_,_,'#1a2840','#283858','#304878','#3858a0',_,_,'#3858a0','#304878','#283858','#1a2840',_,_,_], // 12
-      [_,_,'#2a3848','#1a2838','#283050','#2a3868','#3050a0',_,_,'#3050a0','#2a3868','#283050','#1a2838','#2a3848',_,_], // 13 boots
-      [_,_,'#1a2030','#182030','#202848','#243060','#2a3870',_,_,'#2a3870','#243060','#202848','#182030','#1a2030',_,_], // 14
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],         // 15
-    ];
-    ctx.fillStyle = '#050510'; ctx.fillRect(0,0,16*BS,16*BS);
-    rows.forEach((row, y) => bline(ctx, y, row));
+  player(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    // shadow
+    dc(ctx,8,30,14,1,'rgba(0,0,0,0.55)',0.55);
+    // boots
+    dc(ctx,10,27,5,3,'#1a1218'); dc(ctx,10,27,5,1,'#28202a');
+    dc(ctx,17,27,5,3,'#1a1218'); dc(ctx,17,27,5,1,'#28202a');
+    // legs
+    dg(ctx,11,20,4,8,lg(ctx,11,20,15,28,[[0,'#2c3a60'],[0.5,'#3a4e78'],[1,'#1e2848']]));
+    dc(ctx,11,20,1,8,'rgba(255,255,255,0.07)');
+    dg(ctx,17,20,4,8,lg(ctx,17,20,21,28,[[0,'#2c3a60'],[0.5,'#3a4e78'],[1,'#1e2848']]));
+    dc(ctx,17,20,1,8,'rgba(255,255,255,0.07)');
+    // knee plates
+    dc(ctx,11,23,4,1,'#4a60a0'); dc(ctx,17,23,4,1,'#4a60a0');
+    // belt
+    dg(ctx,9,19,14,2,lg(ctx,9,19,23,21,[[0,'#c09030'],[0.5,'#e0b050'],[1,'#a07820']]));
+    dc(ctx,15,19,2,2,'#f0d060');
+    // tassets
+    dc(ctx,9,18,14,2,'#2848a0'); dc(ctx,9,18,14,1,'rgba(255,255,255,0.08)');
+    // chest + armor
+    dg(ctx,9,10,14,10,lg(ctx,9,10,23,20,[[0,'#3868d0'],[0.4,'#2858c0'],[0.7,'#1e48a8'],[1,'#142890']]));
+    dc(ctx,9,10,14,1,'rgba(255,255,255,0.15)');
+    dc(ctx,9,10,1,10,'rgba(255,255,255,0.08)');
+    dc(ctx,22,10,1,10,'rgba(0,0,0,0.28)');
+    // chest gem
+    dg(ctx,14,13,4,4,rg(ctx,16,15,0.5,3,[[0,'#80d0ff'],[0.5,'#4090d0'],[1,'#104880']]));
+    dc(ctx,15,14,2,1,'rgba(255,255,255,0.5)');
+    // gold chest trim
+    dc(ctx,9,10,14,1,'#c09030'); dc(ctx,9,19,14,1,'#c09030');
+    dc(ctx,9,11,1,8,'#b08028'); dc(ctx,22,11,1,8,'#b08028');
+    // abs ridge
+    dc(ctx,11,15,10,1,'rgba(0,0,0,0.18)'); dc(ctx,11,17,10,1,'rgba(0,0,0,0.18)');
+    // left pauldron
+    dg(ctx,6,9,5,5,lg(ctx,6,9,11,14,[[0,'#4070d8'],[1,'#2050b0']]));
+    dc(ctx,6,9,5,1,'rgba(255,255,255,0.18)');
+    // right pauldron
+    dg(ctx,21,9,5,5,lg(ctx,21,9,26,14,[[0,'#4070d8'],[1,'#2050b0']]));
+    dc(ctx,21,9,5,1,'rgba(255,255,255,0.18)');
+    // left arm
+    dc(ctx,7,13,3,7,'#2858c0'); dc(ctx,7,13,1,7,'rgba(255,255,255,0.08)');
+    // right arm
+    dc(ctx,22,13,3,7,'#2858c0'); dc(ctx,22,13,1,7,'rgba(255,255,255,0.08)');
+    // SWORD (right side, blade points up)
+    // blade
+    dg(ctx,24,6,2,14,lg(ctx,24,6,26,20,[[0,'#f0f4ff'],[0.4,'#c8d0e0'],[1,'#808898']]));
+    dc(ctx,24,6,1,14,'rgba(255,255,255,0.6)');
+    dc(ctx,24,6,2,1,'#ffffff'); // tip
+    // crossguard
+    dc(ctx,22,19,7,1,'#c09030'); dc(ctx,22,20,7,1,'#90680a');
+    dc(ctx,22,19,1,2,'rgba(255,255,255,0.2)');
+    // grip
+    dc(ctx,24,21,2,4,'#4a2c12'); dc(ctx,25,21,1,4,'rgba(255,255,255,0.12)');
+    // pommel
+    dc(ctx,23,25,4,1,'#c09030'); dc(ctx,23,25,2,1,'rgba(255,255,255,0.25)');
+    // head/helm
+    dg(ctx,10,3,12,7,rg(ctx,16,6,1,8,[[0,'#6080b8'],[0.5,'#3868c8'],[1,'#1a3a80']]));
+    dc(ctx,10,3,12,1,'rgba(255,255,255,0.2)');
+    dc(ctx,10,3,1,7,'rgba(255,255,255,0.1)');
+    dc(ctx,21,3,1,7,'rgba(0,0,0,0.35)');
+    // visor slit
+    dc(ctx,11,6,10,1,'#050510');
+    dc(ctx,18,6,2,1,'#ff8800'); // eye glow
+    // plume (red crest)
+    dc(ctx,13,1,6,3,'#c02020'); dc(ctx,14,0,4,3,'#e03030');
+    dc(ctx,14,0,3,1,'rgba(255,255,255,0.25)');
+    // cheek guards
+    dr(ctx,10*BS,9*BS,BS,3*BS,'#304878'); dr(ctx,21*BS,9*BS,BS,3*BS,'#304878');
+    // gorget
+    dc(ctx,11,9,10,2,'#2848a8'); dc(ctx,11,9,10,1,'rgba(255,255,255,0.12)');
   },
 
-  Rat: (ctx) => {
-    const _ = null;
-    ctx.fillStyle = '#050510'; ctx.fillRect(0,0,16*BS,16*BS);
-    const rows = [
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,_,_,'#5c3e1c','#5c3e1c',_,_,_,_,_,_,_],
-      [_,_,_,_,_,_,'#6a4820','#7a5828','#7a5828','#6a4820',_,_,_,_,_,_],
-      [_,_,_,_,_,'#5a3a18','#8a6838','#202018','#202018','#8a6838','#5a3a18',_,_,_,_,_],
-      [_,_,_,_,_,'#4a2e10','#9a7848','#c0a060','#c0a060','#9a7848','#4a2e10',_,_,_,_,_],
-      [_,_,_,_,'#3a2008','#8a5828','#8a5828','#9a6838','#9a6838','#8a5828','#8a5828','#3a2008',_,_,_,_],
-      [_,_,_,_,'#6a4820','#9a6838','#b07848','#c08050','#c08050','#b07848','#9a6838','#6a4820',_,_,_,_],
-      [_,_,_,'#4a3010','#8a6030','#a07848','#b88858','#c09060','#c09060','#b88858','#a07848','#8a6030','#4a3010',_,_,_],
-      [_,_,_,'#3a2008','#6a4820','#9a6838','#b07848','#b88050','#b88050','#b07848','#9a6838','#6a4820','#3a2008',_,_,_],
-      [_,_,_,_,'#4a3010','#7a5028','#9a6838','#a07040','#a07040','#9a6838','#7a5028','#4a3010',_,_,_,_],
-      [_,'#5a4020',_,_,_,'#6a4820','#8a5828','#9a6838','#9a6838','#8a5828','#6a4820',_,_,_,'#5a4020',_],
-      [_,'#c0a060',_,_,_,'#5a3a18','#7a5028','#8a6030','#8a6030','#7a5028','#5a3a18',_,_,_,'#c0a060',_],
-      [_,_,_,_,_,'#4a2e10','#6a4020','#7a5028','#7a5028','#6a4020','#4a2e10',_,_,_,_,_],
-      [_,_,_,_,_,_,'#3a2008','#5a3a18','#5a3a18','#3a2008',_,_,_,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-    ];
-    rows.forEach((row, y) => bline(ctx, y, row));
+  Rat(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dc(ctx,4,30,24,1,'rgba(0,0,0,0.5)',0.5);
+    // tail (right, curling up)
+    dc(ctx,22,24,4,2,'#6a4828'); dc(ctx,25,22,3,3,'#5a3818');
+    dc(ctx,27,19,2,4,'#4a2e14'); dc(ctx,27,16,2,4,'#3e2810');
+    dc(ctx,26,14,2,2,'#3e2810');
+    // body
+    dg(ctx,8,17,16,12,rg(ctx,16,22,2,12,[[0,'#a08060'],[0.4,'#7a5c3a'],[0.8,'#5a3e20'],[1,'#3a2410']]));
+    dc(ctx,8,17,16,1,'rgba(255,255,255,0.15)');
+    // belly
+    dc(ctx,11,24,10,4,'#b09070'); dc(ctx,11,24,10,1,'rgba(255,255,255,0.12)');
+    // legs
+    dc(ctx,9,27,2,3,'#5a3e20'); dc(ctx,13,27,2,3,'#5a3e20');
+    dc(ctx,18,27,2,3,'#5a3e20'); dc(ctx,22,27,2,3,'#5a3e20');
+    dc(ctx,9,29,2,1,'#281808'); dc(ctx,13,29,2,1,'#281808');
+    dc(ctx,18,29,2,1,'#281808'); dc(ctx,22,29,2,1,'#281808');
+    // head (faces left)
+    dg(ctx,4,16,8,8,rg(ctx,8,20,1,6,[[0,'#8a6848'],[0.5,'#6a4e30'],[1,'#4a3018']]));
+    dc(ctx,4,16,8,1,'rgba(255,255,255,0.12)');
+    // snout
+    dc(ctx,2,19,3,3,'#7a5838'); dc(ctx,1,20,2,2,'#6a4828');
+    dc(ctx,1,20,1,1,'#ffb0a0'); // nose
+    // ears
+    dg(ctx,5,12,3,5,lg(ctx,5,12,8,17,[[0,'#9a6848'],[1,'#5a2e18']]));
+    dg(ctx,9,12,3,5,lg(ctx,9,12,12,17,[[0,'#9a6848'],[1,'#5a2e18']]));
+    dc(ctx,5,13,2,3,'#e09090',0.6); dc(ctx,9,13,2,3,'#e09090',0.6); // inner ear
+    // eyes (red)
+    dr(ctx,5*BS,18*BS,7,7,'#ff2020'); dr(ctx,5*BS+2,18*BS+2,3,3,'#ffcc00');
+    dr(ctx,8*BS,18*BS,7,7,'#ff2020'); dr(ctx,8*BS+2,18*BS+2,3,3,'#ffcc00');
+    // whiskers
+    dr(ctx,0,20*BS+2,14,1,'#aaaaaa'); dr(ctx,0,21*BS+2,14,1,'#aaaaaa');
+    // teeth
+    dc(ctx,2,22,1,1,'#f0f0e0'); dc(ctx,3,22,1,1,'#f0f0e0');
+    // fur texture
+    dc(ctx,10,19,2,1,'rgba(255,255,255,0.1)'); dc(ctx,15,20,2,1,'rgba(255,255,255,0.1)');
+    dc(ctx,19,22,2,1,'rgba(255,255,255,0.1)');
   },
 
-  Goblin: (ctx) => {
-    const _ = null;
-    ctx.fillStyle = '#050510'; ctx.fillRect(0,0,16*BS,16*BS);
-    const g='#2a5a18',G='#3a6a28',h='#4a7a38',e='#d8e000',s='#808018',b='#5a3010',B='#3a2008';
-    const rows = [
-      [_,_,_,_,_,_,e,_,_,e,_,_,_,_,_,_],
-      [_,_,_,_,_,g,g,g,g,g,g,_,_,_,_,_],
-      [_,_,_,_,g,G,G,h,h,G,G,g,_,_,_,_],
-      [_,_,_,g,G,G,'#282808','#d0c080','#d0c080','#282808',G,G,g,_,_,_],
-      [_,_,_,g,G,G,G,'#d0b870','#d0b870',G,G,G,g,_,_,_],
-      [_,_,_,g,h,G,G,G,G,G,G,h,g,_,_,_],
-      [_,_,_,_,g,'#c83030',s,G,G,s,'#c83030',g,_,_,_,_],
-      [_,_,b,B,b,g,G,G,G,G,g,b,B,b,_,_],
-      [_,_,b,B,b,G,G,G,G,G,G,b,B,b,_,_],
-      [_,_,b,b,G,G,h,G,G,h,G,G,b,b,_,_],
-      [_,_,_,_,G,G,G,_,_,G,G,G,_,_,_,_],
-      [_,_,_,_,G,G,G,_,_,G,G,G,_,_,_,_],
-      [_,_,_,g,G,G,_,_,_,_,G,G,g,_,_,_],
-      [_,_,_,g,G,g,_,_,_,_,g,G,g,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-    ];
-    rows.forEach((row, y) => bline(ctx, y, row));
+  Goblin(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dc(ctx,10,30,12,1,'rgba(0,0,0,0.5)',0.5);
+    // feet
+    dc(ctx,11,29,4,1,'#281808'); dc(ctx,17,29,4,1,'#281808');
+    // legs (short, hunched)
+    dc(ctx,12,24,3,6,'#4a6828'); dc(ctx,12,24,1,6,'rgba(255,255,255,0.08)');
+    dc(ctx,17,24,3,6,'#4a6828'); dc(ctx,17,24,1,6,'rgba(255,255,255,0.08)');
+    // loincloth
+    dc(ctx,11,22,10,3,'#6a3a14'); dc(ctx,11,22,10,1,'rgba(255,255,255,0.1)');
+    // body
+    dg(ctx,11,14,10,10,lg(ctx,11,14,21,24,[[0,'#6a8838'],[0.5,'#507028'],[1,'#304814']]));
+    dc(ctx,11,14,10,1,'rgba(255,255,255,0.12)');
+    dc(ctx,11,14,1,10,'rgba(255,255,255,0.06)');
+    // arms
+    dc(ctx,9,15,2,7,'#4a6828'); dc(ctx,9,15,1,7,'rgba(255,255,255,0.07)');
+    dc(ctx,21,15,2,7,'#4a6828');
+    // DAGGER in left hand
+    dg(ctx,5,12,2,12,lg(ctx,5,12,7,24,[[0,'#e8e8f8'],[0.5,'#a0a0b0'],[1,'#606078']]));
+    dc(ctx,5,12,1,12,'rgba(255,255,255,0.5)');
+    dc(ctx,4,12,2,1,'#d0d8e8'); // tip
+    dc(ctx,4,23,5,1,'#907030'); // crossguard
+    dc(ctx,5,24,2,3,'#3a1e08'); // grip
+    // BIG head (faces left)
+    dg(ctx,9,3,14,13,rg(ctx,16,9,1,9,[[0,'#8aaa48'],[0.5,'#608030'],[1,'#3a5018']]));
+    dc(ctx,9,3,14,1,'rgba(255,255,255,0.15)');
+    // ears (huge)
+    dc(ctx,4,6,5,3,'#4a6828'); dc(ctx,4,7,3,3,'rgba(255,150,100,0.5)',0.5);
+    dc(ctx,23,6,5,3,'#4a6828'); dc(ctx,24,7,3,3,'rgba(255,150,100,0.5)',0.5);
+    // eyes (yellow)
+    dc(ctx,10,8,4,2,'#000000'); dc(ctx,17,8,4,2,'#000000');
+    dc(ctx,10,8,4,1,'#e8d800'); dc(ctx,17,8,4,1,'#e8d800');
+    dc(ctx,10,8,2,1,'#ffff60'); dc(ctx,17,8,2,1,'#ffff60');
+    // brow
+    dc(ctx,10,7,4,1,'#3a5018'); dc(ctx,17,7,4,1,'#3a5018');
+    // nose
+    dc(ctx,8,11,3,2,'#508028'); dc(ctx,7,12,3,1,'#3a6018');
+    // mouth+fangs
+    dc(ctx,10,13,9,2,'#1a0e08');
+    dc(ctx,10,13,1,2,'#f0f0c0'); dc(ctx,12,13,1,2,'#f0f0c0'); dc(ctx,16,13,1,2,'#f0f0c0');
+    // warts
+    dc(ctx,13,6,1,1,'#3a5818'); dc(ctx,20,9,1,1,'#3a5818');
   },
 
-  Orc: (ctx) => {
-    const _ = null;
-    ctx.fillStyle = '#050510'; ctx.fillRect(0,0,16*BS,16*BS);
-    const o='#284820',O='#385830',H='#487840',a='#604030',A='#803828',f='#d0b060',e='#201808';
-    const rows = [
-      [_,_,_,_,_,A,A,_,_,A,A,_,_,_,_,_],
-      [_,_,_,_,O,O,O,O,O,O,O,O,_,_,_,_],
-      [_,_,_,O,H,H,H,H,H,H,H,H,O,_,_,_],
-      [_,_,O,O,H,e,H,f,f,H,e,H,O,O,_,_],
-      [_,_,O,O,H,H,f,f,f,f,H,H,O,O,_,_],
-      [_,_,O,O,H,H,A,f,f,A,H,H,O,O,_,_],
-      [_,_,_,O,O,H,H,O,O,H,H,O,O,_,_,_],
-      [_,a,A,a,O,O,O,O,O,O,O,O,a,A,a,_],
-      [_,a,A,a,A,a,O,O,O,O,a,A,a,A,a,_],
-      [_,a,A,A,A,A,A,a,a,A,A,A,A,A,a,_],
-      [_,_,a,A,A,A,a,_,_,a,A,A,A,a,_,_],
-      [_,_,a,A,A,A,a,_,_,a,A,A,A,a,_,_],
-      [_,_,a,A,A,A,_,_,_,_,A,A,A,a,_,_],
-      [_,_,a,A,A,_,_,_,_,_,_,A,A,a,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-    ];
-    rows.forEach((row, y) => bline(ctx, y, row));
+  Orc(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dc(ctx,4,30,24,1,'rgba(0,0,0,0.65)',0.65);
+    // feet/boots
+    dc(ctx,8,28,7,2,'#2e1808'); dc(ctx,8,28,7,1,'#4a2810');
+    dc(ctx,17,28,7,2,'#2e1808'); dc(ctx,17,28,7,1,'#4a2810');
+    // legs (massive)
+    dg(ctx,9,20,6,9,lg(ctx,9,20,15,29,[[0,'#5a7838'],[0.5,'#3a5820'],[1,'#1e2e10']]));
+    dc(ctx,9,20,1,9,'rgba(255,255,255,0.08)');
+    dg(ctx,17,20,6,9,lg(ctx,17,20,23,29,[[0,'#5a7838'],[0.5,'#3a5820'],[1,'#1e2e10']]));
+    // belt
+    dc(ctx,5,19,22,2,'#2e1808'); dc(ctx,14,19,4,2,'#c09030');
+    dc(ctx,14,19,2,1,'rgba(255,255,255,0.3)');
+    // MASSIVE torso
+    dg(ctx,5,9,22,12,rg(ctx,16,15,2,14,[[0,'#7a9850'],[0.4,'#5a7838'],[0.7,'#3a5020'],[1,'#1e2e10']]));
+    dc(ctx,5,9,22,1,'rgba(255,255,255,0.15)');
+    dc(ctx,5,9,1,12,'rgba(255,255,255,0.06)');
+    dc(ctx,26,9,1,12,'rgba(0,0,0,0.3)');
+    // crude chest armor (iron)
+    dc(ctx,8,10,16,8,'rgba(80,70,60,0.5)',0.5);
+    dc(ctx,8,10,16,1,'rgba(255,255,255,0.1)');
+    // armor rivets
+    dc(ctx,9,11,1,1,'#909090'); dc(ctx,22,11,1,1,'#909090');
+    dc(ctx,9,17,1,1,'#909090'); dc(ctx,22,17,1,1,'#909090');
+    // arms (huge)
+    dg(ctx,1,10,5,10,lg(ctx,1,10,6,20,[[0,'#6a8848'],[1,'#3a5020']]));
+    dc(ctx,1,10,1,10,'rgba(255,255,255,0.06)');
+    dg(ctx,26,10,5,10,lg(ctx,26,10,31,20,[[0,'#6a8848'],[1,'#3a5020']]));
+    // hands
+    dc(ctx,1,19,5,2,'#4a3828'); dc(ctx,26,19,5,2,'#4a3828');
+    // AXEHEAD in left hand
+    dg(ctx,4,5,2,18,lg(ctx,4,5,6,23,[[0,'#7a5830'],[1,'#3a2010']])); // handle
+    dg(ctx,0,4,6,8,lg(ctx,0,4,6,12,[[0,'#e0e8f0'],[0.5,'#a0a8b8'],[1,'#606878']])); // blade
+    dc(ctx,0,4,6,1,'#f8fcff'); // edge highlight
+    dc(ctx,0,11,6,1,'#f8fcff'); // edge highlight
+    dc(ctx,0,4,1,8,'rgba(255,255,255,0.4)'); // left edge bright
+    // head (facing left, small rel to body)
+    dg(ctx,9,1,14,9,rg(ctx,16,5,1,9,[[0,'#8aaa58'],[0.5,'#608038'],[1,'#3a5018']]));
+    dc(ctx,9,1,14,1,'rgba(255,255,255,0.18)');
+    // brow ridge
+    dc(ctx,9,5,14,1,'rgba(0,0,0,0.3)');
+    // eyes (red angry, faces left)
+    dc(ctx,11,4,3,2,'#000000'); dc(ctx,17,4,3,2,'#000000');
+    dc(ctx,11,4,3,1,'#ff2020'); dc(ctx,17,4,3,1,'#ff2020');
+    dc(ctx,11,4,1,1,'#ffff80'); dc(ctx,17,4,1,1,'#ffff80');
+    // tusks
+    dc(ctx,12,8,2,3,'#f0f0d0'); dc(ctx,18,8,2,3,'#f0f0d0');
+    dc(ctx,12,10,2,1,'#d0d0a0'); dc(ctx,18,10,2,1,'#d0d0a0');
+    // nose
+    dc(ctx,14,6,4,2,'#3a5820');
+    // mouth
+    dc(ctx,13,7,7,2,'#1a0e08');
+    // war paint
+    dc(ctx,10,5,2,2,'#aa0000',0.8); dc(ctx,21,5,2,2,'#aa0000',0.8);
   },
 
-  Skeleton: (ctx) => {
-    const _ = null;
-    ctx.fillStyle = '#050510'; ctx.fillRect(0,0,16*BS,16*BS);
-    const w='#b8c0c8',W='#d0d8e0',d='#303840',e='#202830';
-    const rows = [
-      [_,_,_,_,_,w,W,W,W,W,w,_,_,_,_,_],
-      [_,_,_,_,W,W,W,W,W,W,W,W,_,_,_,_],
-      [_,_,_,w,W,e,W,W,W,W,e,W,w,_,_,_],
-      [_,_,_,w,W,e,W,W,W,W,e,W,w,_,_,_],
-      [_,_,_,_,W,W,W,d,d,W,W,W,_,_,_,_],
-      [_,_,_,_,w,W,W,W,W,W,W,w,_,_,_,_],
-      [_,_,_,_,_,d,W,W,W,W,d,_,_,_,_,_],
-      [_,_,w,W,w,W,W,W,W,W,W,w,W,w,_,_],
-      [_,_,W,W,W,W,d,W,W,d,W,W,W,W,_,_],
-      [_,_,_,W,W,W,W,W,W,W,W,W,W,_,_,_],
-      [_,_,_,_,W,W,W,_,_,W,W,W,_,_,_,_],
-      [_,_,_,_,W,W,W,_,_,W,W,W,_,_,_,_],
-      [_,_,_,w,W,W,_,_,_,_,W,W,w,_,_,_],
-      [_,_,_,w,W,_,_,_,_,_,_,W,w,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-    ];
-    rows.forEach((row, y) => bline(ctx, y, row));
+  Skeleton(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dc(ctx,11,30,10,1,'rgba(0,0,0,0.5)',0.5);
+    // feet
+    dc(ctx,12,29,4,1,'#909080'); dc(ctx,17,29,4,1,'#909080');
+    // legs (thin bone)
+    dc(ctx,13,19,2,11,'#c8d0c8'); dc(ctx,13,19,1,11,'rgba(255,255,255,0.3)');
+    dc(ctx,17,19,2,11,'#c8d0c8'); dc(ctx,17,19,1,11,'rgba(255,255,255,0.3)');
+    // knee joint
+    dc(ctx,12,23,4,1,'#a8b0a8'); dc(ctx,16,23,4,1,'#a8b0a8');
+    // pelvis
+    dc(ctx,12,17,8,3,'#c0c8c0'); dc(ctx,14,18,4,1,'#050510');
+    // spine
+    dc(ctx,15,9,2,9,'#c8d0c8'); dc(ctx,15,9,1,9,'rgba(255,255,255,0.3)');
+    // ribs
+    for(let i=0;i<5;i++){
+      dc(ctx,11,10+i*2,4,1,'#d0d8d0'); dc(ctx,11,10+i*2,1,1,'rgba(255,255,255,0.3)');
+      dc(ctx,17,10+i*2,4,1,'#d0d8d0'); dc(ctx,20,10+i*2,1,1,'rgba(255,255,255,0.3)');
+    }
+    // sternum
+    dc(ctx,15,10,2,8,'#a8b0a8');
+    // arms
+    dc(ctx,10,9,2,8,'#c8d0c8'); dc(ctx,10,9,1,8,'rgba(255,255,255,0.3)');
+    dc(ctx,20,9,2,8,'#c8d0c8');
+    // hand bones
+    dc(ctx,9,17,3,2,'#b0b8b0'); dc(ctx,20,17,3,2,'#b0b8b0');
+    // SWORD in left hand
+    dg(ctx,5,5,2,15,lg(ctx,5,5,7,20,[[0,'#f8fcff'],[0.5,'#c0c8d8'],[1,'#808898']]));
+    dc(ctx,5,5,1,15,'rgba(255,255,255,0.55)');
+    dc(ctx,5,5,2,1,'#ffffff');
+    dc(ctx,3,19,7,1,'#907030'); // crossguard
+    dc(ctx,5,20,2,3,'#3a2010'); // grip
+    // SKULL
+    dg(ctx,10,1,12,10,rg(ctx,16,6,1,8,[[0,'#ffffff'],[0.5,'#d0d8d0'],[1,'#888888']]));
+    dc(ctx,10,1,12,1,'rgba(255,255,255,0.8)');
+    dc(ctx,10,1,1,10,'rgba(255,255,255,0.2)');
+    dc(ctx,21,1,1,10,'rgba(0,0,0,0.4)');
+    // eye sockets with glow
+    dc(ctx,11,4,4,3,'#000000'); dc(ctx,17,4,4,3,'#000000');
+    dr(ctx,12*BS,5*BS,5,5,'#00ccff'); dr(ctx,12*BS+1,5*BS+1,3,3,'#80eeff');
+    dr(ctx,18*BS,5*BS,5,5,'#00ccff'); dr(ctx,18*BS+1,5*BS+1,3,3,'#80eeff');
+    // nasal cavity
+    dc(ctx,15,7,2,2,'#000000');
+    // jaw + teeth
+    dc(ctx,11,9,10,3,'#c0c8c0');
+    for(let i=0;i<4;i++) dc(ctx,12+i*2,9,1,3,'#050510');
+    dc(ctx,11,9,1,3,'rgba(255,255,255,0.2)');
+    dc(ctx,10,11,12,1,'rgba(0,0,0,0.4)');
   },
 
-  Zombie: (ctx) => {
-    const _ = null;
-    ctx.fillStyle = '#050510'; ctx.fillRect(0,0,16*BS,16*BS);
-    const z='#283820',Z='#384830',f='#507040',b='#1a2818',e='#d02020',s='#202820';
-    const rows = [
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,z,Z,Z,Z,Z,z,_,_,_,_,_],
-      [_,_,_,_,Z,Z,f,f,f,f,Z,Z,_,_,_,_],
-      [_,_,_,z,Z,e,f,f,f,f,e,Z,z,_,_,_],
-      [_,_,_,z,Z,Z,Z,f,f,Z,Z,Z,z,_,_,_],
-      [_,_,_,_,Z,f,Z,Z,Z,Z,f,Z,_,_,_,_],
-      [_,_,_,_,z,Z,Z,f,f,Z,Z,z,_,_,_,_],
-      [_,z,Z,z,Z,Z,Z,Z,Z,Z,Z,Z,z,Z,z,_],
-      [z,Z,Z,Z,Z,b,Z,Z,Z,Z,b,Z,Z,Z,Z,z],
-      [_,_,Z,Z,Z,Z,f,Z,Z,f,Z,Z,Z,Z,_,_],
-      [_,_,_,Z,Z,Z,Z,_,_,Z,Z,Z,Z,_,_,_],
-      [_,_,_,Z,Z,Z,_,_,_,_,Z,Z,Z,_,_,_],
-      [_,_,_,z,Z,Z,_,_,_,_,Z,Z,z,_,_,_],
-      [_,_,_,z,Z,_,_,_,_,_,_,Z,z,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-    ];
-    rows.forEach((row, y) => bline(ctx, y, row));
+  Zombie(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dc(ctx,9,30,14,1,'rgba(0,0,0,0.5)',0.5);
+    // feet
+    dc(ctx,11,29,4,1,'#1a2010'); dc(ctx,17,29,4,1,'#1a2010');
+    // legs
+    dg(ctx,11,22,4,8,lg(ctx,11,22,15,30,[[0,'#4a5838'],[1,'#202c18']]));
+    dc(ctx,11,22,1,8,'rgba(255,255,255,0.06)');
+    dg(ctx,17,22,4,8,lg(ctx,17,22,21,30,[[0,'#4a5838'],[1,'#202c18']]));
+    // tattered pants
+    dc(ctx,11,28,1,1,'#2a3820'); dc(ctx,14,28,1,1,'#2a3820');
+    dc(ctx,18,28,1,1,'#2a3820'); dc(ctx,20,28,1,1,'#2a3820');
+    // torso
+    dg(ctx,10,10,12,13,lg(ctx,10,10,22,23,[[0,'#6a7850'],[0.5,'#4a5838'],[1,'#2a3820']]));
+    dc(ctx,10,10,12,1,'rgba(255,255,255,0.1)');
+    // wound / exposed flesh
+    dc(ctx,13,13,6,4,'#5a1818'); dc(ctx,13,13,6,1,'#8a2828');
+    dc(ctx,15,14,1,2,'#a83030'); dc(ctx,17,14,1,1,'#a83030');
+    // blood
+    dc(ctx,14,14,3,5,'rgba(160,20,20,0.5)',0.5);
+    // tattered shirt
+    dc(ctx,10,21,1,1,'#2a3820'); dc(ctx,13,21,1,1,'#2a3820');
+    dc(ctx,18,21,1,1,'#2a3820'); dc(ctx,21,21,1,1,'#2a3820');
+    // arms EXTENDED forward (toward player = left)
+    dg(ctx,2,12,9,3,lg(ctx,2,12,11,15,[[0,'#4a5838'],[1,'#6a7850']]));
+    dg(ctx,2,17,9,3,lg(ctx,2,17,11,20,[[0,'#4a5838'],[1,'#6a7850']]));
+    // hands/claws
+    dc(ctx,1,12,2,3,'#5a6848'); dc(ctx,1,17,2,3,'#5a6848');
+    dc(ctx,0,12,1,1,'#1a1808'); dc(ctx,0,14,1,1,'#1a1808');
+    dc(ctx,0,17,1,1,'#1a1808'); dc(ctx,0,19,1,1,'#1a1808');
+    dc(ctx,1,13,2,1,'#7a2020'); dc(ctx,1,18,2,1,'#7a2020');
+    // head (rotting, faces left)
+    dg(ctx,10,2,12,9,rg(ctx,16,6,1,7,[[0,'#9aaa80'],[0.5,'#7a8860'],[1,'#4a5838']]));
+    dc(ctx,10,2,12,1,'rgba(255,255,255,0.12)');
+    dc(ctx,10,2,1,9,'rgba(255,255,255,0.06)');
+    // sunken eyes (yellow, faces left)
+    dc(ctx,11,5,4,3,'#101808');
+    dc(ctx,12,6,2,1,'#d8c820'); dc(ctx,11,6,1,1,'#a09818');
+    dc(ctx,17,5,4,3,'#101808');
+    dc(ctx,18,6,2,1,'#d8c820'); dc(ctx,17,6,1,1,'#a09818');
+    // gaping mouth
+    dc(ctx,12,9,8,2,'#100808');
+    dc(ctx,12,9,1,2,'#d0d0b0'); dc(ctx,14,9,1,2,'#d0d0b0'); dc(ctx,17,9,1,2,'#d0d0b0');
+    dc(ctx,12,10,8,1,'#5a1010');
+    // decay patches
+    dc(ctx,10,4,1,1,'#2a3018'); dc(ctx,21,7,1,1,'#2a3018'); dc(ctx,16,8,1,1,'#2a3018');
+    // matted hair
+    dc(ctx,11,1,4,2,'#2a1808'); dc(ctx,17,1,4,2,'#2a1808');
   },
 
-  Troll: (ctx) => {
-    const _ = null;
-    ctx.fillStyle = '#050510'; ctx.fillRect(0,0,16*BS,16*BS);
-    const t='#405058',T='#505868',H='#606878',s='#303840',e='#181820',f='#a09070';
-    const rows = [
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,'#304040',T,T,T,_,_,T,T,T,'#304040',_,_,_],
-      [_,_,_,T,H,H,H,H,H,H,H,H,T,_,_,_],
-      [_,_,T,T,H,e,H,f,f,H,e,H,T,T,_,_],
-      [_,_,T,T,H,H,f,f,f,f,H,H,T,T,_,_],
-      [_,_,T,T,H,H,H,f,f,H,H,H,T,T,_,_],
-      [_,_,_,T,T,H,H,H,H,H,H,T,T,_,_,_],
-      [_,s,T,s,T,T,T,T,T,T,T,T,s,T,s,_],
-      [_,T,T,T,T,T,s,T,T,s,T,T,T,T,T,_],
-      [_,T,T,T,T,T,T,T,T,T,T,T,T,T,T,_],
-      [_,_,T,T,T,T,T,_,_,T,T,T,T,T,_,_],
-      [_,_,T,T,T,T,T,_,_,T,T,T,T,T,_,_],
-      [_,_,T,T,T,T,_,_,_,_,T,T,T,T,_,_],
-      [_,_,T,T,T,_,_,_,_,_,_,T,T,T,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-    ];
-    rows.forEach((row, y) => bline(ctx, y, row));
+  Troll(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dc(ctx,2,30,28,1,'rgba(0,0,0,0.7)',0.7);
+    // massive feet
+    dc(ctx,4,28,11,2,'#303828'); dc(ctx,4,28,11,1,'rgba(255,255,255,0.06)');
+    dc(ctx,17,28,11,2,'#303828'); dc(ctx,17,28,11,1,'rgba(255,255,255,0.06)');
+    // toenails
+    for(let i=0;i<4;i++){ dc(ctx,5+i*2,29,1,1,'#c8c0a0'); dc(ctx,19+i*2,29,1,1,'#c8c0a0'); }
+    // TREE-TRUNK legs
+    dg(ctx,6,19,8,10,lg(ctx,6,19,14,29,[[0,'#6a6050'],[0.5,'#4a4030'],[1,'#2a2818']]));
+    dc(ctx,6,19,1,10,'rgba(255,255,255,0.08)'); dc(ctx,13,19,1,10,'rgba(0,0,0,0.25)');
+    dg(ctx,18,19,8,10,lg(ctx,18,19,26,29,[[0,'#6a6050'],[0.5,'#4a4030'],[1,'#2a2818']]));
+    dc(ctx,18,19,1,10,'rgba(255,255,255,0.08)');
+    // MASSIVE torso (fills most of canvas)
+    dg(ctx,2,7,28,14,rg(ctx,16,14,3,16,[[0,'#8a7860'],[0.4,'#6a5840'],[0.7,'#4a3820'],[1,'#2a1808']]));
+    dc(ctx,2,7,28,1,'rgba(255,255,255,0.15)');
+    dc(ctx,2,7,1,14,'rgba(255,255,255,0.07)'); dc(ctx,29,7,1,14,'rgba(0,0,0,0.35)');
+    // stone-hide texture
+    dc(ctx,5,10,3,5,'rgba(0,0,0,0.22)'); dc(ctx,12,13,4,4,'rgba(0,0,0,0.2)');
+    dc(ctx,20,9,4,5,'rgba(0,0,0,0.2)'); dc(ctx,7,17,3,3,'rgba(0,0,0,0.18)');
+    dc(ctx,23,15,3,4,'rgba(0,0,0,0.18)');
+    // belly
+    dc(ctx,10,17,12,4,'#9a8870'); dc(ctx,10,17,12,1,'rgba(255,255,255,0.1)');
+    dc(ctx,15,19,2,2,'#2a1808'); // navel
+    // battle scars
+    dc(ctx,8,11,1,5,'rgba(0,0,0,0.4)'); dc(ctx,22,13,1,4,'rgba(0,0,0,0.4)');
+    dc(ctx,14,15,5,1,'rgba(0,0,0,0.35)');
+    // HUGE arms
+    dg(ctx,0,9,3,13,lg(ctx,0,9,3,22,[[0,'#7a6858'],[1,'#3a2818']]));
+    dc(ctx,0,9,1,13,'rgba(255,255,255,0.07)');
+    dg(ctx,29,9,3,13,lg(ctx,29,9,32,22,[[0,'#7a6858'],[1,'#3a2818']]));
+    // FISTS raised
+    dg(ctx,0,18,5,6,rg(ctx,2,21,1,5,[[0,'#9a7860'],[1,'#3a2818']]));
+    dc(ctx,0,18,5,1,'rgba(255,255,255,0.08)');
+    dg(ctx,27,18,5,6,rg(ctx,29,21,1,5,[[0,'#9a7860'],[1,'#3a2818']]));
+    // knuckle bumps
+    dc(ctx,0,19,1,1,'#aa8868'); dc(ctx,0,21,1,1,'#aa8868');
+    dc(ctx,31,19,1,1,'#aa8868'); dc(ctx,31,21,1,1,'#aa8868');
+    // claws
+    dc(ctx,0,23,1,2,'#5a5040'); dc(ctx,2,24,1,2,'#5a5040');
+    dc(ctx,31,23,1,2,'#5a5040'); dc(ctx,29,24,1,2,'#5a5040');
+    // TINY head atop
+    dg(ctx,13,3,6,5,rg(ctx,16,5,1,4,[[0,'#9a7860'],[1,'#5a3820']]));
+    dc(ctx,13,3,6,1,'rgba(255,255,255,0.12)');
+    // tiny eyes (faces left)
+    dr(ctx,14*BS,5*BS,4,4,'#ff2020'); dr(ctx,14*BS+1,5*BS+1,2,2,'#ffaa00');
+    dr(ctx,17*BS,5*BS,4,4,'#ff2020'); dr(ctx,17*BS+1,5*BS+1,2,2,'#ffaa00');
+    // tiny mouth
+    dc(ctx,14,7,4,1,'#100808');
+    // under-tusks
+    dc(ctx,14,8,1,1,'#f0f0d0'); dc(ctx,17,8,1,1,'#f0f0d0');
+    // warts
+    dc(ctx,6,13,1,1,'#4a3818'); dc(ctx,24,11,1,1,'#4a3818'); dc(ctx,18,15,1,1,'#4a3818');
   },
 
-  Mage: (ctx) => {
-    const _ = null;
-    ctx.fillStyle = '#050510'; ctx.fillRect(0,0,16*BS,16*BS);
-    const p='#401880',P='#6020b0',v='#8040d0',g='#e0e000',f='#d0b890',e='#181018';
-    const rows = [
-      [_,_,_,_,_,_,_,g,g,_,_,_,_,_,_,_],
-      [_,_,_,_,_,P,P,g,g,P,P,_,_,_,_,_],
-      [_,_,_,_,P,v,P,P,P,P,v,P,_,_,_,_],
-      [_,_,_,P,v,v,e,f,f,e,v,v,P,_,_,_],
-      [_,_,_,P,v,v,f,f,f,f,v,v,P,_,_,_],
-      [_,_,_,_,P,v,P,f,f,P,v,P,_,_,_,_],
-      [_,_,_,_,_,P,P,P,P,P,P,_,_,_,_,_],
-      [_,_,p,P,p,v,P,P,P,P,v,p,P,p,_,_],
-      [_,_,p,P,p,P,P,P,P,P,P,p,P,p,_,_],
-      [_,_,_,P,P,v,P,P,P,P,v,P,P,_,_,_],
-      [_,_,_,_,P,P,P,_,_,P,P,P,_,_,_,_],
-      [_,_,_,_,P,P,P,_,_,P,P,P,_,_,_,_],
-      [_,_,_,p,P,P,_,_,_,_,P,P,p,_,_,_],
-      [_,_,_,p,P,_,_,_,_,_,_,P,p,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-    ];
-    rows.forEach((row, y) => bline(ctx, y, row));
+  Mage(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dc(ctx,9,30,14,1,'rgba(0,0,0,0.5)',0.5);
+    // flowing robe (long)
+    dg(ctx,8,13,16,17,lg(ctx,8,13,24,30,[[0,'#4040aa'],[0.4,'#2828a0'],[0.7,'#181898'],[1,'#080860']]));
+    dc(ctx,8,13,16,1,'rgba(255,255,255,0.12)');
+    dc(ctx,8,13,1,17,'rgba(255,255,255,0.06)');
+    // robe folds
+    dc(ctx,11,16,1,14,'rgba(0,0,0,0.2)'); dc(ctx,14,18,1,12,'rgba(0,0,0,0.2)');
+    dc(ctx,18,18,1,12,'rgba(0,0,0,0.2)'); dc(ctx,21,16,1,14,'rgba(0,0,0,0.2)');
+    // gold robe trim
+    dc(ctx,8,13,16,1,'#c09030'); dc(ctx,8,29,16,1,'#c09030');
+    // belt
+    dc(ctx,10,18,12,1,'#c09030'); dc(ctx,14,18,4,1,'#e0b050');
+    dc(ctx,15,18,2,1,'#d040e0'); // gem
+    // sleeves
+    dc(ctx,7,13,2,9,'#2828a0'); dc(ctx,7,13,1,9,'rgba(255,255,255,0.06)');
+    dc(ctx,23,13,2,9,'#2828a0');
+    // hands
+    dc(ctx,7,21,2,2,'#d8b890'); dc(ctx,23,21,2,2,'#d8b890');
+    // STAFF in left hand
+    dg(ctx,5,3,2,21,lg(ctx,5,3,7,24,[[0,'#9a6830'],[0.5,'#6a4820'],[1,'#3a2010']]));
+    dc(ctx,5,3,1,21,'rgba(255,255,255,0.12)');
+    // ORB on staff top
+    dg(ctx,3,0,6,6,rg(ctx,6,3,0.5,4,[[0,'#ffffff'],[0.3,'#a0c8ff'],[0.7,'#2060e0'],[1,'#001080']]));
+    dc(ctx,5,0,2,2,'rgba(255,255,255,0.7)');
+    dr(ctx,3*BS,0,6*BS,6*BS,'rgba(80,140,255,0.3)',0.3);
+    // orbiting glow
+    dc(ctx,3,3,1,1,'#60a0ff'); dc(ctx,9,3,1,1,'#60a0ff'); dc(ctx,6,0,1,1,'#60a0ff');
+    // head
+    dg(ctx,12,6,8,7,rg(ctx,16,9,1,6,[[0,'#e8d0a8'],[0.6,'#c0a888'],[1,'#806848']]));
+    dc(ctx,12,6,8,1,'rgba(255,255,255,0.12)');
+    // long white beard
+    dc(ctx,12,11,8,5,'#e0e0e0'); dc(ctx,13,14,6,3,'#c0c0c0');
+    dc(ctx,13,15,4,1,'#aaaaaa');
+    // eyes (facing left, wise blue)
+    dc(ctx,13,8,3,2,'#002888'); dc(ctx,17,8,3,2,'#002888');
+    dc(ctx,13,8,2,1,'#6090d0'); dc(ctx,17,8,2,1,'#6090d0');
+    dc(ctx,13,8,1,1,'rgba(255,255,255,0.5)');
+    // eyebrows
+    dc(ctx,13,7,3,1,'#d0d0d0'); dc(ctx,17,7,3,1,'#d0d0d0');
+    // nose
+    dc(ctx,15,10,2,1,'#b09070');
+    // POINTY HAT
+    dg(ctx,12,0,8,6,lg(ctx,12,0,20,6,[[0,'#5050cc'],[0.5,'#3030aa'],[1,'#181890']]));
+    dc(ctx,14,0,4,2,'rgba(255,255,255,0.12)'); // highlight
+    dc(ctx,9,5,14,1,'#3030aa'); dc(ctx,9,6,14,1,'#181890'); // brim
+    dc(ctx,15,0,2,1,'#181890'); // tip shadow
+    // hat stars
+    dc(ctx,14,2,1,1,'#ffd700'); dc(ctx,18,3,1,1,'#ffd700'); dc(ctx,16,4,1,1,'#ffffff');
   },
 
-  Vampire: (ctx) => {
-    const _ = null;
-    ctx.fillStyle = '#050510'; ctx.fillRect(0,0,16*BS,16*BS);
-    const d='#180820',D='#280830',v='#380840',c='#601020',f='#c0a0b0',e='#e02020',r='#300818';
-    const rows = [
-      [_,_,_,D,D,D,_,_,_,_,D,D,D,_,_,_],
-      [_,_,D,D,D,D,D,D,D,D,D,D,D,D,_,_],
-      [_,_,D,v,v,v,v,D,D,v,v,v,v,D,_,_],
-      [_,_,D,v,e,v,f,f,f,f,v,e,v,D,_,_],
-      [_,_,D,v,v,f,f,f,f,f,f,v,v,D,_,_],
-      [_,_,_,D,v,v,c,f,f,c,v,v,D,_,_,_],
-      [_,_,_,_,D,v,v,D,D,v,v,D,_,_,_,_],
-      [D,c,D,c,D,v,D,D,D,D,v,D,c,D,c,D],
-      [D,c,D,c,v,D,D,D,D,D,D,v,c,D,c,D],
-      [_,D,D,D,v,v,D,D,D,D,v,v,D,D,D,_],
-      [_,_,D,D,v,D,D,_,_,D,D,v,D,D,_,_],
-      [_,_,D,D,v,D,_,_,_,_,D,v,D,D,_,_],
-      [_,_,D,D,v,_,_,_,_,_,_,v,D,D,_,_],
-      [_,_,D,D,_,_,_,_,_,_,_,_,D,D,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-    ];
-    rows.forEach((row, y) => bline(ctx, y, row));
+  Vampire(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dc(ctx,10,30,12,1,'rgba(0,0,0,0.6)',0.6);
+    // CAPE spread wide (wings-like)
+    dg(ctx,1,7,8,20,lg(ctx,1,7,9,27,[[0,'#4a0008'],[0.5,'#2a0004'],[1,'#100002']]));
+    dg(ctx,23,7,8,20,lg(ctx,23,7,31,27,[[0,'#4a0008'],[0.5,'#2a0004'],[1,'#100002']]));
+    // cape inner (crimson lining)
+    dc(ctx,8,9,1,16,'#8a0010'); dc(ctx,23,9,1,16,'#8a0010');
+    // cape bottom spikes
+    dc(ctx,1,26,1,2,'#1a0002'); dc(ctx,4,27,1,1,'#1a0002'); dc(ctx,7,26,1,2,'#1a0002');
+    dc(ctx,24,26,1,2,'#1a0002'); dc(ctx,27,27,1,1,'#1a0002'); dc(ctx,30,26,1,2,'#1a0002');
+    // legs (elegant, slim)
+    dc(ctx,13,21,2,9,'#101010'); dc(ctx,13,21,1,9,'rgba(255,255,255,0.08)');
+    dc(ctx,17,21,2,9,'#101010');
+    // pointed boots
+    dc(ctx,12,28,4,2,'#060606'); dc(ctx,16,28,4,2,'#060606');
+    dc(ctx,12,28,4,1,'#2a2a2a'); dc(ctx,16,28,4,1,'#2a2a2a');
+    // torso (slim elegant suit)
+    dg(ctx,11,10,10,12,lg(ctx,11,10,21,22,[[0,'#1a1a1a'],[0.5,'#101010'],[1,'#060606']]));
+    dc(ctx,11,10,10,1,'rgba(255,255,255,0.08)');
+    // vest (crimson)
+    dc(ctx,13,12,6,8,'#4a0008'); dc(ctx,15,12,2,8,'#8a0014');
+    // buttons
+    dc(ctx,15,13,1,1,'#d4aa20'); dc(ctx,15,15,1,1,'#d4aa20'); dc(ctx,15,17,1,1,'#d4aa20');
+    // cravat / ruffled collar
+    dc(ctx,14,10,4,2,'#f0f0f0'); dc(ctx,15,11,2,1,'#d0d0d0');
+    // arms
+    dc(ctx,9,11,2,9,'#101010'); dc(ctx,9,11,1,9,'rgba(255,255,255,0.05)');
+    dc(ctx,21,11,2,9,'#101010');
+    // pale hands
+    dc(ctx,9,19,3,2,'#e8d8d0'); dc(ctx,20,19,3,2,'#e8d8d0');
+    // claws
+    dc(ctx,9,21,1,1,'#060606'); dc(ctx,11,21,1,1,'#060606');
+    dc(ctx,20,21,1,1,'#060606'); dc(ctx,22,21,1,1,'#060606');
+    // HEAD (pale, aristocratic, faces left)
+    dg(ctx,12,2,8,9,rg(ctx,16,6,1,6,[[0,'#fff0e8'],[0.5,'#e0d0c8'],[1,'#a89090']]));
+    dc(ctx,12,2,8,1,'rgba(255,255,255,0.5)');
+    dc(ctx,12,2,1,9,'rgba(255,255,255,0.12)');
+    // slicked hair
+    dc(ctx,12,2,8,2,'#080808'); dc(ctx,12,2,8,1,'#181818');
+    dc(ctx,11,3,1,2,'#080808'); dc(ctx,20,3,1,2,'#080808');
+    // eyes (glowing red, faces left)
+    dc(ctx,13,5,3,2,'#000000'); dc(ctx,17,5,3,2,'#000000');
+    dc(ctx,13,6,2,1,'#ff0018'); dc(ctx,17,6,2,1,'#ff0018');
+    dc(ctx,13,6,1,1,'#ff7080'); dc(ctx,17,6,1,1,'#ff7080');
+    dr(ctx,12*BS,5*BS,5*BS,3*BS,'rgba(255,0,30,0.15)',0.15);
+    // sharp nose
+    dc(ctx,14,8,2,2,'#c8a898');
+    // mouth / fangs
+    dc(ctx,14,9,4,1,'#3a0008');
+    dc(ctx,14,9,1,1,'#f0f0f0'); dc(ctx,17,9,1,1,'#f0f0f0');
+    dc(ctx,15,9,1,1,'#8a0010');
   },
 
-  Dragon: (ctx) => {
-    const _ = null;
-    ctx.fillStyle = '#050510'; ctx.fillRect(0,0,16*BS,16*BS);
-    const r='#801008',R='#b01810',H='#d02020',o='#e06010',y='#f0a000',f='#d0a860',e='#201008';
-    const rows = [
-      [_,_,_,H,H,_,_,_,_,_,_,H,H,_,_,_],
-      [_,_,H,R,H,H,_,_,_,_,H,H,R,H,_,_],
-      [_,H,R,R,R,H,H,H,H,H,H,R,R,R,H,_],
-      [H,R,R,H,e,R,f,f,f,f,R,e,H,R,R,H],
-      [H,R,R,H,R,R,f,y,y,f,R,R,H,R,R,H],
-      [H,R,H,H,R,o,R,f,f,R,o,R,H,H,R,H],
-      [_,H,R,R,R,R,R,H,H,R,R,R,R,R,H,_],
-      [_,_,R,R,R,R,H,H,H,H,R,R,R,R,_,_],
-      [_,_,R,R,H,R,R,H,H,R,R,H,R,R,_,_],
-      [_,_,H,R,R,R,H,_,_,H,R,R,R,H,_,_],
-      [_,_,_,R,R,H,_,_,_,_,H,R,R,_,_,_],
-      [_,_,_,R,R,H,_,_,_,_,H,R,R,_,_,_],
-      [_,_,_,H,R,_,_,_,_,_,_,R,H,_,_,_],
-      [_,_,_,H,R,_,_,_,_,_,_,R,H,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-    ];
-    rows.forEach((row, y) => bline(ctx, y, row));
+  Dragon(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dc(ctx,2,30,28,1,'rgba(0,0,0,0.7)',0.7);
+    // WINGS (spread, fills canvas)
+    dg(ctx,0,3,9,20,lg(ctx,0,3,9,23,[[0,'#3a0a08'],[0.5,'#200608'],[1,'#100204']]));
+    dg(ctx,23,3,9,20,lg(ctx,23,3,32,23,[[0,'#3a0a08'],[0.5,'#200608'],[1,'#100204']]));
+    // wing membrane
+    dc(ctx,1,5,7,16,'rgba(100,15,15,0.6)',0.6); dc(ctx,24,5,7,16,'rgba(100,15,15,0.6)',0.6);
+    // wing bone lines
+    dc(ctx,1,4,1,18,'#4a1810'); dc(ctx,4,5,1,16,'#3a1008'); dc(ctx,7,7,1,14,'#3a1008');
+    dc(ctx,24,7,1,14,'#3a1008'); dc(ctx,27,5,1,16,'#3a1008'); dc(ctx,30,4,1,18,'#4a1810');
+    // wing claws
+    dc(ctx,0,4,1,1,'#d8c888'); dc(ctx,0,12,1,1,'#d8c888');
+    dc(ctx,31,4,1,1,'#d8c888'); dc(ctx,31,12,1,1,'#d8c888');
+    // TAIL (right side)
+    dc(ctx,22,23,5,2,'#7a1808'); dc(ctx,26,22,4,2,'#6a1408');
+    dc(ctx,28,20,3,3,'#601008'); dc(ctx,29,17,2,4,'#601008');
+    dc(ctx,28,15,2,2,'#d8c888'); // tail spike
+    // BODY (massive)
+    dg(ctx,9,14,14,14,rg(ctx,16,20,2,12,[[0,'#bb2828'],[0.4,'#881818'],[0.7,'#580808'],[1,'#280000']]));
+    dc(ctx,9,14,14,1,'rgba(255,255,255,0.12)');
+    // belly scales (lighter)
+    dc(ctx,11,22,10,6,'#cc7830'); dc(ctx,11,22,10,1,'#e09040');
+    dc(ctx,11,24,10,1,'rgba(0,0,0,0.3)'); dc(ctx,11,26,10,1,'rgba(0,0,0,0.3)');
+    // scale pattern on back
+    for(let i=0;i<4;i++) for(let j=0;j<3;j++) dc(ctx,10+i*3,15+j*2,2,1,'#cc4040');
+    // back spikes
+    dc(ctx,11,12,1,2,'#280808'); dc(ctx,14,11,1,3,'#280808');
+    dc(ctx,17,12,1,2,'#280808'); dc(ctx,20,13,1,2,'#280808');
+    // legs
+    dg(ctx,10,25,5,5,lg(ctx,10,25,15,30,[[0,'#881818'],[1,'#280808']]));
+    dg(ctx,17,25,5,5,lg(ctx,17,25,22,30,[[0,'#881818'],[1,'#280808']]));
+    // claws
+    dc(ctx,10,29,1,1,'#d8c888'); dc(ctx,12,29,1,1,'#d8c888');
+    dc(ctx,18,29,1,1,'#d8c888'); dc(ctx,20,29,1,1,'#d8c888');
+    // LONG NECK (curving left)
+    dg(ctx,7,8,6,8,lg(ctx,7,8,13,16,[[0,'#aa2020'],[1,'#581010']]));
+    dc(ctx,7,8,1,8,'rgba(255,255,255,0.08)');
+    // HEAD (faces left)
+    dg(ctx,1,5,8,7,rg(ctx,5,8,1,6,[[0,'#cc3030'],[0.5,'#881818'],[1,'#440808']]));
+    dc(ctx,1,5,8,1,'rgba(255,255,255,0.12)');
+    // horns
+    dc(ctx,3,3,1,3,'#301808'); dc(ctx,6,3,1,3,'#301808');
+    dc(ctx,3,2,1,1,'#180c08'); dc(ctx,6,2,1,1,'#180c08');
+    // eye (golden glowing)
+    dr(ctx,4*BS,7*BS,9,7,'#ffcc00'); dr(ctx,4*BS+2,7*BS+2,5,3,'#ff8000');
+    dr(ctx,4*BS+4,7*BS+3,2,1,'#000000'); // slit pupil
+    dr(ctx,3*BS,6*BS,4*BS,4*BS,'rgba(255,180,0,0.3)',0.3);
+    // nostrils
+    dc(ctx,1,9,1,1,'#1a0808'); dc(ctx,2,10,1,1,'#1a0808');
+    // teeth
+    dc(ctx,1,11,1,1,'#f0f0d8'); dc(ctx,3,11,1,1,'#f0f0d8'); dc(ctx,5,11,1,1,'#f0f0d8');
+    // FIRE BREATH
+    dg(ctx,0,10,5,4,rg(ctx,0,12,0.5,5,[[0,'#ffffff'],[0.25,'#ffff80'],[0.6,'#ff6000'],[1,'rgba(180,0,0,0)']]));
+    dc(ctx,0,10,3,1,'rgba(255,255,220,0.8)',0.8);
   },
 
-  Demon: (ctx) => {
-    const _ = null;
-    ctx.fillStyle = '#050510'; ctx.fillRect(0,0,16*BS,16*BS);
-    const d='#200828',D='#380840',p='#600880',P='#8010a0',f='#d890c0',e='#ff20c0',h='#180618';
-    const rows = [
-      [_,p,_,_,_,_,_,_,_,_,_,_,_,_,p,_],
-      [_,p,P,_,_,D,D,D,D,D,D,_,_,P,p,_],
-      [_,_,P,D,D,D,P,D,D,P,D,D,D,P,_,_],
-      [_,_,D,P,P,e,D,f,f,D,e,P,P,D,_,_],
-      [_,_,D,P,P,D,f,f,f,f,D,P,P,D,_,_],
-      [_,_,D,P,D,D,P,f,f,P,D,D,P,D,_,_],
-      [_,_,_,D,P,P,D,D,D,D,P,P,D,_,_,_],
-      [d,D,d,D,P,P,P,D,D,P,P,P,D,d,D,d],
-      [D,D,D,D,D,P,D,D,D,D,P,D,D,D,D,D],
-      [_,D,D,D,D,D,P,D,D,P,D,D,D,D,D,_],
-      [_,_,D,D,D,D,D,_,_,D,D,D,D,D,_,_],
-      [_,_,D,D,D,D,_,_,_,_,D,D,D,D,_,_],
-      [_,_,D,D,D,_,_,_,_,_,_,D,D,D,_,_],
-      [_,_,D,D,_,_,_,_,_,_,_,_,D,D,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-    ];
-    rows.forEach((row, y) => bline(ctx, y, row));
+  Demon(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dc(ctx,6,30,20,1,'rgba(0,0,0,0.65)',0.65);
+    // folded wings (background)
+    dg(ctx,2,8,5,14,lg(ctx,2,8,7,22,[[0,'#280408'],[1,'#100204']]));
+    dc(ctx,2,8,1,12,'#3a0808');
+    dg(ctx,25,8,5,14,lg(ctx,25,8,30,22,[[0,'#280408'],[1,'#100204']]));
+    dc(ctx,29,8,1,12,'#3a0808');
+    // legs (muscular)
+    dg(ctx,10,21,5,9,lg(ctx,10,21,15,30,[[0,'#aa2828'],[0.5,'#781010'],[1,'#380404']]));
+    dc(ctx,10,21,1,9,'rgba(255,255,255,0.07)');
+    dg(ctx,17,21,5,9,lg(ctx,17,21,22,30,[[0,'#aa2828'],[0.5,'#781010'],[1,'#380404']]));
+    // hooves
+    dc(ctx,9,28,6,2,'#0a0404'); dc(ctx,9,28,6,1,'#2a1008');
+    dc(ctx,17,28,6,2,'#0a0404'); dc(ctx,17,28,6,1,'#2a1008');
+    // MASSIVE torso
+    dg(ctx,7,10,18,12,rg(ctx,16,16,2,13,[[0,'#cc3838'],[0.4,'#aa1818'],[0.7,'#780808'],[1,'#380404']]));
+    dc(ctx,7,10,18,1,'rgba(255,255,255,0.12)');
+    dc(ctx,7,10,1,12,'rgba(255,255,255,0.06)');
+    dc(ctx,24,10,1,12,'rgba(0,0,0,0.35)');
+    // muscle definition
+    dc(ctx,16,11,1,9,'rgba(0,0,0,0.3)'); // center line
+    dc(ctx,12,14,8,1,'rgba(0,0,0,0.25)'); dc(ctx,12,17,8,1,'rgba(0,0,0,0.25)'); // abs
+    dr(ctx,10*BS,12*BS,4*BS,8*BS,'rgba(0,0,0,0.3)',0.3); dr(ctx,18*BS,12*BS,4*BS,8*BS,'rgba(0,0,0,0.3)',0.3);
+    // loincloth
+    dc(ctx,11,21,10,3,'#200808'); dc(ctx,11,21,10,1,'#3a1010');
+    // arms (huge)
+    dg(ctx,4,11,4,11,lg(ctx,4,11,8,22,[[0,'#cc3838'],[1,'#580808']]));
+    dc(ctx,4,11,1,11,'rgba(255,255,255,0.07)');
+    dg(ctx,24,11,4,11,lg(ctx,24,11,28,22,[[0,'#cc3838'],[1,'#580808']]));
+    // claws
+    dc(ctx,3,21,5,2,'#0a0404'); dc(ctx,24,21,5,2,'#0a0404');
+    dc(ctx,3,22,1,1,'#000000'); dc(ctx,5,22,1,1,'#000000'); dc(ctx,7,22,1,1,'#000000');
+    dc(ctx,24,22,1,1,'#000000'); dc(ctx,26,22,1,1,'#000000'); dc(ctx,28,22,1,1,'#000000');
+    // HEAD
+    dg(ctx,10,3,12,8,rg(ctx,16,7,1,8,[[0,'#dd4848'],[0.5,'#aa1818'],[1,'#580808']]));
+    dc(ctx,10,3,12,1,'rgba(255,255,255,0.12)');
+    // HUGE curved horns
+    dc(ctx,8,0,3,6,'#180804'); dc(ctx,7,2,2,3,'#100604'); dc(ctx,7,0,2,1,'#281408');
+    dc(ctx,21,0,3,6,'#180804'); dc(ctx,23,2,2,3,'#100604'); dc(ctx,23,0,2,1,'#281408');
+    dc(ctx,7,0,1,1,'#381808'); dc(ctx,24,0,1,1,'#381808'); // horn tips
+    // eyes (yellow, faces left)
+    dc(ctx,11,6,4,2,'#000000'); dc(ctx,17,6,4,2,'#000000');
+    dc(ctx,11,6,4,1,'#f8e000'); dc(ctx,17,6,4,1,'#f8e000');
+    dc(ctx,11,6,2,1,'#ffff60'); dc(ctx,17,6,2,1,'#ffff60');
+    dc(ctx,13,6,1,1,'#000000'); dc(ctx,19,6,1,1,'#000000'); // pupil slit
+    dr(ctx,10*BS,5*BS,5*BS,4*BS,'rgba(255,200,0,0.2)',0.2);
+    // mouth/fangs
+    dc(ctx,11,9,10,2,'#100000');
+    dc(ctx,11,9,1,2,'#f0f0f0'); dc(ctx,13,9,1,2,'#f0f0f0');
+    dc(ctx,17,9,1,2,'#f0f0f0'); dc(ctx,19,9,1,2,'#f0f0f0');
+    // aura
+    dr(ctx,0,0,BSG*BS,BSG*BS,'rgba(150,0,0,0.05)',0.05);
   },
 
-  Ghost: (ctx) => {
-    const _ = null;
-    ctx.fillStyle = '#050510'; ctx.fillRect(0,0,16*BS,16*BS);
-    const b='#102040',B='#183060',g='#2050a0',G='#3070c0',c='#50b0e0',e='#e0f0ff';
-    ctx.globalAlpha = 0.85;
-    const rows = [
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,b,B,B,B,B,b,_,_,_,_,_],
-      [_,_,_,_,B,B,g,G,G,g,B,B,_,_,_,_],
-      [_,_,_,B,G,e,g,G,G,g,e,G,B,_,_,_],
-      [_,_,_,B,G,e,G,G,G,G,e,G,B,_,_,_],
-      [_,_,_,B,G,G,G,G,G,G,G,G,B,_,_,_],
-      [_,_,_,B,G,G,c,G,G,c,G,G,B,_,_,_],
-      [_,_,_,B,G,G,G,G,G,G,G,G,B,_,_,_],
-      [_,_,_,B,G,G,G,G,G,G,G,G,B,_,_,_],
-      [_,_,_,B,G,G,G,G,G,G,G,G,B,_,_,_],
-      [_,_,_,B,G,B,G,G,G,G,B,G,B,_,_,_],
-      [_,_,_,B,B,_,G,G,G,G,_,B,B,_,_,_],
-      [_,_,_,_,_,_,b,G,G,b,_,_,_,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-    ];
-    rows.forEach((row, y) => bline(ctx, y, row));
-    ctx.globalAlpha = 1;
+  Ghost(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    // overall ethereal glow
+    dr(ctx,4*BS,4*BS,24*BS,26*BS,'rgba(120,180,255,0.1)',0.1);
+    ctx.globalAlpha=0.85;
+    // wispy tails
+    dg(ctx,9,22,14,9,lg(ctx,9,22,9,31,[[0,'rgba(160,200,255,0.7)'],[0.5,'rgba(100,160,240,0.35)'],[1,'rgba(60,120,210,0.0)']]));
+    dc(ctx,10,28,1,2,'rgba(130,180,250,0.4)',0.4); dc(ctx,13,29,1,1,'rgba(130,180,250,0.4)',0.4);
+    dc(ctx,16,28,1,2,'rgba(130,180,250,0.4)',0.4); dc(ctx,19,29,1,1,'rgba(130,180,250,0.4)',0.4);
+    dc(ctx,22,28,1,2,'rgba(130,180,250,0.4)',0.4);
+    // body
+    dg(ctx,7,10,18,14,rg(ctx,16,17,2,12,[[0,'rgba(210,230,255,0.9)'],[0.5,'rgba(150,190,240,0.75)'],[1,'rgba(90,140,220,0.4)']]));
+    dc(ctx,7,10,18,1,'rgba(230,245,255,0.9)',0.9);
+    // arms (ethereal)
+    dg(ctx,3,12,5,9,lg(ctx,3,12,8,21,[[0,'rgba(160,200,255,0.6)'],[1,'rgba(80,140,220,0.15)']]));
+    dg(ctx,24,12,5,9,lg(ctx,24,12,29,21,[[0,'rgba(160,200,255,0.6)'],[1,'rgba(80,140,220,0.15)']]));
+    // SKULL face
+    dg(ctx,10,3,12,10,rg(ctx,16,8,1,8,[[0,'rgba(245,252,255,0.97)'],[0.6,'rgba(190,220,255,0.85)'],[1,'rgba(130,170,240,0.4)']]));
+    dc(ctx,10,3,12,1,'rgba(255,255,255,0.95)',0.95);
+    dc(ctx,10,3,1,10,'rgba(255,255,255,0.3)',0.3);
+    // eye sockets + glow
+    dc(ctx,11,5,4,3,'#000000'); dc(ctx,17,5,4,3,'#000000');
+    dr(ctx,12*BS,6*BS,7,7,'#00ddff'); dr(ctx,12*BS+2,6*BS+2,3,3,'#ffffff');
+    dr(ctx,18*BS,6*BS,7,7,'#00ddff'); dr(ctx,18*BS+2,6*BS+2,3,3,'#ffffff');
+    dr(ctx,10*BS,4*BS,6*BS,5*BS,'rgba(0,200,255,0.25)',0.25);
+    dr(ctx,16*BS,4*BS,6*BS,5*BS,'rgba(0,200,255,0.25)',0.25);
+    // nasal cavity
+    dc(ctx,15,9,2,2,'#000000'); dc(ctx,15,9,2,1,'rgba(0,100,180,0.4)',0.4);
+    // mouth
+    dc(ctx,12,11,8,2,'#000000');
+    for(let i=0;i<4;i++) dc(ctx,13+i*2,11,1,2,'rgba(210,235,255,0.85)',0.85);
+    // floating wisps
+    dc(ctx,5,8,1,1,'rgba(160,210,255,0.5)',0.5); dc(ctx,27,10,1,1,'rgba(160,210,255,0.5)',0.5);
+    dc(ctx,4,16,1,1,'rgba(160,210,255,0.5)',0.5); dc(ctx,28,19,1,1,'rgba(160,210,255,0.5)',0.5);
+    ctx.globalAlpha=1;
   },
 
-  Golem: (ctx) => {
-    const _ = null;
-    ctx.fillStyle = '#050510'; ctx.fillRect(0,0,16*BS,16*BS);
-    const s='#404858',S='#505870',H='#606880',g='#303848',e='#5080e0',c='#304060';
-    const rows = [
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,S,H,H,H,H,S,_,_,_,_,_],
-      [_,_,_,_,S,H,H,H,H,H,H,S,_,_,_,_],
-      [_,_,_,S,H,e,H,s,s,H,e,H,S,_,_,_],
-      [_,_,_,S,H,H,s,s,s,s,H,H,S,_,_,_],
-      [_,_,_,S,H,H,H,c,c,H,H,H,S,_,_,_],
-      [_,_,_,_,S,H,H,H,H,H,H,S,_,_,_,_],
-      [_,g,S,g,S,H,H,H,H,H,H,S,g,S,g,_],
-      [_,S,H,S,H,H,g,H,H,g,H,H,S,H,S,_],
-      [_,S,H,H,H,H,H,H,H,H,H,H,H,H,S,_],
-      [_,_,S,H,H,H,H,_,_,H,H,H,H,S,_,_],
-      [_,_,S,H,H,H,H,_,_,H,H,H,H,S,_,_],
-      [_,_,S,H,H,H,_,_,_,_,H,H,H,S,_,_],
-      [_,_,g,H,H,_,_,_,_,_,_,H,H,g,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-      [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-    ];
-    rows.forEach((row, y) => bline(ctx, y, row));
+  Golem(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dc(ctx,2,30,28,1,'rgba(0,0,0,0.75)',0.75);
+    // massive legs (stone blocks)
+    dg(ctx,7,19,7,11,lg(ctx,7,19,14,30,[[0,'#7a7868'],[0.5,'#5a5848'],[1,'#2e2c20']]));
+    dc(ctx,7,19,7,1,'rgba(255,255,255,0.1)'); dc(ctx,7,19,1,11,'rgba(255,255,255,0.08)');
+    dc(ctx,13,19,1,11,'rgba(0,0,0,0.3)');
+    dg(ctx,18,19,7,11,lg(ctx,18,19,25,30,[[0,'#7a7868'],[0.5,'#5a5848'],[1,'#2e2c20']]));
+    dc(ctx,18,19,7,1,'rgba(255,255,255,0.1)'); dc(ctx,18,19,1,11,'rgba(255,255,255,0.08)');
+    // leg block lines
+    dc(ctx,7,23,7,1,'#2e2c20'); dc(ctx,18,23,7,1,'#2e2c20');
+    dc(ctx,7,27,7,1,'#2e2c20'); dc(ctx,18,27,7,1,'#2e2c20');
+    dc(ctx,10,19,1,11,'#4a4838'); dc(ctx,21,19,1,11,'#4a4838');
+    // feet
+    dc(ctx,5,28,10,2,'#3a3828'); dc(ctx,17,28,10,2,'#3a3828');
+    // MASSIVE torso (fills canvas)
+    dg(ctx,2,5,28,16,rg(ctx,16,13,3,18,[[0,'#9a9888'],[0.4,'#7a7868'],[0.7,'#5a5848'],[1,'#2e2c20']]));
+    dc(ctx,2,5,28,1,'rgba(255,255,255,0.15)'); dc(ctx,2,5,1,16,'rgba(255,255,255,0.08)');
+    dc(ctx,29,5,1,16,'rgba(0,0,0,0.4)');
+    // stone block joints
+    dc(ctx,2,9,28,1,'rgba(0,0,0,0.35)'); dc(ctx,2,13,28,1,'rgba(0,0,0,0.35)');
+    dc(ctx,2,17,28,1,'rgba(0,0,0,0.35)');
+    dc(ctx,9,5,1,16,'rgba(0,0,0,0.3)'); dc(ctx,22,5,1,16,'rgba(0,0,0,0.3)');
+    dc(ctx,15,9,1,8,'rgba(0,0,0,0.25)');
+    // cracks
+    dc(ctx,5,10,1,5,'rgba(0,0,0,0.5)'); dc(ctx,25,12,1,4,'rgba(0,0,0,0.5)');
+    dc(ctx,13,17,4,1,'rgba(0,0,0,0.5)');
+    // GLOWING RUNES (orange)
+    dg(ctx,5,10,5,4,rg(ctx,7,12,0.5,4,[[0,'#ffe060'],[0.4,'#ff8000'],[1,'rgba(200,60,0,0)']]));
+    dg(ctx,22,10,5,4,rg(ctx,24,12,0.5,4,[[0,'#ffe060'],[0.4,'#ff8000'],[1,'rgba(200,60,0,0)']]));
+    dg(ctx,13,15,6,3,rg(ctx,16,16,0.5,4,[[0,'#ffe060'],[0.4,'#ff8000'],[1,'rgba(200,60,0,0)']]));
+    dr(ctx,4*BS,9*BS,6*BS,5*BS,'rgba(255,160,0,0.2)',0.2);
+    dr(ctx,22*BS,9*BS,6*BS,5*BS,'rgba(255,160,0,0.2)',0.2);
+    // massive arms
+    dg(ctx,0,7,3,14,lg(ctx,0,7,3,21,[[0,'#9a9888'],[1,'#3a3828']]));
+    dc(ctx,0,7,1,14,'rgba(255,255,255,0.08)');
+    dg(ctx,29,7,3,14,lg(ctx,29,7,32,21,[[0,'#9a9888'],[1,'#3a3828']]));
+    // FISTS
+    dg(ctx,0,18,5,7,rg(ctx,2,21,1,5,[[0,'#aaa898'],[1,'#3a3828']]));
+    dc(ctx,0,18,5,1,'rgba(255,255,255,0.08)');
+    dg(ctx,27,18,5,7,rg(ctx,29,21,1,5,[[0,'#aaa898'],[1,'#3a3828']]));
+    // head (stone block)
+    dg(ctx,12,0,8,6,rg(ctx,16,3,1,5,[[0,'#9a9888'],[1,'#4a4838']]));
+    dc(ctx,12,0,8,1,'rgba(255,255,255,0.15)'); dc(ctx,12,0,1,6,'rgba(255,255,255,0.08)');
+    dc(ctx,19,0,1,6,'rgba(0,0,0,0.4)');
+    // GLOWING eyes
+    dg(ctx,13,1,4,3,rg(ctx,15,2,0.5,3,[[0,'#ffff80'],[0.4,'#ff8000'],[1,'rgba(200,60,0,0)']]));
+    dg(ctx,19,1,4,3,rg(ctx,21,2,0.5,3,[[0,'#ffff80'],[0.4,'#ff8000'],[1,'rgba(200,60,0,0)']]));
+    dr(ctx,12*BS,0,5*BS,4*BS,'rgba(255,140,0,0.3)',0.3);
+    dr(ctx,18*BS,0,5*BS,4*BS,'rgba(255,140,0,0.3)',0.3);
+    // mouth crack
+    dc(ctx,14,5,4,1,'#101008');
   },
+
+  FinalDemonLord(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dc(ctx,2,30,28,1,'rgba(0,0,0,0.85)',0.85);
+    dr(ctx,0,0,BSG*BS,BSG*BS,'rgba(60,0,10,0.15)',0.15);
+    // throne backdrop
+    dg(ctx,1,1,30,22,lg(ctx,1,1,31,23,[[0,'#280008'],[0.5,'#140004'],[1,'#080002']]));
+    // throne spikes
+    dc(ctx,1,0,2,4,'#140004'); dc(ctx,6,0,2,5,'#140004');
+    dc(ctx,14,0,4,3,'#140004'); dc(ctx,24,0,2,5,'#140004'); dc(ctx,29,0,2,4,'#140004');
+    // HUGE wings
+    dg(ctx,0,3,8,20,lg(ctx,0,3,8,23,[[0,'#4a0008'],[0.5,'#280004'],[1,'#100002']]));
+    dg(ctx,24,3,8,20,lg(ctx,24,3,32,23,[[0,'#4a0008'],[0.5,'#280004'],[1,'#100002']]));
+    dc(ctx,1,4,1,16,'#6a1018'); dc(ctx,30,4,1,16,'#6a1018');
+    // wing claws
+    dc(ctx,0,3,1,1,'#d0b050'); dc(ctx,0,10,1,1,'#d0b050');
+    dc(ctx,31,3,1,1,'#d0b050'); dc(ctx,31,10,1,1,'#d0b050');
+    // legs (armored)
+    dg(ctx,10,22,5,8,lg(ctx,10,22,15,30,[[0,'#381020'],[0.5,'#180810'],[1,'#000000']]));
+    dc(ctx,10,22,5,1,'#502030');
+    dg(ctx,17,22,5,8,lg(ctx,17,22,22,30,[[0,'#381020'],[0.5,'#180810'],[1,'#000000']]));
+    dc(ctx,17,22,5,1,'#502030');
+    dc(ctx,10,25,1,2,'#aa0018'); dc(ctx,21,25,1,2,'#aa0018'); // knee spikes
+    // MASSIVE armored torso
+    dg(ctx,7,10,18,13,rg(ctx,16,16,2,14,[[0,'#502040'],[0.4,'#381028'],[0.7,'#200818'],[1,'#080004']]));
+    dc(ctx,7,10,18,1,'rgba(255,255,255,0.1)'); dc(ctx,7,10,1,13,'rgba(255,255,255,0.06)');
+    // chest emblem
+    dg(ctx,13,13,6,6,rg(ctx,16,16,0.5,4,[[0,'#ffffff'],[0.3,'#ff80b0'],[0.7,'#ff0038'],[1,'#4a0010']]));
+    dc(ctx,15,15,2,2,'#ffffff');
+    dr(ctx,12*BS,12*BS,5*BS,5*BS,'rgba(255,0,60,0.3)',0.3);
+    // armor plates
+    dc(ctx,7,14,18,1,'#200810'); dc(ctx,7,19,18,1,'#200810');
+    // SHOULDER SPIKES
+    dc(ctx,5,8,5,3,'#300c18'); dc(ctx,22,8,5,3,'#300c18');
+    dc(ctx,4,7,2,2,'#aa0018'); dc(ctx,26,7,2,2,'#aa0018');
+    dc(ctx,4,6,1,2,'#ff3050'); dc(ctx,27,6,1,2,'#ff3050');
+    // arms
+    dg(ctx,4,11,4,11,lg(ctx,4,11,8,22,[[0,'#502040'],[1,'#180810']]));
+    dc(ctx,4,11,1,11,'rgba(255,255,255,0.05)');
+    dg(ctx,24,11,4,11,lg(ctx,24,11,28,22,[[0,'#502040'],[1,'#180810']]));
+    // gauntlet claws
+    dc(ctx,3,21,6,2,'#100008');
+    dc(ctx,3,22,1,1,'#cc0018'); dc(ctx,5,22,1,1,'#cc0018'); dc(ctx,7,22,1,1,'#cc0018');
+    dc(ctx,24,21,6,2,'#100008');
+    dc(ctx,24,22,1,1,'#cc0018'); dc(ctx,26,22,1,1,'#cc0018'); dc(ctx,28,22,1,1,'#cc0018');
+    // HEAD
+    dg(ctx,10,3,12,8,rg(ctx,16,7,1,8,[[0,'#cc3858'],[0.5,'#7a1828'],[1,'#380808']]));
+    dc(ctx,10,3,12,1,'rgba(255,255,255,0.12)');
+    // crown horns (4 massive)
+    dc(ctx,9,0,2,4,'#100004'); dc(ctx,13,0,2,3,'#100004');
+    dc(ctx,17,0,2,3,'#100004'); dc(ctx,21,0,2,4,'#100004');
+    dc(ctx,9,0,1,1,'#281008'); dc(ctx,21,0,1,1,'#281008');
+    // BURNING eyes
+    dg(ctx,12,5,4,3,rg(ctx,14,6,0.5,3,[[0,'#ffffff'],[0.3,'#ffff00'],[0.7,'#ff4000'],[1,'rgba(180,0,0,0)']]));
+    dg(ctx,18,5,4,3,rg(ctx,20,6,0.5,3,[[0,'#ffffff'],[0.3,'#ffff00'],[0.7,'#ff4000'],[1,'rgba(180,0,0,0)']]));
+    dr(ctx,11*BS,4*BS,5*BS,5*BS,'rgba(255,100,0,0.35)',0.35);
+    dr(ctx,17*BS,4*BS,5*BS,5*BS,'rgba(255,100,0,0.35)',0.35);
+    // fangs
+    dc(ctx,12,9,8,2,'#100000');
+    dc(ctx,12,9,1,2,'#f0f0e8'); dc(ctx,14,9,1,2,'#f0f0e8');
+    dc(ctx,17,9,1,2,'#f0f0e8'); dc(ctx,19,9,1,2,'#f0f0e8');
+  },
+
+  AbyssLord(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dr(ctx,0,0,BSG*BS,BSG*BS,'rgba(20,0,40,0.35)',0.35);
+    dc(ctx,4,30,24,1,'rgba(0,0,0,0.85)',0.85);
+    // void core body
+    dg(ctx,6,8,20,20,rg(ctx,16,18,2,14,[[0,'#2a0840'],[0.4,'#180428'],[0.7,'#0c0218'],[1,'#000000']]));
+    dc(ctx,6,8,20,1,'rgba(255,255,255,0.06)');
+    // TENTACLES (8 writhing)
+    dc(ctx,0,18,5,3,'#1a0428'); dc(ctx,0,22,6,2,'#1a0428'); dc(ctx,2,25,4,2,'#100218');
+    dc(ctx,1,15,4,4,'#220538'); dc(ctx,0,12,3,4,'#220538');
+    dc(ctx,27,18,5,3,'#1a0428'); dc(ctx,26,22,6,2,'#1a0428'); dc(ctx,26,25,4,2,'#100218');
+    dc(ctx,27,15,4,4,'#220538'); dc(ctx,29,12,3,4,'#220538');
+    dc(ctx,8,26,3,4,'#1a0428'); dc(ctx,14,27,4,3,'#100218');
+    dc(ctx,21,26,3,4,'#1a0428'); dc(ctx,6,28,2,2,'#100218'); dc(ctx,24,28,2,2,'#100218');
+    // tentacle suckers
+    dc(ctx,1,19,1,1,'#4a1870'); dc(ctx,2,23,1,1,'#4a1870');
+    dc(ctx,30,19,1,1,'#4a1870'); dc(ctx,29,23,1,1,'#4a1870');
+    dc(ctx,9,27,1,1,'#4a1870'); dc(ctx,22,27,1,1,'#4a1870');
+    // top spikes
+    dc(ctx,10,5,1,4,'#100218'); dc(ctx,14,3,1,6,'#100218');
+    dc(ctx,17,3,1,6,'#100218'); dc(ctx,21,5,1,4,'#100218');
+    // LARGE central eye
+    dg(ctx,13,12,6,6,rg(ctx,16,15,0.5,4,[[0,'#ffffff'],[0.25,'#c0a0ff'],[0.6,'#6000ff'],[1,'rgba(80,0,200,0)']]));
+    dc(ctx,15,14,2,2,'#000000'); // pupil
+    dr(ctx,12*BS,11*BS,7*BS,7*BS,'rgba(150,0,255,0.3)',0.3);
+    // smaller scattered eyes
+    const eyes=[[9,11],[22,11],[10,18],[22,18],[16,9],[13,22]];
+    eyes.forEach(([ex,ey])=>{
+      dg(ctx,ex,ey,3,3,rg(ctx,ex+1,ey+1,0.3,2.5,[[0,'#ffff00'],[0.4,'#aa00ff'],[1,'rgba(80,0,150,0)']]));
+      dc(ctx,ex+1,ey+1,1,1,'#000000');
+    });
+    // glowing maw
+    dc(ctx,12,7,8,3,'#000000'); dc(ctx,12,8,1,1,'#ff00a0'); dc(ctx,15,8,1,1,'#ff00a0');
+    dc(ctx,17,8,1,1,'#ff00a0'); dc(ctx,19,8,1,1,'#ff00a0');
+    // void particles
+    dc(ctx,4,3,1,1,'#8000ff'); dc(ctx,27,3,1,1,'#8000ff');
+    dc(ctx,3,7,1,1,'#4000aa'); dc(ctx,28,7,1,1,'#4000aa');
+  },
+
+  FlameEmperor(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dr(ctx,0,0,BSG*BS,BSG*BS,'rgba(80,20,0,0.2)',0.2);
+    dc(ctx,6,30,20,1,'rgba(40,0,0,0.7)',0.7);
+    // flame aura (sides)
+    dg(ctx,0,4,4,24,lg(ctx,0,4,4,28,[[0,'rgba(255,200,0,0.65)'],[0.5,'rgba(255,80,0,0.4)'],[1,'rgba(120,0,0,0.1)']]));
+    dg(ctx,28,4,4,24,lg(ctx,28,4,32,28,[[0,'rgba(255,200,0,0.65)'],[0.5,'rgba(255,80,0,0.4)'],[1,'rgba(120,0,0,0.1)']]));
+    // flame tongues (sides)
+    dc(ctx,1,3,1,4,'#ff8000'); dc(ctx,2,1,1,4,'#ffff00'); dc(ctx,0,7,1,5,'#ff4000');
+    dc(ctx,3,11,1,4,'#ff8000'); dc(ctx,1,17,1,5,'#ff4000'); dc(ctx,0,23,1,3,'#ff6000');
+    dc(ctx,30,3,1,4,'#ff8000'); dc(ctx,29,1,1,4,'#ffff00'); dc(ctx,31,7,1,5,'#ff4000');
+    dc(ctx,28,11,1,4,'#ff8000'); dc(ctx,30,17,1,5,'#ff4000'); dc(ctx,31,23,1,3,'#ff6000');
+    // legs
+    dg(ctx,11,22,4,8,lg(ctx,11,22,15,30,[[0,'#ff5818'],[0.5,'#aa2800'],[1,'#280800']]));
+    dc(ctx,11,22,4,1,'#ffaa38');
+    dg(ctx,17,22,4,8,lg(ctx,17,22,21,30,[[0,'#ff5818'],[0.5,'#aa2800'],[1,'#280800']]));
+    dc(ctx,17,22,4,1,'#ffaa38');
+    // boots
+    dc(ctx,10,28,5,2,'#2a0800'); dc(ctx,10,28,5,1,'#ff3800');
+    dc(ctx,17,28,5,2,'#2a0800'); dc(ctx,17,28,5,1,'#ff3800');
+    // robe/torso
+    dg(ctx,7,11,18,12,rg(ctx,16,17,2,13,[[0,'#ffaa00'],[0.3,'#ff5800'],[0.6,'#aa1800'],[1,'#380800']]));
+    dc(ctx,7,11,18,1,'rgba(255,255,255,0.12)');
+    // chest fire gem
+    dg(ctx,13,14,6,6,rg(ctx,16,17,0.5,4,[[0,'#ffffff'],[0.3,'#ffff80'],[0.7,'#ff4000'],[1,'rgba(150,0,0,0)']]));
+    dc(ctx,15,16,2,2,'#ffffff');
+    dr(ctx,12*BS,13*BS,5*BS,5*BS,'rgba(255,150,0,0.3)',0.3);
+    // robe trim (gold)
+    dc(ctx,7,11,18,1,'#d4a820'); dc(ctx,7,22,18,1,'#d4a820');
+    dc(ctx,11,19,1,4,'#d4a820'); dc(ctx,20,19,1,4,'#d4a820');
+    // arms
+    dg(ctx,4,12,4,10,lg(ctx,4,12,8,22,[[0,'#ff7820'],[1,'#581000']]));
+    dc(ctx,4,12,1,10,'rgba(255,255,255,0.07)');
+    dg(ctx,24,12,4,10,lg(ctx,24,12,28,22,[[0,'#ff7820'],[1,'#581000']]));
+    // gold gauntlets
+    dc(ctx,4,20,4,2,'#d4a820'); dc(ctx,4,20,4,1,'#fff0a0');
+    dc(ctx,24,20,4,2,'#d4a820'); dc(ctx,24,20,4,1,'#fff0a0');
+    // flaming hands
+    dc(ctx,3,21,1,1,'#ff4000'); dc(ctx,2,22,1,1,'#ffaa00');
+    dc(ctx,28,21,1,1,'#ff4000'); dc(ctx,29,22,1,1,'#ffaa00');
+    // head
+    dg(ctx,11,5,10,7,rg(ctx,16,8,1,6,[[0,'#f0d0a0'],[0.6,'#c89060'],[1,'#5a3020']]));
+    dc(ctx,11,5,10,1,'rgba(255,255,255,0.12)');
+    // fire beard
+    dc(ctx,12,10,8,3,'#ff4000'); dc(ctx,13,11,6,3,'#ffaa00'); dc(ctx,14,13,4,1,'#ffff00');
+    // eyes (burning white)
+    dg(ctx,12,7,4,2,rg(ctx,14,8,0.3,3,[[0,'#ffffff'],[0.4,'#ffff00'],[1,'rgba(255,80,0,0)']]));
+    dg(ctx,17,7,4,2,rg(ctx,19,8,0.3,3,[[0,'#ffffff'],[0.4,'#ffff00'],[1,'rgba(255,80,0,0)']]));
+    // CROWN OF FLAMES
+    dc(ctx,10,3,12,2,'#d4a820'); dc(ctx,10,3,12,1,'#fff0a0');
+    dc(ctx,10,1,1,3,'#d4a820'); dc(ctx,13,0,1,4,'#d4a820');
+    dc(ctx,16,0,1,4,'#d4a820'); dc(ctx,19,0,1,4,'#d4a820'); dc(ctx,22,1,1,3,'#d4a820');
+    dc(ctx,15,2,2,2,'#ff0038'); dc(ctx,15,2,2,1,'#ff80a0'); // crown gem
+    dr(ctx,10*BS,0,12*BS,12,'rgba(255,150,0,0.4)',0.4); // crown glow
+  },
+
+  IceSovereign(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dr(ctx,0,0,BSG*BS,BSG*BS,'rgba(60,130,220,0.12)',0.12);
+    dc(ctx,6,30,20,1,'rgba(0,20,60,0.7)',0.7);
+    // ice crystals floating around
+    dc(ctx,1,7,1,5,'#a0d8ff'); dc(ctx,0,13,2,2,'#80c0f0'); dc(ctx,2,20,1,3,'#a0d8ff');
+    dc(ctx,30,7,1,5,'#a0d8ff'); dc(ctx,30,13,2,2,'#80c0f0'); dc(ctx,29,20,1,3,'#a0d8ff');
+    dc(ctx,4,3,1,1,'#ffffff'); dc(ctx,27,5,1,1,'#ffffff'); dc(ctx,5,12,1,1,'#ffffff'); dc(ctx,26,14,1,1,'#ffffff');
+    dc(ctx,3,18,1,1,'#ffffff'); dc(ctx,28,22,1,1,'#ffffff');
+    // flowing dress (long)
+    dg(ctx,8,16,16,14,lg(ctx,8,16,24,30,[[0,'#a0d8ff'],[0.3,'#60a0e0'],[0.6,'#3070b8'],[1,'#102048']]));
+    dc(ctx,8,16,16,1,'rgba(255,255,255,0.2)');
+    // dress crystalline facets
+    dc(ctx,11,18,1,12,'#80c0ee'); dc(ctx,14,20,1,10,'#80c0ee');
+    dc(ctx,18,20,1,10,'#80c0ee'); dc(ctx,21,18,1,12,'#80c0ee');
+    // shimmer spots
+    dc(ctx,12,22,1,1,'rgba(255,255,255,0.7)',0.7); dc(ctx,16,25,1,1,'rgba(255,255,255,0.7)',0.7);
+    dc(ctx,19,23,1,1,'rgba(255,255,255,0.7)',0.7);
+    // ice belt
+    dc(ctx,10,18,12,1,'#d8f0ff'); dc(ctx,14,18,4,1,'#ffffff');
+    // torso (crystalline)
+    dg(ctx,10,11,12,8,rg(ctx,16,15,1,8,[[0,'#e8f8ff'],[0.4,'#a0c8ee'],[0.8,'#6098cc'],[1,'#3068a8']]));
+    dc(ctx,10,11,12,1,'rgba(255,255,255,0.3)'); dc(ctx,10,11,1,8,'rgba(255,255,255,0.15)');
+    // chest ice gem
+    dg(ctx,14,13,4,4,rg(ctx,16,15,0.3,3,[[0,'#ffffff'],[0.4,'#a0d8ff'],[1,'#0050b8']]));
+    dc(ctx,15,14,2,1,'rgba(255,255,255,0.8)',0.8);
+    // arms (crystalline)
+    dg(ctx,7,12,3,9,lg(ctx,7,12,10,21,[[0,'#c0e8ff'],[1,'#3070b8']]));
+    dc(ctx,7,12,1,9,'rgba(255,255,255,0.15)');
+    dg(ctx,22,12,3,9,lg(ctx,22,12,25,21,[[0,'#c0e8ff'],[1,'#3070b8']]));
+    // pale elegant hands
+    dc(ctx,7,20,3,2,'#e8f8ff'); dc(ctx,22,20,3,2,'#e8f8ff');
+    dc(ctx,7,22,1,1,'#a0c8e0'); dc(ctx,9,22,1,1,'#a0c8e0');
+    dc(ctx,22,22,1,1,'#a0c8e0'); dc(ctx,24,22,1,1,'#a0c8e0');
+    // head (pale beautiful, faces left)
+    dg(ctx,12,4,8,8,rg(ctx,16,8,1,6,[[0,'#ffffff'],[0.5,'#e0f0ff'],[1,'#a8cae8']]));
+    dc(ctx,12,4,8,1,'rgba(255,255,255,0.6)');
+    // flowing hair (white-blue)
+    dc(ctx,11,4,2,10,'#c0e0ff'); dc(ctx,19,4,2,10,'#c0e0ff');
+    dc(ctx,11,4,1,10,'rgba(255,255,255,0.4)',0.4); dc(ctx,12,3,8,2,'#c0e0ff');
+    // eyes (icy blue, faces left)
+    dc(ctx,13,7,3,2,'#000000'); dc(ctx,17,7,3,2,'#000000');
+    dc(ctx,13,7,3,1,'#80c8ff'); dc(ctx,17,7,3,1,'#80c8ff');
+    dc(ctx,13,7,1,1,'rgba(255,255,255,0.7)',0.7);
+    dr(ctx,12*BS,6*BS,4*BS,3*BS,'rgba(120,200,255,0.2)',0.2);
+    // lips
+    dc(ctx,15,10,2,1,'#6098cc');
+    // ICE CROWN
+    dc(ctx,10,2,12,2,'#80c8ff'); dc(ctx,10,2,12,1,'#e0f0ff');
+    dc(ctx,10,0,1,3,'#a0d8ff'); dc(ctx,13,0,1,4,'#ffffff');
+    dc(ctx,16,0,1,5,'#ffffff'); dc(ctx,19,0,1,4,'#ffffff'); dc(ctx,22,0,1,3,'#a0d8ff');
+    dc(ctx,15,2,2,2,'#0080ff'); dc(ctx,15,2,2,1,'#80d0ff'); // crown gem
+    dr(ctx,10*BS,0,12*BS,14,'rgba(120,200,255,0.35)',0.35); // crown glow
+  },
+
+  ChaosAvatar(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dr(ctx,0,0,BSG*BS,BSG*BS,'rgba(80,0,120,0.18)',0.18);
+    dc(ctx,6,30,20,1,'rgba(40,0,40,0.7)',0.7);
+    // fractured body - left half fire
+    dg(ctx,7,10,9,20,lg(ctx,7,10,16,30,[[0,'#ff4000'],[0.4,'#aa1800'],[0.8,'#580800'],[1,'#180200']]));
+    dc(ctx,7,10,1,20,'rgba(255,255,255,0.07)');
+    // right half ice
+    dg(ctx,16,10,9,20,lg(ctx,16,10,25,30,[[0,'#80c0ff'],[0.4,'#3080cc'],[0.8,'#103080'],[1,'#001020']]));
+    // fracture line
+    dc(ctx,16,10,1,20,'rgba(255,255,255,0.9)',0.9);
+    dr(ctx,16*BS,12*BS,1,8*BS,'#ffff80');
+    dc(ctx,15,14,1,2,'rgba(255,255,255,0.5)',0.5); dc(ctx,17,18,1,2,'rgba(255,255,255,0.5)',0.5);
+    // top (lightning purple)
+    dc(ctx,10,8,12,4,'#8800ff'); dc(ctx,10,8,12,1,'#dd88ff');
+    // legs (mismatched)
+    dc(ctx,11,22,4,8,'#780800'); dc(ctx,11,22,4,1,'#ff5820');
+    dc(ctx,17,22,4,8,'#103080'); dc(ctx,17,22,4,1,'#80c0ff');
+    dc(ctx,10,28,5,2,'#380400'); dc(ctx,17,28,5,2,'#001020');
+    // arms (one fire, one ice)
+    dg(ctx,4,11,4,11,lg(ctx,4,11,8,22,[[0,'#ff7820'],[1,'#580800']]));
+    dc(ctx,4,11,1,11,'rgba(255,255,255,0.06)');
+    dg(ctx,24,11,4,11,lg(ctx,24,11,28,22,[[0,'#80c0ff'],[1,'#103080']]));
+    // elemental hands
+    dc(ctx,3,21,5,2,'#ff4000'); dc(ctx,24,21,5,2,'#80c0ff');
+    dc(ctx,3,22,1,1,'#ffff00'); dc(ctx,28,22,1,1,'#ffffff');
+    // floating energy shards
+    dc(ctx,3,11,2,1,'#ff4000'); dc(ctx,2,15,1,2,'#8800ff'); dc(ctx,4,20,2,1,'#80c0ff');
+    dc(ctx,27,11,2,1,'#80c0ff'); dc(ctx,29,15,1,2,'#8800ff'); dc(ctx,26,20,2,1,'#ff4000');
+    // energy orb auras
+    dr(ctx,1*BS,18*BS,5*BS,5*BS,'rgba(255,100,0,0.3)',0.3);
+    dr(ctx,26*BS,18*BS,5*BS,5*BS,'rgba(120,200,255,0.3)',0.3);
+    // head (split)
+    dg(ctx,11,3,5,8,lg(ctx,11,3,16,11,[[0,'#ffaa60'],[0.5,'#aa2800'],[1,'#580800']]));
+    dg(ctx,16,3,5,8,lg(ctx,16,3,21,11,[[0,'#c0e8ff'],[0.5,'#3080cc'],[1,'#103080']]));
+    dc(ctx,16,3,1,8,'rgba(255,255,255,0.8)',0.8);
+    // eyes (opposing elements)
+    dg(ctx,12,6,3,2,rg(ctx,13,7,0.3,2.5,[[0,'#ffffff'],[0.4,'#ffff00'],[1,'rgba(255,80,0,0)']]));
+    dg(ctx,17,6,3,2,rg(ctx,18,7,0.3,2.5,[[0,'#ffffff'],[0.4,'#a0d8ff'],[1,'rgba(0,80,200,0)']]));
+    dc(ctx,13,6,1,1,'#000000'); dc(ctx,18,6,1,1,'#000000');
+    // mouth
+    dc(ctx,13,9,3,2,'#4a0008'); dc(ctx,16,9,3,2,'#001040');
+    dc(ctx,13,9,1,2,'#ffffff'); dc(ctx,18,9,1,2,'#ffffff');
+    // asymmetric horns
+    dc(ctx,10,1,2,3,'#6600cc'); dc(ctx,20,1,2,3,'#6600cc');
+    dc(ctx,10,1,1,1,'#aa44ff'); dc(ctx,21,1,1,1,'#aa44ff');
+    dr(ctx,13*BS,0,7*BS,14,'rgba(200,0,255,0.3)',0.3);
+  },
+
+  AncientGuardian(ctx) {
+    ctx.fillStyle='#050510'; ctx.fillRect(0,0,BSG*BS,BSG*BS);
+    dc(ctx,2,30,28,1,'rgba(0,0,0,0.85)',0.85);
+    // ancient stone legs
+    dg(ctx,6,18,8,12,lg(ctx,6,18,14,30,[[0,'#7a6a50'],[0.5,'#5a4a38'],[1,'#2a2018']]));
+    dc(ctx,6,18,8,1,'rgba(255,255,255,0.1)'); dc(ctx,6,18,1,12,'rgba(255,255,255,0.07)');
+    dc(ctx,13,18,1,12,'rgba(0,0,0,0.3)');
+    dg(ctx,18,18,8,12,lg(ctx,18,18,26,30,[[0,'#7a6a50'],[0.5,'#5a4a38'],[1,'#2a2018']]));
+    dc(ctx,18,18,8,1,'rgba(255,255,255,0.1)');
+    // leg block lines
+    dc(ctx,6,22,8,1,'rgba(0,0,0,0.4)'); dc(ctx,18,22,8,1,'rgba(0,0,0,0.4)');
+    dc(ctx,6,26,8,1,'rgba(0,0,0,0.4)'); dc(ctx,18,26,8,1,'rgba(0,0,0,0.4)');
+    dc(ctx,9,18,1,12,'rgba(0,0,0,0.3)'); dc(ctx,21,18,1,12,'rgba(0,0,0,0.3)');
+    // leg runes
+    dg(ctx,7,23,4,2,rg(ctx,9,24,0.5,3,[[0,'#c0ff80'],[0.4,'#60ff00'],[1,'rgba(0,150,0,0)']]));
+    dg(ctx,19,23,4,2,rg(ctx,21,24,0.5,3,[[0,'#c0ff80'],[0.4,'#60ff00'],[1,'rgba(0,150,0,0)']]));
+    // massive feet
+    dc(ctx,4,28,11,2,'#3a2e1c'); dc(ctx,17,28,11,2,'#3a2e1c');
+    // HUGE torso
+    dg(ctx,2,5,28,15,rg(ctx,16,12,3,17,[[0,'#9a8a68'],[0.4,'#7a6a50'],[0.7,'#5a4a38'],[1,'#2a2018']]));
+    dc(ctx,2,5,28,1,'rgba(255,255,255,0.15)'); dc(ctx,2,5,1,15,'rgba(255,255,255,0.08)');
+    dc(ctx,29,5,1,15,'rgba(0,0,0,0.45)');
+    // stone block joints
+    dc(ctx,2,9,28,1,'rgba(0,0,0,0.4)'); dc(ctx,2,13,28,1,'rgba(0,0,0,0.4)');
+    dc(ctx,2,17,28,1,'rgba(0,0,0,0.4)');
+    dc(ctx,8,5,1,15,'rgba(0,0,0,0.35)'); dc(ctx,16,5,1,15,'rgba(0,0,0,0.35)'); dc(ctx,24,5,1,15,'rgba(0,0,0,0.35)');
+    // cracks
+    dc(ctx,5,9,1,5,'rgba(0,0,0,0.55)'); dc(ctx,25,11,1,4,'rgba(0,0,0,0.55)');
+    dc(ctx,12,17,5,1,'rgba(0,0,0,0.5)');
+    // ANCIENT RUNES (green glow)
+    const runePos=[[4,7],[12,7],[20,7],[4,14],[12,14],[20,14],[8,10],[16,10],[24,10]];
+    runePos.forEach(([rx,ry])=>{
+      dg(ctx,rx,ry,4,2,rg(ctx,rx+2,ry+1,0.3,3,[[0,'#c0ff80'],[0.4,'#40ff00'],[1,'rgba(0,120,0,0)']]));
+    });
+    // chest main rune (large)
+    dg(ctx,12,14,8,4,rg(ctx,16,16,0.5,5,[[0,'#ffffff'],[0.3,'#c0ff80'],[0.7,'#40ff00'],[1,'rgba(0,100,0,0)']]));
+    dr(ctx,11*BS,13*BS,9*BS,5*BS,'rgba(80,255,0,0.25)',0.25);
+    // massive arms
+    dg(ctx,0,6,3,15,lg(ctx,0,6,3,21,[[0,'#9a8a68'],[1,'#3a2e1c']]));
+    dc(ctx,0,6,1,15,'rgba(255,255,255,0.07)');
+    dg(ctx,29,6,3,15,lg(ctx,29,6,32,21,[[0,'#9a8a68'],[1,'#3a2e1c']]));
+    // arm rune
+    dg(ctx,0,13,3,3,rg(ctx,1,14,0.3,3,[[0,'#c0ff80'],[0.4,'#40ff00'],[1,'rgba(0,100,0,0)']]));
+    dg(ctx,29,13,3,3,rg(ctx,30,14,0.3,3,[[0,'#c0ff80'],[0.4,'#40ff00'],[1,'rgba(0,100,0,0)']]));
+    // FISTS
+    dg(ctx,0,19,5,7,rg(ctx,2,22,1,5,[[0,'#aa9878'],[1,'#3a2e1c']]));
+    dc(ctx,0,19,5,1,'rgba(255,255,255,0.08)');
+    dg(ctx,27,19,5,7,rg(ctx,29,22,1,5,[[0,'#aa9878'],[1,'#3a2e1c']]));
+    // fist runes
+    dg(ctx,1,22,3,2,rg(ctx,2,23,0.3,3,[[0,'#c0ff80'],[0.4,'#40ff00'],[1,'rgba(0,100,0,0)']]));
+    dg(ctx,28,22,3,2,rg(ctx,29,23,0.3,3,[[0,'#c0ff80'],[0.4,'#40ff00'],[1,'rgba(0,100,0,0)']]));
+    // HEAD (ancient stone)
+    dg(ctx,11,0,10,6,rg(ctx,16,3,1,6,[[0,'#9a8a68'],[1,'#4a3e28']]));
+    dc(ctx,11,0,10,1,'rgba(255,255,255,0.15)'); dc(ctx,11,0,1,6,'rgba(255,255,255,0.08)');
+    dc(ctx,20,0,1,6,'rgba(0,0,0,0.45)');
+    // crown/horns
+    dc(ctx,10,0,2,2,'#4a3e28'); dc(ctx,14,0,4,1,'#4a3e28'); dc(ctx,20,0,2,2,'#4a3e28');
+    // GLOWING eyes (teal-green)
+    dg(ctx,12,1,4,3,rg(ctx,14,2,0.3,3,[[0,'#ffffff'],[0.3,'#c0ff80'],[0.7,'#40ff00'],[1,'rgba(0,80,0,0)']]));
+    dg(ctx,18,1,4,3,rg(ctx,20,2,0.3,3,[[0,'#ffffff'],[0.3,'#c0ff80'],[0.7,'#40ff00'],[1,'rgba(0,80,0,0)']]));
+    dr(ctx,11*BS,0,5*BS,5*BS,'rgba(60,220,0,0.3)',0.3);
+    dr(ctx,17*BS,0,5*BS,5*BS,'rgba(60,220,0,0.3)',0.3);
+    // jaw rune
+    dc(ctx,13,5,6,1,'rgba(60,255,0,0.7)',0.7);
+  }
 };
 
 const bigSpriteCache = {};
 function getBigSprite(kind) {
   if (bigSpriteCache[kind]) return bigSpriteCache[kind];
   const oc = document.createElement('canvas');
-  oc.width = oc.height = 16 * BS;
+  oc.width = oc.height = BSG * BS;
   const octx = oc.getContext('2d');
   const fn = BIG[kind];
   if (fn) fn(octx);
   else {
-    octx.fillStyle = '#050510'; octx.fillRect(0,0,16*BS,16*BS);
+    octx.fillStyle = '#050510'; octx.fillRect(0,0,BSG*BS,BSG*BS);
     octx.fillStyle = '#ff0080';
     octx.font = `${BS*4}px monospace`;
     octx.fillText('?', BS*6, BS*10);
@@ -2183,7 +3616,7 @@ function buildBattle(g) {
       <div class="battle-side">
         <div class="battle-name" style="color:#6080a0">プレイヤー · LV.${g.level}</div>
         <div class="battle-sprite-wrap">
-          <canvas id="bspr-player" width="${16*BS}" height="${16*BS}"></canvas>
+          <canvas id="bspr-player" width="${BSG*BS}" height="${BSG*BS}"></canvas>
         </div>
         <div class="battle-hp-wrap">
           <div class="battle-hp-label">HP</div>
@@ -2201,7 +3634,7 @@ function buildBattle(g) {
       <div class="battle-side enemy-side">
         <div class="battle-name" style="color:#806040">${b.enemy_name.toUpperCase()}</div>
         <div class="battle-sprite-wrap">
-          <canvas id="bspr-enemy" width="${16*BS}" height="${16*BS}"></canvas>
+          <canvas id="bspr-enemy" width="${BSG*BS}" height="${BSG*BS}"></canvas>
         </div>
         <div class="battle-hp-wrap">
           <div class="battle-hp-label">HP</div>
