@@ -127,7 +127,7 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 .relic-info{flex:1;min-width:0}
 .relic-name{color:#c8a030;font-size:12px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .relic-name.cursed{color:#a03050}
-.relic-desc{color:#445060;font-size:10px;line-height:1.4;margin-top:2px}
+.relic-desc{color:#607080;font-size:10px;line-height:1.4;margin-top:2px}
 /* 秘宝コレクション全覧オーバーレイ */
 #relic-collection{position:fixed;inset:0;background:rgba(4,4,12,.92);display:flex;align-items:center;justify-content:center;z-index:200}
 #relic-collection.hidden{display:none}
@@ -135,13 +135,13 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 #relic-collection-box h2{font-size:1.2rem;color:#d8a030;margin:0 0 4px;letter-spacing:.1em}
 #relic-collection-box .rc-sub{color:#3a4860;font-size:.75rem;margin-bottom:14px}
 #relic-collection-box .rc-section{margin-bottom:10px}
-#relic-collection-box .rc-section-title{font-size:11px;color:#506070;border-bottom:1px solid #151c28;padding-bottom:3px;margin-bottom:6px;letter-spacing:.08em}
-.rc-relic-row{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid #0a0e18;align-items:flex-start}
+#relic-collection-box .rc-section-title{font-size:11px;color:#8aa0b8;border-bottom:1px solid #1a2438;padding-bottom:3px;margin-bottom:6px;letter-spacing:.08em}
+.rc-relic-row{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid #0c1220;align-items:flex-start}
 .rc-relic-icon{font-size:18px;flex-shrink:0;width:24px;text-align:center;margin-top:1px}
 .rc-relic-info{flex:1;min-width:0}
 .rc-relic-name{color:#c8a030;font-size:13px;font-weight:bold}
-.rc-relic-name.cursed{color:#a03050}
-.rc-relic-desc{color:#556070;font-size:11px;line-height:1.5;margin-top:3px}
+.rc-relic-name.cursed{color:#c04060}
+.rc-relic-desc{color:#7090a8;font-size:11px;line-height:1.5;margin-top:3px}
 .event-box{max-width:460px;padding:20px 24px}
 .event-title{font-size:1.25rem;color:#c0a030;margin-bottom:8px}
 .event-irrev{font-size:10px;color:#903020;letter-spacing:.1em;margin-bottom:12px}
@@ -218,7 +218,7 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 .bfx-stun-pulse{animation:bfxStunPulse .5s ease-in-out both}
 
 /* ── Battle phase banner ── */
-#battle-phase-bar{position:fixed;top:64px;left:50%;transform:translateX(-50%) translateY(-12px);background:rgba(4,4,16,.92);border:1px solid #2a3858;border-radius:5px;padding:7px 22px;font-size:13px;letter-spacing:.1em;z-index:98;display:none;pointer-events:none;white-space:nowrap;opacity:0;transition:opacity .14s,transform .14s;text-align:center}
+#battle-phase-bar{position:fixed;top:64px;left:50%;transform:translateX(-50%) translateY(-12px);background:rgba(4,4,16,.92);border:1px solid #2a3858;border-radius:5px;padding:7px 22px;font-size:13px;letter-spacing:.1em;color:#a8c0d8;z-index:98;display:none;pointer-events:none;white-space:nowrap;opacity:0;transition:opacity .14s,transform .14s;text-align:center}
 #battle-phase-bar.bpb-show{display:block;opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* ── Floor map overlay ── */
@@ -389,7 +389,10 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
     </div>
     <!-- 秘宝・呪物 -->
     <div class="panel" id="p-relics" style="display:none">
-      <div class="panel-title">秘宝・呪物</div>
+      <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>秘宝・呪物</span>
+        <span id="relic-panel-count" style="color:#506070;font-size:10px;cursor:pointer" onclick="showRelicCollection()" title="R: 一覧表示">[R]一覧</span>
+      </div>
       <div id="relic-list"></div>
     </div>
   </div>
@@ -4085,6 +4088,7 @@ function connect() {
       updateUI(state);
       renderModal(state);
       maybeShowFloorBanner(state);
+      refreshRelicCollection();
     } catch(err) {}
   };
 
@@ -4107,9 +4111,9 @@ function sendKey(key, code, shiftKey) {
 // ─────────────────────────────────────────────────────────────
 let _relicCollectionOpen = false;
 
-function showRelicCollection() {
-  if (!state) return;
-  const g = state.game || state;
+function refreshRelicCollection() {
+  if (!_relicCollectionOpen) return;
+  const g = (state && (state.game || state));
   const relics = (g && g.player_relics) ? g.player_relics : [];
   const positives = relics.filter(r => !r.is_cursed);
   const cursed    = relics.filter(r =>  r.is_cursed);
@@ -4123,14 +4127,27 @@ function showRelicCollection() {
       </div>
     </div>`;
 
-  document.getElementById('rc-positive-list').innerHTML = positives.map(makeRow).join('');
-  document.getElementById('rc-cursed-list').innerHTML   = cursed.map(makeRow).join('');
-  document.getElementById('rc-positive-section').style.display = positives.length ? '' : 'none';
-  document.getElementById('rc-cursed-section').style.display   = cursed.length   ? '' : 'none';
-  document.getElementById('rc-empty').style.display = relics.length === 0 ? '' : 'none';
+  const h2 = document.querySelector('#relic-collection-box h2');
+  if (h2) h2.textContent = `秘宝・呪物コレクション（${relics.length}件）`;
 
+  document.getElementById('rc-positive-section').style.display = positives.length ? '' : 'none';
+  const posTitleEl = document.querySelector('#rc-positive-section .rc-section-title');
+  if (posTitleEl) posTitleEl.textContent = `✦ 秘宝 (${positives.length})`;
+  document.getElementById('rc-positive-list').innerHTML = positives.map(makeRow).join('');
+
+  document.getElementById('rc-cursed-section').style.display = cursed.length ? '' : 'none';
+  const cTitleEl = document.querySelector('#rc-cursed-section .rc-section-title');
+  if (cTitleEl) cTitleEl.textContent = `☠ 呪物 (${cursed.length})`;
+  document.getElementById('rc-cursed-list').innerHTML = cursed.map(makeRow).join('');
+
+  document.getElementById('rc-empty').style.display = relics.length === 0 ? '' : 'none';
+}
+
+function showRelicCollection() {
+  if (!state) return;
   document.getElementById('relic-collection').classList.remove('hidden');
   _relicCollectionOpen = true;
+  refreshRelicCollection();
 }
 
 function hideRelicCollection() {
@@ -4147,8 +4164,8 @@ document.addEventListener('keydown', (e) => {
     }
     return;
   }
-  // Toggle relic collection with R
-  if (e.key === 'r' || e.key === 'R') {
+  // Toggle relic collection with R (not when modal is open)
+  if ((e.key === 'r' || e.key === 'R') && document.getElementById('modal').style.display === 'none') {
     showRelicCollection();
     e.preventDefault();
     return;

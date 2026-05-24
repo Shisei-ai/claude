@@ -647,6 +647,7 @@ impl Game {
         if self.map.get(px, py) == Tile::Chest {
             self.map.set(px, py, Tile::Floor);
             let num_items = self.rng.gen_range(1..=3);
+            let mut opened = false;
             for _ in 0..num_items {
                 let item = generate_floor_item(&mut self.rng, self.map.floor);
                 let name = item.name.clone();
@@ -654,6 +655,12 @@ impl Game {
                     self.player.inventory.push(item);
                     self.player.items_collected += 1;
                     self.add_message(format!("宝箱を開けた！{}を入手", name), MessageKind::Loot);
+                    opened = true;
+                } else {
+                    if !opened {
+                        self.add_message("宝箱があるが、インベントリがいっぱいで入手できない！", MessageKind::Warning);
+                    }
+                    break;
                 }
             }
             return;
@@ -1192,6 +1199,15 @@ impl Game {
                         self.monsters[i].take_damage(reflect);
                         self.add_message(format!("反射の盾！{}に{}ダメージを反射！", name, reflect), MessageKind::Good);
                     }
+
+                    // 復讐の炎: 反撃
+                    let counter_pct = self.player.relic_counter_attack_chance();
+                    if dmg > 0 && counter_pct > 0 && self.rng.gen_range(0..100) < counter_pct {
+                        let counter_dmg = self.player.effective_attack();
+                        let counter_actual = self.monsters[i].take_damage(counter_dmg);
+                        self.add_message(format!("🔥 復讐の炎！反撃で{}に{}ダメージ！", name, counter_actual), MessageKind::Good);
+                        // Dead monsters are cleaned up by retain() below; on_monster_death handled in player turn
+                    }
                 } else {
                     // Move toward player
                     let (nx, ny) = self.monsters[i].ai_move_toward(px, py);
@@ -1206,8 +1222,14 @@ impl Game {
             }
         }
 
-        // Remove dead monsters
-        self.monsters.retain(|m| m.is_alive());
+        // Give rewards for monsters killed by reflect/counter during this turn
+        let dead_idxs: Vec<usize> = (0..self.monsters.len())
+            .filter(|&i| !self.monsters[i].is_alive())
+            .rev()
+            .collect();
+        for idx in dead_idxs {
+            self.on_monster_death(idx);
+        }
     }
 
     pub fn descend(&mut self) {
@@ -1655,9 +1677,10 @@ impl Game {
         let actual = self.monsters[idx].take_damage(dmg);
         let name = self.monsters[idx].kind.name().to_string();
         self.battle_last_player_action = Some(if is_crit { "crit" } else { "slash" }.to_string());
-        // Lifesteal (スキル由来)
-        if self.player.lifesteal_pct > 0 {
-            let heal = (actual as f32 * self.player.lifesteal_pct as f32 / 100.0) as i32;
+        // Lifesteal (スキル由来 + 秘宝由来)
+        let ls_pct = self.player.lifesteal_pct + self.player.relic_lifesteal();
+        if ls_pct > 0 {
+            let heal = (actual as f32 * ls_pct as f32 / 100.0) as i32;
             self.player.heal(heal);
         }
         // MpStealOnHit: 霊魂の蒸留器
@@ -1813,8 +1836,10 @@ impl Game {
                 format!("✦ {}：{}をスタン！({}ターン)", skill.name, name, turns)
             }
             SkillEffect::Heal(amount) => {
+                let hp_before = self.player.hp;
                 self.player.heal(*amount);
-                format!("✦ {}：HP+{}回復！", skill.name, amount)
+                let actual_heal = self.player.hp - hp_before;
+                format!("✦ {}：HP+{}回復！", skill.name, actual_heal)
             }
             SkillEffect::MpHeal(amount) => {
                 self.player.heal_mp(*amount);
@@ -1838,9 +1863,11 @@ impl Game {
                 let base_dmg = self.player.effective_attack();
                 let dmg = (base_dmg as f32 * *pct as f32 / 100.0) as i32;
                 let actual = self.monsters[idx].take_damage(dmg);
-                self.player.hp = (self.player.hp + actual).min(self.player.max_hp);
+                let hp_before = self.player.hp;
+                self.player.heal(actual);
+                let healed = self.player.hp - hp_before;
                 let name = self.monsters[idx].kind.name().to_string();
-                format!("✦ {}：{}から{}吸収！HP+{}！", skill.name, name, actual, actual)
+                format!("✦ {}：{}から{}吸収！HP+{}！", skill.name, name, actual, healed)
             }
             SkillEffect::AttackBuff(bonus, _turns) => {
                 let base_dmg = self.player.effective_attack() + bonus;
@@ -2023,7 +2050,8 @@ impl Game {
         if self.blessed_floor { exp = (exp as f32 * 2.0) as u32; }
         if self.cursed_floor  { exp = (exp as f32 * 1.5) as u32; }
         exp = (exp as f32 * self.player.relic_exp_multiplier()) as u32;
-        let actual_gold = (gold as f32 * self.player.relic_gold_multiplier()) as u32;
+        let extra_gold_pct = self.player.relic_extra_gold_on_kill();
+        let actual_gold = (gold as f32 * self.player.relic_gold_multiplier() * (100 + extra_gold_pct) as f32 / 100.0) as u32;
 
         self.on_monster_death(idx);
         self.battle_enemy_idx = None;
@@ -2037,30 +2065,30 @@ impl Game {
         if self.rng.gen_range(0..100) < 45 {
             let mat = generate_material(&mut self.rng);
             let mat_name = mat.name.clone();
-            if self.player.inventory.len() < crate::game::INVENTORY_MAX {
-                self.player.inventory.push(mat);
-            }
-            rewards.push(RewardEntry { category: "material".into(), name: mat_name, is_cursed: false });
+            let got = self.player.inventory.len() < crate::game::INVENTORY_MAX;
+            if got { self.player.inventory.push(mat); }
+            let label = if got { mat_name } else { format!("{}（持てず）", mat_name) };
+            rewards.push(RewardEntry { category: "material".into(), name: label, is_cursed: false });
         }
 
         // Weapon drop ~10%
         if self.rng.gen_range(0..100) < 10 {
             let w = generate_weapon(&mut self.rng, floor);
             let wname = w.name.clone();
-            if self.player.inventory.len() < crate::game::INVENTORY_MAX {
-                self.player.inventory.push(w);
-            }
-            rewards.push(RewardEntry { category: "weapon".into(), name: wname, is_cursed: false });
+            let got = self.player.inventory.len() < crate::game::INVENTORY_MAX;
+            if got { self.player.inventory.push(w); }
+            let label = if got { wname } else { format!("{}（持てず）", wname) };
+            rewards.push(RewardEntry { category: "weapon".into(), name: label, is_cursed: false });
         }
 
         // Armor drop ~10%
         if self.rng.gen_range(0..100) < 10 {
             let a = generate_armor(&mut self.rng, floor);
             let aname = a.name.clone();
-            if self.player.inventory.len() < crate::game::INVENTORY_MAX {
-                self.player.inventory.push(a);
-            }
-            rewards.push(RewardEntry { category: "armor".into(), name: aname, is_cursed: false });
+            let got = self.player.inventory.len() < crate::game::INVENTORY_MAX;
+            if got { self.player.inventory.push(a); }
+            let label = if got { aname } else { format!("{}（持てず）", aname) };
+            rewards.push(RewardEntry { category: "armor".into(), name: label, is_cursed: false });
         }
 
         // ExtraDropChance: 追加アイテムドロップ（錬金術師の指輪）
@@ -2068,17 +2096,19 @@ impl Game {
         if extra_drop_pct > 0 && self.rng.gen_range(0..100) < extra_drop_pct {
             let item = generate_floor_item(&mut self.rng, floor);
             let iname = item.name.clone();
-            if self.player.inventory.len() < crate::game::INVENTORY_MAX {
-                self.player.inventory.push(item);
-            }
-            rewards.push(RewardEntry { category: "material".into(), name: format!("＋{}", iname), is_cursed: false });
+            let got = self.player.inventory.len() < crate::game::INVENTORY_MAX;
+            if got { self.player.inventory.push(item); }
+            let label = if got { format!("＋{}", iname) } else { format!("＋{}（持てず）", iname) };
+            rewards.push(RewardEntry { category: "material".into(), name: label, is_cursed: false });
         }
 
         // PostBattleHeal: 戦闘後回復（癒しの源泉）
         let post_heal = self.player.relic_post_battle_heal();
         if post_heal > 0 {
+            let hp_before = self.player.hp;
             self.player.heal(post_heal);
-            rewards.push(RewardEntry { category: "exp".into(), name: format!("HP+{} 回復", post_heal), is_cursed: false });
+            let actual_post_heal = self.player.hp - hp_before;
+            rewards.push(RewardEntry { category: "exp".into(), name: format!("HP+{} 回復", actual_post_heal), is_cursed: false });
         }
 
         // Relic (秘宝) drop ~4%
@@ -2127,7 +2157,10 @@ impl Game {
         }
         self.battle_enemy_idx = None;
         self.mode = GameMode::BattleReward;
-        self.end_player_turn();
+        // Tick buffs/cooldowns but skip monster turns to avoid damage during reward screen
+        self.turn += 1;
+        self.player.tick_buffs();
+        self.player.tick_skill_cooldowns();
     }
 
     pub fn confirm_battle_rewards(&mut self) {
