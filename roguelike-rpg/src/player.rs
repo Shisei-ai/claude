@@ -168,17 +168,21 @@ impl Player {
     pub fn effective_attack(&self) -> i32 {
         let base = self.base_str + self.equipment.total_attack() + self.equipment.total_str_bonus();
         let temp: i32 = self.temp_buffs.iter().map(|b| b.str_bonus).sum();
-        (base + temp + self.relic_attack_delta()).max(1)
+        let low_hp = self.relic_low_hp_attack_delta();
+        let from_hp = self.relic_strength_from_hp();
+        let flat = base + temp + self.relic_attack_delta() + low_hp + from_hp;
+        let pct_boost = 100i32 + self.relic_all_damage_boost() as i32;
+        (flat * pct_boost / 100).max(1)
     }
 
     pub fn effective_defense(&self) -> i32 {
         let base = self.base_def + self.equipment.total_defense();
         let temp: i32 = self.temp_buffs.iter().map(|b| b.def_bonus).sum();
-        (base + temp + self.relic_defense_delta()).max(0)
+        (base + temp + self.relic_defense_delta() + self.relic_low_hp_defense_delta()).max(0)
     }
 
     pub fn effective_magic(&self) -> i32 {
-        self.base_int + self.equipment.total_int_bonus()
+        self.base_int + self.equipment.total_int_bonus() + self.relic_int_delta()
     }
 
     pub fn recalc_max_hp(&self) -> i32 {
@@ -233,13 +237,14 @@ impl Player {
 
     pub fn passive_regen_mp(&self) -> i32 {
         use crate::skill::SkillEffect;
-        self.skills.iter()
+        let skill_regen: i32 = self.skills.iter()
             .filter(|s| s.learned && s.is_passive)
             .map(|s| match s.effect {
                 SkillEffect::PassiveRegenMp(v) => v,
                 _ => 0,
             })
-            .sum()
+            .sum();
+        skill_regen + self.relic_mp_regen()
     }
 
     pub fn gain_exp(&mut self, amount: u32) -> bool {
@@ -274,7 +279,10 @@ impl Player {
     }
 
     pub fn heal(&mut self, amount: i32) {
-        self.hp = (self.hp + amount).min(self.max_hp);
+        if amount <= 0 { self.hp = (self.hp + amount).min(self.max_hp); return; }
+        let boost_pct = self.relic_healing_boost();
+        let boosted = amount + (amount * boost_pct as i32 / 100);
+        self.hp = (self.hp + boosted).min(self.max_hp);
     }
 
     pub fn heal_mp(&mut self, amount: i32) {
@@ -415,6 +423,7 @@ impl Player {
 
     pub fn relic_defense_delta(&self) -> i32 {
         self.relics.iter().map(|r| match r.effect {
+            RelicEffect::DefenseBoost(v) => v,
             RelicEffect::DefensePenalty(v) => -(v as i32),
             _ => 0,
         }).sum()
@@ -516,6 +525,146 @@ impl Player {
 
     pub fn has_revive_relic(&self) -> bool {
         self.relics.iter().any(|r| r.effect == RelicEffect::ReviveOnce)
+    }
+
+    // ── 新規秘宝ヘルパー ──
+
+    pub fn relic_mp_regen(&self) -> i32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::MpRegenBoost(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_dex_delta(&self) -> i32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::DexBoost(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_int_delta(&self) -> i32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::IntBoost(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_low_hp_attack_delta(&self) -> i32 {
+        if self.max_hp == 0 || self.hp * 100 / self.max_hp >= 30 { return 0; }
+        self.relics.iter().map(|r| {
+            if let RelicEffect::LowHpAttackBoost(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_low_hp_defense_delta(&self) -> i32 {
+        if self.max_hp == 0 || self.hp * 100 / self.max_hp >= 30 { return 0; }
+        self.relics.iter().map(|r| {
+            if let RelicEffect::LowHpDefenseBoost(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_crit_damage_boost(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::CritDamageBoost(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_skill_damage_boost(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::SkillDamageBoost(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_mp_steal_on_hit(&self) -> i32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::MpStealOnHit(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_skill_refund_on_kill(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::SkillRefundOnKill(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_post_battle_heal(&self) -> i32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::PostBattleHeal(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_extra_drop_chance(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::ExtraDropChance(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_gold_on_step(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::GoldOnStep(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_has_poison_immunity(&self) -> bool {
+        self.relics.iter().any(|r| r.effect == RelicEffect::PoisonImmunity)
+    }
+
+    pub fn relic_first_attack_boost(&self) -> i32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::FirstAttackBoost(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_free_cast_chance(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::FreeCastChance(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_cd_refund_on_skill(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::CdRefundOnSkill(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_healing_boost(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::HealingBoost(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_counter_attack_chance(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::CounterAttackChance(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_all_damage_boost(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::AllDamageBoost(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_has_treasure_radar(&self) -> bool {
+        self.relics.iter().any(|r| r.effect == RelicEffect::TreasureRadar)
+    }
+
+    pub fn relic_extra_gold_on_kill(&self) -> u32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::ExtraGoldOnKill(v) = r.effect { v } else { 0 }
+        }).sum()
+    }
+
+    pub fn relic_strength_from_hp(&self) -> i32 {
+        if self.relics.iter().any(|r| r.effect == RelicEffect::StrengthFromHp) {
+            self.max_hp / 20
+        } else {
+            0
+        }
+    }
+
+    pub fn relic_on_kill_heal(&self) -> i32 {
+        self.relics.iter().map(|r| {
+            if let RelicEffect::OnKillHeal(v) = r.effect { v } else { 0 }
+        }).sum()
     }
 
     pub fn tick_skill_cooldowns(&mut self) {

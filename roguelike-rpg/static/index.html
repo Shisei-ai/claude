@@ -128,6 +128,20 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 .relic-name{color:#c8a030;font-size:12px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .relic-name.cursed{color:#a03050}
 .relic-desc{color:#445060;font-size:10px;line-height:1.4;margin-top:2px}
+/* 秘宝コレクション全覧オーバーレイ */
+#relic-collection{position:fixed;inset:0;background:rgba(4,4,12,.92);display:flex;align-items:center;justify-content:center;z-index:200}
+#relic-collection.hidden{display:none}
+#relic-collection-box{border:1px solid #2a3650;background:#08081a;padding:20px 28px;max-width:640px;width:94vw;border-radius:3px;max-height:88vh;overflow-y:auto}
+#relic-collection-box h2{font-size:1.2rem;color:#d8a030;margin:0 0 4px;letter-spacing:.1em}
+#relic-collection-box .rc-sub{color:#3a4860;font-size:.75rem;margin-bottom:14px}
+#relic-collection-box .rc-section{margin-bottom:10px}
+#relic-collection-box .rc-section-title{font-size:11px;color:#506070;border-bottom:1px solid #151c28;padding-bottom:3px;margin-bottom:6px;letter-spacing:.08em}
+.rc-relic-row{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid #0a0e18;align-items:flex-start}
+.rc-relic-icon{font-size:18px;flex-shrink:0;width:24px;text-align:center;margin-top:1px}
+.rc-relic-info{flex:1;min-width:0}
+.rc-relic-name{color:#c8a030;font-size:13px;font-weight:bold}
+.rc-relic-name.cursed{color:#a03050}
+.rc-relic-desc{color:#556070;font-size:11px;line-height:1.5;margin-top:3px}
 .event-box{max-width:460px;padding:20px 24px}
 .event-title{font-size:1.25rem;color:#c0a030;margin-bottom:8px}
 .event-irrev{font-size:10px;color:#903020;letter-spacing:.1em;margin-bottom:12px}
@@ -318,6 +332,7 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
       <tr><td><kbd>1</kbd>–<kbd>4</kbd></td><td>スキルホットバー使用</td></tr>
       <tr><td><kbd>←</kbd><kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Esc</kbd></td><td>バトルメニュー操作</td></tr>
       <tr><th colspan="2">その他</th></tr>
+      <tr><td><kbd>R</kbd></td><td>秘宝・呪物コレクション一覧</td></tr>
       <tr><td><kbd>?</kbd></td><td>このヘルプ</td></tr>
       <tr><td><kbd>Q</kbd></td><td>終了</td></tr>
     </table>
@@ -404,7 +419,7 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
     <div class="ctrl-act-row">
       <button class="ctrl-act-btn" onclick="sendKey('Enter','Enter',false)"><span class="act-key">↩</span>決定</button>
       <button class="ctrl-act-btn" onclick="sendKey('Escape','Escape',false)"><span class="act-key">✕</span>閉じる/戻る</button>
-      <button class="ctrl-act-btn" onclick="sendKey('?','Slash',true)"><span class="act-key">?</span>ヘルプ</button>
+      <button class="ctrl-act-btn" onclick="showRelicCollection()"><span class="act-key">R</span>秘宝一覧</button>
     </div>
   </div>
 </div>
@@ -415,6 +430,23 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 <!-- Modal overlay for Inventory / Skills / Event / Crafting / Help (in-game) -->
 <div id="modal" class="modal" style="display:none">
   <div id="modal-inner"></div>
+</div>
+
+<!-- 秘宝・呪物コレクション全覧 (R キーで開閉) -->
+<div id="relic-collection" class="hidden">
+  <div id="relic-collection-box">
+    <h2>秘宝・呪物コレクション</h2>
+    <div class="rc-sub">R または Esc で閉じる</div>
+    <div id="rc-positive-section" class="rc-section">
+      <div class="rc-section-title">✦ 秘宝</div>
+      <div id="rc-positive-list"></div>
+    </div>
+    <div id="rc-cursed-section" class="rc-section">
+      <div class="rc-section-title">☠ 呪物</div>
+      <div id="rc-cursed-list"></div>
+    </div>
+    <div id="rc-empty" style="display:none;color:#3a4860;font-size:12px;padding:10px 0">まだ秘宝・呪物を所持していません。</div>
+  </div>
 </div>
 
 <script>
@@ -2003,6 +2035,7 @@ function buildHelp() {
       <tr><td><kbd>1</kbd>–<kbd>4</kbd></td><td>スキルホットバー使用</td></tr>
       <tr><td><kbd>←</kbd><kbd>→</kbd> · <kbd>Enter</kbd> · <kbd>Esc</kbd></td><td>バトルメニュー操作</td></tr>
       <tr><th colspan="2">その他</th></tr>
+      <tr><td><kbd>R</kbd></td><td>秘宝・呪物コレクション一覧</td></tr>
       <tr><td><kbd>?</kbd></td><td>このヘルプ</td></tr>
       <tr><td><kbd>Q</kbd></td><td>終了</td></tr>
     </table>
@@ -4072,7 +4105,54 @@ function sendKey(key, code, shiftKey) {
 // ─────────────────────────────────────────────────────────────
 //  Input
 // ─────────────────────────────────────────────────────────────
+let _relicCollectionOpen = false;
+
+function showRelicCollection() {
+  if (!state) return;
+  const g = state.game || state;
+  const relics = (g && g.player_relics) ? g.player_relics : [];
+  const positives = relics.filter(r => !r.is_cursed);
+  const cursed    = relics.filter(r =>  r.is_cursed);
+
+  const makeRow = r => `
+    <div class="rc-relic-row">
+      <div class="rc-relic-icon">${r.is_cursed ? '☠' : '✦'}</div>
+      <div class="rc-relic-info">
+        <div class="rc-relic-name${r.is_cursed ? ' cursed' : ''}">${r.name}</div>
+        <div class="rc-relic-desc">${r.description}</div>
+      </div>
+    </div>`;
+
+  document.getElementById('rc-positive-list').innerHTML = positives.map(makeRow).join('');
+  document.getElementById('rc-cursed-list').innerHTML   = cursed.map(makeRow).join('');
+  document.getElementById('rc-positive-section').style.display = positives.length ? '' : 'none';
+  document.getElementById('rc-cursed-section').style.display   = cursed.length   ? '' : 'none';
+  document.getElementById('rc-empty').style.display = relics.length === 0 ? '' : 'none';
+
+  document.getElementById('relic-collection').classList.remove('hidden');
+  _relicCollectionOpen = true;
+}
+
+function hideRelicCollection() {
+  document.getElementById('relic-collection').classList.add('hidden');
+  _relicCollectionOpen = false;
+}
+
 document.addEventListener('keydown', (e) => {
+  // Close relic collection on Escape or R
+  if (_relicCollectionOpen) {
+    if (e.key === 'Escape' || e.key === 'r' || e.key === 'R') {
+      hideRelicCollection();
+      e.preventDefault();
+    }
+    return;
+  }
+  // Toggle relic collection with R
+  if (e.key === 'r' || e.key === 'R') {
+    showRelicCollection();
+    e.preventDefault();
+    return;
+  }
   if (!overlayDismissed) {
     if (!['Control','Alt','Shift','Meta'].includes(e.key)) {
       dismissOverlay();
@@ -4093,6 +4173,9 @@ function dismissOverlay() {
 }
 document.getElementById('overlay').addEventListener('click', () => {
   dismissOverlay(); overlayDismissed = true;
+});
+document.getElementById('relic-collection').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('relic-collection')) hideRelicCollection();
 });
 
 // Event screen: click a choice to move cursor there, double-click to confirm

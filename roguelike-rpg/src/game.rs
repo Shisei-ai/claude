@@ -5,7 +5,7 @@ use crate::monster::{Monster, AiState};
 use crate::item::{Item, ItemKind, ConsumableEffect, generate_floor_item, generate_weapon, generate_armor, generate_material};
 use crate::skill::{SkillEffect};
 use crate::event::{RandomEvent, EventConsequence, generate_floor_event};
-use crate::relic::{Relic, RelicEffect, random_relic};
+use crate::relic::{Relic, RelicEffect, random_positive_relic, random_negative_relic};
 use crate::floor_graph::{FloorGraph, FloorId};
 
 pub const MSG_LOG_SIZE: usize = 100;
@@ -304,6 +304,46 @@ impl Game {
         }
     }
 
+    /// 既に所持している秘宝・呪物のIDリストを返す
+    fn owned_relic_ids(&self) -> Vec<usize> {
+        self.player.relics.iter().map(|r| r.id).collect()
+    }
+
+    /// 秘宝・呪物を受け取る（重複チェック付き）
+    fn give_relic(&mut self, relic: Relic) {
+        let kind_label = if relic.is_cursed { "呪物" } else { "秘宝" };
+        let is_map_reveal = relic.effect == RelicEffect::MapReveal;
+        let is_treasure_radar = relic.effect == RelicEffect::TreasureRadar;
+        self.add_message(
+            format!("【{}】「{}」を獲得！{}", kind_label, relic.name, relic.description),
+            if relic.is_cursed { MessageKind::Warning } else { MessageKind::Good },
+        );
+        if is_map_reveal {
+            for col in self.map.explored.iter_mut() {
+                for cell in col.iter_mut() { *cell = true; }
+            }
+            self.add_message("このフロアの全マップが解明された！", MessageKind::System);
+        }
+        if is_treasure_radar {
+            self.reveal_treasure_positions();
+        }
+        self.player.relics.push(relic);
+        self.update_stats();
+        self.player.relic_revive_available = self.player.has_revive_relic();
+    }
+
+    /// 宝箱タイルの位置をマップ上に解明する（秘密の羅針盤）
+    fn reveal_treasure_positions(&mut self) {
+        for x in 0..self.map.tiles.len() {
+            for y in 0..self.map.tiles[x].len() {
+                if self.map.tiles[x][y] == Tile::Chest {
+                    self.map.explored[x][y] = true;
+                }
+            }
+        }
+        self.add_message("羅針盤が宝箱の場所を指し示した！", MessageKind::Good);
+    }
+
     fn spawn_floor_content(&mut self) {
         match self.map.floor_type {
             FloorType::Exploration => self.spawn_exploration(),
@@ -313,6 +353,10 @@ impl Game {
             FloorType::Trial       => self.spawn_trial(),
             FloorType::Sanctuary   => self.spawn_sanctuary(),
             FloorType::Cursed      => self.spawn_cursed(),
+        }
+        // 秘密の羅針盤: フロア生成後に宝箱を自動解明
+        if self.player.relic_has_treasure_radar() {
+            self.reveal_treasure_positions();
         }
     }
 
@@ -347,7 +391,7 @@ impl Game {
                 self.floor_items.push((cx + 1, cy, item));
             }
         }
-        self.spawn_relic_in_random_room(1);
+        // 秘宝・呪物はフィールドに発生しない（戦闘・イベントのみ）
     }
 
     // ── Treasury ──────────────────────────────────────────────────────────────
@@ -397,8 +441,7 @@ impl Game {
                 self.map.set(cx, cy, Tile::Chest);
             }
         }
-        // A relic in a non-boss room as well
-        self.spawn_relic_in_random_room(1);
+        // 秘宝・呪物はフィールドに発生しない（戦闘・イベントのみ）
     }
 
     // ── Horde ─────────────────────────────────────────────────────────────────
@@ -439,7 +482,7 @@ impl Game {
     }
 
     // ── Sanctuary ─────────────────────────────────────────────────────────────
-    // No enemies. Heal player on entry. 1 item + 1 relic to pick up.
+    // No enemies. Heal player on entry. Items to pick up. Relics only from events.
     fn spawn_sanctuary(&mut self) {
         let floor = self.map.floor;
         // Full HP/MP restore
@@ -458,7 +501,7 @@ impl Game {
             let item = generate_floor_item(&mut self.rng, floor);
             self.floor_items.push((cx + 1, cy + 1, item));
         }
-        self.spawn_relic_in_random_room(1);
+        // 秘宝・呪物はフィールドに発生しない（戦闘・イベントのみ）
     }
 
     // ── Cursed ────────────────────────────────────────────────────────────────
@@ -495,27 +538,7 @@ impl Game {
                 self.floor_items.push((cx + 1, cy, item));
             }
         }
-        // 2 relics — at least one cursed
-        self.spawn_relic_in_random_room(1);
-        if rooms.len() > 3 {
-            // Force a cursed relic in the last room
-            if let Some(room) = rooms.last() {
-                let (cx, cy) = room.center();
-                let mut relic = random_relic(&mut self.rng, floor);
-                while !relic.is_cursed { relic = random_relic(&mut self.rng, floor); }
-                self.floor_relics.push((cx - 1, cy + 1, relic));
-            }
-        }
-    }
-
-    // ── Helper ───────────────────────────────────────────────────────────────
-    fn spawn_relic_in_random_room(&mut self, skip: usize) {
-        let rooms = self.map.rooms.clone();
-        if rooms.len() <= skip + 1 { return; }
-        let room_idx = self.rng.gen_range(skip..rooms.len());
-        let (cx, cy) = rooms[room_idx].center();
-        let relic = random_relic(&mut self.rng, self.map.floor);
-        self.floor_relics.push((cx - 1, cy + 1, relic));
+        // 秘宝・呪物はフィールドに発生しない（戦闘・イベントのみ）
     }
 
     pub fn player_move(&mut self, dx: i32, dy: i32) -> bool {
@@ -569,6 +592,10 @@ impl Game {
                     self.add_message(format!("餓鬼の縄が締め上がる…HP-{}！", drain), MessageKind::Warning);
                 }
             }
+
+            // GoldOnStep: 黄金律の刻印
+            let gold_per_step = self.player.relic_gold_on_step();
+            if gold_per_step > 0 { self.player.gold += gold_per_step; }
 
             // Auto-pick logic: display items under player
             if let Some(idx) = self.item_at(nx, ny) {
@@ -770,11 +797,28 @@ impl Game {
             return;
         }
 
-        self.player.mp -= actual_mp_cost;
+        // FreeCastChance: 呪文の宝玉
+        let free_cast = self.player.relic_free_cast_chance();
+        if free_cast == 0 || self.rng.gen_range(0..100) >= free_cast {
+            self.player.mp -= actual_mp_cost;
+        } else {
+            self.add_message("✨ 呪文の宝玉！MPコスト無効！", MessageKind::Good);
+        }
         // 暗黒の封印: CD追加
         let cd_penalty = self.player.relic_cooldown_penalty();
         self.player.skills[skill_idx].current_cooldown = skill.cooldown + cd_penalty;
         self.player.skills_used += 1;
+
+        // CdRefundOnSkill: 永久機関の歯車
+        let cd_refund = self.player.relic_cd_refund_on_skill();
+        if cd_refund > 0 {
+            for i in 0..self.player.skills.len() {
+                if i != skill_idx && self.player.skills[i].current_cooldown > 0 {
+                    self.player.skills[i].current_cooldown =
+                        self.player.skills[i].current_cooldown.saturating_sub(cd_refund);
+                }
+            }
+        }
 
         // 血の石板: スキル使用時HP追加消費
         let hp_cost = self.player.relic_skill_hp_cost();
@@ -985,8 +1029,10 @@ impl Game {
         // 秘宝・呪物のEXP倍率
         exp = (exp as f32 * self.player.relic_exp_multiplier()) as u32;
 
-        // 秘宝・呪物のゴールド倍率
-        let actual_gold = (gold as f32 * self.player.relic_gold_multiplier()) as u32;
+        // 秘宝・呪物のゴールド倍率 + 盗賊神の加護
+        let extra_gold_pct = self.player.relic_extra_gold_on_kill();
+        let gold_mult = self.player.relic_gold_multiplier();
+        let actual_gold = (gold as f32 * gold_mult * (100 + extra_gold_pct) as f32 / 100.0) as u32;
 
         self.add_message(format!("{}を倒した！EXP+{}、ゴールド+{}", name, exp, actual_gold), MessageKind::Good);
 
@@ -995,6 +1041,22 @@ impl Game {
 
         let leveled = self.player.gain_exp(exp);
         self.player.gold += actual_gold;
+
+        // OnKillHeal: 戦士の魂
+        let kill_heal = self.player.relic_on_kill_heal();
+        if kill_heal > 0 { self.player.heal(kill_heal); }
+
+        // SkillRefundOnKill: 素早い直感
+        let skill_refund = self.player.relic_skill_refund_on_kill();
+        if skill_refund > 0 {
+            for skill in self.player.skills.iter_mut() {
+                if skill.current_cooldown >= skill_refund {
+                    skill.current_cooldown -= skill_refund;
+                } else {
+                    skill.current_cooldown = 0;
+                }
+            }
+        }
 
         if leveled {
             self.add_message(format!("レベルアップ！ レベル{}になった！", self.player.level), MessageKind::Good);
@@ -1046,9 +1108,9 @@ impl Game {
         self.player.tick_buffs();
         self.player.tick_skill_cooldowns();
 
-        // 疫病の壺: 毎ターン確率でダメージ
+        // 疫病の壺: 毎ターン確率でダメージ（毒耐性の鱗で無効化）
         let poison_chance = self.player.relic_turn_poison_chance();
-        if poison_chance > 0 && self.rng.gen_range(0..100) < poison_chance {
+        if poison_chance > 0 && !self.player.relic_has_poison_immunity() && self.rng.gen_range(0..100) < poison_chance {
             let dmg = 5i32;
             self.player.hp = (self.player.hp - dmg).max(0);
             self.add_message(format!("疫病の壺から毒が漏れる…HP-{}！", dmg), MessageKind::Warning);
@@ -1301,33 +1363,21 @@ impl Game {
                     }
                     EventConsequence::GainPositiveRelic => {
                         let floor = self.player.floor;
-                        let mut relic = random_relic(&mut self.rng, floor);
-                        while relic.is_cursed {
-                            relic = random_relic(&mut self.rng, floor);
+                        let owned = self.owned_relic_ids();
+                        if let Some(relic) = random_positive_relic(&mut self.rng, floor, &owned) {
+                            self.give_relic(relic);
+                        } else {
+                            self.add_message("既に全ての秘宝を所持している！", MessageKind::Good);
                         }
-                        let name = relic.name.clone();
-                        let desc = relic.description.clone();
-                        if relic.effect == RelicEffect::MapReveal {
-                            for col in self.map.explored.iter_mut() {
-                                for cell in col.iter_mut() { *cell = true; }
-                            }
-                        }
-                        self.player.relics.push(relic);
-                        self.update_stats();
-                        self.player.relic_revive_available = self.player.has_revive_relic();
-                        self.add_message(format!("【秘宝】「{}」を授与された！{}", name, desc), MessageKind::Good);
                     }
                     EventConsequence::GainNegativeRelic => {
                         let floor = self.player.floor;
-                        let mut relic = random_relic(&mut self.rng, floor);
-                        while !relic.is_cursed {
-                            relic = random_relic(&mut self.rng, floor);
+                        let owned = self.owned_relic_ids();
+                        if let Some(relic) = random_negative_relic(&mut self.rng, floor, &owned) {
+                            self.give_relic(relic);
+                        } else {
+                            self.add_message("呪物の憑依を退けた！", MessageKind::Good);
                         }
-                        let name = relic.name.clone();
-                        let desc = relic.description.clone();
-                        self.player.relics.push(relic);
-                        self.update_stats();
-                        self.add_message(format!("【呪物】「{}」が憑依した！{}", name, desc), MessageKind::Warning);
                     }
                     EventConsequence::KillAllMonsters => {
                         let count = self.monsters.len();
@@ -1587,7 +1637,7 @@ impl Game {
     }
 
     fn determine_turn_order(&mut self, enemy_idx: usize) -> bool {
-        let p_spd = self.player.base_dex;
+        let p_spd = self.player.base_dex + self.player.relic_dex_delta();
         let e_spd = self.monsters.get(enemy_idx).map(|m| m.speed).unwrap_or(5);
         self.battle_player_speed = p_spd;
         self.battle_enemy_speed = e_spd;
@@ -1597,14 +1647,22 @@ impl Game {
     fn execute_player_attack(&mut self, idx: usize) -> bool {
         let is_crit = self.rng.gen_range(0..100) < self.player.crit_rate();
         let base = self.player.effective_attack() + self.rng.gen_range(0..5);
-        let dmg = if is_crit { base * 2 } else { base };
+        // CritDamageBoost: 月光の結晶
+        let crit_mult = 2 + self.player.relic_crit_damage_boost() as i32 * 2 / 100;
+        // FirstAttackBoost: 先手必勝の章（battle_turn==1が最初のターン）
+        let first_bonus = if self.battle_turn <= 1 { self.player.relic_first_attack_boost() } else { 0 };
+        let dmg = if is_crit { base * crit_mult } else { base } + first_bonus;
         let actual = self.monsters[idx].take_damage(dmg);
         let name = self.monsters[idx].kind.name().to_string();
         self.battle_last_player_action = Some(if is_crit { "crit" } else { "slash" }.to_string());
+        // Lifesteal (スキル由来)
         if self.player.lifesteal_pct > 0 {
             let heal = (actual as f32 * self.player.lifesteal_pct as f32 / 100.0) as i32;
             self.player.heal(heal);
         }
+        // MpStealOnHit: 霊魂の蒸留器
+        let mp_steal = self.player.relic_mp_steal_on_hit();
+        if mp_steal > 0 { self.player.heal_mp(mp_steal); }
         let msg = if is_crit {
             format!("⚡ クリティカル！{}に{}ダメージ！", name, actual)
         } else {
@@ -1674,10 +1732,27 @@ impl Game {
             if !self.player.is_alive() || self.mode != GameMode::Battle { return; }
         }
 
-        self.player.mp -= actual_mp_cost;
+        // FreeCastChance: 呪文の宝玉 – MP消費無効化
+        let free_cast = self.player.relic_free_cast_chance();
+        if free_cast == 0 || self.rng.gen_range(0..100) >= free_cast {
+            self.player.mp -= actual_mp_cost;
+        } else {
+            self.battle_log.push(("✨ 呪文の宝玉！MPコスト無効！".to_string(), MessageKind::Good));
+        }
         let cd_penalty = self.player.relic_cooldown_penalty();
         self.player.skills[skill_idx].current_cooldown = skill.cooldown + cd_penalty;
         self.player.skills_used += 1;
+
+        // CdRefundOnSkill: 永久機関の歯車 – 他スキルCD-1
+        let cd_refund = self.player.relic_cd_refund_on_skill();
+        if cd_refund > 0 {
+            for i in 0..self.player.skills.len() {
+                if i != skill_idx && self.player.skills[i].current_cooldown > 0 {
+                    self.player.skills[i].current_cooldown =
+                        self.player.skills[i].current_cooldown.saturating_sub(cd_refund);
+                }
+            }
+        }
 
         // 血の石板: スキル使用時HP追加消費
         let hp_cost = self.player.relic_skill_hp_cost();
@@ -1696,15 +1771,18 @@ impl Game {
             _ => "skill_atk",
         }.to_string());
 
+        // SkillDamageBoost: 魔法増幅器
+        let skill_dmg_mult = 100 + self.player.relic_skill_damage_boost() as i32;
+
         let msg = match &skill.effect {
             SkillEffect::AttackMult(pct) => {
-                let dmg = (self.player.effective_attack() as f32 * *pct as f32 / 100.0) as i32;
+                let dmg = (self.player.effective_attack() as f32 * *pct as f32 / 100.0) as i32 * skill_dmg_mult / 100;
                 let actual = self.monsters[idx].take_damage(dmg);
                 let name = self.monsters[idx].kind.name().to_string();
                 format!("✦ {}：{}に{}ダメージ！", skill.name, name, actual)
             }
             SkillEffect::TeleportStrike => {
-                let dmg = self.player.effective_attack() * 2;
+                let dmg = self.player.effective_attack() * 2 * skill_dmg_mult / 100;
                 let actual = self.monsters[idx].take_damage(dmg);
                 let name = self.monsters[idx].kind.name().to_string();
                 format!("✦ {}：{}に瞬間移動攻撃{}ダメージ！（必殺）", skill.name, name, actual)
@@ -1893,6 +1971,17 @@ impl Game {
             self.battle_log.push((rmsg.clone(), MessageKind::Good));
         }
 
+        // CounterAttackChance: 復讐の炎
+        let counter_pct = self.player.relic_counter_attack_chance();
+        if dmg > 0 && counter_pct > 0 && self.rng.gen_range(0..100) < counter_pct && idx < self.monsters.len() {
+            let counter_dmg = self.player.effective_attack();
+            let counter_actual = self.monsters[idx].take_damage(counter_dmg);
+            let rname = self.monsters[idx].kind.name().to_string();
+            let cmsg = format!("🔥 復讐の炎！反撃で{}に{}ダメージ！", rname, counter_actual);
+            self.battle_log.push((cmsg.clone(), MessageKind::Good));
+            self.add_message(cmsg, MessageKind::Good);
+        }
+
         self.player.tick_buffs();
         self.player.tick_skill_cooldowns();
 
@@ -1974,34 +2063,53 @@ impl Game {
             rewards.push(RewardEntry { category: "armor".into(), name: aname, is_cursed: false });
         }
 
+        // ExtraDropChance: 追加アイテムドロップ（錬金術師の指輪）
+        let extra_drop_pct = self.player.relic_extra_drop_chance();
+        if extra_drop_pct > 0 && self.rng.gen_range(0..100) < extra_drop_pct {
+            let item = generate_floor_item(&mut self.rng, floor);
+            let iname = item.name.clone();
+            if self.player.inventory.len() < crate::game::INVENTORY_MAX {
+                self.player.inventory.push(item);
+            }
+            rewards.push(RewardEntry { category: "material".into(), name: format!("＋{}", iname), is_cursed: false });
+        }
+
+        // PostBattleHeal: 戦闘後回復（癒しの源泉）
+        let post_heal = self.player.relic_post_battle_heal();
+        if post_heal > 0 {
+            self.player.heal(post_heal);
+            rewards.push(RewardEntry { category: "exp".into(), name: format!("HP+{} 回復", post_heal), is_cursed: false });
+        }
+
         // Relic (秘宝) drop ~4%
         if self.rng.gen_range(0..100) < 4 {
-            let mut relic = random_relic(&mut self.rng, floor);
-            while relic.is_cursed { relic = random_relic(&mut self.rng, floor); }
-            let rname = relic.name.clone();
-            rewards.push(RewardEntry { category: "relic".into(), name: rname.clone(), is_cursed: false });
-            self.add_message(format!("秘宝「{}」を入手した！", rname), MessageKind::Loot);
-            self.player.relics.push(relic);
+            let owned = self.owned_relic_ids();
+            if let Some(relic) = random_positive_relic(&mut self.rng, floor, &owned) {
+                let rname = relic.name.clone();
+                rewards.push(RewardEntry { category: "relic".into(), name: rname.clone(), is_cursed: false });
+                self.give_relic(relic);
+            }
         }
 
         // Cursed relic (呪物) drop ~2%
         if self.rng.gen_range(0..100) < 2 {
-            let mut relic = random_relic(&mut self.rng, floor);
-            while !relic.is_cursed { relic = random_relic(&mut self.rng, floor); }
-            let rname = relic.name.clone();
-            rewards.push(RewardEntry { category: "cursed".into(), name: rname.clone(), is_cursed: true });
-            self.add_message(format!("呪物「{}」が取り憑いた！", rname), MessageKind::Warning);
-            self.player.relics.push(relic);
+            let owned = self.owned_relic_ids();
+            if let Some(relic) = random_negative_relic(&mut self.rng, floor, &owned) {
+                let rname = relic.name.clone();
+                rewards.push(RewardEntry { category: "cursed".into(), name: rname.clone(), is_cursed: true });
+                self.give_relic(relic);
+            }
         }
 
         // Boss floor (depth % 5 == 0): guaranteed 秘宝 drop
         if self.map.floor_type == FloorType::MiniBoss && self.map.floor % 5 == 0 {
-            let mut relic = random_relic(&mut self.rng, floor);
-            while relic.is_cursed { relic = random_relic(&mut self.rng, floor); }
-            let rname = relic.name.clone();
-            rewards.push(RewardEntry { category: "relic".into(), name: rname.clone(), is_cursed: false });
-            self.add_message(format!("【ボス報酬】秘宝「{}」を手に入れた！", rname), MessageKind::Good);
-            self.player.relics.push(relic);
+            let owned = self.owned_relic_ids();
+            if let Some(relic) = random_positive_relic(&mut self.rng, floor, &owned) {
+                let rname = relic.name.clone();
+                rewards.push(RewardEntry { category: "relic".into(), name: rname.clone(), is_cursed: false });
+                self.add_message(format!("【ボス報酬】秘宝「{}」を手に入れた！", rname), MessageKind::Good);
+                self.give_relic(relic);
+            }
         }
 
         self.pending_rewards = rewards;
@@ -2047,27 +2155,15 @@ impl Game {
     pub fn try_pickup_relic(&mut self, x: i32, y: i32) {
         if let Some(idx) = self.relic_at(x, y) {
             let (_, _, relic) = self.floor_relics.remove(idx);
-            let kind_label = if relic.is_cursed { "呪物" } else { "秘宝" };
-            self.add_message(
-                format!("【{}】「{}」を獲得！{}", kind_label, relic.name, relic.description),
-                if relic.is_cursed { MessageKind::Warning } else { MessageKind::Good },
-            );
-
-            // MapReveal: 千里眼の宝珠
-            if relic.effect == RelicEffect::MapReveal {
-                for col in self.map.explored.iter_mut() {
-                    for cell in col.iter_mut() {
-                        *cell = true;
-                    }
-                }
-                self.add_message("このフロアの全マップが解明された！", MessageKind::System);
+            // 重複チェック
+            if self.player.relics.iter().any(|r| r.id == relic.id) {
+                self.add_message(
+                    format!("「{}」はすでに所持している。", relic.name),
+                    MessageKind::System,
+                );
+                return;
             }
-
-            self.player.relics.push(relic);
-            // リレックのステータス変動を反映
-            self.update_stats();
-            // 不死鳥の羽: 取得したらすぐ有効化
-            self.player.relic_revive_available = self.player.has_revive_relic();
+            self.give_relic(relic);
         }
     }
 
