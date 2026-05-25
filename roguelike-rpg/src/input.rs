@@ -261,10 +261,10 @@ pub fn handle_input(game: &mut Game, key: KeyCode, _modifiers: KeyModifiers) -> 
             KeyCode::Char('?') => game.mode = GameMode::Help,
 
             // Movement (4-directional)
-            KeyCode::Left  | KeyCode::Char('a') | KeyCode::Char('h') => { game.player_move(-1,  0); }
-            KeyCode::Right | KeyCode::Char('d') | KeyCode::Char('l') => { game.player_move( 1,  0); }
-            KeyCode::Up    | KeyCode::Char('w') | KeyCode::Char('k') => { game.player_move( 0, -1); }
-            KeyCode::Down  | KeyCode::Char('s') | KeyCode::Char('j') => { game.player_move( 0,  1); }
+            KeyCode::Left  | KeyCode::Char('a') => { game.player_move(-1,  0); }
+            KeyCode::Right | KeyCode::Char('d') => { game.player_move( 1,  0); }
+            KeyCode::Up    | KeyCode::Char('w') => { game.player_move( 0, -1); }
+            KeyCode::Down  | KeyCode::Char('s') => { game.player_move( 0,  1); }
 
             // Diagonal movement (vi-keys)
             KeyCode::Char('y') => { game.player_move(-1, -1); }

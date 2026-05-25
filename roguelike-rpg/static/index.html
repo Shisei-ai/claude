@@ -2879,6 +2879,10 @@ function _showToast(text, kind) {
 const _nonExplore = new Set(['Battle','BattleVictoryEffect','BattleReward',
   'EndingAnnouncement','StartSkillSelect']);
 
+// Saved battle snapshot — survives the BattleVictoryEffect frame where g.battle becomes null
+let _savedBattleSnap = null;
+let _victoryAdvanceTimer = null;
+
 function renderModal(g) {
   maybeEncounterFlash(g.mode);
   // Hide ctx-hint and toasts during non-exploration screens
@@ -2887,11 +2891,12 @@ function renderModal(g) {
   document.getElementById('toast-container').style.visibility = inBattle ? 'hidden' : '';
 
   if (g.mode === 'Battle' && g.battle) {
+    _savedBattleSnap = g.battle;
+    if (_victoryAdvanceTimer) { clearTimeout(_victoryAdvanceTimer); _victoryAdvanceTimer = null; }
     hideModal();
     hideRewardEl();
     hideEndingEl();
-    buildBattle(g);
-    BFX.start();
+    buildBattle(g);  // calls BFX.start() internally on fresh build
     document.getElementById('layout').style.display = 'none';
     return;
   }
@@ -2916,18 +2921,33 @@ function renderModal(g) {
     return;
   }
 
-  if (g.mode === 'BattleVictoryEffect' && g.battle) {
-    hideModal();
-    hideRewardEl();
-    hideEndingEl();
-    buildBattle(g);
-    BFX.start();
-    BFX.triggerDissolve(g.battle.enemy_name);
-    document.getElementById('layout').style.display = 'none';
-    return;
+  if (g.mode === 'BattleVictoryEffect') {
+    // g.battle may be null here (battle_enemy_idx was cleared server-side);
+    // use saved snap so we can still show the enemy dissolve effect.
+    const effectSnap = g.battle || _savedBattleSnap;
+    if (effectSnap) {
+      const effectG = g.battle ? g : { ...g, battle: { ...effectSnap, is_victory_effect: true } };
+      hideModal();
+      hideRewardEl();
+      hideEndingEl();
+      // Don't call BFX.start() here — BFX is already running from Battle mode.
+      // Just do incremental DOM update and trigger dissolve (guarded by _victoryDone).
+      buildBattle(effectG);
+      BFX.triggerDissolve(effectSnap.enemy_name);
+      document.getElementById('layout').style.display = 'none';
+      // Auto-advance to BattleReward after dissolve animation (~2.4s); server also accepts keypress
+      if (!_victoryAdvanceTimer) {
+        _victoryAdvanceTimer = setTimeout(() => {
+          _victoryAdvanceTimer = null;
+          sendKey(' ');
+        }, 2400);
+      }
+      return;
+    }
   }
 
   if (g.mode === 'BattleReward') {
+    if (_victoryAdvanceTimer) { clearTimeout(_victoryAdvanceTimer); _victoryAdvanceTimer = null; }
     hideModal();
     hideBattleEl();
     hideFloormapEl();
@@ -4580,8 +4600,15 @@ function ensureBattleEl() {
   return battleEl;
 }
 
+// Track last triggered action key to avoid re-triggering the same animation
+let _lastBattleActionKey = '';
+// Track which enemy kind was last built (to detect a new battle)
+let _lastBattleEnemyKind = '';
+
 function hideBattleEl() {
   if (battleEl) battleEl.style.display = 'none';
+  _lastBattleEnemyKind = '';
+  _lastBattleActionKey = '';
 }
 
 function buildBattle(g) {
@@ -4594,115 +4621,147 @@ function buildBattle(g) {
   const hpCol  = g.hp/g.max_hp > 0.5 ? '#3a9840' : g.hp/g.max_hp > 0.25 ? '#c09020' : '#c02020';
   const ehpCol = b.enemy_hp/b.enemy_max_hp > 0.5 ? '#3a9840' : b.enemy_hp/b.enemy_max_hp > 0.25 ? '#c09020' : '#c02020';
 
-  // Build command menu
-  const cmds = ['⚔  攻撃','✦  スキル','🧪  アイテム','🏃  逃走'];
-  const menuHtml = cmds.map((label, i) => {
-    const isSel = b.sub_mode === 0 && b.menu === i;
-    let subHtml = '';
-    if (isSel && b.sub_mode === 0) {
-      if (i === 1 && b.sub_mode === 1) {
-        subHtml = buildSubList(b.active_skills.map(s=>`${s.name} (MP:${s.mp_cost})`), b.sub_cursor);
-      }
-      if (i === 2 && b.sub_mode === 2) {
-        subHtml = buildSubList(b.consumables.map(it=>it.name), b.sub_cursor);
-      }
-    }
-    const subOpen = (i===1 && b.sub_mode===1)||(i===2 && b.sub_mode===2);
-    return `<div class="battle-cmd${isSel?' sel':''}${subOpen?' sub-open':''}">
-      ${label}
-      ${subHtml}
-    </div>`;
-  }).join('');
+  const el = ensureBattleEl();
+  el.style.display = 'flex';
 
-  // Sub-list open
-  let subListHtml = '';
-  if (b.sub_mode === 1) {
-    subListHtml = `<div style="padding:6px 16px;background:#080818;border-top:1px solid #0e1428">
-      ${b.active_skills.length === 0
-        ? '<div style="font-size:9px;color:#3a4858;padding:4px 0">アクティブスキルなし</div>'
-        : b.active_skills.map((s,i)=>`
-          <div class="battle-sub-item${i===b.sub_cursor?' sel':''}">
-            ${i===b.sub_cursor?'▶ ':'  '}${s.name}
-            <span style="color:${s.cd_left>0?'#b07020':'#3a6060'};font-size:11px;margin-left:8px">${s.cd_left>0?`CD:${s.cd_left}`:`MP:${s.mp_cost}`}</span>
-          </div>`).join('')
-      }
-    </div>`;
-  } else if (b.sub_mode === 2) {
-    subListHtml = `<div style="padding:6px 16px;background:#080818;border-top:1px solid #0e1428">
-      ${b.consumables.length === 0
-        ? '<div style="font-size:9px;color:#3a4858;padding:4px 0">アイテムなし</div>'
-        : b.consumables.map((it,i)=>`
-          <div class="battle-sub-item${i===b.sub_cursor?' sel':''}">${i===b.sub_cursor?'▶ ':'  '}${it.name}</div>`).join('')
-      }
-    </div>`;
+  // ── Fresh build: no canvases yet, or new enemy ───────────────────────────
+  const isFresh = !document.getElementById('bspr-player') || _lastBattleEnemyKind !== b.enemy_kind;
+  if (isFresh) {
+    _lastBattleEnemyKind = b.enemy_kind;
+    _lastBattleActionKey = '';
+    el.innerHTML = `
+      <div id="battle-header" style="display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:#06060f;border-bottom:1px solid #0e1428;font-size:9px">
+        <span style="color:#2a3858;letter-spacing:.15em;font-size:13px">⚔ バトル</span>
+        <span id="b-turn-label" style="color:#1e2838;font-size:12px">ターン ${b.turn} · ←→ 選択 · Enter 決定 · Esc 戻る</span>
+      </div>
+      <div id="battle-arena">
+        <div class="battle-side">
+          <div id="b-p-name" class="battle-name" style="color:#6080a0">プレイヤー · LV.${g.level}</div>
+          <div class="battle-sprite-wrap bfx-idle">
+            <canvas id="bspr-player" width="${BSG*BS}" height="${BSG*BS}"></canvas>
+          </div>
+          <div class="battle-hp-wrap">
+            <div class="battle-hp-label">HP</div>
+            <div class="battle-hp-track"><div id="b-p-hpfill" class="battle-hp-fill" style="width:${hpPct}%;background:linear-gradient(90deg,#802020,${hpCol})"></div></div>
+            <div id="b-p-hpval" class="battle-hp-val">${g.hp} / ${g.max_hp}</div>
+            <div class="battle-hp-label" style="margin-top:4px">MP</div>
+            <div class="battle-hp-track"><div id="b-p-mpfill" class="battle-hp-fill" style="width:${mpPct}%;background:linear-gradient(90deg,#203080,#3060c0)"></div></div>
+            <div id="b-p-mpval" class="battle-hp-val">${g.mp} / ${g.max_mp}</div>
+          </div>
+          <div id="b-p-status" class="battle-status"></div>
+        </div>
+
+        <div class="battle-divider"></div>
+
+        <div class="battle-side enemy-side">
+          <div id="b-e-name" class="battle-name" style="color:#806040">${b.enemy_name.toUpperCase()}</div>
+          <div class="battle-sprite-wrap bfx-idle">
+            <canvas id="bspr-enemy" width="${BSG*BS}" height="${BSG*BS}"></canvas>
+          </div>
+          <div class="battle-hp-wrap">
+            <div class="battle-hp-label">HP</div>
+            <div class="battle-hp-track"><div id="b-e-hpfill" class="battle-hp-fill" style="width:${ehpPct}%;background:linear-gradient(90deg,#802020,${ehpCol})"></div></div>
+            <div id="b-e-hpval" class="battle-hp-val">${b.enemy_hp} / ${b.enemy_max_hp}</div>
+          </div>
+          <div id="b-e-status" class="battle-status"></div>
+        </div>
+      </div>
+      <div id="battle-log"></div>
+      <div id="b-sublist"></div>
+      <div id="battle-menu"></div>
+    `;
+    drawBigSpriteOn(document.getElementById('bspr-player'), 'player');
+    drawBigSpriteOn(document.getElementById('bspr-enemy'), b.enemy_kind);
+    BFX.setSpriteKinds('player', b.enemy_kind);
+    BFX.start();  // reset and start BFX only on a new battle
   }
+
+  // ── Incremental update: HP/MP bars, status, log, menu ───────────────────
+  // (runs on fresh build too — sets the dynamic content)
+
+  const phFill = document.getElementById('b-p-hpfill');
+  if (phFill) { phFill.style.width = hpPct + '%'; phFill.style.background = `linear-gradient(90deg,#802020,${hpCol})`; }
+  const pmFill = document.getElementById('b-p-mpfill');
+  if (pmFill) pmFill.style.width = mpPct + '%';
+  const phVal = document.getElementById('b-p-hpval');
+  if (phVal) phVal.textContent = `${g.hp} / ${g.max_hp}`;
+  const pmVal = document.getElementById('b-p-mpval');
+  if (pmVal) pmVal.textContent = `${g.mp} / ${g.max_mp}`;
+  const pName = document.getElementById('b-p-name');
+  if (pName) pName.textContent = `プレイヤー · LV.${g.level}`;
+
+  const ehFill = document.getElementById('b-e-hpfill');
+  if (ehFill) { ehFill.style.width = ehpPct + '%'; ehFill.style.background = `linear-gradient(90deg,#802020,${ehpCol})`; }
+  const ehVal = document.getElementById('b-e-hpval');
+  if (ehVal) ehVal.textContent = `${b.enemy_hp} / ${b.enemy_max_hp}`;
+
+  const turnLabel = document.getElementById('b-turn-label');
+  if (turnLabel) turnLabel.textContent = `ターン ${b.turn} · ←→ 選択 · Enter 決定 · Esc 戻る`;
 
   const statusP = [
     g.poison>0 ? `<span style="color:#60c040">☠ 毒(${g.poison})</span>` : '',
-    g.stun>0   ? `<span style="color:#f0e040">💫 スタン(${g.stun})</span>`   : '',
-    g.shield>0 ? `<span style="color:#40b8e0">🛡 シールド:${g.shield}</span>`   : '',
+    g.stun>0   ? `<span style="color:#f0e040">💫 スタン(${g.stun})</span>` : '',
+    g.shield>0 ? `<span style="color:#40b8e0">🛡 シールド:${g.shield}</span>` : '',
   ].filter(Boolean).join(' ');
+  const pStatus = document.getElementById('b-p-status');
+  if (pStatus) pStatus.innerHTML = statusP;
 
   const statusE = [
     b.enemy_poisoned ? '<span style="color:#60c040">☠ 毒</span>' : '',
-    b.enemy_stunned  ? '<span style="color:#f0e040">💫 スタン</span>'  : '',
+    b.enemy_stunned  ? '<span style="color:#f0e040">💫 スタン</span>' : '',
   ].filter(Boolean).join(' ');
+  const eStatus = document.getElementById('b-e-status');
+  if (eStatus) eStatus.innerHTML = statusE;
 
-  const logHtml = b.log.map(m=>`<div class="battle-log-line log-${m.kind}">${m.text}</div>`).join('');
+  // Battle log
+  const logEl = document.getElementById('battle-log');
+  if (logEl) logEl.innerHTML = b.log.map(m=>`<div class="battle-log-line log-${m.kind}">${m.text}</div>`).join('');
 
-  const el = ensureBattleEl();
-  el.style.display = 'flex';
-  el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:#06060f;border-bottom:1px solid #0e1428;font-size:9px">
-      <span style="color:#2a3858;letter-spacing:.15em;font-size:13px">⚔ バトル</span>
-      <span style="color:#1e2838;font-size:12px">ターン ${b.turn} · ←→ 選択 · Enter 決定 · Esc 戻る</span>
-    </div>
-    <div id="battle-arena">
-      <div class="battle-side">
-        <div class="battle-name" style="color:#6080a0">プレイヤー · LV.${g.level}</div>
-        <div class="battle-sprite-wrap">
-          <canvas id="bspr-player" width="${BSG*BS}" height="${BSG*BS}"></canvas>
-        </div>
-        <div class="battle-hp-wrap">
-          <div class="battle-hp-label">HP</div>
-          <div class="battle-hp-track"><div class="battle-hp-fill" style="width:${hpPct}%;background:linear-gradient(90deg,#802020,${hpCol})"></div></div>
-          <div class="battle-hp-val">${g.hp} / ${g.max_hp}</div>
-          <div class="battle-hp-label" style="margin-top:4px">MP</div>
-          <div class="battle-hp-track"><div class="battle-hp-fill" style="width:${mpPct}%;background:linear-gradient(90deg,#203080,#3060c0)"></div></div>
-          <div class="battle-hp-val">${g.mp} / ${g.max_mp}</div>
-        </div>
-        <div class="battle-status">${statusP}</div>
-      </div>
+  // Sub-list
+  const subEl = document.getElementById('b-sublist');
+  if (subEl) {
+    if (b.sub_mode === 1) {
+      subEl.innerHTML = `<div style="padding:6px 16px;background:#080818;border-top:1px solid #0e1428">
+        ${b.active_skills.length === 0
+          ? '<div style="font-size:9px;color:#3a4858;padding:4px 0">アクティブスキルなし</div>'
+          : b.active_skills.map((s,i)=>`
+            <div class="battle-sub-item${i===b.sub_cursor?' sel':''}">
+              ${i===b.sub_cursor?'▶ ':'  '}${s.name}
+              <span style="color:${s.cd_left>0?'#b07020':'#3a6060'};font-size:11px;margin-left:8px">${s.cd_left>0?`CD:${s.cd_left}`:`MP:${s.mp_cost}`}</span>
+            </div>`).join('')
+        }
+      </div>`;
+    } else if (b.sub_mode === 2) {
+      subEl.innerHTML = `<div style="padding:6px 16px;background:#080818;border-top:1px solid #0e1428">
+        ${b.consumables.length === 0
+          ? '<div style="font-size:9px;color:#3a4858;padding:4px 0">アイテムなし</div>'
+          : b.consumables.map((it,i)=>`
+            <div class="battle-sub-item${i===b.sub_cursor?' sel':''}">${i===b.sub_cursor?'▶ ':'  '}${it.name}</div>`).join('')
+        }
+      </div>`;
+    } else {
+      subEl.innerHTML = '';
+    }
+  }
 
-      <div class="battle-divider"></div>
+  // Menu
+  const menuEl = document.getElementById('battle-menu');
+  if (menuEl) {
+    const cmds = ['⚔  攻撃','✦  スキル','🧪  アイテム','🏃  逃走'];
+    menuEl.innerHTML = cmds.map((label, i) => {
+      const isSel = b.sub_mode === 0 && b.menu === i;
+      const subOpen = (i===1 && b.sub_mode===1)||(i===2 && b.sub_mode===2);
+      return `<div class="battle-cmd${isSel?' sel':''}${subOpen?' sub-open':''}">${label}</div>`;
+    }).join('');
+  }
 
-      <div class="battle-side enemy-side">
-        <div class="battle-name" style="color:#806040">${b.enemy_name.toUpperCase()}</div>
-        <div class="battle-sprite-wrap">
-          <canvas id="bspr-enemy" width="${BSG*BS}" height="${BSG*BS}"></canvas>
-        </div>
-        <div class="battle-hp-wrap">
-          <div class="battle-hp-label">HP</div>
-          <div class="battle-hp-track"><div class="battle-hp-fill" style="width:${ehpPct}%;background:linear-gradient(90deg,#802020,${ehpCol})"></div></div>
-          <div class="battle-hp-val">${b.enemy_hp} / ${b.enemy_max_hp}</div>
-        </div>
-        <div class="battle-status">${statusE}</div>
-      </div>
-    </div>
-
-    <div id="battle-log">${logHtml}</div>
-    ${subListHtml}
-    <div id="battle-menu">${menuHtml}</div>
-  `;
-
-  // Draw sprites onto canvases
-  drawBigSpriteOn(document.getElementById('bspr-player'), 'player');
-  drawBigSpriteOn(document.getElementById('bspr-enemy'), b.enemy_kind);
-  BFX.setSpriteKinds('player', b.enemy_kind);
-
-  // Trigger action animations (skip during victory dissolve effect)
-  if (!b.is_victory_effect && (b.last_player_action || b.last_enemy_action)) {
-    BFX.trigger(b.last_player_action, b.last_enemy_action, b);
+  // ── Trigger action animations (deduplicated by turn+action key) ──────────
+  if (!b.is_victory_effect) {
+    const actionKey = `${b.turn}:${b.last_player_action||''}:${b.last_enemy_action||''}`;
+    if (actionKey !== _lastBattleActionKey && (b.last_player_action || b.last_enemy_action)) {
+      _lastBattleActionKey = actionKey;
+      BFX.trigger(b.last_player_action, b.last_enemy_action, b);
+    }
   }
 }
 
