@@ -160,7 +160,6 @@ impl Game {
         };
 
         game.load_floor_by_id(1);
-        game.add_message("ダンジョンへようこそ！（? でヘルプ、m で石板を読む）", MessageKind::System);
         game
     }
 
@@ -597,25 +596,6 @@ impl Game {
             // Auto-acquire relic
             self.try_pickup_relic(nx, ny);
 
-            // Check tile interaction
-            match self.map.get(nx, ny) {
-                Tile::StairsDown => {
-                    self.add_message("[F/Enter] で次のフロアへ降りる", MessageKind::System);
-                }
-                Tile::Tablet => {
-                    self.add_message("石板 — [F/Enter/m] でフロア分岐地図を読む", MessageKind::System);
-                }
-                Tile::CraftingAnvil => {
-                    self.add_message("鍛冶台！[F/Enter] でクラフト", MessageKind::System);
-                }
-                Tile::Shrine => {
-                    self.add_message("古代の祠！[F/Enter] で祈る", MessageKind::System);
-                }
-                Tile::Chest => {
-                    self.add_message("宝箱！[F/Enter] で開ける", MessageKind::System);
-                }
-                _ => {}
-            }
 
             self.end_player_turn();
             true
@@ -1476,12 +1456,6 @@ impl Game {
         self.update_camera();
         self.mode = GameMode::Exploring;
 
-        let ft_name = ft.name();
-        let ft_desc = ft.description();
-        self.add_message(
-            format!("深度{}階 ─ 【{}】{}", depth, ft_name, ft_desc),
-            MessageKind::System,
-        );
     }
 
     /// Reload the current floor (regenerate from same floor_id).

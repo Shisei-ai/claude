@@ -229,6 +229,7 @@ pub struct GameSnapshot {
     pub ending_announcement: Option<[String; 3]>, // [title, flavor, body]
     pub victory_ending: Option<String>,
     pub is_final_floor: bool,
+    pub tile_hint: Option<String>,
 }
 
 fn tile_id(t: Tile) -> u8 {
@@ -601,6 +602,26 @@ impl GameSnapshot {
             }),
             victory_ending: game.victory_ending.clone(),
             is_final_floor: game.is_final_floor,
+            tile_hint: {
+                let px = game.player.x as usize;
+                let py = game.player.y as usize;
+                match game.map.tiles[px][py] {
+                    Tile::StairsDown    => Some("F / Enter  ─  次のフロアへ降りる".into()),
+                    Tile::StairsUp      => Some("F / Enter  ─  上のフロアへ戻る".into()),
+                    Tile::Tablet        => Some("F / Enter / M  ─  石板を読む".into()),
+                    Tile::CraftingAnvil => Some("F / Enter  ─  鍛冶台を使う".into()),
+                    Tile::Shrine        => Some("F / Enter  ─  祠に祈る".into()),
+                    Tile::Chest         => Some("F / Enter  ─  宝箱を開ける".into()),
+                    _ => {
+                        // floor item on same tile?
+                        if game.floor_items.iter().any(|(ix, iy, _)| *ix == game.player.x && *iy == game.player.y) {
+                            Some("F / Enter  ─  アイテムを拾う".into())
+                        } else {
+                            None
+                        }
+                    }
+                }
+            },
         }
     }
 }

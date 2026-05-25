@@ -23,15 +23,30 @@ canvas{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);image-r
 .ft-Trial{color:#a040c0;border-color:#502060;background:#0e0814}
 .ft-Sanctuary{color:#40b878;border-color:#206040;background:#040e08}
 .ft-Cursed{color:#e04060;border-color:#801828;background:#110408}
-#log-wrap{height:200px;background:#07070f;border-top:1px solid #14192a;padding:7px 12px;overflow:hidden;display:flex;flex-direction:column-reverse}
-.log-line{font-size:13px;line-height:1.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.log-Normal{color:#7a8898}
-.log-Combat{color:#d04040}
-.log-Loot{color:#d0a820}
-.log-System{color:#4890d0}
-.log-Event{color:#b040d0}
-.log-Warning{color:#d08020}
-.log-Good{color:#40c060}
+/* ── Context hint bar ───────────────────────────────────────── */
+#ctx-hint{position:fixed;bottom:0;left:0;right:0;z-index:200;
+  padding:7px 18px;background:rgba(4,6,14,.88);border-top:1px solid #1a2438;
+  font-size:12px;letter-spacing:.12em;color:#6080a0;text-align:center;
+  backdrop-filter:blur(4px);pointer-events:none;
+  transition:opacity .25s,transform .25s}
+#ctx-hint.hidden{opacity:0;transform:translateY(6px)}
+/* ── Toast notifications ───────────────────────────────────── */
+#toast-container{position:fixed;bottom:18px;right:18px;z-index:400;
+  display:flex;flex-direction:column-reverse;gap:6px;pointer-events:none}
+.toast{max-width:340px;padding:8px 14px;border-radius:4px;font-size:12.5px;
+  line-height:1.5;border-left:3px solid transparent;
+  background:rgba(6,8,18,.92);backdrop-filter:blur(6px);
+  opacity:0;transform:translateX(20px);
+  transition:opacity .22s,transform .22s;pointer-events:none}
+.toast.visible{opacity:1;transform:translateX(0)}
+.toast.hiding{opacity:0;transform:translateX(20px)}
+.toast-Normal {color:#7a8898;border-color:#2a3848}
+.toast-Combat {color:#c84040;border-color:#601818}
+.toast-Loot   {color:#c8a820;border-color:#604810}
+.toast-System {color:#4890d0;border-color:#1a3860}
+.toast-Event  {color:#a840c8;border-color:#401860}
+.toast-Warning{color:#c07820;border-color:#603010}
+.toast-Good   {color:#38b858;border-color:#184828}
 .bar-wrap{display:flex;align-items:center;gap:8px;margin:5px 0}
 .bar-label{font-size:13px;color:#506070;width:34px;font-weight:bold}
 .bar-track{flex:1;height:14px;background:#080810;border:1px solid #1a2030;border-radius:2px;overflow:hidden}
@@ -427,8 +442,11 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
   </div>
 </div>
 
-<!-- Message log -->
-<div id="log-wrap"><div id="log"></div></div>
+<!-- Context hint bar (shown when standing on interactive tile) -->
+<div id="ctx-hint" class="hidden"></div>
+
+<!-- Toast notification container -->
+<div id="toast-container"></div>
 
 <!-- Modal overlay for Inventory / Skills / Event / Crafting / Help (in-game) -->
 <div id="modal" class="modal" style="display:none">
@@ -2142,15 +2160,11 @@ function updateUI(g) {
     relicPanel.style.display = 'none';
   }
 
-  // Message log
-  const log = document.getElementById('log');
-  log.innerHTML = '';
-  for (const msg of g.messages) {
-    const div = document.createElement('div');
-    div.className = `log-line log-${msg.kind}`;
-    div.textContent = msg.text;
-    log.appendChild(div);
-  }
+  // Context hint bar
+  renderCtxHint(g);
+
+  // Toast notifications for new messages
+  renderToasts(g);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -2669,8 +2683,62 @@ const BFX = (() => {
   return { init, start, stop, trigger, triggerDissolve };
 })();
 
+// ─────────────────────────────────────────────────────────────
+//  Context hint bar
+// ─────────────────────────────────────────────────────────────
+function renderCtxHint(g) {
+  const el = document.getElementById('ctx-hint');
+  if (g.tile_hint) {
+    el.textContent = g.tile_hint;
+    el.classList.remove('hidden');
+  } else {
+    el.classList.add('hidden');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Toast notification system
+// ─────────────────────────────────────────────────────────────
+let _lastToastKey = '';
+let _toastQueue = [];
+let _toastTimer = null;
+
+function renderToasts(g) {
+  if (!g.messages || g.messages.length === 0) return;
+  const latest = g.messages[g.messages.length - 1];
+  const key = latest.kind + '|' + latest.text;
+  if (key === _lastToastKey) return;
+  _lastToastKey = key;
+  _showToast(latest.text, latest.kind);
+}
+
+function _showToast(text, kind) {
+  const container = document.getElementById('toast-container');
+  const div = document.createElement('div');
+  div.className = `toast toast-${kind}`;
+  div.textContent = text;
+  container.appendChild(div);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => div.classList.add('visible'));
+  });
+  const lifetime = 3200;
+  const fadeOut = () => {
+    div.classList.add('hiding');
+    div.classList.remove('visible');
+    setTimeout(() => div.remove(), 280);
+  };
+  setTimeout(fadeOut, lifetime);
+}
+
+const _nonExplore = new Set(['Battle','BattleVictoryEffect','BattleReward',
+  'EndingAnnouncement','StartSkillSelect']);
+
 function renderModal(g) {
   maybeEncounterFlash(g.mode);
+  // Hide ctx-hint and toasts during non-exploration screens
+  const inBattle = _nonExplore.has(g.mode);
+  document.getElementById('ctx-hint').style.visibility = inBattle ? 'hidden' : '';
+  document.getElementById('toast-container').style.visibility = inBattle ? 'hidden' : '';
 
   if (g.mode === 'Battle' && g.battle) {
     hideModal();
@@ -2679,7 +2747,6 @@ function renderModal(g) {
     buildBattle(g);
     BFX.start();
     document.getElementById('layout').style.display = 'none';
-    document.getElementById('log-wrap').style.display = 'none';
     return;
   }
 
@@ -2690,7 +2757,6 @@ function renderModal(g) {
     hideFloormapEl();
     buildEndingAnnouncement(g);
     document.getElementById('layout').style.display = 'none';
-    document.getElementById('log-wrap').style.display = 'none';
     return;
   }
 
@@ -2701,7 +2767,6 @@ function renderModal(g) {
     hideFloormapEl();
     buildStartSkillSelect(g);
     document.getElementById('layout').style.display = 'none';
-    document.getElementById('log-wrap').style.display = 'none';
     return;
   }
 
@@ -2713,7 +2778,6 @@ function renderModal(g) {
     BFX.start();
     BFX.triggerDissolve(g.battle.enemy_name);
     document.getElementById('layout').style.display = 'none';
-    document.getElementById('log-wrap').style.display = 'none';
     return;
   }
 
@@ -2723,7 +2787,6 @@ function renderModal(g) {
     hideFloormapEl();
     buildBattleReward(g);
     document.getElementById('layout').style.display = 'none';
-    document.getElementById('log-wrap').style.display = 'none';
     return;
   }
 
@@ -2743,7 +2806,6 @@ function renderModal(g) {
   hideFloormapEl();
   hideEndingEl();
   document.getElementById('layout').style.display = 'flex';
-  document.getElementById('log-wrap').style.display = 'flex';
 
   switch (g.mode) {
     case 'Inventory': showModal(buildInventory(g)); break;
