@@ -596,6 +596,68 @@
                 options: { maintainAspectRatio: false }
             });
         });
+
+        // 相関係数行列 (2変数以上のとき)
+        const numericKeys = keys.filter(k => {
+            const col = rawData.map(d => parseFloat(d[k])).filter(v => !isNaN(v));
+            return col.length >= 3;
+        });
+        if (numericKeys.length >= 2) {
+            let h = `<div class="report-card">
+                <h2 style="color:var(--primary);border-bottom:2px solid #cbd5e1;padding-bottom:5px;">相関係数行列</h2>
+                <p style="font-size:0.85rem;color:#64748b;margin-bottom:12px;">
+                    対角より上: ピアソンの相関係数 r &nbsp;|&nbsp; 下段: p値 &amp; Fisher's z 95%CI
+                </p>
+                <table class="stats-table">
+                <tr><th style="min-width:90px;"></th>`;
+            numericKeys.forEach(k => { h += `<th>${escapeHtml(k)}</th>`; });
+            h += '</tr>';
+
+            numericKeys.forEach((k1, i) => {
+                h += `<tr><th style="background:#f8fafc;text-align:left;">${escapeHtml(k1)}</th>`;
+                numericKeys.forEach((k2, j) => {
+                    if (i === j) {
+                        h += `<td style="background:#f8fafc;text-align:center;color:#94a3b8;">—</td>`;
+                        return;
+                    }
+                    const pairs = rawData.filter(d => !isNaN(parseFloat(d[k1])) && !isNaN(parseFloat(d[k2])));
+                    const v1 = pairs.map(d => parseFloat(d[k1]));
+                    const v2 = pairs.map(d => parseFloat(d[k2]));
+                    const n = v1.length;
+                    if (n < 3) { h += `<td style="color:#94a3b8;">N不足</td>`; return; }
+                    const r = ss.sampleCorrelation(v1, v2);
+                    const t = r * Math.sqrt((n - 2) / (1 - r * r));
+                    const p = StatsLib.tP(t, n - 2);
+                    // Fisher's z 95%CI
+                    const z = 0.5 * Math.log((1 + r) / (1 - r));
+                    const se_z = 1 / Math.sqrt(n - 3);
+                    const rLow  = Math.tanh(z - 1.96 * se_z);
+                    const rHigh = Math.tanh(z + 1.96 * se_z);
+                    const sigStyle = p < .05 ? 'color:#dc2626;font-weight:bold;' : 'color:#334155;';
+                    if (i < j) {
+                        // 上三角: r を大きく表示
+                        h += `<td style="text-align:center;">
+                            <span style="${sigStyle}font-size:1rem;">${r.toFixed(3)}</span><br>
+                            <small>${StatsLib.getSigLabel(p)}</small><br>
+                            <small style="color:#64748b;">[${rLow.toFixed(3)}, ${rHigh.toFixed(3)}]</small>
+                        </td>`;
+                    } else {
+                        // 下三角: n を表示
+                        h += `<td style="text-align:center;background:#fafafa;color:#64748b;font-size:0.82rem;">
+                            n = ${n}
+                        </td>`;
+                    }
+                });
+                h += '</tr>';
+            });
+
+            h += `</table>
+                <p style="font-size:0.78rem;color:#64748b;margin-top:8px;">
+                    *** p &lt; .001 &nbsp; ** p &lt; .01 &nbsp; * p &lt; .05 &nbsp; † p &lt; .10 &nbsp;|&nbsp; 括弧内は95%CI (Fisher's z変換)
+                </p>
+            </div>`;
+            out.innerHTML += h;
+        }
     }
 
     // --- 信頼性分析 (修正済み項目-全体相関 + α-if-deleted 追加) ---
