@@ -199,7 +199,7 @@
     <div class="nav-section">
         <span class="label">4. 変数の指定 (クリックで入力)</span>
         <input type="text" id="yTarget" placeholder="従属変数(Y) / 変数1 / 群分け変数(X)" onfocus="activeIn='yTarget'">
-        <textarea id="xPredictor" rows="2" placeholder="独立変数(X) / 変数2 / ALL可 [階層的: ブロックを | で区切る]" onfocus="activeIn='xPredictor'" style="margin-top:6px;"></textarea>
+        <textarea id="xPredictor" rows="2" placeholder="独立変数(X) / ALL可 / 交互作用: A*B (例: ストレス*サポート) [階層的: ブロックを | で区切る]" onfocus="activeIn='xPredictor'" style="margin-top:6px;"></textarea>
     </div>
 
     <button class="btn" style="padding: 15px; font-size:1.1rem; border-radius: 8px;" onclick="execute()">🚀 分析実行 &amp; レポート生成</button>
@@ -1022,13 +1022,31 @@
             dummyHtml += '</div>';
         }
 
-        // 調整変数が指定された場合 → 平均中心化 + 交互作用項を自動投入 (強制投入法で実行)
-        if (moderatorNames.length > 0) {
-            let allXs = xRaw.split(/[,|]/).map(s => s.trim()).filter(s => s);
-            if (allXs[0]?.toUpperCase() === 'ALL') allXs = Object.keys(rawData[0]).filter(k => k !== y);
-            allXs = allXs.flatMap(v => dummyInfo[v] ? dummyInfo[v].dummyNames : [v]);
+        // X欄の A*B 構文を解析: * を含む項を交互作用ペアとして抽出
+        const flatTerms = xRaw.split(/[,|]/).map(s => s.trim()).filter(s => s);
+        const expandedTerms = flatTerms[0]?.toUpperCase() === 'ALL'
+            ? Object.keys(rawData[0]).filter(k => k !== y)
+            : flatTerms;
+
+        const explicitPairs = [];   // [[A, B], ...] — X欄から抽出した明示的な交互作用ペア
+        const regularTerms  = [];   // * を含まない通常の予測変数
+        expandedTerms.forEach(term => {
+            const parts = term.split('*').map(s => s.trim()).filter(s => s);
+            if (parts.length >= 2) {
+                explicitPairs.push(parts);
+                // 交互作用項の構成変数を通常変数リストにも登録 (主効果として自動投入)
+                parts.forEach(p => { if (!regularTerms.includes(p)) regularTerms.push(p); });
+            } else if (parts.length === 1 && !regularTerms.includes(parts[0])) {
+                regularTerms.push(parts[0]);
+            }
+        });
+        // ダミー変数を展開した最終的な主効果リスト
+        const allXs = regularTerms.flatMap(v => dummyInfo[v] ? dummyInfo[v].dummyNames : [v]);
+
+        // 交互作用項 (X欄の A*B または調整変数 M) が指定された場合 → 調整分析ルートへ
+        if (explicitPairs.length > 0 || moderatorNames.length > 0) {
             const { workData: modData, centeredInfo, interactionTerms, finalXs } =
-                applyModerationCoding(workData, allXs, moderatorNames);
+                applyModerationCoding(workData, allXs, moderatorNames, explicitPairs);
             runModerationOLS(y, finalXs, modData, centeredInfo, interactionTerms, dummyHtml, out);
             return;
         }
@@ -1164,13 +1182,16 @@
     // ============================================================
 
     // 平均中心化 + 交互作用項生成
-    function applyModerationCoding(data, xs, moderatorNames) {
+    // explicitPairs: X欄の A*B 構文から抽出したペア [[A,B], ...]
+    function applyModerationCoding(data, xs, moderatorNames, explicitPairs = []) {
         let workData = data.map(row => ({ ...row }));
         const centeredInfo = {};
 
-        // 全予測変数・調整変数を平均中心化
-        const allToCenter = [...new Set([...xs, ...moderatorNames])];
-        allToCenter.forEach(varName => {
+        // 中心化が必要な変数を収集 (xs + 調整変数 + 明示的ペアの構成変数)
+        const toCenter = new Set([...xs, ...moderatorNames]);
+        explicitPairs.forEach(pair => pair.forEach(p => toCenter.add(p)));
+
+        toCenter.forEach(varName => {
             const vals = workData.map(r => parseFloat(r[varName])).filter(v => !isNaN(v));
             if (!vals.length) return;
             const mean = ss.mean(vals);
@@ -1183,34 +1204,49 @@
             centeredInfo[varName] = { mean, sd, centName };
         });
 
-        // 交互作用項 (焦点予測変数_c × 調整変数_c) の生成
+        // 交互作用項の生成 (重複なし管理)
         const interactionTerms = [];
+        const addedKeys = new Set();
+
+        const addInteraction = (predictor, moderator) => {
+            const key = [predictor, moderator].sort().join('§'); // 順序不問の重複除去
+            if (addedKeys.has(key)) return;
+            if (!centeredInfo[predictor] || !centeredInfo[moderator]) return;
+            addedKeys.add(key);
+            const xCent   = centeredInfo[predictor].centName;
+            const mCent   = centeredInfo[moderator].centName;
+            const intName = `${xCent}×${mCent}`;
+            workData = workData.map(row => ({
+                ...row,
+                [intName]: (row[xCent] != null && row[mCent] != null)
+                           ? row[xCent] * row[mCent] : null
+            }));
+            interactionTerms.push({ name: intName, predictor, moderator,
+                                    predictorCent: xCent, modCent: mCent });
+        };
+
+        // パターン①: 調整変数 M フィールドから (全主効果 × M)
         const mainPredictors = xs.filter(x => !moderatorNames.includes(x));
-        moderatorNames.forEach(m => {
-            if (!centeredInfo[m]) return;
-            mainPredictors.forEach(x => {
-                if (!centeredInfo[x]) return;
-                const xCent   = centeredInfo[x].centName;
-                const mCent   = centeredInfo[m].centName;
-                const intName = `${xCent}×${mCent}`;
-                workData = workData.map(row => ({
-                    ...row,
-                    [intName]: (row[xCent] != null && row[mCent] != null)
-                               ? row[xCent] * row[mCent] : null
-                }));
-                interactionTerms.push({ name: intName, predictor: x, moderator: m,
-                                        predictorCent: xCent, modCent: mCent });
-            });
+        moderatorNames.forEach(m => mainPredictors.forEach(x => addInteraction(x, m)));
+
+        // パターン②: X欄の A*B 明示指定から
+        explicitPairs.forEach(pair => {
+            if (pair.length < 2) return;
+            // A*B*C など3変数以上は全ペアを生成
+            for (let i = 0; i < pair.length - 1; i++)
+                for (let j = i + 1; j < pair.length; j++)
+                    addInteraction(pair[i], pair[j]);
         });
 
-        // OLSに渡す変数リスト: 中心化済み主効果 + 調整変数主効果 + 交互作用項
+        // OLSに渡す finalXs を構築
         const finalXs = [];
-        xs.forEach(x => finalXs.push(centeredInfo[x] ? centeredInfo[x].centName : x));
-        moderatorNames.forEach(m => {
-            const mc = centeredInfo[m]?.centName;
-            if (mc && !finalXs.includes(mc)) finalXs.push(mc);
-        });
-        interactionTerms.forEach(it => finalXs.push(it.name));
+        const push = v => { if (!finalXs.includes(v)) finalXs.push(v); };
+
+        xs.forEach(x => push(centeredInfo[x] ? centeredInfo[x].centName : x));
+        // 調整変数・明示的ペア構成変数の主効果 (未追加なら自動投入)
+        moderatorNames.forEach(m => { if (centeredInfo[m]) push(centeredInfo[m].centName); });
+        explicitPairs.forEach(pair => pair.forEach(p => { if (centeredInfo[p]) push(centeredInfo[p].centName); }));
+        interactionTerms.forEach(it => push(it.name));
 
         return { workData, centeredInfo, interactionTerms, finalXs };
     }
