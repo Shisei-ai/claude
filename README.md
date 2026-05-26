@@ -1,6 +1,6 @@
 # Python Calculator
 
-A simple comand-line calculator written in Python.
+A simple command-line calculator written in Python.
 
 ## Features
 
@@ -15,7 +15,7 @@ A simple comand-line calculator written in Python.
 python calculator.py
 ```
 
-## Runing Tests
+## Running Tests
 
 ```bash
 python -m pytest test_calculator.py

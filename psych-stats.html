@@ -1,0 +1,1851 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Psychology Stats Professional - Ultimate Edition v16.1</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/simple-statistics@7.8.3/dist/simple-statistics.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #0f172a; --secondary: #1e293b; --accent: #4f46e5; --success: #10b981; --warning: #f59e0b; --danger: #ef4444; --bg: #f8fafc; --text: #334155; --sig: #dc2626; --ns: #64748b; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg); margin: 0; display: flex; height: 100vh; overflow: hidden; color: var(--text); }
+
+        #sidebar { width: 440px; background: var(--primary); color: white; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; border-right: 1px solid #334155; }
+        .logo { font-size: 1.4rem; font-weight: bold; color: #818cf8; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-bottom: 5px; text-align: center; }
+        .nav-section { background: var(--secondary); padding: 12px; border-radius: 8px; border: 1px solid #334155; }
+        .label { font-size: 0.75rem; font-weight: bold; color: #94a3b8; margin-bottom: 6px; display: block; text-transform: uppercase; }
+        input, select, textarea { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #475569; background: #0f172a; color: white; margin-top: 4px; box-sizing: border-box; font-size: 0.85rem; }
+        input[type="checkbox"] { width: auto; margin-right: 5px; }
+
+        .tag-container { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; max-height: 100px; overflow-y: auto; background: #0f172a; padding: 8px; border-radius: 4px; border: 1px solid #475569;}
+        .tag { background: var(--accent); color: white; font-size: 0.7rem; padding: 3px 6px; border-radius: 3px; cursor: pointer; transition: 0.2s; }
+        .tag:hover { filter: brightness(1.2); }
+
+        .btn { background: var(--accent); color: white; padding: 10px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 0.9rem; margin-top: 8px; transition: 0.2s; }
+        .btn:hover { filter: brightness(1.1); }
+        .btn-success { background: var(--success); }
+        .btn-warning { background: var(--warning); color: #0f172a; }
+        .btn-danger { background: var(--danger); }
+
+        details { background: #0f172a; border-radius: 6px; padding: 8px; border: 1px solid #475569; margin-top: 8px;}
+        summary { font-size: 0.85rem; font-weight: bold; color: #cbd5e1; cursor: pointer; }
+        .tool-box { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #475569; }
+        .flex-row { display: flex; gap: 8px; align-items: center; }
+
+        #methodDesc { font-size: 0.8rem; color: #94a3b8; margin-top: 8px; line-height: 1.4; padding: 8px; background: #0f172a; border-radius: 4px; border-left: 3px solid var(--accent); }
+
+        #main { flex: 1; padding: 30px 40px; overflow-y: auto; background: #f1f5f9; }
+        .report-card { background: white; border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .word-hint { background: #fffbeb; border: 1px solid #fde68a; color: #b45309; padding: 10px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+
+        .stats-table { width: 100%; border-collapse: collapse; margin: 15px 0; border: 1px solid #cbd5e1; }
+        .stats-table th { background: #f8fafc; text-align: left; padding: 10px; border: 1px solid #cbd5e1; color: #475569; font-size: 0.85rem; }
+        .stats-table td { padding: 10px; border: 1px solid #cbd5e1; font-size: 0.9rem; }
+        .metric-label { font-weight: 600; color: #334155; width: 35%; background: #f8fafc; }
+
+        .sig-text { color: var(--sig); font-weight: bold; }
+        .ns-text { color: var(--ns); }
+
+        .vif-warn { color: #b91c1c; font-weight: bold; }
+        .vif-caution { color: #b45309; font-weight: bold; }
+
+        .chart-container { height: 320px; margin-top: 20px; display: flex; justify-content: center; }
+        .exportable-chart { max-width: 100%; max-height: 320px; border: 1px solid #e2e8f0; border-radius: 4px; }
+        .canvas-hidden { display: none; }
+        .posthoc-sig { color: #b91c1c; font-weight: bold; }
+        .posthoc-ns { color: #64748b; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <div class="logo">PSYCH-STATS ULTIMATE v16.1</div>
+
+    <div class="nav-section">
+        <span class="label">1. データ読み込み</span>
+        <input type="file" id="fileIn" accept=".xlsx, .xls, .csv">
+        <div id="tagBox" class="tag-container"><span style="color:#64748b; font-size:0.75rem;">データ待ち...</span></div>
+        <button class="btn btn-success" style="padding: 6px; font-size:0.8rem;" onclick="exportData()">現在のデータをExcelで保存</button>
+    </div>
+
+    <div class="nav-section">
+        <span class="label">2. データハンドリング (前処理ツール)</span>
+
+        <details>
+            <summary>✂️ データのフィルタリング・欠損値処理</summary>
+            <div class="tool-box">
+                <input type="text" id="filterTargets" placeholder="対象変数 (カンマ区切り / ALLで全対象)" onfocus="activeIn='filterTargets'">
+
+                <div class="flex-row" style="margin-top:8px;">
+                    <div><span class="label">除外する数値(特定)</span><input type="text" id="filterSpecific" placeholder="例: 99, 999"></div>
+                    <div><span class="label">外れ値除外 (±SD)</span><input type="number" step="0.1" id="filterSD" placeholder="例: 3 (3SD以上を除外)"></div>
+                </div>
+                <div class="flex-row" style="margin-top:8px;">
+                    <div><span class="label">最小許容値 (未満を除外)</span><input type="number" step="any" id="filterMin" placeholder="下限"></div>
+                    <div><span class="label">最大許容値 (超えを除外)</span><input type="number" step="any" id="filterMax" placeholder="上限"></div>
+                </div>
+
+                <div style="margin-top:10px; background:#1e293b; padding:8px; border-radius:4px;">
+                    <label style="font-size:0.8rem; color:#cbd5e1; display:flex; align-items:center;">
+                        <input type="checkbox" id="filterBlank"> 空白（文字等含む）を除外する
+                    </label>
+                    <label style="font-size:0.8rem; color:#fca5a5; display:flex; align-items:center; margin-top:5px;">
+                        <input type="checkbox" id="filterRowWise"> 条件合致で【行(ケース)ごと】全削除<br>(※未チェック時は該当セルのみ空にします)
+                    </label>
+                </div>
+                <button class="btn btn-danger" style="padding: 6px; font-size:0.8rem;" onclick="applyFilter()">フィルタリング実行</button>
+            </div>
+        </details>
+
+        <details>
+            <summary>✏️ 変数名の変更</summary>
+            <div class="tool-box flex-row">
+                <input type="text" id="oldName" placeholder="変更前" onfocus="activeIn='oldName'"> <span>→</span>
+                <input type="text" id="newName" placeholder="新しい名前">
+            </div>
+            <button class="btn btn-warning" style="padding: 6px; font-size:0.8rem;" onclick="renameVar()">適用</button>
+        </details>
+
+        <details>
+            <summary>🔄 逆転項目の処理</summary>
+            <div class="tool-box">
+                <div class="flex-row" style="margin-bottom:6px;">
+                    <div><span class="label">最小値</span><input type="number" id="scaleMin" value="1"></div>
+                    <div><span class="label">最大値</span><input type="number" id="scaleMax" value="5"></div>
+                </div>
+                <input type="text" id="revTargets" placeholder="変数名 (カンマ区切り)" onfocus="activeIn='revTargets'">
+                <button class="btn btn-warning" style="padding: 6px; font-size:0.8rem;" onclick="applyReverse()">逆転実行</button>
+            </div>
+        </details>
+
+        <details>
+            <summary>➕ 尺度得点の合成 (合計・平均)</summary>
+            <div class="tool-box">
+                <textarea id="scaleTargets" rows="2" placeholder="対象変数 (カンマ区切り)" onfocus="activeIn='scaleTargets'"></textarea>
+                <input type="text" id="scaleBaseName" placeholder="新尺度名 (例: 抑うつスコア)">
+                <button class="btn btn-warning" style="padding: 6px; font-size:0.8rem;" onclick="computeScaleScore()">算出＆登録</button>
+            </div>
+        </details>
+    </div>
+
+    <div class="nav-section">
+        <span class="label">3. 分析手法の選択</span>
+        <select id="methodIn" onchange="updateDesc()">
+            <option value="summary">詳細記述統計 (有効N, 平均, 中央値, 分散, 最小, 最大...)</option>
+            <option value="alpha">信頼性分析 (Cronbachのα係数)</option>
+            <option value="ttest_unpaired">独立なサンプルのt検定 (対応なし)</option>
+            <option value="ttest_paired">対応のあるt検定 (対応あり)</option>
+            <option value="anova">一元配置分散分析 (ANOVA)</option>
+            <option value="reg">重回帰分析 (各係数のt/p値, 調整済R², VIF完備)</option>
+            <option value="corr">ピアソンの相関係数マトリックス</option>
+            <option value="chisq">カイ二乗検定 (独立性の検定 / クロス集計)</option>
+            <option value="mwu">マン・ホイットニーのU検定 (ノンパラ対応なし)</option>
+            <option value="wilcoxon">ウィルコクソンの符号付順位検定 (ノンパラ対応あり)</option>
+            <option value="factor">因子分析 (PCA/PAF + バリマックス/プロマックス回転)</option>
+        </select>
+        <div id="methodDesc"></div>
+    </div>
+
+    <div id="regOptions" class="nav-section" style="display:none;">
+        <span class="label">回帰分析オプション</span>
+        <div style="display:flex; gap:16px; margin-top:4px; margin-bottom:8px;">
+            <label style="font-size:0.85rem; color:#cbd5e1; display:flex; align-items:center; gap:5px; cursor:pointer;">
+                <input type="radio" name="regMethod" value="enter" checked> 強制投入法
+            </label>
+            <label style="font-size:0.85rem; color:#cbd5e1; display:flex; align-items:center; gap:5px; cursor:pointer;">
+                <input type="radio" name="regMethod" value="hierarchical"> 階層的投入法
+            </label>
+        </div>
+        <div id="hierHint" style="display:none; font-size:0.75rem; color:#94a3b8; background:#0f172a; padding:8px; border-radius:4px; border-left:3px solid var(--warning); margin-bottom:8px; line-height:1.8;">
+            変数ブロックを <span style="color:#fbbf24; font-weight:bold;">|</span> で区切って投入順を指定<br>
+            例: <code style="color:#fbbf24;">年齢, 性別 | ストレス | 不安, 抑うつ</code>
+        </div>
+        <span class="label" style="margin-top:4px;">ダミー変数 (カテゴリ変数を自動コード化)</span>
+        <input type="text" id="dummyVars" placeholder="例: 性別, 教育歴 (カンマ区切り)" onfocus="activeIn='dummyVars'">
+        <p style="font-size:0.72rem; color:#64748b; margin: 4px 0 0 0;">指定変数から (k−1) 個のダミー変数を自動生成。基準カテゴリ = データ内最初の出現値。</p>
+        <div style="border-top:1px dashed #475569; margin-top:10px; padding-top:10px;">
+            <span class="label">調整変数 M (交互作用項を自動生成)</span>
+            <input type="text" id="moderatorVars" placeholder="例: 社会的サポート (カンマ区切り)" onfocus="activeIn='moderatorVars'">
+            <p style="font-size:0.72rem; color:#94a3b8; margin: 4px 0 0 0; line-height:1.6;">
+                全変数を平均中心化し X × M の交互作用項を自動投入。有意な交互作用は<b>単純傾斜分析</b>と<b>交互作用プロット</b>を出力します。
+            </p>
+        </div>
+    </div>
+
+    <div id="factorOptions" class="nav-section" style="display:none;">
+        <span class="label">因子分析オプション</span>
+        <div style="display:flex; gap:12px; margin-bottom:8px;">
+            <div style="flex:1;">
+                <span class="label" style="margin-bottom:4px;">抽出法</span>
+                <select id="faExtraction" style="margin-top:0;">
+                    <option value="pca">主成分法 (PCA)</option>
+                    <option value="paf">主因子法 (PAF)</option>
+                </select>
+            </div>
+            <div style="flex:1;">
+                <span class="label" style="margin-bottom:4px;">回転法</span>
+                <select id="faRotation" style="margin-top:0;">
+                    <option value="varimax">バリマックス (直交)</option>
+                    <option value="promax">プロマックス (斜交)</option>
+                    <option value="none">回転なし</option>
+                </select>
+            </div>
+        </div>
+        <span class="label" style="margin-bottom:4px;">因子数 (空欄でカイザー基準自動決定)</span>
+        <input type="number" id="faNumFactors" min="1" max="20" placeholder="例: 3 (空欄=自動)">
+        <p style="font-size:0.72rem; color:#64748b; margin:4px 0 0 0;">変数は「変数の指定」欄 X に入力。ALLで全変数を使用。</p>
+    </div>
+
+    <div class="nav-section">
+        <span class="label">4. 変数の指定 (クリックで入力)</span>
+        <input type="text" id="yTarget" placeholder="従属変数(Y) / 変数1 / 群分け変数(X)" onfocus="activeIn='yTarget'">
+        <textarea id="xPredictor" rows="2" placeholder="独立変数(X) / ALL可 / 交互作用: A*B (例: ストレス*サポート) [階層的: ブロックを | で区切る]" onfocus="activeIn='xPredictor'" style="margin-top:6px;"></textarea>
+    </div>
+
+    <button class="btn" style="padding: 15px; font-size:1.1rem; border-radius: 8px;" onclick="execute()">🚀 分析実行 &amp; レポート生成</button>
+</div>
+
+<div id="main">
+    <div id="outputArea">
+        <div style="text-align:center; margin-top:80px; opacity:0.6;">
+            <h1 style="color:#1e293b; font-size:2.5rem; margin-bottom:10px;">PSYCH-STATS <span style="color:#4f46e5;">ULTIMATE v16.1</span></h1>
+            <p>【VIF算出・多重比較・信頼区間・正規性検定 完備】</p>
+            <p>データの前処理から高度な推測統計まで、ブラウザ内で完結します。</p>
+            <p style="margin-top:20px; font-size:0.9rem;">左側のパネルからデータを読み込み、分析を開始してください。</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    let rawData = [];
+    let activeIn = 'yTarget';
+    let chartList = [];
+    let chartCounter = 0;
+
+    // XSS対策: ユーザーデータをHTMLに挿入する前にエスケープ
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    const descriptions = {
+        summary: "有効N、平均値(95%CI付)、中央値、不偏分散、SD、最小・最大、歪度・尖度、Jarque-Bera正規性検定を算出します。",
+        alpha: "Cronbachのα係数に加え、各項目の修正済み項目-全体相関と「項目削除時のα」を出力します。",
+        ttest_unpaired: "異なる2群間の平均値の差を検証します。Student・Welch両方を算出し、平均差の95%CIも出力します。",
+        ttest_paired: "同一対象から得た2変数間の平均値の差を検証します。Cohen's dzと平均差の95%CIも出力します。",
+        anova: "3群以上の平均値の差を検証します。F値・偏η²に加え、ボンフェローニ補正による全ペア比較を出力します。",
+        reg: "【強制投入法 / 階層的投入法】各変数のB、SE、β、t値、p値、95%CI、VIFを出力します。階層的投入法ではΔR²・ΔF検定も算出。カテゴリ変数はダミー自動コード化可。",
+        corr: "2変数間の相関係数(r)、p値、Fisher's z変換による95%CIを出力します。",
+        chisq: "2つのカテゴリ変数間の関連性を検証します。クロス集計表とカイ二乗値を出力します。",
+        mwu: "正規分布が仮定できない場合に行う、対応のない2群の順位和検定です。",
+        wilcoxon: "正規分布が仮定できない場合に行う、対応のある2変数の順位検定です。",
+        factor: "【主成分法/主因子法 × バリマックス/プロマックス】因子負荷量・共通性・スクリープロット・因子間相関を出力します。変数指定欄に対象変数をカンマ区切りで入力（ALLで全変数）。"
+    };
+
+    function updateDesc() {
+        const method = document.getElementById('methodIn').value;
+        document.getElementById('methodDesc').textContent = descriptions[method];
+        document.getElementById('regOptions').style.display = method === 'reg' ? 'block' : 'none';
+        document.getElementById('factorOptions').style.display = method === 'factor' ? 'block' : 'none';
+    }
+    updateDesc();
+
+    document.querySelectorAll('input[name="regMethod"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            const isHier = document.querySelector('input[name="regMethod"]:checked').value === 'hierarchical';
+            document.getElementById('hierHint').style.display = isHier ? 'block' : 'none';
+        });
+    });
+
+    // --- 統計＆行列演算エンジン ---
+    const StatsLib = {
+        normalCDF: z => {
+            const t = 1 / (1 + 0.2316419 * Math.abs(z));
+            const d = 0.3989423 * Math.exp(-z * z / 2);
+            let p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+            return z > 0 ? 1 - p : p;
+        },
+        zP: z => 2 * (1 - StatsLib.normalCDF(Math.abs(z))),
+        chiSquareP: (chi, df) => {
+            if (chi <= 0) return 1;
+            if (df === 1) return StatsLib.zP(Math.sqrt(chi));
+            const z = (Math.pow(chi / df, 1 / 3) - (1 - 2 / (9 * df))) / Math.sqrt(2 / (9 * df));
+            return 1 - StatsLib.normalCDF(z);
+        },
+        // Lanczos近似 6係数版 (修正済み)
+        logGamma: z => {
+            const c = [76.18009172947146, -86.50532032941677, 24.01409824083091,
+                       -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+            let x = z, y = z, tmp = x + 5.5;
+            tmp -= (x + 0.5) * Math.log(tmp);
+            let ser = 1.000000000190015;
+            for (let i = 0; i < 6; i++) ser += c[i] / ++y;
+            return -tmp + Math.log(2.5066282746310005 * ser / x);
+        },
+        ibeta: (x, a, b) => {
+            const bt = (x <= 0 || x >= 1) ? 0 : Math.exp(StatsLib.logGamma(a + b) - StatsLib.logGamma(a) - StatsLib.logGamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+            const betacf = (x, a, b) => {
+                let qab = a + b, qap = a + 1, qam = a - 1, c = 1, d = 1 - qab * x / qap;
+                if (Math.abs(d) < 1e-7) d = 1e-7; d = 1 / d; let h = d;
+                for (let m = 1; m <= 100; m++) {
+                    let m2 = 2 * m, aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+                    d = 1 + aa * d; if (Math.abs(d) < 1e-7) d = 1e-7; c = 1 + aa / c; if (Math.abs(c) < 1e-7) c = 1e-7; d = 1 / d; h *= d * c;
+                    aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+                    d = 1 + aa * d; if (Math.abs(d) < 1e-7) d = 1e-7; c = 1 + aa / c; if (Math.abs(c) < 1e-7) c = 1e-7; d = 1 / d; h *= d * c;
+                    if (Math.abs(d * c - 1) < 1e-7) break;
+                } return h;
+            };
+            if (x < (a + 1) / (a + b + 2)) return bt * betacf(x, a, b) / a;
+            return 1 - bt * betacf(1 - x, b, a) / b;
+        },
+        tP: (t, df) => { if (df <= 0) return 1; const x = df / (df + t * t); return StatsLib.ibeta(x, df / 2, 0.5); },
+        fP: (f, df1, df2) => { if (f <= 0) return 1; const x = df2 / (df2 + df1 * f); return StatsLib.ibeta(x, df2 / 2, df1 / 2); },
+
+        // t分布の逆関数 (二尾検定のtクリティカル値): tP(t_crit, df) = alpha
+        tInv: (alpha, df) => {
+            let lo = 0, hi = 1000;
+            for (let i = 0; i < 80; i++) {
+                const mid = (lo + hi) / 2;
+                if (StatsLib.tP(mid, df) > alpha) lo = mid;
+                else hi = mid;
+            }
+            return (lo + hi) / 2;
+        },
+
+        getSigLabel: p => {
+            if (p < .001) return `<span class="sig-text">p &lt; .001 ***</span>`;
+            if (p < .01)  return `<span class="sig-text">p &lt; .01 **</span>`;
+            if (p < .05)  return `<span class="sig-text">p &lt; .05 *</span>`;
+            if (p < .10)  return `<span class="ns-text">p &lt; .10 †</span>`;
+            return `<span class="ns-text">n.s.</span>`;
+        },
+
+        // 行列演算
+        transpose: M => M[0].map((_, c) => M.map(r => r[c])),
+        multiply: (A, B) => A.map(row => B[0].map((_, c) => row.reduce((sum, val, r) => sum + val * B[r][c], 0))),
+        invertMatrix: M => {
+            let n = M.length, a = M.map(r => [...r]), I = [];
+            for (let i = 0; i < n; i++) { I[i] = []; for (let j = 0; j < n; j++) I[i][j] = (i === j) ? 1 : 0; }
+            for (let i = 0; i < n; i++) {
+                let maxEl = Math.abs(a[i][i]), maxRow = i;
+                for (let k = i + 1; k < n; k++) if (Math.abs(a[k][i]) > maxEl) { maxEl = Math.abs(a[k][i]); maxRow = k; }
+                for (let k = 0; k < n; k++) {
+                    let tmp = a[maxRow][k]; a[maxRow][k] = a[i][k]; a[i][k] = tmp;
+                    tmp = I[maxRow][k]; I[maxRow][k] = I[i][k]; I[i][k] = tmp;
+                }
+                let pivot = a[i][i];
+                if (Math.abs(pivot) < 1e-10) return null;
+                for (let k = 0; k < n; k++) { a[i][k] /= pivot; I[i][k] /= pivot; }
+                for (let j = 0; j < n; j++) {
+                    if (i !== j) {
+                        let factor = a[j][i];
+                        for (let k = 0; k < n; k++) { a[j][k] -= factor * a[i][k]; I[j][k] -= factor * I[i][k]; }
+                    }
+                }
+            }
+            return I;
+        }
+    };
+
+    Chart.register({ id: 'bgW', beforeDraw: c => { const ctx = c.ctx; ctx.save(); ctx.globalCompositeOperation = 'destination-over'; ctx.fillStyle = 'white'; ctx.fillRect(0, 0, c.width, c.height); ctx.restore(); } });
+
+    // --- ファイル＆UI制御 ---
+    document.getElementById('fileIn').onchange = e => {
+        const reader = new FileReader();
+        reader.onload = evt => {
+            const wb = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
+            rawData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+            renderTags();
+        };
+        reader.readAsArrayBuffer(e.target.files[0]);
+    };
+
+    function renderTags() {
+        if (!rawData.length) return;
+        const keys = Object.keys(rawData[0]);
+        document.getElementById('tagBox').innerHTML = keys.map(k =>
+            `<span class="tag" onclick="addTag('${escapeHtml(k).replace(/'/g, "\\'")}')">${escapeHtml(k)}</span>`
+        ).join('');
+    }
+
+    function addTag(n) {
+        const el = document.getElementById(activeIn);
+        el.value = el.value ? `${el.value}, ${n}` : n;
+    }
+
+    // --- フィルタリング＆欠損値処理エンジン ---
+    function applyFilter() {
+        if (!rawData.length) return alert("データがありません");
+        let targets = document.getElementById('filterTargets').value.split(',').map(s => s.trim()).filter(s => s);
+        if (targets[0]?.toUpperCase() === 'ALL') targets = Object.keys(rawData[0]);
+        if (!targets.length) return alert("対象変数を指定してください");
+
+        const specific = document.getElementById('filterSpecific').value.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+        const sdLim = parseFloat(document.getElementById('filterSD').value);
+        const minLim = parseFloat(document.getElementById('filterMin').value);
+        const maxLim = parseFloat(document.getElementById('filterMax').value);
+        const dropBlank = document.getElementById('filterBlank').checked;
+        const dropRow = document.getElementById('filterRowWise').checked;
+
+        let stats = {};
+        if (!isNaN(sdLim)) {
+            targets.forEach(t => {
+                let vals = rawData.map(r => parseFloat(r[t])).filter(v => !isNaN(v));
+                if (vals.length > 1) stats[t] = { m: ss.mean(vals), sd: ss.sampleStandardDeviation(vals) };
+            });
+        }
+
+        let initialLen = rawData.length;
+        let modifiedCells = 0;
+
+        rawData = rawData.filter(row => {
+            let keepRow = true;
+            targets.forEach(t => {
+                if (row[t] === undefined || row[t] === "" || row[t] === null || isNaN(parseFloat(row[t]))) {
+                    if (dropBlank) {
+                        if (dropRow) keepRow = false;
+                        else { row[t] = null; modifiedCells++; }
+                    }
+                    return;
+                }
+                let v = parseFloat(row[t]);
+                let dropThis = false;
+                if (specific.includes(v)) dropThis = true;
+                if (!isNaN(minLim) && v < minLim) dropThis = true;
+                if (!isNaN(maxLim) && v > maxLim) dropThis = true;
+                if (!isNaN(sdLim) && stats[t]) {
+                    if (Math.abs(v - stats[t].m) > sdLim * stats[t].sd) dropThis = true;
+                }
+                if (dropThis) {
+                    if (dropRow) keepRow = false;
+                    else { row[t] = null; modifiedCells++; }
+                }
+            });
+            return keepRow;
+        });
+
+        if (dropRow) {
+            alert(`${initialLen - rawData.length}行（ケース）を除外しました。\n現在のサンプルサイズ: ${rawData.length}`);
+        } else {
+            alert(`${modifiedCells}個のセルを空（欠損値）に変換しました。`);
+        }
+    }
+
+    function renameVar() {
+        if (!rawData.length) return;
+        const oldN = document.getElementById('oldName').value.trim();
+        const newN = document.getElementById('newName').value.trim();
+        if (!oldN || !newN || !Object.keys(rawData[0]).includes(oldN)) return alert("正しい変数名を入力してください");
+        rawData = rawData.map(row => {
+            let newRow = {};
+            for (let key in row) { if (key === oldN) newRow[newN] = row[key]; else newRow[key] = row[key]; }
+            return newRow;
+        });
+        alert(`変数名を「${newN}」に変更しました。`);
+        renderTags();
+    }
+
+    function applyReverse() {
+        if (!rawData.length) return;
+        const targets = document.getElementById('revTargets').value.split(',').map(s => s.trim()).filter(s => s);
+        const min = parseFloat(document.getElementById('scaleMin').value), max = parseFloat(document.getElementById('scaleMax').value);
+        if (!targets.length) return;
+        rawData = rawData.map(row => {
+            let newRow = { ...row };
+            targets.forEach(t => { if (newRow[t] !== null && newRow[t] !== "" && !isNaN(parseFloat(newRow[t]))) newRow[t] = (min + max) - parseFloat(newRow[t]); });
+            return newRow;
+        });
+        alert(`${targets.length}変数の逆転処理を完了しました。`);
+    }
+
+    function computeScaleScore() {
+        if (!rawData.length) return;
+        const targets = document.getElementById('scaleTargets').value.split(',').map(s => s.trim()).filter(s => s);
+        const baseName = document.getElementById('scaleBaseName').value.trim() || "Scale";
+        rawData = rawData.map(row => {
+            let vals = targets.map(t => parseFloat(row[t])).filter(v => !isNaN(v));
+            row[`${baseName}_Sum`] = vals.length > 0 ? ss.sum(vals) : null;
+            row[`${baseName}_Mean`] = vals.length > 0 ? ss.mean(vals) : null;
+            return row;
+        });
+        alert(`尺度得点（${baseName}_Sum, ${baseName}_Mean）を追加しました。`);
+        renderTags();
+    }
+
+    function exportData() {
+        if (!rawData.length) return;
+        const ws = XLSX.utils.json_to_sheet(rawData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Processed_Data");
+        XLSX.writeFile(wb, "psych_stats_processed_data.xlsx");
+    }
+
+    // animation: false のためrequestAnimationFrameで即座に画像変換可能
+    function renderChartAsImage(canvasId, config) {
+        config.options = config.options || {};
+        config.options.animation = false;
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const chart = new Chart(canvas, config);
+        chartList.push(chart);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const img = document.createElement('img');
+                img.src = chart.toBase64Image();
+                img.className = 'exportable-chart';
+                if (canvas.parentNode) {
+                    canvas.parentNode.appendChild(img);
+                    canvas.classList.add('canvas-hidden');
+                }
+            });
+        });
+    }
+
+    // --- 分析実行コントローラー ---
+    function execute() {
+        if (!rawData.length) return alert("データをロードしてください");
+        const method = document.getElementById('methodIn').value;
+        const out = document.getElementById('outputArea');
+        const y = document.getElementById('yTarget').value.trim();
+        let xs = document.getElementById('xPredictor').value.split(',').map(s => s.trim()).filter(s => s);
+        if (xs[0]?.toUpperCase() === 'ALL') xs = Object.keys(rawData[0]).filter(k => k !== y);
+
+        out.innerHTML = `<div class="word-hint">💡 算出された表とグラフはWordにそのままコピペ可能です。</div>`;
+        chartList.forEach(c => c.destroy());
+        chartList = [];
+
+        try {
+            if (method === 'summary')        runSummary(xs.length > 0 ? [y, ...xs].filter(Boolean) : [y], out);
+            else if (method === 'alpha')     runAlpha([y, ...xs].filter(Boolean), out);
+            else if (method === 'ttest_unpaired') runDualTTest(y, xs[0], out);
+            else if (method === 'ttest_paired')   runPairedTTest(y, xs[0], out);
+            else if (method === 'anova')     runANOVA(y, xs[0], out);
+            else if (method === 'reg') {
+                const regMethod = document.querySelector('input[name="regMethod"]:checked').value;
+                const dummyVarInput = document.getElementById('dummyVars').value;
+                const dummyVarNames = dummyVarInput.split(',').map(s => s.trim()).filter(s => s);
+                const moderatorInput = document.getElementById('moderatorVars').value;
+                const moderatorNames = moderatorInput.split(',').map(s => s.trim()).filter(s => s);
+                const xRaw = document.getElementById('xPredictor').value;
+                runRegression(y, xRaw, out, regMethod, dummyVarNames, moderatorNames);
+            }
+            else if (method === 'corr')      runCorrelation([y, ...xs], out);
+            else if (method === 'chisq')     runChiSquare(y, xs[0], out);
+            else if (method === 'mwu')       runMannWhitney(y, xs[0], out);
+            else if (method === 'wilcoxon')  runWilcoxon(y, xs[0], out);
+            else if (method === 'factor') {
+                let faKeys = document.getElementById('xPredictor').value.split(',').map(s=>s.trim()).filter(s=>s);
+                if (faKeys[0]?.toUpperCase() === 'ALL') faKeys = Object.keys(rawData[0]);
+                if (y && !faKeys.includes(y)) faKeys = [y, ...faKeys];
+                runFactorAnalysis(faKeys, out);
+            }
+        } catch (e) {
+            out.innerHTML += `<p style="color:var(--sig); font-weight:bold; background:#fee2e2; padding:15px; border-radius:8px;">エラー: ${escapeHtml(e.message)}</p>`;
+        }
+    }
+
+    // --- 記述統計 (Jarque-Bera正規性検定 + 平均の95%CI 追加) ---
+    function runSummary(keys, out) {
+        keys.forEach(k => {
+            const data = rawData.map(d => parseFloat(d[k])).filter(n => !isNaN(n));
+            if (!data.length) return;
+
+            const n = data.length;
+            const m = ss.mean(data);
+            const med = ss.median(data);
+            const varP = n > 1 ? ss.sampleVariance(data) : 0;
+            const sd = n > 1 ? ss.sampleStandardDeviation(data) : 0;
+            const min = ss.min(data), max = ss.max(data);
+            const skew = n > 2 ? ss.sampleSkewness(data) : 0;
+            const kurt = n > 3 ? ss.sampleKurtosis(data) : 0;
+
+            // 平均の95%信頼区間
+            const se = n > 1 ? sd / Math.sqrt(n) : 0;
+            const tCrit = n > 1 ? StatsLib.tInv(0.05, n - 1) : 0;
+            const ciLow = m - tCrit * se;
+            const ciHigh = m + tCrit * se;
+
+            // Jarque-Bera正規性検定
+            const jb = (n / 6) * (skew * skew + (kurt - 3) * (kurt - 3) / 4);
+            const pJB = StatsLib.chiSquareP(jb, 2);
+            const jbLabel = StatsLib.getSigLabel(pJB);
+
+            const cId = `sumC_${chartCounter++}`;
+            out.innerHTML += `
+            <div class="report-card">
+                <h2 style="color:var(--primary); border-bottom:2px solid #cbd5e1; padding-bottom:5px;">要約統計量 (記述統計): ${escapeHtml(k)}</h2>
+                <table class="stats-table">
+                    <tr><td class="metric-label">有効サンプルサイズ (N)</td><td>${n}</td></tr>
+                    <tr><td class="metric-label">平均値 (Mean)</td><td>${m.toFixed(3)}</td></tr>
+                    <tr><td class="metric-label">平均の95%信頼区間 (95% CI)</td><td>[${ciLow.toFixed(3)}, ${ciHigh.toFixed(3)}]</td></tr>
+                    <tr><td class="metric-label">中央値 (Median)</td><td>${med.toFixed(3)}</td></tr>
+                    <tr><td class="metric-label">不偏分散 (Variance)</td><td>${varP.toFixed(3)}</td></tr>
+                    <tr><td class="metric-label">不偏標準偏差 (SD)</td><td>${sd.toFixed(3)}</td></tr>
+                    <tr><td class="metric-label">最小値 (Minimum)</td><td>${min}</td></tr>
+                    <tr><td class="metric-label">最大値 (Maximum)</td><td>${max}</td></tr>
+                    <tr><td class="metric-label">歪度 (Skewness)</td><td>${skew.toFixed(3)}</td></tr>
+                    <tr><td class="metric-label">尖度 (Kurtosis)</td><td>${kurt.toFixed(3)}</td></tr>
+                    <tr>
+                        <td class="metric-label">Jarque-Bera正規性検定<br><small style="font-weight:normal;color:#64748b;">H₀: 正規分布に従う</small></td>
+                        <td>JB = ${jb.toFixed(3)}, ${jbLabel}<br>
+                            <small style="color:#64748b;">${pJB >= 0.05 ? '✅ 正規性が棄却されない (p ≥ .05)' : '⚠️ 正規性が棄却された (p &lt; .05) — ノンパラ検定を検討'}</small>
+                        </td>
+                    </tr>
+                </table>
+                <div class="chart-container"><canvas id="${cId}"></canvas></div>
+            </div>`;
+
+            renderChartAsImage(cId, {
+                type: 'bar',
+                data: { labels: ['Mean', 'Median'], datasets: [{ label: escapeHtml(k), data: [m, med], backgroundColor: ['#4f46e5', '#10b981'] }] },
+                options: { maintainAspectRatio: false }
+            });
+        });
+
+        // 相関係数行列 (2変数以上のとき)
+        const numericKeys = keys.filter(k => {
+            const col = rawData.map(d => parseFloat(d[k])).filter(v => !isNaN(v));
+            return col.length >= 3;
+        });
+        if (numericKeys.length >= 2) {
+            let h = `<div class="report-card">
+                <h2 style="color:var(--primary);border-bottom:2px solid #cbd5e1;padding-bottom:5px;">相関係数行列</h2>
+                <p style="font-size:0.85rem;color:#64748b;margin-bottom:12px;">
+                    対角より上: ピアソンの相関係数 r &nbsp;|&nbsp; 下段: p値 &amp; Fisher's z 95%CI
+                </p>
+                <table class="stats-table">
+                <tr><th style="min-width:90px;"></th>`;
+            numericKeys.forEach(k => { h += `<th>${escapeHtml(k)}</th>`; });
+            h += '</tr>';
+
+            numericKeys.forEach((k1, i) => {
+                h += `<tr><th style="background:#f8fafc;text-align:left;">${escapeHtml(k1)}</th>`;
+                numericKeys.forEach((k2, j) => {
+                    if (i === j) {
+                        h += `<td style="background:#f8fafc;text-align:center;color:#94a3b8;">—</td>`;
+                        return;
+                    }
+                    const pairs = rawData.filter(d => !isNaN(parseFloat(d[k1])) && !isNaN(parseFloat(d[k2])));
+                    const v1 = pairs.map(d => parseFloat(d[k1]));
+                    const v2 = pairs.map(d => parseFloat(d[k2]));
+                    const n = v1.length;
+                    if (n < 3) { h += `<td style="color:#94a3b8;">N不足</td>`; return; }
+                    const r = ss.sampleCorrelation(v1, v2);
+                    const t = r * Math.sqrt((n - 2) / (1 - r * r));
+                    const p = StatsLib.tP(t, n - 2);
+                    // Fisher's z 95%CI
+                    const z = 0.5 * Math.log((1 + r) / (1 - r));
+                    const se_z = 1 / Math.sqrt(n - 3);
+                    const rLow  = Math.tanh(z - 1.96 * se_z);
+                    const rHigh = Math.tanh(z + 1.96 * se_z);
+                    const sigStyle = p < .05 ? 'color:#dc2626;font-weight:bold;' : 'color:#334155;';
+                    if (i < j) {
+                        // 上三角: r を大きく表示
+                        h += `<td style="text-align:center;">
+                            <span style="${sigStyle}font-size:1rem;">${r.toFixed(3)}</span><br>
+                            <small>${StatsLib.getSigLabel(p)}</small><br>
+                            <small style="color:#64748b;">[${rLow.toFixed(3)}, ${rHigh.toFixed(3)}]</small>
+                        </td>`;
+                    } else {
+                        // 下三角: n を表示
+                        h += `<td style="text-align:center;background:#fafafa;color:#64748b;font-size:0.82rem;">
+                            n = ${n}
+                        </td>`;
+                    }
+                });
+                h += '</tr>';
+            });
+
+            h += `</table>
+                <p style="font-size:0.78rem;color:#64748b;margin-top:8px;">
+                    *** p &lt; .001 &nbsp; ** p &lt; .01 &nbsp; * p &lt; .05 &nbsp; † p &lt; .10 &nbsp;|&nbsp; 括弧内は95%CI (Fisher's z変換)
+                </p>
+            </div>`;
+            out.innerHTML += h;
+        }
+    }
+
+    // --- 信頼性分析 (修正済み項目-全体相関 + α-if-deleted 追加) ---
+    function runAlpha(keys, out) {
+        if (keys.length < 2) throw new Error("信頼性分析には2つ以上の変数が必要です。");
+        const validRows = rawData.filter(row => keys.every(k => !isNaN(parseFloat(row[k]))));
+        if (!validRows.length) throw new Error("有効なデータがありません。");
+        const k = keys.length;
+
+        const computeAlphaFor = (itemKeys) => {
+            if (itemKeys.length < 2) return NaN;
+            const rows = validRows;
+            let itemVars = 0;
+            itemKeys.forEach(key => { itemVars += ss.sampleVariance(rows.map(r => parseFloat(r[key]))); });
+            const totals = rows.map(row => ss.sum(itemKeys.map(ik => parseFloat(row[ik]))));
+            return (itemKeys.length / (itemKeys.length - 1)) * (1 - (itemVars / ss.sampleVariance(totals)));
+        };
+
+        const totalScores = validRows.map(row => ss.sum(keys.map(k => parseFloat(row[k]))));
+        const alpha = computeAlphaFor(keys);
+
+        let itemRows = '';
+        keys.forEach(key => {
+            const itemScores = validRows.map(r => parseFloat(r[key]));
+            // 修正済み項目-全体相関: 項目を除いた合計との相関
+            const restScores = validRows.map(row => {
+                return ss.sum(keys.filter(k => k !== key).map(k => parseFloat(row[k])));
+            });
+            const rIT = ss.sampleCorrelation(itemScores, restScores);
+            // α-if-deleted
+            const alphaIfDeleted = computeAlphaFor(keys.filter(k => k !== key));
+
+            itemRows += `<tr>
+                <td>${escapeHtml(key)}</td>
+                <td>${ss.mean(itemScores).toFixed(3)}</td>
+                <td>${ss.sampleStandardDeviation(itemScores).toFixed(3)}</td>
+                <td>${rIT.toFixed(3)}</td>
+                <td>${isNaN(alphaIfDeleted) ? '-' : alphaIfDeleted.toFixed(3)}</td>
+            </tr>`;
+        });
+
+        out.innerHTML += `
+        <div class="report-card">
+            <h2>信頼性分析 (内的整合性)</h2>
+            <table class="stats-table">
+                <tr><td class="metric-label">対象項目数 (k)</td><td>${k}</td></tr>
+                <tr><td class="metric-label">有効N</td><td>${validRows.length}</td></tr>
+                <tr><td class="metric-label">Cronbachのα係数</td><td><b>${alpha.toFixed(3)}</b></td></tr>
+            </table>
+            <h3 style="margin-top:20px; color:#1e293b; font-size:1rem;">項目別統計</h3>
+            <table class="stats-table">
+                <tr>
+                    <th>項目</th><th>平均</th><th>SD</th>
+                    <th>修正済み項目-全体相関 (r<sub>IT</sub>)</th>
+                    <th>項目削除時のα</th>
+                </tr>
+                ${itemRows}
+            </table>
+        </div>`;
+    }
+
+    // --- 対応なしt検定 (平均差の95%CI 追加) ---
+    function runDualTTest(y, x, out) {
+        const groups = [...new Set(rawData.map(d => d[x]))].filter(g => g !== undefined && g !== null && g !== "").slice(0, 2);
+        const d1 = rawData.filter(d => d[x] === groups[0]).map(d => parseFloat(d[y])).filter(v => !isNaN(v));
+        const d2 = rawData.filter(d => d[x] === groups[1]).map(d => parseFloat(d[y])).filter(v => !isNaN(v));
+        const m1 = ss.mean(d1), m2 = ss.mean(d2);
+        const v1 = ss.sampleVariance(d1), v2 = ss.sampleVariance(d2);
+        const n1 = d1.length, n2 = d2.length;
+
+        // Student t
+        const dfS = n1 + n2 - 2;
+        const pVar = ((n1 - 1) * v1 + (n2 - 1) * v2) / dfS;
+        const seS = Math.sqrt(pVar * (1 / n1 + 1 / n2));
+        const tS = (m1 - m2) / seS;
+        const pS = StatsLib.tP(tS, dfS);
+        const tCritS = StatsLib.tInv(0.05, dfS);
+        const diff = m1 - m2;
+        const ciSLow = diff - tCritS * seS;
+        const ciSHigh = diff + tCritS * seS;
+
+        // Welch t
+        const seW = Math.sqrt(v1 / n1 + v2 / n2);
+        const tW = (m1 - m2) / seW;
+        const dfW = Math.pow(v1 / n1 + v2 / n2, 2) / (Math.pow(v1 / n1, 2) / (n1 - 1) + Math.pow(v2 / n2, 2) / (n2 - 1));
+        const pW = StatsLib.tP(tW, dfW);
+        const tCritW = StatsLib.tInv(0.05, dfW);
+        const ciWLow = diff - tCritW * seW;
+        const ciWHigh = diff + tCritW * seW;
+
+        const cId = `tC_${chartCounter++}`;
+        out.innerHTML += `
+        <div class="report-card">
+            <h2>独立なサンプルのt検定: ${escapeHtml(String(x))}</h2>
+            <p>群1: ${escapeHtml(String(groups[0]))} (n=${n1}, M=${m1.toFixed(3)}) &nbsp;|&nbsp; 群2: ${escapeHtml(String(groups[1]))} (n=${n2}, M=${m2.toFixed(3)})</p>
+            <p>平均差 (M₁ − M₂) = ${diff.toFixed(3)}</p>
+            <table class="stats-table">
+                <tr><th>検定手法</th><th>t値</th><th>df</th><th>p値</th><th>平均差の95%CI</th></tr>
+                <tr><td>Student</td><td>${tS.toFixed(3)}</td><td>${dfS}</td><td>${StatsLib.getSigLabel(pS)}</td><td>[${ciSLow.toFixed(3)}, ${ciSHigh.toFixed(3)}]</td></tr>
+                <tr><td>Welch</td><td>${tW.toFixed(3)}</td><td>${dfW.toFixed(2)}</td><td>${StatsLib.getSigLabel(pW)}</td><td>[${ciWLow.toFixed(3)}, ${ciWHigh.toFixed(3)}]</td></tr>
+            </table>
+            <div class="chart-container"><canvas id="${cId}"></canvas></div>
+        </div>`;
+        renderChartAsImage(cId, {
+            type: 'bar',
+            data: { labels: groups.map(g => escapeHtml(String(g))), datasets: [{ label: escapeHtml(y), data: [m1, m2], backgroundColor: ['#4f46e5', '#818cf8'] }] },
+            options: { maintainAspectRatio: false }
+        });
+    }
+
+    // --- 対応ありt検定 (平均差の95%CI 追加) ---
+    function runPairedTTest(v1, v2, out) {
+        const pairs = rawData.filter(d => !isNaN(parseFloat(d[v1])) && !isNaN(parseFloat(d[v2])));
+        const diffs = pairs.map(d => parseFloat(d[v1]) - parseFloat(d[v2]));
+        const mD = ss.mean(diffs), sdD = ss.sampleStandardDeviation(diffs), n = diffs.length;
+        const se = sdD / Math.sqrt(n);
+        const t = mD / se, p = StatsLib.tP(t, n - 1), dz = Math.abs(mD) / sdD;
+        const tCrit = StatsLib.tInv(0.05, n - 1);
+        const ciLow = mD - tCrit * se, ciHigh = mD + tCrit * se;
+
+        const m1 = ss.mean(pairs.map(d => parseFloat(d[v1])));
+        const m2 = ss.mean(pairs.map(d => parseFloat(d[v2])));
+        const cId = `pC_${chartCounter++}`;
+        out.innerHTML += `
+        <div class="report-card">
+            <h2>対応のあるt検定: ${escapeHtml(v1)} vs ${escapeHtml(v2)}</h2>
+            <table class="stats-table">
+                <tr><th>指標</th><th>結果</th><th>判定</th></tr>
+                <tr><td>t値</td><td>${t.toFixed(3)}</td><td rowspan="4">${StatsLib.getSigLabel(p)}</td></tr>
+                <tr><td>p値</td><td>${p.toFixed(4)}</td></tr>
+                <tr><td>Cohen's dz</td><td>${dz.toFixed(3)}</td></tr>
+                <tr><td>平均差の95%CI</td><td>[${ciLow.toFixed(3)}, ${ciHigh.toFixed(3)}]</td></tr>
+            </table>
+            <div class="chart-container"><canvas id="${cId}"></canvas></div>
+        </div>`;
+        renderChartAsImage(cId, {
+            type: 'bar',
+            data: { labels: [escapeHtml(v1), escapeHtml(v2)], datasets: [{ label: '平均値', data: [m1, m2], backgroundColor: ['#10b981', '#34d399'] }] },
+            options: { maintainAspectRatio: false }
+        });
+    }
+
+    // --- 一元配置ANOVA (ボンフェローニ補正による多重比較 追加) ---
+    function runANOVA(y, x, out) {
+        const groups = [...new Set(rawData.map(d => d[x]))].filter(g => g !== undefined && g !== null && g !== "");
+        const samples = groups.map(g => rawData.filter(d => d[x] === g).map(d => parseFloat(d[y])).filter(v => !isNaN(v)));
+        const all = samples.flat(), grandM = ss.mean(all);
+        let ssb = 0, ssw = 0;
+        samples.forEach(s => { const m = ss.mean(s); ssb += s.length * Math.pow(m - grandM, 2); s.forEach(v => ssw += Math.pow(v - m, 2)); });
+        const df1 = groups.length - 1, df2 = all.length - groups.length;
+        const msw = ssw / df2;
+        const f = (ssb / df1) / msw, p = StatsLib.fP(f, df1, df2), eta = ssb / (ssb + ssw);
+
+        // ボンフェローニ補正による全ペア比較
+        const numPairs = groups.length * (groups.length - 1) / 2;
+        let postHocRows = '';
+        for (let i = 0; i < groups.length; i++) {
+            for (let j = i + 1; j < groups.length; j++) {
+                const ni = samples[i].length, nj = samples[j].length;
+                const mi = ss.mean(samples[i]), mj = ss.mean(samples[j]);
+                const se = Math.sqrt(msw * (1 / ni + 1 / nj));
+                const tij = (mi - mj) / se;
+                const pRaw = StatsLib.tP(tij, df2);
+                const pAdj = Math.min(pRaw * numPairs, 1);
+                const sigClass = pAdj < 0.05 ? 'posthoc-sig' : 'posthoc-ns';
+                postHocRows += `<tr>
+                    <td>${escapeHtml(String(groups[i]))} vs ${escapeHtml(String(groups[j]))}</td>
+                    <td>${(mi - mj).toFixed(3)}</td>
+                    <td>${tij.toFixed(3)}</td>
+                    <td>${df2}</td>
+                    <td class="${sigClass}">${pAdj.toFixed(4)}${pAdj < 0.05 ? ' *' : ''}</td>
+                </tr>`;
+            }
+        }
+
+        const cId = `aC_${chartCounter++}`;
+        out.innerHTML += `
+        <div class="report-card">
+            <h2>一元配置分散分析: ${escapeHtml(y)}</h2>
+            <table class="stats-table">
+                <tr><th>変異源</th><th>F値</th><th>p値</th><th>偏η²</th></tr>
+                <tr><td>要因 (${escapeHtml(String(x))})</td><td>${f.toFixed(3)}</td><td>${StatsLib.getSigLabel(p)}</td><td>${eta.toFixed(3)}</td></tr>
+            </table>
+            <h3 style="margin-top:20px; color:#1e293b; font-size:1rem;">多重比較 (ボンフェローニ補正, 調整済みp値)</h3>
+            <table class="stats-table">
+                <tr><th>比較ペア</th><th>平均差</th><th>t値</th><th>df</th><th>p値 (Bonferroni補正)</th></tr>
+                ${postHocRows}
+            </table>
+            <p style="font-size:0.8rem; color:#64748b; margin-top:5px;">* p &lt; .05 (補正後)</p>
+            <div class="chart-container"><canvas id="${cId}"></canvas></div>
+        </div>`;
+        renderChartAsImage(cId, {
+            type: 'bar',
+            data: { labels: groups.map(g => escapeHtml(String(g))), datasets: [{ label: '平均値', data: samples.map(s => ss.mean(s)), backgroundColor: '#f59e0b' }] },
+            options: { maintainAspectRatio: false }
+        });
+    }
+
+    // --- ダミー変数コード化エンジン ---
+    function applyDummyCoding(data, dummyVarNames) {
+        let workData = data.map(row => ({ ...row }));
+        const dummyInfo = {};
+        dummyVarNames.forEach(varName => {
+            if (!workData.length || workData[0][varName] === undefined) return;
+            const seen = new Set(), orderedVals = [];
+            workData.forEach(row => {
+                const v = row[varName];
+                if (v !== null && v !== undefined && v !== "" && !seen.has(v)) { seen.add(v); orderedVals.push(v); }
+            });
+            if (orderedVals.length < 2) return;
+            const refCat = orderedVals[0];
+            const dummyNames = [];
+            for (let i = 1; i < orderedVals.length; i++) {
+                const cat = orderedVals[i];
+                const dName = `${varName}_${cat}`;
+                dummyNames.push(dName);
+                const catStr = String(cat);
+                workData = workData.map(row => {
+                    const nr = { ...row };
+                    const cv = row[varName];
+                    nr[dName] = (cv !== null && cv !== undefined && cv !== "" && String(cv) === catStr) ? 1 : 0;
+                    return nr;
+                });
+            }
+            dummyInfo[varName] = { refCat, categories: orderedVals, dummyNames };
+        });
+        return { workData, dummyInfo };
+    }
+
+    // --- OLS共通エンジン ---
+    function computeOLS(y, xs, data) {
+        const valid = data.filter(d => !isNaN(parseFloat(d[y])) && xs.every(x => !isNaN(parseFloat(d[x]))));
+        const n = valid.length, k = xs.length;
+        if (n <= k + 1) throw new Error(`サンプルサイズ(${n})が変数数に対して少なすぎます。`);
+        const Y = valid.map(d => [parseFloat(d[y])]);
+        const X = valid.map(d => [1, ...xs.map(x => parseFloat(d[x]))]);
+        const Xt = StatsLib.transpose(X);
+        const XtX = StatsLib.multiply(Xt, X);
+        const XtX_inv = StatsLib.invertMatrix(XtX);
+        if (!XtX_inv) throw new Error("逆行列が計算できません。多重共線性が極めて強い状態です。");
+        const B = StatsLib.multiply(XtX_inv, StatsLib.multiply(Xt, Y)).map(v => v[0]);
+        const actual = Y.map(v => v[0]);
+        const pred = X.map(row => row.reduce((s, v, i) => s + v * B[i], 0));
+        const meanY = ss.mean(actual);
+        const ssTot = ss.sum(actual.map(v => Math.pow(v - meanY, 2)));
+        const ssRes = ss.sum(actual.map((v, i) => Math.pow(v - pred[i], 2)));
+        const r2 = 1 - ssRes / ssTot;
+        const adjR2 = 1 - (ssRes / (n - k - 1)) / (ssTot / (n - 1));
+        const msRes = ssRes / (n - k - 1);
+        const fMod = ((ssTot - ssRes) / k) / msRes;
+        const pMod = StatsLib.fP(fMod, k, n - k - 1);
+        const SE = XtX_inv.map((row, i) => Math.sqrt(msRes * row[i]));
+        const tVals = B.map((b, i) => SE[i] !== 0 ? b / SE[i] : 0);
+        const pVals = tVals.map(t => StatsLib.tP(t, n - k - 1));
+        const tCrit = StatsLib.tInv(0.05, n - k - 1);
+        const ciLows = B.map((b, i) => b - tCrit * SE[i]);
+        const ciHighs = B.map((b, i) => b + tCrit * SE[i]);
+        const sdY = ss.sampleStandardDeviation(actual);
+        const sdXs = xs.map(x => ss.sampleStandardDeviation(valid.map(d => parseFloat(d[x]))));
+        const Beta = B.map((b, i) => i === 0 ? 0 : (sdXs[i-1] && sdY ? b * sdXs[i-1] / sdY : 0));
+        let vifVals;
+        if (k === 1) {
+            vifVals = [1];
+        } else {
+            const Rm = xs.map((xi, i) => xs.map((xj, j) => {
+                if (i === j) return 1;
+                return ss.sampleCorrelation(valid.map(d => parseFloat(d[xi])), valid.map(d => parseFloat(d[xj])));
+            }));
+            const Rm_inv = StatsLib.invertMatrix(Rm);
+            vifVals = Rm_inv ? Rm_inv.map((row, i) => row[i]) : xs.map(() => Infinity);
+        }
+        return { valid, n, k, xs, actual, pred, B, SE, Beta, tVals, pVals, ciLows, ciHighs, r2, adjR2, fMod, pMod, ssTot, ssRes, vifVals, XtX_inv, msRes };
+    }
+
+    // --- VIF警告HTML ---
+    function vifWarningHTML(vifVals) {
+        const maxVif = Math.max(...vifVals);
+        if (maxVif >= 10) return `<div style="background:#fee2e2; border:1px solid #ef4444; color:#b91c1c; padding:12px; border-radius:6px; margin-bottom:15px;"><strong>⚠️ 強い警告: 多重共線性の疑い</strong><br>VIFが10を超えています。回帰係数・p値の信頼性が著しく低下しています。</div>`;
+        if (maxVif >= 5) return `<div style="background:#fef3c7; border:1px solid #f59e0b; color:#b45309; padding:12px; border-radius:6px; margin-bottom:15px;"><strong>⚠️ 注意: 多重共線性の懸念</strong><br>VIFが5を超えています。結果の解釈に注意が必要です。</div>`;
+        return '';
+    }
+
+    // --- 係数テーブルHTML生成 ---
+    function buildCoeffTableHTML(model) {
+        const { xs, B, SE, Beta, tVals, pVals, ciLows, ciHighs, vifVals } = model;
+        let h = `<table class="stats-table">
+            <tr><th>変数</th><th>B</th><th>SE</th><th>β</th><th>t値</th><th>p値</th><th>95%CI</th><th>VIF</th></tr>
+            <tr><td>(切片)</td><td>${B[0].toFixed(4)}</td><td>${SE[0].toFixed(4)}</td><td>-</td><td>${tVals[0].toFixed(3)}</td><td>${StatsLib.getSigLabel(pVals[0])}</td><td>[${ciLows[0].toFixed(4)}, ${ciHighs[0].toFixed(4)}]</td><td>-</td></tr>`;
+        xs.forEach((name, i) => {
+            const idx = i + 1;
+            const vif = vifVals[i];
+            let vd = vif === Infinity ? "計算不能" : vif.toFixed(3);
+            if (vif >= 10) vd = `<span class="vif-warn">${vd}</span>`;
+            else if (vif >= 5) vd = `<span class="vif-caution">${vd}</span>`;
+            h += `<tr>
+                <td>${escapeHtml(name)}</td>
+                <td>${B[idx].toFixed(4)}</td><td>${SE[idx].toFixed(4)}</td>
+                <td><b>${Beta[idx].toFixed(4)}</b></td>
+                <td>${tVals[idx].toFixed(3)}</td><td>${StatsLib.getSigLabel(pVals[idx])}</td>
+                <td>[${ciLows[idx].toFixed(4)}, ${ciHighs[idx].toFixed(4)}]</td>
+                <td>${vd}</td>
+            </tr>`;
+        });
+        return h + '</table>';
+    }
+
+    // --- 散布図レンダリング共通 ---
+    function renderRegressionChart(cId, actual, pred, xs, model) {
+        let chartData, lineData, xAxisLabel, noteHtml = '';
+        if (xs.length === 1) {
+            xAxisLabel = escapeHtml(xs[0]);
+            const xVals = model.valid.map(d => parseFloat(d[xs[0]]));
+            const minX = Math.min(...xVals), maxX = Math.max(...xVals);
+            chartData = actual.map((v, i) => ({ x: xVals[i], y: v }));
+            lineData = [{ x: minX, y: model.B[0] + model.B[1] * minX }, { x: maxX, y: model.B[0] + model.B[1] * maxX }];
+        } else {
+            xAxisLabel = `予測値 (Predicted)`;
+            const minP = Math.min(...pred), maxP = Math.max(...pred);
+            chartData = actual.map((v, i) => ({ x: pred[i], y: v }));
+            lineData = [{ x: minP, y: minP }, { x: maxP, y: maxP }];
+            noteHtml = `<p style="font-size:0.8rem;color:#64748b;margin-top:8px;">※散布図は予測値と実測値の関係を示します。</p>`;
+        }
+        renderChartAsImage(cId, {
+            type: 'scatter',
+            data: { datasets: [
+                { label: '実際のデータ', data: chartData, backgroundColor: '#4f46e5', pointRadius: 4 },
+                { type: 'line', label: '予測直線', data: lineData, borderColor: '#ef4444', borderWidth: 2, fill: false, pointRadius: 0 }
+            ]},
+            options: { maintainAspectRatio: false, scales: {
+                x: { type: 'linear', position: 'bottom', title: { display: true, text: xAxisLabel } },
+                y: { title: { display: true, text: `実測値` } }
+            }}
+        });
+        return noteHtml;
+    }
+
+    // --- 回帰分析ディスパッチャー ---
+    function runRegression(y, xRaw, out, regMethod = 'enter', dummyVarNames = [], moderatorNames = []) {
+        const { workData, dummyInfo } = applyDummyCoding(rawData, dummyVarNames);
+
+        // ダミー変数コード化の情報パネル
+        let dummyHtml = '';
+        if (Object.keys(dummyInfo).length > 0) {
+            dummyHtml = `<div style="background:#f0f9ff; border:1px solid #bae6fd; padding:12px; border-radius:6px; margin-bottom:15px; font-size:0.85rem;">
+                <strong style="color:#0369a1;">ダミー変数コード化の情報</strong>`;
+            for (const [varName, info] of Object.entries(dummyInfo)) {
+                dummyHtml += `<div style="margin-top:6px;">
+                    <b>${escapeHtml(varName)}</b>:
+                    基準カテゴリ = <span style="background:#0369a1;color:white;padding:1px 6px;border-radius:3px;">${escapeHtml(String(info.refCat))}</span>
+                    → ダミー変数: ${info.dummyNames.map(n => `<code style="background:#e0f2fe;color:#0369a1;padding:1px 4px;border-radius:2px;">${escapeHtml(n)}</code>`).join(', ')}
+                </div>`;
+            }
+            dummyHtml += '</div>';
+        }
+
+        // X欄の A*B 構文を解析: * を含む項を交互作用ペアとして抽出
+        const flatTerms = xRaw.split(/[,|]/).map(s => s.trim()).filter(s => s);
+        const expandedTerms = flatTerms[0]?.toUpperCase() === 'ALL'
+            ? Object.keys(rawData[0]).filter(k => k !== y)
+            : flatTerms;
+
+        const explicitPairs = [];   // [[A, B], ...] — X欄から抽出した明示的な交互作用ペア
+        const regularTerms  = [];   // * を含まない通常の予測変数
+        expandedTerms.forEach(term => {
+            const parts = term.split('*').map(s => s.trim()).filter(s => s);
+            if (parts.length >= 2) {
+                explicitPairs.push(parts);
+                // 交互作用項の構成変数を通常変数リストにも登録 (主効果として自動投入)
+                parts.forEach(p => { if (!regularTerms.includes(p)) regularTerms.push(p); });
+            } else if (parts.length === 1 && !regularTerms.includes(parts[0])) {
+                regularTerms.push(parts[0]);
+            }
+        });
+        // ダミー変数を展開した最終的な主効果リスト
+        const allXs = regularTerms.flatMap(v => dummyInfo[v] ? dummyInfo[v].dummyNames : [v]);
+
+        // 交互作用項 (X欄の A*B または調整変数 M) が指定された場合 → 調整分析ルートへ
+        if (explicitPairs.length > 0 || moderatorNames.length > 0) {
+            const { workData: modData, centeredInfo, interactionTerms, finalXs } =
+                applyModerationCoding(workData, allXs, moderatorNames, explicitPairs);
+            runModerationOLS(y, finalXs, modData, centeredInfo, interactionTerms, dummyHtml, out);
+            return;
+        }
+
+        // ブロックをパース（階層的: | で区切り、強制投入: ALL対応）
+        let blocks;
+        if (regMethod === 'hierarchical') {
+            blocks = xRaw.split('|').map(block =>
+                block.split(',').map(s => s.trim()).filter(s => s)
+            ).filter(b => b.length > 0);
+            if (blocks.length === 0) throw new Error("独立変数を指定してください。");
+        } else {
+            let xsList = xRaw.split(',').map(s => s.trim()).filter(s => s);
+            if (xsList[0]?.toUpperCase() === 'ALL') xsList = Object.keys(rawData[0]).filter(k => k !== y);
+            blocks = [xsList];
+        }
+
+        // ブロック内のダミー変数名を展開
+        blocks = blocks.map(block =>
+            block.flatMap(varName => dummyInfo[varName] ? dummyInfo[varName].dummyNames : [varName])
+        );
+
+        if (blocks.some(b => b.length === 0)) throw new Error("独立変数を指定してください。");
+
+        if (regMethod === 'hierarchical' && blocks.length > 1) {
+            runHierarchicalOLS(y, blocks, workData, dummyHtml, out);
+        } else {
+            runEnterOLS(y, blocks[0], workData, dummyHtml, out);
+        }
+    }
+
+    // --- 強制投入法 ---
+    function runEnterOLS(y, xs, workData, dummyHtml, out) {
+        if (!xs || xs.length === 0) throw new Error("独立変数を指定してください。");
+        const model = computeOLS(y, xs, workData);
+        const { n, actual, pred, B, r2, adjR2, fMod, pMod, vifVals } = model;
+
+        let equation = `${escapeHtml(y)} = ${B[0].toFixed(3)}`;
+        xs.forEach((name, i) => {
+            const bVal = B[i + 1];
+            equation += ` ${bVal >= 0 ? '+' : '-'} ${Math.abs(bVal).toFixed(3)} × ${escapeHtml(name)}`;
+        });
+
+        const cId = `regC_${chartCounter++}`;
+        let h = `<div class="report-card">
+            <h2>${xs.length === 1 ? '単回帰分析' : '重回帰分析 (強制投入法)'}: ${escapeHtml(y)}</h2>
+            <p>有効 N = ${n}</p>
+            ${dummyHtml}
+            ${vifWarningHTML(vifVals)}
+            <table class="stats-table" style="margin-bottom:15px; width:auto;">
+                <tr><th>R²</th><th>Adjusted R²</th><th>F値</th><th>モデル p値</th></tr>
+                <tr><td>${r2.toFixed(3)}</td><td>${adjR2.toFixed(3)}</td><td>${fMod.toFixed(3)}</td><td>${StatsLib.getSigLabel(pMod)}</td></tr>
+            </table>
+            <div style="background:#f8fafc;padding:12px;border:1px solid #cbd5e1;border-radius:6px;margin-bottom:15px;">
+                <strong style="font-size:0.9rem;">回帰式:</strong>
+                <code style="color:#4f46e5;font-size:0.95rem;display:block;margin-top:5px;">${equation}</code>
+            </div>
+            ${buildCoeffTableHTML(model)}
+            <div class="chart-container"><canvas id="${cId}"></canvas></div>
+        </div>`;
+        out.innerHTML += h;
+        renderRegressionChart(cId, actual, pred, xs, model);
+    }
+
+    // --- 階層的投入法 ---
+    function runHierarchicalOLS(y, blocks, workData, dummyHtml, out) {
+        // 累積ブロックでOLSを順次実行
+        const models = [];
+        let cumulativeXs = [];
+        for (let bi = 0; bi < blocks.length; bi++) {
+            cumulativeXs = [...cumulativeXs, ...blocks[bi]];
+            const model = computeOLS(y, [...cumulativeXs], workData);
+            models.push({ ...model, blockNum: bi + 1, addedXs: blocks[bi] });
+        }
+
+        // モデル適合度サマリーテーブル (ΔR², ΔF)
+        let summaryRows = '';
+        models.forEach((m, i) => {
+            let dR2Html = '-', dFHtml = '-', ddf1 = '-', ddf2 = '-', dPHtml = '-';
+            if (i > 0) {
+                const prev = models[i - 1];
+                const deltaR2 = m.r2 - prev.r2;
+                const deltaSsReg = prev.ssRes - m.ssRes;
+                const deltaDf1 = blocks[i].length;
+                const deltaDf2 = m.n - m.k - 1;
+                const deltaF = (deltaSsReg / deltaDf1) / (m.ssRes / deltaDf2);
+                const deltaP = StatsLib.fP(deltaF, deltaDf1, deltaDf2);
+                dR2Html = `<b>${deltaR2.toFixed(3)}</b>`;
+                dFHtml = deltaF.toFixed(3);
+                ddf1 = deltaDf1; ddf2 = deltaDf2;
+                dPHtml = StatsLib.getSigLabel(deltaP);
+            }
+            summaryRows += `<tr>
+                <td><b>Block ${m.blockNum}</b></td>
+                <td style="font-size:0.8rem;">${m.addedXs.map(x => escapeHtml(x)).join(', ')}</td>
+                <td>${m.r2.toFixed(3)}</td><td>${dR2Html}</td><td>${m.adjR2.toFixed(3)}</td>
+                <td>${m.fMod.toFixed(3)}</td><td>${dFHtml}</td><td>${ddf1}</td><td>${ddf2}</td><td>${dPHtml}</td>
+            </tr>`;
+        });
+
+        // 各ブロックの係数テーブル
+        let coeffHtml = '';
+        models.forEach(m => {
+            coeffHtml += `
+            <h3 style="color:#1e293b;margin-top:22px;font-size:1rem;border-top:1px dashed #cbd5e1;padding-top:15px;">
+                Block ${m.blockNum} の係数表 &nbsp;<span style="font-size:0.85rem;color:#64748b;font-weight:normal;">(投入変数: ${m.addedXs.map(x => escapeHtml(x)).join(', ')})</span>
+            </h3>
+            ${vifWarningHTML(m.vifVals)}
+            ${buildCoeffTableHTML(m)}`;
+        });
+
+        const final = models[models.length - 1];
+        const cId = `regC_${chartCounter++}`;
+        out.innerHTML += `<div class="report-card">
+            <h2>重回帰分析 (階層的投入法): ${escapeHtml(y)}</h2>
+            <p>有効 N = ${final.n} &nbsp;|&nbsp; ブロック数 = ${blocks.length}</p>
+            ${dummyHtml}
+            <h3 style="color:#1e293b;font-size:1rem;margin-top:15px;">モデル適合度サマリー</h3>
+            <table class="stats-table">
+                <tr><th>Block</th><th>追加変数</th><th>R²</th><th>ΔR²</th><th>Adj.R²</th>
+                    <th>F(モデル)</th><th>ΔF</th><th>Δdf₁</th><th>Δdf₂</th><th>p(ΔF)</th></tr>
+                ${summaryRows}
+            </table>
+            ${coeffHtml}
+            <p style="font-size:0.8rem;color:#64748b;margin-top:15px;">※散布図は最終モデル(Block ${final.blockNum})の予測値と実測値の関係を示します。</p>
+            <div class="chart-container"><canvas id="${cId}"></canvas></div>
+        </div>`;
+        renderRegressionChart(cId, final.actual, final.pred, final.xs, final);
+    }
+
+    // ============================================================
+    // 調整変数 (交互作用) 分析エンジン
+    // ============================================================
+
+    // 平均中心化 + 交互作用項生成
+    // explicitPairs: X欄の A*B 構文から抽出したペア [[A,B], ...]
+    function applyModerationCoding(data, xs, moderatorNames, explicitPairs = []) {
+        let workData = data.map(row => ({ ...row }));
+        const centeredInfo = {};
+
+        // 中心化が必要な変数を収集 (xs + 調整変数 + 明示的ペアの構成変数)
+        const toCenter = new Set([...xs, ...moderatorNames]);
+        explicitPairs.forEach(pair => pair.forEach(p => toCenter.add(p)));
+
+        toCenter.forEach(varName => {
+            const vals = workData.map(r => parseFloat(r[varName])).filter(v => !isNaN(v));
+            if (!vals.length) return;
+            const mean = ss.mean(vals);
+            const sd   = vals.length > 1 ? ss.sampleStandardDeviation(vals) : 1;
+            const centName = `${varName}_c`;
+            workData = workData.map(row => {
+                const v = parseFloat(row[varName]);
+                return { ...row, [centName]: isNaN(v) ? null : v - mean };
+            });
+            centeredInfo[varName] = { mean, sd, centName };
+        });
+
+        // 交互作用項の生成 (重複なし管理)
+        const interactionTerms = [];
+        const addedKeys = new Set();
+
+        const addInteraction = (predictor, moderator) => {
+            const key = [predictor, moderator].sort().join('§'); // 順序不問の重複除去
+            if (addedKeys.has(key)) return;
+            if (!centeredInfo[predictor] || !centeredInfo[moderator]) return;
+            addedKeys.add(key);
+            const xCent   = centeredInfo[predictor].centName;
+            const mCent   = centeredInfo[moderator].centName;
+            const intName = `${xCent}×${mCent}`;
+            workData = workData.map(row => ({
+                ...row,
+                [intName]: (row[xCent] != null && row[mCent] != null)
+                           ? row[xCent] * row[mCent] : null
+            }));
+            interactionTerms.push({ name: intName, predictor, moderator,
+                                    predictorCent: xCent, modCent: mCent });
+        };
+
+        // パターン①: 調整変数 M フィールドから (全主効果 × M)
+        const mainPredictors = xs.filter(x => !moderatorNames.includes(x));
+        moderatorNames.forEach(m => mainPredictors.forEach(x => addInteraction(x, m)));
+
+        // パターン②: X欄の A*B 明示指定から
+        explicitPairs.forEach(pair => {
+            if (pair.length < 2) return;
+            // A*B*C など3変数以上は全ペアを生成
+            for (let i = 0; i < pair.length - 1; i++)
+                for (let j = i + 1; j < pair.length; j++)
+                    addInteraction(pair[i], pair[j]);
+        });
+
+        // OLSに渡す finalXs を構築
+        const finalXs = [];
+        const push = v => { if (!finalXs.includes(v)) finalXs.push(v); };
+
+        xs.forEach(x => push(centeredInfo[x] ? centeredInfo[x].centName : x));
+        // 調整変数・明示的ペア構成変数の主効果 (未追加なら自動投入)
+        moderatorNames.forEach(m => { if (centeredInfo[m]) push(centeredInfo[m].centName); });
+        explicitPairs.forEach(pair => pair.forEach(p => { if (centeredInfo[p]) push(centeredInfo[p].centName); }));
+        interactionTerms.forEach(it => push(it.name));
+
+        return { workData, centeredInfo, interactionTerms, finalXs };
+    }
+
+    // 調整変数を含む回帰分析の出力
+    function runModerationOLS(y, finalXs, workData, centeredInfo, interactionTerms, dummyHtml, out) {
+        if (!finalXs || finalXs.length === 0) throw new Error("独立変数を指定してください。");
+        const model = computeOLS(y, finalXs, workData);
+        const { n, actual, pred, B, r2, adjR2, fMod, pMod, vifVals } = model;
+
+        // 平均中心化の情報パネル
+        let centerHtml = `<div style="background:#f0fdf4;border:1px solid #86efac;padding:12px;border-radius:6px;margin-bottom:12px;font-size:0.85rem;">
+            <strong style="color:#166534;">📐 平均中心化の情報 (多重共線性低減のため全変数を中心化)</strong>
+            <table class="stats-table" style="margin-top:8px;">
+            <tr><th>原変数</th><th>中心化後の変数名</th><th>平均 (引いた値)</th><th>SD</th></tr>`;
+        for (const [varName, info] of Object.entries(centeredInfo)) {
+            centerHtml += `<tr>
+                <td>${escapeHtml(varName)}</td>
+                <td><code style="background:#dcfce7;color:#166534;padding:2px 5px;border-radius:3px;">${escapeHtml(info.centName)}</code></td>
+                <td>${info.mean.toFixed(4)}</td><td>${info.sd.toFixed(4)}</td>
+            </tr>`;
+        }
+        centerHtml += '</table></div>';
+
+        // 交互作用項パネル
+        let intInfoHtml = `<div style="background:#fefce8;border:1px solid #fde047;padding:10px 12px;border-radius:6px;margin-bottom:12px;font-size:0.85rem;">
+            <strong style="color:#713f12;">🔀 自動投入された交互作用項</strong><br style="margin-bottom:4px;">`;
+        interactionTerms.forEach(it => {
+            intInfoHtml += `<span style="background:#fef08a;color:#713f12;padding:2px 8px;border-radius:3px;margin:3px 2px;display:inline-block;">${escapeHtml(it.name)}</span>`;
+        });
+        intInfoHtml += '</div>';
+
+        let equation = `${escapeHtml(y)} = ${B[0].toFixed(3)}`;
+        finalXs.forEach((name, i) => {
+            const bVal = B[i + 1];
+            equation += ` ${bVal >= 0 ? '+' : '-'} ${Math.abs(bVal).toFixed(3)} × ${escapeHtml(name)}`;
+        });
+
+        const cId = `regC_${chartCounter++}`;
+        out.innerHTML += `<div class="report-card">
+            <h2>重回帰分析 (調整変数・交互作用項含む): ${escapeHtml(y)}</h2>
+            <p>有効 N = ${n}</p>
+            ${dummyHtml}${centerHtml}${intInfoHtml}
+            ${vifWarningHTML(vifVals)}
+            <table class="stats-table" style="margin-bottom:15px;width:auto;">
+                <tr><th>R²</th><th>Adjusted R²</th><th>F値</th><th>モデル p値</th></tr>
+                <tr><td>${r2.toFixed(3)}</td><td>${adjR2.toFixed(3)}</td><td>${fMod.toFixed(3)}</td><td>${StatsLib.getSigLabel(pMod)}</td></tr>
+            </table>
+            <div style="background:#f8fafc;padding:12px;border:1px solid #cbd5e1;border-radius:6px;margin-bottom:15px;">
+                <strong style="font-size:0.9rem;">回帰式:</strong>
+                <code style="color:#4f46e5;font-size:0.88rem;display:block;margin-top:5px;word-break:break-all;">${equation}</code>
+            </div>
+            ${buildCoeffTableHTML(model)}
+            <div class="chart-container"><canvas id="${cId}"></canvas></div>
+        </div>`;
+        renderRegressionChart(cId, actual, pred, finalXs, model);
+
+        // 交互作用ごとに単純傾斜分析 (有意・非有意ともに実行、バナーで区別)
+        interactionTerms.forEach(it => {
+            const intIdx = finalXs.indexOf(it.name);
+            if (intIdx < 0) return;
+            runSimpleSlopes(y, it, model, centeredInfo, model.pVals[intIdx + 1], out);
+        });
+    }
+
+    // 単純傾斜分析 + 交互作用プロット
+    function runSimpleSlopes(y, intTerm, model, centeredInfo, intPVal, out) {
+        const { name, predictor, moderator, predictorCent, modCent } = intTerm;
+        const predInfo = centeredInfo[predictor];
+        const modInfo  = centeredInfo[moderator];
+        if (!predInfo || !modInfo) return;
+
+        // B ベクトル内のインデックス (0 = 切片)
+        const pIdx = model.xs.indexOf(predictorCent) + 1;
+        const qIdx = model.xs.indexOf(name) + 1;
+        const mIdx = model.xs.indexOf(modCent) + 1;
+        if (pIdx <= 0 || qIdx <= 0) return;
+        const B_M = mIdx > 0 ? model.B[mIdx] : 0;
+        const df  = model.n - model.k - 1;
+
+        // 調整変数の3水準 (−1SD, 平均, +1SD)
+        const mLevels     = [-modInfo.sd, 0, modInfo.sd];
+        const mLevelOrig  = mLevels.map(ml => modInfo.mean + ml);
+        const colors      = ['#3b82f6', '#10b981', '#ef4444'];
+        const mLabelShort = [
+            `${moderator} 低 (−1SD)`,
+            `${moderator} 中 (M)`,
+            `${moderator} 高 (+1SD)`
+        ];
+
+        // 単純傾斜 + SE (Preacher et al. 2006 の式)
+        // Var(ss | M=ml) = msRes × [XtX_inv[pIdx][pIdx] + ml²·XtX_inv[qIdx][qIdx] + 2ml·XtX_inv[pIdx][qIdx]]
+        const simpleSlopes = mLevels.map((ml, mi) => {
+            const slope   = model.B[pIdx] + model.B[qIdx] * ml;
+            const varSS   = model.msRes * (
+                model.XtX_inv[pIdx][pIdx]
+                + ml * ml * model.XtX_inv[qIdx][qIdx]
+                + 2 * ml * model.XtX_inv[pIdx][qIdx]
+            );
+            const se     = Math.sqrt(Math.max(0, varSS));
+            const t      = se > 0 ? slope / se : 0;
+            const p      = StatsLib.tP(t, df);
+            const tCrit  = StatsLib.tInv(0.05, df);
+            return { label: mLabelShort[mi], origLevel: mLevelOrig[mi],
+                     slope, se, t, p,
+                     ciLow: slope - tCrit * se, ciHigh: slope + tCrit * se };
+        });
+
+        // 交互作用プロット用データ (予測変数を −1SD, 平均, +1SD に固定)
+        const xPlotCent = [-predInfo.sd, 0, predInfo.sd];
+        const xAxisLabels = xPlotCent.map(xc => (xc + predInfo.mean).toFixed(2));
+        const datasets = mLevels.map((ml, mi) => ({
+            label: mLabelShort[mi],
+            data: xPlotCent.map(xc =>
+                model.B[0] + model.B[pIdx] * xc + B_M * ml + model.B[qIdx] * xc * ml
+            ),
+            borderColor: colors[mi],
+            backgroundColor: colors[mi] + '22',
+            borderWidth: 2.5,
+            pointRadius: 5,
+            fill: false,
+            tension: 0
+        }));
+
+        // 有意性バナー
+        const isSig = intPVal < .05;
+        const banner = isSig
+            ? `<div style="background:#dcfce7;border:1px solid #86efac;color:#166534;font-weight:bold;padding:10px 14px;border-radius:6px;margin-bottom:14px;">
+                ✅ 交互作用項 <code style="background:#bbf7d0;padding:1px 5px;border-radius:3px;">${escapeHtml(name)}</code> は有意です
+                (${intPVal < .001 ? 'p &lt; .001' : 'p = ' + intPVal.toFixed(3)})。以下に単純傾斜分析を示します。
+               </div>`
+            : `<div style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;padding:10px 14px;border-radius:6px;margin-bottom:14px;">
+                ⚠️ 交互作用項 <code style="background:#fef08a;padding:1px 5px;border-radius:3px;">${escapeHtml(name)}</code> は有意ではありません
+                (p = ${intPVal.toFixed(3)})。以下は参考として単純傾斜を示します。
+               </div>`;
+
+        // 単純傾斜テーブル
+        let rows = '';
+        simpleSlopes.forEach(ss_ => {
+            const sigStyle = ss_.p < .05 ? 'style="background:#f0fdf4;"' : '';
+            rows += `<tr ${sigStyle}>
+                <td>${escapeHtml(ss_.label)}<br><small style="color:#64748b;">M = ${ss_.origLevel.toFixed(3)}</small></td>
+                <td><b>${ss_.slope.toFixed(4)}</b></td>
+                <td>${ss_.se.toFixed(4)}</td>
+                <td>${ss_.t.toFixed(3)}</td>
+                <td>${df}</td>
+                <td>${StatsLib.getSigLabel(ss_.p)}</td>
+                <td>[${ss_.ciLow.toFixed(4)}, ${ss_.ciHigh.toFixed(4)}]</td>
+            </tr>`;
+        });
+
+        const chartId = `ssC_${chartCounter++}`;
+        out.innerHTML += `<div class="report-card" style="border-left:4px solid #4f46e5;">
+            <h2 style="color:#4f46e5;">単純傾斜分析: ${escapeHtml(predictor)} × ${escapeHtml(moderator)}</h2>
+            <p style="font-size:0.85rem;color:#64748b;margin-bottom:12px;">
+                調整変数 <b>${escapeHtml(moderator)}</b> を M−1SD・M・M+1SD の3水準に固定したときの
+                <b>${escapeHtml(predictor)}</b> → <b>${escapeHtml(y)}</b> の回帰係数を検定します。
+            </p>
+            ${banner}
+            <h3 style="color:#1e293b;font-size:1rem;">単純傾斜の検定 (Preacher et al., 2006)</h3>
+            <table class="stats-table">
+                <tr><th>${escapeHtml(moderator)} の水準</th><th>単純傾斜 (b)</th><th>SE</th><th>t値</th><th>df</th><th>p値</th><th>95%CI</th></tr>
+                ${rows}
+            </table>
+            <p style="font-size:0.78rem;color:#64748b;margin-top:5px;">
+                単純傾斜 b: 各調整変数水準における予測変数1単位増加あたりの従属変数の変化量
+            </p>
+            <h3 style="color:#1e293b;font-size:1rem;margin-top:20px;">交互作用プロット (単純傾斜図)</h3>
+            <p style="font-size:0.8rem;color:#64748b;">
+                X軸: ${escapeHtml(predictor)} の値 (原尺度) &nbsp;|&nbsp;
+                Y軸: ${escapeHtml(y)} の予測値 &nbsp;|&nbsp;
+                線の色: ${escapeHtml(moderator)} の水準 (青=低・緑=中・赤=高)
+            </p>
+            <div class="chart-container" style="height:360px;"><canvas id="${chartId}"></canvas></div>
+        </div>`;
+
+        renderChartAsImage(chartId, {
+            type: 'line',
+            data: { labels: xAxisLabels, datasets },
+            options: {
+                maintainAspectRatio: false,
+                scales: {
+                    x: { title: { display: true, text: `${predictor} (原尺度の値)` } },
+                    y: { title: { display: true, text: `${y} の予測値` } }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `交互作用プロット: ${predictor} × ${moderator}`,
+                        font: { size: 13 }
+                    },
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+    }
+
+    // --- 相関マトリックス (Fisher's z による95%CI 追加) ---
+    function runCorrelation(keys, out) {
+        let h = `<div class="report-card"><h2>相関マトリックス</h2>
+                 <table class="stats-table"><tr><th></th>${keys.map(k => `<th>${escapeHtml(k)}</th>`).join('')}</tr>`;
+        keys.forEach(k1 => {
+            h += `<tr><th style="background:#f8fafc;">${escapeHtml(k1)}</th>`;
+            keys.forEach(k2 => {
+                const pairs = rawData.filter(d => !isNaN(parseFloat(d[k1])) && !isNaN(parseFloat(d[k2])));
+                const v1 = pairs.map(d => parseFloat(d[k1])), v2 = pairs.map(d => parseFloat(d[k2]));
+                if (k1 === k2) return h += `<td style="background:#f8fafc;">1.000</td>`;
+                const r = ss.sampleCorrelation(v1, v2);
+                const n = v1.length;
+                const t = r * Math.sqrt((n - 2) / (1 - r * r));
+                const p = StatsLib.tP(t, n - 2);
+
+                // Fisher's z による95%CI
+                const z = 0.5 * Math.log((1 + r) / (1 - r));
+                const se_z = 1 / Math.sqrt(n - 3);
+                const zLow = z - 1.96 * se_z, zHigh = z + 1.96 * se_z;
+                const rLow = (Math.exp(2 * zLow) - 1) / (Math.exp(2 * zLow) + 1);
+                const rHigh = (Math.exp(2 * zHigh) - 1) / (Math.exp(2 * zHigh) + 1);
+
+                h += `<td><b>${r.toFixed(3)}</b><br><small>${StatsLib.getSigLabel(p)}</small><br><small style="color:#64748b;">95%CI [${rLow.toFixed(3)}, ${rHigh.toFixed(3)}]</small></td>`;
+            });
+            h += `</tr>`;
+        });
+        out.innerHTML += h + `</table></div>`;
+    }
+
+    // --- カイ二乗検定 ---
+    function runChiSquare(var1, var2, out) {
+        const pairs = rawData.filter(d => d[var1] !== undefined && d[var2] !== undefined && d[var1] !== "" && d[var2] !== "" && d[var1] !== null && d[var2] !== null);
+        const cats1 = [...new Set(pairs.map(d => d[var1]))], cats2 = [...new Set(pairs.map(d => d[var2]))];
+        let observed = {}, rowTotal = {}, colTotal = {}, grandTotal = pairs.length, chiSq = 0;
+        cats1.forEach(c1 => { observed[c1] = {}; rowTotal[c1] = 0; });
+        cats2.forEach(c2 => colTotal[c2] = 0);
+        pairs.forEach(d => { observed[d[var1]][d[var2]] = (observed[d[var1]][d[var2]] || 0) + 1; rowTotal[d[var1]]++; colTotal[d[var2]]++; });
+        let htmlTable = `<table class="stats-table"><tr><th>${escapeHtml(String(var1))} \\ ${escapeHtml(String(var2))}</th>` + cats2.map(c => `<th>${escapeHtml(String(c))}</th>`).join('') + `<th>計</th></tr>`;
+        cats1.forEach(c1 => {
+            htmlTable += `<tr><th>${escapeHtml(String(c1))}</th>`;
+            cats2.forEach(c2 => {
+                let o = observed[c1][c2] || 0, exp = (rowTotal[c1] * colTotal[c2]) / grandTotal;
+                chiSq += Math.pow(o - exp, 2) / exp;
+                htmlTable += `<td>${o}</td>`;
+            });
+            htmlTable += `<td><b>${rowTotal[c1]}</b></td></tr>`;
+        });
+        htmlTable += `<tr><th>計</th>` + cats2.map(c => `<td><b>${colTotal[c]}</b></td>`).join('') + `<td><b>${grandTotal}</b></td></tr></table>`;
+        const df = (cats1.length - 1) * (cats2.length - 1), p = StatsLib.chiSquareP(chiSq, df);
+        out.innerHTML += `<div class="report-card"><h2>カイ二乗検定: ${escapeHtml(String(var1))} × ${escapeHtml(String(var2))}</h2>${htmlTable}<table class="stats-table"><tr><td class="metric-label">χ²値</td><td>${chiSq.toFixed(3)}</td></tr><tr><td class="metric-label">df</td><td>${df}</td></tr><tr><td class="metric-label">p値</td><td>${StatsLib.getSigLabel(p)}</td></tr></table></div>`;
+    }
+
+    // --- マン・ホイットニーU検定 ---
+    function runMannWhitney(y, x, out) {
+        const groups = [...new Set(rawData.map(d => d[x]))].filter(g => g !== undefined && g !== null && g !== "").slice(0, 2);
+        const d1 = rawData.filter(d => d[x] === groups[0]).map(d => parseFloat(d[y])).filter(v => !isNaN(v));
+        const d2 = rawData.filter(d => d[x] === groups[1]).map(d => parseFloat(d[y])).filter(v => !isNaN(v));
+        let all = [...d1.map(v => ({ v, g: 1 })), ...d2.map(v => ({ v, g: 2 }))].sort((a, b) => a.v - b.v);
+        for (let i = 0; i < all.length; i++) {
+            let j = i;
+            while (j < all.length && all[j].v === all[i].v) j++;
+            let rank = (i + 1 + j) / 2;
+            for (let k = i; k < j; k++) all[k].r = rank;
+            i = j - 1;
+        }
+        const r1 = ss.sum(all.filter(a => a.g === 1).map(a => a.r)), n1 = d1.length, n2 = d2.length;
+        const u1 = r1 - (n1 * (n1 + 1)) / 2, u2 = n1 * n2 - u1, u = Math.min(u1, u2);
+        const z = (u - (n1 * n2) / 2) / Math.sqrt((n1 * n2 * (n1 + n2 + 1)) / 12), p = StatsLib.zP(z);
+        out.innerHTML += `<div class="report-card"><h2>マン・ホイットニーのU検定: ${escapeHtml(String(x))}</h2><table class="stats-table"><tr><th>U値</th><th>Z値</th><th>p値</th></tr><tr><td>${u}</td><td>${z.toFixed(3)}</td><td>${StatsLib.getSigLabel(p)}</td></tr></table></div>`;
+    }
+
+    // ============================================================
+    // 因子分析エンジン
+    // ============================================================
+
+    // ヤコビ法による対称行列の固有値・固有ベクトル分解
+    function jacobiEigen(A) {
+        const n = A.length;
+        let a = A.map(r => [...r]);
+        let V = Array.from({length:n}, (_,i) => Array.from({length:n}, (_,j) => i===j?1:0));
+        for (let iter = 0; iter < 200*n*n; iter++) {
+            let p=0, q=1, max=0;
+            for (let i=0; i<n-1; i++)
+                for (let j=i+1; j<n; j++)
+                    if (Math.abs(a[i][j]) > max) { max=Math.abs(a[i][j]); p=i; q=j; }
+            if (max < 1e-12) break;
+            const theta = (a[q][q]-a[p][p])/(2*a[p][q]);
+            const t = (theta>=0?1:-1)/(Math.abs(theta)+Math.sqrt(1+theta*theta));
+            const c = 1/Math.sqrt(1+t*t), s = t*c;
+            const app=a[p][p], aqq=a[q][q], apq=a[p][q];
+            a[p][p]=app-t*apq; a[q][q]=aqq+t*apq; a[p][q]=0; a[q][p]=0;
+            for (let r=0; r<n; r++) {
+                if (r===p || r===q) continue;
+                const arp=a[r][p], arq=a[r][q];
+                a[r][p]=c*arp-s*arq; a[p][r]=a[r][p];
+                a[r][q]=s*arp+c*arq; a[q][r]=a[r][q];
+            }
+            for (let r=0; r<n; r++) {
+                const vrp=V[r][p], vrq=V[r][q];
+                V[r][p]=c*vrp-s*vrq; V[r][q]=s*vrp+c*vrq;
+            }
+        }
+        const eigenvalues = a.map((row,i)=>row[i]);
+        const idx = eigenvalues.map((_,i)=>i).sort((a,b)=>eigenvalues[b]-eigenvalues[a]);
+        return {
+            values: idx.map(i=>eigenvalues[i]),
+            vectors: idx.map(i=>V.map(row=>row[i]))
+        };
+    }
+
+    // バリマックス回転 (直交回転)
+    function varimaxRotation(L, maxIter=1000, tol=1e-8) {
+        const n=L.length, k=L[0].length;
+        if (k < 2) return L;
+        let Lr = L.map(r=>[...r]);
+        for (let iter=0; iter<maxIter; iter++) {
+            let changed = false;
+            for (let p=0; p<k-1; p++) {
+                for (let q=p+1; q<k; q++) {
+                    const u = Lr.map(row=>row[p]*row[p]-row[q]*row[q]);
+                    const v = Lr.map(row=>2*row[p]*row[q]);
+                    const A=u.reduce((s,x)=>s+x,0), B=v.reduce((s,x)=>s+x,0);
+                    const C=u.reduce((s,x,i)=>s+x*x-v[i]*v[i],0);
+                    const D=u.reduce((s,x,i)=>s+x*v[i],0);
+                    const phi = Math.atan2(2*(n*D-A*B), n*C-(A*A-B*B)) / 4;
+                    if (Math.abs(phi) < tol) continue;
+                    changed = true;
+                    const cos=Math.cos(phi), sin=Math.sin(phi);
+                    for (let i=0; i<n; i++) {
+                        const lp=Lr[i][p], lq=Lr[i][q];
+                        Lr[i][p]=cos*lp+sin*lq; Lr[i][q]=-sin*lp+cos*lq;
+                    }
+                }
+            }
+            if (!changed) break;
+        }
+        return Lr;
+    }
+
+    // プロマックス回転 (斜交回転): バリマックスをべき乗でターゲット化
+    function promaxRotation(L, power=3) {
+        const m = L[0].length;
+        const Lv = varimaxRotation(L.map(r=>[...r]));
+        const P = Lv.map(row=>row.map(x=>Math.sign(x)*Math.pow(Math.abs(x), power)));
+        const LvT = StatsLib.transpose(Lv);
+        const LvTLv = StatsLib.multiply(LvT, Lv);
+        const inv = StatsLib.invertMatrix(LvTLv);
+        if (!inv) return { pattern:Lv, structure:Lv, phi:Array.from({length:m},(_,i)=>Array.from({length:m},(_,j)=>i===j?1:0)) };
+        const T = StatsLib.multiply(inv, StatsLib.multiply(LvT, P));
+        const colNorms = Array.from({length:m}, (_,j)=>Math.sqrt(T.reduce((s,row)=>s+row[j]*row[j],0)));
+        const Tn = T.map(row=>row.map((v,j)=>colNorms[j]>0?v/colNorms[j]:v));
+        const pattern = StatsLib.multiply(Lv, Tn);
+        // 因子間相関: ターゲット変換列の余弦類似度
+        const TnT = StatsLib.transpose(Tn);
+        const phi = Array.from({length:m}, (_,i)=>Array.from({length:m}, (_,j)=>{
+            if (i===j) return 1;
+            const ti=TnT[i], tj=TnT[j];
+            const dot=ti.reduce((s,v,k)=>s+v*tj[k],0);
+            const ni=Math.sqrt(ti.reduce((s,v)=>s+v*v,0));
+            const nj=Math.sqrt(tj.reduce((s,v)=>s+v*v,0));
+            return (ni>0&&nj>0) ? dot/(ni*nj) : 0;
+        }));
+        const structure = StatsLib.multiply(pattern, phi);
+        return { pattern, structure, phi };
+    }
+
+    // 主因子法 (PAF): 共通性を反復推定
+    function computePAFLoadings(R, m, maxIter=100) {
+        const p = R.length;
+        const Rinv = StatsLib.invertMatrix(R);
+        let communalities = Rinv
+            ? R.map((_,i)=>Math.min(0.99, Math.max(0.01, 1-1/Rinv[i][i])))
+            : R.map(()=>0.5);
+        let loadings;
+        for (let iter=0; iter<maxIter; iter++) {
+            const Rc = R.map((row,i)=>row.map((v,j)=>i===j?communalities[i]:v));
+            const {values, vectors} = jacobiEigen(Rc);
+            const m2 = Math.min(m, values.filter(v=>v>0).length) || 1;
+            loadings = R.map((_,i)=>Array.from({length:m2}, (_,j)=>vectors[j][i]*Math.sqrt(Math.max(0,values[j]))));
+            const newComm = loadings.map(row=>Math.min(1, row.reduce((s,v)=>s+v*v,0)));
+            const maxChange = newComm.reduce((mx,v,i)=>Math.max(mx,Math.abs(v-communalities[i])),0);
+            communalities = newComm;
+            if (maxChange < 1e-6) break;
+        }
+        // m列に揃える
+        return loadings.map(row=>{
+            const r=[...row];
+            while (r.length<m) r.push(0);
+            return r.slice(0,m);
+        });
+    }
+
+    // --- 因子分析メイン ---
+    function runFactorAnalysis(keys, out) {
+        if (keys.length < 2) throw new Error("因子分析には2つ以上の変数が必要です。");
+        const extraction = document.getElementById('faExtraction').value;
+        const rotation   = document.getElementById('faRotation').value;
+        const nFactorInput = parseInt(document.getElementById('faNumFactors').value);
+
+        const valid = rawData.filter(row=>keys.every(k=>!isNaN(parseFloat(row[k]))));
+        const n=valid.length, p=keys.length;
+        if (n < p+1) throw new Error(`サンプルサイズ(${n})が変数数(${p})に対して不足しています。最低${p+1}ケース必要です。`);
+
+        // 相関行列
+        const cols = keys.map(k=>valid.map(row=>parseFloat(row[k])));
+        const R = Array.from({length:p}, (_,i)=>Array.from({length:p}, (_,j)=>{
+            if (i===j) return 1;
+            return ss.sampleCorrelation(cols[i], cols[j]);
+        }));
+
+        // PCAで固有値計算 (スクリープロット・カイザー基準用)
+        const {values: pcaValues, vectors: pcaVectors} = jacobiEigen(R);
+        const kaiserCount = Math.max(1, pcaValues.filter(v=>v>1).length);
+        const m = (!isNaN(nFactorInput) && nFactorInput>0) ? Math.min(nFactorInput, p-1) : kaiserCount;
+
+        // 因子負荷量の抽出
+        let rawLoadings;
+        if (extraction === 'paf') {
+            rawLoadings = computePAFLoadings(R, m);
+        } else {
+            rawLoadings = Array.from({length:p}, (_,i)=>
+                Array.from({length:m}, (_,j)=>pcaVectors[j][i]*Math.sqrt(Math.max(0,pcaValues[j]))));
+        }
+
+        // 回転
+        let finalLoadings, phiMatrix=null, structureMatrix=null;
+        if (rotation === 'varimax') {
+            finalLoadings = varimaxRotation(rawLoadings.map(r=>[...r]));
+        } else if (rotation === 'promax') {
+            const res = promaxRotation(rawLoadings.map(r=>[...r]));
+            finalLoadings = res.pattern;
+            phiMatrix = res.phi;
+            structureMatrix = res.structure;
+        } else {
+            finalLoadings = rawLoadings;
+        }
+
+        const rotLabel = rotation==='varimax' ? 'バリマックス回転後 (パターン行列)' :
+                         rotation==='promax'  ? 'プロマックス回転後 (パターン行列)' : '回転なし';
+        const communalities = finalLoadings.map(row=>row.reduce((s,v)=>s+v*v, 0));
+        const factorVars = Array.from({length:m}, (_,j)=>finalLoadings.reduce((s,row)=>s+row[j]*row[j],0));
+        const totalExplained = factorVars.reduce((s,v)=>s+v, 0);
+        const displayCount = Math.min(p, Math.max(m+3, 8));
+
+        // ========== HTML出力 ==========
+        let h = `<div class="report-card">
+            <h2 style="color:var(--primary);border-bottom:2px solid #cbd5e1;padding-bottom:5px;">因子分析</h2>
+            <p>抽出法: <b>${extraction==='paf'?'主因子法 (PAF)':'主成分法 (PCA)'}</b> &nbsp;|&nbsp;
+               回転法: <b>${rotation==='varimax'?'バリマックス (直交)':rotation==='promax'?'プロマックス (斜交)':'なし'}</b> &nbsp;|&nbsp;
+               N = ${n} &nbsp;|&nbsp; 変数数 = ${p} &nbsp;|&nbsp; 抽出因子数 = <b>${m}</b></p>`;
+
+        // 固有値テーブル
+        h += `<h3 style="margin-top:20px;color:#1e293b;font-size:1rem;">固有値と説明分散 (主成分ベース)</h3>
+            <table class="stats-table">
+            <tr><th>因子</th><th>固有値 (λ)</th><th>説明分散 (%)</th><th>累積分散 (%)</th><th>採用</th></tr>`;
+        let cumPct = 0;
+        for (let j=0; j<displayCount; j++) {
+            const ev=pcaValues[j], pct=ev/p*100;
+            cumPct += pct;
+            const adopted = j<m;
+            h += `<tr ${adopted?'style="background:#f0fdf4;"':''}>
+                <td>${adopted?`<b>第${j+1}因子</b>`:`第${j+1}因子`}</td>
+                <td>${adopted?`<b>${ev.toFixed(4)}</b>`:ev.toFixed(4)}</td>
+                <td>${pct.toFixed(2)}</td>
+                <td>${cumPct.toFixed(2)}</td>
+                <td>${adopted?'<span style="color:#059669;font-weight:bold;">✓</span>':'—'}</td>
+            </tr>`;
+        }
+        h += '</table>';
+
+        // スクリープロット
+        const screeId = `faScree_${chartCounter++}`;
+        h += `<div class="chart-container"><canvas id="${screeId}"></canvas></div>`;
+
+        // 因子負荷量行列
+        h += `<h3 style="margin-top:20px;color:#1e293b;font-size:1rem;">因子負荷量行列 (${escapeHtml(rotLabel)})</h3>
+            <p style="font-size:0.8rem;color:#64748b;margin-bottom:8px;">|負荷量| ≥ .40 を強調表示（Comrey & Lee, 1992 基準）</p>
+            <table class="stats-table">
+            <tr><th>変数</th>`;
+        for (let j=0; j<m; j++) h += `<th>F${j+1}</th>`;
+        h += `<th>共通性 (h²)</th><th>独自性 (u²)</th></tr>`;
+
+        keys.forEach((k,i)=>{
+            h += `<tr><td><b>${escapeHtml(k)}</b></td>`;
+            finalLoadings[i].forEach(loading=>{
+                const abs=Math.abs(loading);
+                const style = abs>=0.6 ? 'font-weight:bold;color:#1e3a5f;background:#bfdbfe;' :
+                              abs>=0.4 ? 'font-weight:bold;color:#1e3a5f;background:#dbeafe;' : '';
+                h += `<td style="${style}">${loading.toFixed(3)}</td>`;
+            });
+            const h2=communalities[i], u2=Math.max(0,1-h2);
+            h += `<td>${h2.toFixed(3)}</td><td>${u2.toFixed(3)}</td></tr>`;
+        });
+
+        // 説明分散行
+        h += `<tr style="background:#f8fafc;border-top:2px solid #cbd5e1;"><td><b>説明分散</b></td>`;
+        factorVars.forEach(v=>h+=`<td><b>${v.toFixed(3)}</b></td>`);
+        h += `<td colspan="2"><b>計: ${totalExplained.toFixed(3)}</b></td></tr>
+        <tr style="background:#f8fafc;"><td><b>説明分散 (%)</b></td>`;
+        factorVars.forEach(v=>h+=`<td><b>${(v/p*100).toFixed(2)}%</b></td>`);
+        h += `<td colspan="2"><b>${(totalExplained/p*100).toFixed(2)}%</b></td></tr></table>`;
+
+        // 因子間相関行列 (プロマックスのみ)
+        if (phiMatrix && rotation==='promax') {
+            h += `<h3 style="margin-top:20px;color:#1e293b;font-size:1rem;">因子間相関行列 (Φ)</h3>
+                <table class="stats-table"><tr><th></th>`;
+            for (let j=0; j<m; j++) h += `<th>F${j+1}</th>`;
+            h += '</tr>';
+            for (let i=0; i<m; i++) {
+                h += `<tr><th>F${i+1}</th>`;
+                for (let j=0; j<m; j++) {
+                    const v=phiMatrix[i][j];
+                    h += i===j ? `<td style="background:#f8fafc;">1.000</td>` :
+                        `<td ${Math.abs(v)>=0.3?'style="font-weight:bold;"':''}>${v.toFixed(3)}</td>`;
+                }
+                h += '</tr>';
+            }
+            h += '</table>';
+
+            // 構造行列
+            if (structureMatrix) {
+                h += `<h3 style="margin-top:20px;color:#1e293b;font-size:1rem;">構造行列 (Structure Matrix)</h3>
+                    <p style="font-size:0.8rem;color:#64748b;margin-bottom:8px;">各変数と各因子の単純相関（パターン行列との差が因子間相関の影響を示す）</p>
+                    <table class="stats-table"><tr><th>変数</th>`;
+                for (let j=0; j<m; j++) h += `<th>F${j+1}</th>`;
+                h += '</tr>';
+                keys.forEach((k,i)=>{
+                    h += `<tr><td><b>${escapeHtml(k)}</b></td>`;
+                    structureMatrix[i].forEach(v=>{
+                        const style=Math.abs(v)>=0.4?'font-weight:bold;':'';
+                        h += `<td style="${style}">${v.toFixed(3)}</td>`;
+                    });
+                    h += '</tr>';
+                });
+                h += '</table>';
+            }
+        }
+
+        // 解釈ガイド
+        h += `<div style="background:#f0f9ff;border:1px solid #bae6fd;padding:14px;border-radius:6px;margin-top:15px;font-size:0.85rem;line-height:1.8;">
+            <strong style="color:#0369a1;">📖 解釈ガイド</strong><br>
+            • <b>カイザー基準 (λ &gt; 1)</b>: ${kaiserCount}因子が推奨されます。${m!==kaiserCount?`（手動で${m}因子を指定）`:''}
+            スクリープロットの「肘」の前の因子数も参照してください。<br>
+            • <b>共通性 (h²)</b>: 0.40未満は因子による説明が不十分な可能性があります。<br>
+            • <b>因子負荷量の目安</b>: |.60|以上=非常に強い、|.40|以上=有意、|.40|未満=弱い（Comrey &amp; Lee, 1992）。<br>
+            • <b>バリマックス</b>: 因子間無相関を仮定。各因子の意味を独立して解釈できます。<br>
+            • <b>プロマックス</b>: 因子間の相関を許容。心理尺度では概念間の相関が自然なため推奨されることが多い。<br>
+            • <b>PAF vs PCA</b>: 共通因子モデルには主因子法が理論的に適切です（Fabrigar et al., 1999）。
+        </div></div>`;
+
+        out.innerHTML += h;
+
+        // スクリープロット描画
+        const screeVals = pcaValues.slice(0, displayCount);
+        renderChartAsImage(screeId, {
+            type: 'line',
+            data: {
+                labels: screeVals.map((_,i)=>`F${i+1}`),
+                datasets: [
+                    { label: '固有値', data: screeVals,
+                      borderColor:'#4f46e5', backgroundColor:'rgba(79,70,229,0.08)',
+                      pointBackgroundColor: screeVals.map((_,i)=>i<m?'#4f46e5':'#94a3b8'),
+                      pointRadius: screeVals.map((_,i)=>i<m?7:5),
+                      fill: true, tension: 0.3, borderWidth: 2 },
+                    { label: 'カイザー基準 (λ=1)', data: screeVals.map(()=>1),
+                      borderColor:'#ef4444', borderDash:[6,4], borderWidth:2,
+                      pointRadius:0, fill:false }
+                ]
+            },
+            options: {
+                maintainAspectRatio: false,
+                scales: {
+                    y: { title:{display:true,text:'固有値 (Eigenvalue)'}, min:0 },
+                    x: { title:{display:true,text:'因子番号'} }
+                },
+                plugins: {
+                    title: { display:true, text:'スクリープロット (Scree Plot)', font:{size:14} },
+                    legend: { position:'bottom' }
+                }
+            }
+        });
+    }
+
+    // --- ウィルコクソン符号付順位検定 ---
+    function runWilcoxon(v1, v2, out) {
+        const pairs = rawData.filter(d => !isNaN(parseFloat(d[v1])) && !isNaN(parseFloat(d[v2])));
+        let diffs = pairs.map(d => parseFloat(d[v1]) - parseFloat(d[v2])).filter(d => d !== 0);
+        let absDiffs = diffs.map(d => ({ val: Math.abs(d), orig: d })).sort((a, b) => a.val - b.val);
+        for (let i = 0; i < absDiffs.length; i++) {
+            let j = i;
+            while (j < absDiffs.length && absDiffs[j].val === absDiffs[i].val) j++;
+            let rank = (i + 1 + j) / 2;
+            for (let k = i; k < j; k++) absDiffs[k].rank = rank;
+            i = j - 1;
+        }
+        let wPlus = 0, wMinus = 0;
+        absDiffs.forEach(d => { if (d.orig > 0) wPlus += d.rank; else wMinus += d.rank; });
+        const n = absDiffs.length, w = Math.min(wPlus, wMinus);
+        const z = (w - (n * (n + 1)) / 4) / Math.sqrt((n * (n + 1) * (2 * n + 1)) / 24), p = StatsLib.zP(z);
+        out.innerHTML += `<div class="report-card"><h2>ウィルコクソン符号付順位検定: ${escapeHtml(v1)} vs ${escapeHtml(v2)}</h2><table class="stats-table"><tr><th>W値</th><th>Z値</th><th>p値</th></tr><tr><td>${w}</td><td>${z.toFixed(3)}</td><td>${StatsLib.getSigLabel(p)}</td></tr></table></div>`;
+    }
+</script>
+
+</body>
+</html>
