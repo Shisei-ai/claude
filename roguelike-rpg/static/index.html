@@ -30,6 +30,10 @@ canvas{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);image-r
   backdrop-filter:blur(4px);pointer-events:none;
   transition:opacity .25s,transform .25s}
 #ctx-hint.hidden{opacity:0;transform:translateY(6px)}
+/* ── HD-2D tilt-shift depth-of-field overlays ──────────────── */
+#dof-top,#dof-bot{position:absolute;left:0;right:0;z-index:3;pointer-events:none}
+#dof-top{top:0;height:86px;background:linear-gradient(to bottom,rgba(2,2,10,0.70) 0%,rgba(2,2,10,0.22) 55%,transparent 100%)}
+#dof-bot{bottom:0;height:86px;background:linear-gradient(to top,rgba(2,2,10,0.70) 0%,rgba(2,2,10,0.22) 55%,transparent 100%)}
 /* ── Toast notifications ───────────────────────────────────── */
 #toast-container{position:fixed;bottom:18px;right:18px;z-index:400;
   display:flex;flex-direction:column-reverse;gap:6px;pointer-events:none}
@@ -415,7 +419,7 @@ kbd{background:#111820;border:1px solid #253045;border-radius:2px;padding:1px 5p
 <div id="ws-status" class="err">● —</div>
 
 <div id="layout">
-  <div id="canvas-wrap"><canvas id="gc"></canvas></div>
+  <div id="canvas-wrap"><canvas id="gc"></canvas><div id="dof-top"></div><div id="dof-bot"></div></div>
   <div id="sidebar">
     <!-- Floor / status -->
     <div class="panel" id="p-status">
@@ -2041,6 +2045,148 @@ function getSprite(type, key, bright, af) {
 const canvas = document.getElementById('gc');
 const ctx    = canvas.getContext('2d');
 
+// ─── HD-2D post-processing system ────────────────────────────────
+// Offscreen canvas for dynamic light map
+const _lc = document.createElement('canvas');
+const _lx = _lc.getContext('2d');
+
+// Floating dust motes
+function _newDust(randomY) {
+  const W = 33*20, H = 22*20;
+  return {
+    x: Math.random()*W, y: randomY ? Math.random()*H : H+2,
+    vx: (Math.random()-.5)*0.22, vy: -(Math.random()*0.32+0.07),
+    a: Math.random()*0.28+0.04, r: Math.random()<0.72 ? 1 : 1.5,
+    life: 0, maxLife: 290+Math.random()*310,
+  };
+}
+const _DUST = Array.from({length:55}, ()=>_newDust(true));
+
+function drawHD2D(g, cx, cy) {
+  const W = VP_W*TS, H = VP_H*TS;
+  const t = Date.now()/1000;
+  const flicker = 0.97 + 0.03*Math.sin(t*7.3+1.2) + 0.02*Math.sin(t*11.7);
+
+  // ── resize offscreen canvas if needed ───────────────────────
+  if (_lc.width!==W||_lc.height!==H){_lc.width=W;_lc.height=H;}
+
+  // ── 1. Light map: fill dark, punch transparent holes for lights ─
+  _lx.clearRect(0,0,W,H);
+  _lx.globalCompositeOperation='source-over';
+  _lx.fillStyle='rgba(0,0,0,0.89)';
+  _lx.fillRect(0,0,W,H);
+  _lx.globalCompositeOperation='destination-out';
+
+  // Player torch (warm, flickering radius)
+  const plx=(g.px-cx)*TS+TS/2, ply=(g.py-cy)*TS+TS/2;
+  const pRad=5.6*TS*flicker;
+  const pg=_lx.createRadialGradient(plx,ply,0,plx,ply,pRad);
+  pg.addColorStop(0,'rgba(0,0,0,1)');
+  pg.addColorStop(0.32,'rgba(0,0,0,0.94)');
+  pg.addColorStop(0.62,'rgba(0,0,0,0.48)');
+  pg.addColorStop(1,'rgba(0,0,0,0)');
+  _lx.fillStyle=pg;
+  _lx.beginPath();_lx.arc(plx,ply,pRad,0,Math.PI*2);_lx.fill();
+
+  // Special tile lights
+  for(let vy2=0;vy2<VP_H;vy2++){
+    for(let vx2=0;vx2<VP_W;vx2++){
+      const mx=cx+vx2,my=cy+vy2;
+      if(mx<0||my<0||mx>=g.map_w||my>=g.map_h)continue;
+      const tile=g.tiles[my*g.map_w+mx];
+      if(!tile.v)continue;
+      const tx=vx2*TS+TS/2,ty=vy2*TS+TS/2;
+      const pulse=0.5+0.5*Math.sin(t*2.1+vx2+vy2);
+      let lRad=0;
+      if(tile.t===4)lRad=(2.9+pulse*0.4)*TS;
+      else if(tile.t===5)lRad=(2.9+pulse*0.4)*TS;
+      else if(tile.t===6)lRad=(2.1+pulse*0.3)*TS;
+      else if(tile.t===7)lRad=(2.6+pulse*0.5)*TS;
+      else if(tile.t===8)lRad=(1.9+pulse*0.3)*TS;
+      else if(tile.t===9)lRad=(1.6+pulse*0.2)*TS;
+      if(lRad>0){
+        const tg=_lx.createRadialGradient(tx,ty,0,tx,ty,lRad);
+        tg.addColorStop(0,'rgba(0,0,0,0.92)');
+        tg.addColorStop(0.5,'rgba(0,0,0,0.52)');
+        tg.addColorStop(1,'rgba(0,0,0,0)');
+        _lx.fillStyle=tg;
+        _lx.beginPath();_lx.arc(tx,ty,lRad,0,Math.PI*2);_lx.fill();
+      }
+    }
+  }
+  _lx.globalCompositeOperation='source-over';
+  ctx.drawImage(_lc,0,0);
+
+  // ── 2. Colored light tinting (screen blend) ─────────────────────
+  ctx.globalCompositeOperation='screen';
+
+  // Torch warmth on player
+  const tpg=ctx.createRadialGradient(plx,ply,0,plx,ply,4.6*TS);
+  tpg.addColorStop(0,'rgba(255,155,55,0.21)');
+  tpg.addColorStop(0.42,'rgba(255,90,15,0.10)');
+  tpg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=tpg;ctx.fillRect(0,0,W,H);
+
+  // Tile-specific color glow
+  for(let vy2=0;vy2<VP_H;vy2++){
+    for(let vx2=0;vx2<VP_W;vx2++){
+      const mx=cx+vx2,my=cy+vy2;
+      if(mx<0||my<0||mx>=g.map_w||my>=g.map_h)continue;
+      const tile=g.tiles[my*g.map_w+mx];
+      if(!tile.v)continue;
+      const tx=vx2*TS+TS/2,ty=vy2*TS+TS/2;
+      const pulse=0.5+0.5*Math.sin(t*2.1+vx2+vy2);
+      let c1=null,r1=0;
+      if(tile.t===4){c1=`rgba(80,120,255,${(0.27+pulse*0.12).toFixed(3)})`;r1=2.6*TS;}
+      else if(tile.t===5){c1=`rgba(255,200,55,${(0.27+pulse*0.12).toFixed(3)})`;r1=2.6*TS;}
+      else if(tile.t===6){c1=`rgba(255,148,18,${(0.21+pulse*0.09).toFixed(3)})`;r1=1.9*TS;}
+      else if(tile.t===7){c1=`rgba(200,135,255,${(0.24+pulse*0.12).toFixed(3)})`;r1=2.3*TS;}
+      else if(tile.t===8){c1=`rgba(255,95,15,${(0.18+pulse*0.08).toFixed(3)})`;r1=1.6*TS;}
+      if(c1){
+        const cg=ctx.createRadialGradient(tx,ty,0,tx,ty,r1);
+        cg.addColorStop(0,c1);cg.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=cg;ctx.fillRect(tx-r1,ty-r1,r1*2,r1*2);
+      }
+    }
+  }
+
+  // ── 3. Monster threat aura (red, intensifies at low HP) ─────────
+  for(const m of g.monsters){
+    const vx2=m.x-cx,vy2=m.y-cy;
+    if(vx2<0||vy2<0||vx2>=VP_W||vy2>=VP_H)continue;
+    const tx=vx2*TS+TS/2,ty=vy2*TS+TS/2;
+    const intensity=0.16+(1-m.hp/m.max_hp)*0.14;
+    const mg=ctx.createRadialGradient(tx,ty,0,tx,ty,TS*0.9);
+    mg.addColorStop(0,`rgba(200,35,15,${intensity.toFixed(3)})`);
+    mg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=mg;ctx.fillRect(vx2*TS,vy2*TS,TS,TS);
+  }
+  ctx.globalCompositeOperation='source-over';
+
+  // ── 4. Dust mote particles ───────────────────────────────────────
+  ctx.globalCompositeOperation='screen';
+  for(const p of _DUST){
+    const lr=p.life/p.maxLife;
+    const fade=lr<0.1?lr*10:lr>0.85?(1-lr)/0.15:1;
+    ctx.fillStyle=`rgba(200,178,136,${(p.a*fade).toFixed(3)})`;
+    ctx.fillRect(Math.round(p.x),Math.round(p.y),p.r,p.r);
+    p.x+=p.vx;p.y+=p.vy;p.life++;
+    if(p.life>p.maxLife||p.y<-2||p.x<-2||p.x>W+2)Object.assign(p,_newDust(false));
+  }
+  ctx.globalCompositeOperation='source-over';
+
+  // ── 5. Vignette ──────────────────────────────────────────────────
+  const vg=ctx.createRadialGradient(W/2,H*0.54,H*0.20,W/2,H*0.54,H*0.84);
+  vg.addColorStop(0,'rgba(0,0,0,0)');
+  vg.addColorStop(0.55,'rgba(0,0,0,0.10)');
+  vg.addColorStop(1,'rgba(0,0,0,0.80)');
+  ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+
+  // ── 6. Scanlines (subtle pixel texture) ─────────────────────────
+  ctx.fillStyle='rgba(0,0,0,0.055)';
+  for(let sy=1;sy<H;sy+=2)ctx.fillRect(0,sy,W,1);
+}
+
 // Viewport: how many tiles visible
 const VP_W = 33, VP_H = 22;
 canvas.width  = VP_W * TS;
@@ -2149,6 +2295,9 @@ function render() {
   ctx.strokeStyle = 'rgba(100,150,220,0.3)';
   ctx.lineWidth = 1;
   ctx.strokeRect(pvx*TS+0.5, pvy*TS+0.5, TS-1, TS-1);
+
+  // HD-2D post-processing
+  drawHD2D(g, cx, cy);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -5482,13 +5631,14 @@ requestAnimationFrame(fitCanvas);
 
 connect();
 
-// RAF loop — re-renders the map canvas when the animation frame changes,
-// so shrine/stairs glow animates smoothly without requiring player input.
+// RAF loop — runs at 60fps for smooth HD-2D particles, glow pulse, and light flicker.
+// Tile sprite cache is updated at 500ms intervals for the animFrame-based effects.
 let _prevAnimFrame = -1;
 (function animLoop() {
-  const af = Math.floor(Date.now() / 500) % 4;
-  if (state && af !== _prevAnimFrame) {
-    _prevAnimFrame = af;
+  // Always re-render if state is available (HD-2D effects need 60fps)
+  if (state) {
+    const af = Math.floor(Date.now() / 500) % 4;
+    if (af !== _prevAnimFrame) _prevAnimFrame = af; // triggers sprite cache refresh
     render();
   }
   requestAnimationFrame(animLoop);
