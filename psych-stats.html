@@ -163,6 +163,13 @@
         <span class="label" style="margin-top:4px;">ダミー変数 (カテゴリ変数を自動コード化)</span>
         <input type="text" id="dummyVars" placeholder="例: 性別, 教育歴 (カンマ区切り)" onfocus="activeIn='dummyVars'">
         <p style="font-size:0.72rem; color:#64748b; margin: 4px 0 0 0;">指定変数から (k−1) 個のダミー変数を自動生成。基準カテゴリ = データ内最初の出現値。</p>
+        <div style="border-top:1px dashed #475569; margin-top:10px; padding-top:10px;">
+            <span class="label">調整変数 M (交互作用項を自動生成)</span>
+            <input type="text" id="moderatorVars" placeholder="例: 社会的サポート (カンマ区切り)" onfocus="activeIn='moderatorVars'">
+            <p style="font-size:0.72rem; color:#94a3b8; margin: 4px 0 0 0; line-height:1.6;">
+                全変数を平均中心化し X × M の交互作用項を自動投入。有意な交互作用は<b>単純傾斜分析</b>と<b>交互作用プロット</b>を出力します。
+            </p>
+        </div>
     </div>
 
     <div id="factorOptions" class="nav-section" style="display:none;">
@@ -521,8 +528,10 @@
                 const regMethod = document.querySelector('input[name="regMethod"]:checked').value;
                 const dummyVarInput = document.getElementById('dummyVars').value;
                 const dummyVarNames = dummyVarInput.split(',').map(s => s.trim()).filter(s => s);
+                const moderatorInput = document.getElementById('moderatorVars').value;
+                const moderatorNames = moderatorInput.split(',').map(s => s.trim()).filter(s => s);
                 const xRaw = document.getElementById('xPredictor').value;
-                runRegression(y, xRaw, out, regMethod, dummyVarNames);
+                runRegression(y, xRaw, out, regMethod, dummyVarNames, moderatorNames);
             }
             else if (method === 'corr')      runCorrelation([y, ...xs], out);
             else if (method === 'chisq')     runChiSquare(y, xs[0], out);
@@ -929,7 +938,7 @@
             const Rm_inv = StatsLib.invertMatrix(Rm);
             vifVals = Rm_inv ? Rm_inv.map((row, i) => row[i]) : xs.map(() => Infinity);
         }
-        return { valid, n, k, xs, actual, pred, B, SE, Beta, tVals, pVals, ciLows, ciHighs, r2, adjR2, fMod, pMod, ssTot, ssRes, vifVals };
+        return { valid, n, k, xs, actual, pred, B, SE, Beta, tVals, pVals, ciLows, ciHighs, r2, adjR2, fMod, pMod, ssTot, ssRes, vifVals, XtX_inv, msRes };
     }
 
     // --- VIF警告HTML ---
@@ -995,7 +1004,7 @@
     }
 
     // --- 回帰分析ディスパッチャー ---
-    function runRegression(y, xRaw, out, regMethod = 'enter', dummyVarNames = []) {
+    function runRegression(y, xRaw, out, regMethod = 'enter', dummyVarNames = [], moderatorNames = []) {
         const { workData, dummyInfo } = applyDummyCoding(rawData, dummyVarNames);
 
         // ダミー変数コード化の情報パネル
@@ -1011,6 +1020,17 @@
                 </div>`;
             }
             dummyHtml += '</div>';
+        }
+
+        // 調整変数が指定された場合 → 平均中心化 + 交互作用項を自動投入 (強制投入法で実行)
+        if (moderatorNames.length > 0) {
+            let allXs = xRaw.split(/[,|]/).map(s => s.trim()).filter(s => s);
+            if (allXs[0]?.toUpperCase() === 'ALL') allXs = Object.keys(rawData[0]).filter(k => k !== y);
+            allXs = allXs.flatMap(v => dummyInfo[v] ? dummyInfo[v].dummyNames : [v]);
+            const { workData: modData, centeredInfo, interactionTerms, finalXs } =
+                applyModerationCoding(workData, allXs, moderatorNames);
+            runModerationOLS(y, finalXs, modData, centeredInfo, interactionTerms, dummyHtml, out);
+            return;
         }
 
         // ブロックをパース（階層的: | で区切り、強制投入: ALL対応）
@@ -1137,6 +1157,255 @@
             <div class="chart-container"><canvas id="${cId}"></canvas></div>
         </div>`;
         renderRegressionChart(cId, final.actual, final.pred, final.xs, final);
+    }
+
+    // ============================================================
+    // 調整変数 (交互作用) 分析エンジン
+    // ============================================================
+
+    // 平均中心化 + 交互作用項生成
+    function applyModerationCoding(data, xs, moderatorNames) {
+        let workData = data.map(row => ({ ...row }));
+        const centeredInfo = {};
+
+        // 全予測変数・調整変数を平均中心化
+        const allToCenter = [...new Set([...xs, ...moderatorNames])];
+        allToCenter.forEach(varName => {
+            const vals = workData.map(r => parseFloat(r[varName])).filter(v => !isNaN(v));
+            if (!vals.length) return;
+            const mean = ss.mean(vals);
+            const sd   = vals.length > 1 ? ss.sampleStandardDeviation(vals) : 1;
+            const centName = `${varName}_c`;
+            workData = workData.map(row => {
+                const v = parseFloat(row[varName]);
+                return { ...row, [centName]: isNaN(v) ? null : v - mean };
+            });
+            centeredInfo[varName] = { mean, sd, centName };
+        });
+
+        // 交互作用項 (焦点予測変数_c × 調整変数_c) の生成
+        const interactionTerms = [];
+        const mainPredictors = xs.filter(x => !moderatorNames.includes(x));
+        moderatorNames.forEach(m => {
+            if (!centeredInfo[m]) return;
+            mainPredictors.forEach(x => {
+                if (!centeredInfo[x]) return;
+                const xCent   = centeredInfo[x].centName;
+                const mCent   = centeredInfo[m].centName;
+                const intName = `${xCent}×${mCent}`;
+                workData = workData.map(row => ({
+                    ...row,
+                    [intName]: (row[xCent] != null && row[mCent] != null)
+                               ? row[xCent] * row[mCent] : null
+                }));
+                interactionTerms.push({ name: intName, predictor: x, moderator: m,
+                                        predictorCent: xCent, modCent: mCent });
+            });
+        });
+
+        // OLSに渡す変数リスト: 中心化済み主効果 + 調整変数主効果 + 交互作用項
+        const finalXs = [];
+        xs.forEach(x => finalXs.push(centeredInfo[x] ? centeredInfo[x].centName : x));
+        moderatorNames.forEach(m => {
+            const mc = centeredInfo[m]?.centName;
+            if (mc && !finalXs.includes(mc)) finalXs.push(mc);
+        });
+        interactionTerms.forEach(it => finalXs.push(it.name));
+
+        return { workData, centeredInfo, interactionTerms, finalXs };
+    }
+
+    // 調整変数を含む回帰分析の出力
+    function runModerationOLS(y, finalXs, workData, centeredInfo, interactionTerms, dummyHtml, out) {
+        if (!finalXs || finalXs.length === 0) throw new Error("独立変数を指定してください。");
+        const model = computeOLS(y, finalXs, workData);
+        const { n, actual, pred, B, r2, adjR2, fMod, pMod, vifVals } = model;
+
+        // 平均中心化の情報パネル
+        let centerHtml = `<div style="background:#f0fdf4;border:1px solid #86efac;padding:12px;border-radius:6px;margin-bottom:12px;font-size:0.85rem;">
+            <strong style="color:#166534;">📐 平均中心化の情報 (多重共線性低減のため全変数を中心化)</strong>
+            <table class="stats-table" style="margin-top:8px;">
+            <tr><th>原変数</th><th>中心化後の変数名</th><th>平均 (引いた値)</th><th>SD</th></tr>`;
+        for (const [varName, info] of Object.entries(centeredInfo)) {
+            centerHtml += `<tr>
+                <td>${escapeHtml(varName)}</td>
+                <td><code style="background:#dcfce7;color:#166534;padding:2px 5px;border-radius:3px;">${escapeHtml(info.centName)}</code></td>
+                <td>${info.mean.toFixed(4)}</td><td>${info.sd.toFixed(4)}</td>
+            </tr>`;
+        }
+        centerHtml += '</table></div>';
+
+        // 交互作用項パネル
+        let intInfoHtml = `<div style="background:#fefce8;border:1px solid #fde047;padding:10px 12px;border-radius:6px;margin-bottom:12px;font-size:0.85rem;">
+            <strong style="color:#713f12;">🔀 自動投入された交互作用項</strong><br style="margin-bottom:4px;">`;
+        interactionTerms.forEach(it => {
+            intInfoHtml += `<span style="background:#fef08a;color:#713f12;padding:2px 8px;border-radius:3px;margin:3px 2px;display:inline-block;">${escapeHtml(it.name)}</span>`;
+        });
+        intInfoHtml += '</div>';
+
+        let equation = `${escapeHtml(y)} = ${B[0].toFixed(3)}`;
+        finalXs.forEach((name, i) => {
+            const bVal = B[i + 1];
+            equation += ` ${bVal >= 0 ? '+' : '-'} ${Math.abs(bVal).toFixed(3)} × ${escapeHtml(name)}`;
+        });
+
+        const cId = `regC_${chartCounter++}`;
+        out.innerHTML += `<div class="report-card">
+            <h2>重回帰分析 (調整変数・交互作用項含む): ${escapeHtml(y)}</h2>
+            <p>有効 N = ${n}</p>
+            ${dummyHtml}${centerHtml}${intInfoHtml}
+            ${vifWarningHTML(vifVals)}
+            <table class="stats-table" style="margin-bottom:15px;width:auto;">
+                <tr><th>R²</th><th>Adjusted R²</th><th>F値</th><th>モデル p値</th></tr>
+                <tr><td>${r2.toFixed(3)}</td><td>${adjR2.toFixed(3)}</td><td>${fMod.toFixed(3)}</td><td>${StatsLib.getSigLabel(pMod)}</td></tr>
+            </table>
+            <div style="background:#f8fafc;padding:12px;border:1px solid #cbd5e1;border-radius:6px;margin-bottom:15px;">
+                <strong style="font-size:0.9rem;">回帰式:</strong>
+                <code style="color:#4f46e5;font-size:0.88rem;display:block;margin-top:5px;word-break:break-all;">${equation}</code>
+            </div>
+            ${buildCoeffTableHTML(model)}
+            <div class="chart-container"><canvas id="${cId}"></canvas></div>
+        </div>`;
+        renderRegressionChart(cId, actual, pred, finalXs, model);
+
+        // 交互作用ごとに単純傾斜分析 (有意・非有意ともに実行、バナーで区別)
+        interactionTerms.forEach(it => {
+            const intIdx = finalXs.indexOf(it.name);
+            if (intIdx < 0) return;
+            runSimpleSlopes(y, it, model, centeredInfo, model.pVals[intIdx + 1], out);
+        });
+    }
+
+    // 単純傾斜分析 + 交互作用プロット
+    function runSimpleSlopes(y, intTerm, model, centeredInfo, intPVal, out) {
+        const { name, predictor, moderator, predictorCent, modCent } = intTerm;
+        const predInfo = centeredInfo[predictor];
+        const modInfo  = centeredInfo[moderator];
+        if (!predInfo || !modInfo) return;
+
+        // B ベクトル内のインデックス (0 = 切片)
+        const pIdx = model.xs.indexOf(predictorCent) + 1;
+        const qIdx = model.xs.indexOf(name) + 1;
+        const mIdx = model.xs.indexOf(modCent) + 1;
+        if (pIdx <= 0 || qIdx <= 0) return;
+        const B_M = mIdx > 0 ? model.B[mIdx] : 0;
+        const df  = model.n - model.k - 1;
+
+        // 調整変数の3水準 (−1SD, 平均, +1SD)
+        const mLevels     = [-modInfo.sd, 0, modInfo.sd];
+        const mLevelOrig  = mLevels.map(ml => modInfo.mean + ml);
+        const colors      = ['#3b82f6', '#10b981', '#ef4444'];
+        const mLabelShort = [
+            `${moderator} 低 (−1SD)`,
+            `${moderator} 中 (M)`,
+            `${moderator} 高 (+1SD)`
+        ];
+
+        // 単純傾斜 + SE (Preacher et al. 2006 の式)
+        // Var(ss | M=ml) = msRes × [XtX_inv[pIdx][pIdx] + ml²·XtX_inv[qIdx][qIdx] + 2ml·XtX_inv[pIdx][qIdx]]
+        const simpleSlopes = mLevels.map((ml, mi) => {
+            const slope   = model.B[pIdx] + model.B[qIdx] * ml;
+            const varSS   = model.msRes * (
+                model.XtX_inv[pIdx][pIdx]
+                + ml * ml * model.XtX_inv[qIdx][qIdx]
+                + 2 * ml * model.XtX_inv[pIdx][qIdx]
+            );
+            const se     = Math.sqrt(Math.max(0, varSS));
+            const t      = se > 0 ? slope / se : 0;
+            const p      = StatsLib.tP(t, df);
+            const tCrit  = StatsLib.tInv(0.05, df);
+            return { label: mLabelShort[mi], origLevel: mLevelOrig[mi],
+                     slope, se, t, p,
+                     ciLow: slope - tCrit * se, ciHigh: slope + tCrit * se };
+        });
+
+        // 交互作用プロット用データ (予測変数を −1SD, 平均, +1SD に固定)
+        const xPlotCent = [-predInfo.sd, 0, predInfo.sd];
+        const xAxisLabels = xPlotCent.map(xc => (xc + predInfo.mean).toFixed(2));
+        const datasets = mLevels.map((ml, mi) => ({
+            label: mLabelShort[mi],
+            data: xPlotCent.map(xc =>
+                model.B[0] + model.B[pIdx] * xc + B_M * ml + model.B[qIdx] * xc * ml
+            ),
+            borderColor: colors[mi],
+            backgroundColor: colors[mi] + '22',
+            borderWidth: 2.5,
+            pointRadius: 5,
+            fill: false,
+            tension: 0
+        }));
+
+        // 有意性バナー
+        const isSig = intPVal < .05;
+        const banner = isSig
+            ? `<div style="background:#dcfce7;border:1px solid #86efac;color:#166534;font-weight:bold;padding:10px 14px;border-radius:6px;margin-bottom:14px;">
+                ✅ 交互作用項 <code style="background:#bbf7d0;padding:1px 5px;border-radius:3px;">${escapeHtml(name)}</code> は有意です
+                (${intPVal < .001 ? 'p &lt; .001' : 'p = ' + intPVal.toFixed(3)})。以下に単純傾斜分析を示します。
+               </div>`
+            : `<div style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;padding:10px 14px;border-radius:6px;margin-bottom:14px;">
+                ⚠️ 交互作用項 <code style="background:#fef08a;padding:1px 5px;border-radius:3px;">${escapeHtml(name)}</code> は有意ではありません
+                (p = ${intPVal.toFixed(3)})。以下は参考として単純傾斜を示します。
+               </div>`;
+
+        // 単純傾斜テーブル
+        let rows = '';
+        simpleSlopes.forEach(ss_ => {
+            const sigStyle = ss_.p < .05 ? 'style="background:#f0fdf4;"' : '';
+            rows += `<tr ${sigStyle}>
+                <td>${escapeHtml(ss_.label)}<br><small style="color:#64748b;">M = ${ss_.origLevel.toFixed(3)}</small></td>
+                <td><b>${ss_.slope.toFixed(4)}</b></td>
+                <td>${ss_.se.toFixed(4)}</td>
+                <td>${ss_.t.toFixed(3)}</td>
+                <td>${df}</td>
+                <td>${StatsLib.getSigLabel(ss_.p)}</td>
+                <td>[${ss_.ciLow.toFixed(4)}, ${ss_.ciHigh.toFixed(4)}]</td>
+            </tr>`;
+        });
+
+        const chartId = `ssC_${chartCounter++}`;
+        out.innerHTML += `<div class="report-card" style="border-left:4px solid #4f46e5;">
+            <h2 style="color:#4f46e5;">単純傾斜分析: ${escapeHtml(predictor)} × ${escapeHtml(moderator)}</h2>
+            <p style="font-size:0.85rem;color:#64748b;margin-bottom:12px;">
+                調整変数 <b>${escapeHtml(moderator)}</b> を M−1SD・M・M+1SD の3水準に固定したときの
+                <b>${escapeHtml(predictor)}</b> → <b>${escapeHtml(y)}</b> の回帰係数を検定します。
+            </p>
+            ${banner}
+            <h3 style="color:#1e293b;font-size:1rem;">単純傾斜の検定 (Preacher et al., 2006)</h3>
+            <table class="stats-table">
+                <tr><th>${escapeHtml(moderator)} の水準</th><th>単純傾斜 (b)</th><th>SE</th><th>t値</th><th>df</th><th>p値</th><th>95%CI</th></tr>
+                ${rows}
+            </table>
+            <p style="font-size:0.78rem;color:#64748b;margin-top:5px;">
+                単純傾斜 b: 各調整変数水準における予測変数1単位増加あたりの従属変数の変化量
+            </p>
+            <h3 style="color:#1e293b;font-size:1rem;margin-top:20px;">交互作用プロット (単純傾斜図)</h3>
+            <p style="font-size:0.8rem;color:#64748b;">
+                X軸: ${escapeHtml(predictor)} の値 (原尺度) &nbsp;|&nbsp;
+                Y軸: ${escapeHtml(y)} の予測値 &nbsp;|&nbsp;
+                線の色: ${escapeHtml(moderator)} の水準 (青=低・緑=中・赤=高)
+            </p>
+            <div class="chart-container" style="height:360px;"><canvas id="${chartId}"></canvas></div>
+        </div>`;
+
+        renderChartAsImage(chartId, {
+            type: 'line',
+            data: { labels: xAxisLabels, datasets },
+            options: {
+                maintainAspectRatio: false,
+                scales: {
+                    x: { title: { display: true, text: `${predictor} (原尺度の値)` } },
+                    y: { title: { display: true, text: `${y} の予測値` } }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `交互作用プロット: ${predictor} × ${moderator}`,
+                        font: { size: 13 }
+                    },
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
     }
 
     // --- 相関マトリックス (Fisher's z による95%CI 追加) ---
