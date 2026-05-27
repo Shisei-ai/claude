@@ -201,6 +201,13 @@ namespace DarkChronicle.Battle
         public int   GainBPOnUse              = 0;
         public float InstantKillOnBrokenChance = 0f;
 
+        // 狩人(アッシュ)拡張
+        public bool  GrantShadowState         = false;  // 使用後Shadow State付与
+        public float ExecuteOnLowHPChance     = 0f;     // HP閾値以下の敵への即死確率ボーナス
+        public float ExecuteHPThreshold       = 0f;     // 即死判定のHP閾値(0.35=35%以下)
+        public bool  ExtraHitOnCrit           = false;  // 会心時に追加1ヒット
+        public int   BindDurationBonus        = 0;      // バインド(行動不能)持続ターン追加
+
         // ── ファクトリ ─────────────────────────────────────────────────────
         public static readonly BoostUpgrade None = new();
 
