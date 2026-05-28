@@ -253,17 +253,17 @@ namespace DarkChronicle.Roguelike.Relics
                     enemy.Rank       = EnemyRank.Boss;
                     enemy.Stats      = new CharacterStats
                     {
-                        MaxHP           = 4000,
-                        PhysicalAttack  = 80,
-                        MagicAttack     = 60,
-                        PhysicalDefense = 40,
-                        MagicDefense    = 35,
-                        Speed           = 85,
+                        MaxHP           = 4200,  // Lv14想定: 約18ターン戦闘
+                        PhysicalAttack  = 115,   // ×1.8 → Lv14ベルン(Pdef84)に 123 dmg / 7hit
+                        MagicAttack     = 80,
+                        PhysicalDefense = 52,    // 大剣割り(91×2.2)で 148 dmg
+                        MagicDefense    = 40,
+                        Speed           = 72,
                     };
                     enemy.ShieldPoints = 4;
-                    enemy.ExpReward    = 800;
-                    enemy.JPReward     = 200;
-                    enemy.GoldReward   = 300;
+                    enemy.ExpReward    = 900;
+                    enemy.JPReward     = 220;
+                    enemy.GoldReward   = 350;
                     break;
 
                 case EndingType.AbyssGod:
@@ -271,17 +271,17 @@ namespace DarkChronicle.Roguelike.Relics
                     enemy.Rank       = EnemyRank.Boss;
                     enemy.Stats      = new CharacterStats
                     {
-                        MaxHP           = 4200,
-                        PhysicalAttack  = 65,
-                        MagicAttack     = 95,
-                        PhysicalDefense = 30,
-                        MagicDefense    = 50,
-                        Speed           = 90,
+                        MaxHP           = 4000,  // 魔法特化型：少し低めHP
+                        PhysicalAttack  = 85,    // 物理は控えめ
+                        MagicAttack     = 110,   // ×1.5 → Lv14ベルン(Mdef48)に 117 dmg / 7hit
+                        PhysicalDefense = 30,    // 物理が通る → 物理キャラの活躍場面
+                        MagicDefense    = 60,    // 魔法が一部吸収される逆説的ボス
+                        Speed           = 80,
                     };
                     enemy.ShieldPoints = 3;
-                    enemy.ExpReward    = 850;
-                    enemy.JPReward     = 220;
-                    enemy.GoldReward   = 320;
+                    enemy.ExpReward    = 950;
+                    enemy.JPReward     = 230;
+                    enemy.GoldReward   = 360;
                     break;
 
                 case EndingType.TimeWraith:
@@ -289,17 +289,17 @@ namespace DarkChronicle.Roguelike.Relics
                     enemy.Rank       = EnemyRank.Boss;
                     enemy.Stats      = new CharacterStats
                     {
-                        MaxHP           = 3800,
-                        PhysicalAttack  = 55,
-                        MagicAttack     = 80,
+                        MaxHP           = 3600,  // 超高速型：低HPで圧迫感
+                        PhysicalAttack  = 100,   // ×1.8 → Lv14ベルン(Pdef84)に 96 dmg
+                        MagicAttack     = 95,    // ×1.5 → Lv14ベルン(Mdef48)に 95 dmg
                         PhysicalDefense = 45,
-                        MagicDefense    = 55,
-                        Speed           = 110,
+                        MagicDefense    = 50,
+                        Speed           = 105,   // 最速。ベルン(Spd31)の3.4倍行動
                     };
                     enemy.ShieldPoints = 3;
-                    enemy.ExpReward    = 820;
-                    enemy.JPReward     = 210;
-                    enemy.GoldReward   = 310;
+                    enemy.ExpReward    = 880;
+                    enemy.JPReward     = 215;
+                    enemy.GoldReward   = 340;
                     break;
 
                 case EndingType.CursedKing:
@@ -307,17 +307,17 @@ namespace DarkChronicle.Roguelike.Relics
                     enemy.Rank       = EnemyRank.Boss;
                     enemy.Stats      = new CharacterStats
                     {
-                        MaxHP           = 3600,
-                        PhysicalAttack  = 75,
-                        MagicAttack     = 70,
-                        PhysicalDefense = 55,
+                        MaxHP           = 4200,  // 超硬型：高HPかつ高DEF
+                        PhysicalAttack  = 120,   // ×1.8 → Lv14ベルン(Pdef84)に 132 dmg / 6hit
+                        MagicAttack     = 90,
+                        PhysicalDefense = 70,    // 大剣割り(91×2.2)で 130 dmg（削りが遅い）
                         MagicDefense    = 45,
-                        Speed           = 80,
+                        Speed           = 65,    // 鈍重だが重い一撃で圧迫
                     };
                     enemy.ShieldPoints = 5;
-                    enemy.ExpReward    = 800;
-                    enemy.JPReward     = 200;
-                    enemy.GoldReward   = 300;
+                    enemy.ExpReward    = 920;
+                    enemy.JPReward     = 225;
+                    enemy.GoldReward   = 355;
                     break;
 
                 case EndingType.TrueCore:
@@ -325,17 +325,17 @@ namespace DarkChronicle.Roguelike.Relics
                     enemy.Rank       = EnemyRank.TrueFinalBoss;
                     enemy.Stats      = new CharacterStats
                     {
-                        MaxHP           = 5000,
-                        PhysicalAttack  = 90,
-                        MagicAttack     = 90,
-                        PhysicalDefense = 60,
-                        MagicDefense    = 60,
-                        Speed           = 100,
+                        MaxHP           = 5000,  // 最高HP・全能型
+                        PhysicalAttack  = 130,   // ×1.8 → Lv15ベルン(Pdef88)に 146 dmg / 6hit
+                        MagicAttack     = 115,   // ×1.5 → Lv15ベルン(Mdef50)に 123 dmg
+                        PhysicalDefense = 60,    // 大剣割り(95×2.2)で 149 dmg（高いが突破可能）
+                        MagicDefense    = 60,    // 魔法も同様
+                        Speed           = 100,   // 全ボス中2番目の速さ
                     };
                     enemy.ShieldPoints = 6;
-                    enemy.ExpReward    = 1000;
-                    enemy.JPReward     = 300;
-                    enemy.GoldReward   = 500;
+                    enemy.ExpReward    = 1200;
+                    enemy.JPReward     = 320;
+                    enemy.GoldReward   = 600;
                     break;
 
                 default:
