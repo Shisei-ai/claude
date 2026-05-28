@@ -6,6 +6,7 @@ using UnityEngine.UI;
 using TMPro;
 using DarkChronicle.Data;
 using DarkChronicle.Roguelike.Relics;
+using DarkChronicle.UI;
 
 namespace DarkChronicle.Roguelike
 {
@@ -71,11 +72,11 @@ namespace DarkChronicle.Roguelike
             _leaveButton.onClick.AddListener(() => { _isOpen = false; });
 
             _isOpen = true;
-            yield return FadeGroup(_shopPanel, 0f, 1f, 0.4f);
+            yield return UIAnimator.FadeIn(_shopPanel, 0.4f);
 
             while (_isOpen) yield return null;
 
-            yield return FadeGroup(_shopPanel, 1f, 0f, 0.3f);
+            yield return UIAnimator.FadeOut(_shopPanel, 0.3f);
         }
 
         // ── Stock Generation ───────────────────────────────────────────────
@@ -188,11 +189,15 @@ namespace DarkChronicle.Roguelike
 
         void ShowTooltip(ShopItem item)
         {
-            if (item == null) { _tooltip.alpha = 0f; return; }
+            if (item == null)
+            {
+                StartCoroutine(UIAnimator.FadeOut(_tooltip, 0.1f));
+                return;
+            }
             _tooltipName.text  = item.Skill?.SkillName ?? item.Relic?.RelicName ?? string.Empty;
             _tooltipDesc.text  = item.Skill?.Description ?? item.Relic?.Description ?? string.Empty;
             _tooltipPrice.text = $"{item.Price} G";
-            _tooltip.alpha     = 1f;
+            StartCoroutine(UIAnimator.FadeIn(_tooltip, 0.12f));
         }
 
         void ClearSection(Transform section)
@@ -205,20 +210,6 @@ namespace DarkChronicle.Roguelike
             if (_goldText != null) _goldText.text = $"所持金: {_run.Gold} G";
         }
 
-        IEnumerator FadeGroup(CanvasGroup group, float from, float to, float duration)
-        {
-            float elapsed = 0f;
-            group.alpha = from;
-            group.blocksRaycasts = to > 0.5f;
-            while (elapsed < duration)
-            {
-                elapsed += Time.deltaTime;
-                group.alpha = Mathf.Lerp(from, to, elapsed / duration);
-                yield return null;
-            }
-            group.alpha = to;
-            group.blocksRaycasts = to > 0.5f;
-        }
     }
 
     // ── Shop Item Data ─────────────────────────────────────────────────────
