@@ -128,7 +128,7 @@ namespace DarkChronicle.Editor
             enemy.ElementWeaknesses = new List<ElementType>
             {
                 ElementType.Fire,
-                ElementType.Thunder,
+                ElementType.Lightning,
             };
             enemy.WeaponWeaknesses = new List<WeaponType>
             {
