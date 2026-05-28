@@ -23,7 +23,8 @@
  *   • 身長: 169cm / 体格: 細身、優雅な所作
  *   • 腰まで届く深い群青黒の長髪（青みがかったハイライト）、流れるように垂らし
  *     前髪を片目に掛けて非対称に。細い銀のチェーン飾り・ピン・小さな宝石が髪に散る
- *   • 氷のように鋭く冷たい氷青色の瞳（左右同色）。切れ長で感情を映さない眼差し
+ *   • オッドアイ: 右目=氷青（本来の瞳）、左目=深紅/ガーネット（禁忌の契約の証）
+ *     普段は長い前髪で左目を隠し、戦闘・感情高揚時に前髪が乱れて露わになる
  *   • 銀チェーンのイヤリング、氷青のサファイアペンダント
  *   • 装備一式:
  *     - 肩/胸: 深紺黒の甲冑（金の唐草細工刻印）+ 肩にワタリガラスの黒羽根装飾
@@ -493,12 +494,22 @@ namespace DarkChronicle.CharacterDesigns
             public const string SkinMid         = "#EDD8C0";   // 中間
             public const string SkinShadow      = "#D4B89C";   // 影（顎下・瞼）
             public const string SkinDeep        = "#B89880";   // 深影（首根元）
-            // 瞳（氷青）
-            public const string EyeHighlight    = "#E8F8FF";   // ハイライト点
-            public const string EyeIrisLight    = "#B8E4FF";   // 虹彩 明
-            public const string EyeIris         = "#78C4F0";   // 虹彩
-            public const string EyeIrisDeep     = "#4898D0";   // 虹彩 深
-            public const string EyePupil        = "#2868A8";   // 瞳孔
+            // 右目（氷青 — 本来の瞳）
+            public const string EyeRHighlight   = "#E8F8FF";   // ハイライト点
+            public const string EyeRIrisLight   = "#B8E4FF";   // 虹彩 明
+            public const string EyeRIris        = "#78C4F0";   // 虹彩
+            public const string EyeRIrisDeep    = "#4898D0";   // 虹彩 深
+            public const string EyeRPupil       = "#2868A8";   // 瞳孔
+            // 左目（深紅/ガーネット — 禁忌の契約の証）
+            // 氷青と補色にならず、深く落ち着いたワインレッドに留めて
+            // 全体の寒色パレットを壊さないようにする
+            public const string EyeLHighlight   = "#FFD0C8";   // ハイライト点（暖色）
+            public const string EyeLIrisLight   = "#D06858";   // 虹彩 明
+            public const string EyeLIris        = "#A03840";   // 虹彩（ガーネット）
+            public const string EyeLIrisDeep    = "#701828";   // 虹彩 深（ワインレッド）
+            public const string EyeLPupil       = "#400818";   // 瞳孔（深紅）
+            // 契約発動時の左目グロウ（ContractPower演出で使用）
+            public const string EyeLContractGlow= "#FF6060";   // 契約解放時の輝き
             // 甲冑（深紺黒 + 金装飾）
             public const string ArmorDeepest    = "#080C14";   // 最暗部・裏地
             public const string ArmorBase       = "#10162A";   // 基本色
@@ -611,7 +622,9 @@ namespace DarkChronicle.CharacterDesigns
             // Row 6  — ダメージ (Hurt)
             //   フレーム数 : 3
             //   fps        : 8
-            //   内容       : f1=後退・髪が乱れる（左右に1px）、
+            //   内容       : f1=後退・髪が乱れる（左右に1px）。
+            //                【重要】このフレームで前髪が払われ、左目（深紅）が1フレーム
+            //                だけ露わになる。契約の証が垣間見える演出。
             //                f2=眉が寄ったわずかな苦悶表情（通常時と差し替えの顔）、
             //                f3=素早く表情を元に戻す（冷たい無表情に即リセット）。
             //                全体を1フレームだけ白フラッシュ。
@@ -640,22 +653,31 @@ namespace DarkChronicle.CharacterDesigns
             // Row 10 — 過負荷詠唱発動 / 禁忌の力 (ContractPower)
             //   フレーム数 : 4
             //   fps        : 12
-            //   内容       : 契約の力を解放する特殊演出。全体が一瞬コントラスト逆転
-            //                （黒が白、白が黒）し、CorsetMid→CorsetLight に明るくなる、
-            //                RuneGlow が全身の輪郭線に沿って走り抜ける（1px 縁取り変化）、
-            //                最後に元の状態に戻る（4fで完結）。
+            //   内容       : 契約の力を解放する特殊演出。
+            //                f1=前髪が大きく払われ、左目（深紅）が完全に露わになる。
+            //                   右目=氷青・左目=深紅の対比が画面に広がる。
+            //                f2=左目から EyeLContractGlow (#FF6060) の光が放たれ、
+            //                   全身の輪郭線が RuneGlow → EyeLContractGlow に切り替わる。
+            //                f3=全体が一瞬コントラスト逆転（黒→白）し、
+            //                   CorsetMid→CorsetLight に明るくなる。
+            //                f4=前髪が元に戻り、左目が再び隠れ、輪郭も RuneGlow に戻る。
+            //                   この瞬間だけオッドアイが「ちらり」と見えるのが演出の核。
             //
             // ── ポートレート仕様 (96×96 px) ─────────────────────────────────
             //   バスト〜肩のアップ。左向き（ベルンハルトと向き合う配置）。
             //   表情: 冷たく落ち着いた、心の内を見せない半眼。
             //   背景: 深夜群青（#08101C）+ 上部に魔法陣光の環。
+            //   ポートレートでの左目の扱い:
+            //     Normal〜Warm: 前髪が左目に掛かり、オッドアイは見えない
+            //     Pain / Intense: 前髪が乱れ、左目（深紅）が露わになる
             //   静止1枚 + 感情別バリアント 5枚:
-            //     [Normal]   冷静な半眼（基本）
-            //     [Thinking] 少し目を細めた分析顔
-            //     [Surprise] 目を少し見開く（滅多に出ない表情）
-            //     [Pain]     眉が微かに寄った苦悶（感情を抑えている）
-            //     [Warm]     口角が少し上がった珍しい表情（仲間への信頼シーン）
-            //     [Intense]  魔力全開・目が発光している（契約解放演出用）
+            //     [Normal]   冷静な半眼（基本）。右目=氷青のみ見える
+            //     [Thinking] 少し目を細めた分析顔。右目のみ
+            //     [Surprise] 目を少し見開く（滅多に出ない表情）。右目のみ
+            //     [Pain]     前髪が乱れ、左目の深紅が露わ。眉が微かに寄った苦悶
+            //     [Warm]     口角が少し上がった珍しい表情（仲間への信頼シーン）。右目のみ
+            //     [Intense]  前髪が大きく払われ両目が全開。右=氷青・左=深紅が対比する
+            //                左目から EyeLContractGlow の光が漏れる（契約解放演出用）
             //
             // ── フィールドスプライト仕様 (32×48 px) ─────────────────────────
             //   アイドル: 2フレーム（コート裾の小揺れ）
