@@ -3,85 +3,66 @@ using UnityEngine;
 namespace DarkChronicle.Roguelike
 {
     /// <summary>
-    /// Centralizes all luck-dependent RNG calculations.
-    /// Luck stat shifts the distribution of outcomes — it never guarantees anything
-    /// but meaningfully improves probability of positive outcomes over a run.
+    /// Centralizes all Sanity-dependent RNG calculations for field exploration.
+    /// Sanity ∈ [-3, +3]. Positive sanity biases outcomes toward the favorable;
+    /// negative sanity actively biases outcomes toward the unfavorable.
     /// </summary>
-    public static class LuckSystem
+    public static class SanitySystem
     {
         // ── Core Formula ───────────────────────────────────────────────────
-        // Luck shifts a [0,1] uniform roll toward 1 (favorable).
-        // At Luck=0: neutral roll.
-        // At Luck=10: ~65% of the time the outcome is "top 35%" quality.
-        // At Luck=20: overwhelmingly skewed positive, but never guaranteed.
-        public static float LuckyRoll(int luck, float min = 0f, float max = 1f)
+        // Returns a [0,1] value biased by sanity.
+        // sanity = 0  → pure Random.value
+        // sanity = +3 → ~30% push toward 1.0 (favorable)
+        // sanity = -3 → ~30% push toward 0.0 (unfavorable)
+        public static float SanityRoll(int sanity)
         {
-            float raw   = Random.value;
-            float shift = Mathf.Clamp01(luck * 0.03f);   // +3% per luck point
-            // Shifted roll: blend raw with 1.0 by shift amount
-            float shifted = Mathf.Lerp(raw, 1f, shift * Random.value);
-            return Mathf.Lerp(min, max, shifted);
+            float raw  = Random.value;
+            float bias = sanity / 3f * 0.3f;          // ±0.3 bias at extremes
+            if (bias >= 0f)
+                return Mathf.Lerp(raw, 1f, bias * Random.value);
+            else
+                return Mathf.Lerp(raw, 0f, (-bias) * Random.value);
         }
 
-        // Negative luck roll: used for curse events, enemy crits etc.
-        public static float UnluckyRoll(int luck) => 1f - LuckyRoll(luck);
+        // Inverted roll: used for negative outcomes (ambush chance, curse trigger)
+        public static float InsanityRoll(int sanity) => 1f - SanityRoll(sanity);
 
-        // ── Relic Quality ─────────────────────────────────────────────────
-        // Returns 0=Common, 1=Uncommon, 2=Rare based on luck
-        public static int RollRelicQuality(int luck)
+        // ── Relic / Loot Quality ──────────────────────────────────────────
+        // Returns 0=Common, 1=Uncommon, 2=Rare based on sanity
+        public static int RollRelicQuality(int sanity)
         {
-            float roll = LuckyRoll(luck);
-            if (roll > 0.92f) return 2;  // Rare   ( 8% base,  scales up)
-            if (roll > 0.70f) return 1;  // Uncommon(22% base, scales up)
+            float roll = SanityRoll(sanity);
+            if (roll > 0.88f) return 2;  // Rare    (12% at neutral, better at +3)
+            if (roll > 0.65f) return 1;  // Uncommon(23% at neutral)
             return 0;                    // Common
         }
 
         // ── Gold Range ─────────────────────────────────────────────────────
-        public static int RollGold(int baseAmount, int luck)
+        public static int RollGold(int baseAmount, int sanity)
         {
-            float t = LuckyRoll(luck, 0.7f, 1.5f);
+            float t = SanityRoll(sanity) * 0.8f + 0.6f;  // [0.6, 1.4]
             return Mathf.RoundToInt(baseAmount * t);
         }
 
         // ── Event Outcome ──────────────────────────────────────────────────
-        // Determines which event category is rolled for (positive/neutral/negative)
-        public static EventQuality RollEventQuality(int luck)
+        // Biases which event category is selected (positive/neutral/negative)
+        public static EventQuality RollEventQuality(int sanity)
         {
-            float roll = LuckyRoll(luck);
-            if (roll > 0.80f) return EventQuality.Positive;
-            if (roll > 0.35f) return EventQuality.Neutral;
+            float roll = SanityRoll(sanity);
+            if (roll > 0.75f) return EventQuality.Positive;
+            if (roll > 0.30f) return EventQuality.Neutral;
             return EventQuality.Negative;
         }
 
-        // ── Critical Hit ───────────────────────────────────────────────────
-        // Luck contributes a small crit bonus on top of base crit rate
-        public static int GetLuckCritBonus(int luck) =>
-            Mathf.RoundToInt(luck * 0.5f);  // +0.5% crit per Luck
+        // ── Shop Stock ─────────────────────────────────────────────────────
+        // Higher sanity = better chance of rare items appearing in shops
+        public static bool IsShopItemRare(int sanity) =>
+            Random.value < Mathf.Clamp(0.08f + sanity * 0.04f, 0.01f, 0.20f);
 
-        // ── Dodge ──────────────────────────────────────────────────────────
-        // LuckyDodge relic: base 0 + 0.5% per Luck
-        public static float GetDodgeChance(int luck) =>
-            Mathf.Clamp01(luck * 0.005f);
-
-        // ── Shop Stock Quality ─────────────────────────────────────────────
-        // Higher luck = more rare items appear in shops
-        public static bool IsShopItemRare(int luck) =>
-            Random.value < (0.05f + luck * 0.02f);
-
-        // ── Encounter Modifications ────────────────────────────────────────
-        // Luck reduces chance of negative encounter events (ambush, etc.)
-        public static bool IsAmbush(int luck) =>
-            Random.value > Mathf.Clamp01(0.15f - luck * 0.01f);
-
-        // ── Curse Interactions ─────────────────────────────────────────────
-        // At very high luck, cursed room rewards can double
-        public static bool CursedRoomDoubleLoot(int luck) =>
-            luck >= 15 && Random.value < 0.25f;
-
-        // ── Miracle Chance ─────────────────────────────────────────────────
-        // From MiracleChance relic: tiny chance per battle for bonus drop
-        public static bool RollMiracleChance(int luck) =>
-            Random.value < (0.01f + luck * 0.001f);
+        // ── Encounter Tone ─────────────────────────────────────────────────
+        // Low sanity increases chance of ambush / disadvantageous start
+        public static bool IsAmbush(int sanity) =>
+            Random.value < Mathf.Clamp(0.10f - sanity * 0.03f, 0f, 0.25f);
     }
 
     public enum EventQuality { Positive, Neutral, Negative }

@@ -8,7 +8,7 @@ namespace DarkChronicle.Roguelike
 {
     /// <summary>
     /// Rest site (野営地): player can heal, upgrade a skill, smelt a relic for power,
-    /// or meditate for Luck. Choices cost the rest opportunity.
+    /// or meditate to restore Sanity. Choices cost the rest opportunity.
     /// </summary>
     public sealed class RestSiteController : MonoBehaviour
     {
@@ -133,8 +133,8 @@ namespace DarkChronicle.Roguelike
 
         IEnumerator OnMeditate()
         {
-            // Gain +2 Luck and +1 BP in next battle
-            _run.Luck += 2;
+            // Restore +1 Sanity (clamped to +3)
+            _run.AddSanity(1);
             yield return ShowMeditateEffect();
             TakeRestAction();
         }

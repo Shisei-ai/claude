@@ -10,7 +10,7 @@ using DarkChronicle.Roguelike.Relics;
 namespace DarkChronicle.Roguelike
 {
     /// <summary>
-    /// Post-battle loot screen: shows N skill/relic/item choices weighted by Luck,
+    /// Post-battle loot screen: shows N skill/relic/item choices weighted by Sanity,
     /// handles gold reward, and triggers relic obtain animations.
     /// </summary>
     public sealed class LootSystem : MonoBehaviour
@@ -64,16 +64,16 @@ namespace DarkChronicle.Roguelike
         // ── Battle Rewards ─────────────────────────────────────────────────
         public IEnumerator ShowBattleRewards(int baseGold, bool isElite, bool isBoss)
         {
-            int luck          = RelicManager.Instance.GetLuck();
+            int sanity        = _run.Sanity;
             int goldReward    = RelicManager.Instance.ModifyGoldDrop(
                                     Mathf.RoundToInt(baseGold * (isElite ? 2f : 1f) * (isBoss ? 3f : 1f)));
             _run.EarnGold(goldReward);
 
             int choiceCount   = RelicManager.Instance.GetLootChoiceCount();
-            if (isElite) choiceCount += (int)RelicManager.Instance.GetLuck() / 5;
+            if (isElite && sanity >= 3) choiceCount++;   // max Sanity bonus on elite
 
-            // Build choice pool: mix skills and relics by floor and luck
-            var choices = BuildChoices(choiceCount, isElite, isBoss, luck);
+            // Build choice pool: mix skills and relics by floor and sanity
+            var choices = BuildChoices(choiceCount, isElite, isBoss, sanity);
 
             _headerText.text    = isBoss ? "BOSS 撃破！" : isElite ? "強敵 撃破！" : "戦闘 勝利！";
             _goldRewardText.text = $"+ {goldReward} G";
@@ -81,7 +81,7 @@ namespace DarkChronicle.Roguelike
             yield return ShowChoicePanel(choices);
         }
 
-        List<LootChoice> BuildChoices(int count, bool isElite, bool isBoss, int luck)
+        List<LootChoice> BuildChoices(int count, bool isElite, bool isBoss, int sanity)
         {
             var choices  = new List<LootChoice>();
             var used     = new HashSet<string>();
@@ -96,13 +96,13 @@ namespace DarkChronicle.Roguelike
             int remaining = count - choices.Count;
             for (int i = 0; i < remaining; i++)
             {
-                // Decide: skill or relic? Later floors and higher luck → more relics
-                bool offerRelic = Random.value < (0.25f + _run.CurrentFloor * 0.1f + luck * 0.02f)
+                // Decide: skill or relic? Later floors and higher sanity → more relics
+                bool offerRelic = Random.value < (0.25f + _run.CurrentFloor * 0.1f + sanity * 0.05f)
                                   || isElite;
 
                 if (offerRelic)
                 {
-                    var rarity = RollRelicRarity(luck, isElite);
+                    var rarity = RollRelicRarity(sanity, isElite);
                     var relic  = DrawRelic(rarity, false, used);
                     if (relic != null) choices.Add(new LootChoice { Relic = relic });
                     else              offerRelic = false;
@@ -110,7 +110,7 @@ namespace DarkChronicle.Roguelike
 
                 if (!offerRelic)
                 {
-                    var skill = DrawSkill(luck, used);
+                    var skill = DrawSkill(sanity, used);
                     if (skill != null) choices.Add(new LootChoice { Skill = skill });
                 }
             }
@@ -206,9 +206,8 @@ namespace DarkChronicle.Roguelike
         // ── Skill Draft (for events) ───────────────────────────────────────
         public IEnumerator ShowSkillDraft(int count = 3)
         {
-            var luck   = RelicManager.Instance.GetLuck();
             var skills = Enumerable.Range(0, count)
-                .Select(_ => DrawSkill(luck, null))
+                .Select(_ => DrawSkill(_run.Sanity, null))
                 .Where(s => s != null)
                 .ToList();
 
@@ -255,11 +254,11 @@ namespace DarkChronicle.Roguelike
         }
 
         // ── Skill Drawing ──────────────────────────────────────────────────
-        SkillData DrawSkill(int luck, HashSet<string> used)
+        SkillData DrawSkill(int sanity, HashSet<string> used)
         {
-            // Higher luck = higher chance of rare skill
-            float rareChance    = 0.1f + luck * 0.03f;
-            float uncommonChance = 0.25f + luck * 0.02f;
+            // Higher sanity = higher chance of rare skill (sanity -3 to +3)
+            float rareChance     = Mathf.Clamp(0.10f + sanity * 0.05f, 0.01f, 0.25f);
+            float uncommonChance = Mathf.Clamp(0.25f + sanity * 0.04f, 0.05f, 0.37f);
             float roll = Random.value;
 
             List<SkillData> pool = roll < rareChance    ? _rareSkillPool :
@@ -279,10 +278,10 @@ namespace DarkChronicle.Roguelike
             return chosen;
         }
 
-        RelicRarity RollRelicRarity(int luck, bool isElite)
+        RelicRarity RollRelicRarity(int sanity, bool isElite)
         {
-            float rare     = 0.05f + luck * 0.02f + (isElite ? 0.1f : 0f);
-            float uncommon = 0.20f + luck * 0.01f + (isElite ? 0.1f : 0f);
+            float rare     = Mathf.Clamp(0.08f + sanity * 0.05f, 0.01f, 0.23f) + (isElite ? 0.1f : 0f);
+            float uncommon = Mathf.Clamp(0.20f + sanity * 0.03f, 0.05f, 0.29f) + (isElite ? 0.1f : 0f);
             float cursed   = 0.05f;
 
             float roll = Random.value;

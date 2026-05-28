@@ -27,7 +27,7 @@ namespace DarkChronicle.Roguelike
         public int  CurrentHP;
         public int  MaxHP;
         public int  Gold         = 0;
-        public int  Luck         = 0;         // +1 per Luck relic; affects loot/events
+        public int  Sanity       = 0;         // -3 to +3; exploration mental state
 
         // ── Skill Deck ─────────────────────────────────────────────────────
         // Player drafts skills into their deck as the run progresses.
@@ -97,6 +97,8 @@ namespace DarkChronicle.Roguelike
 
         public void SpendGold(int amount) => Gold = Mathf.Max(0, Gold - amount);
         public void EarnGold(int amount)  { Gold += amount; GoldEarned += amount; }
+
+        public void AddSanity(int delta) => Sanity = Mathf.Clamp(Sanity + delta, -3, 3);
     }
 
     // ── Curse Data ─────────────────────────────────────────────────────────
@@ -121,7 +123,7 @@ namespace DarkChronicle.Roguelike
         WeakenedHeal,         // 回復量半減
         BleedAtStart,         // 戦闘開始時に出血付与
         ShieldBreakChanceDown,// Break確率-20%
-        LuckDown,             // LUCKが下がる
+        SanityDown,           // SANITYが下がる
         FragileHP,            // 被ダメージ+10%
         NoBP,                 // BP回収できない
     }

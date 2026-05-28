@@ -43,9 +43,9 @@ namespace DarkChronicle.Roguelike.Events
         public bool  TriggerBattle;              // some events lead to fights
         public bool  IsEliteBattle;
 
-        [Header("Luck Change")]
-        public bool  ChangeLuck;
-        public int   LuckChange;
+        [Header("Sanity Change")]
+        public bool  ChangeSanity;
+        public int   SanityChange;    // positive = sanity up, negative = sanity down
 
         [Header("Curse Removal")]
         public bool  RemoveCurse;
@@ -63,7 +63,7 @@ namespace DarkChronicle.Roguelike.Events
         [TextArea] public string  TooltipText;    // optional hint
         public bool               RequiresGold;
         public int                GoldCost;
-        public float              LuckRequirement; // 0 = no requirement
+        public float              SanityRequirement; // 0 = no requirement
         public EventChoiceResult  Result;
     }
 
@@ -84,7 +84,7 @@ namespace DarkChronicle.Roguelike.Events
         public int          MaxFloor = 99;
         public bool         OneTimeOnly = false;    // once per run
         public RelicEffectType RequiredRelic = (RelicEffectType)(-1); // -1 = no requirement
-        public float        LuckBonusWeight = 0f;   // extra weight at high LUCK
+        public float        SanityWeight = 0f;   // selection weight modifier per Sanity point
 
         [Header("Choices")]
         public List<EventChoice> Choices;

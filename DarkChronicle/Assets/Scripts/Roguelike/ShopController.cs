@@ -88,19 +88,16 @@ namespace DarkChronicle.Roguelike
             ClearSection(_consumableSection);
             ClearSection(_serviceSection);
 
-            int luck      = RelicManager.Instance.GetLuck();
+            int sanity    = _run.Sanity;
             int floor     = _run.CurrentFloor;
 
             // 3-4 skills
-            var skillPool = LootSystem.Instance != null
-                ? new List<SkillData>()     // filled from LootSystem pools
-                : new List<SkillData>();
             for (int i = 0; i < Random.Range(3, 5); i++)
-                AddSkillItem(floor, luck);
+                AddSkillItem(floor, sanity);
 
             // 2-3 relics
             for (int i = 0; i < Random.Range(2, 4); i++)
-                AddRelicItem(floor, luck);
+                AddRelicItem(floor, sanity);
 
             // 2 consumables
             for (int i = 0; i < 2; i++)
@@ -111,9 +108,9 @@ namespace DarkChronicle.Roguelike
             AddService("スキル強化", SkillUpgradePrice,  OnUpgradeSkill, false);
         }
 
-        void AddSkillItem(int floor, int luck)
+        void AddSkillItem(int floor, int sanity)
         {
-            var skill = LootSystem.Instance?.DrawSkillPublic(luck);
+            var skill = LootSystem.Instance?.DrawSkillPublic(sanity);
             if (skill == null) return;
             int price = RelicManager.Instance.ModifyShopPrice(
                 Mathf.RoundToInt(SkillBasePrice * (1f + floor * 0.3f)));
@@ -122,9 +119,9 @@ namespace DarkChronicle.Roguelike
             _stock.Add(new ShopItem { Skill = skill, Price = price, GO = item });
         }
 
-        void AddRelicItem(int floor, int luck)
+        void AddRelicItem(int floor, int sanity)
         {
-            var rarity = LootSystem.Instance?.DrawRelicRarityPublic(luck, false) ?? RelicRarity.Common;
+            var rarity = LootSystem.Instance?.DrawRelicRarityPublic(sanity, false) ?? RelicRarity.Common;
             var relic  = LootSystem.Instance?.DrawRelicPublic(rarity, false);
             if (relic == null) return;
             int basePrice = RelicBasePrices.TryGetValue(relic.Rarity, out int p) ? p : 100;
@@ -260,9 +257,9 @@ namespace DarkChronicle.Roguelike
     // Temporary extension stubs (real implementations in LootSystem)
     public static class LootSystemExtensions
     {
-        public static SkillData DrawSkillPublic(this LootSystem ls, int luck) => null;
+        public static SkillData DrawSkillPublic(this LootSystem ls, int sanity) => null;
         public static RelicData DrawRelicPublic(this LootSystem ls, RelicRarity rarity, bool forEvent) => null;
-        public static RelicRarity DrawRelicRarityPublic(this LootSystem ls, int luck, bool isElite)
+        public static RelicRarity DrawRelicRarityPublic(this LootSystem ls, int sanity, bool isElite)
             => RelicRarity.Common;
     }
 

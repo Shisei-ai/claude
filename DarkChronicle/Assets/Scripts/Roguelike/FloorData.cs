@@ -67,7 +67,8 @@ namespace DarkChronicle.Roguelike
         public float            Weight = 1f;  // selection weight
         public int              MinFloor = 0;
 
-        public float AdjustedWeight(int luck) => Weight + luck * 0.05f;
+        // Sanity ∈ [-3, +3]: higher sanity makes favorable encounter groups slightly more likely
+        public float AdjustedWeight(int sanity) => Mathf.Max(0.1f, Weight + sanity * 0.1f);
     }
 
     // ── Floor Library ──────────────────────────────────────────────────────

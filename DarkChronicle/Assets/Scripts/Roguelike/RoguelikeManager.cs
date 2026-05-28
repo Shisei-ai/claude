@@ -324,17 +324,15 @@ namespace DarkChronicle.Roguelike
         // ── Event ──────────────────────────────────────────────────────────
         IEnumerator ResolveEvent(int floorIndex)
         {
-            int luck = _relicManager.GetLuck();
-            var ev   = _eventManager.SelectEvent(floorIndex, luck);
+            var ev = _eventManager.SelectEvent(floorIndex, _run.Sanity);
             yield return _eventManager.RunEvent(ev);
         }
 
         // ── Treasure ───────────────────────────────────────────────────────
         IEnumerator ResolveTreasure()
         {
-            int luck   = _relicManager.GetLuck();
-            // Luck-weighted: higher luck = better relic rarity
-            float roll = Random.value - luck * 0.05f;
+            // Sanity-weighted: higher sanity = better relic rarity
+            float roll = Random.value - _run.Sanity * 0.08f;
             RelicRarity rarity = roll < 0.15f ? RelicRarity.Rare :
                                  roll < 0.45f ? RelicRarity.Uncommon :
                                                 RelicRarity.Common;
@@ -386,14 +384,13 @@ namespace DarkChronicle.Roguelike
             }
 
             var pool  = isElite ? _currentFloor.EliteEncounters : _currentFloor.NormalEncounters;
-            int luck  = _relicManager.GetLuck();
-            float total = pool.Sum(g => g.AdjustedWeight(luck));
+            float total = pool.Sum(g => g.AdjustedWeight(_run.Sanity));
             float roll  = Random.Range(0f, total);
             float cum   = 0f;
 
             foreach (var group in pool)
             {
-                cum += group.AdjustedWeight(luck);
+                cum += group.AdjustedWeight(_run.Sanity);
                 if (roll < cum) return new List<EnemyData>(group.Enemies);
             }
             return pool.Count > 0 ? new List<EnemyData>(pool[0].Enemies) : null;
@@ -487,7 +484,7 @@ namespace DarkChronicle.Roguelike
                 CurseEffectType.WeakenedHeal         => ("汚染の傷",  "回復量が半減する。",                0.5f),
                 CurseEffectType.BleedAtStart         => ("血の呪縛",  "戦闘開始時に出血状態になる。",       1f),
                 CurseEffectType.ShieldBreakChanceDown=> ("鈍き刃",    "シールド破壊確率が20%低下する。",    0.2f),
-                CurseEffectType.LuckDown             => ("不運の印",  "LUCKが3減少する。",                 3f),
+                CurseEffectType.SanityDown           => ("精神の亀裂", "SANITYが1低下し続ける。",            1f),
                 CurseEffectType.FragileHP             => ("脆弱の体",  "受けるダメージが10%増加する。",      0.1f),
                 CurseEffectType.NoBP                 => ("力の封印",  "BP を回収できなくなる。",           1f),
                 _                                    => ("未知の呪い","不明な呪いにかかっている。",         1f),
@@ -548,6 +545,12 @@ namespace DarkChronicle.Roguelike
                 UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu"));
         }
 
+        static string SanityLabel(int sanity)
+        {
+            string sign = sanity >= 0 ? "+" : string.Empty;
+            return $"精神 {sign}{sanity}";
+        }
+
         string BuildSummary(bool won)
         {
             System.TimeSpan elapsed = System.DateTime.Now - _run.StartTime;
@@ -570,7 +573,7 @@ namespace DarkChronicle.Roguelike
             if (_hpSlider)   _hpSlider.value   = _run.HPRatio;
             if (_hpText)     _hpText.text       = $"{_run.CurrentHP}/{_run.MaxHP}";
             if (_goldText)   _goldText.text      = $"{_run.Gold} G";
-            if (_luckText)   _luckText.text      = $"LUCK {_relicManager.GetLuck()}";
+            if (_luckText)   _luckText.text      = SanityLabel(_run.Sanity);
 
             RefreshRelicBar();
         }

@@ -274,7 +274,8 @@ namespace DarkChronicle.Roguelike.Relics
             return Mathf.Max(2, count);
         }
 
-        public int GetLuck() => _run.Luck + (int)SumEffect(RelicEffectType.LuckUp);
+        // Returns relic-based luck bonus only (for battle crits / dodge; exploration uses RunData.Sanity)
+        public int GetLuck() => (int)SumEffect(RelicEffectType.LuckUp);
 
         // ── Heal Modifiers ─────────────────────────────────────────────────
         public int ModifyHealAmount(int baseHeal)

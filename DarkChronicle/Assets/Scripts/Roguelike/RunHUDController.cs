@@ -62,7 +62,7 @@ namespace DarkChronicle.Roguelike
         bool    _ghostDraining;
 
         // Cached values for change detection
-        int     _lastHP, _lastGold, _lastLuck;
+        int     _lastHP, _lastGold, _lastSanity;
         int     _lastRelicCount, _lastCurseCount;
 
         void Awake() => Instance = this;
@@ -81,7 +81,7 @@ namespace DarkChronicle.Roguelike
             // Detect changes and animate
             if (_run.CurrentHP != _lastHP)       OnHPChanged();
             if (_run.Gold != _lastGold)           OnGoldChanged();
-            if (_run.Luck != _lastLuck)           RefreshLuck();
+            if (_run.Sanity != _lastSanity)       RefreshSanity();
             if (_run.Relics.Count != _lastRelicCount) RefreshRelics();
             if (_run.Curses.Count != _lastCurseCount) RefreshCurses();
 
@@ -134,17 +134,18 @@ namespace DarkChronicle.Roguelike
                 delta >= 0 ? new Color(1f, 0.85f, 0.2f) : new Color(0.8f, 0.3f, 0.3f));
         }
 
-        void RefreshLuck()
+        void RefreshSanity()
         {
-            _lastLuck = _run.Luck;
-            int total = RelicManager.Instance != null ? RelicManager.Instance.GetLuck() : _run.Luck;
-            if (_luckText) _luckText.text = $"LUCK {total}";
-            // Change icon color based on luck bracket
+            _lastSanity = _run.Sanity;
+            string sign = _run.Sanity >= 0 ? "+" : string.Empty;
+            if (_luckText) _luckText.text = $"精神 {sign}{_run.Sanity}";
+            // Color: -3 = sickly purple, 0 = white, +3 = calm gold
             if (_luckIcon)
             {
-                _luckIcon.color = total >= 15 ? new Color(1f, 0.85f, 0.1f) :
-                                  total >= 8  ? new Color(0.6f, 0.8f, 1f) :
-                                                Color.white;
+                _luckIcon.color = _run.Sanity >= 2  ? new Color(1f,  0.85f, 0.2f) :  // gold
+                                  _run.Sanity >= 0  ? Color.white                  :  // neutral
+                                  _run.Sanity >= -1 ? new Color(0.9f, 0.6f, 0.6f) :  // pink warning
+                                                      new Color(0.6f, 0.3f, 0.7f);   // deep purple
             }
         }
 
@@ -198,7 +199,7 @@ namespace DarkChronicle.Roguelike
         {
             _lastHP         = _run.CurrentHP + 1;  // force update
             _lastGold       = _run.Gold + 1;
-            _lastLuck       = _run.Luck + 1;
+            _lastSanity     = _run.Sanity + 1;  // +1 forces RefreshSanity on first frame
             _lastRelicCount = -1;
             _lastCurseCount = -1;
         }

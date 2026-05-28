@@ -62,7 +62,7 @@ namespace DarkChronicle.Roguelike.Events
         }
 
         // ── Selection ──────────────────────────────────────────────────────
-        public RandomEventData SelectEvent(int floorIndex, int luck)
+        public RandomEventData SelectEvent(int floorIndex, int sanity)
         {
             var pool = _allEvents
                 .Where(e => e != null
@@ -73,8 +73,8 @@ namespace DarkChronicle.Roguelike.Events
 
             if (pool.Count == 0) return null;
 
-            // Luck-weighted random selection
-            var weights = pool.Select(e => Mathf.Max(0.01f, 1f + e.LuckBonusWeight * luck)).ToList();
+            // Sanity-weighted random selection: high sanity favors positive events
+            var weights = pool.Select(e => Mathf.Max(0.01f, 1f + e.SanityWeight * sanity)).ToList();
             float total = weights.Sum();
             float roll  = Random.Range(0f, total);
             float acc   = 0f;
@@ -150,8 +150,8 @@ namespace DarkChronicle.Roguelike.Events
                 if (texts.Length > 0) texts[0].text = choice.ChoiceText;
 
                 bool affordable   = !choice.RequiresGold || _run.Gold >= choice.GoldCost;
-                bool luckyEnough  = choice.LuckRequirement <= 0f
-                                 || RelicManager.Instance.GetLuck() >= choice.LuckRequirement;
+                bool luckyEnough  = choice.SanityRequirement == 0
+                                 || _run.Sanity >= choice.SanityRequirement;
                 btn.interactable  = affordable && luckyEnough;
 
                 // Subtitle / tooltip line
@@ -250,8 +250,8 @@ namespace DarkChronicle.Roguelike.Events
                 if (_run.CurrentHP > _run.MaxHP) _run.CurrentHP = _run.MaxHP;
             }
 
-            // Luck change
-            if (result.ChangeLuck) _run.Luck = Mathf.Max(0, _run.Luck + result.LuckChange);
+            // Sanity change
+            if (result.ChangeSanity) _run.AddSanity(result.SanityChange);
 
             // Relic gain
             if (result.GainRelic)

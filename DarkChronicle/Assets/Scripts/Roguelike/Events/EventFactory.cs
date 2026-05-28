@@ -101,8 +101,8 @@ namespace DarkChronicle.Roguelike.Events
             minFloor: 0, maxFloor: 1, tint: new Color(0.55f, 0.5f, 0.45f),
             Choice("助ける",
                    "HP10%を使って騎士を助ける。",
-                   Res("騎士は深く頭を下げ、路銀と感謝の言葉を残して去っていった。運命の糸が絡み合った気がする。",
-                       hp: -0.10f, goldChange: 40, luck: 1)),
+                   Res("騎士は深く頭を下げ、路銀と感謝の言葉を残して去っていった。心が少し軽くなった気がする。",
+                       hp: -0.10f, goldChange: 40, sanity: 1)),
             Choice("持ち物を漁る",
                    Res("騎士が弱々しく抵抗する中、ポーチからいくらかのゴールドを奪った。後味の悪い選択だ。",
                        goldChange: 30)),
@@ -198,7 +198,7 @@ namespace DarkChronicle.Roguelike.Events
             "「勇者よ、取引をしよう。汝の命の一部と引き換えに、我が力を授けよう」\n" +
             "低い声が空気を震わせ、その目は暗紅色に輝いている。",
             minFloor: 0, maxFloor: 5, oneTime: true, tint: new Color(0.5f, 0.1f, 0.3f),
-            luckWeight: 0.2f,
+            sanityWeight: 0.2f,
             Choice("契約する",
                    Res("最大HPが大きく削られたが、悪魔は約束通り二つの遺物を置いていった。",
                        maxHP: -30, relic: true, relicPool: RelicRarity.Rare)),
@@ -213,8 +213,8 @@ namespace DarkChronicle.Roguelike.Events
             "声の出所は全く見えない。従うか、無視するか。",
             minFloor: 0, maxFloor: 2, tint: new Color(0.3f, 0.25f, 0.45f),
             Choice("声に従う",
-                   Res("暗闇の奥に踏み込むと、不思議な力が体を包んだ。良いものか悪いものかは、まだわからない。",
-                       hp: 0.20f, luck: 1)),
+                   Res("暗闇の奥に踏み込むと、不思議な力が体を包んだ。心の何かが揺れた気がする。",
+                       hp: 0.20f, sanity: 1)),
             Choice("声に応える",
                    "HP10%を失うが、知識を得られるかもしれない。",
                    Res("声は喜んだようで、古い術式を授けてくれた。しかし体の一部が消耗した。",
@@ -250,13 +250,13 @@ namespace DarkChronicle.Roguelike.Events
             "「旅人よ、迷っているのか？　この森には危険が潜む」\n" +
             "その声は人の言葉だった。カラスは知恵ある目で語りかける。",
             minFloor: 2, maxFloor: 3, tint: new Color(0.2f, 0.2f, 0.3f),
-            luckWeight: 0.3f,
+            sanityWeight: 0.3f,
             Choice("カラスの話を聞く",
-                   Res("カラスは森の秘密をいくつか語ってくれた。心なしか足取りが軽くなった気がする。",
-                       luck: 2)),
+                   Res("カラスは森の秘密をいくつか語ってくれた。知識を得て、心が少し落ち着いた気がする。",
+                       sanity: 1)),
             Choice("カラスを捕まえようとする",
-                   Res("カラスは素早く飛び去り、金切り声で呪いの言葉を残した。運が悪くなった気がする。",
-                       goldChange: 20, luck: -1)),
+                   Res("カラスは素早く飛び去り、金切り声で不吉な叫びを残した。何か嫌な予感がする。",
+                       goldChange: 20, sanity: -1)),
             Choice("立ち去る",
                    Res("カラスは静かに見送った。"))
         );
@@ -362,8 +362,8 @@ namespace DarkChronicle.Roguelike.Events
                    Res("大地の力が体を満たした。傷が癒え、体が少し強くなった。",
                        hp: 0.30f, maxHP: 15)),
             Choice("石を一つ持ち帰る",
-                   Res("不思議な力を宿した石を手に入れた。運命が少し変わった気がする。",
-                       luck: 1, goldChange: 30)),
+                   Res("不思議な力を宿した石を手に入れた。心がじんわりと温かくなった気がする。",
+                       sanity: 1, goldChange: 30)),
             Choice("立ち去る",
                    Res("神聖な場所を乱さずに立ち去った。"))
         );
@@ -374,7 +374,7 @@ namespace DarkChronicle.Roguelike.Events
             "「願いを言え。ただし、望むものはひとつだけだ」\n" +
             "精霊の声が、井戸の中から静かに響いた。",
             minFloor: 2, maxFloor: 3, tint: new Color(0.35f, 0.4f, 0.6f),
-            luckWeight: 0.2f,
+            sanityWeight: 0.2f,
             Choice("回復を望む",
                    Res("柔らかな光が体を包み込み、全ての傷が消えた。",
                        fullHeal: true)),
@@ -408,13 +408,13 @@ namespace DarkChronicle.Roguelike.Events
             "水面には過去の自分の姿が映っていた。後悔、悲しみ、そして希望。\n" +
             "この湖には特別な力があるという。",
             minFloor: 2, maxFloor: 3, oneTime: true, tint: new Color(0.25f, 0.35f, 0.55f),
-            luckWeight: 0.15f,
+            sanityWeight: 0.15f,
             Choice("過去を見つめる",
                    Res("水面に映る記憶が体に流れ込み、最大HPが増した。しかし何か暗いものも残った気がする。",
                        maxHP: 20, curse: true)),
             Choice("湖に手を触れる",
-                   Res("湖の力が呪いを洗い流した。あるいは、心が軽くなった分、幸運が増した。",
-                       removeCurse: true, luck: 1)),
+                   Res("湖の力が呪いを洗い流した。水面に触れた瞬間、心の霧が晴れていくようだった。",
+                       removeCurse: true, sanity: 1)),
             Choice("立ち去る",
                    Res("湖は静かに波紋を描いた。"))
         );
@@ -430,8 +430,8 @@ namespace DarkChronicle.Roguelike.Events
             "彼らはまだこちらに気づいていないようだ。",
             minFloor: 4, maxFloor: 5, tint: new Color(0.2f, 0.15f, 0.35f),
             Choice("盗み聞きする",
-                   Res("敵の弱点と戦術を知ることができた。知識は武器だ。",
-                       luck: 2, relic: true, relicPool: RelicRarity.Common)),
+                   Res("敵の弱点と戦術を知ることができた。情報を得て、精神的な余裕が生まれた。",
+                       sanity: 1, relic: true, relicPool: RelicRarity.Common)),
             Choice("仲間に加わる",
                    Res("影たちに認められ、強力な遺物を得た。しかし彼らとの契約が新たな呪縛となった。",
                        relic: true, relicPool: RelicRarity.Rare, curse: true)),
@@ -497,13 +497,13 @@ namespace DarkChronicle.Roguelike.Events
             "その手には、長い旅を物語るように、傷だらけだが輝く遺物が握られていた。\n" +
             "この英雄の意志を受け継ぐことができるか。",
             minFloor: 4, maxFloor: 5, oneTime: true, tint: new Color(0.5f, 0.45f, 0.6f),
-            luckWeight: 0.25f,
+            sanityWeight: 0.25f,
             Choice("形見を受け取る",
                    Res("英雄の意志が宿った遺物を手に取った。その重さが使命感を与えてくれる。",
                        relic: true, relicPool: RelicRarity.Boss)),
             Choice("祈りを捧げる",
-                   Res("静かに祈ると、英雄の魂が感謝するように全ての傷を癒やしてくれた。",
-                       fullHeal: true, luck: 1)),
+                   Res("静かに祈ると、英雄の魂が感謝するように全ての傷を癒やしてくれた。心に平穏が宿った。",
+                       fullHeal: true, sanity: 1)),
             Choice("立ち去る",
                    Res("英雄を静かに安らかに眠らせてやった。"))
         );
@@ -545,8 +545,8 @@ namespace DarkChronicle.Roguelike.Events
             "魂たちは必死に訴えかけてくるが、その力を利用することもできそうだ。",
             minFloor: 4, maxFloor: 5, tint: new Color(0.3f, 0.3f, 0.6f),
             Choice("魂を解放する",
-                   Res("魂たちは感謝の光を放ちながら昇っていった。その加護で体が強くなった。",
-                       maxHP: 20, luck: 1)),
+                   Res("魂たちは感謝の光を放ちながら昇っていった。その加護で体が強くなり、心も穏やかになった。",
+                       maxHP: 20, sanity: 1)),
             Choice("魂の力を吸収する",
                    Res("魂たちの力が体に流れ込んだ。傷が癒えたが、怨念が僅かに残った気がする。",
                        hp: 0.30f, curse: true)),
@@ -578,16 +578,16 @@ namespace DarkChronicle.Roguelike.Events
             "この光は確かに、あなたを待っていた。\n" +
             "最終決戦の前に、どんな力を望むか。",
             minFloor: 4, maxFloor: 5, oneTime: true, tint: new Color(0.8f, 0.75f, 0.5f),
-            luckWeight: 0.5f,
+            sanityWeight: 0.5f,
             Choice("力の祝福を受ける",
                    Res("戦いのための新たな術が授けられた。",
                        skillDraft: true, skillCount: 3)),
             Choice("癒やしの祝福を受ける",
                    Res("柔らかな光が全ての傷を癒やし、さらに体を強くした。",
                        fullHeal: true, maxHP: 30)),
-            Choice("運の祝福を受ける",
-                   Res("幸運の女神の微笑みが、ゴールドと運を与えてくれた。",
-                       luck: 3, goldChange: 100))
+            Choice("精神の祝福を受ける",
+                   Res("聖なる光が心の澱を洗い流し、精神が研ぎ澄まされた。ゴールドも降り注いできた。",
+                       sanity: 2, goldChange: 100))
         );
 
         // ════════════════════════════════════════════════════════════════════
@@ -600,7 +600,7 @@ namespace DarkChronicle.Roguelike.Events
             "「さあ旅人、一勝負いかがかね？」\n" +
             "カードを持った男が、挑戦的な笑みを浮かべている。",
             minFloor: 0, maxFloor: 5, tint: new Color(0.55f, 0.4f, 0.25f),
-            luckWeight: 0.35f,
+            sanityWeight: 0.35f,
             Choice("大きく賭ける（100G）",
                    "100Gを賭ける。勝てば200G、負ければ50G返却。",
                    Res("運試しの結果……大きく勝った！",
@@ -624,7 +624,7 @@ namespace DarkChronicle.Roguelike.Events
             "「どこにも売っていない、本物の逸品だよ」\n" +
             "確かに、その品は見たことのない輝きを放っている。",
             minFloor: 0, maxFloor: 5, tint: new Color(0.4f, 0.35f, 0.5f),
-            luckWeight: 0.3f,
+            sanityWeight: 0.3f,
             Choice("特別な品を購入（120G）",
                    "120Gを支払う。",
                    Res("商人から希少な遺物を購入した。どこにも売っていない代物だ。",
@@ -645,13 +645,13 @@ namespace DarkChronicle.Roguelike.Events
             "聖なる光が満ち、敵も悪意も近づくことができない特別な場所。\n" +
             "ここで何を望むか。",
             minFloor: 0, maxFloor: 5, oneTime: true, tint: new Color(0.9f, 0.85f, 0.6f),
-            luckWeight: 0.5f,
+            sanityWeight: 0.5f,
             Choice("癒やしの泉で休む",
                    Res("心身の全ての傷が癒やされた。完全な回復だ。",
                        fullHeal: true)),
             Choice("瞑想して力を蓄える",
-                   Res("静かな瞑想で体が強化され、運命の流れが変わった気がした。",
-                       maxHP: 20, luck: 1)),
+                   Res("静かな瞑想で体が強化され、精神が安定してきた気がした。",
+                       maxHP: 20, sanity: 1)),
             Choice("次の戦いに備える",
                    Res("聖域の知恵が新たなスキルを啓示した。",
                        skillDraft: true, skillCount: 4))
@@ -664,11 +664,11 @@ namespace DarkChronicle.Roguelike.Events
             "何が起きるかは神のみぞ知る。",
             minFloor: 0, maxFloor: 5, tint: new Color(0.4f, 0.3f, 0.7f),
             Choice("亀裂に飛び込む",
-                   Res("混沌の力がランダムに作用した。何が起きるかわからなかったが……結果は出た。",
-                       hp: 0.25f, goldChange: 50, luck: 1)),
+                   Res("混沌の力がランダムに作用した。何が起きるかわからなかったが……不思議と心が落ち着いた。",
+                       hp: 0.25f, goldChange: 50, sanity: 1)),
             Choice("端から観察する",
-                   Res("安全な距離から亀裂を観察することで、次元の知識を得た。",
-                       luck: 1)),
+                   Res("安全な距離から亀裂を観察することで、次元の知識を得た。知ることで恐怖が薄れた。",
+                       sanity: 1)),
             Choice("亀裂を閉じる",
                    Res("亀裂を封印すると、その反動で体が強化された。",
                        maxHP: 40, removeCurse: true))
@@ -713,23 +713,23 @@ namespace DarkChronicle.Roguelike.Events
         );
 
         static RandomEventData LuckyShrine() => Ev(
-            EventLibrary.LuckyShrine, "幸運の祠",
-            "小さな社に、狐の像が祀られている。\n" +
-            "「幸運を授けよう……それ相応の信仰を示せるならば」\n" +
-            "像の目が金色に輝き、参拝者を試している。",
+            EventLibrary.LuckyShrine, "安寧の祠",
+            "小さな社に、穏やかな表情の地蔵が祀られている。\n" +
+            "「心の平安を授けよう……誠実な心を持つ者には」\n" +
+            "像の周囲に、静かな光が揺れている。",
             minFloor: 0, maxFloor: 5, tint: new Color(0.6f, 0.55f, 0.3f),
-            luckWeight: 0.4f,
-            Choice("コインを投げる（10G）",
+            sanityWeight: 0.4f,
+            Choice("賽銭を投げる（10G）",
                    "10Gを賽銭として捧げる。",
-                   Res("コインが清浄な光を放ちながら社に吸い込まれ、運気が上昇した。",
-                       goldChange: -10, luck: 1, removeCurse: true),
+                   Res("コインが清浄な光を放ちながら社に吸い込まれ、心の澱が流れ落ちた。",
+                       goldChange: -10, sanity: 1, removeCurse: true),
                    gold: 10),
             Choice("全財産を捧げる",
-                   Res("全てのゴールドを捧げると、狐の像が大きく光った。運命が大きく動いた。",
-                       goldChange: -9999, luck: 5)),
-            Choice("ただ祈るだけ",
-                   Res("誠実な祈りに運が少し微笑んだ。",
-                       luck: 1))
+                   Res("全てのゴールドを捧げると、地蔵が大きく光った。精神が極限まで研ぎ澄まされた。",
+                       goldChange: -9999, sanity: 3)),
+            Choice("ただ手を合わせるだけ",
+                   Res("誠実な祈りに、心がわずかに落ち着いた。",
+                       sanity: 1))
         );
 
         static RandomEventData DarkMirror() => Ev(
@@ -742,8 +742,8 @@ namespace DarkChronicle.Roguelike.Events
                    Res("影と融合することで強大な力を得たが、その代償として闇が宿った。",
                        relic: true, relicPool: RelicRarity.Cursed, curse: true)),
             Choice("影と戦う",
-                   Res("影を押しつぶすことで、呪いの一つを払い除けた。しかし戦いで傷を負った。",
-                       hp: -0.25f, removeCurse: true, luck: 1)),
+                   Res("影を押しつぶすことで、呪いの一つを払い除けた。恐怖を克服し、心が落ち着いた。",
+                       hp: -0.25f, removeCurse: true, sanity: 1)),
             Choice("鏡を割る",
                    Res("鏡が砕けると呪いが一つ消えたが、その衝撃で体を痛めた。",
                        maxHP: -10, removeCurse: true))
@@ -755,10 +755,10 @@ namespace DarkChronicle.Roguelike.Events
             "勝利の雄叫び、苦しみの悲鳴、決断の瞬間……\n" +
             "過去のどの記憶を選ぶかで、未来が変わる。",
             minFloor: 0, maxFloor: 5, oneTime: true, tint: new Color(0.4f, 0.35f, 0.6f),
-            luckWeight: 0.2f,
+            sanityWeight: 0.2f,
             Choice("過去の勝利を選ぶ",
-                   Res("勝利の記憶が力となり、最大HPと幸運が向上した。",
-                       maxHP: 20, luck: 2)),
+                   Res("勝利の記憶が力となり、最大HPが向上した。誇りを思い出し、精神が安定した。",
+                       maxHP: 20, sanity: 1)),
             Choice("過去の敗北を選ぶ",
                    Res("痛みを受け入れることで呪いが消え、体が回復した。",
                        removeCurse: true, hp: 0.15f)),
@@ -773,7 +773,7 @@ namespace DarkChronicle.Roguelike.Events
             "声の主は見えないが、その威圧感は圧倒的だ。\n" +
             "試練を受けるか、誓いを立てるか、それとも……",
             minFloor: 2, maxFloor: 5, oneTime: true, tint: new Color(0.5f, 0.45f, 0.2f),
-            luckWeight: 0.25f,
+            sanityWeight: 0.25f,
             Choice("試練を受ける",
                    Res("強敵との戦いを制し、王者の証たる遺物を二つ手に入れた。",
                        battle: true, elite: true)),
@@ -790,9 +790,9 @@ namespace DarkChronicle.Roguelike.Events
 
         static RandomEventData Ev(string id, string title, string narrative,
                                   int minFloor, int maxFloor,
-                                  bool oneTime   = false,
-                                  Color? tint    = null,
-                                  float luckWeight = 0f,
+                                  bool oneTime     = false,
+                                  Color? tint      = null,
+                                  float sanityWeight = 0f,
                                   params EventChoice[] choices)
         {
             var ev = ScriptableObject.CreateInstance<RandomEventData>();
@@ -804,7 +804,7 @@ namespace DarkChronicle.Roguelike.Events
             ev.MaxFloor       = maxFloor;
             ev.OneTimeOnly    = oneTime;
             ev.UITintColor    = tint ?? Color.white;
-            ev.LuckBonusWeight = luckWeight;
+            ev.SanityWeight   = sanityWeight;
             ev.Choices        = new List<EventChoice>(choices);
             return ev;
         }
@@ -840,7 +840,7 @@ namespace DarkChronicle.Roguelike.Events
                                      int   skillCount   = 3,
                                      bool  removeSkill  = false,
                                      int   maxHP        = 0,
-                                     int   luck         = 0,
+                                     int   sanity       = 0,
                                      bool  battle       = false,
                                      bool  elite        = false,
                                      bool  removeCurse  = false,
@@ -862,8 +862,8 @@ namespace DarkChronicle.Roguelike.Events
                 RemoveSkill         = removeSkill,
                 ChangeMaxHP         = maxHP != 0,
                 MaxHPChange         = maxHP,
-                ChangeLuck          = luck != 0,
-                LuckChange          = luck,
+                ChangeSanity        = sanity != 0,
+                SanityChange        = sanity,
                 TriggerBattle       = battle,
                 IsEliteBattle       = elite,
                 RemoveCurse         = removeCurse,
