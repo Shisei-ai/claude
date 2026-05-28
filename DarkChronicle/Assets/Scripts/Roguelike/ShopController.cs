@@ -99,6 +99,10 @@ namespace DarkChronicle.Roguelike
             for (int i = 0; i < Random.Range(2, 4); i++)
                 AddRelicItem(floor, sanity);
 
+            // BlackMarket: always add one cursed relic to the shop
+            if (RelicManager.Instance?.HasBlackMarket() == true)
+                AddRelicItem(floor, sanity, forceCursed: true);
+
             // 2 consumables
             for (int i = 0; i < 2; i++)
                 AddConsumableItem();
@@ -119,9 +123,10 @@ namespace DarkChronicle.Roguelike
             _stock.Add(new ShopItem { Skill = skill, Price = price, GO = item });
         }
 
-        void AddRelicItem(int floor, int sanity)
+        void AddRelicItem(int floor, int sanity, bool forceCursed = false)
         {
-            var rarity = LootSystem.Instance?.DrawRelicRarityPublic(sanity, false) ?? RelicRarity.Common;
+            var rarity = forceCursed ? RelicRarity.Cursed
+                                     : LootSystem.Instance?.DrawRelicRarityPublic(sanity, false) ?? RelicRarity.Common;
             var relic  = LootSystem.Instance?.DrawRelicPublic(rarity, false);
             if (relic == null) return;
             int basePrice = RelicBasePrices.TryGetValue(relic.Rarity, out int p) ? p : 100;
@@ -269,8 +274,4 @@ namespace DarkChronicle.Roguelike
             => rm != null && rm.SumEffectPublic(RelicEffectType.FreeRemove) > 0f;
     }
 
-    public static class RelicManagerPublicHelper
-    {
-        public static float SumEffectPublic(this RelicManager rm, RelicEffectType effect) => 0f;
-    }
 }

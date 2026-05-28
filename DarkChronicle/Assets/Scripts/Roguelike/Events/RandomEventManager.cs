@@ -97,6 +97,10 @@ namespace DarkChronicle.Roguelike.Events
             yield return ShowPanel(eventData);
             yield return WaitForChoice(eventData);
             yield return HidePanel();
+
+            // EventMaster: earn bonus gold after any random event
+            int eventBonus = RelicManager.Instance?.GetEventMasterBonus() ?? 0;
+            if (eventBonus > 0) _run.EarnGold(eventBonus);
         }
 
         // ── Show Panel ─────────────────────────────────────────────────────

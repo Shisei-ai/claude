@@ -16,7 +16,7 @@ namespace DarkChronicle.Roguelike.Relics
 
         RunData _run;
 
-        // ── Per-battle state ───────────────────────────────────────────────
+        // ── Per-battle state (original) ────────────────────────────────────
         bool _firstHitUsed;
         bool _firstHitImmuneUsed;
         bool _reviveUsed;
@@ -24,33 +24,86 @@ namespace DarkChronicle.Roguelike.Relics
         bool _echoUsed;
         int  _soulSiphonCount;
 
+        // ── Per-battle tracking (new) ──────────────────────────────────────
+        int    _stackingRageStacks;       // StackingRage: 0–10
+        bool   _critChainActive;          // CritChain: true after a crit
+        bool   _firstTurnPassed;          // FirstTurnBoost: false on turn 1
+        bool   _boostSurgeActive;         // BoostSurge: true after a boost
+        bool   _skillCopyAvailable;       // SkillCopy: true until used
+        float  _mirrorImageBonus;         // MirrorImage: accumulated bonus damage
+        string _battleRhythmLastSkillId;  // BattleRhythm: last used skill name
+        int    _battleRhythmStreak;       // BattleRhythm: consecutive same-skill count
+        int    _damageTakenCount;         // SurgeProtection: hits taken this battle
+        bool   _sacrificialBonusActive;   // SacrificialPact: active this battle
+        float  _doubleOrNothingMult;      // DoubleOrNothing: 2f or 0.5f
+        int    _chainSkillTurnCount;      // ChainBonus: consecutive skill turns
+        bool   _chainBonusActive;         // ChainBonus: next skill is 2x
+        int    _adaptiveArmorStacks;      // AdaptiveArmor: 0–10
+        float  _transcendenceBarrier;     // Transcendence: startup barrier
+        float  _fortifiedWallBarrier;     // FortifiedWall: startup barrier
+        bool   _breakSealActive;          // BreakSeal: next enemy attack is 0
+        int    _turnCount;                // turn tracking
+        bool   _jumpStartAvailable;       // JumpStart: first skill of battle is free
+
+        // ── Battle character references ────────────────────────────────────
+        List<BattleCharacter> _currentHeroes  = new();
+        List<BattleCharacter> _currentEnemies = new();
+
         void Awake() => Instance = this;
 
         public void InitForRun(RunData run)
         {
             _run = run;
-            BattleManager.OnTurnStart       += OnTurnStart;
-            BattleManager.OnDamageDealt     += OnDamageDealt;
+            BattleManager.OnTurnStart         += OnTurnStart;
+            BattleManager.OnDamageDealt       += OnDamageDealt;
+            BattleManager.OnCharacterBroken   += OnCharacterBroken;
             BattleManager.OnCharacterDefeated += OnCharacterDefeated;
-            BattleManager.OnBattleEnd       += OnBattleEnd;
+            BattleManager.OnBattleEnd         += OnBattleEnd;
         }
 
         void OnDestroy()
         {
-            BattleManager.OnTurnStart       -= OnTurnStart;
-            BattleManager.OnDamageDealt     -= OnDamageDealt;
+            BattleManager.OnTurnStart         -= OnTurnStart;
+            BattleManager.OnDamageDealt       -= OnDamageDealt;
+            BattleManager.OnCharacterBroken   -= OnCharacterBroken;
             BattleManager.OnCharacterDefeated -= OnCharacterDefeated;
-            BattleManager.OnBattleEnd       -= OnBattleEnd;
+            BattleManager.OnBattleEnd         -= OnBattleEnd;
         }
 
         // ── Battle Start / Room Entry ──────────────────────────────────────
         public void OnBattleStart(List<BattleCharacter> heroes, List<BattleCharacter> enemies)
         {
+            // Store references
+            _currentHeroes  = heroes  ?? new List<BattleCharacter>();
+            _currentEnemies = enemies ?? new List<BattleCharacter>();
+
+            // Reset original state
             _firstHitUsed       = false;
             _firstHitImmuneUsed = false;
             _reviveUsed         = false;
             _freeBoostUsed      = false;
             _echoUsed           = false;
+
+            // Reset new state
+            _stackingRageStacks      = 0;
+            _critChainActive         = false;
+            _firstTurnPassed         = false;
+            _boostSurgeActive        = false;
+            _skillCopyAvailable      = HasEffect(RelicEffectType.SkillCopy);
+            _mirrorImageBonus        = 0f;
+            _battleRhythmLastSkillId = string.Empty;
+            _battleRhythmStreak      = 0;
+            _damageTakenCount        = 0;
+            _sacrificialBonusActive  = false;
+            _doubleOrNothingMult     = 1f;
+            _chainSkillTurnCount     = 0;
+            _chainBonusActive        = false;
+            _adaptiveArmorStacks     = 0;
+            _transcendenceBarrier    = 0f;
+            _fortifiedWallBarrier    = 0f;
+            _breakSealActive         = false;
+            _turnCount               = 0;
+            _jumpStartAvailable      = false;
 
             foreach (var hero in heroes)
             {
@@ -69,6 +122,42 @@ namespace DarkChronicle.Roguelike.Relics
             }
 
             // WeaknessReveal: handled by BattleUI side — just flag here
+
+            // PoisonAura / BurnAura / ChillAura
+            foreach (var enemy in enemies)
+            {
+                if (HasEffect(RelicEffectType.PoisonAura))
+                    enemy.ApplyStatus(new StatusEffect { Type = StatusEffectType.Poison, Duration = 3, Value = 0.03f }, 1f);
+                if (HasEffect(RelicEffectType.BurnAura))
+                    enemy.ApplyStatus(new StatusEffect { Type = StatusEffectType.Burn,   Duration = 3, Value = 0.02f }, 1f);
+                if (HasEffect(RelicEffectType.ChillAura))
+                    enemy.ApplyStatus(new StatusEffect { Type = StatusEffectType.Freeze, Duration = 2, Value = 0f   }, 1f);
+            }
+
+            // FortifiedWall
+            if (HasEffect(RelicEffectType.FortifiedWall) && heroes.Count > 0)
+                _fortifiedWallBarrier = heroes[0].MaxHP * 0.10f;
+
+            // Transcendence: startup barrier (10% MaxHP)
+            if (HasEffect(RelicEffectType.Transcendence) && heroes.Count > 0)
+                _transcendenceBarrier = heroes[0].MaxHP * 0.10f;
+
+            // SacrificialPact: HP-30% at battle start
+            if (HasEffect(RelicEffectType.SacrificialPact) && heroes.Count > 0)
+            {
+                int sacrifice = Mathf.RoundToInt(heroes[0].MaxHP * 0.30f);
+                heroes[0].TakeDamage(sacrifice, DamageType.True);
+                _run.TakeDamage(sacrifice);
+                _sacrificialBonusActive = true;
+            }
+
+            // DoubleOrNothing: coin flip
+            if (HasEffect(RelicEffectType.DoubleOrNothing))
+                _doubleOrNothingMult = Random.value < 0.5f ? 2f : 0.5f;
+
+            // JumpStart: first skill of this battle is free
+            if (HasEffect(RelicEffectType.JumpStart))
+                _jumpStartAvailable = true;
         }
 
         // ── Turn Start ─────────────────────────────────────────────────────
@@ -76,7 +165,7 @@ namespace DarkChronicle.Roguelike.Relics
         {
             if (!character.IsPlayer) return;
 
-            // RegenEachTurn
+            // Original effects
             float regenPct = SumEffect(RelicEffectType.RegenEachTurn);
             if (regenPct > 0f)
             {
@@ -85,9 +174,57 @@ namespace DarkChronicle.Roguelike.Relics
                 _run.HealHP(regen);
             }
 
-            // MPRegenEachTurn
             int mpRegen = (int)SumEffect(RelicEffectType.MPRegenEachTurn);
             if (mpRegen > 0) character.RestoreMana(mpRegen);
+
+            // New turn tracking
+            _turnCount++;
+            _firstTurnPassed = _turnCount > 1;
+
+            // BreakRegen: if any enemy is broken, heal hero
+            if (HasEffect(RelicEffectType.BreakRegen))
+            {
+                bool anyBroken = _currentEnemies.Exists(e => e.IsAlive && e.IsBroken);
+                if (anyBroken)
+                {
+                    int regen = Mathf.Max(1, Mathf.RoundToInt(character.MaxHP * 0.05f));
+                    character.Heal(regen);
+                    _run.HealHP(regen);
+                }
+            }
+
+            // HungryBlade: HP drain each turn (flat 5)
+            if (HasEffect(RelicEffectType.HungryBlade))
+            {
+                _run.TakeDamage(5);
+                character.TakeDamage(5, DamageType.True);
+            }
+
+            // BloodPact: drain 3% HP per turn
+            if (HasEffect(RelicEffectType.BloodPact))
+            {
+                int drain = Mathf.Max(1, Mathf.RoundToInt(character.MaxHP * 0.03f));
+                _run.TakeDamage(drain);
+                character.TakeDamage(drain, DamageType.True);
+            }
+
+            // LifeDrain: absorb 1% HP from each living enemy
+            if (HasEffect(RelicEffectType.LifeDrain))
+            {
+                int totalDrained = 0;
+                foreach (var enemy in _currentEnemies)
+                {
+                    if (!enemy.IsAlive) continue;
+                    int drain = Mathf.Max(1, Mathf.RoundToInt(enemy.MaxHP * 0.01f));
+                    enemy.TakeDamage(drain, DamageType.True);
+                    totalDrained += drain;
+                }
+                if (totalDrained > 0)
+                {
+                    character.Heal(totalDrained);
+                    _run.HealHP(totalDrained);
+                }
+            }
         }
 
         // ── Damage Modifier (called before damage is applied) ──────────────
@@ -130,11 +267,110 @@ namespace DarkChronicle.Roguelike.Relics
             // VampiricBlade: absorb 20% (heal applied in OnDamageDealt)
             // Handled there to keep modifier pure.
 
+            // ── New offense modifiers ──────────────────────────────────────
+
+            // FirstTurnBoost
+            if (!_firstTurnPassed && HasEffect(RelicEffectType.FirstTurnBoost))
+                multiplier += 0.50f;
+
+            // StackingRage: apply current stacks then increment
+            if (HasEffect(RelicEffectType.StackingRage))
+            {
+                multiplier += _stackingRageStacks * 0.03f;
+                _stackingRageStacks = Mathf.Min(10, _stackingRageStacks + 1);
+            }
+
+            // NecroticPower: uses run-wide EnemiesKilled
+            if (HasEffect(RelicEffectType.NecroticPower))
+                multiplier += Mathf.Min(0.40f, _run.EnemiesKilled * 0.02f);
+
+            // SpiritualBalance: Sanity × 10% (clamped ±30%)
+            if (HasEffect(RelicEffectType.SpiritualBalance))
+                multiplier += Mathf.Clamp(_run.Sanity * 0.10f, -0.30f, 0.30f);
+
+            // PoisonMaster
+            if (HasEffect(RelicEffectType.PoisonMaster) && target.HasStatus(StatusEffectType.Poison))
+                multiplier += 0.30f;
+
+            // BleedMaster
+            if (HasEffect(RelicEffectType.BleedMaster) && target.HasStatus(StatusEffectType.Bleed))
+                multiplier += 0.30f;
+
+            // Opportunist: target has any debuff
+            if (HasEffect(RelicEffectType.Opportunist) && target.StatusEffects.Count > 0)
+                multiplier += 0.20f;
+
+            // DeckPurify: +3% per removed skill (max +30%)
+            if (HasEffect(RelicEffectType.DeckPurify))
+                multiplier += Mathf.Min(0.30f, _run.SkillsRemoved.Count * 0.03f);
+
+            // CurseWeaver: +10% per curse held
+            if (HasEffect(RelicEffectType.CurseWeaver))
+                multiplier += _run.Curses.Count * 0.10f;
+
+            // SpecializedDeck: +20% if deck ≤ 10 skills
+            if (HasEffect(RelicEffectType.SpecializedDeck) && _run.Deck.Count <= 10)
+                multiplier += 0.20f;
+
+            // BoostSurge: after boost, next skill +30%
+            if (_boostSurgeActive)
+            {
+                multiplier += 0.30f;
+                _boostSurgeActive = false;
+            }
+
+            // ChainBonus: next skill is 2x
+            if (_chainBonusActive)
+            {
+                multiplier *= 2f;
+                _chainBonusActive = false;
+            }
+
+            // MirrorImage: add accumulated bonus damage
+            rawDamage += Mathf.RoundToInt(_mirrorImageBonus);
+            _mirrorImageBonus = 0f;
+
+            // SurgeProtection: 3+ hits taken → +30%
+            if (HasEffect(RelicEffectType.SurgeProtection) && _damageTakenCount >= 3)
+                multiplier += 0.30f;
+
+            // CorruptedCore: +50% skill damage bonus (applied here generically)
+            if (HasEffect(RelicEffectType.CorruptedCore))
+                multiplier += 0.50f;
+
+            // GlassCannon: +80%
+            if (HasEffect(RelicEffectType.GlassCannon))
+                multiplier += 0.80f;
+
+            // BloodPact: HP ≤ 50% → +100%
+            if (HasEffect(RelicEffectType.BloodPact) && _run.HPRatio <= 0.5f)
+                multiplier += 1.00f;
+
+            // ChaosCore: ±30% random
+            if (HasEffect(RelicEffectType.ChaosCore))
+                multiplier += Random.Range(-0.30f, 0.30f);
+
+            // HungryBlade: +40%
+            if (HasEffect(RelicEffectType.HungryBlade))
+                multiplier += 0.40f;
+
+            // SacrificialPact: +60% for whole battle
+            if (_sacrificialBonusActive)
+                multiplier += 0.60f;
+
+            // MirrorCurse: curses × 15%
+            if (HasEffect(RelicEffectType.MirrorCurse))
+                multiplier += _run.Curses.Count * 0.15f;
+
+            // DoubleOrNothing: coin flip mult applied at battle start
+            multiplier *= _doubleOrNothingMult;
+
             return Mathf.Max(1, Mathf.RoundToInt(rawDamage * multiplier));
         }
 
         public int ModifyIncomingDamage(BattleCharacter target, int rawDamage)
         {
+            // Original reductions
             float reduction = SumEffect(RelicEffectType.PercentDamageReduction) / 100f;
             rawDamage = Mathf.RoundToInt(rawDamage * (1f - reduction));
             rawDamage -= (int)SumEffect(RelicEffectType.FlatDefenseUp);
@@ -146,7 +382,6 @@ namespace DarkChronicle.Roguelike.Relics
                 return 0;
             }
 
-            // AncientCurse: +5% HP lost per room (handled in room entry, not here)
             // DeathMark: +25% incoming
             if (HasEffect(RelicEffectType.DeathMark))
                 rawDamage = Mathf.RoundToInt(rawDamage * 1.25f);
@@ -154,6 +389,74 @@ namespace DarkChronicle.Roguelike.Relics
             // Curse: FragileHP
             if (_run.Curses.Exists(c => c.Effect == CurseEffectType.FragileHP))
                 rawDamage = Mathf.RoundToInt(rawDamage * 1.10f);
+
+            // ── New incoming modifiers ─────────────────────────────────────
+
+            // GlassCannon: +60% incoming
+            if (HasEffect(RelicEffectType.GlassCannon))
+                rawDamage = Mathf.RoundToInt(rawDamage * 1.60f);
+
+            // LastStandGuard: HP ≤ 20% → -40%
+            if (HasEffect(RelicEffectType.LastStandGuard) && _run.HPRatio <= 0.20f)
+                rawDamage = Mathf.RoundToInt(rawDamage * 0.60f);
+
+            // AdaptiveArmor: -3% per stack (max 10 stacks = -30%)
+            if (HasEffect(RelicEffectType.AdaptiveArmor) && _adaptiveArmorStacks > 0)
+                rawDamage = Mathf.RoundToInt(rawDamage * (1f - _adaptiveArmorStacks * 0.03f));
+            if (HasEffect(RelicEffectType.AdaptiveArmor))
+                _adaptiveArmorStacks = Mathf.Min(10, _adaptiveArmorStacks + 1);
+
+            // DamageCap: cap at 20% MaxHP
+            if (HasEffect(RelicEffectType.DamageCap))
+                rawDamage = Mathf.Min(rawDamage, Mathf.RoundToInt(_run.MaxHP * 0.20f));
+
+            // FortifiedWall barrier absorption
+            if (_fortifiedWallBarrier > 0f)
+            {
+                float absorbed = Mathf.Min(_fortifiedWallBarrier, rawDamage);
+                _fortifiedWallBarrier -= absorbed;
+                rawDamage -= Mathf.RoundToInt(absorbed);
+            }
+
+            // Transcendence barrier absorption
+            if (_transcendenceBarrier > 0f)
+            {
+                float absorbed = Mathf.Min(_transcendenceBarrier, rawDamage);
+                _transcendenceBarrier -= absorbed;
+                rawDamage -= Mathf.RoundToInt(absorbed);
+            }
+
+            // BreakSeal: zero damage if active
+            if (_breakSealActive)
+            {
+                _breakSealActive = false;
+                rawDamage = 0;
+            }
+
+            // GoldShield: spend gold to absorb up to 50G worth of damage
+            if (HasEffect(RelicEffectType.GoldShield) && _run.Gold > 0)
+            {
+                int absorb = Mathf.Min(rawDamage, Mathf.Min(50, _run.Gold));
+                _run.SpendGold(absorb);
+                rawDamage -= absorb;
+            }
+
+            // MirrorImage: accumulate 25% of damage taken for next attack
+            if (HasEffect(RelicEffectType.MirrorImage))
+                _mirrorImageBonus += rawDamage * 0.25f;
+
+            // Track hits taken this battle (for SurgeProtection)
+            _damageTakenCount++;
+
+            // Counterstrike: 15% chance to deal 10% MaxHP to all enemies
+            if (HasEffect(RelicEffectType.Counterstrike) && Random.value < 0.15f && target.IsPlayer)
+            {
+                int counterDmg = Mathf.RoundToInt(_run.MaxHP * 0.10f);
+                foreach (var enemy in _currentEnemies)
+                {
+                    if (enemy.IsAlive) enemy.TakeDamage(counterDmg, DamageType.True);
+                }
+            }
 
             return Mathf.Max(0, rawDamage);
         }
@@ -172,6 +475,32 @@ namespace DarkChronicle.Roguelike.Relics
 
             // ThornsReflect: apply back to attacker (enemies only)
             // Handled in battle damage pipeline.
+
+            // Only apply status infliction to enemies
+            if (!target.IsPlayer)
+            {
+                // BleedOnCrit: 15% chance to apply bleed
+                if (HasEffect(RelicEffectType.BleedOnCrit) && Random.value < 0.15f)
+                    target.ApplyStatus(new StatusEffect { Type = StatusEffectType.Bleed, Duration = 2, Value = 0.04f }, 1f);
+
+                // ThunderMark: 20% chance paralysis
+                if (HasEffect(RelicEffectType.ThunderMark) && Random.value < 0.20f)
+                    target.ApplyStatus(new StatusEffect { Type = StatusEffectType.Paralysis, Duration = 1, Value = 0f }, 1f);
+            }
+        }
+
+        // ── On Character Broken ────────────────────────────────────────────
+        void OnCharacterBroken(BattleCharacter broken)
+        {
+            if (broken.IsPlayer) return;
+
+            // BPOnBreak: BP+2 for all heroes
+            if (HasEffect(RelicEffectType.BPOnBreak))
+                foreach (var hero in _currentHeroes) hero.AddBP(2);
+
+            // BreakSeal: zero the enemy's next attack
+            if (HasEffect(RelicEffectType.BreakSeal))
+                _breakSealActive = true;
         }
 
         // ── On Kill ────────────────────────────────────────────────────────
@@ -208,6 +537,14 @@ namespace DarkChronicle.Roguelike.Relics
             if (result != BattleResult.Victory) return;
 
             // FloorClearHeal - handled by RoguelikeManager at floor end
+
+            // Recycler: on victory, "sell" a random skill for 30G
+            if (HasEffect(RelicEffectType.Recycler) && _run.Deck.Count > 1)
+            {
+                int idx = Random.Range(0, _run.Deck.Count);
+                _run.Deck.RemoveAt(idx);
+                _run.EarnGold(30);
+            }
         }
 
         // ── Revive Check ───────────────────────────────────────────────────
@@ -220,11 +557,18 @@ namespace DarkChronicle.Roguelike.Relics
         }
 
         // ── Break Modifiers ────────────────────────────────────────────────
-        public int GetBreakShieldDamage() =>
-            HasEffect(RelicEffectType.ShieldHitBonus) ? 2 : 1;
+        public int GetBreakShieldDamage()
+        {
+            int bonus = HasEffect(RelicEffectType.ShieldHitBonus) ? 2 : 1;
+            if (HasEffect(RelicEffectType.QuickBreak)) bonus++;
+            return bonus;
+        }
 
         public int GetBreakExtendTurns() =>
             HasEffect(RelicEffectType.BreakExtend) ? 1 : 0;
+
+        public int GetBoostExtendTurns() =>
+            HasEffect(RelicEffectType.BoostExtend) ? 1 : 0;
 
         // ── Skill Modifiers ────────────────────────────────────────────────
         public int ModifySkillMPCost(int baseCost)
@@ -256,6 +600,11 @@ namespace DarkChronicle.Roguelike.Relics
             float mult = 1f + SumEffect(RelicEffectType.GoldDropUp) / 100f;
             if (HasEffect(RelicEffectType.PhilosophersStone)) mult *= 2f;
             if (_run.Curses.Exists(c => c.Effect == CurseEffectType.GoldReduced)) mult *= 0.5f;
+
+            // CompoundInterest: +1% per 100G held (max +10%)
+            if (HasEffect(RelicEffectType.CompoundInterest))
+                mult += Mathf.Min(0.10f, (_run.Gold / 100) * 0.01f);
+
             return Mathf.RoundToInt(baseGold * mult);
         }
 
@@ -282,13 +631,140 @@ namespace DarkChronicle.Roguelike.Relics
         {
             float mult = 1f;
             mult += SumEffect(RelicEffectType.RestEfficiencyUp) / 100f;
+
+            // HealingFactor: +25%
+            mult += SumEffect(RelicEffectType.HealingFactor) / 100f;
+
             if (_run.Curses.Exists(c => c.Effect == CurseEffectType.WeakenedHeal)) mult *= 0.5f;
             return Mathf.RoundToInt(baseHeal * mult);
         }
 
+        // ── New Query Methods ──────────────────────────────────────────────
+
+        /// <summary>Returns true to trigger a shadow strike (extra hit).</summary>
+        public bool TryShadowStrike() =>
+            HasEffect(RelicEffectType.ShadowStrike) && Random.value < 0.25f;
+
+        /// <summary>Returns true if the target should be instantly killed (ExecuteOnBreak).</summary>
+        public bool TryExecuteOnBreak(BattleCharacter target) =>
+            HasEffect(RelicEffectType.ExecuteOnBreak)
+            && target.IsBroken && target.HPRatio <= 0.20f;
+
+        /// <summary>Additional crit rate bonus from CritChain (cleared after use).</summary>
+        public float GetBonusCritRate()
+        {
+            if (!_critChainActive || !HasEffect(RelicEffectType.CritChain)) return 0f;
+            _critChainActive = false;
+            return SumEffect(RelicEffectType.CritChain) / 100f;
+        }
+
+        /// <summary>Call after landing a critical hit to arm CritChain.</summary>
+        public void NotifyCriticalHit()
+        {
+            if (HasEffect(RelicEffectType.CritChain)) _critChainActive = true;
+        }
+
+        /// <summary>Returns player evasion bonus (0–1 fraction).</summary>
+        public float GetEvasionBonus() => SumEffect(RelicEffectType.EvasionUp) / 100f;
+
+        /// <summary>BP cost modifier for Boost action.</summary>
+        public int ModifyBoostBPCost(int baseCost) =>
+            HasEffect(RelicEffectType.EfficientBoost)
+                ? Mathf.Max(1, baseCost - 1) : baseCost;
+
+        /// <summary>Call when a Boost is used to arm BoostSurge.</summary>
+        public void NotifyBoostUsed()
+        {
+            if (HasEffect(RelicEffectType.BoostSurge)) _boostSurgeActive = true;
+        }
+
+        /// <summary>Returns SkillCopy flag and resets it (one use per battle).</summary>
+        public bool TrySkillCopy()
+        {
+            if (!_skillCopyAvailable || !HasEffect(RelicEffectType.SkillCopy)) return false;
+            _skillCopyAvailable = false;
+            return true;
+        }
+
+        /// <summary>True if the first skill of this battle should be free (JumpStart).</summary>
+        public bool TryJumpStartFree()
+        {
+            if (!_jumpStartAvailable || !HasEffect(RelicEffectType.JumpStart)) return false;
+            _jumpStartAvailable = false;
+            return true;
+        }
+
+        /// <summary>Mana overflow damage bonus (0.20 if ManaOverflow relic held and hero MP is full).</summary>
+        public float GetManaOverflowBonus() =>
+            HasEffect(RelicEffectType.ManaOverflow) ? 0.20f : 0f;
+
+        /// <summary>
+        /// Call when a skill is executed. Updates BattleRhythm, ChainBonus, CorruptedCore.
+        /// Returns BattleRhythm damage multiplier bonus (add to 1f as a factor).
+        /// </summary>
+        public float NotifySkillUsed(string skillId, BattleCharacter hero)
+        {
+            float bonus = 1f;
+
+            // BattleRhythm: same skill streak → +50%
+            if (HasEffect(RelicEffectType.BattleRhythm))
+            {
+                if (!string.IsNullOrEmpty(skillId) && skillId == _battleRhythmLastSkillId)
+                {
+                    _battleRhythmStreak++;
+                    if (_battleRhythmStreak >= 1) bonus += 0.50f;
+                }
+                else
+                {
+                    _battleRhythmStreak = 0;
+                }
+                _battleRhythmLastSkillId = skillId;
+            }
+
+            // ChainBonus: 3rd consecutive turn with a skill → arm chain bonus for next skill
+            _chainSkillTurnCount++;
+            if (_chainSkillTurnCount >= 3 && HasEffect(RelicEffectType.ChainBonus))
+                _chainBonusActive = true;
+
+            // CorruptedCore: HP-5 per skill use
+            if (HasEffect(RelicEffectType.CorruptedCore) && hero != null)
+            {
+                hero.TakeDamage(5, DamageType.True);
+                _run.TakeDamage(5);
+            }
+
+            return bonus;
+        }
+
+        /// <summary>Whether AoEShieldDamage relic is active (BattleManager checks for AoE skills).</summary>
+        public bool HasAoEShieldDamage() => HasEffect(RelicEffectType.AoEShieldDamage);
+
+        /// <summary>Whether EliteHunter relic is active (gold doubled for elite battles).</summary>
+        public bool HasEliteHunter() => HasEffect(RelicEffectType.EliteHunter);
+
+        /// <summary>Whether TreasureNose relic is active (relic rarity bumped in treasure rooms).</summary>
+        public bool HasTreasureNose() => HasEffect(RelicEffectType.TreasureNose);
+
+        /// <summary>Gold bonus on event completion (EventMaster: +20G).</summary>
+        public int GetEventMasterBonus() =>
+            HasEffect(RelicEffectType.EventMaster) ? 20 : 0;
+
+        /// <summary>Whether BlackMarket is active (shop adds a cursed relic).</summary>
+        public bool HasBlackMarket() => HasEffect(RelicEffectType.BlackMarket);
+
+        /// <summary>CorruptedCore skill damage bonus (+50%) — also applied inline in ModifyOutgoingDamage.</summary>
+        public float GetCorruptedCoreBonus() =>
+            HasEffect(RelicEffectType.CorruptedCore) ? 0.50f : 0f;
+
+        /// <summary>MirrorCurse MaxHP reduction factor (10% per curse). Applied in RoguelikeManager.BuildCurrentHeroStats.</summary>
+        public float GetMirrorCurseHPPenalty() =>
+            HasEffect(RelicEffectType.MirrorCurse) ? _run.Curses.Count * 0.10f : 0f;
+
         // ── Query Helpers ──────────────────────────────────────────────────
         bool HasEffect(RelicEffectType effect) =>
             _run != null && _run.HasRelic(effect);
+
+        public float SumEffectPublic(RelicEffectType effect) => SumEffect(effect);
 
         float SumEffect(RelicEffectType effect)
         {

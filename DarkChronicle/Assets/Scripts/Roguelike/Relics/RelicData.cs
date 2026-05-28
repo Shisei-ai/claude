@@ -92,6 +92,83 @@ namespace DarkChronicle.Roguelike.Relics
         AncientCurse,           // 全ステータス+30%、毎部屋HP5%失う
         PhilosophersStone,      // 全ゴールドを2倍に、でも呪いを1つ追加
 
+        // ─ Conditional Offense ───────────────────────────────────────────
+        FirstTurnBoost,         // 1ターン目のみダメージ+50%
+        StackingRage,           // 戦闘中攻撃ごとにダメージ+3%（最大10スタック）
+        PoisonMaster,           // 毒状態の敵へのダメージ+30%
+        BleedMaster,            // 出血状態の敵へのダメージ+30%
+        ShadowStrike,           // 攻撃スキルに25%の確率で追加ヒット
+        Opportunist,            // デバフ状態の敵への全ダメ+20%
+        ExecuteOnBreak,         // Break中かつHP20%以下の敵を即死
+        NecroticPower,          // 倒した敵の数×2%追加ダメ（ラン累積、最大+40%）
+        CritChain,              // クリティカル後、次の攻撃のクリ率+30%
+        SpiritualBalance,       // Sanity×10%攻撃力UP（最大+30%）
+
+        // ─ Status Infliction ─────────────────────────────────────────────
+        PoisonAura,             // 戦闘開始時に全敵に毒付与（3ターン、HP3%/ターン）
+        BleedOnCrit,            // 攻撃時15%の確率で出血付与（2ターン、HP4%/ターン）
+        BurnAura,               // 戦闘開始時に全敵に炎上付与（3ターン、HP2%/ターン）
+        ChillAura,              // 戦闘開始時に全敵に凍結付与（2ターン）
+        ThunderMark,            // 攻撃時20%の確率で麻痺付与（1ターン）
+
+        // ─ Defense and Survival ──────────────────────────────────────────
+        EvasionUp,              // 回避率+N%（PrimaryValueが%値）
+        DamageCap,              // 1回のダメージを最大HPの20%に制限
+        HealingFactor,          // 全回復量+25%
+        Transcendence,          // 戦闘開始時にMaxHPの10%分のバリアを付与（FortifiedWallと累積）
+        AdaptiveArmor,          // 被ダメを受けるたびに物理・魔法防御が3%UP（最大30%、戦闘ごとリセット）
+        FortifiedWall,          // 戦闘開始時にMaxHPの10%分のバリアを付与（ダメージ吸収）
+        LastStandGuard,         // HP20%以下の時、受けるダメージ-40%
+        Counterstrike,          // ダメージを受けた時に15%の確率で全敵にMaxHPの10%の反撃
+
+        // ─ BP and Boost Extended ─────────────────────────────────────────
+        EfficientBoost,         // ブーストのBP消費-1（最低1）
+        BoostExtend,            // ブーストの効果が1ターン延長
+        BoostSurge,             // ブースト使用後、次のスキルのダメージ+30%
+        BPOnBreak,              // 敵をBreakさせた時にBP+2
+
+        // ─ Break Extended ────────────────────────────────────────────────
+        QuickBreak,             // シールドへのダメージ+1（ShieldHitBonusと加算）
+        BreakRegen,             // 敵がBreak中、ターン開始時にHP+5%回復
+        BreakSeal,              // 敵をBreakさせた時、次の1ターンその敵のダメージを0にする
+
+        // ─ Skill and Deck Extended ───────────────────────────────────────
+        ManaOverflow,           // MPが最大の時、スキルの効果+20%
+        SkillCopy,              // 1戦闘1回だけ、使用後にスキルが無料でもう一度発動
+        JumpStart,              // 戦闘開始時、ランダムな1スキルのMP消費を0にする
+        DeckPurify,             // スキルを削除するたびに全スキルの威力が永続+3%（最大+30%）
+        ChainBonus,             // 3ターン連続スキル使用後、次のスキルのダメージが2倍
+        CurseWeaver,            // 保有している呪いの数×10%、攻撃力UP
+        SpecializedDeck,        // デッキが10枚以下の時、全スキルの効果+20%
+
+        // ─ Exploration Effects ───────────────────────────────────────────
+        EliteHunter,            // エリート戦闘後のゴールドが2倍
+        TreasureNose,           // 宝の間のレリックのレアリティが1段階UP
+        EventMaster,            // ランダムイベント終了後に追加で20G取得
+        BlackMarket,            // ショップに呪われたレリックが1つ必ず追加される
+        GoldShield,             // ダメージを最大50Gまでゴールドで相殺する
+
+        // ─ Economy and Tactics ───────────────────────────────────────────
+        CompoundInterest,       // 保有ゴールド100Gごとに敵ゴールドドロップ+1%（最大+10%）
+        Recycler,               // 戦闘勝利後にデッキのランダムスキルを30Gで売却
+        MirrorImage,            // 受けたダメージの25%を蓄積、次の攻撃に上乗せ
+        BattleRhythm,           // 同じスキルを連続で使うと次の使用時に威力+50%
+
+        // ─ Special Mechanics ─────────────────────────────────────────────
+        SurgeProtection,        // 同一戦闘で3回以上ダメを受けた後、攻撃+30%
+        AoEShieldDamage,        // フラグのみ（全体攻撃スキル使用時にシールド削り-1適用）
+
+        // ─ Cursed Extended ───────────────────────────────────────────────
+        GlassCannon,            // 全攻撃+80%、受けるダメージも+60%（cursed）
+        BloodPact,              // HP50%以下の時攻撃+100%、毎ターンHP-3%（cursed）
+        ChaosCore,              // ダメージが毎回±30%ランダムに変動（cursed）
+        HungryBlade,            // 攻撃+40%、毎ターンHP-5（固定値）（cursed）
+        SacrificialPact,        // 戦闘開始時HP-30%、その戦闘中全ダメージ+60%（cursed）
+        MirrorCurse,            // 保有呪い数×15%攻撃UP、でも最大HP-10%/呪い（cursed）
+        DoubleOrNothing,        // 戦闘開始時コイン投げ：表=全ダメ2倍、裏=全ダメ0.5倍（cursed）
+        LifeDrain,              // 毎ターン生存している全敵のHP1%を吸収（cursed/powerful）
+        CorruptedCore,          // 全スキルの効果+50%、スキル使用ごとにHP-5（固定値）（cursed）
+
         // ─ Ending Path Relics (special — one per run) ────────────────────
         EndingPath_DemonKing,   // 魔王再誕ルートの証印
         EndingPath_AbyssGod,    // 深淵降臨ルートの証印

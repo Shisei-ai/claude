@@ -337,6 +337,7 @@ namespace DarkChronicle.Roguelike
                     yield return _levelUpUI.Show(levelsGained, statDelta, skillsUnlocked);
 
                 int goldReward = _currentFloor.BaseGoldReward + Random.Range(-10, 20);
+                if (isElite && _relicManager.HasEliteHunter()) goldReward *= 2;
                 yield return _lootSystem.ShowBattleRewards(goldReward, isElite, isBoss);
             }
             else if (lastResult == BattleResult.Defeat)
@@ -369,6 +370,12 @@ namespace DarkChronicle.Roguelike
             RelicRarity rarity = roll < 0.15f ? RelicRarity.Rare :
                                  roll < 0.45f ? RelicRarity.Uncommon :
                                                 RelicRarity.Common;
+
+            // TreasureNose: bump rarity by one tier
+            if (_relicManager.HasTreasureNose())
+                rarity = rarity == RelicRarity.Common   ? RelicRarity.Uncommon :
+                         rarity == RelicRarity.Uncommon ? RelicRarity.Rare :
+                                                          RelicRarity.Rare;
 
             var relic = _lootSystem.DrawRelic(rarity, false);
             if (relic != null)
@@ -457,6 +464,11 @@ namespace DarkChronicle.Roguelike
             // VampiricBlade: -20% MaxHP
             if (_run.HasRelic(RelicEffectType.VampiricBlade))
                 base_.MaxHP = Mathf.RoundToInt(base_.MaxHP * 0.8f);
+
+            // MirrorCurse: -10% MaxHP per curse held
+            float mirrorCursePenalty = _relicManager.GetMirrorCurseHPPenalty();
+            if (mirrorCursePenalty > 0f)
+                base_.MaxHP = Mathf.RoundToInt(base_.MaxHP * (1f - mirrorCursePenalty));
 
             return base_;
         }
