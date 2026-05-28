@@ -135,7 +135,8 @@ namespace DarkChronicle.Editor
 
             job.JobName     = "狩人";
             job.Description = "全キャラ最速の行動と高い回避率を持つ物理アタッカー。回避→Shadow State→会心確定のコンボが軸。罠・毒・拘束など変則的な手段で敵を翻弄する玄人向けクラス。フィールド探索も得意。";
-            job.ThemeColor  = new Color(0.20f, 0.15f, 0.10f);  // 深い焦茶（革鎧・夜の狩人）
+            // テーマカラー: 深森緑をベース（マント・弓ルーン・髪が共鳴する緑系）
+            job.ThemeColor  = new Color(0.12f, 0.28f, 0.10f);  // #1E4719 — 深森緑
 
             job.GrowthRates = AshDesign.GrowthRates;
 
@@ -190,11 +191,15 @@ namespace DarkChronicle.Editor
             cd.CharacterName = AshDesign.CharacterName;
             cd.Backstory     =
                 "元王国諜報部隊「鴉の翼」所属の腕利き斥候。27歳。" +
+                "くせのある暗緑の短髪と半笑いの流し目が特徴。" +
+                "深森緑のフードジャケットに鮮やかなエメラルドグリーンのマント、" +
+                "緑のルーン刻印が光る弓「影矢のルーン弓」を携える。" +
+                "Shadow State 発動時は弓のルーンが翡翠色に輝く。" +
                 "任務中に見た王国の真実に独自行動を取り、お尋ね者になった。" +
                 "今は賞金稼ぎとして気ままに生きる飄々とした皮肉屋。" +
                 "いざとなれば誰より頼りになる。本人は口が裂けても言わないが。";
             cd.VoicePrefix   = AshDesign.VoicePrefix;
-            cd.ThemeColor    = new Color(0.20f, 0.15f, 0.10f);
+            cd.ThemeColor    = new Color(0.12f, 0.28f, 0.10f);  // 深森緑
             cd.BaseStats     = AshDesign.BaseStats;
             cd.StarterJob    = job;
             cd.ChapterCount  = AshDesign.ChapterTitles.Length;

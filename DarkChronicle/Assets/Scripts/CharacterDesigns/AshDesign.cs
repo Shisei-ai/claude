@@ -21,6 +21,30 @@ namespace DarkChronicle.CharacterDesigns
     ///   任務中に見た王国の真実に独自行動を取り、お尋ね者に。
     ///   今は賞金稼ぎとして気ままに生きる飄々とした皮肉屋。
     ///   いざとなれば誰より頼りになる、と本人は口が裂けても言わない。
+    ///
+    /// ■ ビジュアル設定（HD-2Dドット絵 確定版）
+    ///   • 年齢: 27歳 / 身長: 178cm / 体格: 細身・引き締まった筋肉
+    ///   • 短くくせのある暗い森林緑の髪（寝ぐせ気味でランダムに跳ねる）
+    ///   • 暗い灰緑色の瞳（半眼・自信満々の流し目、口角が常に少し上がっている）
+    ///     ※ DarkVision スキルの視覚的フック: 暗所で瞳の色が僅かに発光する
+    ///   • 小さな銀のピアス（左耳）
+    ///   • 装備一式:
+    ///     - アウター: くすんだ深森緑のフードジャケット（着古した実用的な質感）
+    ///     - スカーフ: 草緑のマフラーを首に巻く
+    ///     - インナー: 暗い茶色の革ジャケット
+    ///     - ハーネス: 胸に2本の茶革クロスストラップ（矢筒固定用）
+    ///     - ボトム: 暗い焦茶のパンツ
+    ///     - ブーツ: 茶革の丈長ブーツ + 銀のすね当て（金刻印あり）
+    ///     - グローブ: 指なし茶革グローブ（射手の必需品）
+    ///     - ベルト: 茶革ベルト（真鍮バックル）
+    ///   • 弓矢:
+    ///     - 背中の矢筒（緑の羽根付き矢を複数収納）
+    ///     - コンポジットボウ「影矢のルーン弓」— 金と銀の装飾金具、
+    ///       弓身に緑色のルーン刻印（Shadow State 中にRuneGlow で発光）
+    ///   • マント: 鮮やかなエメラルドグリーンの長マント（裾まで届く、翻る）
+    ///     ※ 「ステルスキャラなのに派手」— 飄々とした性格の視覚的体現
+    ///   • テーマカラー: 暗森緑 × 茶革 × 翠緑マント × 弓のルーングロウ
+    ///   ※ スプライト仕様の詳細は SpriteSpec クラスを参照
     /// </summary>
     public static class AshDesign
     {
@@ -365,6 +389,239 @@ namespace DarkChronicle.CharacterDesigns
             public const string FindTrap     = "ash_find_trap";      // 「罠だ。踏むなよ、お前が。俺は踏まないから」
             public const string DarkArea     = "ash_dark";           // 「暗いな。……俺には見えるけど」
             public const string Comment      = "ash_comment";        // 「依頼通りにやるだけだ。感謝とかいらない」
+        }
+
+        // ── HD-2D Sprite Specification ────────────────────────────────────
+        //
+        // オクトパストラベラー / ドラゴンクエストI&II HD-2D スタイル準拠。
+        // ドット絵制作者・アニメーター向けの詳細仕様書。
+        //
+        // 【スタイル基準】
+        //   • 1キャラ最大32色パレット（透明色含む）
+        //   • 輪郭線: 1px 深黒緑（#0A0E08）、ハイライト輪郭に明るいベージュ（#E8D8B0）
+        //   • シェーディング: フラット2段階 + 光源ハイライト1段階（光源: 右上45°）
+        //   • アニメーション: 4fps 基調（射撃・Shadow Stateは10-12fps）
+        //   • URP SpriteRenderer: 弓のルーン刻印のみEmissionMap。
+        //     通常時=RuneDim（暗緑）、Shadow State突入時=RuneGlow（輝緑）に跳ね上がる
+        //   • Shadow State中のスプライト全体に暗い半透明オーバーレイ（#0A1408 @ 30%）を
+        //     MaterialPropertyBlockで重ねて「影に溶ける」感を演出する
+        //
+        // 【スプライトサイズ】
+        //   バトルスプライト : 64 × 96 px  （PixelsPerUnit = 32）
+        //   フィールドスプライト: 32 × 48 px  （PixelsPerUnit = 16）
+        //   ポートレート       : 96 × 96 px  （UI用、ノンスケール表示）
+        //
+        // ─────────────────────────────────────────────────────────────────
+        public static class SpriteSpec
+        {
+            // ── キャンバスサイズ ────────────────────────────────────────────
+            public const int BattleSpriteWidth   = 64;
+            public const int BattleSpriteHeight  = 96;
+            public const int FieldSpriteWidth    = 32;
+            public const int FieldSpriteHeight   = 48;
+            public const int PortraitSize        = 96;
+            public const int PixelsPerUnit       = 32;
+
+            // ── カラーパレット (HTML Hex) ────────────────────────────────────
+            // 髪（暗い森林緑・跳ね気味）
+            public const string HairDeep        = "#162018";   // 最暗部・髪束奥
+            public const string HairBase        = "#1E3020";   // 基本色
+            public const string HairMid         = "#2A4228";   // 中間色
+            public const string HairLight       = "#365434";   // 明部（外側の毛先）
+            public const string HairHighlight   = "#446640";   // ハイライト（逆立った毛先）
+            // 肌（やや日焼け・アウトドア系）
+            public const string SkinHighlight   = "#F0D8B0";   // 最明部
+            public const string SkinMid         = "#E0C090";   // 中間
+            public const string SkinShadow      = "#C8A070";   // 影（顎下・指の間）
+            public const string SkinDeep        = "#A87850";   // 深影（首根元）
+            // 瞳（暗い灰緑）
+            public const string EyeHighlight    = "#C0C8B8";   // ハイライト点
+            public const string EyeIris         = "#5A6850";   // 虹彩（灰緑）
+            public const string EyeIrisDeep     = "#3A4832";   // 虹彩 深
+            public const string EyePupil        = "#1A2018";   // 瞳孔
+            // DarkVision発動時の瞳グロウ（暗所でEmissionとして利用）
+            public const string EyeDarkVisionGlow = "#60FF80"; // 緑白の発光
+            // 深森緑ジャケット
+            public const string JacketDeep      = "#0C1C10";   // 最暗部・裏地
+            public const string JacketShadow    = "#14280E";   // 影
+            public const string JacketBase      = "#1E3818";   // 基本色
+            public const string JacketMid       = "#2A4820";   // 中間
+            public const string JacketHighlight = "#344E28";   // ハイライト面
+            // 草緑スカーフ
+            public const string ScarfLight      = "#508040";   // 明部
+            public const string ScarfMid        = "#386830";   // 中間
+            public const string ScarfShadow     = "#245020";   // 影
+            // エメラルド緑マント
+            public const string CapeHighlight   = "#28CC44";   // 最明部（翻る先端）
+            public const string CapeMid         = "#20A838";   // 中間
+            public const string CapeShadow      = "#168428";   // 影
+            public const string CapeDeep        = "#0E601C";   // 深影・折り目
+            // 茶革（全革小物共通）
+            public const string LeatherHighlight= "#9A6030";   // 明部
+            public const string LeatherMid      = "#7A4820";   // 中間
+            public const string LeatherShadow   = "#5A3414";   // 影
+            public const string LeatherDeep     = "#3A2008";   // 深影・縫い目
+            // 真鍮バックル・弓金具（金系）
+            public const string BrassHighlight  = "#F0C840";   // 最明
+            public const string BrassMid        = "#D0A030";   // 中間
+            public const string BrassShadow     = "#A07820";   // 影
+            public const string BrassDeep       = "#786010";   // 深影
+            // 銀のすね当て・弓金具（銀系）
+            public const string SilverHighlight = "#D0D8D0";   // 明部
+            public const string SilverMid       = "#A0A8A0";   // 中間
+            public const string SilverShadow    = "#707870";   // 影
+            // 弓本体（暗い木材）
+            public const string BowWoodDeep     = "#32200A";   // 最暗部
+            public const string BowWoodBase     = "#4A3010";   // 基本色
+            public const string BowWoodLight    = "#6A4018";   // 明部
+            // 弓のルーン刻印（緑グロウ — Shadow State 連動）
+            public const string RuneGlow        = "#80FF80";   // Shadow State MAX輝度
+            public const string RuneActive      = "#40D060";   // Shadow State 通常
+            public const string RuneDim         = "#209040";   // 通常時（微光）
+            public const string RuneOff         = "#0E5020";   // 非発光（輪郭のみ）
+            // 矢の羽根（緑）
+            public const string ArrowFletching  = "#30B040";
+            // 輪郭・環境
+            public const string OutlineMain     = "#0A0E08";   // メイン輪郭（深緑黒）
+            public const string OutlineHighlight= "#E8D8B0";   // 逆光輪郭（暖色）
+            public const string ShadowAmbient   = "#181C10";   // 環境影・足元
+
+            // ── バトルスプライト アニメーション仕様 ────────────────────────
+            //
+            // Sprite Sheet レイアウト: 横8列 × 縦n行、各セル 64×96 px
+            //
+            // ★ Shadow State オーバーレイ:
+            //   以下のすべてのアニメーション行に対して、Shadow State 中は
+            //   MaterialPropertyBlock で #0A1408 @ alpha 0.3 を全体に重ねる。
+            //   別スプライト行は不要（コードで制御）。
+            //
+            // Row 0  — アイドル (Idle)
+            //   フレーム数 : 4  /  fps : 4
+            //   内容       : 重心を片足に乗せた「やる気なさそうな」リラックス立ち。
+            //                弓を片手にだらりと持ち、膝が少し曲がっている。
+            //                口角が僅かに上がった半笑い。
+            //                マントが微風で2px幅でゆっくり揺れる（f2-f4）。
+            //                弓のルーン刻印が RuneDim で0.5倍→1倍→0.5倍と呼吸する。
+            //
+            // Row 1  — 前進 (StepForward)
+            //   フレーム数 : 4  /  fps : 8
+            //   内容       : 軽い爪先立ちに近い歩き方（重心を地面から離す感覚）。
+            //                歩幅は小さく、忍び足に近い。マントが後ろに流れる。
+            //
+            // Row 2  — 通常攻撃 (Attack) — クイックドロウ
+            //   フレーム数 : 5  /  fps : 10
+            //   内容       : f1=右肩越しに矢を一瞬でつかむ（手が後ろに伸びる）、
+            //                f2=弓を引き絞る（弦を右耳まで引く、側面シルエット）、
+            //                f3=解放・矢が飛ぶ（矢はスプライト外で別エフェクト）、
+            //                f4=弓腕を伸ばした解放後フォーム、
+            //                f5=待機に戻る。
+            //                全体を素早く（合計0.5秒以内で完結）。
+            //
+            // Row 3  — Shadow State 突入 (EnterShadowState)
+            //   フレーム数 : 2  /  fps : 12
+            //   内容       : f1=全身が1フレームだけ50%透過（点滅感）、
+            //                f2=弓のルーン刻印が RuneDim→RuneGlow に一気に点灯。
+            //                   弓全体がほのかに緑色にシルエット変化。
+            //                この2フレームの後、通常アニメーションに戻るが
+            //                弓のルーン輝度は RuneActive 以上を維持する（コード制御）。
+            //
+            // Row 4  — スキル・弓技（Shadow State 中） (SkillBow)
+            //   フレーム数 : 8  /  fps : 10
+            //   内容       : f1-f2=矢を構える。矢全体が RuneActive の緑光を帯びる、
+            //                f3=弦を通常より大きく引き絞る（弓が大きく湾曲する描写）、
+            //                f4=解放直前・弓全体がRuneGlow に輝度MAX（全パレット中最明）、
+            //                f5=解放。矢が緑の光跡を引きながら飛ぶ（矢エフェクト）、
+            //                f6-f7=矢の光跡の残像（緑の細い線が2本残る・ブレ表現）、
+            //                f8=待機に戻る。弓のルーンが RuneActive に落ち着く。
+            //
+            // Row 5  — スキル・罠設置 (SetTrap)
+            //   フレーム数 : 6  /  fps : 8
+            //   内容       : f1=しゃがみ始め（膝が曲がる）、
+            //                f2=両手を地面に向けて罠を広げる動作、
+            //                f3-f4=設置中（手元が動く）、
+            //                f5=立ち上がる、f6=待機。
+            //                素早い動き（0.75秒）。設置後にニヤリとした表情。
+            //
+            // Row 6  — スキル・スモーク (SmokeScreen)
+            //   フレーム数 : 4  /  fps : 8
+            //   内容       : f1=ベルトから煙幕弾を取り出す（腰に手を伸ばす）、
+            //                f2=前方に放り投げる（軽く投擲）、
+            //                f3=低い姿勢に即移行（爆発回避）、
+            //                f4=煙の中に消える（全体を暗くフェードアウト気味）。
+            //
+            // Row 7  — 回避・残像 (Afterimage/Dodge)
+            //   フレーム数 : 3  /  fps : 10
+            //   内容       : f1=身をかわす（左に1〜2px体が傾く）、
+            //                f2=元の位置に前フレームの半透過コピーを残す（残像）、
+            //                f3=元の立ち位置に戻る。残像は消える。
+            //                「盾なし回避」のため、このモーションがガード代わり。
+            //
+            // Row 8  — ダメージ (Hurt)
+            //   フレーム数 : 3  /  fps : 8
+            //   内容       : f1=後退（1px右にずれ）・マントが前に飛ぶ、
+            //                f2=目を細めた「チッ」な表情（苦悶ではなく苛立ち）、
+            //                f3=即座に戦闘態勢に戻る（回復が早い）。
+            //                1フレーム白フラッシュ。
+            //
+            // Row 9  — 瀕死 (LowHP)
+            //   フレーム数 : 4  /  fps : 4
+            //   内容       : 膝を少し曲げた低重心。片手で弓、もう片手は腰に。
+            //                表情はまだ軽い笑み（強がり）。弓のルーンが弱く明滅。
+            //
+            // Row 10 — 戦闘不能 (KO)
+            //   フレーム数 : 2  /  fps : 4
+            //   内容       : 膝から崩れ落ちる。弓がカランと横に転がる（f2）。
+            //                マントが地面に広がる。弓のルーン刻印が完全消灯。
+            //
+            // Row 11 — 勝利 (Victory)
+            //   フレーム数 : 6  /  fps : 8
+            //   内容       : f1-f2=弓をくるりと一回転させる（見せ技）、
+            //                f3=弓を肩に担ぐ（斜め持ち）、
+            //                f4=もう片手をポケット（orベルト）に突っ込む、
+            //                f5-f6=「ま、こんなもんだろ」という顔で視線を逸らす。
+            //                マントがひとたびゆったり翻って収まる。
+            //
+            // Row 12 — 死の踊り（奥義） (DanceOfDeath)
+            //   フレーム数 : 8  /  fps : 12
+            //   内容       : f1=Shadow State 爆発的突入（全身半透過一瞬フラッシュ）、
+            //                f2-f3=弓を超高速で引く→放す×2（2連射の表現）、
+            //                f4-f5=ランダム方向に体ごと跳び、その都度矢を放す、
+            //                f6=空中で逆手持ちに体をひねって放つ（最大動作フレーム）、
+            //                f7=着地・弓のルーン RuneGlow 全開・マント大きく翻る、
+            //                f8=ニヤリとした表情で待機に戻る。
+            //                ★ 会心ヒット毎にこのアニメのランダムフレームを1枚追加再生
+            //                  （コード側で処理。会心の「追加1ヒット」演出に対応）
+            //
+            // ── ポートレート仕様 (96×96 px) ─────────────────────────────────
+            //   バスト〜肩のアップ。やや斜め向き（3/4画角）。
+            //   表情: 口角が少し上がった半笑い・流し目（キャラの核）。
+            //   背景: 単色（夕暮れ橙 #604020 を60%透過）+ 右上に弓のシルエット。
+            //   静止1枚 + 感情別バリアント 4枚:
+            //     [Normal]   半笑い流し目（基本）
+            //     [Smug]     ニヤリとした自信たっぷりの笑み
+            //     [Serious]  珍しく笑みを消した、本気の眼差し（緊急時のみ）
+            //     [Hurt]     口をへの字に曲げた苛立ち顔（苦悶ではない）
+            //     [Rare]     照れた顔（仲間に感謝された時にのみ出る滅多に見ない表情）
+            //
+            // ── フィールドスプライト仕様 (32×48 px) ─────────────────────────
+            //   アイドル: 2フレーム（重心の小揺れ）
+            //   歩行: 4方向 × 4フレーム（忍び足気味）
+            //   弓は背中に担いだ状態（矢が少し飛び出している）
+            //
+            // ── エミッションマップ ─────────────────────────────────────────
+            //   発光部位: 弓のルーン刻印のみ
+            //   通常時  : RuneDim (#209040) で低輝度常時微光
+            //   Shadow State 突入: RuneGlow (#80FF80) に輝度爆発 → RuneActive に落ち着く
+            //   DarkVision発動時: 瞳に EyeDarkVisionGlow (#60FF80) を一時的に乗せる
+            public const string EmissionColorNormal      = RuneDim;
+            public const string EmissionColorShadowState = RuneActive;
+            public const string EmissionColorSkill       = RuneGlow;
+
+            // ── 武器スプライト バリアント ────────────────────────────────────
+            //   WeaponSprites配列インデックス:
+            //   [0] 通常の弓（影矢のルーン弓）— 金銀装飾、ルーン消灯状態
+            //   [1] Shadow State中の弓 — ルーン刻印が RuneActive でうっすら発光
+            //   [2] スキル発動中の弓  — ルーン刻印が RuneGlow で全開発光、弓全体が緑に染まる
         }
     }
 }
