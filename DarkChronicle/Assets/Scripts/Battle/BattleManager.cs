@@ -37,6 +37,9 @@ namespace DarkChronicle.Battle
         BattleCharacter       _activeCharacter;
         bool                  _awaitingPlayerInput;
 
+        /// <summary>EnemyData list from the last victorious battle. Used by RoguelikeManager to compute EXP/JP rewards.</summary>
+        public List<EnemyData> VictoryEnemyData { get; private set; } = new();
+
         // ── Special mechanics state ────────────────────────────────────────
         // Death Sentence: target → turns remaining until execution
         readonly Dictionary<BattleCharacter, int> _deathSentenceTimers = new();
@@ -1083,6 +1086,13 @@ namespace DarkChronicle.Battle
         {
             CurrentPhase = Phase.Outro;
             foreach (var h in _heroes) h.Traits.OnBattleEnd();
+
+            // Capture defeated enemy data for EXP/JP computation
+            VictoryEnemyData = _enemies
+                .Where(e => e.EnemyData != null)
+                .Select(e => e.EnemyData)
+                .ToList();
+
             _battleUI.ShowVictoryScreen();
             yield return new WaitForSeconds(2f);
             AtmosphereManager.Instance?.ExitBattle();

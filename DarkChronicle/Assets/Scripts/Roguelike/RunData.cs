@@ -40,6 +40,15 @@ namespace DarkChronicle.Roguelike
         // ── Curses ─────────────────────────────────────────────────────────
         public List<CurseData>  Curses       = new();
 
+        // ── Level / Job Level ──────────────────────────────────────────────
+        public int  CharacterLevel  = 1;
+        public int  CurrentEXP      = 0;
+        public int  JobLevel        = 1;
+        public int  CurrentJobJP    = 0;
+        public int  TotalExpGained  = 0;
+        public int  TotalJPGained   = 0;
+        public List<string> UnlockedSkillNames = new();
+
         // ── Statistics (for end screen) ────────────────────────────────────
         public int  DamageDealt   = 0;
         public int  DamageTaken   = 0;

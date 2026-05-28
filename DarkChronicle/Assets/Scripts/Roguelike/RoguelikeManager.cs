@@ -11,6 +11,7 @@ using DarkChronicle.HD2D;
 using DarkChronicle.Roguelike.Events;
 using DarkChronicle.Roguelike.Map;
 using DarkChronicle.Roguelike.Relics;
+using DarkChronicle.UI;
 
 namespace DarkChronicle.Roguelike
 {
@@ -69,6 +70,10 @@ namespace DarkChronicle.Roguelike
         [SerializeField] CanvasGroup         _skillUpgradeUI;
         [SerializeField] CanvasGroup         _relicSmeltUI;
 
+        // ── Level Up UI ────────────────────────────────────────────────────
+        [Header("Level Up")]
+        [SerializeField] LevelUpUI           _levelUpUI;
+
         // ── State ──────────────────────────────────────────────────────────
         RunData     _run;
         MapData     _currentMapData;
@@ -124,12 +129,8 @@ namespace DarkChronicle.Roguelike
             var startRelic = _lootSystem.DrawRelic(RelicRarity.Common, false);
             if (startRelic != null) _run.AddRelic(startRelic);
 
-            // Starting deck: 5 basic skills from character's starter job
-            if (chosen.StarterJob?.LearnableSkills.Count > 0)
-            {
-                foreach (var entry in chosen.StarterJob.LearnableSkills.Take(5))
-                    _run.AddSkill(entry.Skill);
-            }
+            // Starting deck: job-level-1 skills from the starter job
+            LevelSystem.InitStartingSkills(_run, chosen.StarterJob);
         }
 
         void InitSubSystems()
@@ -291,6 +292,17 @@ namespace DarkChronicle.Roguelike
 
             if (lastResult == BattleResult.Victory)
             {
+                // EXP / JP rewards from defeated enemies
+                var defeatedEnemies = BattleManager.Instance.VictoryEnemyData;
+                var (totalExp, totalJP) = LevelSystem.ComputeBattleRewards(defeatedEnemies);
+                _run.EnemiesKilled += defeatedEnemies.Count;
+
+                var levelsGained = LevelSystem.AddExp(_run, totalExp, out var statDelta);
+                var skillsUnlocked = LevelSystem.AddJP(_run, _run.SelectedCharacter.StarterJob, totalJP);
+
+                if ((levelsGained.Count > 0 || skillsUnlocked.Count > 0) && _levelUpUI != null)
+                    yield return _levelUpUI.Show(levelsGained, statDelta, skillsUnlocked);
+
                 int goldReward = _currentFloor.BaseGoldReward + Random.Range(-10, 20);
                 yield return _lootSystem.ShowBattleRewards(goldReward, isElite, isBoss);
             }
@@ -395,12 +407,28 @@ namespace DarkChronicle.Roguelike
 
         CharacterStats BuildCurrentHeroStats()
         {
-            var stats = _run.SelectedCharacter.BaseStats.Clone();
-            stats.MaxHP     = _run.MaxHP;
+            var base_ = _run.SelectedCharacter.BaseStats.Clone();
+            var growth = LevelSystem.GetAccumulatedStatGrowth(
+                _run.SelectedCharacter, _run.CharacterLevel);
+
+            // Add level growth to all non-HP stats (HP is tracked live via run.MaxHP)
+            base_.MaxMP           += growth.MaxMP;
+            base_.PhysicalAttack  += growth.PhysicalAttack;
+            base_.MagicAttack     += growth.MagicAttack;
+            base_.PhysicalDefense += growth.PhysicalDefense;
+            base_.MagicDefense    += growth.MagicDefense;
+            base_.Speed           += growth.Speed;
+            base_.Luck            += growth.Luck;
+            base_.CriticalRate    += growth.CriticalRate;
+
+            // HP is always sourced from the run's tracked MaxHP (affected by events/relics)
+            base_.MaxHP = _run.MaxHP;
+
             // VampiricBlade: -20% MaxHP
             if (_run.HasRelic(RelicEffectType.VampiricBlade))
-                stats.MaxHP = Mathf.RoundToInt(stats.MaxHP * 0.8f);
-            return stats;
+                base_.MaxHP = Mathf.RoundToInt(base_.MaxHP * 0.8f);
+
+            return base_;
         }
 
         // ── Soul Siphon Reward ─────────────────────────────────────────────
@@ -525,6 +553,8 @@ namespace DarkChronicle.Roguelike
             System.TimeSpan elapsed = System.DateTime.Now - _run.StartTime;
             return $"{(won ? "クリア！" : "力尽きた…")}\n" +
                    $"到達フロア: {_run.CurrentFloor + 1}\n" +
+                   $"キャラクターLv: {_run.CharacterLevel}  累計EXP: {_run.TotalExpGained}\n" +
+                   $"ジョブLv: {_run.JobLevel}  累計JP: {_run.TotalJPGained}\n" +
                    $"部屋数: {_run.TotalRoomsCleared}\n" +
                    $"撃破数: {_run.EnemiesKilled}\n" +
                    $"ダメージ: {_run.DamageDealt}\n" +
