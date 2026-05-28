@@ -74,6 +74,11 @@ namespace DarkChronicle.Data
         public bool  IsHeal;
         public float HealPower;
 
+        [Header("Revive")]
+        public bool  IsRevive;
+        public float ReviveHPPercent = 0.50f;  // 0.5 = 50%HPで蘇生
+        public bool  ReviveAllAllies = false;   // true = 全員蘇生
+
         [Header("Animation")]
         public string AnimationTrigger;
         public GameObject VFXPrefab;

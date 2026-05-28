@@ -208,6 +208,13 @@ namespace DarkChronicle.Battle
         public bool  ExtraHitOnCrit           = false;  // 会心時に追加1ヒット
         public int   BindDurationBonus        = 0;      // バインド(行動不能)持続ターン追加
 
+        // 僧侶(リリア)拡張
+        public float HealPowerMult            = 1f;     // 回復量の倍率(1.5=150%回復)
+        public bool  AlsoRevive               = false;  // 回復時に戦闘不能者も蘇生(低HP)
+        public float AlsoReviveHPPercent      = 0.20f;  // AlsoRevive時の蘇生HP割合
+        public bool  HealRemovesAllStatus     = false;  // 回復時に状態異常も全回復
+        public float UndeadBonusMult          = 0f;     // アンデッド追加ダメージ倍率ボーナス
+
         // ── ファクトリ ─────────────────────────────────────────────────────
         public static readonly BoostUpgrade None = new();
 
