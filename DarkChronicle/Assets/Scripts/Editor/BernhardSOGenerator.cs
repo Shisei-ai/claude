@@ -226,11 +226,13 @@ namespace DarkChronicle.Editor
 
             cd.CharacterName  = BernhardDesign.CharacterName;
             cd.Backstory      =
-                "元・王国騎士団長。三年前の王国滅亡の夜、自らの判断の誤りが主君の死を招いたと信じている。" +
+                "元・王国騎士団長。銀甲冑に緋色のマント、金の装飾と青いルーンが刻まれた鎧を身に纏う。" +
+                "三年前の王国滅亡の夜、自らの判断の誤りが主君の死を招いたと信じている。" +
                 "生き延びたことへの罪悪感を胸に、その元凶を打ち倒すために旅に出た。" +
                 "不器用に見えて気遣いができ、野営では必ず料理を担当する。";
             cd.VoicePrefix    = BernhardDesign.VoicePrefix;
-            cd.ThemeColor     = new Color(0.60f, 0.20f, 0.10f);
+            // テーマカラー: 緋マントの赤をベースに、銀・金・青ルーンのアクセント
+            cd.ThemeColor     = new Color(0.72f, 0.11f, 0.11f);  // #B81C1C — 緋マント
 
             cd.BaseStats      = BernhardDesign.BaseStats;
             cd.StarterJob     = job;

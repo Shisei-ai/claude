@@ -17,11 +17,15 @@
  *   • 初心者が使いやすく、上級者が深く使い込める
  *   • BoostとBreakの基礎が学べるチュートリアル的ポジション
  *
- *   ◆ ビジュアル設定
- *   • 年齢: 28歳 / 身長: 184cm / 体格: 筋肉質・中肉中背
- *   • 短い黒髪、左頬に古傷、鋼鉄色の瞳
- *   • くすんだ深紅のマント、使い込まれた暗鋼の甲冑
- *   • 武器: 片手剣「断罪剣テオドリク」+ 盾「廃王の護盾」
+ *   ◆ ビジュアル設定（HD-2Dドット絵 確定版）
+ *   • 年齢: 28歳 / 身長: 184cm / 体格: がっしりした筋肉質・堂々とした立ち姿
+ *   • 金色がかった中くらいの長さの髪、わずかな無精髭、灰みがかった青い瞳
+ *   • 銀白色の重装甲冑（金色の細工彫刻、胸部と肩に青く輝くルーン文字刻印）
+ *   • 鮮やかな緋色のマント（背中から翻る）
+ *   • 武器: 片手ロングソード「断罪剣テオドリク」（左手で下方に構える）
+ *   • 盾: 「廃王の護盾」（赤地に銀のグリフィン＋王冠の紋章、右手保持）
+ *   • テーマカラー: 銀甲冑 × 緋マント × 金装飾 × 青いルーングロウ
+ *   ※ スプライト仕様の詳細は SpriteSpec クラスを参照
  *
  *   ◆ 性格
  *   • 寡黙かつ誠実。余計なことは言わないが、必要なことは必ず言う
@@ -402,6 +406,197 @@ namespace DarkChronicle.CharacterDesigns
                 "ヴァルダー…。お前がそうなったのは、俺のせいだ。だからこそ、俺が終わらせる。";
             public const string AfterBossVictory =
                 "終わった…。やっと終わった。…ありがとう、みんな。俺一人じゃ無理だった。";
+        }
+
+        // ── HD-2D Sprite Specification ────────────────────────────────────
+        //
+        // オクトパストラベラー / ドラゴンクエストI&II HD-2D スタイル準拠。
+        // ドット絵制作者・アニメーター向けの詳細仕様書。
+        //
+        // 【スタイル基準】
+        //   • 1キャラ最大32色パレット（透明色含む）
+        //   • 輪郭線: 1px 黒系（#0A1018）、一部ハイライト輪郭に白系（#E8F0F4）
+        //   • シェーディング: フラット2段階 + 光源ハイライト1段階（光源: 右上45°）
+        //   • アニメーション: 4fps 基調（アクションは8fps）
+        //   • URP SpriteRenderer: Normal Map なし、Emission マップで青いルーンを発光させる
+        //
+        // 【スプライトサイズ】
+        //   バトルスプライト : 64 × 96 px  （PixelsPerUnit = 32）
+        //   フィールドスプライト: 32 × 48 px  （PixelsPerUnit = 16）
+        //   ポートレート       : 96 × 96 px  （UI用、ノンスケール表示）
+        //
+        // ─────────────────────────────────────────────────────────────────
+        public static class SpriteSpec
+        {
+            // ── キャンバスサイズ ────────────────────────────────────────────
+            public const int BattleSpriteWidth   = 64;
+            public const int BattleSpriteHeight  = 96;
+            public const int FieldSpriteWidth    = 32;
+            public const int FieldSpriteHeight   = 48;
+            public const int PortraitSize        = 96;
+            public const int PixelsPerUnit       = 32;
+
+            // ── カラーパレット (HTML Hex) ────────────────────────────────────
+            // 甲冑（銀白）
+            public const string ArmorHighlight   = "#E8F0F4";   // 最明部・光沢ハイライト
+            public const string ArmorLight       = "#C8D4DC";   // 明部
+            public const string ArmorMid         = "#9AAAB8";   // 中間色
+            public const string ArmorShadow      = "#6B8294";   // 影部
+            public const string ArmorDeep        = "#3D5466";   // 深影・裏地
+            // 金装飾
+            public const string GoldHighlight    = "#F0D880";   // 金装飾 明部
+            public const string GoldMid          = "#D4A843";   // 金装飾 中間
+            public const string GoldShadow       = "#B88C35";   // 金装飾 影
+            public const string GoldDeep         = "#8B6826";   // 金装飾 深影
+            // 青いルーングロウ
+            public const string RuneGlow         = "#9ADCFF";   // ルーン最明部（Emission）
+            public const string RuneCore         = "#5CB8FF";   // ルーン中心
+            public const string RuneMid          = "#3A8FE8";   // ルーン周縁
+            public const string RuneDeep         = "#1A5CB8";   // ルーン根本
+            // 緋色マント
+            public const string CapeHighlight    = "#F04040";   // マント 明部
+            public const string CapeMid          = "#C82020";   // マント 中間
+            public const string CapeShadow       = "#961818";   // マント 影
+            public const string CapeDeep         = "#641010";   // マント 深影・折り目
+            // 髪（金色）
+            public const string HairHighlight    = "#F0D880";   // 前髪ハイライト
+            public const string HairMid          = "#D4A843";   // 髪 中間
+            public const string HairShadow       = "#B88C35";   // 髪 影
+            public const string HairDeep         = "#8B6826";   // 髪 根元・後ろ
+            // 肌
+            public const string SkinHighlight    = "#F8DDB8";   // 肌 明部
+            public const string SkinMid          = "#EECBA0";   // 肌 中間
+            public const string SkinShadow       = "#D4A87A";   // 肌 影（顎下・目元）
+            public const string SkinDeep         = "#B88C64";   // 肌 深影・無精髭部
+            // 瞳（灰みがかった青）
+            public const string EyeHighlight     = "#C0DCE8";   // 瞳 ハイライト点
+            public const string EyeIris          = "#7090A0";   // 虹彩
+            public const string EyePupil         = "#3A5060";   // 瞳孔
+            // 盾（赤地 + 銀紋章）
+            public const string ShieldRed        = "#B82020";   // 盾 地色（赤）
+            public const string ShieldRedShadow  = "#8B1818";   // 盾 赤 影
+            public const string ShieldSilver     = "#C8D0D8";   // 盾 グリフィン紋章
+            public const string ShieldSilverShad = "#A0B0BC";   // 盾 紋章 影
+            public const string ShieldRim        = "#D4A843";   // 盾 縁取り（金）
+            // 剣
+            public const string BladeHighlight   = "#E8EEF0";   // 刃 ハイライト
+            public const string BladeMid         = "#C0C8D0";   // 刃 中間
+            public const string BladeShadow      = "#909A9E";   // 刃 影
+            public const string BladeEdge        = "#68787C";   // 刃縁・溝
+            public const string CrossguardGold   = "#D4A843";   // 鍔（金）
+            // 輪郭・影全体
+            public const string OutlineMain      = "#0A1018";   // メイン輪郭
+            public const string OutlineHighlight = "#E8F0F4";   // 逆光輪郭（左辺）
+            public const string ShadowAmbient    = "#1A2028";   // 環境影・足元影
+
+            // ── バトルスプライト アニメーション仕様 ────────────────────────
+            //
+            // Sprite Sheet レイアウト: 横8列 × 縦n行、各セル 64×96 px
+            //
+            // Row 0  — アイドル (Idle)
+            //   フレーム数 : 4
+            //   fps        : 4
+            //   内容       : 直立待機。胸部ルーンが2f周期でゆっくり明滅。
+            //                マントが微風で1px波打つ（f2 と f4 で先端1px下移動）。
+            //
+            // Row 1  — 前進 (StepForward)
+            //   フレーム数 : 4
+            //   fps        : 8
+            //   内容       : 1歩前に踏み出してから戻る。
+            //                剣を肩に引きつつ半歩前進（f1-f2）→ 引き戻し（f3-f4）。
+            //
+            // Row 2  — 通常攻撃 (Attack)
+            //   フレーム数 : 6
+            //   fps        : 10
+            //   内容       : f1=構え(膝を少し曲げる)、f2=大きく踏み込み剣を振り上げる、
+            //                f3=振り下ろし最大速度(モーションブラー1px)、
+            //                f4=当たり判定フレーム(剣先が敵位置)、
+            //                f5=振り抜け後の腕伸ばし、f6=待機に戻る。
+            //
+            // Row 3  — スキル発動・物理 (SkillPhysical)
+            //   フレーム数 : 8
+            //   fps        : 10
+            //   内容       : f1-f2=大きく腕を引き力を溜める動作、
+            //                f3=剣が金色に光り始める（GoldHighlight で縁取り1px追加）、
+            //                f4=爆発的踏み込み、f5-f6=連続斬り動作、
+            //                f7=残像エフェクト(前フレームを50%透過コピー)、
+            //                f8=待機に戻る。
+            //
+            // Row 4  — スキル発動・魔法 (SkillMagical)
+            //   フレーム数 : 8
+            //   fps        : 8
+            //   内容       : f1-f2=盾を掲げて大地に足を踏みしめる、
+            //                f3-f4=ルーン刻印が全体的に青く発光（RuneGlow 全面に拡大）、
+            //                f5=ルーン光が剣先に集束、f6-f7=魔法放出動作、
+            //                f8=待機に戻る。
+            //
+            // Row 5  — 防御 (Guard)
+            //   フレーム数 : 2
+            //   fps        : 4
+            //   内容       : 盾を正面に構えて腰を落とす。盾が微光。
+            //
+            // Row 6  — ダメージ (Hurt)
+            //   フレーム数 : 3
+            //   fps        : 8
+            //   内容       : f1=仰け反り（1px上+右にずれ）、f2=よろめき（中間）、
+            //                f3=態勢を立て直す。全体を1フレームだけ白フラッシュ。
+            //
+            // Row 7  — 瀕死 (LowHP)
+            //   フレーム数 : 4
+            //   fps        : 4
+            //   内容       : 膝を若干曲げ、前傾み姿勢。甲冑に傷痕ヒビを追加描画。
+            //                2f周期でゆっくり揺れる（呼吸感）。
+            //
+            // Row 8  — 戦闘不能 (KO)
+            //   フレーム数 : 2
+            //   fps        : 4
+            //   内容       : 倒れ込んだ状態（横向き）。マントが地面に広がる。
+            //
+            // Row 9  — 勝利 (Victory)
+            //   フレーム数 : 6
+            //   fps        : 8
+            //   内容       : f1-f3=剣を天に突き上げる大きな動作、
+            //                f4=剣先がルーン光で輝く(RuneCore エフェクト)、
+            //                f5-f6=剣を下ろして仁王立ち。マントが大きく翻る。
+            //
+            // Row 10 — 不撓不屈発動 (IndomitableWill)
+            //   フレーム数 : 4
+            //   fps        : 12
+            //   内容       : HP1で踏みとどまる演出。全体が一瞬白く消え、
+            //                ルーン全体が強烈に点滅（RuneGlow最大輝度 → OutlineMain のサイクル×2）、
+            //                最後に仁王立ちに戻る。
+            //
+            // ── ポートレート仕様 (96×96 px) ─────────────────────────────────
+            //   バスト〜肩のアップ。右向き（ゲーム内会話UIに合わせて右向き）。
+            //   表情: やや険しい目つき、口はしっかり閉じている。
+            //   背景: 単色（ThemeColor #9B1C1C を80%透過）+ 右上に薄いルーングロウ放射。
+            //   静止1枚 + 感情別バリアント 4枚:
+            //     [Normal] 険しい表情（基本）
+            //     [Serious] 眉を寄せた集中顔
+            //     [Surprise] わずかに目を見開く
+            //     [Pain] 歯を食いしばった苦悶
+            //     [Calm] やや表情が和らいだ状態（仲間との会話シーン用）
+            //
+            // ── フィールドスプライト仕様 (32×48 px) ─────────────────────────
+            //   アイドル: 2フレーム（体の微揺れ）
+            //   歩行: 4方向 × 4フレーム
+            //   光源: なし（フィールドはタイル照明に委ねる）
+            //   マントは1〜2px揺れで表現
+            //
+            // ── エミッションマップ (バトルスプライト用) ──────────────────────
+            //   ルーン刻印部分のみ EmissionMap を用意する。
+            //   通常時: RuneMid (#3A8FE8) で微光
+            //   スキル発動時: RuneGlow (#9ADCFF) に輝度を上げるアニメーション
+            //   (UnityのMaterialPropertyBlockでEmission強度をコルーチンで変化)
+            public const string EmissionColorIdle  = RuneMid;
+            public const string EmissionColorSkill = RuneGlow;
+
+            // ── 武器スプライト バリアント ────────────────────────────────────
+            //   WeaponSprites配列インデックスと対応するスプライト内容:
+            //   [0] 通常状態の剣（断罪剣テオドリク）— 金色クロスガード、直剣
+            //   [1] 剣Boost状態 — 刃が金色オーラを帯びた演出（BladeMid全体をGoldMidに差し替え）
+            //   [2] 炎の刃状態  — 刃先に炎エフェクト（オレンジ系2色）を重ねたスプライト
+            //   [3] 雷迸り状態  — 刃に稲妻テクスチャ（RuneCore系の青）を重ねたスプライト
         }
     }
 }
