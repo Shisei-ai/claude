@@ -18,12 +18,26 @@
  *   • 「高速詠唱」でSPDも全キャラ2位。先手を取って落とす戦法
  *   • MPが潤沢なうちは最強、枯渇すると詰む。リソース管理が肝
  *
- *   ◆ ビジュアル設定
+ *   ◆ ビジュアル設定（HD-2Dドット絵 確定版）
  *   • 年齢: 36歳（外見は28歳相当。契約の影響で老いにくい）
  *   • 身長: 169cm / 体格: 細身、優雅な所作
- *   • 長い銀白の髪を緩くまとめ、右目には金色の瞳、左目は深紅（契約の証）
- *   • 深紫と黒を基調とした研究官のローブ、金刺繍が精緻
- *   • 杖: 「断界の杖エルデヴィント」— 先端に封印された悪魔の眼球が嵌まっている
+ *   • 腰まで届く深い群青黒の長髪（青みがかったハイライト）、流れるように垂らし
+ *     前髪を片目に掛けて非対称に。細い銀のチェーン飾り・ピン・小さな宝石が髪に散る
+ *   • 氷のように鋭く冷たい氷青色の瞳（左右同色）。切れ長で感情を映さない眼差し
+ *   • 銀チェーンのイヤリング、氷青のサファイアペンダント
+ *   • 装備一式:
+ *     - 肩/胸: 深紺黒の甲冑（金の唐草細工刻印）+ 肩にワタリガラスの黒羽根装飾
+ *     - 胴: 深紫/ダークプラムのコルセット（銀バックル）
+ *     - アウター: 裾まで届く深紺の大コート（金縁）、内側に星空模様と青白く光るルーン文字
+ *     - 足: 黒レースのサイハイストッキング + 銀装飾の黒ロングブーツ（菱形ルーン刻印）
+ *     - ベルト: 茶革ベルト。小型魔導書・紫魔法薬・巻物・革袋を吊り下げ
+ *   • 武器: 「断界の杖エルデヴィント」（左手）
+ *     暗い木地の長杖、先端は三日月/鎌状の金属頭、青い雫型水晶がチェーンで下がり
+ *     三日月部分にワタリガラスが1羽止まっている
+ *   • 魔導書（右手）: 青いルーンが燃え上がるように光るページを開いた状態で保持
+ *   • 足元: 召喚時に展開する氷青の魔法陣（ルーン刻印の輝く円）
+ *   • テーマカラー: 深夜群青 × 金装飾 × 氷青魔力 × 深紫コルセット
+ *   ※ スプライト仕様の詳細は SpriteSpec クラスを参照
  *
  *   ◆ 性格
  *   • 知性と品格を前面に出した話し方。敬語と距離感を保つ
@@ -435,6 +449,234 @@ namespace DarkChronicle.CharacterDesigns
                 "契約の悪魔が近い。…怖いか、ですって？ふふ。私は怖くないわ。ただ、少し…後悔しているだけよ。";
             public const string AfterBossVictory =
                 "…終わったわ。本当に。ねえ、ベルン。約束して。私が消えた後も、ちゃんと前を向くと。…バカね、泣かないで。";
+        }
+
+        // ── HD-2D Sprite Specification ────────────────────────────────────
+        //
+        // オクトパストラベラー / ドラゴンクエストI&II HD-2D スタイル準拠。
+        // ドット絵制作者・アニメーター向けの詳細仕様書。
+        //
+        // 【スタイル基準】
+        //   • 1キャラ最大32色パレット（透明色含む）
+        //   • 輪郭線: 1px 深黒（#06060C）、ハイライト輪郭に薄青白（#D8E8F4）
+        //   • シェーディング: フラット2段階 + 光源ハイライト1段階（光源: 右上45°）
+        //   • アニメーション: 4fps 基調（詠唱は8fps）
+        //   • URP SpriteRenderer: 魔法陣・杖水晶・書のEmissionMapで青白く常時発光
+        //   • 杖の水晶 → 常時 RuneMid でゆらゆら明滅 (sin波)
+        //   • 書のページ → スキル発動時に RuneGlow に輝度爆発
+        //
+        // 【スプライトサイズ】
+        //   バトルスプライト : 64 × 96 px  （PixelsPerUnit = 32）
+        //   フィールドスプライト: 32 × 48 px  （PixelsPerUnit = 16）
+        //   ポートレート       : 96 × 96 px  （UI用、ノンスケール表示）
+        //
+        // ─────────────────────────────────────────────────────────────────
+        public static class SpriteSpec
+        {
+            // ── キャンバスサイズ ────────────────────────────────────────────
+            public const int BattleSpriteWidth   = 64;
+            public const int BattleSpriteHeight  = 96;
+            public const int FieldSpriteWidth    = 32;
+            public const int FieldSpriteHeight   = 48;
+            public const int PortraitSize        = 96;
+            public const int PixelsPerUnit       = 32;
+
+            // ── カラーパレット (HTML Hex) ────────────────────────────────────
+            // 髪（深い群青黒 + 青みハイライト）
+            public const string HairDeepest     = "#06080E";   // 最暗部・毛束の奥
+            public const string HairBase        = "#0A0C16";   // 基本色
+            public const string HairMid         = "#141A2A";   // 青みが出る中間域
+            public const string HairBlueSheen   = "#1E2C42";   // 光沢・ハイライト
+            public const string HairHighlight   = "#2A3C5A";   // 最明部（前髪先端）
+            // 肌（冷たいトーン）
+            public const string SkinHighlight   = "#F8EDE0";   // 最明部
+            public const string SkinMid         = "#EDD8C0";   // 中間
+            public const string SkinShadow      = "#D4B89C";   // 影（顎下・瞼）
+            public const string SkinDeep        = "#B89880";   // 深影（首根元）
+            // 瞳（氷青）
+            public const string EyeHighlight    = "#E8F8FF";   // ハイライト点
+            public const string EyeIrisLight    = "#B8E4FF";   // 虹彩 明
+            public const string EyeIris         = "#78C4F0";   // 虹彩
+            public const string EyeIrisDeep     = "#4898D0";   // 虹彩 深
+            public const string EyePupil        = "#2868A8";   // 瞳孔
+            // 甲冑（深紺黒 + 金装飾）
+            public const string ArmorDeepest    = "#080C14";   // 最暗部・裏地
+            public const string ArmorBase       = "#10162A";   // 基本色
+            public const string ArmorMid        = "#1A2238";   // 中間
+            public const string ArmorHighlight  = "#243050";   // ハイライト面
+            // 金装飾
+            public const string GoldBright      = "#F0D870";   // 最明部
+            public const string GoldMid         = "#D0AA38";   // 中間
+            public const string GoldShadow      = "#A88428";   // 影
+            public const string GoldDeep        = "#806218";   // 深影
+            // コルセット（深紫/ダークプラム）
+            public const string CorsetLight     = "#5A2870";   // ハイライト面
+            public const string CorsetMid       = "#3C1858";   // 中間色
+            public const string CorsetShadow    = "#2A1040";   // 影
+            public const string CorsetDeep      = "#1A0830";   // 深影・縫い目
+            // 大コート内側（星空模様）
+            public const string CoatBase        = "#08101C";   // ベース深夜
+            public const string CoatMid         = "#10182C";   // 中間
+            public const string CoatStarFaint   = "#3060A0";   // 細かい星（暗）
+            public const string CoatStarBright  = "#5080C8";   // 大きい星（明）
+            // 魔法陣・ルーングロウ（氷青）
+            public const string RuneGlow        = "#C0E0FF";   // 最明部（Emission）
+            public const string RuneCore        = "#80C8FF";   // 核
+            public const string RuneMid         = "#3890E8";   // 周縁
+            public const string RuneDeep        = "#1060C0";   // 根本
+            // ワタリガラスの羽（黒 + 光沢）
+            public const string FeatherBlack    = "#0A0A10";   // 最暗部
+            public const string FeatherBase     = "#14141E";   // 基本
+            public const string FeatherSheen    = "#20202E";   // 羽のエッジ光沢
+            // ブーツ（黒 + 銀装飾）
+            public const string BootBase        = "#141418";   // ブーツ本体
+            public const string BootMid         = "#1C1C22";   // ハイライト
+            public const string SilverLight     = "#D0D8E0";   // 銀 明部
+            public const string SilverMid       = "#909AA0";   // 銀 中間
+            public const string SilverDeep      = "#606870";   // 銀 影
+            // 杖（暗い木材 + 水晶）
+            public const string StaffWoodDeep   = "#201008";   // 木地 最暗
+            public const string StaffWoodBase   = "#361A0C";   // 木地 基本
+            public const string StaffWoodLight  = "#4A2412";   // 木地 ハイライト
+            public const string StaffCrystal    = "#80C4FF";   // 水晶 明
+            public const string StaffCrystalDeep= "#3880D0";   // 水晶 深
+            // 革小物（茶色系）
+            public const string LeatherBase     = "#5A3018";   // 革 中間
+            public const string LeatherDeep     = "#3E2010";   // 革 影
+            public const string LeatherLight    = "#7A4822";   // 革 明
+            // 薬瓶
+            public const string PotionLiquid    = "#9030D0";   // 紫液体
+            public const string PotionGlow      = "#B860F0";   // 瓶の発光
+            // 輪郭・環境
+            public const string OutlineMain     = "#06060C";   // メイン輪郭
+            public const string OutlineHighlight= "#D8E8F4";   // 逆光輪郭
+            public const string ShadowAmbient   = "#0C0E18";   // 環境影・足元
+
+            // ── バトルスプライト アニメーション仕様 ────────────────────────
+            //
+            // Sprite Sheet レイアウト: 横8列 × 縦n行、各セル 64×96 px
+            //
+            // Row 0  — アイドル (Idle)
+            //   フレーム数 : 4
+            //   fps        : 4
+            //   内容       : ほんのり浮遊感（全体を0.5px上下に揺らす・呼吸リズム）。
+            //                コートの裾と髪の先端が僅かにゆらゆらドリフト（1px幅）。
+            //                足元の魔法陣が2f周期でゆっくり輝度変化（0.8→1.0→0.8…）。
+            //                杖水晶がRuneMid→RuneCore でsin波明滅。
+            //
+            // Row 1  — 前進 (StepForward)
+            //   フレーム数 : 4
+            //   fps        : 8
+            //   内容       : 地面を滑るように前進（ジャンプせず）。
+            //                コートの裾と髪が動きの後を追って流れる（1〜2fラグ）。
+            //
+            // Row 2  — 通常攻撃 (Attack) — 魔力弾
+            //   フレーム数 : 5
+            //   fps        : 10
+            //   内容       : f1=杖を前に突き出す構え、f2=先端水晶が急激に明滅
+            //                (RuneGlow全体点灯)、f3=ルーン弾が発射される
+            //                (杖先から前方に小さな球が飛ぶ、1px×1px の光点)、
+            //                f4=書を1枚パラリとめくる仕草（魔法完了の所作）、
+            //                f5=待機に戻る。
+            //
+            // Row 3  — スキル発動（単体/全体属性魔法） (SkillMagic)
+            //   フレーム数 : 8
+            //   fps        : 8
+            //   内容       : f1=魔導書を前に開いてページを見下ろす、
+            //                f2=書のページ全体がRuneGlow で点灯、
+            //                f3=足元の魔法陣が大きく拡大して輝く（魔法陣を1.5倍スケール）、
+            //                f4=杖を高々と掲げる（画面上部方向）、
+            //                f5=水晶3連射（光の粒×3が横に流れる）、
+            //                f6=大きな光球が前方に炸裂（メインエフェクトフレーム）、
+            //                f7=残留パーティクル（RuneCore が小さく4つ散る）、
+            //                f8=待機に戻る。
+            //
+            // Row 4  — 元素収束 / 高威力詠唱 (ElementalConverge)
+            //   フレーム数 : 8
+            //   fps        : 10
+            //   内容       : f1=目を閉じる（2px幅の細い線で閉眼表現）、
+            //                f2=頭上と周囲に複数の属性色光球が出現（炎/氷/雷の3色各1球）、
+            //                f3=光球が杖先に向かって収束し始める、
+            //                f4=収束完了・杖先で爆発的な光（全パレット色混合→白化）、
+            //                f5=目を開ける（EyeGlowで瞳の輝度MAX）、
+            //                f6=エネルギーが前方に放出（横方向の大きなフラッシュライン）、
+            //                f7=後方に髪と羽が大きく乱れる残像、
+            //                f8=待機に戻る（魔法陣が点滅して消える）。
+            //
+            // Row 5  — 防御/バリア (Guard)
+            //   フレーム数 : 2
+            //   fps        : 4
+            //   内容       : 書を正面に翳してバリアを張る。RuneCore が書の周囲を淡く包む。
+            //
+            // Row 6  — ダメージ (Hurt)
+            //   フレーム数 : 3
+            //   fps        : 8
+            //   内容       : f1=後退・髪が乱れる（左右に1px）、
+            //                f2=眉が寄ったわずかな苦悶表情（通常時と差し替えの顔）、
+            //                f3=素早く表情を元に戻す（冷たい無表情に即リセット）。
+            //                全体を1フレームだけ白フラッシュ。
+            //
+            // Row 7  — 瀕死 (LowHP)
+            //   フレーム数 : 4
+            //   fps        : 4
+            //   内容       : 前傾みが増し、杖に体重を掛けるような姿勢。
+            //                魔法陣の輝度が50%に落ちてちらつく（f2とf4で暗くなる）。
+            //                髪が乱れたまま（ダメージ後の状態を維持）。
+            //
+            // Row 8  — 戦闘不能 (KO)
+            //   フレーム数 : 2
+            //   fps        : 4
+            //   内容       : ゆっくり膝をつく（横倒れではなく、崩れ落ちるイメージ）。
+            //                書が地面に落ちてページが開いたまま。魔法陣が完全消灯。
+            //
+            // Row 9  — 勝利 (Victory)
+            //   フレーム数 : 6
+            //   fps        : 8
+            //   内容       : f1-f2=書を静かに閉じる、f3=杖を体の前に垂直に立てる、
+            //                f4=わずかに目を細める（勝利の表情・口角1px上げ）、
+            //                f5-f6=コートが風を受けたように大きく広がる。
+            //                魔法陣が小さく点滅してゆっくり消える。
+            //
+            // Row 10 — 過負荷詠唱発動 / 禁忌の力 (ContractPower)
+            //   フレーム数 : 4
+            //   fps        : 12
+            //   内容       : 契約の力を解放する特殊演出。全体が一瞬コントラスト逆転
+            //                （黒が白、白が黒）し、CorsetMid→CorsetLight に明るくなる、
+            //                RuneGlow が全身の輪郭線に沿って走り抜ける（1px 縁取り変化）、
+            //                最後に元の状態に戻る（4fで完結）。
+            //
+            // ── ポートレート仕様 (96×96 px) ─────────────────────────────────
+            //   バスト〜肩のアップ。左向き（ベルンハルトと向き合う配置）。
+            //   表情: 冷たく落ち着いた、心の内を見せない半眼。
+            //   背景: 深夜群青（#08101C）+ 上部に魔法陣光の環。
+            //   静止1枚 + 感情別バリアント 5枚:
+            //     [Normal]   冷静な半眼（基本）
+            //     [Thinking] 少し目を細めた分析顔
+            //     [Surprise] 目を少し見開く（滅多に出ない表情）
+            //     [Pain]     眉が微かに寄った苦悶（感情を抑えている）
+            //     [Warm]     口角が少し上がった珍しい表情（仲間への信頼シーン）
+            //     [Intense]  魔力全開・目が発光している（契約解放演出用）
+            //
+            // ── フィールドスプライト仕様 (32×48 px) ─────────────────────────
+            //   アイドル: 2フレーム（コート裾の小揺れ）
+            //   歩行: 4方向 × 4フレーム（滑るような歩き方）
+            //   杖は常に携帯（左手に縮小表示）
+            //   魔法陣: フィールドでは非表示
+            //
+            // ── エミッションマップ ─────────────────────────────────────────
+            //   発光部位: 杖の水晶 / 魔導書のページ / 足元の魔法陣 / ネックレス
+            //   通常時: RuneMid (#3890E8) で低輝度
+            //   スキル発動時: RuneGlow (#C0E0FF) に輝度最大化
+            //   (MaterialPropertyBlock で EmissionColor をコルーチン制御)
+            public const string EmissionColorIdle  = RuneMid;
+            public const string EmissionColorSkill = RuneGlow;
+
+            // ── 武器スプライト バリアント ────────────────────────────────────
+            //   WeaponSprites配列インデックス:
+            //   [0] 通常状態の杖（断界の杖エルデヴィント）— 三日月頭、水晶2個吊り下げ
+            //   [1] 魔力加速状態  — 杖全体が RuneCore 色の薄いオーラを帯びる
+            //   [2] 業火発動      — 杖頭に炎エフェクト（橙系3色）が巻きつく
+            //   [3] 元素収束発動  — 杖頭で複数属性色の光球が合成中の状態
         }
     }
 }

@@ -152,7 +152,7 @@ namespace DarkChronicle.Editor
 
             job.JobName    = "魔法使い";
             job.Description = "6属性すべてを操る純粋魔法アタッカー。圧倒的な魔法火力と「元素共鳴」システムで属性を連鎖させる。打たれ弱さとMP管理が命。ほぼすべてのスキルが攻撃魔法。";
-            job.ThemeColor = new Color(0.45f, 0.10f, 0.70f);  // 深紫
+            job.ThemeColor = new Color(0.08f, 0.10f, 0.30f);  // 深夜群青
 
             job.GrowthRates = LaviniaDesign.GrowthRates;
 
@@ -204,11 +204,14 @@ namespace DarkChronicle.Editor
 
             cd.CharacterName = LaviniaDesign.CharacterName;
             cd.Backstory     =
-                "王立魔術院の元首席研究官。禁忌の契約で人知を超えた魔力を得た代価として、" +
+                "王立魔術院の元首席研究官。深い群青黒の長髪と氷のように鋭い青い瞳が特徴。" +
+                "深紺の甲冑と星空模様の大コート、深紫のコルセットを纏い、" +
+                "三日月型の杖と光る魔導書を携える。禁忌の契約で人知を超えた魔力を得た代価として、" +
                 "寿命を少しずつ支払い続けている。品格と知性で感情を包み隠すが、" +
                 "旅を通じて仲間への信頼を少しずつ見せるようになる。甘いものが好き。";
             cd.VoicePrefix    = LaviniaDesign.VoicePrefix;
-            cd.ThemeColor     = new Color(0.45f, 0.10f, 0.70f);
+            // テーマカラー: 深夜群青をベースに氷青の魔力と深紫のアクセント
+            cd.ThemeColor     = new Color(0.08f, 0.10f, 0.30f);  // #14193C — 深夜群青
             cd.BaseStats      = LaviniaDesign.BaseStats;
             cd.StarterJob     = job;
             cd.ChapterCount   = LaviniaDesign.ChapterTitles.Length;
