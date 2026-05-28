@@ -215,6 +215,12 @@ namespace DarkChronicle.Battle
         public bool  HealRemovesAllStatus     = false;  // 回復時に状態異常も全回復
         public float UndeadBonusMult          = 0f;     // アンデッド追加ダメージ倍率ボーナス
 
+        // 呪術師(ゼノ)拡張
+        public float DebuffAmplifyPercent     = 0f;     // デバフ量を増幅(0.10=デバフが+10%)
+        public float AbsorbChanceBonus        = 0f;     // 吸収成功確率への加算ボーナス
+        public int   DelayReductionTurns      = 0;      // 遅延発動系スキルのカウントダウン短縮
+        public bool  CurseChainAll            = false;  // 一体へのデバフを全体に連鎖
+
         // ── ファクトリ ─────────────────────────────────────────────────────
         public static readonly BoostUpgrade None = new();
 

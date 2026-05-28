@@ -210,6 +210,7 @@ namespace DarkChronicle.Data
         public int           Priority;            // higher = preferred
         public float         UseChance = 1f;
         public int           HealthThreshold = 0; // only use below this HP %
+        public bool          IsAbsorbable = true; // ゼノの「吸収」で獲得できるか(ボス技はfalse推奨)
     }
 
     [System.Serializable]
