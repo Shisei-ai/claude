@@ -144,7 +144,8 @@ namespace DarkChronicle.Editor
 
             job.JobName     = "僧侶";
             job.Description = "全キャラ最多MPを持つ回復・支援特化クラス。単体回復・全体回復・蘇生・状態異常回復・防御バフを網羅し、パーティの生命線となる。聖属性攻撃が使える唯一のキャラクターで、アンデッド系に対して壊滅的なダメージを与えられる。行動は遅いが、遅いからこそ被ダメを見てから動ける。";
-            job.ThemeColor  = new Color(1.00f, 0.97f, 0.88f);  // 暖かい白（聖光・癒し）
+            // テーマカラー: 温かみのある聖白（ドレスの WhiteBase ＋ 金刺繍の琥珀色を混ぜた中間）
+            job.ThemeColor  = new Color(0.97f, 0.94f, 0.84f);  // #F7EFDA — 暖かいクリーム白
 
             job.GrowthRates = LiliaDesign.GrowthRates;
 
@@ -201,12 +202,15 @@ namespace DarkChronicle.Editor
             cd.CharacterName = LiliaDesign.CharacterName;
             cd.Backstory     =
                 "聖ルミアス教会の若き司祭見習い。19歳。" +
-                "異例の若さで癒しの聖印を授けられた天才肌。" +
+                "ピンクがかったシャンパンブロンドの長い波髪に蝶の金髪飾りをつけ、" +
+                "金の唐草刺繍が施された白の典礼ドレスを纏う。" +
+                "胸元の青いサファイア十字ブローチは、異例の若さで授けられた「癒しの聖印」の証。" +
+                "天使の翼と輝く水晶を持つ聖杖「天光の杖アルミア」を携え、" +
                 "世界の苦難を目にしながらも笑顔を絶やさない芯の強さを持つ。" +
                 "旅の仲間への愛情は誰よりも深く、時に過保護なほど。" +
                 "甘いものとお花が好き。アッシュに「口の減らない子」と言われ怒る。";
             cd.VoicePrefix   = LiliaDesign.VoicePrefix;
-            cd.ThemeColor    = new Color(1.00f, 0.97f, 0.88f);
+            cd.ThemeColor    = new Color(0.97f, 0.94f, 0.84f);  // 暖かいクリーム白
             cd.BaseStats     = LiliaDesign.BaseStats;
             cd.StarterJob    = job;
             cd.ChapterCount  = LiliaDesign.ChapterTitles.Length;
