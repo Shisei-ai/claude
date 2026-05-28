@@ -24,6 +24,18 @@ namespace DarkChronicle.CharacterDesigns
     ///   狡猾で口数が少なく常に何かを計算している。
     ///   ラヴィニアとは互いに「禁忌の術者」として複雑な関係を持つ。
     ///   心の奥に妹を想う炎だけは、誰にも消せない。
+    ///
+    /// ■ ビジュアル設定（HD-2Dドット絵 確定版）
+    ///   くせ毛気味の漆黒の短髪、金琥珀色の瞳（詠唱時・デバフ発動時は暗紫に発光）
+    ///   黒のフード付きボロマント（裾がほつれている = 追放者の証）
+    ///   暗紫黒の内ローブ、茶革ベルトにポーションバイアル複数本装備
+    ///   左腕のブレーサーに黒い羽根（妹アカリの封印との暗示的繋がり）
+    ///   銀の混沌星ペンダント（混沌の呪い・呪詛の霧の視覚フック）
+    ///   「呪骸杖グリム」: 節くれだった漆黒の杖 + 頂点の髑髏 + 眼窩の暗紫オーブ
+    ///     → 吸収した魂の残滓が宿る。吸収成功のたびに髑髏が一瞬金色に輝く。
+    ///   腰に革表紙のグリモワール（魔獣の書）。吸収成功後にGrimoireOpenアニメが入る。
+    ///   スプライトサイズ: バトル64×96px / フィールド32×48px / ポートレート96×96px
+    ///   PixelsPerUnit: 32, パレット最大32色
     /// </summary>
     public static class ZenoDesign
     {
@@ -342,5 +354,182 @@ namespace DarkChronicle.CharacterDesigns
 
         // 妹の設定（フィールドセリフや内面描写用）
         public const string SisterName = "アカリ・ファウスト";
+        public const string WandName   = "呪骸杖グリム";   // 節くれ黒木 + 髑髏 + 魂オーブ
+
+        // ── ビジュアル仕様（SpriteSpec） ──────────────────────────────────
+        public static class SpriteSpec
+        {
+            // ── アウトライン ─────────────────────────────────────────────
+            public const string OutlineMain        = "#050508";  // 極冷黒（全身アウトライン）
+
+            // ── 髪（漆黒・くせ毛） ────────────────────────────────────
+            public const string HairDeep           = "#0A0C10";  // 漆黒（根元・陰）
+            public const string HairMid            = "#14181E";  // 黒（主体）
+            public const string HairHighlight      = "#2A3040";  // 極微ブルーシーン（くせ毛の光）
+
+            // ── 肌 ────────────────────────────────────────────────────
+            public const string SkinHighlight      = "#D8C0A0";
+            public const string SkinMid            = "#C4A888";
+            public const string SkinShadow         = "#A08060";
+
+            // ── 瞳（金琥珀） ──────────────────────────────────────────
+            public const string EyeHighlight       = "#FFF0A0";  // 琥珀閃光
+            public const string EyeIris            = "#C89020";  // 琥珀色虹彩
+            public const string EyePupil           = "#6A4010";  // 暗褐色瞳孔
+            public const string EyeCurseGlow       = "#C040FF";  // デバフ詠唱時の暗紫発光
+            public const string EyeAbsorbGlow      = "#FF8000";  // 吸収成功時の橙金フラッシュ
+
+            // ── フード・マント ─────────────────────────────────────────
+            public const string HoodDeep           = "#080A0E";  // 最深部（ほぼ漆黒）
+            public const string HoodMid            = "#111520";  // 主体
+            public const string HoodLight          = "#1C2030";  // 端・動き時ハイライト
+            public const string CloakRaggedEdge    = "#0A0C14";  // ほつれた裾端（追放者の証）
+
+            // ── 内ローブ（暗紫黒） ────────────────────────────────────
+            public const string RobeDeep           = "#100818";  // 暗紫黒・最深部
+            public const string RobeMid            = "#1A1028";  // 暗紫・主体
+            public const string RobeHighlight      = "#281838";  // 暗紫・ハイライト
+
+            // ── 革ベルト・ブレーサー ──────────────────────────────────
+            public const string LeatherHighlight   = "#7A5035";
+            public const string LeatherMid         = "#5A3820";
+            public const string LeatherShadow      = "#3A2410";
+
+            // ── ポーションバイアル（ベルト装備 複数本） ──────────────
+            public const string VialGlass          = "#C0D0D8";  // ガラス反射光
+            public const string VialLiquidPurple   = "#6020A0";  // 呪術ポーション
+            public const string VialLiquidRed      = "#A01830";  // 魂液
+
+            // ── 黒羽根（左ブレーサー） ───────────────────────────────
+            public const string FeatherDeep        = "#08080C";
+            public const string FeatherSheen       = "#181820";  // 微かな青紫光沢
+
+            // ── 銀ペンダント（混沌の星） ──────────────────────────────
+            public const string PendantHighlight   = "#E0E8F0";
+            public const string PendantMid         = "#A0B0BC";
+            public const string PendantShadow      = "#607080";
+            public const string PendantChaosGlow   = "#E0B8FF";  // 混沌の呪い発動時の白紫発光
+
+            // ── 呪骸杖グリム ──────────────────────────────────────────
+            public const string WandWoodDeep       = "#200E08";  // 節くれ杖・陰
+            public const string WandWoodMid        = "#3A2810";  // 節くれ杖・主体
+            public const string WandWoodLight      = "#5C4020";  // 節くれ杖・ハイライト
+            public const string SkullBone          = "#C8BEA8";  // 髑髏・骨色
+            public const string SkullBoneLight     = "#E0D8C0";  // 髑髏・ハイライト
+            public const string SkullShadow        = "#8A8070";  // 髑髏・陰
+            public const string SkullOrbDim        = "#3A1060";  // 髑髏眼窩オーブ（通常時）
+            public const string SkullOrbGlow       = "#8020C8";  // 髑髏眼窩オーブ（詠唱時）
+            public const string SkullOrbAbsorb     = "#D08020";  // 吸収成功時の金色フラッシュ
+
+            // ── グリモワール（腰の魔獣の書） ─────────────────────────
+            public const string GrimoireCover      = "#3A2010";  // 革表紙
+            public const string GrimoireSpine      = "#5A3820";  // 背表紙・金具
+            public const string GrimoirePage       = "#C0B090";  // 魔方陣ページ（縁のみ見える）
+            public const string GrimoireSigil      = "#C8A030";  // 金の魔法陣文字
+
+            // ── 呪術エフェクト ─────────────────────────────────────────
+            public const string CurseDeep          = "#400880";  // 粒子の消え際
+            public const string CurseMid           = "#6010A0";  // 呪術中間
+            public const string CurseParticle      = "#8020C8";  // 主要発光色
+            public const string AbsorbGold         = "#D0901A";  // 魂の金色波紋
+            public const string DeathMarkRed       = "#C01818";  // 死の宣告刻印色
+            public const string ChaosPurple        = "#A030D0";  // 混沌の呪い主要色
+            public const string SigmaAura          = "#200840";  // 冥界の扉の暗オーラ
+
+            // ── アニメーション仕様 ────────────────────────────────────
+            // Row 0: Idle               — 4f / 4fps
+            //   f0: 基本立ち（杖を軽く握り左手を腰に）
+            //   f1: マントわずかに揺れ、髑髏オーブがSkullOrbDimでほのかに光る
+            //   f2: 基本に戻る
+            //   f3: ペンダントが1px光る（PendantMid）
+            // Row 1: StepForward        — 4f / 8fps
+            //   f0: 踏み出し（左足）、マント後方へ流れる
+            //   f1-f2: 重心移動、黒羽根がわずかに揺れる
+            //   f3: 重心が戻る
+            // Row 2: CastDebuff         — 6f / 10fps  ※全デバフ・状態異常スキル共通
+            //   f0: 左手がゆっくり持ち上がる
+            //   f1: 指が広がる（呪術印）、瞳がEyeCurseGlowに切り替わる
+            //   f2: 指先にCurseParticleの粒子が集まる
+            //   f3: 左手が最高点（胸の高さ）、髑髏がSkullOrbGlowで明確に光る
+            //   f4: 呪術放出（パーティクル飛翔開始）
+            //   f5: 手が戻る、瞳が通常色へ
+            // Row 3: CastAbsorb         — 8f / 10fps
+            //   f0: 両手が前方へ伸びる
+            //   f1: 髑髏がSkullOrbAbsorbの金色で発光開始
+            //   f2: 瞳がEyeAbsorbGlow、マントが後方に翻る
+            //   f3: 両手最大伸展、AbsorbGoldの波紋が杖先から放射
+            //   f4: 吸収対象エフェクト（外部制御）
+            //   f5: 成功→髑髏MAX発光 / 失敗→瞳が即通常色に戻る
+            //   f6: グリモワールが腰でわずかに開く（GrimoireSigilが1frame見える）
+            //   f7: 全パーツが基本位置に戻る
+            // Row 4: CastSoulFeast      — 8f / 10fps
+            //   Absorbと同構成だが、マントが完全に広がり黒羽根が全て立つ
+            //   f5の成功発光は全身のRobeMidが1frame明るくなる（ソウルフラッシュ）
+            // Row 5: CastDeathSentence  — 6f / 8fps
+            //   f0: 杖を真っ直ぐ対象に向ける
+            //   f1: 瞳がEyeCurseGlowで細くなる（冷たい睨み）
+            //   f2: 髑髏からDeathMarkRedの雫が垂れる（1px赤点）
+            //   f3: 杖先に死の刻印ルーン（外部エフェクト）
+            //   f4: マントがわずかに揺れる（静かな構え）
+            //   f5: 腕が戻るが、瞳はEyeCurseGlowのまま少し長く（視線を保つ）
+            // Row 6: CastGateOfUnderworld — 10f / 8fps  ※この技だけフードが外れる
+            //   f0: 両腕が広がる
+            //   f1: フードが背後に落ち、くせ毛の漆黒髪が完全露出（本気の視覚合図）
+            //   f2: 瞳がEyeCurseGlow MAX
+            //   f3: 杖と左手が最大開脚、PendantChaosGlowが最大発光
+            //   f4-f7: SigmaAuraオーラが広がる（外部パーティクル制御）
+            //   f8: 全力放出（キャラは中心で静止、エフェクトのみ動く）
+            //   f9: ゆっくり腕が戻る、フードが再び被さる
+            // Row 7: Hurt               — 3f / 8fps
+            //   f0: 鋭く後方に引く
+            //   f1: マントが大きく揺れる（バイアルが揺れる = 計算を乱される演出）
+            //   f2: 静止・回復構え
+            // Row 8: LowHP             — 4f / 4fps
+            //   f0: 前傾み、左手が胸に（痛み）
+            //   f1: 瞳がEyeCurseGlowで細く（まだ計算中）
+            //   f2: 杖を盾のように前に
+            //   f3: f0に戻る（ループ）
+            // Row 9: KO                — 2f / 4fps
+            //   f0: 斜めに崩れ落ちる（杖が手から離れる）
+            //   f1: 倒れた静止（グリモワールが開いて落ちる）
+            // Row 10: Victory          — 6f / 8fps
+            //   f0-f2: ゆっくり背を向ける
+            //   f3: 杖を持ち上げ、髑髏からCurseParticleの魂シグルが一つ立ち上る
+            //   f4: マントが静かに揺れる
+            //   f5: 微かに振り返る（VoiceLine "使えた"）
+            // Row 11: GrimoireOpen     — 4f / 6fps  ※吸収成功後のグリモワール確認
+            //   f0: 腰のグリモワールを取り出す
+            //   f1: 表紙が開く（GrimoireSigilの金文字が光る）
+            //   f2: ページを1枚めくる（新技記録の瞬間）
+            //   f3: グリモワールを閉じて腰に戻す
+            // Row 12: CastChaosState   — 6f / 10fps  ※混沌の呪い専用
+            //   f0: 両手が開く
+            //   f1: PendantChaosGlowが白く輝く
+            //   f2: 全敵デバフがChaosPurpleでパルス（外部エフェクト）
+            //   f3: 髑髏がSkullOrbGlow + SkullOrbAbsorb混合（不規則明滅）
+            //   f4: ChaosPurple MAX 粒子爆発
+            //   f5: 静止・構えへ戻る
+
+            // ── 発光（MaterialPropertyBlock） ────────────────────────
+            public const string EmissionColorIdle       = SkullOrbDim;    // 髑髏眼窩の微かな紫
+            public const string EmissionColorCast       = CurseParticle;  // 詠唱：暗紫
+            public const string EmissionColorAbsorb     = AbsorbGold;     // 吸収：魂の金
+            public const string EmissionColorDeathMark  = DeathMarkRed;   // 死の宣告：赤
+            public const string EmissionColorChaosCurse = ChaosPurple;    // 混沌の呪い：暗紫
+            public const string EmissionColorGateMax    = SigmaAura;      // 冥界の扉：最深暗オーラ
+
+            // ── ポートレートバリアント ─────────────────────────────────
+            // [Normal]      無表情に近い冷静な顔（常に何かを計算中）。瞳=EyeIris。
+            // [Calculating] 目が細くなり遠くを見る（思索中）。EyeCurseGlowで微かに光。
+            // [Intent]      対象を定め、完全に静止。瞳の輝きが増す。
+            // [Pain]        妹の話が出た時・倒れた瞬間。普段の無表情が崩れる唯一の瞬間。
+            // [Rare_Warm]   アカリの写し鏡を見た時だけ見せる、一瞬の柔らかさ（ゲーム内1度のみ）。
+
+            // ── 武器スプライトバリアント ──────────────────────────────
+            // WeaponSprites[0]: 通常時（SkullOrbDim）
+            // WeaponSprites[1]: デバフ詠唱中（SkullOrbGlow + CurseParticle周囲放射）
+            // WeaponSprites[2]: 吸収/魂喰い（SkullOrbAbsorb + AbsorbGold 波紋）
+            // WeaponSprites[3]: 冥界の扉（フル発光 SkullOrbGlow + SigmaAura オーラ纏い）
+        }
     }
 }

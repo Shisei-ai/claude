@@ -139,7 +139,7 @@ namespace DarkChronicle.Editor
 
             job.JobName     = "呪術師";
             job.Description = "妨害・弱体化に特化したデバッファー。SPD25（全2位）で先手を取りながら、敵の能力を削り行動を封じる。「吸収」システムで敵のスキルを奪いグリモワールに蓄積する唯一無二のキャラクター。HPが減るほど強くなる反面、守りは薄い。";
-            job.ThemeColor  = new Color(0.20f, 0.05f, 0.30f);  // 深い暗紫（呪術・禁忌）
+            job.ThemeColor  = new Color(0.20f, 0.05f, 0.30f);  // #330D4D — 深い暗紫（呪術・禁忌）
 
             job.GrowthRates = ZenoDesign.GrowthRates;
 
@@ -195,12 +195,20 @@ namespace DarkChronicle.Editor
             cd.CharacterName = ZenoDesign.CharacterName;
             cd.Backstory     =
                 "元王立魔術院の精霊魔法研究員。34歳。" +
+                "くせ毛気味の漆黒の短髪と金琥珀色の瞳が特徴。" +
+                "詠唱時は瞳が暗紫に発光する。" +
+                "ほつれた裾のボロマントと暗紫黒の内ローブで身を包み、" +
+                "銀の混沌星ペンダントと左腕の黒羽根ブレーサーを纏う。" +
+                "ベルトにはポーションバイアルと革表紙のグリモワール（魔獣の書）。" +
+                "節くれだった「呪骸杖グリム」の頂点には髑髏が刻まれ、" +
+                "吸収した魂の残滓が暗紫のオーブとして宿っている。" +
                 "禁忌の「魂吸収」魔法を追求したため異端として追放された。" +
-                "封印された妹の魂を取り戻すために力を集め続ける。" +
-                "狡猾で口数が少ないが、妹を想う炎だけは誰にも消せない。" +
-                "ラヴィニアとは禁忌の術者同士として複雑な関係を持つ。";
+                "封印された妹アカリの魂を取り戻すために力を集め続ける。" +
+                "狡猾で口数が少なく常に何かを計算しているが、" +
+                "妹を想う炎だけは誰にも消せない。";
             cd.VoicePrefix   = ZenoDesign.VoicePrefix;
-            cd.ThemeColor    = new Color(0.20f, 0.05f, 0.30f);
+            // テーマカラー: 深い暗紫（呪術・追放・禁忌）
+            cd.ThemeColor    = new Color(0.20f, 0.05f, 0.30f);  // #330D4D — 深い暗紫
             cd.BaseStats     = ZenoDesign.BaseStats;
             cd.StarterJob    = job;
             cd.ChapterCount  = ZenoDesign.ChapterTitles.Length;
