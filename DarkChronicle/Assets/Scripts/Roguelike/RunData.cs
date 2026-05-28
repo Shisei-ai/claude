@@ -17,6 +17,9 @@ namespace DarkChronicle.Roguelike
         public int             Seed;
         public System.DateTime StartTime;
 
+        // ── Ending Branch ─────────────────────────────────────────────────
+        public EndingType ActiveEnding = EndingType.None;
+
         // ── Progress ───────────────────────────────────────────────────────
         public int  CurrentFloor    = 0;     // 0-based (0=Floor1 廃墟, 1=暗黒の森, 2=呪われた城)
         public int  CurrentNodeIndex = 0;

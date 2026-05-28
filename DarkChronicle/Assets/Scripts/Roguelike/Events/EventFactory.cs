@@ -68,6 +68,13 @@ namespace DarkChronicle.Roguelike.Events
             list.Add(TimeEchoChamber());
             list.Add(SovereignsTrial());
 
+            // ── エンディング分岐（1回限り・全フロア）────────────────────────
+            list.Add(DemonKingsBeckoning());
+            list.Add(AbyssGazing());
+            list.Add(TimesWhisper());
+            list.Add(CursedCrowns());
+            list.Add(TrueCoreEcho());
+
             return list;
         }
 
@@ -785,6 +792,81 @@ namespace DarkChronicle.Roguelike.Events
         );
 
         // ════════════════════════════════════════════════════════════════════
+        //   エンディング分岐（1回限り・全フロア）
+        // ════════════════════════════════════════════════════════════════════
+
+        static RandomEventData DemonKingsBeckoning() => Ev(
+            EventLibrary.DemonKingsBeckoning, "玉座の呼び声",
+            "廃墟の一角に、黒曜石で作られた小さな玉座の模型が置かれていた。\n" +
+            "その表面には古代文字が刻まれ、暗紅色の光がかすかに脈動している。\n" +
+            "触れた瞬間、どこか遠い場所から「来い」という声が聞こえた気がした。",
+            minFloor: 0, maxFloor: 5, oneTime: true, tint: new Color(0.4f, 0.05f, 0.05f),
+            Choice("玉座に触れる",
+                   "魔王の意志に応える。奈落の玉座への道が開かれるかもしれない。",
+                   Res("暗紅色の光があなたを包み込んだ。玉座の証印が手に宿り、遠くの扉が開く音がした。",
+                       endingBranch: true, endingPath: EndingType.DemonKing)),
+            Choice("立ち去る",
+                   Res("玉座の脈動が遠ざかり、やがて沈黙した。この道は、今は必要ない。"))
+        );
+
+        static RandomEventData AbyssGazing() => Ev(
+            EventLibrary.AbyssGazing, "千の眼の像",
+            "通路に、無数の目が刻まれた石像が立っていた。\n" +
+            "全ての目があなたに向けられており、一つ一つの瞳が深い闇を宿している。\n" +
+            "見つめ返すと、深淵の底から何かがこちらを見ているのを感じた。",
+            minFloor: 0, maxFloor: 5, oneTime: true, tint: new Color(0.02f, 0.04f, 0.22f),
+            Choice("見つめ返す",
+                   "深淵に応える。神殿への道が開かれるかもしれない。",
+                   Res("千の眼が一斉に瞬いた。深淵の証印が瞳に宿り、遠い場所への道標が刻まれた。",
+                       endingBranch: true, endingPath: EndingType.AbyssGod)),
+            Choice("目を逸らす",
+                   Res("視線を外した瞬間、全ての目が閉じた。あの深みに踏み込む時ではない。"))
+        );
+
+        static RandomEventData TimesWhisper() => Ev(
+            EventLibrary.TimesWhisper, "止まった懐中時計",
+            "石畳の上に、傷だらけの懐中時計が落ちている。\n" +
+            "蓋を開けると針は止まっているのに、かすかな振動と共に時を刻む音が聞こえた。\n" +
+            "「……まだ時間はある……戻っておいで……」と、時計が囁く。",
+            minFloor: 0, maxFloor: 5, oneTime: true, tint: new Color(0.12f, 0.06f, 0.22f),
+            Choice("時計を拾う",
+                   "時の亡霊の声に応える。時の空白への道が開かれるかもしれない。",
+                   Res("時計を手に取った瞬間、時間の感覚が歪んだ。砕けた時の証印が手に渡り、道が見えた。",
+                       endingBranch: true, endingPath: EndingType.TimeWraith)),
+            Choice("放置する",
+                   Res("時計の囁きが遠ざかる。今は過去の声に耳を傾ける必要はない。"))
+        );
+
+        static RandomEventData CursedCrowns() => Ev(
+            EventLibrary.CursedCrowns, "呪われた王冠",
+            "壁の高い棚に、古びた王冠が飾られていた。\n" +
+            "金属は錆び、宝石は濁っているのに、その周囲だけ空気が重く澱んでいる。\n" +
+            "触れた者に呪いを与えるという——しかし、その怨念には何かが宿っているようだ。",
+            minFloor: 0, maxFloor: 5, oneTime: true, tint: new Color(0.18f, 0.02f, 0.18f),
+            Choice("王冠に触れる",
+                   "古い王の怨念に応える。玉座間への道が開かれるかもしれない。",
+                   Res("王冠の冷たさが指先を伝った。古王の呪冠の欠片が手に残り、呪われた道が示された。",
+                       endingBranch: true, endingPath: EndingType.CursedKing)),
+            Choice("立ち去る",
+                   Res("王冠は棚の上で静かに佇んでいる。あの怨念に触れる必要はまだない。"))
+        );
+
+        static RandomEventData TrueCoreEcho() => Ev(
+            EventLibrary.TrueCoreEcho, "世界の響き",
+            "何もない空間に、かすかな振動が伝わってくる。\n" +
+            "壁も天井も床も、全てが僅かに共鳴しており、何かが目覚めようとしている気配がする。\n" +
+            "「世界の中心を探せ。全ての始まりと終わりがそこにある」という言葉が脳裏に浮かんだ。",
+            minFloor: 0, maxFloor: 5, oneTime: true, tint: new Color(0.03f, 0.03f, 0.1f),
+            sanityWeight: 0.3f,
+            Choice("響きに応える",
+                   "世界の核の声に応える。真実の道が開かれるかもしれない。",
+                   Res("振動が体の中心を突き抜けた。世界の核片が手の中に現れ、真実への道が開かれた。",
+                       endingBranch: true, endingPath: EndingType.TrueCore)),
+            Choice("無視する",
+                   Res("振動はやがて静まり、世界は沈黙した。今は耳を傾ける時ではない。"))
+        );
+
+        // ════════════════════════════════════════════════════════════════════
         //   ファクトリ ヘルパー
         // ════════════════════════════════════════════════════════════════════
 
@@ -845,7 +927,9 @@ namespace DarkChronicle.Roguelike.Events
                                      bool  elite        = false,
                                      bool  removeCurse  = false,
                                      int   removeCurseCount = 1,
-                                     bool  fullHeal     = false)
+                                     bool  fullHeal     = false,
+                                     bool  endingBranch = false,
+                                     EndingType endingPath = EndingType.None)
             => new EventChoiceResult
             {
                 NarrativeText       = narrative,
@@ -868,6 +952,8 @@ namespace DarkChronicle.Roguelike.Events
                 IsEliteBattle       = elite,
                 RemoveCurse         = removeCurse,
                 RemoveCurseCount    = removeCurseCount,
+                TriggerEndingBranch = endingBranch,
+                EndingPath          = endingPath,
             };
     }
 }

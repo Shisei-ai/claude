@@ -51,6 +51,10 @@ namespace DarkChronicle.Roguelike.Events
         public bool  RemoveCurse;
         public int   RemoveCurseCount = 1;
 
+        [Header("Ending Branch")]
+        public bool  TriggerEndingBranch;   // this choice locks in an ending path
+        public EndingType EndingPath;        // which ending this result unlocks
+
         [Header("Miscellaneous")]
         public bool  FullHeal;          // HP全回復
     }
@@ -145,5 +149,12 @@ namespace DarkChronicle.Roguelike.Events
         public const string DarkMirror        = "dark_mirror";
         public const string TimeEchoChamber   = "time_echo_chamber";
         public const string SovereignsTrial   = "sovereigns_trial";
+
+        // エンディング分岐（1回限り）
+        public const string DemonKingsBeckoning = "demon_kings_beckoning";
+        public const string AbyssGazing          = "abyss_gazing";
+        public const string TimesWhisper         = "times_whisper";
+        public const string CursedCrowns         = "cursed_crowns";
+        public const string TrueCoreEcho         = "true_core_echo";
     }
 }

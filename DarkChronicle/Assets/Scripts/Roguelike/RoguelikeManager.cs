@@ -74,6 +74,10 @@ namespace DarkChronicle.Roguelike
         [Header("Level Up")]
         [SerializeField] LevelUpUI           _levelUpUI;
 
+        // ── Ending ─────────────────────────────────────────────────────────
+        [Header("Ending")]
+        [SerializeField] EndingManager       _endingManager;
+
         // ── State ──────────────────────────────────────────────────────────
         RunData     _run;
         MapData     _currentMapData;
@@ -172,6 +176,18 @@ namespace DarkChronicle.Roguelike
                 yield return ShowFloorClearScreen(_run.CurrentFloor);
             }
 
+            // Floor 4: ending branch if player acquired an ending relic
+            if (_run.ActiveEnding != EndingType.None && _run.IsRunActive)
+            {
+                _currentFloor = EndingSystem.CreateFloor4(_run.ActiveEnding);
+                _run.CurrentFloor = 3;
+                yield return StartFloor4();
+                if (!_run.IsRunActive) yield break;
+
+                if (_endingManager != null)
+                    yield return _endingManager.ShowEnding(_run.ActiveEnding);
+            }
+
             // All floors cleared = victory
             yield return RunVictory();
         }
@@ -194,6 +210,23 @@ namespace DarkChronicle.Roguelike
             foreach (var n in startNodes) n.Available = true;
 
             yield return FloorLoop(floorIndex);
+        }
+
+        IEnumerator StartFloor4()
+        {
+            // _currentFloor is already set to the dynamically created Floor4 data
+            _currentMapData = NodeMapGenerator.Generate(_run.Seed + 9973, 3);
+
+            AtmosphereManager.Instance?.TransitionTo(_currentFloor.AtmospherePreset, 2f);
+            AudioManager.Instance?.PlayBGM(_currentFloor.BossBGM);
+
+            yield return SceneTransitionManager.Instance?.ShowAreaTitle(
+                _currentFloor.FloorName, _currentFloor.FloorSubtitle);
+
+            var startNodes = _currentMapData.GetStartNodes();
+            foreach (var n in startNodes) n.Available = true;
+
+            yield return FloorLoop(3);
         }
 
         IEnumerator FloorLoop(int floorIndex)
@@ -346,7 +379,7 @@ namespace DarkChronicle.Roguelike
             else
             {
                 // Fallback: gold
-                int gold = Mathf.RoundToInt(Random.Range(60f, 120f) * (1f + luck * 0.1f));
+                int gold = Mathf.RoundToInt(Random.Range(60f, 120f) * (1f + _run.Sanity * 0.05f));
                 _run.EarnGold(gold);
             }
         }

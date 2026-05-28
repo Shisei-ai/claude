@@ -203,7 +203,7 @@ namespace DarkChronicle.Battle
 
             EnemyAction chosen = validActions.Count > 0
                 ? validActions[0]
-                : enemy.EnemyData.Actions[0];
+                : (enemy.EnemyData.Actions?.Count > 0 ? enemy.EnemyData.Actions[0] : null);
 
             if (chosen.Skill == null) yield break;
 

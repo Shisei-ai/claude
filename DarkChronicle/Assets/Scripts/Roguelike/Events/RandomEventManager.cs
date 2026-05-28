@@ -300,6 +300,16 @@ namespace DarkChronicle.Roguelike.Events
             if (result.RemoveSkill && _run.Deck.Count > 0)
                 yield return RoguelikeManager.Instance?.ShowSkillRemove();
 
+            // Ending branch: create and award the ending relic, set active path, show premonition
+            if (result.TriggerEndingBranch && result.EndingPath != EndingType.None)
+            {
+                var endingRelic = EndingSystem.CreateEndingRelic(result.EndingPath);
+                _run.AddRelic(endingRelic);
+                _run.ActiveEnding = result.EndingPath;
+                yield return RoguelikeManager.Instance?.ShowRelicObtained(endingRelic);
+                yield return EndingManager.Instance?.ShowPremonition(result.EndingPath);
+            }
+
             // Battle trigger
             if (result.TriggerBattle)
                 yield return RoguelikeManager.Instance?.TriggerEventBattle(result.IsEliteBattle);

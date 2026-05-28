@@ -91,6 +91,13 @@ namespace DarkChronicle.Roguelike.Relics
         SoulSiphon,             // 敵撃破時に魂を集め、10個でレリック獲得(1ラン1回)
         AncientCurse,           // 全ステータス+30%、毎部屋HP5%失う
         PhilosophersStone,      // 全ゴールドを2倍に、でも呪いを1つ追加
+
+        // ─ Ending Path Relics (special — one per run) ────────────────────
+        EndingPath_DemonKing,   // 魔王再誕ルートの証印
+        EndingPath_AbyssGod,    // 深淵降臨ルートの証印
+        EndingPath_TimeWraith,  // 時の終焉ルートの証印
+        EndingPath_CursedKing,  // 呪いの解放ルートの証印
+        EndingPath_TrueCore,    // 真実の核ルートの証印（真エンド）
     }
 
     public enum RelicRarity { Common, Uncommon, Rare, Boss, Cursed, Event }
