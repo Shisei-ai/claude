@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using DarkChronicle.Data;
+using DarkChronicle.Character.Traits;
 
 namespace DarkChronicle.Battle
 {
@@ -19,14 +20,16 @@ namespace DarkChronicle.Battle
         public CharacterStats BaseStats  { get; private set; }
         CharacterStats        _buffStats = new CharacterStats();
 
-        public int MaxHP  => BaseStats.MaxHP  + _buffStats.MaxHP;
-        public int MaxMP  => BaseStats.MaxMP  + _buffStats.MaxMP;
-        public int Patk   => Mathf.Max(1, BaseStats.PhysicalAttack  + _buffStats.PhysicalAttack);
-        public int Matk   => Mathf.Max(1, BaseStats.MagicAttack     + _buffStats.MagicAttack);
-        public int Pdef   => Mathf.Max(0, BaseStats.PhysicalDefense + _buffStats.PhysicalDefense);
-        public int Mdef   => Mathf.Max(0, BaseStats.MagicDefense    + _buffStats.MagicDefense);
-        public int Speed  => Mathf.Max(1, BaseStats.Speed           + _buffStats.Speed);
-        public int Crit   => Mathf.Clamp(BaseStats.CriticalRate     + _buffStats.CriticalRate, 0, 100);
+        public int MaxHP   => BaseStats.MaxHP  + _buffStats.MaxHP;
+        public int MaxMP   => BaseStats.MaxMP  + _buffStats.MaxMP;
+        public int Patk    => Mathf.Max(1, BaseStats.PhysicalAttack  + _buffStats.PhysicalAttack);
+        public int Matk    => Mathf.Max(1, BaseStats.MagicAttack     + _buffStats.MagicAttack);
+        public int Pdef    => Mathf.Max(0, BaseStats.PhysicalDefense + _buffStats.PhysicalDefense);
+        public int Mdef    => Mathf.Max(0, BaseStats.MagicDefense    + _buffStats.MagicDefense);
+        public int Speed   => Mathf.Max(1, BaseStats.Speed           + _buffStats.Speed);
+        public int Luck    => Mathf.Max(0, BaseStats.Luck            + _buffStats.Luck);
+        public int Crit    => Mathf.Clamp(BaseStats.CriticalRate     + _buffStats.CriticalRate, 0, 100);
+        public int Accuracy=> Mathf.Clamp(BaseStats.AccuracyRate     + _buffStats.AccuracyRate, 0, 100);
 
         // ── Current Status ─────────────────────────────────────────────────
         public int     HP    { get; private set; }
@@ -51,8 +54,12 @@ namespace DarkChronicle.Battle
         public List<ActiveStatusEffect> StatusEffects { get; } = new();
 
         // ── Turn Order ─────────────────────────────────────────────────────
-        public float TurnGauge  { get; set; }   // 0-100; acts at 100
+        public float TurnGauge  { get; set; }
         public string DisplayName => IsPlayer ? CharData.CharacterName : EnemyData.EnemyName;
+
+        // ── Character Systems ──────────────────────────────────────────────
+        public TraitProcessor           Traits          { get; private set; }
+        public ElementalResonanceSystem ResonanceSystem { get; private set; }
 
         // ── Constructor ────────────────────────────────────────────────────
         public BattleCharacter(CharacterData data, CharacterStats stats)
@@ -62,27 +69,35 @@ namespace DarkChronicle.Battle
             HP = MaxHP;
             MP = MaxMP;
             BP = 0;
+            Traits          = new TraitProcessor(this, data.Traits ?? System.Array.Empty<CharacterTrait>());
+            ResonanceSystem = new ElementalResonanceSystem();
         }
 
         public BattleCharacter(EnemyData data)
         {
-            EnemyData    = data;
-            BaseStats    = data.Stats.Clone();
-            _maxShields  = data.ShieldPoints;
+            EnemyData       = data;
+            BaseStats       = data.Stats.Clone();
+            _maxShields     = data.ShieldPoints;
             _currentShields = _maxShields;
             HP = MaxHP;
             MP = MaxMP;
+            Traits          = new TraitProcessor(this, System.Array.Empty<CharacterTrait>());
+            ResonanceSystem = new ElementalResonanceSystem();
         }
 
         // ── HP / MP Modification ───────────────────────────────────────────
-        public int TakeDamage(int rawDamage, DamageType type, ElementType element = ElementType.None)
+        public int TakeDamage(int rawDamage, DamageType type,
+                               ElementType element = ElementType.None,
+                               float ignoreDefPct = 0f)
         {
             if (!IsAlive) return 0;
 
-            int defense = type == DamageType.Physical ? Pdef : Mdef;
-            int damage  = Mathf.Max(1, rawDamage - defense);
+            int defense      = type == DamageType.Physical ? Pdef : Mdef;
+            int effectiveDef = type == DamageType.True ? 0
+                               : Mathf.RoundToInt(defense * (1f - Mathf.Clamp01(ignoreDefPct)));
+            int damage       = Mathf.Max(1, rawDamage - effectiveDef);
 
-            if (IsBroken) damage = Mathf.RoundToInt(damage * 1.5f);  // +50% to broken enemies
+            if (IsBroken) damage = Mathf.RoundToInt(damage * 1.5f);
 
             HP = Mathf.Max(0, HP - damage);
             return damage;
@@ -105,9 +120,9 @@ namespace DarkChronicle.Battle
 
         public void RestoreMana(int amount) => MP = Mathf.Min(MaxMP, MP + amount);
 
-        public void Revive(int hpPercent)
+        public void Revive(float hpRatio)
         {
-            HP = Mathf.Max(1, Mathf.RoundToInt(MaxHP * hpPercent / 100f));
+            HP = Mathf.Max(1, Mathf.RoundToInt(MaxHP * Mathf.Clamp01(hpRatio)));
         }
 
         // ── BP / Boost System ──────────────────────────────────────────────

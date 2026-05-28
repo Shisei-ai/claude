@@ -104,5 +104,12 @@ namespace DarkChronicle.Character.Traits
         {
             foreach (var t in _traits) t.OnBattleEnd(_owner);
         }
+
+        public T GetTrait<T>() where T : CharacterTrait
+        {
+            foreach (var t in _traits)
+                if (t is T typed) return typed;
+            return null;
+        }
     }
 }

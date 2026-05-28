@@ -70,9 +70,9 @@ namespace DarkChronicle.Battle
             {
                 new BoostUpgrade { AbsorbChanceBonus = 0.15f,
                     FlavorText = "吸収確率+15%（合計最大90%）" },
-                new BoostUpgrade { AbsorbChanceBonus = 0.25f,
+                new BoostUpgrade { AbsorbChanceBonus = 0.25f, AbsorbHPCostMult = 0.5f,
                     FlavorText = "吸収確率+25% / HP消費-50%（術者消費: MaxHPの7.5%）" },
-                new BoostUpgrade { AbsorbChanceBonus = 0.35f, GainBPOnUse = 1,
+                new BoostUpgrade { AbsorbChanceBonus = 0.35f, AbsorbHPCostMult = 0f, GainBPOnUse = 1,
                     FlavorText = "吸収確率+35% / HP消費なし / 吸収成功時BP+1 / 失敗しても次の吸収確率が残る" },
             },
 

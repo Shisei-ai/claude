@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using DarkChronicle.Character.Traits;
 
 namespace DarkChronicle.Data
 {
@@ -76,8 +77,19 @@ namespace DarkChronicle.Data
 
         [Header("Revive")]
         public bool  IsRevive;
-        public float ReviveHPPercent = 0.50f;  // 0.5 = 50%HPで蘇生
-        public bool  ReviveAllAllies = false;   // true = 全員蘇生
+        public float ReviveHPPercent = 0.50f;
+        public bool  ReviveAllAllies = false;
+
+        [Header("Special Mechanics")]
+        public bool  IsAbsorb;                         // ゼノ「吸収」系スキル
+        public float AbsorbHPCostPercent  = 0.15f;     // 吸収使用時のHP消費割合
+        public bool  IsDeathSentence;                  // ゼノ「死の宣告」系スキル
+        public int   DeathSentenceDelayTurns  = 3;
+        public float DeathSentenceBossDmgPct  = 0.50f;
+        public bool  IsCausalChain;                    // ゼノ「因果の鎖」系スキル
+        public float CausalChainDamagePct = 0.50f;
+        public bool  ChainToAllEnemies    = false;     // Plus版: 全体連結
+        public bool  IsConverge;                       // ラヴィニア「元素収束」スキル
 
         [Header("Animation")]
         public string AnimationTrigger;
@@ -169,8 +181,11 @@ namespace DarkChronicle.Data
         public int           ChapterCount = 4;
         public string[]      ChapterTitles;
 
+        [Header("Character Traits")]
+        public CharacterTrait[] Traits;
+
         [Header("Weapon Sprite Variants")]
-        public Sprite[]      WeaponSprites;  // indexed by WeaponType
+        public Sprite[]      WeaponSprites;
     }
 
     // ── Enemy Data ─────────────────────────────────────────────────────────
@@ -190,6 +205,9 @@ namespace DarkChronicle.Data
         [Header("Weaknesses (Break)")]
         public List<ElementType>  ElementWeaknesses;
         public List<WeaponType>   WeaponWeaknesses;
+
+        [Header("Enemy Tags")]
+        public bool IsUndead;   // 聖属性特効・HolyGrace対象
 
         [Header("Actions")]
         public List<EnemyAction>  Actions;

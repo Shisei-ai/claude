@@ -215,7 +215,7 @@ namespace DarkChronicle.Roguelike.Relics
         {
             if (_reviveUsed || !HasEffect(RelicEffectType.ReviveOnce)) return false;
             _reviveUsed = true;
-            hero.Revive(1);   // revive at 1 HP
+            hero.Revive(0.01f);  // revive at ~1% HP
             return true;
         }
 

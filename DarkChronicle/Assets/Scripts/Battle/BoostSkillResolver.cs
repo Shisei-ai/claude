@@ -144,12 +144,21 @@ namespace DarkChronicle.Battle
         // ── API ────────────────────────────────────────────────────────────
         public static BoostUpgrade GetUpgrade(SkillData skill, int boostLevel)
         {
-            if (boostLevel <= 0) return BoostUpgrade.None;
-            if (!BoostTable.TryGetValue(skill.SkillName, out var upgrades))
-                return BoostUpgrade.Default(boostLevel);
+            if (boostLevel <= 0 || skill == null) return BoostUpgrade.None;
 
-            int idx = Mathf.Clamp(boostLevel - 1, 0, upgrades.Length - 1);
-            return upgrades[idx];
+            string name = skill.SkillName;
+
+            BoostUpgrade[] upgrades = null;
+            if (BoostTable.TryGetValue(name, out upgrades)
+             || BoostSkillResolver_Ash.AshBoostTable.TryGetValue(name, out upgrades)
+             || BoostSkillResolver_Lilia.LiliaBoostTable.TryGetValue(name, out upgrades)
+             || BoostSkillResolver_Zeno.ZenoBoostTable.TryGetValue(name, out upgrades))
+            {
+                int idx = Mathf.Clamp(boostLevel - 1, 0, upgrades.Length - 1);
+                return upgrades[idx];
+            }
+
+            return BoostUpgrade.Default(boostLevel);
         }
 
         public static string GetBoostPreviewText(SkillData skill, int boostLevel)
@@ -218,6 +227,7 @@ namespace DarkChronicle.Battle
         // 呪術師(ゼノ)拡張
         public float DebuffAmplifyPercent     = 0f;     // デバフ量を増幅(0.10=デバフが+10%)
         public float AbsorbChanceBonus        = 0f;     // 吸収成功確率への加算ボーナス
+        public float AbsorbHPCostMult         = 1f;     // 吸収HP消費倍率(0=無消費)
         public int   DelayReductionTurns      = 0;      // 遅延発動系スキルのカウントダウン短縮
         public bool  CurseChainAll            = false;  // 一体へのデバフを全体に連鎖
 
