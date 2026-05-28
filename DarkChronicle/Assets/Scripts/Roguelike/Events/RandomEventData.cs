@@ -46,6 +46,13 @@ namespace DarkChronicle.Roguelike.Events
         [Header("Luck Change")]
         public bool  ChangeLuck;
         public int   LuckChange;
+
+        [Header("Curse Removal")]
+        public bool  RemoveCurse;
+        public int   RemoveCurseCount = 1;
+
+        [Header("Miscellaneous")]
+        public bool  FullHeal;          // HP全回復
     }
 
     // ── Event Choice ───────────────────────────────────────────────────────

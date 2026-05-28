@@ -430,6 +430,44 @@ namespace DarkChronicle.Roguelike
         public IEnumerator TriggerEventBattle(bool isElite) =>
             ResolveBattle(isElite, false);
 
+        public CurseData DrawRandomCurse()
+        {
+            // Draw a random curse type, excluding ones already active in this run
+            var existing = _run?.Curses.Select(c => c.Effect).ToHashSet()
+                          ?? new System.Collections.Generic.HashSet<CurseEffectType>();
+
+            var available = System.Enum.GetValues(typeof(CurseEffectType))
+                .Cast<CurseEffectType>()
+                .Where(t => !existing.Contains(t))
+                .ToList();
+
+            if (available.Count == 0) return null;
+
+            var chosen = available[Random.Range(0, available.Count)];
+            return BuildCurse(chosen);
+        }
+
+        static CurseData BuildCurse(CurseEffectType effect)
+        {
+            var c = ScriptableObject.CreateInstance<CurseData>();
+            (c.CurseName, c.Description, c.Magnitude) = effect switch
+            {
+                CurseEffectType.ReduceMaxHP         => ("衰弱",     "最大HPが20減少する。",             20f),
+                CurseEffectType.DoubleEncounterRate  => ("魔物の気配","エンカウント率が2倍になる。",        2f),
+                CurseEffectType.GoldReduced          => ("貧困の呪い","獲得ゴールドが50%減少する。",        0.5f),
+                CurseEffectType.SkillCostUp          => ("魔力の枷",  "全スキルのMP消費が+1される。",       1f),
+                CurseEffectType.WeakenedHeal         => ("汚染の傷",  "回復量が半減する。",                0.5f),
+                CurseEffectType.BleedAtStart         => ("血の呪縛",  "戦闘開始時に出血状態になる。",       1f),
+                CurseEffectType.ShieldBreakChanceDown=> ("鈍き刃",    "シールド破壊確率が20%低下する。",    0.2f),
+                CurseEffectType.LuckDown             => ("不運の印",  "LUCKが3減少する。",                 3f),
+                CurseEffectType.FragileHP             => ("脆弱の体",  "受けるダメージが10%増加する。",      0.1f),
+                CurseEffectType.NoBP                 => ("力の封印",  "BP を回収できなくなる。",           1f),
+                _                                    => ("未知の呪い","不明な呪いにかかっている。",         1f),
+            };
+            c.Effect = effect;
+            return c;
+        }
+
         public IEnumerator ShowSkillUpgradeSelection()
         {
             yield return FadeGroup(_skillUpgradeUI, 0f, 1f, 0.3f);
