@@ -6,6 +6,7 @@ using UnityEngine.UI;
 using TMPro;
 using DarkChronicle.Data;
 using DarkChronicle.Roguelike.Relics;
+using DarkChronicle.UI;
 
 namespace DarkChronicle.Roguelike
 {
@@ -220,8 +221,11 @@ namespace DarkChronicle.Roguelike
 
         public IEnumerator ShowSkillRemove()
         {
-            yield return ShowPickFromDeck("削除するスキルを選択", null,
-                skill => _run.RemoveSkill(skill));
+            if (DeckViewPanel.Instance != null)
+                yield return DeckViewPanel.Instance.OpenRemoveMode(null);
+            else
+                yield return ShowPickFromDeck("削除するスキルを選択", null,
+                    skill => _run.RemoveSkill(skill));
         }
 
         // ── Deck / Relic Pick Panels ───────────────────────────────────────

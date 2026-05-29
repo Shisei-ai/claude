@@ -33,6 +33,10 @@ namespace DarkChronicle.Roguelike
         [SerializeField] RestSiteController  _restSiteController;
         [SerializeField] NodeMapUI           _mapUI;
 
+        [Header("Save / Pause")]
+        [SerializeField] AssetRegistry      _assetRegistry;
+        [SerializeField] PauseMenuUI        _pauseMenu;
+
         // ── Floor Config ───────────────────────────────────────────────────
         [Header("Floor Config")]
         [SerializeField] FloorLibrary        _floorLibrary;
@@ -85,6 +89,7 @@ namespace DarkChronicle.Roguelike
         FloorData   _currentFloor;
         bool        _waitingForNodeSelect;
         MapNode     _selectedNode;
+        bool        _runEndInProgress;
 
         // ── Unity ──────────────────────────────────────────────────────────
         void Awake() => Instance = this;
@@ -94,11 +99,86 @@ namespace DarkChronicle.Roguelike
         // ── Main Flow ──────────────────────────────────────────────────────
         IEnumerator MainFlow()
         {
+            if (RunSaveSystem.HasSave() && _assetRegistry != null)
+            {
+                var dto = RunSaveSystem.LoadDTO();
+                if (dto != null)
+                {
+                    _run = RunSaveSystem.RestoreRunData(dto, _assetRegistry);
+                    InitSubSystems();
+                    yield return ResumeRun(dto);
+                    yield break;
+                }
+            }
+
             yield return CharacterSelect();
             if (_run == null) yield break;
 
             InitSubSystems();
             yield return StartRun();
+        }
+
+        IEnumerator ResumeRun(RunSaveDTO dto)
+        {
+            yield return FadeGroup(_hud, 0f, 1f, 0.5f);
+
+            int resumeFloor = dto.CurrentFloor;
+            _currentFloor   = _floorLibrary.Get(resumeFloor);
+            _currentMapData = NodeMapGenerator.Generate(_run.Seed, resumeFloor);
+
+            var visited   = new System.Collections.Generic.HashSet<int>(dto.VisitedNodeIDs   ?? new int[0]);
+            var available = new System.Collections.Generic.HashSet<int>(dto.AvailableNodeIDs ?? new int[0]);
+            foreach (var node in _currentMapData.Nodes)
+            {
+                node.Visited   = visited.Contains(node.ID);
+                node.Available = available.Contains(node.ID);
+            }
+
+            _currentNode = dto.CurrentNodeID >= 0
+                ? _currentMapData.GetNode(dto.CurrentNodeID)
+                : null;
+
+            if (!_currentMapData.Nodes.Exists(n => n.Available))
+            {
+                foreach (var n in _currentMapData.GetStartNodes()) n.Available = true;
+            }
+
+            AtmosphereManager.Instance?.TransitionTo(_currentFloor.AtmospherePreset, 2f);
+            AudioManager.Instance?.PlayBGM(_currentFloor.FloorBGM);
+            yield return SceneTransitionManager.Instance?.ShowAreaTitle(
+                _currentFloor.FloorName, "（再開）");
+
+            yield return FloorLoop(resumeFloor);
+            if (!_run.IsRunActive) yield break;
+
+            if (_run.HasRelic(RelicEffectType.FloorClearHeal))
+                _run.HealHP(_relicManager.ModifyHealAmount(Mathf.RoundToInt(_run.MaxHP * 0.3f)));
+            yield return ShowFloorClearScreen(resumeFloor);
+
+            for (_run.CurrentFloor = resumeFloor + 1;
+                 _run.CurrentFloor < _floorLibrary.Floors.Count;
+                 _run.CurrentFloor++)
+            {
+                _currentFloor = _floorLibrary.Get(_run.CurrentFloor);
+                yield return StartFloor(_run.CurrentFloor);
+                if (!_run.IsRunActive) yield break;
+
+                if (_run.HasRelic(RelicEffectType.FloorClearHeal))
+                    _run.HealHP(_relicManager.ModifyHealAmount(Mathf.RoundToInt(_run.MaxHP * 0.3f)));
+                yield return ShowFloorClearScreen(_run.CurrentFloor);
+            }
+
+            if (_run.ActiveEnding != EndingType.None && _run.IsRunActive)
+            {
+                _currentFloor = EndingSystem.CreateFloor4(_run.ActiveEnding);
+                _run.CurrentFloor = 3;
+                yield return StartFloor4();
+                if (!_run.IsRunActive) yield break;
+                if (_endingManager != null)
+                    yield return _endingManager.ShowEnding(_run.ActiveEnding);
+            }
+
+            yield return RunVictory();
         }
 
         // ── Character Select ───────────────────────────────────────────────
@@ -144,10 +224,21 @@ namespace DarkChronicle.Roguelike
             _eventManager       .InitForRun(_run);
             _shopController     .InitForRun(_run);
             _restSiteController .InitForRun(_run);
+            RunHUDController.Instance?.InitForRun(_run);
+            DeckViewPanel.Instance?.InitForRun(_run);
 
-            BattleManager.OnBattleEnd       += OnBattleEnd;
-            BattleManager.OnDamageDealt     += (c, d) => { if (!c.IsPlayer) _run.DamageDealt += d; };
-            BattleManager.OnCharacterDefeated += c =>    { if (c.IsPlayer)  CheckDeath(); };
+            if (_pauseMenu != null)
+            {
+                _pauseMenu.OnSaveRequested     += () => RunSaveSystem.Save(_run, _currentMapData,
+                                                                           _currentNode?.ID ?? -1);
+                _pauseMenu.OnAbandonConfirmed  += () => StartCoroutine(AbandonRun());
+                _pauseMenu.OnMainMenuConfirmed += () =>
+                    UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
+            }
+
+            BattleManager.OnBattleEnd         += OnBattleEnd;
+            BattleManager.OnDamageDealt       += (c, d) => { if (!c.IsPlayer) _run.DamageDealt += d; };
+            BattleManager.OnCharacterDefeated += c =>       { if (c.IsPlayer)  CheckDeath(); };
         }
 
         void OnDestroy()
@@ -256,6 +347,10 @@ namespace DarkChronicle.Roguelike
 
                 yield return ResolveNode(_currentNode, floorIndex);
                 if (!_run.IsRunActive) yield break;
+
+                // Checkpoint save after every non-boss room
+                if (_currentNode.Type != NodeType.Boss)
+                    RunSaveSystem.Save(_run, _currentMapData, _currentNode.ID);
 
                 // Did we reach the boss and beat it?
                 if (_currentNode.Type == NodeType.Boss) yield break;
@@ -519,7 +614,7 @@ namespace DarkChronicle.Roguelike
             return BuildCurse(chosen);
         }
 
-        static CurseData BuildCurse(CurseEffectType effect)
+        public static CurseData BuildCurse(CurseEffectType effect)
         {
             var c = ScriptableObject.CreateInstance<CurseData>();
             (c.CurseName, c.Description, c.Magnitude) = effect switch
@@ -575,7 +670,10 @@ namespace DarkChronicle.Roguelike
 
         IEnumerator RunDeath()
         {
-            _run.IsRunActive = false;
+            if (_runEndInProgress) yield break;
+            _runEndInProgress = true;
+            _run.IsRunActive  = false;
+            RunSaveSystem.DeleteSave();
             AudioManager.Instance?.StopBGM();
             yield return new WaitForSeconds(1.5f);
             _runSummaryText.text = BuildSummary(won: false);
@@ -585,11 +683,20 @@ namespace DarkChronicle.Roguelike
 
         IEnumerator RunVictory()
         {
-            _run.IsRunActive = false;
+            if (_runEndInProgress) yield break;
+            _runEndInProgress = true;
+            _run.IsRunActive  = false;
+            RunSaveSystem.DeleteSave();
             yield return new WaitForSeconds(1f);
             _runSummaryText.text = BuildSummary(won: true);
             yield return FadeGroup(_victoryPanel, 0f, 1f, 1f);
             SetupEndButtons();
+        }
+
+        IEnumerator AbandonRun()
+        {
+            RunSaveSystem.DeleteSave();
+            yield return RunDeath();
         }
 
         void SetupEndButtons()
@@ -688,8 +795,10 @@ namespace DarkChronicle.Roguelike
     {
         string _title, _body;
         public void SetText(string title, string body) { _title = title; _body = body; }
-        public void OnPointerEnter(UnityEngine.EventSystems.PointerEventData e) {}
-        public void OnPointerExit (UnityEngine.EventSystems.PointerEventData e) {}
+        public void OnPointerEnter(UnityEngine.EventSystems.PointerEventData e) =>
+            UI.TooltipSystem.Instance?.Show(_title, _body);
+        public void OnPointerExit(UnityEngine.EventSystems.PointerEventData e) =>
+            UI.TooltipSystem.Instance?.Hide();
     }
 
     // ── Character Select Card ──────────────────────────────────────────────

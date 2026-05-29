@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using DarkChronicle.Roguelike.Relics;
+using DarkChronicle.UI;
 
 namespace DarkChronicle.Roguelike
 {
@@ -49,6 +50,10 @@ namespace DarkChronicle.Roguelike
         [SerializeField] Transform           _curseBar;
         [SerializeField] GameObject          _curseSlotPrefab;
 
+        // ── Deck Viewer ────────────────────────────────────────────────────
+        [Header("Deck View")]
+        [SerializeField] Button              _deckViewButton;
+
         // ── Animations ─────────────────────────────────────────────────────
         [Header("Animations")]
         [SerializeField] float               _ghostDrainSpeed = 0.3f;
@@ -69,8 +74,9 @@ namespace DarkChronicle.Roguelike
 
         public void InitForRun(RunData run)
         {
-            _run    = run;
+            _run     = run;
             _ghostHP = run.CurrentHP;
+            _deckViewButton?.onClick.AddListener(() => DeckViewPanel.Instance?.OpenView());
             RefreshAll();
         }
 
