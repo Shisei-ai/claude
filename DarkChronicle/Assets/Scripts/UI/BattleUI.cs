@@ -119,6 +119,9 @@ namespace DarkChronicle.UI
         GrimoireEntry          _pendingGrimoire;
         CommandType            _pendingCommandType;
 
+        // Inventory (set by BattleManager at battle start)
+        List<ItemData>         _battleInventory = new();
+
         // Enemy display tracking
         readonly Dictionary<BattleCharacter, EnemyStatusPanel> _enemyPanels = new();
 
@@ -181,6 +184,9 @@ namespace DarkChronicle.UI
                 var gm = hero.Traits.GetTrait<Trait_GrimoireMaster>();
                 _grimoireButton.interactable = gm.GrimoireSystem.HasAnyEntry;
             }
+
+            if (_itemButton != null)
+                _itemButton.interactable = _battleInventory.Count > 0;
 
             RefreshBPDisplay(hero);
             RefreshBoostDisplay();
@@ -505,10 +511,22 @@ namespace DarkChronicle.UI
         }
 
         // ── Item list population ───────────────────────────────────────────
+        public void SetBattleInventory(List<ItemData> inventory)
+        {
+            _battleInventory = inventory ?? new List<ItemData>();
+            if (_menuState == MenuState.ItemSelect) PopulateItemList();
+            if (_itemButton != null)
+                _itemButton.interactable = _battleInventory.Count > 0;
+        }
+
         void PopulateItemList()
         {
             foreach (Transform child in _itemListContent) Destroy(child.gameObject);
-            // Items come from RunData — wired externally via RefreshItemList(List<ItemData>)
+            var grouped = _battleInventory
+                .GroupBy(i => i.name)
+                .Select(g => (g.First(), g.Count()))
+                .ToList();
+            RefreshItemList(grouped);
         }
 
         public void RefreshItemList(List<(ItemData item, int count)> inventory)
@@ -703,8 +721,9 @@ namespace DarkChronicle.UI
         {
             _awaitingTarget = false;
             ClearTargetArrows();
-            TransitionTo(_pendingCommandType == CommandType.Skill    ? MenuState.SkillSelect
+            TransitionTo(_pendingCommandType == CommandType.Skill         ? MenuState.SkillSelect
                        : _pendingCommandType == CommandType.GrimoireSkill ? MenuState.GrimoireSelect
+                       : _pendingCommandType == CommandType.Item          ? MenuState.ItemSelect
                        : MenuState.Root);
         }
 

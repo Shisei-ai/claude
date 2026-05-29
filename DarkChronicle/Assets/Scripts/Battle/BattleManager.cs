@@ -37,6 +37,10 @@ namespace DarkChronicle.Battle
         BattleCharacter       _activeCharacter;
         bool                  _awaitingPlayerInput;
 
+        // ── Inventory (passed from RunData each battle) ────────────────────
+        List<ItemData>              _battleInventory  = new();
+        System.Action<ItemData>     _itemUsedCallback;
+
         /// <summary>EnemyData list from the last victorious battle. Used by RoguelikeManager to compute EXP/JP rewards.</summary>
         public List<EnemyData> VictoryEnemyData { get; private set; } = new();
 
@@ -61,10 +65,15 @@ namespace DarkChronicle.Battle
         void Awake() => Instance = this;
 
         // ── Public API ─────────────────────────────────────────────────────
-        public void StartBattle(List<CharacterData>  heroDataList,
-                                List<CharacterStats> heroStats,
-                                List<EnemyData>      enemyDataList)
+        public void StartBattle(List<CharacterData>      heroDataList,
+                                List<CharacterStats>     heroStats,
+                                List<EnemyData>          enemyDataList,
+                                List<ItemData>           inventory  = null,
+                                System.Action<ItemData>  onItemUsed = null)
         {
+            _battleInventory  = inventory != null ? new List<ItemData>(inventory) : new();
+            _itemUsedCallback = onItemUsed;
+
             _heroes.Clear();
             _enemies.Clear();
             _deathSentenceTimers.Clear();
@@ -93,6 +102,7 @@ namespace DarkChronicle.Battle
                 c.TurnGauge = Random.Range(0f, 50f);
 
             AtmosphereManager.Instance?.EnterBattle();
+            _battleUI.SetBattleInventory(_battleInventory);
             StartCoroutine(BattleLoop());
         }
 
@@ -588,12 +598,15 @@ namespace DarkChronicle.Battle
         // ── Item Execution ─────────────────────────────────────────────────
         IEnumerator ExecuteItem(BattleCharacter user, ItemData item, List<BattleCharacter> targets)
         {
+            _battleUI.ShowSkillName(item.ItemName);
+
             foreach (var target in targets)
             {
                 if (item.ReviveTarget && !target.IsAlive)
                 {
                     target.Revive(item.ReviveHPPercent * 0.01f);
                     _battleUI.ShowMessage($"{target.DisplayName} が復活した！");
+                    _battleUI.UpdateHeroPanel(target);
                 }
                 else if (target.IsAlive)
                 {
@@ -601,11 +614,24 @@ namespace DarkChronicle.Battle
                     {
                         int h = target.Heal(item.HealHP);
                         _battleUI.ShowHealNumber(target, h);
+                        _battleUI.UpdateHeroPanel(target);
                     }
-                    if (item.HealMP > 0) target.RestoreMana(item.HealMP);
-                    if (item.CureStatus != null) target.ClearAllStatus();
+                    if (item.HealMP > 0)
+                    {
+                        target.RestoreMana(item.HealMP);
+                        _battleUI.UpdateHeroPanel(target);
+                    }
+                    if (item.CureStatus != null)
+                        target.StatusEffects.RemoveAll(s => s.Type == item.CureStatus.Type);
+                    if (item.ApplyStatus != null && item.ApplyStatus.Duration > 0)
+                        target.ApplyStatus(item.ApplyStatus, 1f);
                 }
             }
+
+            _battleInventory.Remove(item);
+            _itemUsedCallback?.Invoke(item);
+            _battleUI.SetBattleInventory(_battleInventory);
+
             yield return new WaitForSeconds(0.5f);
         }
 

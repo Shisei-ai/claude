@@ -313,7 +313,9 @@ namespace DarkChronicle.Roguelike
                 new List<BattleCharacter>()
             );
 
-            BattleManager.Instance.StartBattle(heroDataList, heroStatList, enemies);
+            BattleManager.Instance.StartBattle(heroDataList, heroStatList, enemies,
+                new List<ItemData>(_run.Inventory),
+                usedItem => _run.Inventory.Remove(usedItem));
 
             // Wait for battle to finish
             bool battleDone = false;
@@ -538,16 +540,19 @@ namespace DarkChronicle.Roguelike
             return c;
         }
 
-        public IEnumerator ShowSkillUpgradeSelection()
+        public IEnumerator ShowSkillUpgradeSelection(System.Action<bool> onDone = null)
         {
+            bool upgraded = false;
             yield return _lootSystem.ShowPickFromDeck(
                 "スキルを強化",
                 SkillUpgradeSystem.CanUpgrade,
-                skill => SkillUpgradeSystem.UpgradeInDeck(_run, skill));
+                skill => { SkillUpgradeSystem.UpgradeInDeck(_run, skill); upgraded = true; });
+            onDone?.Invoke(upgraded);
         }
 
-        public IEnumerator ShowRelicSmeltSelection()
+        public IEnumerator ShowRelicSmeltSelection(System.Action<bool> onDone = null)
         {
+            bool smelted = false;
             yield return _lootSystem.ShowPickFromRelics(
                 "レリックを溶錬（MaxHP +15%）",
                 null,
@@ -557,7 +562,9 @@ namespace DarkChronicle.Roguelike
                     int increase = Mathf.RoundToInt(_run.MaxHP * 0.15f);
                     _run.MaxHP  += increase;
                     _run.HealHP(increase);
+                    smelted = true;
                 });
+            onDone?.Invoke(smelted);
         }
 
         // ── Death / Victory ────────────────────────────────────────────────

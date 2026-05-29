@@ -113,22 +113,17 @@ namespace DarkChronicle.Roguelike
 
         IEnumerator OnUpgradeSkill()
         {
-            // Show skill selection for upgrade
-            yield return RoguelikeManager.Instance.ShowSkillUpgradeSelection();
-            TakeRestAction();
+            bool done = false;
+            yield return RoguelikeManager.Instance.ShowSkillUpgradeSelection(r => done = r);
+            if (done) TakeRestAction();
         }
 
         IEnumerator OnSmeltRelic()
         {
-            // Destroy a relic to permanently gain +15% Max HP
             if (_run.Relics.Count <= 1) yield break;
-
-            yield return RoguelikeManager.Instance.ShowRelicSmeltSelection();
-            int maxHPGain = Mathf.RoundToInt(_run.MaxHP * 0.15f);
-            _run.MaxHP      += maxHPGain;
-            _run.CurrentHP   = Mathf.Min(_run.CurrentHP, _run.MaxHP);
-
-            TakeRestAction();
+            bool done = false;
+            yield return RoguelikeManager.Instance.ShowRelicSmeltSelection(r => done = r);
+            if (done) TakeRestAction();
         }
 
         IEnumerator OnMeditate()
