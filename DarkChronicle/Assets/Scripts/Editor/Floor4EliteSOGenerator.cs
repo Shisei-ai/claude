@@ -257,7 +257,8 @@ namespace DarkChronicle.Editor
 
             var chaosGuard = CreateSupportSkill("SKL_F4E_ChaosGuard",
                 AbyssKnightDesign.Action_ChaosGuard.Name,
-                AbyssKnightDesign.Action_ChaosGuard.Desc);
+                AbyssKnightDesign.Action_ChaosGuard.Desc,
+                AbyssKnightDesign.Action_ChaosGuard.ShieldRestore);
 
             var enemy = CreateOrLoad<EnemyData>(BaseDir + "/ENM_AbyssKnight.asset");
             enemy.EnemyName  = AbyssKnightDesign.EnemyName;
@@ -507,21 +508,42 @@ namespace DarkChronicle.Editor
             sk.CanBreak       = false;
             sk.HitsAllEnemies = hitsAll;
             sk.StatusChance   = statusChance;
+            sk.AppliedStatus  = new StatusEffect
+            {
+                Type     = effect,
+                Duration = effect switch
+                {
+                    StatusEffectType.Poison => 3,
+                    StatusEffectType.Bleed  => 3,
+                    StatusEffectType.Burn   => 3,
+                    _                       => 2,
+                },
+                Value = effect switch
+                {
+                    StatusEffectType.Poison => 0.05f,
+                    StatusEffectType.Bleed  => 0.05f,
+                    StatusEffectType.Burn   => 0.07f,
+                    StatusEffectType.Regen  => 0.04f,
+                    _                       => 0f,
+                },
+            };
             sk.IsHeal         = false;
             EditorUtility.SetDirty(sk);
             return sk;
         }
 
-        static SkillData CreateSupportSkill(string fileName, string name, string desc)
+        static SkillData CreateSupportSkill(string fileName, string name, string desc,
+                                             int shieldRestore = 0)
         {
             var sk = CreateOrLoad<SkillData>(SkillDir + $"/{fileName}.asset");
-            sk.SkillName   = name;
-            sk.Description = desc;
-            sk.DamageType  = DamageType.Physical;
-            sk.Element     = ElementType.None;
-            sk.BasePower   = 0f;
-            sk.MPCost      = 0;
-            sk.IsHeal      = false;
+            sk.SkillName      = name;
+            sk.Description    = desc;
+            sk.DamageType     = DamageType.Physical;
+            sk.Element        = ElementType.None;
+            sk.BasePower      = 0f;
+            sk.MPCost         = 0;
+            sk.IsHeal         = false;
+            sk.ShieldRestore  = shieldRestore;
             EditorUtility.SetDirty(sk);
             return sk;
         }

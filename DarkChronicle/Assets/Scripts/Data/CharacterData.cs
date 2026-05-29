@@ -75,6 +75,9 @@ namespace DarkChronicle.Data
         public bool  IsHeal;
         public float HealPower;
 
+        [Header("Enemy Support")]
+        public int   ShieldRestore;
+
         [Header("Revive")]
         public bool  IsRevive;
         public float ReviveHPPercent = 0.50f;

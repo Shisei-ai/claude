@@ -159,6 +159,12 @@ namespace DarkChronicle.Battle
                 _currentShields = _maxShields;  // shields recover
         }
 
+        public void RestoreShields(int amount)
+        {
+            if (!IsEnemy) return;
+            _currentShields = Mathf.Min(_maxShields, _currentShields + amount);
+        }
+
         // ── Status Effects ─────────────────────────────────────────────────
         public void ApplyStatus(StatusEffect effect, float chance)
         {

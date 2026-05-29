@@ -72,7 +72,8 @@ namespace DarkChronicle.Editor
 
             var guardRestore = CreateSupportSkill("SKL_F2E_GuardRestore",
                 GalenDesign.Action_GuardRestore.Name,
-                GalenDesign.Action_GuardRestore.Desc);
+                GalenDesign.Action_GuardRestore.Desc,
+                GalenDesign.Action_GuardRestore.ShieldRestore);
 
             var enemy = CreateOrLoad<EnemyData>(BaseDir + "/ENM_Galen.asset");
             enemy.EnemyName  = GalenDesign.EnemyName;
@@ -344,7 +345,8 @@ namespace DarkChronicle.Editor
 
             var curseArmor = CreateSupportSkill("SKL_F2E_CurseArmor",
                 VelmonDesign.Action_CurseArmor.Name,
-                VelmonDesign.Action_CurseArmor.Desc);
+                VelmonDesign.Action_CurseArmor.Desc,
+                VelmonDesign.Action_CurseArmor.ShieldRestore);
 
             // ── Phase 2 Skills (HP ≤ 40%) ───────────────────────────────
             var despairBind = CreateStatusSkill("SKL_F2E_DespairBind",
@@ -513,21 +515,42 @@ namespace DarkChronicle.Editor
             sk.CanBreak       = false;
             sk.HitsAllEnemies = hitsAll;
             sk.StatusChance   = statusChance;
+            sk.AppliedStatus  = new StatusEffect
+            {
+                Type     = effect,
+                Duration = effect switch
+                {
+                    StatusEffectType.Poison => 3,
+                    StatusEffectType.Bleed  => 3,
+                    StatusEffectType.Burn   => 3,
+                    _                       => 2,
+                },
+                Value = effect switch
+                {
+                    StatusEffectType.Poison => 0.05f,
+                    StatusEffectType.Bleed  => 0.05f,
+                    StatusEffectType.Burn   => 0.07f,
+                    StatusEffectType.Regen  => 0.04f,
+                    _                       => 0f,
+                },
+            };
             sk.IsHeal         = false;
             EditorUtility.SetDirty(sk);
             return sk;
         }
 
-        static SkillData CreateSupportSkill(string fileName, string name, string desc)
+        static SkillData CreateSupportSkill(string fileName, string name, string desc,
+                                             int shieldRestore = 0)
         {
             var sk = CreateOrLoad<SkillData>(SkillDir + $"/{fileName}.asset");
-            sk.SkillName   = name;
-            sk.Description = desc;
-            sk.DamageType  = DamageType.Physical;
-            sk.Element     = ElementType.None;
-            sk.BasePower   = 0f;
-            sk.MPCost      = 0;
-            sk.IsHeal      = false;
+            sk.SkillName      = name;
+            sk.Description    = desc;
+            sk.DamageType     = DamageType.Physical;
+            sk.Element        = ElementType.None;
+            sk.BasePower      = 0f;
+            sk.MPCost         = 0;
+            sk.IsHeal         = false;
+            sk.ShieldRestore  = shieldRestore;
             EditorUtility.SetDirty(sk);
             return sk;
         }

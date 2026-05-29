@@ -195,26 +195,46 @@ namespace DarkChronicle.Battle
             CurrentPhase = Phase.EnemyTurn;
             yield return new WaitForSeconds(0.3f);
 
-            var validActions = enemy.EnemyData.Actions
-                .Where(a => a.UseChance >= Random.value
-                         && (a.HealthThreshold == 0 || enemy.HPRatio * 100f <= a.HealthThreshold))
-                .OrderByDescending(a => a.Priority)
-                .ToList();
+            int actionsToTake = enemy.EnemyData.ActionsPerTurn;
+            for (int i = 0; i < actionsToTake; i++)
+            {
+                if (!enemy.IsAlive) yield break;
 
-            EnemyAction chosen = validActions.Count > 0
-                ? validActions[0]
-                : (enemy.EnemyData.Actions?.Count > 0 ? enemy.EnemyData.Actions[0] : null);
+                var validActions = enemy.EnemyData.Actions
+                    .Where(a => a.UseChance >= Random.value
+                             && (a.HealthThreshold == 0 || enemy.HPRatio * 100f <= a.HealthThreshold))
+                    .OrderByDescending(a => a.Priority)
+                    .ToList();
 
-            if (chosen.Skill == null) yield break;
+                EnemyAction chosen = validActions.Count > 0
+                    ? validActions[0]
+                    : (enemy.EnemyData.Actions?.Count > 0 ? enemy.EnemyData.Actions[0] : null);
 
-            var randomHero = GetRandomLivingHero();
-            if (randomHero == null) yield break;
+                if (chosen == null || chosen.Skill == null) continue;
 
-            var targets = chosen.Skill.HitsAllAllies
-                ? _heroes.Where(h => h.IsAlive).ToList()
-                : new List<BattleCharacter> { randomHero };
+                // Shield-restore support skills target self, not heroes
+                if (chosen.Skill.ShieldRestore > 0)
+                {
+                    enemy.RestoreShields(chosen.Skill.ShieldRestore);
+                    _battleUI.ShowMessage($"{enemy.DisplayName} がシールドを{chosen.Skill.ShieldRestore}回復！");
+                    yield return new WaitForSeconds(0.4f);
+                    if (i < actionsToTake - 1) yield return new WaitForSeconds(0.25f);
+                    continue;
+                }
 
-            yield return ExecuteSkill(enemy, chosen.Skill, targets);
+                var randomHero = GetRandomLivingHero();
+                if (randomHero == null) yield break;
+
+                // HitsAllEnemies on an enemy skill means "hits all player heroes"
+                var targets = chosen.Skill.HitsAllEnemies
+                    ? _heroes.Where(h => h.IsAlive).ToList()
+                    : new List<BattleCharacter> { randomHero };
+
+                yield return ExecuteSkill(enemy, chosen.Skill, targets);
+
+                if (i < actionsToTake - 1)
+                    yield return new WaitForSeconds(0.25f);
+            }
         }
 
         // ── Player Command Input (called from UI) ──────────────────────────
@@ -596,7 +616,10 @@ namespace DarkChronicle.Battle
             if (!target.IsAlive) yield break;
 
             float mult = upgrade.HealPowerMult * (1f + boostLevel * 0.4f);
-            float rawHeal = user.Matk * skill.HealPower * mult * Random.Range(0.95f, 1.05f);
+            // HealPower > 0: magic-scaled heal (player skills). BasePower: flat heal (enemy self-heals).
+            float rawHeal = skill.HealPower > 0f
+                ? user.Matk * skill.HealPower * mult * Random.Range(0.95f, 1.05f)
+                : skill.BasePower * mult * Random.Range(0.95f, 1.05f);
 
             // Trait_PureheartHealer bonus
             var pureHeart = user.Traits.GetTrait<Trait_PureheartHealer>();

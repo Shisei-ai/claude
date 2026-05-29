@@ -416,6 +416,25 @@ namespace DarkChronicle.Editor
             sk.CanBreak       = false;
             sk.HitsAllEnemies = hitsAll;
             sk.StatusChance   = statusChance;
+            sk.AppliedStatus  = new StatusEffect
+            {
+                Type     = effect,
+                Duration = effect switch
+                {
+                    StatusEffectType.Poison => 3,
+                    StatusEffectType.Bleed  => 3,
+                    StatusEffectType.Burn   => 3,
+                    _                       => 2,
+                },
+                Value = effect switch
+                {
+                    StatusEffectType.Poison => 0.05f,
+                    StatusEffectType.Bleed  => 0.05f,
+                    StatusEffectType.Burn   => 0.07f,
+                    StatusEffectType.Regen  => 0.04f,
+                    _                       => 0f,
+                },
+            };
             sk.IsHeal         = false;
             EditorUtility.SetDirty(sk);
             return sk;
