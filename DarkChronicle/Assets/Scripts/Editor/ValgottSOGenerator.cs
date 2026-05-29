@@ -129,10 +129,7 @@ namespace DarkChronicle.Editor
             {
                 ElementType.Fire,
                 ElementType.Lightning,
-            };
-            enemy.WeaponWeaknesses = new List<WeaponType>
-            {
-                WeaponType.Axe,
+                ElementType.Physical,
             };
 
             enemy.IsUndead = false;
@@ -213,7 +210,7 @@ namespace DarkChronicle.Editor
             sk.SkillName      = name;
             sk.Description    = desc;
             sk.DamageType     = DamageType.Physical;
-            sk.Element        = ElementType.None;
+            sk.Element        = ElementType.Physical;
             sk.BasePower      = power;
             sk.HitCount       = hits;
             sk.MPCost         = 0;

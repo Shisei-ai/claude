@@ -117,8 +117,7 @@ namespace DarkChronicle.Editor
             enemy.ExpReward    = DemonKingDesign.ExpReward;
             enemy.JPReward     = DemonKingDesign.JPReward;
             enemy.GoldReward   = DemonKingDesign.GoldReward;
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Axe };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light, ElementType.Physical };
             enemy.IsUndead = DemonKingDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -223,8 +222,7 @@ namespace DarkChronicle.Editor
             enemy.ExpReward    = AbyssGodDesign.ExpReward;
             enemy.JPReward     = AbyssGodDesign.JPReward;
             enemy.GoldReward   = AbyssGodDesign.GoldReward;
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Axe };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light, ElementType.Physical };
             enemy.IsUndead = AbyssGodDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -328,8 +326,7 @@ namespace DarkChronicle.Editor
             enemy.ExpReward    = TimeWraithDesign.ExpReward;
             enemy.JPReward     = TimeWraithDesign.JPReward;
             enemy.GoldReward   = TimeWraithDesign.GoldReward;
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Sword };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light, ElementType.Physical };
             enemy.IsUndead = TimeWraithDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -432,8 +429,7 @@ namespace DarkChronicle.Editor
             enemy.ExpReward    = CursedKingDesign.ExpReward;
             enemy.JPReward     = CursedKingDesign.JPReward;
             enemy.GoldReward   = CursedKingDesign.GoldReward;
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Axe };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light, ElementType.Physical };
             enemy.IsUndead = CursedKingDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -557,8 +553,7 @@ namespace DarkChronicle.Editor
             enemy.ExpReward    = TrueCoreDesign.ExpReward;
             enemy.JPReward     = TrueCoreDesign.JPReward;
             enemy.GoldReward   = TrueCoreDesign.GoldReward;
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Light };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Tome };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Light, ElementType.Physical };
             enemy.IsUndead = TrueCoreDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -627,7 +622,7 @@ namespace DarkChronicle.Editor
             sk.SkillName      = name;
             sk.Description    = desc;
             sk.DamageType     = DamageType.Physical;
-            sk.Element        = ElementType.None;
+            sk.Element        = ElementType.Physical;
             sk.BasePower      = power;
             sk.HitCount       = hits;
             sk.MPCost         = 0;

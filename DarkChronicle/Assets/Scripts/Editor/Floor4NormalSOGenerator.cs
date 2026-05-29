@@ -93,8 +93,7 @@ namespace DarkChronicle.Editor
             enemy.JPReward     = ApocalypseKnightDesign.JPReward;
             enemy.GoldReward   = ApocalypseKnightDesign.GoldReward;
 
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Light, ElementType.Fire };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Axe };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Light, ElementType.Fire, ElementType.Physical };
             enemy.IsUndead = ApocalypseKnightDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -156,8 +155,7 @@ namespace DarkChronicle.Editor
             enemy.JPReward     = ChaosBeastDesign.JPReward;
             enemy.GoldReward   = ChaosBeastDesign.GoldReward;
 
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Ice, ElementType.Lightning };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Sword };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Ice, ElementType.Lightning, ElementType.Physical };
             enemy.IsUndead = ChaosBeastDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -220,8 +218,7 @@ namespace DarkChronicle.Editor
             enemy.JPReward     = VoidSpecterDesign.JPReward;
             enemy.GoldReward   = VoidSpecterDesign.GoldReward;
 
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Tome };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light, ElementType.Physical };
             enemy.IsUndead = VoidSpecterDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -282,8 +279,7 @@ namespace DarkChronicle.Editor
             enemy.JPReward     = CollapseGiantDesign.JPReward;
             enemy.GoldReward   = CollapseGiantDesign.GoldReward;
 
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Lightning, ElementType.Wind };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Axe };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Lightning, ElementType.Wind, ElementType.Physical };
             enemy.IsUndead = CollapseGiantDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -369,7 +365,7 @@ namespace DarkChronicle.Editor
             sk.SkillName      = name;
             sk.Description    = desc;
             sk.DamageType     = DamageType.Physical;
-            sk.Element        = ElementType.None;
+            sk.Element        = ElementType.Physical;
             sk.BasePower      = power;
             sk.HitCount       = hits;
             sk.MPCost         = 0;

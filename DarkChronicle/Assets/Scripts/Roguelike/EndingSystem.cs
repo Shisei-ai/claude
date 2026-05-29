@@ -347,7 +347,6 @@ namespace DarkChronicle.Roguelike.Relics
             }
 
             enemy.ElementWeaknesses = new List<ElementType>();
-            enemy.WeaponWeaknesses  = new List<WeaponType>();
             enemy.Actions           = new List<EnemyAction> { defaultAction };
             enemy.ActionsPerTurn    = 1;
             return enemy;

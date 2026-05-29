@@ -218,7 +218,7 @@ namespace DarkChronicle.Editor
             var sk = CreateOrLoad<SkillData>(SkillDir + $"/{fileName}.asset");
             sk.SkillName      = name;
             sk.Description    = desc;
-            sk.Element        = ElementType.None;
+            sk.Element        = ElementType.Physical;
             sk.DamageType     = DamageType.Physical;
             sk.BasePower      = power;
             sk.HitCount       = hits;

@@ -39,7 +39,7 @@ namespace DarkChronicle.Data
     // ── Element System ─────────────────────────────────────────────────────
     public enum ElementType
     {
-        None, Fire, Ice, Lightning, Wind, Dark, Light, Poison, Bleed
+        None, Physical, Fire, Ice, Lightning, Wind, Dark, Light, Poison, Bleed
     }
 
     public enum DamageType { Physical, Magical, True }
@@ -207,7 +207,6 @@ namespace DarkChronicle.Data
 
         [Header("Weaknesses (Break)")]
         public List<ElementType>  ElementWeaknesses;
-        public List<WeaponType>   WeaponWeaknesses;
 
         [Header("Enemy Tags")]
         public bool IsUndead;   // 聖属性特効・HolyGrace対象

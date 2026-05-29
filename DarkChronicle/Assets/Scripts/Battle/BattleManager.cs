@@ -278,10 +278,10 @@ namespace DarkChronicle.Battle
                     if (TryEvade(attacker, target)) { _battleUI.ShowMessage($"{target.DisplayName} 回避！"); continue; }
 
                     bool isCrit;
-                    int raw = ComputeRawDamage(attacker, target, 1f, DamageType.Physical, ElementType.None,
+                    int raw = ComputeRawDamage(attacker, target, 1f, DamageType.Physical, ElementType.Physical,
                                                BoostUpgrade.None, hit == hitCount - 1, out isCrit);
-                    yield return ApplyDamageToTarget(attacker, target, raw, DamageType.Physical, ElementType.None, 0f, isCrit);
-                    TryBreakShield(attacker, target, attacker.CharData?.StarterJob?.AllowedWeapons?.FirstOrDefault() ?? WeaponType.Sword);
+                    yield return ApplyDamageToTarget(attacker, target, raw, DamageType.Physical, ElementType.Physical, 0f, isCrit);
+                    TryBreakShieldElement(attacker, target, ElementType.Physical);
                 }
                 yield return new WaitForSeconds(0.1f);
             }
@@ -759,9 +759,8 @@ namespace DarkChronicle.Battle
 
             float atk = dmgType == DamageType.Physical ? attacker.Patk : attacker.Matk;
 
-            // Element weakness multiplier
+            // Element weakness multiplier (Physical is an element; none overrides it)
             float elemMult = IsElementWeak(target, element) ? 1.5f : 1f;
-            if (dmgType == DamageType.Physical) elemMult = 1f;
 
             float rawDmg = atk * power * critMult * elemMult * resonanceMult * curseBonus
                            * (1f + darkWillAmp) * Random.Range(0.9f, 1.1f);
@@ -1009,13 +1008,6 @@ namespace DarkChronicle.Battle
         }
 
         // ── Break Helpers ──────────────────────────────────────────────────
-        void TryBreakShield(BattleCharacter attacker, BattleCharacter target, WeaponType weapon)
-        {
-            if (target.IsPlayer) return;
-            if (target.EnemyData.WeaponWeaknesses.Contains(weapon))
-                if (target.HitShield()) OnBreak(target);
-        }
-
         void TryBreakShieldElement(BattleCharacter attacker, BattleCharacter target,
                                     ElementType element, int shieldDamage = 1,
                                     bool forceBreak = false)

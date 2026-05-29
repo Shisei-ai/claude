@@ -93,8 +93,7 @@ namespace DarkChronicle.Editor
             enemy.JPReward     = RuinStoneSoldierDesign.JPReward;
             enemy.GoldReward   = RuinStoneSoldierDesign.GoldReward;
 
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Lightning, ElementType.Wind };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Axe };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Lightning, ElementType.Wind, ElementType.Physical };
             enemy.IsUndead = RuinStoneSoldierDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -156,8 +155,7 @@ namespace DarkChronicle.Editor
             enemy.JPReward     = PoisonSandSerpentDesign.JPReward;
             enemy.GoldReward   = PoisonSandSerpentDesign.GoldReward;
 
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Ice, ElementType.Fire };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Sword };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Ice, ElementType.Fire, ElementType.Physical };
             enemy.IsUndead = PoisonSandSerpentDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -220,8 +218,7 @@ namespace DarkChronicle.Editor
             enemy.JPReward     = SealedWraithDesign.JPReward;
             enemy.GoldReward   = SealedWraithDesign.GoldReward;
 
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Tome };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light, ElementType.Physical };
             enemy.IsUndead = SealedWraithDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -282,8 +279,7 @@ namespace DarkChronicle.Editor
             enemy.JPReward     = AncientGiantSoldierDesign.JPReward;
             enemy.GoldReward   = AncientGiantSoldierDesign.GoldReward;
 
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Lightning, ElementType.Wind };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Axe };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Lightning, ElementType.Wind, ElementType.Physical };
             enemy.IsUndead = AncientGiantSoldierDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -369,7 +365,7 @@ namespace DarkChronicle.Editor
             sk.SkillName      = name;
             sk.Description    = desc;
             sk.DamageType     = DamageType.Physical;
-            sk.Element        = ElementType.None;
+            sk.Element        = ElementType.Physical;
             sk.BasePower      = power;
             sk.HitCount       = hits;
             sk.MPCost         = 0;

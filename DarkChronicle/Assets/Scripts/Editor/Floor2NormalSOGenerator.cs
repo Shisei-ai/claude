@@ -93,8 +93,7 @@ namespace DarkChronicle.Editor
             enemy.JPReward     = CursedGuardDesign.JPReward;
             enemy.GoldReward   = CursedGuardDesign.GoldReward;
 
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Axe };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light, ElementType.Physical };
             enemy.IsUndead = CursedGuardDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -156,8 +155,7 @@ namespace DarkChronicle.Editor
             enemy.JPReward     = CurseBloodBatDesign.JPReward;
             enemy.GoldReward   = CurseBloodBatDesign.GoldReward;
 
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Bow };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light, ElementType.Physical };
             enemy.IsUndead = CurseBloodBatDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -220,8 +218,7 @@ namespace DarkChronicle.Editor
             enemy.JPReward     = CastleWraithDesign.JPReward;
             enemy.GoldReward   = CastleWraithDesign.GoldReward;
 
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Staff };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light, ElementType.Physical };
             enemy.IsUndead = CastleWraithDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -282,8 +279,7 @@ namespace DarkChronicle.Editor
             enemy.JPReward     = ShadowExecutionerDesign.JPReward;
             enemy.GoldReward   = ShadowExecutionerDesign.GoldReward;
 
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Axe };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light, ElementType.Physical };
             enemy.IsUndead = ShadowExecutionerDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -369,7 +365,7 @@ namespace DarkChronicle.Editor
             sk.SkillName      = name;
             sk.Description    = desc;
             sk.DamageType     = DamageType.Physical;
-            sk.Element        = ElementType.None;
+            sk.Element        = ElementType.Physical;
             sk.BasePower      = power;
             sk.HitCount       = hits;
             sk.MPCost         = 0;

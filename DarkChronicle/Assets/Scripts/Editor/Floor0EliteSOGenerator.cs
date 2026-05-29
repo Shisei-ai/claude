@@ -101,10 +101,7 @@ namespace DarkChronicle.Editor
             {
                 ElementType.Fire,
                 ElementType.Light,
-            };
-            enemy.WeaponWeaknesses = new List<WeaponType>
-            {
-                WeaponType.Axe,
+                ElementType.Physical,
             };
             enemy.IsUndead = GarmDesign.IsUndead;
 
@@ -191,10 +188,7 @@ namespace DarkChronicle.Editor
             {
                 ElementType.Fire,
                 ElementType.Light,
-            };
-            enemy.WeaponWeaknesses = new List<WeaponType>
-            {
-                WeaponType.Tome,
+                ElementType.Physical,
             };
             enemy.IsUndead = RuinedSorcererDesign.IsUndead;
 
@@ -273,10 +267,7 @@ namespace DarkChronicle.Editor
             {
                 ElementType.Fire,
                 ElementType.Light,
-            };
-            enemy.WeaponWeaknesses = new List<WeaponType>
-            {
-                WeaponType.Axe,
+                ElementType.Physical,
             };
             enemy.IsUndead = ChainSoldierDesign.IsUndead;
 
@@ -359,10 +350,7 @@ namespace DarkChronicle.Editor
             enemy.ElementWeaknesses = new List<ElementType>
             {
                 ElementType.Lightning,
-            };
-            enemy.WeaponWeaknesses = new List<WeaponType>
-            {
-                WeaponType.Axe,
+                ElementType.Physical,
             };
             enemy.IsUndead = RambardDesign.IsUndead;
 
@@ -414,7 +402,7 @@ namespace DarkChronicle.Editor
             sk.SkillName      = name;
             sk.Description    = desc;
             sk.DamageType     = DamageType.Physical;
-            sk.Element        = ElementType.None;
+            sk.Element        = ElementType.Physical;
             sk.BasePower      = power;
             sk.HitCount       = hits;
             sk.MPCost         = 0;

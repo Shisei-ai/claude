@@ -94,8 +94,7 @@ namespace DarkChronicle.Editor
             enemy.JPReward     = DarkWolfDesign.JPReward;
             enemy.GoldReward   = DarkWolfDesign.GoldReward;
 
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Sword };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light, ElementType.Physical };
             enemy.IsUndead = DarkWolfDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -158,8 +157,7 @@ namespace DarkChronicle.Editor
             enemy.JPReward     = ToxicSporeFungusDesign.JPReward;
             enemy.GoldReward   = ToxicSporeFungusDesign.GoldReward;
 
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Axe };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Physical };
             enemy.IsUndead = ToxicSporeFungusDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -222,8 +220,7 @@ namespace DarkChronicle.Editor
             enemy.JPReward     = ForestSpriteDesign.JPReward;
             enemy.GoldReward   = ForestSpriteDesign.GoldReward;
 
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Bow };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Light, ElementType.Physical };
             enemy.IsUndead = ForestSpriteDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -285,8 +282,7 @@ namespace DarkChronicle.Editor
             enemy.JPReward     = EntanglingVineDesign.JPReward;
             enemy.GoldReward   = EntanglingVineDesign.GoldReward;
 
-            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire };
-            enemy.WeaponWeaknesses  = new List<WeaponType>  { WeaponType.Axe };
+            enemy.ElementWeaknesses = new List<ElementType> { ElementType.Fire, ElementType.Physical };
             enemy.IsUndead = EntanglingVineDesign.IsUndead;
 
             enemy.Actions = new List<EnemyAction>
@@ -372,7 +368,7 @@ namespace DarkChronicle.Editor
             sk.SkillName      = name;
             sk.Description    = desc;
             sk.DamageType     = DamageType.Physical;
-            sk.Element        = ElementType.None;
+            sk.Element        = ElementType.Physical;
             sk.BasePower      = power;
             sk.HitCount       = hits;
             sk.MPCost         = 0;
