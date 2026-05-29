@@ -37,6 +37,9 @@ namespace DarkChronicle.Roguelike
         public List<SkillData>  Deck         = new();
         public List<SkillData>  SkillsRemoved = new();  // purged from deck
 
+        // ── Inventory ─────────────────────────────────────────────────────
+        public List<ItemData>   Inventory    = new();
+
         // ── Relics ─────────────────────────────────────────────────────────
         public List<RelicData>  Relics       = new();
 

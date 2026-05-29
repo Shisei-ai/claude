@@ -540,18 +540,24 @@ namespace DarkChronicle.Roguelike
 
         public IEnumerator ShowSkillUpgradeSelection()
         {
-            yield return FadeGroup(_skillUpgradeUI, 0f, 1f, 0.3f);
-            // TODO: list skills, select one, upgrade it
-            yield return new WaitForSeconds(0.5f);
-            yield return FadeGroup(_skillUpgradeUI, 1f, 0f, 0.3f);
+            yield return _lootSystem.ShowPickFromDeck(
+                "スキルを強化",
+                SkillUpgradeSystem.CanUpgrade,
+                skill => SkillUpgradeSystem.UpgradeInDeck(_run, skill));
         }
 
         public IEnumerator ShowRelicSmeltSelection()
         {
-            yield return FadeGroup(_relicSmeltUI, 0f, 1f, 0.3f);
-            // TODO: list relics, select one, remove it
-            yield return new WaitForSeconds(0.5f);
-            yield return FadeGroup(_relicSmeltUI, 1f, 0f, 0.3f);
+            yield return _lootSystem.ShowPickFromRelics(
+                "レリックを溶錬（MaxHP +15%）",
+                null,
+                relic =>
+                {
+                    _run.Relics.Remove(relic);
+                    int increase = Mathf.RoundToInt(_run.MaxHP * 0.15f);
+                    _run.MaxHP  += increase;
+                    _run.HealHP(increase);
+                });
         }
 
         // ── Death / Victory ────────────────────────────────────────────────

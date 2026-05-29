@@ -47,6 +47,7 @@ namespace DarkChronicle.Roguelike
         [SerializeField] List<RelicData>    _rareRelicPool;
         [SerializeField] List<RelicData>    _bossRelicPool;
         [SerializeField] List<RelicData>    _cursedRelicPool;
+        [SerializeField] List<ItemData>    _consumablePool;
 
         RunData _run;
         bool    _choiceMade;
@@ -219,9 +220,85 @@ namespace DarkChronicle.Roguelike
 
         public IEnumerator ShowSkillRemove()
         {
-            if (_run.Deck.Count == 0) yield break;
-            // TODO: show deck list with "remove" buttons
-            yield return null;
+            yield return ShowPickFromDeck("削除するスキルを選択", null,
+                skill => _run.RemoveSkill(skill));
+        }
+
+        // ── Deck / Relic Pick Panels ───────────────────────────────────────
+        public IEnumerator ShowPickFromDeck(string header,
+            System.Func<SkillData, bool> filter,
+            System.Action<SkillData> onSelected)
+        {
+            var skills = _run.Deck
+                .Where(s => filter == null || filter(s))
+                .ToList();
+            if (skills.Count == 0) yield break;
+
+            foreach (Transform child in _choiceContainer) Destroy(child.gameObject);
+            _headerText.text     = header;
+            _goldRewardText.text = string.Empty;
+
+            SkillData picked = null;
+            bool done        = false;
+
+            foreach (var skill in skills)
+            {
+                var go   = Instantiate(_skillChoicePrefab, _choiceContainer);
+                var card = go.GetComponent<LootCard>() ?? go.AddComponent<LootCard>();
+                card.SetupSkill(skill);
+                var cap = skill;
+                card.Button.onClick.AddListener(() => { picked = cap; done = true; });
+            }
+
+            _skipButton.onClick.RemoveAllListeners();
+            _skipButton.onClick.AddListener(() => done = true);
+
+            yield return FadeGroup(_lootPanel, 0f, 1f, 0.4f);
+            while (!done) yield return null;
+            yield return FadeGroup(_lootPanel, 1f, 0f, 0.3f);
+
+            if (picked != null) onSelected?.Invoke(picked);
+        }
+
+        public IEnumerator ShowPickFromRelics(string header,
+            System.Func<RelicData, bool> filter,
+            System.Action<RelicData> onSelected)
+        {
+            var relics = _run.Relics
+                .Where(r => filter == null || filter(r))
+                .ToList();
+            if (relics.Count == 0) yield break;
+
+            foreach (Transform child in _choiceContainer) Destroy(child.gameObject);
+            _headerText.text     = header;
+            _goldRewardText.text = string.Empty;
+
+            RelicData picked = null;
+            bool done        = false;
+
+            foreach (var relic in relics)
+            {
+                var go   = Instantiate(_relicChoicePrefab, _choiceContainer);
+                var card = go.GetComponent<LootCard>() ?? go.AddComponent<LootCard>();
+                card.SetupRelic(relic);
+                var cap = relic;
+                card.Button.onClick.AddListener(() => { picked = cap; done = true; });
+            }
+
+            _skipButton.onClick.RemoveAllListeners();
+            _skipButton.onClick.AddListener(() => done = true);
+
+            yield return FadeGroup(_lootPanel, 0f, 1f, 0.4f);
+            while (!done) yield return null;
+            yield return FadeGroup(_lootPanel, 1f, 0f, 0.3f);
+
+            if (picked != null) onSelected?.Invoke(picked);
+        }
+
+        public ItemData DrawConsumable()
+        {
+            if (_consumablePool == null || _consumablePool.Count == 0) return null;
+            return _consumablePool[Random.Range(0, _consumablePool.Count)];
         }
 
         // ── Relic Drawing ──────────────────────────────────────────────────
@@ -254,7 +331,7 @@ namespace DarkChronicle.Roguelike
         }
 
         // ── Skill Drawing ──────────────────────────────────────────────────
-        SkillData DrawSkill(int sanity, HashSet<string> used)
+        public SkillData DrawSkill(int sanity, HashSet<string> used = null)
         {
             // Higher sanity = higher chance of rare skill (sanity -3 to +3)
             float rareChance     = Mathf.Clamp(0.10f + sanity * 0.05f, 0.01f, 0.25f);
@@ -278,7 +355,7 @@ namespace DarkChronicle.Roguelike
             return chosen;
         }
 
-        RelicRarity RollRelicRarity(int sanity, bool isElite)
+        public RelicRarity RollRelicRarity(int sanity, bool isElite)
         {
             float rare     = Mathf.Clamp(0.08f + sanity * 0.05f, 0.01f, 0.23f) + (isElite ? 0.1f : 0f);
             float uncommon = Mathf.Clamp(0.20f + sanity * 0.03f, 0.05f, 0.29f) + (isElite ? 0.1f : 0f);

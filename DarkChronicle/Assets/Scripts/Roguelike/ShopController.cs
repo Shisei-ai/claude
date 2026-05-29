@@ -114,7 +114,7 @@ namespace DarkChronicle.Roguelike
 
         void AddSkillItem(int floor, int sanity)
         {
-            var skill = LootSystem.Instance?.DrawSkillPublic(sanity);
+            var skill = LootSystem.Instance?.DrawSkill(sanity);
             if (skill == null) return;
             int price = RelicManager.Instance.ModifyShopPrice(
                 Mathf.RoundToInt(SkillBasePrice * (1f + floor * 0.3f)));
@@ -126,8 +126,8 @@ namespace DarkChronicle.Roguelike
         void AddRelicItem(int floor, int sanity, bool forceCursed = false)
         {
             var rarity = forceCursed ? RelicRarity.Cursed
-                                     : LootSystem.Instance?.DrawRelicRarityPublic(sanity, false) ?? RelicRarity.Common;
-            var relic  = LootSystem.Instance?.DrawRelicPublic(rarity, false);
+                                     : LootSystem.Instance?.RollRelicRarity(sanity, false) ?? RelicRarity.Common;
+            var relic  = LootSystem.Instance?.DrawRelic(rarity, false);
             if (relic == null) return;
             int basePrice = RelicBasePrices.TryGetValue(relic.Rarity, out int p) ? p : 100;
             int price     = RelicManager.Instance.ModifyShopPrice(
@@ -139,8 +139,12 @@ namespace DarkChronicle.Roguelike
 
         void AddConsumableItem()
         {
-            // TODO: draw from consumable pool
+            var item = LootSystem.Instance?.DrawConsumable();
+            if (item == null) return;
             int price = RelicManager.Instance.ModifyShopPrice(ConsumablePrice);
+            var go = CreateShopItem(_consumableSection, item.ItemName, item.Description,
+                                    item.Icon, price, () => BuyConsumable(item, price));
+            _stock.Add(new ShopItem { Item = item, Price = price, GO = go });
         }
 
         void AddService(string name, int baseCost, System.Action action, bool isFree)
@@ -168,14 +172,50 @@ namespace DarkChronicle.Roguelike
             RefreshGoldDisplay();
         }
 
+        void BuyConsumable(ItemData item, int price)
+        {
+            if (_run.Gold < price) return;
+            _run.SpendGold(price);
+            _run.Inventory.Add(item);
+            RefreshGoldDisplay();
+        }
+
         void OnPurgeSkill()
         {
-            // TODO: open skill selection to purge one
+            int price = RelicManager.Instance.HasFreeRemove() ? 0 :
+                        RelicManager.Instance.ModifyShopPrice(SkillPurgePrice);
+            if (_run.Gold < price) return;
+            StartCoroutine(PurgeSkillFlow(price));
+        }
+
+        IEnumerator PurgeSkillFlow(int price)
+        {
+            SkillData selected = null;
+            yield return LootSystem.Instance.ShowPickFromDeck(
+                "削除するスキルを選択", null, s => selected = s);
+            if (selected == null) yield break;
+            _run.SpendGold(price);
+            _run.RemoveSkill(selected);
+            RefreshGoldDisplay();
         }
 
         void OnUpgradeSkill()
         {
-            // TODO: open skill selection to upgrade one
+            int price = RelicManager.Instance.ModifyShopPrice(SkillUpgradePrice);
+            if (_run.Gold < price) return;
+            StartCoroutine(UpgradeSkillFlow(price));
+        }
+
+        IEnumerator UpgradeSkillFlow(int price)
+        {
+            SkillData selected = null;
+            yield return LootSystem.Instance.ShowPickFromDeck(
+                "強化するスキルを選択", SkillUpgradeSystem.CanUpgrade, s => selected = s);
+            if (selected == null) yield break;
+            if (_run.Gold < price) yield break;
+            _run.SpendGold(price);
+            SkillUpgradeSystem.UpgradeInDeck(_run, selected);
+            RefreshGoldDisplay();
         }
 
         // ── UI Helpers ─────────────────────────────────────────────────────
@@ -219,6 +259,7 @@ namespace DarkChronicle.Roguelike
     {
         public SkillData  Skill;
         public RelicData  Relic;
+        public ItemData   Item;
         public int        Price;
         public GameObject GO;
         public bool       Sold;
@@ -257,15 +298,6 @@ namespace DarkChronicle.Roguelike
             _onHover?.Invoke(_data);
         public void OnPointerExit(UnityEngine.EventSystems.PointerEventData e) =>
             _onHover?.Invoke(null);
-    }
-
-    // Temporary extension stubs (real implementations in LootSystem)
-    public static class LootSystemExtensions
-    {
-        public static SkillData DrawSkillPublic(this LootSystem ls, int sanity) => null;
-        public static RelicData DrawRelicPublic(this LootSystem ls, RelicRarity rarity, bool forEvent) => null;
-        public static RelicRarity DrawRelicRarityPublic(this LootSystem ls, int sanity, bool isElite)
-            => RelicRarity.Common;
     }
 
     public static class RelicManagerExtensions
