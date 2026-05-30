@@ -80,6 +80,11 @@ namespace DarkChronicle.Roguelike
         {
             Relics.Add(relic);
             RelicsFound++;
+            if (ActiveEnding == EndingType.None)
+            {
+                var ending = EndingSystem.GetEndingType(relic);
+                if (ending != EndingType.None) ActiveEnding = ending;
+            }
         }
 
         public void AddCurse(CurseData curse) => Curses.Add(curse);

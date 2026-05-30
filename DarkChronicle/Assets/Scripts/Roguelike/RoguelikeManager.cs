@@ -435,7 +435,10 @@ namespace DarkChronicle.Roguelike
 
                 int goldReward = _currentFloor.BaseGoldReward + Random.Range(-10, 20);
                 if (isElite && _relicManager.HasEliteHunter()) goldReward *= 2;
+                var endingBefore = _run.ActiveEnding;
                 yield return _lootSystem.ShowBattleRewards(goldReward, isElite, isBoss);
+                if (_run.ActiveEnding != endingBefore && _endingManager != null)
+                    yield return _endingManager.ShowPremonition(_run.ActiveEnding);
             }
             else if (lastResult == BattleResult.Defeat)
             {
@@ -476,13 +479,9 @@ namespace DarkChronicle.Roguelike
 
             var relic = _lootSystem.DrawRelic(rarity, false);
             if (relic != null)
-            {
-                _run.AddRelic(relic);
-                yield return _lootSystem.ShowRelicObtained(relic);
-            }
+                yield return ObtainRelic(relic);
             else
             {
-                // Fallback: gold
                 int gold = Mathf.RoundToInt(Random.Range(60f, 120f) * (1f + _run.Sanity * 0.05f));
                 _run.EarnGold(gold);
             }
@@ -502,9 +501,8 @@ namespace DarkChronicle.Roguelike
             var relic = _lootSystem.DrawRelic(rarity, false);
             if (relic != null)
             {
-                _run.AddRelic(relic);
                 if (relic.AttachedCurse != null) _run.AddCurse(relic.AttachedCurse);
-                yield return _lootSystem.ShowRelicObtained(relic);
+                yield return ObtainRelic(relic);
             }
 
             if (!_run.IsAlive) yield return RunDeath();
@@ -535,8 +533,45 @@ namespace DarkChronicle.Roguelike
 
         void ScaleEnemies(List<EnemyData> enemies, bool isElite, bool isBoss)
         {
-            // Create scaled clones at runtime (don't modify the ScriptableObjects)
-            // Actual scaling happens inside BattleManager initialization; pass multipliers via event.
+            if (_currentFloor == null) return;
+
+            float hpMult  = _currentFloor.EnemyHPMultiplier;
+            float dmgMult = isBoss  ? _currentFloor.BossDamageMultiplier
+                                    : _currentFloor.EnemyDamageMultiplier;
+            int   hpBonus = isBoss  ? _currentFloor.BossHPBonus : 0;
+            int   shBonus = isBoss  ? _currentFloor.BossShieldBonus
+                          : isElite ? _currentFloor.AdditionalShieldsOnElite : 0;
+
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                var src = enemies[i];
+                if (src == null) continue;
+
+                var scaled = ScriptableObject.CreateInstance<EnemyData>();
+                scaled.EnemyName         = src.EnemyName;
+                scaled.Lore              = src.Lore;
+                scaled.BattleSprite      = src.BattleSprite;
+                scaled.Rank              = src.Rank;
+                scaled.IsUndead          = src.IsUndead;
+                scaled.ElementWeaknesses = src.ElementWeaknesses != null
+                    ? new List<ElementType>(src.ElementWeaknesses)
+                    : new List<ElementType>();
+                scaled.Actions           = src.Actions;
+                scaled.ActionsPerTurn    = src.ActionsPerTurn;
+                scaled.DropTable         = src.DropTable;
+                scaled.ExpReward         = src.ExpReward;
+                scaled.JPReward          = src.JPReward;
+                scaled.GoldReward        = src.GoldReward;
+
+                var s = src.Stats.Clone();
+                s.MaxHP          = Mathf.RoundToInt(s.MaxHP         * hpMult)  + hpBonus;
+                s.PhysicalAttack = Mathf.RoundToInt(s.PhysicalAttack * dmgMult);
+                s.MagicAttack    = Mathf.RoundToInt(s.MagicAttack    * dmgMult);
+                scaled.Stats        = s;
+                scaled.ShieldPoints = Mathf.Max(1, src.ShieldPoints + shBonus);
+
+                enemies[i] = scaled;
+            }
         }
 
         CharacterStats BuildCurrentHeroStats()
@@ -570,15 +605,23 @@ namespace DarkChronicle.Roguelike
             return base_;
         }
 
+        // ── Relic Acquisition (with ending-path premonition check) ────────
+        IEnumerator ObtainRelic(RelicData relic)
+        {
+            if (relic == null) yield break;
+            bool endingWasUnset = _run.ActiveEnding == EndingType.None;
+            _run.AddRelic(relic);                               // may auto-set ActiveEnding
+            yield return _lootSystem.ShowRelicObtained(relic);
+            if (endingWasUnset && _run.ActiveEnding != EndingType.None && _endingManager != null)
+                yield return _endingManager.ShowPremonition(_run.ActiveEnding);
+        }
+
         // ── Soul Siphon Reward ─────────────────────────────────────────────
         public void TriggerSoulSiphonReward()
         {
             var relic = _lootSystem.DrawRelic(RelicRarity.Rare, true);
             if (relic != null)
-            {
-                _run.AddRelic(relic);
-                StartCoroutine(_lootSystem.ShowRelicObtained(relic));
-            }
+                StartCoroutine(ObtainRelic(relic));
         }
 
         // ── Public Delegation (called by sub-systems) ──────────────────────

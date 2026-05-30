@@ -2,7 +2,9 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
+using DarkChronicle.Character;
 using DarkChronicle.Core;
+using DarkChronicle.HD2D;
 
 namespace DarkChronicle.World
 {
@@ -32,13 +34,14 @@ namespace DarkChronicle.World
         [SerializeField] EncounterZone[] _encounterZones;
 
         // ── Player Reference ───────────────────────────────────────────────
-        Transform _playerTransform;
+        Transform        _playerTransform;
+        PlayerController _playerController;
 
         // ── Unity ──────────────────────────────────────────────────────────
         void Awake()
         {
-            var player = FindObjectOfType<Character.PlayerController>();
-            if (player != null) _playerTransform = player.transform;
+            _playerController = FindObjectOfType<PlayerController>();
+            if (_playerController != null) _playerTransform = _playerController.transform;
         }
 
         void Start()
@@ -49,6 +52,8 @@ namespace DarkChronicle.World
         void LateUpdate()
         {
             if (_playerTransform == null) return;
+            if (GameManager.Instance != null
+             && GameManager.Instance.State != GameManager.GameState.Field) return;
             UpdateParallax();
             CheckEncounterZone();
         }
@@ -56,17 +61,15 @@ namespace DarkChronicle.World
         // ── Area Setup ─────────────────────────────────────────────────────
         void ApplyAreaSettings()
         {
-            if (RenderSettings.fog != _currentArea.HasFog)
-                RenderSettings.fog = _currentArea.HasFog;
+            RenderSettings.fog = _currentArea.HasFog;
             if (_currentArea.HasFog)
             {
                 RenderSettings.fogColor   = _currentArea.FogColor;
                 RenderSettings.fogDensity = _currentArea.FogDensity;
             }
 
-            var atmosphere = FindObjectOfType<HD2D.AtmosphereManager>();
-            if (atmosphere != null)
-                atmosphere.SetWeather(_currentArea.Weather);
+            AtmosphereManager.Instance?.SetWeather(_currentArea.Weather);
+            AudioManager.Instance?.PlayBGM(_currentArea.BGM);
         }
 
         // ── Parallax ───────────────────────────────────────────────────────
@@ -91,11 +94,11 @@ namespace DarkChronicle.World
             {
                 if (zone.Bounds.Contains(_playerTransform.position))
                 {
-                    var pc = FindObjectOfType<Character.PlayerController>();
-                    pc?.SetEncounterZone(zone.EncounterRateMultiplier);
+                    _playerController?.SetEncounterZone(zone.EncounterRateMultiplier);
                     return;
                 }
             }
+            _playerController?.SetEncounterZone(1f);
         }
 
         // ── Public API ─────────────────────────────────────────────────────
@@ -106,6 +109,14 @@ namespace DarkChronicle.World
         }
 
         public AreaData GetCurrentArea() => _currentArea;
+
+        /// <summary>Switch to a new area at runtime (e.g. on scene/zone transition).</summary>
+        public void SetArea(AreaData area)
+        {
+            if (area == null) return;
+            _currentArea = area;
+            ApplyAreaSettings();
+        }
     }
 
     // ── Parallax Layer ─────────────────────────────────────────────────────
