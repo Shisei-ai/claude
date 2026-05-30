@@ -132,6 +132,9 @@ namespace DarkChronicle.Roguelike
 
         IEnumerator ResumeRun(RunSaveDTO dto)
         {
+            // Repair any skills that should be unlocked given the saved JobLevel
+            LevelSystem.RestoreSkillsToJobLevel(_run, _run.SelectedCharacter?.StarterJob);
+
             yield return FadeGroup(_hud, 0f, 1f, 0.5f);
 
             int resumeFloor = dto.CurrentFloor;

@@ -86,6 +86,13 @@ namespace DarkChronicle.Roguelike
                 }
             }
 
+            // At max level: convert surplus EXP to gold (10 EXP → 1G)
+            if (run.CharacterLevel >= MaxCharacterLevel && run.CurrentEXP > 0)
+            {
+                run.EarnGold(run.CurrentEXP / 10);
+                run.CurrentEXP = 0;
+            }
+
             return levelsGained;
         }
 
@@ -119,6 +126,13 @@ namespace DarkChronicle.Roguelike
                     run.AddSkill(entry.Skill);
                     unlocked.Add(entry.Skill);
                 }
+            }
+
+            // At max job level: convert surplus JP to gold (5 JP → 1G)
+            if (run.JobLevel >= MaxJobLevel && run.CurrentJobJP > 0)
+            {
+                run.EarnGold(run.CurrentJobJP / 5);
+                run.CurrentJobJP = 0;
             }
 
             return unlocked;
@@ -164,6 +178,25 @@ namespace DarkChronicle.Roguelike
                 run.UnlockedSkillNames.Add(entry.Skill.SkillName);
                 if (!run.Deck.Contains(entry.Skill))
                     run.Deck.Add(entry.Skill);
+            }
+        }
+
+        /// <summary>
+        /// Ensures every skill that should be unlocked at or below the run's current
+        /// JobLevel is present in the deck. Call when resuming a saved run to repair
+        /// any gap between UnlockedSkillNames and the current JobLevel.
+        /// </summary>
+        public static void RestoreSkillsToJobLevel(RunData run, JobData job)
+        {
+            if (job?.LearnableSkills == null) return;
+            foreach (var entry in job.LearnableSkills)
+            {
+                if (entry.Skill == null) continue;
+                if (entry.JobLevel > run.JobLevel) continue;
+                if (run.UnlockedSkillNames.Contains(entry.Skill.SkillName)) continue;
+
+                run.UnlockedSkillNames.Add(entry.Skill.SkillName);
+                run.AddSkill(entry.Skill);
             }
         }
 
