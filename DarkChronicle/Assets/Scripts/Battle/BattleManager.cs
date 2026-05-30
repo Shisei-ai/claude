@@ -1245,7 +1245,7 @@ namespace DarkChronicle.Battle
 
         IEnumerator AttemptFlee()
         {
-            float fleeChance = 0.6f + _heroes.Average(h => h.Speed) / 200f;
+            float fleeChance = 0.6f + (float)_heroes.Average(h => h.Speed) / 200f;
             if (Random.value < fleeChance)
             {
                 _battleUI.ShowMessage("逃げ出した！");

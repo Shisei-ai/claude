@@ -256,8 +256,7 @@ namespace DarkChronicle.Roguelike.Events
             "一羽の黒いカラスが、目線の高さの枝に止まりこちらを見つめている。\n" +
             "「旅人よ、迷っているのか？　この森には危険が潜む」\n" +
             "その声は人の言葉だった。カラスは知恵ある目で語りかける。",
-            minFloor: 2, maxFloor: 3, tint: new Color(0.2f, 0.2f, 0.3f),
-            sanityWeight: 0.3f,
+            minFloor: 2, maxFloor: 3, tint: new Color(0.2f, 0.2f, 0.3f), oneTime: false, sanityWeight: 0.3f,
             Choice("カラスの話を聞く",
                    Res("カラスは森の秘密をいくつか語ってくれた。知識を得て、心が少し落ち着いた気がする。",
                        sanity: 1)),
@@ -380,8 +379,7 @@ namespace DarkChronicle.Roguelike.Events
             "苔むした石造りの井戸から、淡い光が溢れている。\n" +
             "「願いを言え。ただし、望むものはひとつだけだ」\n" +
             "精霊の声が、井戸の中から静かに響いた。",
-            minFloor: 2, maxFloor: 3, tint: new Color(0.35f, 0.4f, 0.6f),
-            sanityWeight: 0.2f,
+            minFloor: 2, maxFloor: 3, tint: new Color(0.35f, 0.4f, 0.6f), oneTime: false, sanityWeight: 0.2f,
             Choice("回復を望む",
                    Res("柔らかな光が体を包み込み、全ての傷が消えた。",
                        fullHeal: true)),
@@ -536,7 +534,7 @@ namespace DarkChronicle.Roguelike.Events
             "鎌を持った影が、ゆっくりと近づいてくる。\n" +
             "「汝の命を少し借りよう。その代わり、我が持つ宝を授けよう」\n" +
             "逃げる選択肢はない。ここで答えを出すしかない。",
-            minFloor: 4, maxFloor: 5, oneTime: true, tint: new Color(0.15f, 0.1f, 0.2f),
+            minFloor: 4, maxFloor: 5, tint: new Color(0.15f, 0.1f, 0.2f), oneTime: true, sanityWeight: 0f,
             Choice("命を担保にする",
                    Res("HPが極限まで削られた。しかし死神は約束通り、二つの強力な遺物を残した。",
                        hp: -0.89f, relic: true, relicPool: RelicRarity.Cursed)),
@@ -606,8 +604,7 @@ namespace DarkChronicle.Roguelike.Events
             "廃墟の一角に、なぜか賑やかな酒場が営業していた。\n" +
             "「さあ旅人、一勝負いかがかね？」\n" +
             "カードを持った男が、挑戦的な笑みを浮かべている。",
-            minFloor: 0, maxFloor: 5, tint: new Color(0.55f, 0.4f, 0.25f),
-            sanityWeight: 0.35f,
+            minFloor: 0, maxFloor: 5, tint: new Color(0.55f, 0.4f, 0.25f), oneTime: false, sanityWeight: 0.35f,
             Choice("大きく賭ける（100G）",
                    "100Gを賭ける。勝てば200G、負ければ50G返却。",
                    Res("運試しの結果……大きく勝った！",
@@ -630,8 +627,7 @@ namespace DarkChronicle.Roguelike.Events
             "どこからともなく現れた行商人が、不思議な品を広げて見せた。\n" +
             "「どこにも売っていない、本物の逸品だよ」\n" +
             "確かに、その品は見たことのない輝きを放っている。",
-            minFloor: 0, maxFloor: 5, tint: new Color(0.4f, 0.35f, 0.5f),
-            sanityWeight: 0.3f,
+            minFloor: 0, maxFloor: 5, tint: new Color(0.4f, 0.35f, 0.5f), oneTime: false, sanityWeight: 0.3f,
             Choice("特別な品を購入（120G）",
                    "120Gを支払う。",
                    Res("商人から希少な遺物を購入した。どこにも売っていない代物だ。",
@@ -724,8 +720,7 @@ namespace DarkChronicle.Roguelike.Events
             "小さな社に、穏やかな表情の地蔵が祀られている。\n" +
             "「心の平安を授けよう……誠実な心を持つ者には」\n" +
             "像の周囲に、静かな光が揺れている。",
-            minFloor: 0, maxFloor: 5, tint: new Color(0.6f, 0.55f, 0.3f),
-            sanityWeight: 0.4f,
+            minFloor: 0, maxFloor: 5, tint: new Color(0.6f, 0.55f, 0.3f), oneTime: false, sanityWeight: 0.4f,
             Choice("賽銭を投げる（10G）",
                    "10Gを賽銭として捧げる。",
                    Res("コインが清浄な光を放ちながら社に吸い込まれ、心の澱が流れ落ちた。",
@@ -800,7 +795,7 @@ namespace DarkChronicle.Roguelike.Events
             "廃墟の一角に、黒曜石で作られた小さな玉座の模型が置かれていた。\n" +
             "その表面には古代文字が刻まれ、暗紅色の光がかすかに脈動している。\n" +
             "触れた瞬間、どこか遠い場所から「来い」という声が聞こえた気がした。",
-            minFloor: 0, maxFloor: 5, oneTime: true, tint: new Color(0.4f, 0.05f, 0.05f),
+            minFloor: 0, maxFloor: 5, tint: new Color(0.4f, 0.05f, 0.05f), oneTime: true, sanityWeight: 0f,
             Choice("玉座に触れる",
                    "魔王の意志に応える。奈落の玉座への道が開かれるかもしれない。",
                    Res("暗紅色の光があなたを包み込んだ。玉座の証印が手に宿り、遠くの扉が開く音がした。",
@@ -814,7 +809,7 @@ namespace DarkChronicle.Roguelike.Events
             "通路に、無数の目が刻まれた石像が立っていた。\n" +
             "全ての目があなたに向けられており、一つ一つの瞳が深い闇を宿している。\n" +
             "見つめ返すと、深淵の底から何かがこちらを見ているのを感じた。",
-            minFloor: 0, maxFloor: 5, oneTime: true, tint: new Color(0.02f, 0.04f, 0.22f),
+            minFloor: 0, maxFloor: 5, tint: new Color(0.02f, 0.04f, 0.22f), oneTime: true, sanityWeight: 0f,
             Choice("見つめ返す",
                    "深淵に応える。神殿への道が開かれるかもしれない。",
                    Res("千の眼が一斉に瞬いた。深淵の証印が瞳に宿り、遠い場所への道標が刻まれた。",
@@ -828,7 +823,7 @@ namespace DarkChronicle.Roguelike.Events
             "石畳の上に、傷だらけの懐中時計が落ちている。\n" +
             "蓋を開けると針は止まっているのに、かすかな振動と共に時を刻む音が聞こえた。\n" +
             "「……まだ時間はある……戻っておいで……」と、時計が囁く。",
-            minFloor: 0, maxFloor: 5, oneTime: true, tint: new Color(0.12f, 0.06f, 0.22f),
+            minFloor: 0, maxFloor: 5, tint: new Color(0.12f, 0.06f, 0.22f), oneTime: true, sanityWeight: 0f,
             Choice("時計を拾う",
                    "時の亡霊の声に応える。時の空白への道が開かれるかもしれない。",
                    Res("時計を手に取った瞬間、時間の感覚が歪んだ。砕けた時の証印が手に渡り、道が見えた。",
@@ -842,7 +837,7 @@ namespace DarkChronicle.Roguelike.Events
             "壁の高い棚に、古びた王冠が飾られていた。\n" +
             "金属は錆び、宝石は濁っているのに、その周囲だけ空気が重く澱んでいる。\n" +
             "触れた者に呪いを与えるという——しかし、その怨念には何かが宿っているようだ。",
-            minFloor: 0, maxFloor: 5, oneTime: true, tint: new Color(0.18f, 0.02f, 0.18f),
+            minFloor: 0, maxFloor: 5, tint: new Color(0.18f, 0.02f, 0.18f), oneTime: true, sanityWeight: 0f,
             Choice("王冠に触れる",
                    "古い王の怨念に応える。玉座間への道が開かれるかもしれない。",
                    Res("王冠の冷たさが指先を伝った。古王の呪冠の欠片が手に残り、呪われた道が示された。",
@@ -856,7 +851,7 @@ namespace DarkChronicle.Roguelike.Events
             "何もない空間に、かすかな振動が伝わってくる。\n" +
             "壁も天井も床も、全てが僅かに共鳴しており、何かが目覚めようとしている気配がする。\n" +
             "「世界の中心を探せ。全ての始まりと終わりがそこにある」という言葉が脳裏に浮かんだ。",
-            minFloor: 0, maxFloor: 5, oneTime: true, tint: new Color(0.03f, 0.03f, 0.1f),
+            minFloor: 0, maxFloor: 5, tint: new Color(0.03f, 0.03f, 0.1f), oneTime: true, sanityWeight: 0f,
             sanityWeight: 0.3f,
             Choice("響きに応える",
                    "世界の核の声に応える。真実の道が開かれるかもしれない。",
@@ -870,24 +865,41 @@ namespace DarkChronicle.Roguelike.Events
         //   ファクトリ ヘルパー
         // ════════════════════════════════════════════════════════════════════
 
+        // Overload without oneTime/sanityWeight (most events)
         static RandomEventData Ev(string id, string title, string narrative,
                                   int minFloor, int maxFloor,
-                                  Color? tint      = null,
-                                  bool oneTime     = false,
-                                  float sanityWeight = 0f,
+                                  Color tint,
                                   params EventChoice[] choices)
         {
             var ev = ScriptableObject.CreateInstance<RandomEventData>();
-            ev.name           = id;
-            ev.EventID        = id;
-            ev.Title          = title;
-            ev.NarrativeText  = narrative;
-            ev.MinFloor       = minFloor;
-            ev.MaxFloor       = maxFloor;
-            ev.OneTimeOnly    = oneTime;
-            ev.UITintColor    = tint ?? Color.white;
-            ev.SanityWeight   = sanityWeight;
-            ev.Choices        = new List<EventChoice>(choices);
+            ev.name          = id;
+            ev.EventID       = id;
+            ev.Title         = title;
+            ev.NarrativeText = narrative;
+            ev.MinFloor      = minFloor;
+            ev.MaxFloor      = maxFloor;
+            ev.UITintColor   = tint;
+            ev.Choices       = new List<EventChoice>(choices);
+            return ev;
+        }
+
+        // Overload with oneTime and sanityWeight (all required — avoids C# named-arg + params conflict)
+        static RandomEventData Ev(string id, string title, string narrative,
+                                  int minFloor, int maxFloor,
+                                  Color tint, bool oneTime, float sanityWeight,
+                                  params EventChoice[] choices)
+        {
+            var ev = ScriptableObject.CreateInstance<RandomEventData>();
+            ev.name          = id;
+            ev.EventID       = id;
+            ev.Title         = title;
+            ev.NarrativeText = narrative;
+            ev.MinFloor      = minFloor;
+            ev.MaxFloor      = maxFloor;
+            ev.UITintColor   = tint;
+            ev.OneTimeOnly   = oneTime;
+            ev.SanityWeight  = sanityWeight;
+            ev.Choices       = new List<EventChoice>(choices);
             return ev;
         }
 
