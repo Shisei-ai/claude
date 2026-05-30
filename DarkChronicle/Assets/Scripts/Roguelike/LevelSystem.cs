@@ -77,7 +77,7 @@ namespace DarkChronicle.Roguelike
                 levelsGained.Add(run.CharacterLevel);
 
                 // Apply one level of stat growth
-                var rates = run.SelectedCharacter?.GrowthRates;
+                var rates = run.SelectedCharacter?.StarterJob?.GrowthRates;
                 if (rates != null)
                 {
                     run.MaxHP     = Mathf.Max(1, run.MaxHP + rates.MaxHP);
@@ -132,7 +132,7 @@ namespace DarkChronicle.Roguelike
         public static CharacterStats GetAccumulatedStatGrowth(CharacterData data, int level)
         {
             var result = new CharacterStats();
-            var rates  = data?.GrowthRates;
+            var rates  = data?.StarterJob?.GrowthRates;
             if (rates == null || level <= 1) return result;
 
             int levels = level - 1;
