@@ -872,8 +872,8 @@ namespace DarkChronicle.Roguelike.Events
 
         static RandomEventData Ev(string id, string title, string narrative,
                                   int minFloor, int maxFloor,
-                                  bool oneTime     = false,
                                   Color? tint      = null,
+                                  bool oneTime     = false,
                                   float sanityWeight = 0f,
                                   params EventChoice[] choices)
         {

@@ -158,8 +158,8 @@ namespace DarkChronicle.World
                 case TriggerType.EventNPC:
                 {
                     var ev = NodeFieldContext.Current?.PendingEvent;
-                    if (ev != null && Events.RandomEventManager.Instance != null)
-                        yield return Events.RandomEventManager.Instance.RunEvent(ev);
+                    if (ev != null && RandomEventManager.Instance != null)
+                        yield return RandomEventManager.Instance.RunEvent(ev);
                     NodeFieldController.Instance?.OpenExit();
                     break;
                 }
