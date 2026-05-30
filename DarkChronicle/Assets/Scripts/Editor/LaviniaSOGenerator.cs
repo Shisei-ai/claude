@@ -52,20 +52,23 @@ namespace DarkChronicle.Editor
                 LaviniaDesign.Skill_FireBolt.Element, LaviniaDesign.Skill_FireBolt.BasePower,
                 LaviniaDesign.Skill_FireBolt.HitCount, LaviniaDesign.Skill_FireBolt.MPCost,
                 LaviniaDesign.Skill_FireBolt.CanBreak,
-                statusChance: LaviniaDesign.Skill_FireBolt.BurnChance);
+                statusChance: LaviniaDesign.Skill_FireBolt.BurnChance,
+                statusEffect: StatusEffectType.Burn);
 
             s.FireBoltPlus = CreateMagicSkill("U_SKL_L_FireBolt",
                 LaviniaDesign.Skill_FireBolt.NameUpgrade, LaviniaDesign.Skill_FireBolt.DescUpgrade,
                 LaviniaDesign.Skill_FireBolt.Element, LaviniaDesign.Skill_FireBolt.BasePowerU,
                 LaviniaDesign.Skill_FireBolt.HitCount, LaviniaDesign.Skill_FireBolt.MPCostU,
                 LaviniaDesign.Skill_FireBolt.CanBreak,
-                statusChance: LaviniaDesign.Skill_FireBolt.BurnChanceU);
+                statusChance: LaviniaDesign.Skill_FireBolt.BurnChanceU,
+                statusEffect: StatusEffectType.Burn);
 
             s.Inferno = CreateMagicSkill("SKL_L_Inferno",
                 LaviniaDesign.Skill_Inferno.Name, LaviniaDesign.Skill_Inferno.Desc,
                 LaviniaDesign.Skill_Inferno.Element, LaviniaDesign.Skill_Inferno.BasePower,
                 1, LaviniaDesign.Skill_Inferno.MPCost, LaviniaDesign.Skill_Inferno.CanBreak,
-                statusChance: LaviniaDesign.Skill_Inferno.BurnChance);
+                statusChance: LaviniaDesign.Skill_Inferno.BurnChance,
+                statusEffect: StatusEffectType.Burn);
 
             // 氷系
             s.IceSpike = CreateMagicSkill("SKL_L_IceSpike",
@@ -73,14 +76,16 @@ namespace DarkChronicle.Editor
                 LaviniaDesign.Skill_IceSpike.Element, LaviniaDesign.Skill_IceSpike.BasePower,
                 LaviniaDesign.Skill_IceSpike.HitCount, LaviniaDesign.Skill_IceSpike.MPCost,
                 LaviniaDesign.Skill_IceSpike.CanBreak,
-                statusChance: LaviniaDesign.Skill_IceSpike.FreezeChance);
+                statusChance: LaviniaDesign.Skill_IceSpike.FreezeChance,
+                statusEffect: StatusEffectType.Freeze);
 
             s.Blizzard = CreateMagicSkill("SKL_L_Blizzard",
                 LaviniaDesign.Skill_Blizzard.Name, LaviniaDesign.Skill_Blizzard.Desc,
                 LaviniaDesign.Skill_Blizzard.Element, LaviniaDesign.Skill_Blizzard.BasePower,
                 1, LaviniaDesign.Skill_Blizzard.MPCost, false,
                 hitsAll: true,
-                statusChance: LaviniaDesign.Skill_Blizzard.FreezeChance);
+                statusChance: LaviniaDesign.Skill_Blizzard.FreezeChance,
+                statusEffect: StatusEffectType.Freeze);
 
             // 雷系
             s.ChainLightning = CreateMagicSkill("SKL_L_ChainLightning",
@@ -89,7 +94,8 @@ namespace DarkChronicle.Editor
                 LaviniaDesign.Skill_ChainLightning.ChainCount,
                 LaviniaDesign.Skill_ChainLightning.MPCost,
                 LaviniaDesign.Skill_ChainLightning.CanBreak,
-                statusChance: LaviniaDesign.Skill_ChainLightning.ParalyzeChance);
+                statusChance: LaviniaDesign.Skill_ChainLightning.ParalyzeChance,
+                statusEffect: StatusEffectType.Paralysis);
 
             // 風系
             s.GaleBlade = CreateMagicSkill("SKL_L_GaleBlade",
@@ -140,7 +146,8 @@ namespace DarkChronicle.Editor
                 LaviniaDesign.Skill_CurseOfSilence.Desc,
                 ElementType.Dark, 0f, 1,
                 LaviniaDesign.Skill_CurseOfSilence.MPCost, false,
-                statusChance: LaviniaDesign.Skill_CurseOfSilence.SuccessRate);
+                statusChance: LaviniaDesign.Skill_CurseOfSilence.SuccessRate,
+                statusEffect: StatusEffectType.Silence);
 
             return s;
         }
@@ -227,7 +234,8 @@ namespace DarkChronicle.Editor
                                            int mpCost, bool canBreak,
                                            bool hitsAll = false,
                                            float statusChance = 0f,
-                                           DamageType dmgType = DamageType.Magical)
+                                           DamageType dmgType = DamageType.Magical,
+                                           StatusEffectType statusEffect = StatusEffectType.Burn)
         {
             var sk = CreateOrLoad<SkillData>(SkillDir + $"/{fileName}.asset");
             sk.SkillName      = name;
@@ -241,6 +249,32 @@ namespace DarkChronicle.Editor
             sk.HitsAllEnemies = hitsAll;
             sk.StatusChance   = statusChance;
             sk.IsHeal         = false;
+            if (statusChance > 0f)
+            {
+                sk.AppliedStatus = new StatusEffect
+                {
+                    Type     = statusEffect,
+                    Duration = statusEffect switch
+                    {
+                        StatusEffectType.Poison    => 3,
+                        StatusEffectType.Bleed     => 3,
+                        StatusEffectType.Burn      => 2,
+                        StatusEffectType.Paralysis => 2,
+                        StatusEffectType.Sleep     => 2,
+                        StatusEffectType.Freeze    => 2,
+                        StatusEffectType.Blind     => 3,
+                        StatusEffectType.Silence   => 3,
+                        _                          => 2,
+                    },
+                    Value = statusEffect switch
+                    {
+                        StatusEffectType.Poison => 0.05f,
+                        StatusEffectType.Bleed  => 0.04f,
+                        StatusEffectType.Burn   => 0.06f,
+                        _                       => 0f,
+                    },
+                };
+            }
             EditorUtility.SetDirty(sk);
             return sk;
         }

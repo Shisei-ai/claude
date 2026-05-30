@@ -152,7 +152,9 @@ namespace DarkChronicle.Battle
             if (BoostTable.TryGetValue(name, out upgrades)
              || BoostSkillResolver_Ash.AshBoostTable.TryGetValue(name, out upgrades)
              || BoostSkillResolver_Lilia.LiliaBoostTable.TryGetValue(name, out upgrades)
-             || BoostSkillResolver_Zeno.ZenoBoostTable.TryGetValue(name, out upgrades))
+             || BoostSkillResolver_Zeno.ZenoBoostTable.TryGetValue(name, out upgrades)
+             || BoostSkillResolver_Lavinia.LaviniaBoostTable.TryGetValue(name, out upgrades)
+             || BoostSkillResolver_Bernhard.BernhardBoostTable.TryGetValue(name, out upgrades))
             {
                 int idx = Mathf.Clamp(boostLevel - 1, 0, upgrades.Length - 1);
                 return upgrades[idx];

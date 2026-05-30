@@ -75,7 +75,8 @@ namespace DarkChronicle.Editor
                                                BernhardDesign.Skill_ShieldBash.HitCount,
                                                BernhardDesign.Skill_ShieldBash.MPCost,
                                                canBreak: true,
-                                               statusChance: BernhardDesign.Skill_ShieldBash.StunChance),
+                                               statusChance: BernhardDesign.Skill_ShieldBash.StunChance,
+                                               statusEffect: StatusEffectType.Paralysis),
 
                 WarCry           = CreateSupportSkill("SKL_WarCry",     BernhardDesign.Skill_WarCry.Name,
                                                BernhardDesign.Skill_WarCry.Desc,
@@ -113,7 +114,8 @@ namespace DarkChronicle.Editor
                                                BernhardDesign.Skill_FlameBlade.BasePower,
                                                1, BernhardDesign.Skill_FlameBlade.MPCost,
                                                false,
-                                               statusChance: BernhardDesign.Skill_FlameBlade.BurnChance),
+                                               statusChance: BernhardDesign.Skill_FlameBlade.BurnChance,
+                                               statusEffect: StatusEffectType.Burn),
 
                 RapidBarrage     = CreateSkill("SKL_RapidBarrage",      BernhardDesign.Skill_RapidBarrage.Name,
                                                BernhardDesign.Skill_RapidBarrage.Desc,
@@ -132,7 +134,8 @@ namespace DarkChronicle.Editor
                                                1,
                                                BernhardDesign.Skill_ThunderEdge.MPCost,
                                                false, hitsAll: true,
-                                               statusChance: BernhardDesign.Skill_ThunderEdge.ParalyzeChance),
+                                               statusChance: BernhardDesign.Skill_ThunderEdge.ParalyzeChance,
+                                               statusEffect: StatusEffectType.Paralysis),
 
                 SovereignBlade   = CreateSkill("SKL_SovereignBlade",    BernhardDesign.Skill_SovereignBlade.Name,
                                                BernhardDesign.Skill_SovereignBlade.Desc,
@@ -247,7 +250,8 @@ namespace DarkChronicle.Editor
                                      ElementType element, DamageType dmgType,
                                      float basePower, int hitCount, int mpCost,
                                      bool canBreak, bool hitsAll = false,
-                                     float statusChance = 0f)
+                                     float statusChance = 0f,
+                                     StatusEffectType statusEffect = StatusEffectType.Paralysis)
         {
             var sk = CreateOrLoad<SkillData>(SkillDir + $"/{fileName}.asset");
             sk.SkillName      = skillName;
@@ -261,6 +265,32 @@ namespace DarkChronicle.Editor
             sk.HitsAllEnemies = hitsAll;
             sk.StatusChance   = statusChance;
             sk.IsHeal         = false;
+            if (statusChance > 0f)
+            {
+                sk.AppliedStatus = new StatusEffect
+                {
+                    Type     = statusEffect,
+                    Duration = statusEffect switch
+                    {
+                        StatusEffectType.Poison    => 3,
+                        StatusEffectType.Bleed     => 3,
+                        StatusEffectType.Burn      => 2,
+                        StatusEffectType.Paralysis => 2,
+                        StatusEffectType.Sleep     => 2,
+                        StatusEffectType.Freeze    => 2,
+                        StatusEffectType.Blind     => 3,
+                        StatusEffectType.Silence   => 3,
+                        _                          => 2,
+                    },
+                    Value = statusEffect switch
+                    {
+                        StatusEffectType.Poison => 0.05f,
+                        StatusEffectType.Bleed  => 0.04f,
+                        StatusEffectType.Burn   => 0.06f,
+                        _                       => 0f,
+                    },
+                };
+            }
             EditorUtility.SetDirty(sk);
             return sk;
         }
