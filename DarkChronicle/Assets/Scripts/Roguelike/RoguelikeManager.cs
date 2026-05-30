@@ -987,6 +987,9 @@ namespace DarkChronicle.Roguelike
             if (_luckText)   _luckText.text      = SanityLabel(_run.Sanity);
 
             RefreshRelicBar();
+
+            int nodeRow = _currentNode?.Row ?? 0;
+            RunHUDController.Instance?.RefreshFloor(_run.CurrentFloor, nodeRow, NodeMapGenerator.Rows - 1);
         }
 
         void RefreshRelicBar()
