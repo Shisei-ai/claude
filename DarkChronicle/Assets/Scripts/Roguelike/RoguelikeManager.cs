@@ -371,7 +371,7 @@ namespace DarkChronicle.Roguelike
             AudioManager.Instance?.PlayBGM(_currentFloor.FloorBGM);
 
             // Show floor title
-            yield return SceneTransitionManager.Instance.ShowAreaTitle(
+            yield return SceneTransitionManager.Instance?.ShowAreaTitle(
                 _currentFloor.FloorName, _currentFloor.FloorSubtitle);
 
             // Pick starting node
