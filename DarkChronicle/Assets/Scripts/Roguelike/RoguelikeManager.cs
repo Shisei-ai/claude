@@ -696,8 +696,8 @@ namespace DarkChronicle.Roguelike
                 ? (max => new System.Random(contentSeed).Next(max))
                 : (max => Random.Range(0, max));
             System.Func<float, float> randFloat = contentSeed > 0
-                ? (max => (float)(new System.Random(contentSeed ^ 0x5DEECE66D).NextDouble() * max))
-                : Random.Range;
+                ? (max => (float)(new System.Random((int)(contentSeed ^ 0x5DEECE66DL)).NextDouble() * max))
+                : (max => Random.Range(0f, max));
 
             if (isBoss)
             {

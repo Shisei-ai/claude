@@ -499,8 +499,7 @@ namespace DarkChronicle.Roguelike.Events
             "城の廊下に、かつての英雄の遺体が安らかに横たわっている。\n" +
             "その手には、長い旅を物語るように、傷だらけだが輝く遺物が握られていた。\n" +
             "この英雄の意志を受け継ぐことができるか。",
-            minFloor: 4, maxFloor: 5, oneTime: true, tint: new Color(0.5f, 0.45f, 0.6f),
-            sanityWeight: 0.25f,
+            minFloor: 4, maxFloor: 5, tint: new Color(0.5f, 0.45f, 0.6f), oneTime: true, sanityWeight: 0.25f,
             Choice("形見を受け取る",
                    Res("英雄の意志が宿った遺物を手に取った。その重さが使命感を与えてくれる。",
                        relic: true, relicPool: RelicRarity.Boss)),
@@ -580,8 +579,7 @@ namespace DarkChronicle.Roguelike.Events
             "城の奥の礼拝堂。朽ちた建物の中で、一点だけ神聖な光が差し込んでいる。\n" +
             "この光は確かに、あなたを待っていた。\n" +
             "最終決戦の前に、どんな力を望むか。",
-            minFloor: 4, maxFloor: 5, oneTime: true, tint: new Color(0.8f, 0.75f, 0.5f),
-            sanityWeight: 0.5f,
+            minFloor: 4, maxFloor: 5, tint: new Color(0.8f, 0.75f, 0.5f), oneTime: true, sanityWeight: 0.5f,
             Choice("力の祝福を受ける",
                    Res("戦いのための新たな術が授けられた。",
                        skillDraft: true, skillCount: 3)),
@@ -645,8 +643,7 @@ namespace DarkChronicle.Roguelike.Events
             "この場所だけが、闇の中に完全な安全地帯として存在している。\n" +
             "聖なる光が満ち、敵も悪意も近づくことができない特別な場所。\n" +
             "ここで何を望むか。",
-            minFloor: 0, maxFloor: 5, oneTime: true, tint: new Color(0.9f, 0.85f, 0.6f),
-            sanityWeight: 0.5f,
+            minFloor: 0, maxFloor: 5, tint: new Color(0.9f, 0.85f, 0.6f), oneTime: true, sanityWeight: 0.5f,
             Choice("癒やしの泉で休む",
                    Res("心身の全ての傷が癒やされた。完全な回復だ。",
                        fullHeal: true)),
@@ -754,8 +751,7 @@ namespace DarkChronicle.Roguelike.Events
             "この部屋では、過去の戦闘の残響が空気中に漂っている。\n" +
             "勝利の雄叫び、苦しみの悲鳴、決断の瞬間……\n" +
             "過去のどの記憶を選ぶかで、未来が変わる。",
-            minFloor: 0, maxFloor: 5, oneTime: true, tint: new Color(0.4f, 0.35f, 0.6f),
-            sanityWeight: 0.2f,
+            minFloor: 0, maxFloor: 5, tint: new Color(0.4f, 0.35f, 0.6f), oneTime: true, sanityWeight: 0.2f,
             Choice("過去の勝利を選ぶ",
                    Res("勝利の記憶が力となり、最大HPが向上した。誇りを思い出し、精神が安定した。",
                        maxHP: 20, sanity: 1)),
@@ -772,8 +768,7 @@ namespace DarkChronicle.Roguelike.Events
             "「汝が真の王者たるに相応しいか、試させてもらおう」\n" +
             "声の主は見えないが、その威圧感は圧倒的だ。\n" +
             "試練を受けるか、誓いを立てるか、それとも……",
-            minFloor: 2, maxFloor: 5, oneTime: true, tint: new Color(0.5f, 0.45f, 0.2f),
-            sanityWeight: 0.25f,
+            minFloor: 2, maxFloor: 5, tint: new Color(0.5f, 0.45f, 0.2f), oneTime: true, sanityWeight: 0.25f,
             Choice("試練を受ける",
                    Res("強敵との戦いを制し、王者の証たる遺物を二つ手に入れた。",
                        battle: true, elite: true)),
@@ -849,8 +844,7 @@ namespace DarkChronicle.Roguelike.Events
             "何もない空間に、かすかな振動が伝わってくる。\n" +
             "壁も天井も床も、全てが僅かに共鳴しており、何かが目覚めようとしている気配がする。\n" +
             "「世界の中心を探せ。全ての始まりと終わりがそこにある」という言葉が脳裏に浮かんだ。",
-            minFloor: 0, maxFloor: 5, tint: new Color(0.03f, 0.03f, 0.1f), oneTime: true, sanityWeight: 0f,
-            sanityWeight: 0.3f,
+            minFloor: 0, maxFloor: 5, tint: new Color(0.03f, 0.03f, 0.1f), oneTime: true, sanityWeight: 0.3f,
             Choice("響きに応える",
                    "世界の核の声に応える。真実の道が開かれるかもしれない。",
                    Res("振動が体の中心を突き抜けた。世界の核片が手の中に現れ、真実への道が開かれた。",
