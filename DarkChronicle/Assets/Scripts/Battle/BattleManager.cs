@@ -628,7 +628,9 @@ namespace DarkChronicle.Battle
                         target.RestoreMana(item.HealMP);
                         _battleUI.UpdateHeroPanel(target);
                     }
-                    if (item.CureStatus != null)
+                    if (item.CureAllStatus)
+                        target.ClearAllStatus();
+                    else if (item.CureStatus != null)
                         target.StatusEffects.RemoveAll(s => s.Type == item.CureStatus.Type);
                     if (item.ApplyStatus != null && item.ApplyStatus.Duration > 0)
                         target.ApplyStatus(item.ApplyStatus, 1f);

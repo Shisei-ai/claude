@@ -13,6 +13,8 @@ namespace DarkChronicle.World
     {
         public enum TriggerType { Dialogue, SceneTransition, ItemPickup, BattleTrigger, Custom }
 
+        public static event System.Action<Data.ItemData, int> OnItemPickedUp;
+
         [Header("Trigger Config")]
         [SerializeField] TriggerType      _triggerType;
         [SerializeField] bool             _triggerOnce   = false;
@@ -110,12 +112,12 @@ namespace DarkChronicle.World
 
             if (_pickupVFX != null) Instantiate(_pickupVFX, transform.position, Quaternion.identity);
 
-            // TODO: add item to inventory
             string msg = _quantity > 1
                 ? $"{_item.ItemName} ×{_quantity} を手に入れた！"
                 : $"{_item.ItemName} を手に入れた！";
 
             yield return DialogueSystem.Instance.PlaySingleLine(string.Empty, msg);
+            OnItemPickedUp?.Invoke(_item, _quantity);
         }
     }
 }

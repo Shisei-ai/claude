@@ -44,6 +44,6 @@ namespace DarkChronicle.Roguelike
         public CharacterData FindCharacter(string n) => _charMap.TryGetValue(n,  out var v) ? v : null;
         public SkillData     FindSkill(string n)     => _skillMap.TryGetValue(n, out var v) ? v : null;
         public RelicData     FindRelic(string n)     => _relicMap.TryGetValue(n, out var v) ? v : null;
-        public ItemData      FindItem(string n)      => _itemMap.TryGetValue(n,  out var v) ? v : null;
+        public ItemData      FindItem(string n)      => _itemMap.TryGetValue(n,  out var v) ? v : ItemFactory.Get(n);
     }
 }

@@ -61,7 +61,12 @@ namespace DarkChronicle.Roguelike
             _relicObtainPanel.alpha   = 0f;
         }
 
-        public void InitForRun(RunData run) => _run = run;
+        public void InitForRun(RunData run)
+        {
+            _run = run;
+            if (_consumablePool == null || _consumablePool.Count == 0)
+                _consumablePool = ItemFactory.CreateConsumables();
+        }
 
         // ── Battle Rewards ─────────────────────────────────────────────────
         public IEnumerator ShowBattleRewards(int baseGold, bool isElite, bool isBoss)
@@ -305,6 +310,31 @@ namespace DarkChronicle.Roguelike
             return _consumablePool[Random.Range(0, _consumablePool.Count)];
         }
 
+        public IEnumerator ShowDropItems(List<(ItemData item, int qty)> drops)
+        {
+            if (drops == null || drops.Count == 0) yield break;
+
+            foreach (Transform child in _choiceContainer) Destroy(child.gameObject);
+            _headerText.text     = "アイテムを入手した！";
+            _goldRewardText.text = string.Empty;
+
+            foreach (var (item, qty) in drops)
+            {
+                var go   = Instantiate(_skillChoicePrefab, _choiceContainer);
+                var card = go.GetComponent<LootCard>() ?? go.AddComponent<LootCard>();
+                card.SetupItem(item, qty);
+            }
+
+            _skipButton.onClick.RemoveAllListeners();
+            bool confirmed = false;
+            _skipButton.onClick.AddListener(() => confirmed = true);
+
+            yield return FadeGroup(_lootPanel, 0f, 1f, 0.4f);
+            while (!confirmed && !Input.GetKeyDown(KeyCode.Z) && !Input.GetKeyDown(KeyCode.Return))
+                yield return null;
+            yield return FadeGroup(_lootPanel, 1f, 0f, 0.3f);
+        }
+
         // ── Relic Drawing ──────────────────────────────────────────────────
         public RelicData DrawRelic(RelicRarity rarity, bool forEvent,
                                    HashSet<string> used = null)
@@ -414,6 +444,14 @@ namespace DarkChronicle.Roguelike
             if (_nameText)    _nameText.text = skill.SkillName;
             if (_descText)    _descText.text  = skill.Description;
             if (_rarityLabel) _rarityLabel.text = "スキル";
+        }
+
+        public void SetupItem(ItemData item, int qty = 1)
+        {
+            if (_icon)        _icon.sprite      = item.Icon;
+            if (_nameText)    _nameText.text     = qty > 1 ? $"{item.ItemName} ×{qty}" : item.ItemName;
+            if (_descText)    _descText.text     = item.Description;
+            if (_rarityLabel) _rarityLabel.text  = "アイテム";
         }
 
         public void SetupRelic(RelicData relic)

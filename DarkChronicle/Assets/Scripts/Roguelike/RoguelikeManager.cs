@@ -239,11 +239,19 @@ namespace DarkChronicle.Roguelike
             BattleManager.OnBattleEnd         += OnBattleEnd;
             BattleManager.OnDamageDealt       += (c, d) => { if (!c.IsPlayer) _run.DamageDealt += d; };
             BattleManager.OnCharacterDefeated += c =>       { if (c.IsPlayer)  CheckDeath(); };
+            World.EventTrigger.OnItemPickedUp += OnItemPickedUpInField;
+        }
+
+        void OnItemPickedUpInField(Data.ItemData item, int qty)
+        {
+            if (item == null || _run == null) return;
+            for (int i = 0; i < qty; i++) _run.Inventory.Add(item);
         }
 
         void OnDestroy()
         {
             BattleManager.OnBattleEnd -= OnBattleEnd;
+            World.EventTrigger.OnItemPickedUp -= OnItemPickedUpInField;
         }
 
         // ── Run Loop ───────────────────────────────────────────────────────
@@ -435,6 +443,14 @@ namespace DarkChronicle.Roguelike
 
                 int goldReward = _currentFloor.BaseGoldReward + Random.Range(-10, 20);
                 if (isElite && _relicManager.HasEliteHunter()) goldReward *= 2;
+                var drops = ProcessDropTable(defeatedEnemies);
+                if (drops.Count > 0)
+                {
+                    foreach (var (item, qty) in drops)
+                        for (int i = 0; i < qty; i++) _run.Inventory.Add(item);
+                    yield return _lootSystem.ShowDropItems(drops);
+                }
+
                 var endingBefore = _run.ActiveEnding;
                 yield return _lootSystem.ShowBattleRewards(goldReward, isElite, isBoss);
                 if (_run.ActiveEnding != endingBefore && _endingManager != null)
@@ -603,6 +619,25 @@ namespace DarkChronicle.Roguelike
                 base_.MaxHP = Mathf.RoundToInt(base_.MaxHP * (1f - mirrorCursePenalty));
 
             return base_;
+        }
+
+        // ── Drop Table Processing ─────────────────────────────────────────
+        List<(Data.ItemData item, int qty)> ProcessDropTable(List<EnemyData> enemies)
+        {
+            var result = new List<(Data.ItemData, int)>();
+            foreach (var enemy in enemies)
+            {
+                if (enemy?.DropTable == null) continue;
+                foreach (var drop in enemy.DropTable)
+                {
+                    if (drop?.Item == null) continue;
+                    float rate = drop.DropRate;
+                    if (_run.HasRelic(Relics.RelicEffectType.LuckUp)) rate = Mathf.Min(1f, rate * 1.5f);
+                    if (Random.value <= rate)
+                        result.Add((drop.Item, Mathf.Max(1, drop.Quantity)));
+                }
+            }
+            return result;
         }
 
         // ── Relic Acquisition (with ending-path premonition check) ────────

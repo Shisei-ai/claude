@@ -574,8 +574,7 @@ namespace DarkChronicle.UI
 
         void OnItemSelected(ItemData item)
         {
-            bool targetsAlly = item.ReviveTarget || item.HealHP > 0 || item.HealMP > 0;
-            if (targetsAlly)
+            if (item.IsAllyTarget)
             {
                 var targets = item.ReviveTarget
                     ? GetHeroes().Where(h => !h.IsAlive).ToList()

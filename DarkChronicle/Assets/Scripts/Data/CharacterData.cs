@@ -260,7 +260,11 @@ namespace DarkChronicle.Data
         public bool          ReviveTarget;
         public int           ReviveHPPercent = 50;
         public StatusEffect  CureStatus;
+        public bool          CureAllStatus;
         public StatusEffect  ApplyStatus;
+
+        public bool IsAllyTarget =>
+            HealHP > 0 || HealMP > 0 || ReviveTarget || CureStatus != null || CureAllStatus;
     }
 
     public enum ItemType { Consumable, Equipment, KeyItem, Material }
