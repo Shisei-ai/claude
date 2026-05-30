@@ -380,23 +380,130 @@ namespace DarkChronicle.Roguelike
             }
         }
 
+        // ── Field scene name (all node types share one parametric scene) ──
+        // Create "NodeField" in Unity Build Settings; NodeFieldController
+        // configures it at runtime based on NodeFieldContext.ActiveNodeType.
+        const string NodeFieldScene = "NodeField";
+
         // ── Node Resolution ────────────────────────────────────────────────
         IEnumerator ResolveNode(MapNode node, int floorIndex)
         {
             _run.LastNodeType = node.Type;
 
+            // Treasure and CursedRoom keep their existing UI-based flow.
+            // All other node types expand into the NodeField scene.
             yield return node.Type switch
             {
-                NodeType.Battle      => ResolveBattle(false, false),
-                NodeType.EliteBattle => ResolveBattle(true,  false),
-                NodeType.Boss        => ResolveBattle(false, true),
-                NodeType.Shop        => _shopController.OpenShop(),
-                NodeType.RestSite    => _restSiteController.OpenRestSite(),
-                NodeType.RandomEvent => ResolveEvent(floorIndex),
-                NodeType.Treasure    => ResolveTreasure(),
-                NodeType.CursedRoom  => ResolveCursedRoom(),
-                _                    => null
+                NodeType.Treasure   => ResolveTreasure(),
+                NodeType.CursedRoom => ResolveCursedRoom(),
+                _                   => LoadFieldAndWait(node, floorIndex),
             };
+        }
+
+        // ── Additive field-scene loader ────────────────────────────────────
+        IEnumerator LoadFieldAndWait(MapNode node, int floorIndex)
+        {
+            // 1. Build context — survives scene load via DontDestroyOnLoad
+            var ctxGO = new GameObject("[NodeFieldContext]");
+            var ctx   = ctxGO.AddComponent<NodeFieldContext>();
+            ctx.Prepare(node.Type, _currentFloor, floorIndex, _run, BuildCurrentHeroStats);
+
+            // Pre-resolve battle enemies so NodeFieldController can set up fixed fights
+            if (node.Type == NodeType.EliteBattle || node.Type == NodeType.Boss)
+            {
+                bool isElite = node.Type == NodeType.EliteBattle;
+                bool isBoss  = node.Type == NodeType.Boss;
+                var  enemies = SelectEncounterGroup(isElite, isBoss);
+                if (enemies != null)
+                {
+                    ScaleEnemies(enemies, isElite, isBoss);
+                    ctx.OverrideEnemies.AddRange(enemies);
+                }
+            }
+
+            // Pre-select the event so field EventTrigger.EventNPC can run it
+            if (node.Type == NodeType.RandomEvent)
+                ctx.PendingEvent = _eventManager.SelectEvent(floorIndex, _run.Sanity);
+
+            // 2. Hide the NodeMap HUD, transition out
+            yield return FadeGroup(_hud, 1f, 0f, 0.3f);
+            _mapUI.gameObject.SetActive(false);
+            yield return SceneTransitionManager.Instance?.TransitionOut(
+                SceneTransitionManager.TransitionStyle.WipeLeft, 0.4f);
+
+            // 3. Load field scene on top (additive — roguelike scene stays loaded)
+            var loadOp = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(
+                NodeFieldScene, UnityEngine.SceneManagement.LoadSceneMode.Additive);
+            if (loadOp != null) yield return loadOp;
+
+            yield return SceneTransitionManager.Instance?.TransitionIn(
+                SceneTransitionManager.TransitionStyle.WipeLeft, 0.4f);
+
+            // 4. Wait until NodeFieldController signals completion
+            while (!ctx.IsComplete) yield return null;
+
+            // 5. Transition out, unload field, restore NodeMap
+            yield return SceneTransitionManager.Instance?.TransitionOut(
+                SceneTransitionManager.TransitionStyle.WipeLeft, 0.4f);
+
+            var unloadOp = UnityEngine.SceneManagement.SceneManager.UnloadSceneAsync(NodeFieldScene);
+            if (unloadOp != null) yield return unloadOp;
+
+            _mapUI.gameObject.SetActive(true);
+            yield return FadeGroup(_hud, 0f, 1f, 0.3f);
+            yield return SceneTransitionManager.Instance?.TransitionIn(
+                SceneTransitionManager.TransitionStyle.WipeLeft, 0.4f);
+
+            // 6. Handle defeat
+            if (!ctx.LastResult.WasVictory)
+            {
+                Destroy(ctxGO);
+                yield return RunDeath();
+                yield break;
+            }
+
+            // 7. Process rewards (EXP, gold, drops for battle nodes)
+            yield return ProcessNodeResult(node, ctx.LastResult);
+
+            Destroy(ctxGO);
+        }
+
+        // ── Post-field reward processing ───────────────────────────────────
+        IEnumerator ProcessNodeResult(MapNode node, NodeResult result)
+        {
+            bool isElite = node.Type == NodeType.EliteBattle;
+            bool isBoss  = node.Type == NodeType.Boss;
+
+            if (node.Type != NodeType.Battle &&
+                node.Type != NodeType.EliteBattle &&
+                node.Type != NodeType.Boss)
+                yield break; // Shop / Rest / Event rewards are handled entirely in the field
+
+            var defeated = result.DefeatedEnemies;
+            if (defeated.Count == 0) yield break;
+
+            var (exp, jp)  = LevelSystem.ComputeBattleRewards(defeated);
+            var levelsGained   = LevelSystem.AddExp(_run, exp, out var statDelta);
+            var skillsUnlocked = LevelSystem.AddJP(_run, _run.SelectedCharacter.StarterJob, jp);
+
+            if ((levelsGained.Count > 0 || skillsUnlocked.Count > 0) && _levelUpUI != null)
+                yield return _levelUpUI.Show(levelsGained, statDelta, skillsUnlocked);
+
+            int gold = _currentFloor.BaseGoldReward + Random.Range(-10, 20);
+            if (isElite && _relicManager.HasEliteHunter()) gold *= 2;
+
+            var drops = ProcessDropTable(defeated);
+            if (drops.Count > 0)
+            {
+                foreach (var (item, qty) in drops)
+                    for (int i = 0; i < qty; i++) _run.Inventory.Add(item);
+                yield return _lootSystem.ShowDropItems(drops);
+            }
+
+            var endingBefore = _run.ActiveEnding;
+            yield return _lootSystem.ShowBattleRewards(gold, isElite, isBoss);
+            if (_run.ActiveEnding != endingBefore && _endingManager != null)
+                yield return _endingManager.ShowPremonition(_run.ActiveEnding);
         }
 
         // ── Battle ─────────────────────────────────────────────────────────
@@ -477,13 +584,6 @@ namespace DarkChronicle.Roguelike
         {
             // HP is synced from BattleCharacter back to RunData after battle
             // (handled in the coroutine above)
-        }
-
-        // ── Event ──────────────────────────────────────────────────────────
-        IEnumerator ResolveEvent(int floorIndex)
-        {
-            var ev = _eventManager.SelectEvent(floorIndex, _run.Sanity);
-            yield return _eventManager.RunEvent(ev);
         }
 
         // ── Treasure ───────────────────────────────────────────────────────

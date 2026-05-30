@@ -117,6 +117,14 @@ namespace DarkChronicle.World
             _currentArea = area;
             ApplyAreaSettings();
         }
+
+        /// <summary>
+        /// Override the global encounter rate for the current field.
+        /// Called by NodeFieldController when entering a roguelike Battle node.
+        /// Pass 0 to disable encounters, 1 for the default rate.
+        /// </summary>
+        public void SetEncounterRateOverride(float multiplier)
+            => _playerController?.SetEncounterZone(multiplier);
     }
 
     // ── Parallax Layer ─────────────────────────────────────────────────────

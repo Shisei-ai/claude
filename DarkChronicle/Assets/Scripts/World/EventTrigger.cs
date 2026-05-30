@@ -1,17 +1,40 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using DarkChronicle.UI;
 using DarkChronicle.Core;
+using DarkChronicle.Roguelike;
+using DarkChronicle.Roguelike.Events;
 
 namespace DarkChronicle.World
 {
     /// <summary>
     /// Place on any world object to trigger dialogues, scene transitions,
     /// item pickups, or scripted cutscenes when the player interacts.
+    ///
+    /// Roguelike field types (NodeExit, FixedBattleTrigger, RestSiteFire,
+    /// ShopNPC, EventNPC) communicate back to NodeFieldController and the
+    /// roguelike sub-system singletons that live in the additively loaded
+    /// roguelike scene.
     /// </summary>
     public sealed class EventTrigger : MonoBehaviour
     {
-        public enum TriggerType { Dialogue, SceneTransition, ItemPickup, BattleTrigger, Custom }
+        public enum TriggerType
+        {
+            // ── General ──────────────────────────────────────────────────
+            Dialogue,
+            SceneTransition,
+            ItemPickup,
+            BattleTrigger,   // field-mode fixed battle (non-roguelike)
+            Custom,
+
+            // ── Roguelike node field ──────────────────────────────────────
+            NodeExit,            // player steps here → CompleteNode(victory)
+            FixedBattleTrigger,  // spawns elite/boss battle from NodeFieldContext
+            RestSiteFire,        // opens RestSiteController UI, then opens exit
+            ShopNPC,             // opens ShopController UI, then opens exit
+            EventNPC,            // runs PendingEvent from NodeFieldContext, then opens exit
+        }
 
         public static event System.Action<Data.ItemData, int> OnItemPickedUp;
 
@@ -99,8 +122,45 @@ namespace DarkChronicle.World
                     break;
 
                 case TriggerType.BattleTrigger:
-                    GameManager.Instance.StartBattle(new System.Collections.Generic.List<Data.EnemyData>(_fixedEnemies), _isAmbush);
+                    GameManager.Instance.StartBattle(
+                        new List<Data.EnemyData>(_fixedEnemies), _isAmbush);
                     break;
+
+                // ── Roguelike node field triggers ──────────────────────────
+                case TriggerType.NodeExit:
+                    NodeFieldController.Instance?.OnNodeExit();
+                    break;
+
+                case TriggerType.FixedBattleTrigger:
+                {
+                    var ctx     = NodeFieldContext.Current;
+                    var enemies = (ctx?.OverrideEnemies.Count > 0)
+                        ? new List<Data.EnemyData>(ctx.OverrideEnemies)
+                        : new List<Data.EnemyData>(_fixedEnemies);
+                    NodeFieldController.Instance?.TriggerFixedBattle(enemies);
+                    break;
+                }
+
+                case TriggerType.RestSiteFire:
+                    if (Roguelike.RestSiteController.Instance != null)
+                        yield return Roguelike.RestSiteController.Instance.OpenRestSite();
+                    NodeFieldController.Instance?.OpenExit();
+                    break;
+
+                case TriggerType.ShopNPC:
+                    if (Roguelike.ShopController.Instance != null)
+                        yield return Roguelike.ShopController.Instance.OpenShop();
+                    NodeFieldController.Instance?.OpenExit();
+                    break;
+
+                case TriggerType.EventNPC:
+                {
+                    var ev = NodeFieldContext.Current?.PendingEvent;
+                    if (ev != null && Events.RandomEventManager.Instance != null)
+                        yield return Events.RandomEventManager.Instance.RunEvent(ev);
+                    NodeFieldController.Instance?.OpenExit();
+                    break;
+                }
             }
 
             if (_hideAfterTrigger && _triggerOnce) gameObject.SetActive(false);
