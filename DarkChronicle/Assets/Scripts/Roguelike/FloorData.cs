@@ -7,7 +7,7 @@ namespace DarkChronicle.Roguelike
 {
     /// <summary>
     /// Per-floor configuration: enemy pools, boss, theme, atmosphere, and encounter modifiers.
-    /// Three floors = three dramatically different HD-2D worlds.
+    /// Four floors = four dramatically different HD-2D worlds.
     /// </summary>
     [CreateAssetMenu(fileName = "FloorData", menuName = "DarkChronicle/Roguelike/Floor")]
     public class FloorData : ScriptableObject
@@ -73,7 +73,7 @@ namespace DarkChronicle.Roguelike
 
     // ── Floor Library ──────────────────────────────────────────────────────
     /// <summary>
-    /// References to all three floors; read by RoguelikeManager.
+    /// References to all four floors; read by RoguelikeManager.
     /// </summary>
     [CreateAssetMenu(fileName = "FloorLibrary", menuName = "DarkChronicle/Roguelike/FloorLibrary")]
     public class FloorLibrary : ScriptableObject
@@ -81,9 +81,10 @@ namespace DarkChronicle.Roguelike
         [Header("Floors (index = floor number)")]
         public List<FloorData> Floors;
 
-        // Floor 0: 廃墟の回廊 — shattered stone halls, dim candlelight, undead soldiers
-        // Floor 1: 暗黒の森   — twisted black trees, glowing fungi, fae creatures
-        // Floor 2: 呪われた城 — crimson moonlight, shadow knights, the Cursed Monarch
+        // Floor 0: 廃墟の回廊     — shattered stone halls, dim candlelight, undead soldiers
+        // Floor 1: 暗黒の森       — twisted black trees, glowing fungi, fae creatures
+        // Floor 2: 呪われた城     — crimson moonlight, shadow knights, the Cursed Monarch
+        // Floor 3: 古代遺跡の回廊 — ancient stone ruins, poison traps, sealed colossi
 
         public FloorData Get(int index) =>
             index >= 0 && index < Floors.Count ? Floors[index] : null;

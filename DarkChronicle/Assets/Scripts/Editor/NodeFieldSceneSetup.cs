@@ -71,9 +71,10 @@ namespace DarkChronicle.Editor
                 EventTrigger.TriggerType.CursedAltar, triggerOnce: true);
 
             // ── Floor visual roots (NodeFieldVisualSwapper activates one at start) ─
-            var floor0 = MakeRoot("FloorVisual_0_廃墟",     active: true);
-            var floor1 = MakeRoot("FloorVisual_1_暗黒の森",  active: false);
-            var floor2 = MakeRoot("FloorVisual_2_呪われた城", active: false);
+            var floor0 = MakeRoot("FloorVisual_0_廃墟",          active: true);
+            var floor1 = MakeRoot("FloorVisual_1_暗黒の森",       active: false);
+            var floor2 = MakeRoot("FloorVisual_2_呪われた城",     active: false);
+            var floor3 = MakeRoot("FloorVisual_3_古代遺跡の回廊", active: false);
 
             // ── PlayerSpawn ─────────────────────────────────────────────────
             var spawnGO = new GameObject("PlayerSpawn");
@@ -89,7 +90,7 @@ namespace DarkChronicle.Editor
             // ── NodeFieldVisualSwapper ───────────────────────────────────────
             var swapperGO = new GameObject("NodeFieldVisualSwapper");
             var swapper   = swapperGO.AddComponent<NodeFieldVisualSwapper>();
-            WireVisualSwapper(swapper, floor0, floor1, floor2);
+            WireVisualSwapper(swapper, floor0, floor1, floor2, floor3);
 
             // ── Save ────────────────────────────────────────────────────────
             Directory.CreateDirectory("Assets/Scenes");
@@ -199,14 +200,15 @@ namespace DarkChronicle.Editor
         }
 
         static void WireVisualSwapper(NodeFieldVisualSwapper s,
-            GameObject f0, GameObject f1, GameObject f2)
+            GameObject f0, GameObject f1, GameObject f2, GameObject f3)
         {
             var so    = new SerializedObject(s);
             var groups = so.FindProperty("_floorGroups");
-            groups.arraySize = 3;
-            SetGroup(groups.GetArrayElementAtIndex(0), "廃墟の回廊",   f0);
-            SetGroup(groups.GetArrayElementAtIndex(1), "暗黒の森",     f1);
-            SetGroup(groups.GetArrayElementAtIndex(2), "呪われた城",   f2);
+            groups.arraySize = 4;
+            SetGroup(groups.GetArrayElementAtIndex(0), "廃墟の回廊",      f0);
+            SetGroup(groups.GetArrayElementAtIndex(1), "暗黒の森",        f1);
+            SetGroup(groups.GetArrayElementAtIndex(2), "呪われた城",      f2);
+            SetGroup(groups.GetArrayElementAtIndex(3), "古代遺跡の回廊", f3);
             so.ApplyModifiedProperties();
         }
 

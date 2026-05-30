@@ -12,7 +12,7 @@ namespace DarkChronicle.Roguelike
     ///   4. On play, only the root matching FloorIndex becomes active — the others hide.
     ///
     /// The Editor menu item DarkChronicle > Create NodeField Scene auto-creates
-    /// three floor roots and wires them here.
+    /// four floor roots and wires them here.
     /// </summary>
     public sealed class NodeFieldVisualSwapper : MonoBehaviour
     {
@@ -37,6 +37,8 @@ namespace DarkChronicle.Roguelike
         void PreviewFloor1() => PreviewFloor(1);
         [UnityEngine.ContextMenu("Preview Floor 2")]
         void PreviewFloor2() => PreviewFloor(2);
+        [UnityEngine.ContextMenu("Preview Floor 3")]
+        void PreviewFloor3() => PreviewFloor(3);
 
         void PreviewFloor(int floor)
         {

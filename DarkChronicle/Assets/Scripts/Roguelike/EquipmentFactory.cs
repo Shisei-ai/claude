@@ -16,21 +16,24 @@ namespace DarkChronicle.Roguelike
         // ── Per-floor draw pools ───────────────────────────────────────────
         static readonly string[][] WeaponsByFloor =
         {
-            new[] { "Equip_RustedSword",  "Equip_OldAxe",      "Equip_ApprenticeStaff", "Equip_ShortBow"    },
-            new[] { "Equip_KnightSword",  "Equip_BerserkerAxe","Equip_DarkStaff",        "Equip_PoisonBlade" },
-            new[] { "Equip_HolySword",    "Equip_DemonScythe", "Equip_SageScepter",      "Equip_DragonBow"   },
+            new[] { "Equip_RustedSword",     "Equip_OldAxe",           "Equip_ApprenticeStaff",  "Equip_ShortBow"            },
+            new[] { "Equip_KnightSword",     "Equip_BerserkerAxe",     "Equip_DarkStaff",         "Equip_PoisonBlade"         },
+            new[] { "Equip_HolySword",       "Equip_DemonScythe",      "Equip_SageScepter",       "Equip_DragonBow"           },
+            new[] { "Equip_RuinsKingSword",  "Equip_AncientPoisonFang","Equip_AncientScepter",    "Equip_StoneSplitBow"       },
         };
         static readonly string[][] ArmorsByFloor =
         {
-            new[] { "Equip_LeatherArmor",       "Equip_MagicRobe",      "Equip_ChainMail"          },
-            new[] { "Equip_KnightArmor",         "Equip_DarkRobe",       "Equip_ReinforcedLeather"  },
-            new[] { "Equip_DragonMail",           "Equip_AncientRobe",    "Equip_ShadowArmor"        },
+            new[] { "Equip_LeatherArmor",    "Equip_MagicRobe",        "Equip_ChainMail"           },
+            new[] { "Equip_KnightArmor",     "Equip_DarkRobe",         "Equip_ReinforcedLeather"   },
+            new[] { "Equip_DragonMail",      "Equip_AncientRobe",      "Equip_ShadowArmor"         },
+            new[] { "Equip_AncientKingArmor","Equip_SealedVestment",   "Equip_RuinsBeastArmor"     },
         };
         static readonly string[][] AccessoriesByFloor =
         {
-            new[] { "Equip_LuckyCharm",   "Equip_SpeedRing",    "Equip_CritGem"          },
-            new[] { "Equip_VitalityBand", "Equip_MPBand",        "Equip_WarriorRing"      },
-            new[] { "Equip_RevivalAmulet","Equip_DragonAmulet",  "Equip_CursedRing"       },
+            new[] { "Equip_LuckyCharm",      "Equip_SpeedRing",        "Equip_CritGem"             },
+            new[] { "Equip_VitalityBand",    "Equip_MPBand",            "Equip_WarriorRing"         },
+            new[] { "Equip_RevivalAmulet",   "Equip_DragonAmulet",     "Equip_CursedRing"          },
+            new[] { "Equip_AncientCoreShard","Equip_SoulSeal",          "Equip_AncientPoisonBracelet"},
         };
 
         public static EquipmentData Get(string id)
@@ -43,7 +46,7 @@ namespace DarkChronicle.Roguelike
         public static EquipmentData DrawForFloor(int floor, EquipSlot? slot = null)
         {
             EnsureBuilt();
-            floor = Mathf.Clamp(floor, 0, 2);
+            floor = Mathf.Clamp(floor, 0, 3);
 
             EquipSlot chosen = slot ?? (Random.value switch
             {
@@ -260,6 +263,50 @@ namespace DarkChronicle.Roguelike
                 "力と引き換えに身を蝕む。Patk+50、Pdef-30。",
                 Stats(patk: 50, pdef: -30), EquipmentRarity.Rare, 300,
                 passive: "Patk大幅上昇の代わりに防御が下がる");
+
+            // ═══ WEAPONS — Floor 3: 古代遺跡の回廊 (Rare+) ══════════════════
+            Weapon("Equip_RuinsKingSword",    "遺跡王の剣",
+                "古代王の権威を宿す聖剣。Patk+140、光属性。",
+                Stats(patk: 140), EquipmentRarity.Rare, WeaponType.Sword, ElementType.Light, 580);
+
+            Weapon("Equip_AncientPoisonFang", "古毒の牙刃",
+                "太古の猛毒を封じた刃。Patk+120、会心+18、毒属性。",
+                Stats(patk: 120, crit: 18), EquipmentRarity.Rare, WeaponType.Dagger, ElementType.Poison, 560);
+
+            Weapon("Equip_AncientScepter",    "古代の笏",
+                "封印の力を解放する杖。Matk+140、MP+60。",
+                Stats(mp: 60, matk: 140), EquipmentRarity.Rare, WeaponType.Staff, ElementType.None, 580);
+
+            Weapon("Equip_StoneSplitBow",     "石砕の弓",
+                "石兵の骨格で作られた弓。Patk+125、速度+15、会心+15。",
+                Stats(patk: 125, spd: 15, crit: 15), EquipmentRarity.Rare, WeaponType.Bow, ElementType.None, 560);
+
+            // ═══ ARMOR — Floor 3: 古代遺跡の回廊 (Rare+) ═══════════════════
+            Armor("Equip_AncientKingArmor",   "古代王の甲冑",
+                "遺跡に眠る王の最後の鎧。Pdef+170、HP+70。",
+                Stats(hp: 70, pdef: 170), EquipmentRarity.Rare, ArmorType.HeavyArmor, 620);
+
+            Armor("Equip_SealedVestment",     "封印の法衣",
+                "古代術者が身を守るために封じた法衣。Mdef+155、MP+100。",
+                Stats(mp: 100, mdef: 155), EquipmentRarity.Rare, ArmorType.Robe, 620);
+
+            Armor("Equip_RuinsBeastArmor",    "遺跡の獣甲",
+                "遺跡の巨獣から剥いだ甲殻。Pdef+145、速度+30。",
+                Stats(pdef: 145, spd: 30), EquipmentRarity.Rare, ArmorType.LightArmor, 600);
+
+            // ═══ ACCESSORIES — Floor 3: 古代遺跡の回廊 (Rare+) ══════════════
+            Accessory("Equip_AncientCoreShard", "古代核の欠片",
+                "遺跡の核から砕けた欠片。HP+60、Patk+20、Matk+20。",
+                Stats(hp: 60, patk: 20, matk: 20), EquipmentRarity.Rare, 560);
+
+            Accessory("Equip_SoulSeal",         "封印の魂守",
+                "亡霊を封じる護符。Mdef+40、MP+60、運+20。",
+                Stats(mdef: 40, mp: 60, luck: 20), EquipmentRarity.Rare, 540);
+
+            Accessory("Equip_AncientPoisonBracelet", "古毒の腕輪",
+                "太古の毒を蓄える腕輪。Patk+35、速度+25、会心+25。",
+                Stats(patk: 35, spd: 25, crit: 25), EquipmentRarity.Rare, 550,
+                passive: "攻撃に古毒の効果が乗ることがある");
         }
     }
 }
