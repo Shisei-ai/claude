@@ -49,6 +49,8 @@ namespace DarkChronicle.Battle
         readonly Dictionary<BattleCharacter, int> _deathSentenceTimers = new();
         // Causal Chain: A ↔ B linked pairs with propagation percent
         readonly List<(BattleCharacter A, BattleCharacter B, float Pct)> _causalChainLinks = new();
+        // Boss phase tracking: boss → highest phase level reached so far
+        readonly Dictionary<BattleCharacter, int> _bossPhaseLevel = new();
 
         // ── Inspector refs ─────────────────────────────────────────────────
         [Header("References")]
@@ -78,6 +80,7 @@ namespace DarkChronicle.Battle
             _enemies.Clear();
             _deathSentenceTimers.Clear();
             _causalChainLinks.Clear();
+            _bossPhaseLevel.Clear();
 
             for (int i = 0; i < heroDataList.Count; i++)
                 _heroes.Add(new BattleCharacter(heroDataList[i], heroStats[i]));
@@ -143,6 +146,10 @@ namespace DarkChronicle.Battle
                 _activeCharacter.TickStatusEffects(out int dot, out int hot);
                 if (dot > 0) _battleUI.ShowDamageNumber(_activeCharacter, dot, false);
                 if (hot > 0) _battleUI.ShowHealNumber(_activeCharacter, hot);
+                if (_activeCharacter.IsPlayer)
+                    _battleUI.UpdateHeroPanel(_activeCharacter);
+                else
+                    _battleUI.UpdateEnemyPanel(_activeCharacter);
 
                 if (_activeCharacter.IsAlive)
                 {
@@ -873,6 +880,12 @@ namespace DarkChronicle.Battle
 
             yield return new WaitForSeconds(0.1f);
 
+            // Boss phase transition (check before defeat so shield restore can matter)
+            if (target.IsAlive
+             && (target.EnemyData?.Rank == EnemyRank.Boss
+              || target.EnemyData?.Rank == EnemyRank.TrueFinalBoss))
+                yield return CheckBossPhaseTransition(target);
+
             if (!target.IsAlive) yield return HandleDefeat(target);
         }
 
@@ -1063,6 +1076,11 @@ namespace DarkChronicle.Battle
             active.RemainingTurns += durationBonus;
             target.StatusEffects.RemoveAll(s => s.Type == active.Type);
             target.StatusEffects.Add(active);
+
+            if (target.IsPlayer)
+                _battleUI.UpdateHeroPanel(target);
+            else
+                _battleUI.UpdateEnemyPanel(target);
         }
 
         // ── Target Resolution ──────────────────────────────────────────────
@@ -1091,13 +1109,48 @@ namespace DarkChronicle.Battle
 
         IEnumerator HandleDefeat(BattleCharacter c)
         {
-            // Remove from chain links
             _causalChainLinks.RemoveAll(l => l.A == c || l.B == c);
             _deathSentenceTimers.Remove(c);
+            _bossPhaseLevel.Remove(c);
 
             OnCharacterDefeated?.Invoke(c);
             _battleUI.ShowDefeatAnimation(c);
             yield return new WaitForSeconds(0.5f);
+        }
+
+        // ── Boss Phase Transition ──────────────────────────────────────────
+        IEnumerator CheckBossPhaseTransition(BattleCharacter boss)
+        {
+            int newPhase = ComputeBossPhaseLevel(boss);
+            _bossPhaseLevel.TryGetValue(boss, out int oldPhase);
+            _bossPhaseLevel[boss] = newPhase;
+            if (newPhase > oldPhase)
+                yield return ShowBossPhaseTransition(boss, newPhase);
+        }
+
+        int ComputeBossPhaseLevel(BattleCharacter boss)
+        {
+            if (boss.EnemyData?.Actions == null) return 0;
+            float hpPct = boss.HPRatio * 100f;
+            return boss.EnemyData.Actions
+                .Where(a => a.HealthThreshold > 0)
+                .Select(a => a.HealthThreshold)
+                .Distinct()
+                .Count(t => hpPct <= t);
+        }
+
+        IEnumerator ShowBossPhaseTransition(BattleCharacter boss, int phase)
+        {
+            _battleUI.ShowMessage($"【{boss.DisplayName}】 フェーズ{phase}！");
+            _camera?.Shake(0.6f);
+            yield return new WaitForSeconds(0.5f);
+
+            // Restore partial shields on phase shift to give the boss renewed threat
+            int restore = Mathf.Max(1, boss.MaxShields / 2);
+            boss.RestoreShields(restore);
+            _battleUI.UpdateEnemyPanel(boss);
+            _battleUI.ShowMessage($"シールド {restore} 回復！");
+            yield return new WaitForSeconds(0.4f);
         }
 
         IEnumerator AttemptFlee()

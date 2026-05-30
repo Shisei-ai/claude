@@ -1,6 +1,7 @@
 using UnityEngine;
 using DarkChronicle.Battle;
 using DarkChronicle.Data;
+using DarkChronicle.UI;
 
 namespace DarkChronicle.Character.Traits
 {
@@ -30,20 +31,15 @@ namespace DarkChronicle.Character.Traits
             if (_triggered) return false;
             _triggered = true;
 
-            // HP強制的に1にする（BattleCharacter.TakeDamageの後に補正）
-            // → BattleManagerがこのtrueを受け取ってHP=1にセット
             AudioManager?.PlayVoice("Bernhard_IndomitableWill");
-            VFXSpawner?.Spawn("VFX_IndomitableWill", owner.WorldPosition);
             BattleUIBridge?.ShowTraitActivated("不撓不屈", owner);
             return true;
         }
 
         public override void OnBattleEnd(BattleCharacter owner) => _triggered = false;
 
-        // これらはEditorでアサイン or シングルトン経由で取得
-        static Core.AudioManager  AudioManager  => Core.AudioManager.Instance;
-        static object             VFXSpawner    => null;  // TODO: VFX管理クラスに差し替え
-        static UI.BattleUI        BattleUIBridge => null; // TODO
+        static Core.AudioManager AudioManager    => Core.AudioManager.Instance;
+        static BattleUI          BattleUIBridge  => BattleUI.Instance;
     }
 
     // ── トレイト②: 歴戦の鎧 ─────────────────────────────────────────────────
@@ -84,7 +80,7 @@ namespace DarkChronicle.Character.Traits
             owner.ClearTemporaryDefBuff();
         }
 
-        static UI.BattleUI BattleUIBridge => null;
+        static BattleUI BattleUIBridge => BattleUI.Instance;
     }
 
     // ── トレイト③: 鋼の肉体 ─────────────────────────────────────────────────
@@ -113,27 +109,12 @@ namespace DarkChronicle.Character.Traits
             => Mathf.Max(1, Mathf.RoundToInt(dotDamage * (1f - DotReduction)));
     }
 
-    // ── BattleCharacter拡張メソッド（トレイト統合用） ─────────────────────
-    // BattleCharacterに追加すべきメソッド群のスタブ
     public static class BattleCharacterTraitExtensions
     {
-        /// <summary>一時的な防御バフを積む（歴戦の鎧用）</summary>
         public static void AddTemporaryDefBuff(this BattleCharacter c, int amount)
-        {
-            // TODO: BattleCharacterの_buffStatsにPhysicalDefenseを加算
-            // c._buffStats.PhysicalDefense += amount;  // privateフィールドのためリフレクション or 公開メソッド化が必要
-        }
+            => c.AddTempDefBuff(amount);
 
         public static void ClearTemporaryDefBuff(this BattleCharacter c)
-        {
-            // TODO: 歴戦スタック由来のバフをクリア
-        }
-
-        /// <summary>WorldPositionプロパティ（VFX配置用）</summary>
-        public static Vector3 WorldPosition(this BattleCharacter c)
-        {
-            // TODO: バトルシーン内でのキャラ位置を返す
-            return Vector3.zero;
-        }
+            => c.ClearTempDefBuff();
     }
 }

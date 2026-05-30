@@ -19,6 +19,7 @@ namespace DarkChronicle.Battle
         // ── Stats (computed each turn: base + equipment + job + buffs) ────
         public CharacterStats BaseStats  { get; private set; }
         CharacterStats        _buffStats = new CharacterStats();
+        int                   _tempDefBuff;
 
         public int MaxHP   => BaseStats.MaxHP  + _buffStats.MaxHP;
         public int MaxMP   => BaseStats.MaxMP  + _buffStats.MaxMP;
@@ -205,6 +206,19 @@ namespace DarkChronicle.Battle
             StatusEffects.Exists(s => s.Type == type);
 
         public void ClearAllStatus() => StatusEffects.Clear();
+
+        // ── Temporary Defense Buff (Trait_BattleHardened) ──────────────────
+        public void AddTempDefBuff(int amount)
+        {
+            _buffStats.PhysicalDefense += amount;
+            _tempDefBuff += amount;
+        }
+
+        public void ClearTempDefBuff()
+        {
+            _buffStats.PhysicalDefense -= _tempDefBuff;
+            _tempDefBuff = 0;
+        }
 
         // ── Turn Gauge ─────────────────────────────────────────────────────
         public void AdvanceTurnGauge(float tickSize = 1f) => TurnGauge += Speed * tickSize;

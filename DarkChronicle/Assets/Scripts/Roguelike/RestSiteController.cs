@@ -28,6 +28,9 @@ namespace DarkChronicle.Roguelike
         [SerializeField] TextMeshProUGUI    _healAmountText;
         const float BaseHealPercent = 0.30f;  // 30% HP
 
+        [Header("Visual Feedback")]
+        [SerializeField] TextMeshProUGUI    _statusPopupText;
+
         [Header("Atmosphere")]
         [SerializeField] ParticleSystem     _campfireParticles;
         [SerializeField] AudioClip          _campfireBGM;
@@ -148,15 +151,70 @@ namespace DarkChronicle.Roguelike
         // ── Visual Feedback ────────────────────────────────────────────────
         IEnumerator AnimateHeal(int amount)
         {
-            // TODO: flash green on HP bar, show floating heal number
-            yield return new WaitForSeconds(0.5f);
+            // Tick HP display upward over 0.5s
+            int startHP = Mathf.Max(0, _run.CurrentHP - amount);
+            Color origColor = _hpText.color;
+            float elapsed   = 0f;
+            while (elapsed < 0.5f)
+            {
+                elapsed += Time.deltaTime;
+                float p = elapsed / 0.5f;
+                _hpText.text  = $"HP: {Mathf.RoundToInt(Mathf.Lerp(startHP, _run.CurrentHP, p))} / {_run.MaxHP}";
+                _hpText.color = Color.Lerp(origColor, new Color(0.3f, 1f, 0.5f), p);
+                yield return null;
+            }
             RefreshUI();
+
+            if (_statusPopupText != null)
+            {
+                _statusPopupText.color = new Color(0.3f, 1f, 0.5f, 1f);
+                _statusPopupText.text  = $"+ {amount} HP 回復";
+                yield return StartCoroutine(FadeOutText(_statusPopupText, 1.2f));
+            }
+
+            // Restore text color (in case RefreshUI doesn't reset it)
+            _hpText.color = origColor;
         }
 
         IEnumerator ShowMeditateEffect()
         {
-            // TODO: particle burst, show LUCK +2 text
-            yield return new WaitForSeconds(0.8f);
+            // Extra campfire burst
+            _campfireParticles?.Emit(30);
+
+            // Pulse HP text with a calm purple glow
+            Color origColor = _hpText.color;
+            float elapsed   = 0f;
+            while (elapsed < 0.8f)
+            {
+                elapsed += Time.deltaTime;
+                float p = elapsed / 0.8f;
+                _hpText.color = Color.Lerp(origColor, new Color(0.7f, 0.5f, 1f), Mathf.Sin(p * Mathf.PI));
+                yield return null;
+            }
+            _hpText.color = origColor;
+
+            if (_statusPopupText != null)
+            {
+                _statusPopupText.color = new Color(0.7f, 0.5f, 1f, 1f);
+                _statusPopupText.text  = "精神 +1";
+                yield return StartCoroutine(FadeOutText(_statusPopupText, 1.0f));
+            }
+        }
+
+        IEnumerator FadeOutText(TextMeshProUGUI text, float duration)
+        {
+            Color c   = text.color;
+            c.a       = 1f;
+            float t   = 0f;
+            while (t < duration)
+            {
+                t   += Time.deltaTime;
+                c.a  = Mathf.Lerp(1f, 0f, t / duration);
+                text.color = c;
+                yield return null;
+            }
+            c.a = 0f;
+            text.color = c;
         }
 
         IEnumerator FadeGroup(CanvasGroup group, float from, float to, float duration)

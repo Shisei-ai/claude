@@ -21,6 +21,7 @@ namespace DarkChronicle.UI
     /// </summary>
     public sealed class BattleUI : MonoBehaviour
     {
+        public static BattleUI Instance { get; private set; }
         // ── Hero panels (bottom bar) ───────────────────────────────────────
         [Header("Hero Status Panels")]
         [SerializeField] HeroStatusPanel[] _heroPanels;
@@ -133,6 +134,7 @@ namespace DarkChronicle.UI
         // ── Unity lifecycle ────────────────────────────────────────────────
         void Awake()
         {
+            Instance = this;
             _attackButton  .onClick.AddListener(OnAttackPressed);
             _skillButton   .onClick.AddListener(OnSkillPressed);
             _grimoireButton.onClick.AddListener(OnGrimoirePressed);
@@ -302,6 +304,25 @@ namespace DarkChronicle.UI
 
         public void ShowVictoryScreen() => StartCoroutine(UIAnimator.FadeIn(_victoryScreen));
         public void ShowDefeatScreen()  => StartCoroutine(UIAnimator.FadeIn(_defeatScreen));
+
+        public void ShowTraitActivated(string traitName, BattleCharacter owner)
+        {
+            ShowMessage($"【{traitName}】発動！");
+            if (!owner.IsPlayer) return;
+            var panel = GetHeroPanel(owner);
+            if (panel?.Root == null) return;
+            var imgs = panel.Root.GetComponentsInChildren<Graphic>();
+            if (imgs.Length > 0)
+                StartCoroutine(UIAnimator.FlashColor(imgs[0], new Color(1f, 0.85f, 0.3f), 0.7f));
+        }
+
+        public void ShowStackCount(BattleCharacter owner, int stacks, int maxStacks, string label)
+        {
+            if (!owner.IsPlayer) return;
+            var panel = GetHeroPanel(owner);
+            if (panel?.CharacterStateLabel != null)
+                panel.CharacterStateLabel.text = $"{label} {stacks}/{maxStacks}";
+        }
 
         // ── Menu state transitions ─────────────────────────────────────────
         void TransitionTo(MenuState next)
@@ -941,9 +962,10 @@ namespace DarkChronicle.UI
                 var icon = Object.Instantiate(StatusIconPrefab, StatusIconRoot);
                 var img  = icon.GetComponent<Image>();
                 var txt  = icon.GetComponentInChildren<TextMeshProUGUI>();
-                if (img) img.color  = GetStatusColor(s.Type);
-                if (txt) txt.text   = GetStatusAbbrev(s.Type);
-                // Show remaining turns as tooltip (handled by separate Tooltip component)
+                if (img) img.color = GetStatusColor(s.Type);
+                if (txt) txt.text  = GetStatusAbbrev(s.Type);
+                var tip = icon.AddComponent<TooltipTrigger>();
+                tip.SetText(GetStatusName(s.Type), $"残り {s.RemainingTurns} ターン");
             }
         }
 
@@ -1018,6 +1040,22 @@ namespace DarkChronicle.UI
             StatusEffectType.DefDown   => "防↓",
             StatusEffectType.Regen     => "再生",
             _                          => t.ToString()[..2],
+        };
+
+        static string GetStatusName(StatusEffectType t) => t switch
+        {
+            StatusEffectType.Poison    => "毒",
+            StatusEffectType.Bleed     => "出血",
+            StatusEffectType.Burn      => "炎上",
+            StatusEffectType.Freeze    => "凍結",
+            StatusEffectType.Paralysis => "麻痺",
+            StatusEffectType.Sleep     => "睡眠",
+            StatusEffectType.Blind     => "暗闇",
+            StatusEffectType.Silence   => "沈黙",
+            StatusEffectType.AtkUp     => "攻撃力上昇",
+            StatusEffectType.DefDown   => "防御力低下",
+            StatusEffectType.Regen     => "リジェネ",
+            _                          => t.ToString(),
         };
     }
 
@@ -1098,10 +1136,30 @@ namespace DarkChronicle.UI
             foreach (var s in enemy.StatusEffects)
             {
                 var icon = Instantiate(_statusIconPrefab, _statusIconRoot);
+                var img  = icon.GetComponent<Image>();
                 var txt  = icon.GetComponentInChildren<TextMeshProUGUI>();
-                if (txt) txt.text = GetStatusAbbrev(s.Type);
+                if (img) img.color = GetStatusColor(s.Type);
+                if (txt) txt.text  = GetStatusAbbrev(s.Type);
+                var tip = icon.AddComponent<TooltipTrigger>();
+                tip.SetText(GetStatusName(s.Type), $"残り {s.RemainingTurns} ターン");
             }
         }
+
+        static Color GetStatusColor(StatusEffectType t) => t switch
+        {
+            StatusEffectType.Poison    => new Color(0.5f,  0.9f,  0.2f),
+            StatusEffectType.Bleed     => new Color(0.9f,  0.15f, 0.15f),
+            StatusEffectType.Burn      => new Color(1f,    0.45f, 0.1f),
+            StatusEffectType.Freeze    => new Color(0.5f,  0.85f, 1f),
+            StatusEffectType.Paralysis => new Color(1f,    0.9f,  0.1f),
+            StatusEffectType.Sleep     => new Color(0.5f,  0.5f,  0.9f),
+            StatusEffectType.Blind     => new Color(0.3f,  0.3f,  0.4f),
+            StatusEffectType.Silence   => new Color(0.7f,  0.4f,  0.8f),
+            StatusEffectType.AtkUp     => new Color(1f,    0.6f,  0.2f),
+            StatusEffectType.DefDown   => new Color(0.7f,  0.2f,  0.2f),
+            StatusEffectType.Regen     => new Color(0.3f,  1f,    0.5f),
+            _                          => Color.grey,
+        };
 
         static string GetStatusAbbrev(StatusEffectType t) => t switch
         {
@@ -1114,6 +1172,22 @@ namespace DarkChronicle.UI
             StatusEffectType.Blind     => "暗",
             StatusEffectType.Silence   => "沈",
             _                          => t.ToString()[..2],
+        };
+
+        static string GetStatusName(StatusEffectType t) => t switch
+        {
+            StatusEffectType.Poison    => "毒",
+            StatusEffectType.Bleed     => "出血",
+            StatusEffectType.Burn      => "炎上",
+            StatusEffectType.Freeze    => "凍結",
+            StatusEffectType.Paralysis => "麻痺",
+            StatusEffectType.Sleep     => "睡眠",
+            StatusEffectType.Blind     => "暗闇",
+            StatusEffectType.Silence   => "沈黙",
+            StatusEffectType.AtkUp     => "攻撃力上昇",
+            StatusEffectType.DefDown   => "防御力低下",
+            StatusEffectType.Regen     => "リジェネ",
+            _                          => t.ToString(),
         };
     }
 

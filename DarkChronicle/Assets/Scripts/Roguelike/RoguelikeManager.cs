@@ -788,19 +788,6 @@ namespace DarkChronicle.Roguelike
         }
     }
 
-    // ── Tooltip Trigger ────────────────────────────────────────────────────
-    public sealed class TooltipTrigger : MonoBehaviour,
-        UnityEngine.EventSystems.IPointerEnterHandler,
-        UnityEngine.EventSystems.IPointerExitHandler
-    {
-        string _title, _body;
-        public void SetText(string title, string body) { _title = title; _body = body; }
-        public void OnPointerEnter(UnityEngine.EventSystems.PointerEventData e) =>
-            UI.TooltipSystem.Instance?.Show(_title, _body);
-        public void OnPointerExit(UnityEngine.EventSystems.PointerEventData e) =>
-            UI.TooltipSystem.Instance?.Hide();
-    }
-
     // ── Character Select Card ──────────────────────────────────────────────
     public sealed class CharacterSelectCard : MonoBehaviour
     {
