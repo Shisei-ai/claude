@@ -156,7 +156,12 @@ namespace DarkChronicle.Roguelike
         void AddEquipmentItem(int floor)
         {
             if (_equipmentSection == null) return;
-            var equip = EquipmentFactory.DrawForFloor(floor);
+            Data.EquipmentData equip = null;
+            for (int attempt = 0; attempt < 6; attempt++)
+            {
+                var candidate = EquipmentFactory.DrawForFloor(floor);
+                if (candidate != null && _run.CanEquip(candidate)) { equip = candidate; break; }
+            }
             if (equip == null) return;
             int price = RelicManager.Instance.ModifyShopPrice(equip.Value);
             var go = CreateShopItem(_equipmentSection, equip.EquipName, equip.Description,

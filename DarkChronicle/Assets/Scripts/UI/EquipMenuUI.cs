@@ -92,18 +92,25 @@ namespace DarkChronicle.UI
             foreach (var equip in _run.EquipmentInventory)
             {
                 if (equip == null) continue;
+                bool canEquip = _run.CanEquip(equip);
+
                 var go    = Instantiate(_equipEntryPrefab, _inventoryRoot);
                 var texts = go.GetComponentsInChildren<TextMeshProUGUI>();
                 if (texts.Length >= 1) texts[0].text = equip.EquipName;
-                if (texts.Length >= 2) texts[1].text = SlotLabel(equip.Slot);
+                if (texts.Length >= 2) texts[1].text = canEquip ? SlotLabel(equip.Slot) : $"{SlotLabel(equip.Slot)} 装備不可";
                 if (texts.Length >= 3) texts[2].text = equip.RarityLabel;
 
+                // Gray out incompatible items
+                var color = canEquip ? Color.white : new Color(0.45f, 0.45f, 0.45f, 0.7f);
+                foreach (var t in go.GetComponentsInChildren<TextMeshProUGUI>()) t.color = color;
+
                 var icon = go.GetComponentInChildren<Image>();
-                if (icon && equip.Icon) icon.sprite = equip.Icon;
+                if (icon && equip.Icon) { icon.sprite = equip.Icon; icon.color = color; }
 
                 var btn = go.GetComponent<Button>();
+                if (btn != null) btn.interactable = canEquip;
                 var captured = equip;
-                btn?.onClick.AddListener(() => OnEquip(captured));
+                if (canEquip) btn?.onClick.AddListener(() => OnEquip(captured));
 
                 // Hover: show detail
                 var trigger = go.GetComponent<UnityEngine.EventSystems.EventTrigger>()

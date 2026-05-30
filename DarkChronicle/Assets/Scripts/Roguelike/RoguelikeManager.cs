@@ -492,7 +492,12 @@ namespace DarkChronicle.Roguelike
             // 35% chance: equipment drop (scales with floor)
             if (Random.value < 0.35f + _run.CurrentFloor * 0.05f)
             {
-                var equip = EquipmentFactory.DrawForFloor(_run.CurrentFloor);
+                Data.EquipmentData equip = null;
+                for (int attempt = 0; attempt < 6; attempt++)
+                {
+                    var candidate = EquipmentFactory.DrawForFloor(_run.CurrentFloor);
+                    if (candidate != null && _run.CanEquip(candidate)) { equip = candidate; break; }
+                }
                 if (equip != null)
                 {
                     _run.EquipmentInventory.Add(equip);

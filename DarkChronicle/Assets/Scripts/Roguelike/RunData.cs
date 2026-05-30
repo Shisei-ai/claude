@@ -96,9 +96,23 @@ namespace DarkChronicle.Roguelike
             _                        => null,
         };
 
+        public bool CanEquip(Data.EquipmentData equip)
+        {
+            if (equip == null) return false;
+            var job = SelectedCharacter?.StarterJob;
+            if (job == null) return true;
+            return equip.Slot switch
+            {
+                Data.EquipSlot.Weapon    => job.AllowedWeapons != null && job.AllowedWeapons.Contains(equip.WeaponCategory),
+                Data.EquipSlot.Armor     => job.AllowedArmors  != null && job.AllowedArmors.Contains(equip.ArmorCategory),
+                Data.EquipSlot.Accessory => true,
+                _                        => false,
+            };
+        }
+
         public void Equip(Data.EquipmentData equip)
         {
-            if (equip == null) return;
+            if (equip == null || !CanEquip(equip)) return;
             var old = GetEquipment(equip.Slot);
             if (old != null) EquipmentInventory.Add(old);
             EquipmentInventory.Remove(equip);
