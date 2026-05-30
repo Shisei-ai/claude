@@ -204,8 +204,7 @@ namespace DarkChronicle.Roguelike.Events
             "暗闇の中から影が現れた。人の形をしているが、確かに人ではない。\n" +
             "「勇者よ、取引をしよう。汝の命の一部と引き換えに、我が力を授けよう」\n" +
             "低い声が空気を震わせ、その目は暗紅色に輝いている。",
-            minFloor: 0, maxFloor: 5, oneTime: true, tint: new Color(0.5f, 0.1f, 0.3f),
-            sanityWeight: 0.2f,
+            minFloor: 0, maxFloor: 5, tint: new Color(0.5f, 0.1f, 0.3f), oneTime: true, sanityWeight: 0.2f,
             Choice("契約する",
                    Res("最大HPが大きく削られたが、悪魔は約束通り二つの遺物を置いていった。",
                        maxHP: -30, relic: true, relicPool: RelicRarity.Rare)),
@@ -412,8 +411,7 @@ namespace DarkChronicle.Roguelike.Events
             "風も吹かないのに、湖面が鏡のように静まり返っている。\n" +
             "水面には過去の自分の姿が映っていた。後悔、悲しみ、そして希望。\n" +
             "この湖には特別な力があるという。",
-            minFloor: 2, maxFloor: 3, oneTime: true, tint: new Color(0.25f, 0.35f, 0.55f),
-            sanityWeight: 0.15f,
+            minFloor: 2, maxFloor: 3, tint: new Color(0.25f, 0.35f, 0.55f), oneTime: true, sanityWeight: 0.15f,
             Choice("過去を見つめる",
                    Res("水面に映る記憶が体に流れ込み、最大HPが増した。しかし何か暗いものも残った気がする。",
                        maxHP: 20, curse: true)),

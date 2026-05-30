@@ -4,6 +4,7 @@ using UnityEngine;
 using DarkChronicle.Battle;
 using DarkChronicle.Core;
 using DarkChronicle.Data;
+using DarkChronicle.HD2D;
 using DarkChronicle.World;
 
 namespace DarkChronicle.Roguelike
