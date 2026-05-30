@@ -82,6 +82,10 @@ namespace DarkChronicle.Roguelike
         [Header("Ending")]
         [SerializeField] EndingManager       _endingManager;
 
+        // ── Equipment UI ───────────────────────────────────────────────────
+        [Header("Equipment")]
+        [SerializeField] UI.EquipMenuUI      _equipMenuUI;
+
         // ── State ──────────────────────────────────────────────────────────
         RunData     _run;
         MapData     _currentMapData;
@@ -234,6 +238,10 @@ namespace DarkChronicle.Roguelike
                 _pauseMenu.OnAbandonConfirmed  += () => StartCoroutine(AbandonRun());
                 _pauseMenu.OnMainMenuConfirmed += () =>
                     UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
+                _pauseMenu.OnEquipRequested    += () =>
+                {
+                    if (_equipMenuUI != null) StartCoroutine(_equipMenuUI.Open(_run));
+                };
             }
 
             BattleManager.OnBattleEnd         += OnBattleEnd;
@@ -481,6 +489,18 @@ namespace DarkChronicle.Roguelike
         // ── Treasure ───────────────────────────────────────────────────────
         IEnumerator ResolveTreasure()
         {
+            // 35% chance: equipment drop (scales with floor)
+            if (Random.value < 0.35f + _run.CurrentFloor * 0.05f)
+            {
+                var equip = EquipmentFactory.DrawForFloor(_run.CurrentFloor);
+                if (equip != null)
+                {
+                    _run.EquipmentInventory.Add(equip);
+                    yield return _lootSystem.ShowEquipmentObtained(equip);
+                    yield break;
+                }
+            }
+
             // Sanity-weighted: higher sanity = better relic rarity
             float roll = Random.value - _run.Sanity * 0.08f;
             RelicRarity rarity = roll < 0.15f ? RelicRarity.Rare :
@@ -608,6 +628,19 @@ namespace DarkChronicle.Roguelike
 
             // HP is always sourced from the run's tracked MaxHP (affected by events/relics)
             base_.MaxHP = _run.MaxHP;
+
+            // Apply equipment bonuses
+            var eq = _run.EquipmentBonusStats;
+            base_.MaxHP           += eq.MaxHP;
+            base_.MaxMP           += eq.MaxMP;
+            base_.PhysicalAttack  += eq.PhysicalAttack;
+            base_.MagicAttack     += eq.MagicAttack;
+            base_.PhysicalDefense += eq.PhysicalDefense;
+            base_.MagicDefense    += eq.MagicDefense;
+            base_.Speed           += eq.Speed;
+            base_.Luck            += eq.Luck;
+            base_.CriticalRate    += eq.CriticalRate;
+            base_.AccuracyRate    += eq.AccuracyRate;
 
             // VampiricBlade: -20% MaxHP
             if (_run.HasRelic(RelicEffectType.VampiricBlade))

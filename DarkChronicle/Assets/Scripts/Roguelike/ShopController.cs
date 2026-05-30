@@ -25,6 +25,7 @@ namespace DarkChronicle.Roguelike
         [SerializeField] Transform          _skillSection;
         [SerializeField] Transform          _relicSection;
         [SerializeField] Transform          _consumableSection;
+        [SerializeField] Transform          _equipmentSection;
         [SerializeField] Transform          _serviceSection;
         [SerializeField] GameObject         _shopItemPrefab;
         [SerializeField] Button             _leaveButton;
@@ -86,6 +87,7 @@ namespace DarkChronicle.Roguelike
             ClearSection(_skillSection);
             ClearSection(_relicSection);
             ClearSection(_consumableSection);
+            ClearSection(_equipmentSection);
             ClearSection(_serviceSection);
 
             int sanity    = _run.Sanity;
@@ -106,6 +108,10 @@ namespace DarkChronicle.Roguelike
             // 2 consumables
             for (int i = 0; i < 2; i++)
                 AddConsumableItem();
+
+            // 1-2 equipment items
+            for (int i = 0; i < Random.Range(1, 3); i++)
+                AddEquipmentItem(floor);
 
             // Services
             AddService("スキル削除", SkillPurgePrice,   OnPurgeSkill,   RelicManager.Instance.HasFreeRemove());
@@ -147,6 +153,17 @@ namespace DarkChronicle.Roguelike
             _stock.Add(new ShopItem { Item = item, Price = price, GO = go });
         }
 
+        void AddEquipmentItem(int floor)
+        {
+            if (_equipmentSection == null) return;
+            var equip = EquipmentFactory.DrawForFloor(floor);
+            if (equip == null) return;
+            int price = RelicManager.Instance.ModifyShopPrice(equip.Value);
+            var go = CreateShopItem(_equipmentSection, equip.EquipName, equip.Description,
+                                    equip.Icon, price, () => BuyEquipment(equip, price));
+            _stock.Add(new ShopItem { Equipment = equip, Price = price, GO = go });
+        }
+
         void AddService(string name, int baseCost, System.Action action, bool isFree)
         {
             int price = isFree ? 0 : RelicManager.Instance.ModifyShopPrice(baseCost);
@@ -177,6 +194,14 @@ namespace DarkChronicle.Roguelike
             if (_run.Gold < price) return;
             _run.SpendGold(price);
             _run.Inventory.Add(item);
+            RefreshGoldDisplay();
+        }
+
+        void BuyEquipment(Data.EquipmentData equip, int price)
+        {
+            if (_run.Gold < price) return;
+            _run.SpendGold(price);
+            _run.EquipmentInventory.Add(equip);
             RefreshGoldDisplay();
         }
 
@@ -257,12 +282,13 @@ namespace DarkChronicle.Roguelike
     // ── Shop Item Data ─────────────────────────────────────────────────────
     public class ShopItem
     {
-        public SkillData  Skill;
-        public RelicData  Relic;
-        public ItemData   Item;
-        public int        Price;
-        public GameObject GO;
-        public bool       Sold;
+        public SkillData              Skill;
+        public RelicData              Relic;
+        public ItemData               Item;
+        public Data.EquipmentData     Equipment;
+        public int                    Price;
+        public GameObject             GO;
+        public bool                   Sold;
     }
 
     // ── Shop Item UI Component ─────────────────────────────────────────────

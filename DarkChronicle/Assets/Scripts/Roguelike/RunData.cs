@@ -46,6 +46,12 @@ namespace DarkChronicle.Roguelike
         // ── Curses ─────────────────────────────────────────────────────────
         public List<CurseData>  Curses       = new();
 
+        // ── Equipment ──────────────────────────────────────────────────────
+        public Data.EquipmentData   EquippedWeapon;
+        public Data.EquipmentData   EquippedArmor;
+        public Data.EquipmentData   EquippedAccessory;
+        public List<Data.EquipmentData> EquipmentInventory = new();
+
         // ── Level / Job Level ──────────────────────────────────────────────
         public int  CharacterLevel  = 1;
         public int  CurrentEXP      = 0;
@@ -69,6 +75,53 @@ namespace DarkChronicle.Roguelike
 
         // ── Helpers ────────────────────────────────────────────────────────
         public float HPRatio => MaxHP > 0 ? (float)CurrentHP / MaxHP : 0f;
+
+        public Data.CharacterStats EquipmentBonusStats
+        {
+            get
+            {
+                var s = new Data.CharacterStats();
+                if (EquippedWeapon    != null) s += EquippedWeapon.BonusStats;
+                if (EquippedArmor     != null) s += EquippedArmor.BonusStats;
+                if (EquippedAccessory != null) s += EquippedAccessory.BonusStats;
+                return s;
+            }
+        }
+
+        public Data.EquipmentData GetEquipment(Data.EquipSlot slot) => slot switch
+        {
+            Data.EquipSlot.Weapon    => EquippedWeapon,
+            Data.EquipSlot.Armor     => EquippedArmor,
+            Data.EquipSlot.Accessory => EquippedAccessory,
+            _                        => null,
+        };
+
+        public void Equip(Data.EquipmentData equip)
+        {
+            if (equip == null) return;
+            var old = GetEquipment(equip.Slot);
+            if (old != null) EquipmentInventory.Add(old);
+            EquipmentInventory.Remove(equip);
+            switch (equip.Slot)
+            {
+                case Data.EquipSlot.Weapon:    EquippedWeapon    = equip; break;
+                case Data.EquipSlot.Armor:     EquippedArmor     = equip; break;
+                case Data.EquipSlot.Accessory: EquippedAccessory = equip; break;
+            }
+        }
+
+        public void Unequip(Data.EquipSlot slot)
+        {
+            var cur = GetEquipment(slot);
+            if (cur == null) return;
+            EquipmentInventory.Add(cur);
+            switch (slot)
+            {
+                case Data.EquipSlot.Weapon:    EquippedWeapon    = null; break;
+                case Data.EquipSlot.Armor:     EquippedArmor     = null; break;
+                case Data.EquipSlot.Accessory: EquippedAccessory = null; break;
+            }
+        }
 
         public bool HasRelic(RelicEffectType effect) =>
             Relics.Exists(r => r.PrimaryEffect == effect);

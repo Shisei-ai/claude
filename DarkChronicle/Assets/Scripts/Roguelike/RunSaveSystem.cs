@@ -49,6 +49,12 @@ namespace DarkChronicle.Roguelike
         public string[] CurseEffectNames;
         public string[] UnlockedSkillNames;
 
+        // Equipment
+        public string   EquippedWeaponName;
+        public string   EquippedArmorName;
+        public string   EquippedAccessoryName;
+        public string[] EquipmentInventoryNames;
+
         // Map state
         public int   CurrentNodeID    = -1;
         public int[] VisitedNodeIDs;
@@ -85,11 +91,15 @@ namespace DarkChronicle.Roguelike
                 GoldEarned        = run.GoldEarned,
                 RelicsFound       = run.RelicsFound,
                 EventsVisited     = run.EventsVisited,
-                DeckNames         = run.Deck.ConvertAll(s => s.name).ToArray(),
-                RelicNames        = run.Relics.ConvertAll(r => r.name).ToArray(),
-                InventoryNames    = run.Inventory.ConvertAll(i => i.name).ToArray(),
-                CurseEffectNames  = run.Curses.ConvertAll(c => c.Effect.ToString()).ToArray(),
-                UnlockedSkillNames = run.UnlockedSkillNames.ToArray(),
+                DeckNames              = run.Deck.ConvertAll(s => s.name).ToArray(),
+                RelicNames             = run.Relics.ConvertAll(r => r.name).ToArray(),
+                InventoryNames         = run.Inventory.ConvertAll(i => i.name).ToArray(),
+                CurseEffectNames       = run.Curses.ConvertAll(c => c.Effect.ToString()).ToArray(),
+                UnlockedSkillNames     = run.UnlockedSkillNames.ToArray(),
+                EquippedWeaponName     = run.EquippedWeapon?.name    ?? string.Empty,
+                EquippedArmorName      = run.EquippedArmor?.name     ?? string.Empty,
+                EquippedAccessoryName  = run.EquippedAccessory?.name ?? string.Empty,
+                EquipmentInventoryNames = run.EquipmentInventory.ConvertAll(e => e.name).ToArray(),
                 CurrentNodeID     = currentNodeID,
                 VisitedNodeIDs    = mapData?.Nodes.FindAll(n => n.Visited).ConvertAll(n => n.ID).ToArray()
                                     ?? new int[0],
@@ -167,6 +177,17 @@ namespace DarkChronicle.Roguelike
 
             if (dto.UnlockedSkillNames != null)
                 run.UnlockedSkillNames = new List<string>(dto.UnlockedSkillNames);
+
+            if (!string.IsNullOrEmpty(dto.EquippedWeaponName))
+                run.EquippedWeapon    = registry.FindEquipment(dto.EquippedWeaponName);
+            if (!string.IsNullOrEmpty(dto.EquippedArmorName))
+                run.EquippedArmor     = registry.FindEquipment(dto.EquippedArmorName);
+            if (!string.IsNullOrEmpty(dto.EquippedAccessoryName))
+                run.EquippedAccessory = registry.FindEquipment(dto.EquippedAccessoryName);
+
+            if (dto.EquipmentInventoryNames != null)
+                foreach (var n in dto.EquipmentInventoryNames)
+                { var e = registry.FindEquipment(n); if (e != null) run.EquipmentInventory.Add(e); }
 
             return run;
         }

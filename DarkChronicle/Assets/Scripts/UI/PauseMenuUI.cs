@@ -20,6 +20,7 @@ namespace DarkChronicle.UI
         [Header("Buttons")]
         [SerializeField] Button         _resumeButton;
         [SerializeField] Button         _statusButton;
+        [SerializeField] Button         _equipButton;
         [SerializeField] Button         _optionsButton;
         [SerializeField] Button         _saveButton;
         [SerializeField] Button         _abandonButton;
@@ -44,6 +45,7 @@ namespace DarkChronicle.UI
 
         public event System.Action OnResumed;
         public event System.Action OnStatusRequested;
+        public event System.Action OnEquipRequested;
         public event System.Action OnSaveRequested;
         public event System.Action OnMainMenuConfirmed;
         public event System.Action OnAbandonConfirmed;
@@ -53,6 +55,7 @@ namespace DarkChronicle.UI
         {
             _resumeButton  .onClick.AddListener(Resume);
             _statusButton  .onClick.AddListener(() => OnStatusRequested?.Invoke());
+            _equipButton  ?.onClick.AddListener(() => OnEquipRequested?.Invoke());
             _optionsButton .onClick.AddListener(OpenOptions);
             _saveButton    .onClick.AddListener(Save);
             _abandonButton .onClick.AddListener(() => ShowConfirm("ランを諦めますか？",

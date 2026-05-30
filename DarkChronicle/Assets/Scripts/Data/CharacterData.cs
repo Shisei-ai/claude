@@ -268,4 +268,46 @@ namespace DarkChronicle.Data
     }
 
     public enum ItemType { Consumable, Equipment, KeyItem, Material }
+
+    // ── Equipment Enums ────────────────────────────────────────────────────
+    public enum EquipSlot         { Weapon, Armor, Accessory }
+    public enum EquipmentRarity   { Common, Uncommon, Rare }
+
+    // ── Equipment Data ─────────────────────────────────────────────────────
+    [CreateAssetMenu(fileName = "EquipmentData", menuName = "DarkChronicle/Equipment")]
+    public class EquipmentData : ScriptableObject
+    {
+        [Header("Identity")]
+        public string           EquipName;
+        [TextArea] public string Description;
+        public Sprite           Icon;
+        public EquipSlot        Slot;
+        public EquipmentRarity  Rarity;
+        public int              Value;
+
+        [Header("Proficiency")]
+        public WeaponType   WeaponCategory;
+        public ArmorType    ArmorCategory;
+
+        [Header("Stat Bonus")]
+        public CharacterStats   BonusStats;
+
+        [Header("Special")]
+        public ElementType  WeaponElement;
+        public string       PassiveText;
+
+        public string RarityLabel => Rarity switch
+        {
+            EquipmentRarity.Rare     => "【希少】",
+            EquipmentRarity.Uncommon => "【珍しい】",
+            _                        => "【普通】",
+        };
+
+        public Color RarityColor => Rarity switch
+        {
+            EquipmentRarity.Rare     => new Color(1f,  0.82f, 0.1f),
+            EquipmentRarity.Uncommon => new Color(0.5f, 0.9f, 1f),
+            _                        => Color.white,
+        };
+    }
 }

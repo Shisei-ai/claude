@@ -27,23 +27,29 @@ namespace DarkChronicle.Roguelike
         [Header("Items")]
         [SerializeField] List<ItemData>      _allItems;
 
-        Dictionary<string, CharacterData> _charMap  = new();
-        Dictionary<string, SkillData>     _skillMap = new();
-        Dictionary<string, RelicData>     _relicMap = new();
-        Dictionary<string, ItemData>      _itemMap  = new();
+        [Header("Equipment")]
+        [SerializeField] List<EquipmentData> _allEquipment;
+
+        Dictionary<string, CharacterData>  _charMap   = new();
+        Dictionary<string, SkillData>      _skillMap  = new();
+        Dictionary<string, RelicData>      _relicMap  = new();
+        Dictionary<string, ItemData>       _itemMap   = new();
+        Dictionary<string, EquipmentData>  _equipMap  = new();
 
         void Awake()
         {
-            Instance  = this;
-            _charMap  = (_characters ?? new()).Where(x => x).ToDictionary(x => x.name);
-            _skillMap = (_allSkills  ?? new()).Where(x => x).ToDictionary(x => x.name);
-            _relicMap = (_allRelics  ?? new()).Where(x => x).ToDictionary(x => x.name);
-            _itemMap  = (_allItems   ?? new()).Where(x => x).ToDictionary(x => x.name);
+            Instance   = this;
+            _charMap   = (_characters   ?? new()).Where(x => x).ToDictionary(x => x.name);
+            _skillMap  = (_allSkills    ?? new()).Where(x => x).ToDictionary(x => x.name);
+            _relicMap  = (_allRelics    ?? new()).Where(x => x).ToDictionary(x => x.name);
+            _itemMap   = (_allItems     ?? new()).Where(x => x).ToDictionary(x => x.name);
+            _equipMap  = (_allEquipment ?? new()).Where(x => x).ToDictionary(x => x.name);
         }
 
-        public CharacterData FindCharacter(string n) => _charMap.TryGetValue(n,  out var v) ? v : null;
-        public SkillData     FindSkill(string n)     => _skillMap.TryGetValue(n, out var v) ? v : null;
-        public RelicData     FindRelic(string n)     => _relicMap.TryGetValue(n, out var v) ? v : null;
-        public ItemData      FindItem(string n)      => _itemMap.TryGetValue(n,  out var v) ? v : ItemFactory.Get(n);
+        public CharacterData  FindCharacter(string n)  => _charMap.TryGetValue(n,   out var v) ? v : null;
+        public SkillData      FindSkill(string n)      => _skillMap.TryGetValue(n,  out var v) ? v : null;
+        public RelicData      FindRelic(string n)      => _relicMap.TryGetValue(n,  out var v) ? v : null;
+        public ItemData       FindItem(string n)       => _itemMap.TryGetValue(n,   out var v) ? v : ItemFactory.Get(n);
+        public EquipmentData  FindEquipment(string n)  => _equipMap.TryGetValue(n,  out var v) ? v : EquipmentFactory.Get(n);
     }
 }

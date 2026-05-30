@@ -172,6 +172,29 @@ namespace DarkChronicle.Roguelike
         }
 
         // ── Relic Obtain Animation ─────────────────────────────────────────
+        public IEnumerator ShowEquipmentObtained(Data.EquipmentData equip)
+        {
+            if (_relicObtainIcon  && equip.Icon != null) _relicObtainIcon.sprite = equip.Icon;
+            if (_relicObtainName)  _relicObtainName.text   = equip.EquipName;
+            if (_relicObtainDesc)  _relicObtainDesc.text   = equip.Description;
+            if (_relicObtainRarity)
+            {
+                _relicObtainRarity.text  = equip.RarityLabel;
+                _relicObtainRarity.color = equip.RarityColor;
+            }
+
+            _audioSource?.PlayOneShot(_commonLootSFX);
+            yield return FadeGroup(_relicObtainPanel, 0f, 1f, 0.5f);
+
+            bool dismissed = false;
+            var btn = _relicObtainPanel.GetComponentInChildren<Button>();
+            if (btn != null) { btn.onClick.RemoveAllListeners(); btn.onClick.AddListener(() => dismissed = true); }
+            while (!dismissed && !Input.GetKeyDown(KeyCode.Z) && !Input.GetKeyDown(KeyCode.Return))
+                yield return null;
+
+            yield return FadeGroup(_relicObtainPanel, 1f, 0f, 0.3f);
+        }
+
         public IEnumerator ShowRelicObtained(RelicData relic)
         {
             _relicObtainIcon.sprite   = relic.Icon;
