@@ -165,6 +165,7 @@ namespace DarkChronicle.Roguelike
 
             if (_run.HasRelic(RelicEffectType.FloorClearHeal))
                 _run.HealHP(_relicManager.ModifyHealAmount(Mathf.RoundToInt(_run.MaxHP * 0.3f)));
+            _relicManager.NotifyFloorCleared();
             yield return ShowFloorClearScreen(resumeFloor);
 
             for (_run.CurrentFloor = resumeFloor + 1;
@@ -177,6 +178,7 @@ namespace DarkChronicle.Roguelike
 
                 if (_run.HasRelic(RelicEffectType.FloorClearHeal))
                     _run.HealHP(_relicManager.ModifyHealAmount(Mathf.RoundToInt(_run.MaxHP * 0.3f)));
+                _relicManager.NotifyFloorCleared();
                 yield return ShowFloorClearScreen(_run.CurrentFloor);
             }
 
@@ -341,6 +343,7 @@ namespace DarkChronicle.Roguelike
                     int healAmt = Mathf.RoundToInt(_run.MaxHP * 0.3f);
                     _run.HealHP(_relicManager.ModifyHealAmount(healAmt));
                 }
+                _relicManager.NotifyFloorCleared();
 
                 yield return ShowFloorClearScreen(_run.CurrentFloor);
             }
@@ -780,6 +783,20 @@ namespace DarkChronicle.Roguelike
             float mirrorCursePenalty = _relicManager.GetMirrorCurseHPPenalty();
             if (mirrorCursePenalty > 0f)
                 base_.MaxHP = Mathf.RoundToInt(base_.MaxHP * (1f - mirrorCursePenalty));
+
+            // GoldToHP: +1 MaxHP per 50G held
+            base_.MaxHP += _relicManager.GetGoldToHPBonus();
+
+            // AncientCurse: +30% to all combat stats (per-room HP drain handled via AttachedCurse)
+            float ancientBonus = _relicManager.GetAncientCurseStatMultiplier();
+            if (ancientBonus > 0f)
+            {
+                base_.PhysicalAttack  = Mathf.RoundToInt(base_.PhysicalAttack  * (1f + ancientBonus));
+                base_.MagicAttack     = Mathf.RoundToInt(base_.MagicAttack     * (1f + ancientBonus));
+                base_.PhysicalDefense = Mathf.RoundToInt(base_.PhysicalDefense * (1f + ancientBonus));
+                base_.MagicDefense    = Mathf.RoundToInt(base_.MagicDefense    * (1f + ancientBonus));
+                base_.Speed           = Mathf.RoundToInt(base_.Speed           * (1f + ancientBonus));
+            }
 
             return base_;
         }

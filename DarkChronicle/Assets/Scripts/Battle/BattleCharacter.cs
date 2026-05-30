@@ -142,7 +142,8 @@ namespace DarkChronicle.Battle
         }
 
         // ── BP / Boost System ──────────────────────────────────────────────
-        public void AddBP(int amount = 1) => BP = Mathf.Min(5, BP + amount);
+        public int  MaxBP { get; set; } = 5;
+        public void AddBP(int amount = 1) => BP = Mathf.Min(MaxBP, BP + amount);
 
         public bool UseBoost(int boosts)
         {

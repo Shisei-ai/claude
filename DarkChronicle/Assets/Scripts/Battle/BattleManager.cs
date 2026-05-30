@@ -203,9 +203,12 @@ namespace DarkChronicle.Battle
                 if (_enemies.All(e => !e.IsAlive)) { yield return BattleVictory(); yield break; }
                 if (_heroes.All(h => !h.IsAlive))  { yield return BattleDefeat();  yield break; }
 
-                // Heroes gain BP on enemy turns
+                // Heroes gain BP on enemy turns (BPGainUp relic adds bonus)
                 if (!_activeCharacter.IsPlayer)
-                    foreach (var h in _heroes.Where(h => h.IsAlive)) h.AddBP(1);
+                {
+                    int gain = 1 + (RelicManager.Instance?.GetBPGainBonus() ?? 0);
+                    foreach (var h in _heroes.Where(h => h.IsAlive)) h.AddBP(gain);
+                }
 
                 yield return new WaitForSeconds(_actionDelay);
             }
@@ -346,6 +349,7 @@ namespace DarkChronicle.Battle
         {
             if (skill == null) yield break;
 
+            if (boostLevel > 0) RelicManager.Instance?.NotifyBoostUsed(boostLevel);
             var upgrade = BoostSkillResolver.GetUpgrade(skill, boostLevel);
 
             // Resolve final targets (BoostUpgrade may expand scope)
@@ -496,7 +500,7 @@ namespace DarkChronicle.Battle
                         }
                     }
 
-                    // ExtraHitOnCrit (Ash)
+                    // ExtraHitOnCrit (Ash upgrade)
                     if (isCrit && upgrade.ExtraHitOnCrit && target.IsAlive)
                     {
                         bool extraCrit;
@@ -506,6 +510,29 @@ namespace DarkChronicle.Battle
                         yield return ApplyDamageToTarget(user, target, extraRaw,
                                                          skill.DamageType, skill.Element, 0f, extraCrit);
                     }
+
+                    // ExtraHitOnCrit (relic — triggers independently of upgrade)
+                    if (isCrit && !skill.IsHeal && target.IsAlive
+                        && RelicManager.Instance?.TryExtraHitOnCrit() == true)
+                    {
+                        bool extraCrit;
+                        int extraRaw = ComputeRawDamage(user, target, skill.BasePower * 0.5f,
+                                                         skill.DamageType, skill.Element,
+                                                         BoostUpgrade.None, false, out extraCrit);
+                        yield return ApplyDamageToTarget(user, target, extraRaw,
+                                                         skill.DamageType, skill.Element, 0f, extraCrit);
+                    }
+
+                    // ExecuteLowHP relic: finish off enemies below 10% HP
+                    if (target.IsAlive && RelicManager.Instance?.TryExecuteLowHP(target) == true)
+                    {
+                        target.TakeDamage(target.HP + 9999, DamageType.True);
+                        _battleUI.ShowMessage($"処刑！{target.DisplayName} を葬った！");
+                        yield return HandleDefeat(target);
+                    }
+
+                    // Notify relic of crit for CritChain
+                    if (isCrit) RelicManager.Instance?.NotifyCriticalHit();
                 }
 
                 yield return new WaitForSeconds(0.12f);
@@ -856,6 +883,7 @@ namespace DarkChronicle.Battle
             var arcaneMastery = attacker.Traits.GetTrait<Trait_ArcaneMastery>();
             if (arcaneMastery != null && isMagic) mult += arcaneMastery.GetMagicCritMultiplierBonus();
 
+            mult += RelicManager.Instance?.GetCritDamageBonus() ?? 0f;
             return mult;
         }
 
@@ -872,6 +900,7 @@ namespace DarkChronicle.Battle
                 if (arcaneMastery != null) rate += arcaneMastery.GetMagicCritRateBonus(attacker.Matk);
             }
 
+            rate += RelicManager.Instance?.GetCritRateBonus() ?? 0;
             return Mathf.Clamp(rate, 0, 100);
         }
 
@@ -913,6 +942,17 @@ namespace DarkChronicle.Battle
             OnDamageDealt?.Invoke(target, dealt);
             _battleUI.ShowDamageNumber(target, dealt, isCrit);
             _camera?.Shake(isCrit ? 0.3f : 0.15f);
+
+            // ThornsReflect: reflect a portion of damage back to the attacker
+            if (target.IsPlayer && dealt > 0 && attacker != null && attacker.IsAlive && !attacker.IsPlayer)
+            {
+                int thorns = RelicManager.Instance?.GetThornsReflectDamage(dealt) ?? 0;
+                if (thorns > 0)
+                {
+                    attacker.TakeDamage(thorns, DamageType.True);
+                    _battleUI.ShowDamageNumber(attacker, thorns, false);
+                }
+            }
 
             // Causal chain propagation
             yield return PropagateChainDamage(target, dealt, type);
@@ -960,6 +1000,7 @@ namespace DarkChronicle.Battle
             float dodge = 0f;
             var shadow = target.Traits.GetTrait<Trait_ShadowDance>();
             if (shadow != null) dodge += Trait_ShadowDance.DodgeRateBonus;
+            dodge += RelicManager.Instance?.GetLuckyDodgeBonus() ?? 0f;
 
             if (target.HasStatus(StatusEffectType.Blind)) dodge -= 0.15f;
             if (attacker.HasStatus(StatusEffectType.Blind)) hitChance -= 0.25f;

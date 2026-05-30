@@ -25,6 +25,12 @@ namespace DarkChronicle.Roguelike.Relics
         int  _soulSiphonCount;
 
         // ── Per-battle tracking (new) ──────────────────────────────────────
+        float  _bossShieldBarrier;        // BossShield: boss-fight barrier HP
+        float  _shieldPerFloorBarrier;    // ShieldPerFloor: accumulated across floors (persists)
+        int    _lastBoostLevel;           // BoostDamageMultiplier: boost level of last skill
+        float  _randomSkillBuffMult;      // RandomSkillBuff: 1.5× for next skill this turn
+        bool   _randomSkillBuffUsed;      // RandomSkillBuff: reset each turn
+        bool   _shortcutKeyUsed;          // ShortcutKey: one-time map skip per run
         int    _stackingRageStacks;       // StackingRage: 0–10
         bool   _critChainActive;          // CritChain: true after a crit
         bool   _firstTurnPassed;          // FirstTurnBoost: false on turn 1
@@ -85,6 +91,10 @@ namespace DarkChronicle.Roguelike.Relics
             _echoUsed           = false;
 
             // Reset new state
+            _bossShieldBarrier       = 0f;
+            _lastBoostLevel          = 0;
+            _randomSkillBuffMult     = 1f;
+            _randomSkillBuffUsed     = false;
             _stackingRageStacks      = 0;
             _critChainActive         = false;
             _firstTurnPassed         = false;
@@ -158,6 +168,25 @@ namespace DarkChronicle.Roguelike.Relics
             // JumpStart: first skill of this battle is free
             if (HasEffect(RelicEffectType.JumpStart))
                 _jumpStartAvailable = true;
+
+            // BossShield: HP barrier at boss battle start
+            if (HasEffect(RelicEffectType.BossShield))
+            {
+                bool hasBoss = enemies.Exists(e =>
+                    e.EnemyData?.Rank == EnemyRank.Boss ||
+                    e.EnemyData?.Rank == EnemyRank.TrueFinalBoss);
+                if (hasBoss && heroes.Count > 0)
+                    _bossShieldBarrier = heroes[0].MaxHP * 0.15f;
+            }
+
+            // StartWithFullMP
+            if (HasEffect(RelicEffectType.StartWithFullMP))
+                foreach (var hero in heroes) hero.RestoreMana(hero.MaxMP);
+
+            // MaxBPUp: extend the BP cap
+            int maxBPBonus = (int)SumEffect(RelicEffectType.MaxBPUp);
+            if (maxBPBonus > 0)
+                foreach (var hero in heroes) hero.MaxBP += maxBPBonus;
         }
 
         // ── Turn Start ─────────────────────────────────────────────────────
@@ -179,7 +208,9 @@ namespace DarkChronicle.Roguelike.Relics
 
             // New turn tracking
             _turnCount++;
-            _firstTurnPassed = _turnCount > 1;
+            _firstTurnPassed  = _turnCount > 1;
+            _randomSkillBuffUsed = false;
+            if (HasEffect(RelicEffectType.RandomSkillBuff)) _randomSkillBuffMult = 1.50f;
 
             // BreakRegen: if any enemy is broken, heal hero
             if (HasEffect(RelicEffectType.BreakRegen))
@@ -260,9 +291,12 @@ namespace DarkChronicle.Roguelike.Relics
             // Elemental bonus
             multiplier += GetElementBonus(element) / 100f;
 
-            // Break damage
+            // Break damage (two separate relic effects)
             if (target.IsBroken)
+            {
                 multiplier += SumEffect(RelicEffectType.BonusDamageOnBreak) / 100f;
+                multiplier += SumEffect(RelicEffectType.BreakDamageBonus)   / 100f;
+            }
 
             // VampiricBlade: absorb 20% (heal applied in OnDamageDealt)
             // Handled there to keep modifier pure.
@@ -365,6 +399,21 @@ namespace DarkChronicle.Roguelike.Relics
             // DoubleOrNothing: coin flip mult applied at battle start
             multiplier *= _doubleOrNothingMult;
 
+            // CursedButPowerful: +30% when holding at least one curse
+            if (HasEffect(RelicEffectType.CursedButPowerful) && _run.Curses.Count > 0)
+                multiplier += 0.30f;
+
+            // BoostDamageMultiplier: scales with boost level of this skill
+            if (_lastBoostLevel > 0 && HasEffect(RelicEffectType.BoostDamageMultiplier))
+                multiplier += SumEffect(RelicEffectType.BoostDamageMultiplier) / 100f * _lastBoostLevel;
+
+            // RandomSkillBuff: one-shot 50% bonus for next skill this turn
+            if (!_randomSkillBuffUsed && _randomSkillBuffMult > 1f)
+            {
+                multiplier       *= _randomSkillBuffMult;
+                _randomSkillBuffUsed = true;
+            }
+
             return Mathf.Max(1, Mathf.RoundToInt(rawDamage * multiplier));
         }
 
@@ -415,6 +464,22 @@ namespace DarkChronicle.Roguelike.Relics
             {
                 float absorbed = Mathf.Min(_fortifiedWallBarrier, rawDamage);
                 _fortifiedWallBarrier -= absorbed;
+                rawDamage -= Mathf.RoundToInt(absorbed);
+            }
+
+            // BossShield barrier absorption
+            if (_bossShieldBarrier > 0f)
+            {
+                float absorbed = Mathf.Min(_bossShieldBarrier, rawDamage);
+                _bossShieldBarrier -= absorbed;
+                rawDamage -= Mathf.RoundToInt(absorbed);
+            }
+
+            // ShieldPerFloor accumulated barrier
+            if (_shieldPerFloorBarrier > 0f)
+            {
+                float absorbed = Mathf.Min(_shieldPerFloorBarrier, rawDamage);
+                _shieldPerFloorBarrier -= absorbed;
                 rawDamage -= Mathf.RoundToInt(absorbed);
             }
 
@@ -517,7 +582,10 @@ namespace DarkChronicle.Roguelike.Relics
                 _run.HealHP(heal);
             }
 
-            // OnKillBP: done via BattleManager event subscription
+            // OnKillBP
+            if (HasEffect(RelicEffectType.OnKillBP))
+                foreach (var hero in _currentHeroes.Where(h => h.IsAlive))
+                    hero.AddBP(1);
 
             // SoulSiphon
             if (HasEffect(RelicEffectType.SoulSiphon))
@@ -672,9 +740,10 @@ namespace DarkChronicle.Roguelike.Relics
             HasEffect(RelicEffectType.EfficientBoost)
                 ? Mathf.Max(1, baseCost - 1) : baseCost;
 
-        /// <summary>Call when a Boost is used to arm BoostSurge.</summary>
-        public void NotifyBoostUsed()
+        /// <summary>Call when a Boost is used. Arms BoostSurge and records level for BoostDamageMultiplier.</summary>
+        public void NotifyBoostUsed(int boostLevel = 0)
         {
+            _lastBoostLevel = boostLevel;
             if (HasEffect(RelicEffectType.BoostSurge)) _boostSurgeActive = true;
         }
 
@@ -759,6 +828,99 @@ namespace DarkChronicle.Roguelike.Relics
         /// <summary>MirrorCurse MaxHP reduction factor (10% per curse). Applied in RoguelikeManager.BuildCurrentHeroStats.</summary>
         public float GetMirrorCurseHPPenalty() =>
             HasEffect(RelicEffectType.MirrorCurse) ? _run.Curses.Count * 0.10f : 0f;
+
+        // ── Previously-missing effect handlers ────────────────────────────
+
+        /// <summary>Extra crit rate from CritRateUp relics. Add to GetEffectiveCritRate in BattleManager.</summary>
+        public int GetCritRateBonus() => (int)SumEffect(RelicEffectType.CritRateUp);
+
+        /// <summary>Extra crit damage multiplier from CritDamageUp relics. Add to GetCritMultiplier in BattleManager.</summary>
+        public float GetCritDamageBonus() => SumEffect(RelicEffectType.CritDamageUp) / 100f;
+
+        /// <summary>True if ExtraHitOnCrit relic triggers an extra hit (40% chance per crit).</summary>
+        public bool TryExtraHitOnCrit() =>
+            HasEffect(RelicEffectType.ExtraHitOnCrit) && Random.value < 0.40f;
+
+        /// <summary>True if ExecuteLowHP relic should instantly defeat this enemy (HP ≤ 10%).</summary>
+        public bool TryExecuteLowHP(BattleCharacter target) =>
+            !target.IsPlayer && HasEffect(RelicEffectType.ExecuteLowHP) && target.HPRatio <= 0.10f;
+
+        /// <summary>Additional damage multiplier per hit index for MultiHitBonus relic (non-first hits).</summary>
+        public float GetMultiHitBonus(int hitIndex) =>
+            hitIndex > 0 && HasEffect(RelicEffectType.MultiHitBonus)
+            ? SumEffect(RelicEffectType.MultiHitBonus) / 100f : 0f;
+
+        /// <summary>Extra BP gained per BP-gain event (BPGainUp relic).</summary>
+        public int GetBPGainBonus() => (int)SumEffect(RelicEffectType.BPGainUp);
+
+        /// <summary>True if BoostFree relic grants a free boost this battle (one-time).</summary>
+        public bool TryFreeBoost()
+        {
+            if (_freeBoostUsed || !HasEffect(RelicEffectType.BoostFree)) return false;
+            _freeBoostUsed = true;
+            return true;
+        }
+
+        /// <summary>True if the target's status type should be blocked by StatusImmunity relic.
+        /// The relic's PrimaryValue encodes the immune StatusEffectType as an int.</summary>
+        public bool IsImmuneToStatus(StatusEffectType type)
+        {
+            if (_run == null) return false;
+            return _run.Relics.Exists(r =>
+                r.PrimaryEffect == RelicEffectType.StatusImmunity &&
+                (int)type == Mathf.RoundToInt(r.PrimaryValue));
+        }
+
+        /// <summary>True if WeaknessReveal relic reveals all enemy weaknesses at battle start.</summary>
+        public bool HasWeaknessReveal() => HasEffect(RelicEffectType.WeaknessReveal);
+
+        /// <summary>HP damage to reflect back to the attacker when a player hero is hit (ThornsReflect).</summary>
+        public int GetThornsReflectDamage(int dealtToHero) =>
+            HasEffect(RelicEffectType.ThornsReflect)
+            ? Mathf.Max(1, Mathf.RoundToInt(dealtToHero * SumEffect(RelicEffectType.ThornsReflect) / 100f))
+            : 0;
+
+        /// <summary>Flat evasion bonus from LuckyDodge relic (0–0.09 fraction).</summary>
+        public float GetLuckyDodgeBonus() =>
+            HasEffect(RelicEffectType.LuckyDodge)
+            ? Mathf.Clamp(GetLuck(), 0, 30) * 0.003f : 0f;
+
+        /// <summary>True if MiracleChance relic triggers a rare loot event (2% per check).</summary>
+        public bool ShouldTriggerMiracleChance() =>
+            HasEffect(RelicEffectType.MiracleChance) && Random.value < 0.02f;
+
+        /// <summary>Extra loot choices for elite battles (EliteReward).</summary>
+        public int GetEliteRewardBonus() => HasEffect(RelicEffectType.EliteReward) ? 1 : 0;
+
+        /// <summary>Applies LuckyGold multiplier to event-sourced gold rewards.</summary>
+        public int ModifyEventGold(int gold) =>
+            HasEffect(RelicEffectType.LuckyGold) ? Mathf.RoundToInt(gold * 1.5f) : gold;
+
+        /// <summary>MaxHP bonus from GoldToHP relic (+1 MaxHP per 50G held). Applied in BuildCurrentHeroStats.</summary>
+        public int GetGoldToHPBonus() =>
+            _run != null && HasEffect(RelicEffectType.GoldToHP) ? _run.Gold / 50 : 0;
+
+        /// <summary>Stat multiplier from AncientCurse relic (+30% offensive/defensive stats). Applied in BuildCurrentHeroStats.</summary>
+        public float GetAncientCurseStatMultiplier() =>
+            HasEffect(RelicEffectType.AncientCurse) ? 0.30f : 0f;
+
+        /// <summary>Gold reward multiplier for curse-room events (RiskRewardMaster: ×2).</summary>
+        public float GetRiskRewardMultiplier() =>
+            HasEffect(RelicEffectType.RiskRewardMaster) ? 2.0f : 1.0f;
+
+        /// <summary>True if ShortcutKey relic is available to skip one map node.</summary>
+        public bool HasShortcutKey() => !_shortcutKeyUsed && HasEffect(RelicEffectType.ShortcutKey);
+
+        /// <summary>Consume the ShortcutKey relic's one-time skip.</summary>
+        public void UseShortcutKey() => _shortcutKeyUsed = true;
+
+        /// <summary>Call when a floor is cleared to accumulate ShieldPerFloor barrier HP.</summary>
+        public void NotifyFloorCleared()
+        {
+            float pct = SumEffect(RelicEffectType.ShieldPerFloor);
+            if (pct > 0f && _run != null)
+                _shieldPerFloorBarrier += _run.MaxHP * pct;
+        }
 
         // ── Query Helpers ──────────────────────────────────────────────────
         bool HasEffect(RelicEffectType effect) =>
