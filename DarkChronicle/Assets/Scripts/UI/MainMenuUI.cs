@@ -1,9 +1,11 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
 using DarkChronicle.Core;
 using DarkChronicle.HD2D;
+using DarkChronicle.Roguelike;
 
 namespace DarkChronicle.UI
 {
@@ -24,6 +26,8 @@ namespace DarkChronicle.UI
         [SerializeField] CanvasGroup    _buttonsGroup;
         [SerializeField] Button         _newGameButton;
         [SerializeField] Button         _continueButton;
+        [SerializeField] Button         _roguelikeButton;
+        [SerializeField] Button         _metaUpgradeButton;
         [SerializeField] Button         _settingsButton;
         [SerializeField] Button         _quitButton;
 
@@ -51,12 +55,22 @@ namespace DarkChronicle.UI
             _saveSlotPanel.SetActive(false);
             _settingsPanel.SetActive(false);
 
-            _newGameButton .onClick.AddListener(OnNewGame);
-            _continueButton.onClick.AddListener(OnContinue);
-            _settingsButton.onClick.AddListener(OnSettings);
-            _quitButton    .onClick.AddListener(OnQuit);
+            _newGameButton    .onClick.AddListener(OnNewGame);
+            _continueButton   .onClick.AddListener(OnContinue);
+            _roguelikeButton  ?.onClick.AddListener(OnStartRoguelike);
+            _metaUpgradeButton?.onClick.AddListener(OnMetaUpgrade);
+            _settingsButton   .onClick.AddListener(OnSettings);
+            _quitButton       .onClick.AddListener(OnQuit);
 
             _continueButton.interactable = SaveSystem.Load(0) != null;
+
+            // Show Epitaph count on meta upgrade button label if available
+            if (_metaUpgradeButton != null)
+            {
+                var label = _metaUpgradeButton.GetComponentInChildren<TextMeshProUGUI>();
+                if (label != null)
+                    label.text = $"メタ強化  [{MetaProgression.TotalEpitaphs} 碑文]";
+            }
 
             StartCoroutine(IntroSequence());
         }
@@ -107,6 +121,12 @@ namespace DarkChronicle.UI
         }
 
         // ── Button Handlers ────────────────────────────────────────────────
+        void OnStartRoguelike() =>
+            SceneManager.LoadScene(SceneNames.Roguelike);
+
+        void OnMetaUpgrade() =>
+            SceneManager.LoadScene(SceneNames.MetaUpgrade);
+
         void OnNewGame()
         {
             _saveSlotPanel.SetActive(true);

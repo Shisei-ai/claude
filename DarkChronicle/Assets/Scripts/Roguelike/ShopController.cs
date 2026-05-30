@@ -220,7 +220,7 @@ namespace DarkChronicle.Roguelike
         void OnPurgeSkill()
         {
             int price = RelicManager.Instance.HasFreeRemove() ? 0 :
-                        RelicManager.Instance.ModifyShopPrice(SkillPurgePrice);
+                        ApplyMetaDiscount(RelicManager.Instance.ModifyShopPrice(SkillPurgePrice));
             if (_run.Gold < price) return;
             StartCoroutine(PurgeSkillFlow(price));
         }
@@ -238,7 +238,7 @@ namespace DarkChronicle.Roguelike
 
         void OnUpgradeSkill()
         {
-            int price = RelicManager.Instance.ModifyShopPrice(SkillUpgradePrice);
+            int price = ApplyMetaDiscount(RelicManager.Instance.ModifyShopPrice(SkillUpgradePrice));
             if (_run.Gold < price) return;
             StartCoroutine(UpgradeSkillFlow(price));
         }
