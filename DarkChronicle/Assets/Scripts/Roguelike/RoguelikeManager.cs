@@ -470,7 +470,7 @@ namespace DarkChronicle.Roguelike
             {
                 bool isElite = node.Type == NodeType.EliteBattle;
                 bool isBoss  = node.Type == NodeType.Boss;
-                var  enemies = SelectEncounterGroup(isElite, isBoss);
+                var  enemies = SelectEncounterGroup(isElite, isBoss, NodeContentSeed(node));
                 if (enemies != null)
                 {
                     ScaleEnemies(enemies, isElite, isBoss);
@@ -646,18 +646,28 @@ namespace DarkChronicle.Roguelike
 
         // ── Treasure ───────────────────────────────────────────────────────
         // ── Enemy Selection ────────────────────────────────────────────────
-        List<EnemyData> SelectEncounterGroup(bool isElite, bool isBoss)
+        // contentSeed > 0 → deterministic (from node.ContentID); 0 → Unity random
+        List<EnemyData> SelectEncounterGroup(bool isElite, bool isBoss, int contentSeed = 0)
         {
+            // Use System.Random for determinism when seed is provided
+            System.Func<int, int>   randInt   = contentSeed > 0
+                ? (max => new System.Random(contentSeed).Next(max))
+                : (max => Random.Range(0, max));
+            System.Func<float, float> randFloat = contentSeed > 0
+                ? (max => (float)(new System.Random(contentSeed ^ 0x5DEECE66D).NextDouble() * max))
+                : Random.Range;
+
             if (isBoss)
             {
-                if (_currentFloor.BossPool.Count == 0) return null;
-                return new List<EnemyData> { _currentFloor.BossPool[
-                    Random.Range(0, _currentFloor.BossPool.Count)] };
+                if (_currentFloor?.BossPool == null || _currentFloor.BossPool.Count == 0) return null;
+                return new List<EnemyData> { _currentFloor.BossPool[randInt(_currentFloor.BossPool.Count)] };
             }
 
-            var pool  = isElite ? _currentFloor.EliteEncounters : _currentFloor.NormalEncounters;
+            var pool = isElite ? _currentFloor.EliteEncounters : _currentFloor.NormalEncounters;
+            if (pool == null || pool.Count == 0) return null;
+
             float total = pool.Sum(g => g.AdjustedWeight(_run.Sanity));
-            float roll  = Random.Range(0f, total);
+            float roll  = randFloat(total);
             float cum   = 0f;
 
             foreach (var group in pool)
@@ -665,7 +675,15 @@ namespace DarkChronicle.Roguelike
                 cum += group.AdjustedWeight(_run.Sanity);
                 if (roll < cum) return new List<EnemyData>(group.Enemies);
             }
-            return pool.Count > 0 ? new List<EnemyData>(pool[0].Enemies) : null;
+            return new List<EnemyData>(pool[0].Enemies);
+        }
+
+        // Parses the numeric seed from MapNode.ContentID ("typeInt_seed" format)
+        static int NodeContentSeed(Map.MapNode node)
+        {
+            if (string.IsNullOrEmpty(node?.ContentID)) return 0;
+            int idx = node.ContentID.IndexOf('_');
+            return idx >= 0 && int.TryParse(node.ContentID.Substring(idx + 1), out int s) ? s : 0;
         }
 
         void ScaleEnemies(List<EnemyData> enemies, bool isElite, bool isBoss)

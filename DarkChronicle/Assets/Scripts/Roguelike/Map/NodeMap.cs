@@ -74,12 +74,16 @@ namespace DarkChronicle.Roguelike.Map
                 foreach (int col in liveColumns[row])
                 {
                     var type = PickNodeType(row, rng, floorIndex);
+                    int nodeID = row * 100 + col;
                     map.Nodes.Add(new MapNode
                     {
-                        Row      = row,
-                        Column   = col,
-                        Type     = type,
-                        ID       = row * 100 + col,
+                        Row       = row,
+                        Column    = col,
+                        Type      = type,
+                        ID        = nodeID,
+                        // Deterministic content ID — RoguelikeManager can use this
+                        // to seed encounter group selection reproducibly.
+                        ContentID = $"{(int)type}_{seed + nodeID * 137 + floorIndex * 9973}",
                     });
                 }
             }
