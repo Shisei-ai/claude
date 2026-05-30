@@ -48,6 +48,12 @@ namespace DarkChronicle.Roguelike
         [SerializeField] GameObject          _charCardPrefab;
         [SerializeField] List<CharacterData> _playableCharacters;
 
+        // ── Difficulty Select UI ───────────────────────────────────────────
+        [Header("Difficulty Select")]
+        [SerializeField] CanvasGroup         _difficultyPanel;
+        [SerializeField] Transform           _difficultyCardContainer;
+        [SerializeField] GameObject          _difficultyCardPrefab;
+
         // ── HUD ────────────────────────────────────────────────────────────
         [Header("Run HUD")]
         [SerializeField] CanvasGroup         _hud;
@@ -117,6 +123,8 @@ namespace DarkChronicle.Roguelike
 
             yield return CharacterSelect();
             if (_run == null) yield break;
+
+            yield return DifficultySelect();
 
             InitSubSystems();
             yield return StartRun();
@@ -221,6 +229,50 @@ namespace DarkChronicle.Roguelike
             LevelSystem.InitStartingSkills(_run, chosen.StarterJob);
         }
 
+        // ── Difficulty Select ──────────────────────────────────────────────
+        IEnumerator DifficultySelect()
+        {
+            // 難易度パネルが未設定のシーンではスキップし Normal をデフォルトとする
+            if (_difficultyPanel == null || _difficultyCardContainer == null || _difficultyCardPrefab == null)
+                yield break;
+
+            int maxSelectable = Mathf.Min(
+                MetaProgression.MaxUnlockedDifficulty + 1,
+                DifficultyConfig.Tiers.Length - 1);
+
+            // 初期選択: 前回解放済みの最高難易度（上限: maxSelectable）
+            int chosen    = Mathf.Clamp(MetaProgression.MaxUnlockedDifficulty, 0, maxSelectable);
+            bool confirmed = false;
+
+            foreach (Transform child in _difficultyCardContainer) Destroy(child.gameObject);
+
+            var cards = new DifficultySelectCard[DifficultyConfig.Tiers.Length];
+            for (int i = 0; i < DifficultyConfig.Tiers.Length; i++)
+            {
+                int cap    = i;
+                bool locked = i > maxSelectable;
+                var go   = Instantiate(_difficultyCardPrefab, _difficultyCardContainer);
+                var card = go.GetComponent<DifficultySelectCard>()
+                           ?? go.AddComponent<DifficultySelectCard>();
+                card.Setup(DifficultyConfig.Tiers[i], locked, () =>
+                {
+                    // 選択変更: ハイライト更新
+                    foreach (var c in cards) c?.SetSelected(false);
+                    chosen = cap;
+                    cards[cap]?.SetSelected(true);
+                    confirmed = true;
+                });
+                cards[i] = card;
+            }
+            cards[chosen]?.SetSelected(true);
+
+            yield return FadeGroup(_difficultyPanel, 0f, 1f, 0.5f);
+            while (!confirmed) yield return null;
+            yield return FadeGroup(_difficultyPanel, 1f, 0f, 0.4f);
+
+            _run.DifficultyLevel = chosen;
+        }
+
         void InitSubSystems()
         {
             _relicManager       .InitForRun(_run);
@@ -265,6 +317,16 @@ namespace DarkChronicle.Roguelike
         // ── Run Loop ───────────────────────────────────────────────────────
         IEnumerator StartRun()
         {
+            // 難易度に応じた初期ゴールドと初期呪いを付与する
+            var diff = DifficultyConfig.Get(_run.DifficultyLevel);
+            if (diff.StartingGold > 0)
+                _run.EarnGold(diff.StartingGold);
+            if (diff.StartWithCurse)
+            {
+                var curse = DrawRandomCurse();
+                if (curse != null) _run.AddCurse(curse);
+            }
+
             yield return FadeGroup(_hud, 0f, 1f, 0.5f);
 
             for (_run.CurrentFloor = 0; _run.CurrentFloor < _floorLibrary.Floors.Count; _run.CurrentFloor++)
@@ -609,12 +671,18 @@ namespace DarkChronicle.Roguelike
         {
             if (_currentFloor == null) return;
 
-            float hpMult  = _currentFloor.EnemyHPMultiplier;
-            float dmgMult = isBoss  ? _currentFloor.BossDamageMultiplier
-                                    : _currentFloor.EnemyDamageMultiplier;
+            var diff = DifficultyConfig.Get(_run?.DifficultyLevel ?? 1);
+
+            float hpMult  = _currentFloor.EnemyHPMultiplier * diff.EnemyHPMult;
+            float dmgMult = (isBoss  ? _currentFloor.BossDamageMultiplier
+                                     : _currentFloor.EnemyDamageMultiplier)
+                          * diff.EnemyDamageMult;
             int   hpBonus = isBoss  ? _currentFloor.BossHPBonus : 0;
-            int   shBonus = isBoss  ? _currentFloor.BossShieldBonus
-                          : isElite ? _currentFloor.AdditionalShieldsOnElite : 0;
+            // 盾: フロア基本値 + 難易度エリート盾 (elite時) + 難易度全敵盾
+            int   floorSh = isBoss  ? _currentFloor.BossShieldBonus
+                          : isElite ? _currentFloor.AdditionalShieldsOnElite + diff.ExtraEliteShields
+                          :           0;
+            int   shBonus = floorSh + diff.ExtraAllEnemyShields;
 
             for (int i = 0; i < enemies.Count; i++)
             {
@@ -823,6 +891,7 @@ namespace DarkChronicle.Roguelike
             _runEndInProgress = true;
             _run.IsRunActive  = false;
             RunSaveSystem.DeleteSave();
+            MetaProgression.RecordRunEnd(_run, won: false);
             AudioManager.Instance?.StopBGM();
             yield return new WaitForSeconds(1.5f);
             _runSummaryText.text = BuildSummary(won: false);
@@ -836,6 +905,8 @@ namespace DarkChronicle.Roguelike
             _runEndInProgress = true;
             _run.IsRunActive  = false;
             RunSaveSystem.DeleteSave();
+            MetaProgression.RecordRunEnd(_run, won: true);
+            MetaProgression.TryUnlockNextDifficulty(_run.DifficultyLevel);
             yield return new WaitForSeconds(1f);
             _runSummaryText.text = BuildSummary(won: true);
             yield return FadeGroup(_victoryPanel, 0f, 1f, 1f);
@@ -867,8 +938,10 @@ namespace DarkChronicle.Roguelike
 
         string BuildSummary(bool won)
         {
+            var diff = DifficultyConfig.Get(_run.DifficultyLevel);
             System.TimeSpan elapsed = System.DateTime.Now - _run.StartTime;
             return $"{(won ? "クリア！" : "力尽きた…")}\n" +
+                   $"難易度: {diff.DisplayName}\n" +
                    $"到達フロア: {_run.CurrentFloor + 1}\n" +
                    $"キャラクターLv: {_run.CharacterLevel}  累計EXP: {_run.TotalExpGained}\n" +
                    $"ジョブLv: {_run.JobLevel}  累計JP: {_run.TotalJPGained}\n" +

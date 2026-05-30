@@ -137,29 +137,33 @@ namespace DarkChronicle.Roguelike
         public static bool HasSeenRelic(string relicName) =>
             PlayerPrefs.GetInt($"Relic_{relicName}", 0) == 1;
 
-        // ── Difficulty Modifiers (Ascension-style) ─────────────────────────
-        public static int  AscensionLevel => Mathf.Min(PlayerPrefs.GetInt("Ascension", 0), 20);
+        // ── Difficulty Unlock ──────────────────────────────────────────────
+        const string KeyMaxDifficulty = "Meta_MaxDifficulty";
 
-        public static void IncrementAscension()
+        // 解放済みの最高難易度（0=物語〜5=深淵）。Normal(1) は常に選択可。
+        public static int MaxUnlockedDifficulty =>
+            PlayerPrefs.GetInt(KeyMaxDifficulty, 1);
+
+        // クリアした難易度の次の段階を解放する。
+        public static void TryUnlockNextDifficulty(int clearedDifficulty)
         {
-            if (TotalWins > AscensionLevel)
-                PlayerPrefs.SetInt("Ascension", AscensionLevel + 1);
+            int next = clearedDifficulty + 1;
+            int max  = DifficultyConfig.Tiers.Length - 1;
+            if (next <= max && next > MaxUnlockedDifficulty)
+            {
+                PlayerPrefs.SetInt(KeyMaxDifficulty, next);
+                PlayerPrefs.Save();
+            }
         }
 
-        public static float GetEnemyHPMultiplier() =>
-            1f + AscensionLevel * 0.08f;   // +8% HP per ascension level
-
-        public static float GetEnemyDamageMultiplier() =>
-            1f + AscensionLevel * 0.05f;   // +5% damage per ascension level
-
-        public static int GetStartingGoldPenalty() =>
-            AscensionLevel >= 5 ? -50 : 0;
-
         // ── Stats Display ──────────────────────────────────────────────────
-        public static string GetStatsText() =>
-            $"総ラン数: {TotalRuns}\n" +
-            $"クリア数: {TotalWins}\n" +
-            $"最高到達: Floor {MaxFloor + 1}\n" +
-            $"アセンション: {AscensionLevel}";
+        public static string GetStatsText()
+        {
+            var tier = DifficultyConfig.Get(MaxUnlockedDifficulty);
+            return $"総ラン数: {TotalRuns}\n" +
+                   $"クリア数: {TotalWins}\n" +
+                   $"最高到達: Floor {MaxFloor + 1}\n" +
+                   $"解放難易度: {tier.DisplayName}（Lv{MaxUnlockedDifficulty}）";
+        }
     }
 }

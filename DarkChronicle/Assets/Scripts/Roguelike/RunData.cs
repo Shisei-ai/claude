@@ -17,6 +17,9 @@ namespace DarkChronicle.Roguelike
         public int             Seed;
         public System.DateTime StartTime;
 
+        // ── Difficulty ─────────────────────────────────────────────────────
+        public int DifficultyLevel = 1;  // DifficultyLevel enum値; 0=物語 〜 5=深淵
+
         // ── Ending Branch ─────────────────────────────────────────────────
         public EndingType ActiveEnding = EndingType.None;
 
