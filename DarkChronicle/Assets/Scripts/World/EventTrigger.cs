@@ -34,6 +34,8 @@ namespace DarkChronicle.World
             RestSiteFire,        // opens RestSiteController UI, then opens exit
             ShopNPC,             // opens ShopController UI, then opens exit
             EventNPC,            // runs PendingEvent from NodeFieldContext, then opens exit
+            TreasureChest,       // rolls equipment/relic/gold loot, then opens exit
+            CursedAltar,         // deals 15% HP damage, awards Rare relic, then opens exit
         }
 
         public static event System.Action<Data.ItemData, int> OnItemPickedUp;
@@ -161,6 +163,14 @@ namespace DarkChronicle.World
                     NodeFieldController.Instance?.OpenExit();
                     break;
                 }
+
+                case TriggerType.TreasureChest:
+                    yield return NodeFieldLoot.ResolveTreasureChest();
+                    break;
+
+                case TriggerType.CursedAltar:
+                    yield return NodeFieldLoot.ResolveCursedAltar();
+                    break;
             }
 
             if (_hideAfterTrigger && _triggerOnce) gameObject.SetActive(false);

@@ -51,7 +51,23 @@ namespace DarkChronicle.Roguelike
         readonly List<EnemyData> _defeatedEnemies = new();
 
         // ── Unity ──────────────────────────────────────────────────────────
-        void Awake() => Instance = this;
+        void Awake()
+        {
+            Instance = this;
+
+            // Auto-find node roots by convention name when not wired in the Inspector.
+            // This allows scene creation without manual reference assignment.
+            _exitRoot       ??= GameObject.Find("ExitRoot");
+            _eliteSpawnRoot ??= GameObject.Find("EliteSpawnRoot");
+            _bossSpawnRoot  ??= GameObject.Find("BossSpawnRoot");
+            _restSiteRoot   ??= GameObject.Find("RestSiteRoot");
+            _shopNPCRoot    ??= GameObject.Find("ShopNPCRoot");
+            _eventRoot      ??= GameObject.Find("EventRoot");
+            _treasureRoot   ??= GameObject.Find("TreasureRoot");
+            _cursedRoomRoot ??= GameObject.Find("CursedRoomRoot");
+            if (_playerSpawn == null)
+                _playerSpawn = GameObject.Find("PlayerSpawn")?.transform;
+        }
 
         void OnDestroy()
         {

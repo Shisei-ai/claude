@@ -389,15 +389,10 @@ namespace DarkChronicle.Roguelike
         IEnumerator ResolveNode(MapNode node, int floorIndex)
         {
             _run.LastNodeType = node.Type;
-
-            // Treasure and CursedRoom keep their existing UI-based flow.
-            // All other node types expand into the NodeField scene.
-            yield return node.Type switch
-            {
-                NodeType.Treasure   => ResolveTreasure(),
-                NodeType.CursedRoom => ResolveCursedRoom(),
-                _                   => LoadFieldAndWait(node, floorIndex),
-            };
+            // All node types expand into the NodeField scene.
+            // Treasure loot and CursedRoom effects are handled by EventTrigger
+            // (TreasureChest / CursedAltar) inside the field via NodeFieldLoot.
+            yield return LoadFieldAndWait(node, floorIndex);
         }
 
         // ── Additive field-scene loader ────────────────────────────────────
@@ -587,68 +582,6 @@ namespace DarkChronicle.Roguelike
         }
 
         // ── Treasure ───────────────────────────────────────────────────────
-        IEnumerator ResolveTreasure()
-        {
-            // 35% chance: equipment drop (scales with floor)
-            if (Random.value < 0.35f + _run.CurrentFloor * 0.05f)
-            {
-                Data.EquipmentData equip = null;
-                for (int attempt = 0; attempt < 6; attempt++)
-                {
-                    var candidate = EquipmentFactory.DrawForFloor(_run.CurrentFloor);
-                    if (candidate != null && _run.CanEquip(candidate)) { equip = candidate; break; }
-                }
-                if (equip != null)
-                {
-                    _run.EquipmentInventory.Add(equip);
-                    yield return _lootSystem.ShowEquipmentObtained(equip);
-                    yield break;
-                }
-            }
-
-            // Sanity-weighted: higher sanity = better relic rarity
-            float roll = Random.value - _run.Sanity * 0.08f;
-            RelicRarity rarity = roll < 0.15f ? RelicRarity.Rare :
-                                 roll < 0.45f ? RelicRarity.Uncommon :
-                                                RelicRarity.Common;
-
-            // TreasureNose: bump rarity by one tier
-            if (_relicManager.HasTreasureNose())
-                rarity = rarity == RelicRarity.Common   ? RelicRarity.Uncommon :
-                         rarity == RelicRarity.Uncommon ? RelicRarity.Rare :
-                                                          RelicRarity.Rare;
-
-            var relic = _lootSystem.DrawRelic(rarity, false);
-            if (relic != null)
-                yield return ObtainRelic(relic);
-            else
-            {
-                int gold = Mathf.RoundToInt(Random.Range(60f, 120f) * (1f + _run.Sanity * 0.05f));
-                _run.EarnGold(gold);
-            }
-        }
-
-        // ── Cursed Room ────────────────────────────────────────────────────
-        IEnumerator ResolveCursedRoom()
-        {
-            // High-risk, high-reward: take 15% max HP damage, get a Rare relic
-            int damage = Mathf.RoundToInt(_run.MaxHP * 0.15f);
-            _run.TakeDamage(damage);
-
-            // RiskRewardMaster relic doubles the reward
-            RelicRarity rarity = _run.HasRelic(RelicEffectType.RiskRewardMaster)
-                ? RelicRarity.Boss : RelicRarity.Rare;
-
-            var relic = _lootSystem.DrawRelic(rarity, false);
-            if (relic != null)
-            {
-                if (relic.AttachedCurse != null) _run.AddCurse(relic.AttachedCurse);
-                yield return ObtainRelic(relic);
-            }
-
-            if (!_run.IsAlive) yield return RunDeath();
-        }
-
         // ── Enemy Selection ────────────────────────────────────────────────
         List<EnemyData> SelectEncounterGroup(bool isElite, bool isBoss)
         {
