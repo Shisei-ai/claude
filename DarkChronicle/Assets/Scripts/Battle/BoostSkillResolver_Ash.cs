@@ -175,8 +175,7 @@ namespace DarkChronicle.Battle
         public static float EstimateDanceOfDeathPeak(int boostLevel, int critComboStacks)
         {
             int baseHits    = 5 + boostLevel;           // Boost×0〜×3: 5〜8連打
-            int critMult    = 2;                         // 会心ダメ×2.0 (基本)
-            float extraMult = 2.5f;                     // 固有トレイトで×2.5
+            float extraMult = 2.5f;                     // 固有トレイトで×2.5（会心時×2.0含む）
             float comboBonus= 1f + critComboStacks * 0.10f;  // 最大+30%
 
             float powerMult  = boostLevel > 0 ? 1f + boostLevel * 0.10f : 1f;

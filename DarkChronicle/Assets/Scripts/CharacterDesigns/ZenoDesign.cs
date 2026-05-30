@@ -65,7 +65,7 @@ namespace DarkChronicle.CharacterDesigns
             MagicDefense      = 20,
             Speed             = 25,
             Luck              = 18,
-            CritRate          = 8,
+            CriticalRate      = 8,
             AccuracyRate      = 90,
         };
 

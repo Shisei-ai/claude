@@ -40,7 +40,7 @@ namespace DarkChronicle.World
         // ── Unity ──────────────────────────────────────────────────────────
         void Awake()
         {
-            _playerController = FindFirstObjectByType<PlayerController>();
+            _playerController = FindAnyObjectByType<PlayerController>();
             if (_playerController != null) _playerTransform = _playerController.transform;
         }
 

@@ -235,7 +235,7 @@ namespace DarkChronicle.Editor
             => System.Array.IndexOf(System.Enum.GetNames(typeof(T)), name);
 
         static T FindFirst<T>() where T : Object
-            => Object.FindFirstObjectByType<T>();
+            => Object.FindAnyObjectByType<T>();
 
         static int Check(bool ok, string pass, string fail)
         {

@@ -31,7 +31,6 @@ namespace DarkChronicle.Character.Traits
             if (_triggered) return false;
             _triggered = true;
 
-            AudioManager?.PlayVoice("Bernhard_IndomitableWill");
             BattleUIBridge?.ShowTraitActivated("不撓不屈", owner);
             return true;
         }

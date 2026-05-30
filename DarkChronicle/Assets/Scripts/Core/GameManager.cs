@@ -96,7 +96,7 @@ namespace DarkChronicle.Core
             CurrentAreaName = sceneName;
 
             // Reposition player if spawn point given
-            var player = FindFirstObjectByType<PlayerController>();
+            var player = FindAnyObjectByType<PlayerController>();
             if (player != null && spawnPos != default) player.TeleportTo(spawnPos);
 
             yield return FadeIn();

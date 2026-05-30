@@ -50,7 +50,7 @@ namespace DarkChronicle.HD2D
             _cam.fieldOfView = _fieldOfView;
 
             // Grab post-process volume
-            _ppVolume = FindFirstObjectByType<Volume>();
+            _ppVolume = FindAnyObjectByType<Volume>();
             if (_ppVolume != null && _ppVolume.profile.TryGet(out _dof))
                 ApplyDOFSettings();
         }

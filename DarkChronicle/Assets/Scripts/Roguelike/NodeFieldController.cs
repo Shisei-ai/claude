@@ -109,7 +109,7 @@ namespace DarkChronicle.Roguelike
         void PositionPlayer()
         {
             if (_playerSpawn == null) return;
-            FindFirstObjectByType<Character.PlayerController>()?.TeleportTo(_playerSpawn.position);
+            FindAnyObjectByType<Character.PlayerController>()?.TeleportTo(_playerSpawn.position);
         }
 
         // ── Node setup ─────────────────────────────────────────────────────
@@ -179,7 +179,7 @@ namespace DarkChronicle.Roguelike
         }
 
         void DisableEncounters()
-            => FindFirstObjectByType<Character.PlayerController>()?.SetEncountersEnabled(false);
+            => FindAnyObjectByType<Character.PlayerController>()?.SetEncountersEnabled(false);
 
         // ── Random encounter ───────────────────────────────────────────────
         void OnRandomEncounter()

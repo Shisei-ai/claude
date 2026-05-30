@@ -206,6 +206,7 @@ namespace DarkChronicle.Battle
 
         // 特殊
         public bool  HitsAllEnemies           = false;
+        public bool  HitsAllAllies            = false;
         public bool  SplashToAdjacent         = false;
         public int   GainBPOnUse              = 0;
         public float InstantKillOnBrokenChance = 0f;
