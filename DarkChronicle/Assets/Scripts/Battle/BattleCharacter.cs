@@ -16,18 +16,25 @@ namespace DarkChronicle.Battle
         public EnemyData      EnemyData  { get; private set; }   // null for heroes
         public bool           IsPlayer   => CharData != null;
 
-        // ── Stats (computed each turn: base + equipment + job + buffs) ────
+        // ── Stats (base + equipment buffs + status-effect % modifiers) ────
         public CharacterStats BaseStats  { get; private set; }
         CharacterStats        _buffStats = new CharacterStats();
         int                   _tempDefBuff;
 
+        // Flat base values before status-effect percentage scaling.
+        int _basePatk  => BaseStats.PhysicalAttack  + _buffStats.PhysicalAttack;
+        int _baseMatk  => BaseStats.MagicAttack     + _buffStats.MagicAttack;
+        int _basePdef  => BaseStats.PhysicalDefense + _buffStats.PhysicalDefense;
+        int _baseMdef  => BaseStats.MagicDefense    + _buffStats.MagicDefense;
+        int _baseSpeed => BaseStats.Speed           + _buffStats.Speed;
+
         public int MaxHP   => BaseStats.MaxHP  + _buffStats.MaxHP;
         public int MaxMP   => BaseStats.MaxMP  + _buffStats.MaxMP;
-        public int Patk    => Mathf.Max(1, BaseStats.PhysicalAttack  + _buffStats.PhysicalAttack);
-        public int Matk    => Mathf.Max(1, BaseStats.MagicAttack     + _buffStats.MagicAttack);
-        public int Pdef    => Mathf.Max(0, BaseStats.PhysicalDefense + _buffStats.PhysicalDefense);
-        public int Mdef    => Mathf.Max(0, BaseStats.MagicDefense    + _buffStats.MagicDefense);
-        public int Speed   => Mathf.Max(1, BaseStats.Speed           + _buffStats.Speed);
+        public int Patk    => Mathf.Max(1, _basePatk  + StatusStatBonus(_basePatk,  StatusEffectType.AtkUp, StatusEffectType.AtkDown));
+        public int Matk    => Mathf.Max(1, _baseMatk  + StatusStatBonus(_baseMatk,  StatusEffectType.AtkUp, StatusEffectType.AtkDown));
+        public int Pdef    => Mathf.Max(0, _basePdef  + StatusStatBonus(_basePdef,  StatusEffectType.DefUp, StatusEffectType.DefDown));
+        public int Mdef    => Mathf.Max(0, _baseMdef  + StatusStatBonus(_baseMdef,  StatusEffectType.DefUp, StatusEffectType.DefDown));
+        public int Speed   => Mathf.Max(1, _baseSpeed + StatusStatBonus(_baseSpeed, StatusEffectType.SpdUp, StatusEffectType.SpdDown));
         public int Luck    => Mathf.Max(0, BaseStats.Luck            + _buffStats.Luck);
         public int Crit    => Mathf.Clamp(BaseStats.CriticalRate     + _buffStats.CriticalRate, 0, 100);
         public int Accuracy=> Mathf.Clamp(BaseStats.AccuracyRate     + _buffStats.AccuracyRate, 0, 100);
@@ -37,9 +44,10 @@ namespace DarkChronicle.Battle
         public int     MP    { get; private set; }
         public int     BP    { get; private set; }  // Boost Points (0-5)
         public int     CurrentBoost { get; private set; }  // boosts spent this turn (0-3)
-        public bool    IsAlive   => HP > 0;
-        public bool    IsBroken  => IsEnemy && _currentShields <= 0;
-        public float   HPRatio   => (float)HP / MaxHP;
+        public bool    IsAlive    => HP > 0;
+        public bool    IsBroken   => IsEnemy && _currentShields <= 0;
+        public bool    IsSilenced => HasStatus(StatusEffectType.Silence);
+        public float   HPRatio    => (float)HP / MaxHP;
 
         // ── Break System (enemies only) ────────────────────────────────────
         bool    IsEnemy       => EnemyData != null;
@@ -206,6 +214,16 @@ namespace DarkChronicle.Battle
             StatusEffects.Exists(s => s.Type == type);
 
         public void ClearAllStatus() => StatusEffects.Clear();
+
+        // Value on stat-buff StatusEffects is a fraction: 0.20 = 20% of effectiveBase.
+        int StatusStatBonus(int effectiveBase, StatusEffectType upType, StatusEffectType downType)
+        {
+            float pct = 0f;
+            foreach (var s in StatusEffects)
+                if      (s.Type == upType)   pct += s.Value;
+                else if (s.Type == downType) pct -= s.Value;
+            return Mathf.RoundToInt(effectiveBase * pct);
+        }
 
         // ── Temporary Defense Buff (Trait_BattleHardened) ──────────────────
         public void AddTempDefBuff(int amount)

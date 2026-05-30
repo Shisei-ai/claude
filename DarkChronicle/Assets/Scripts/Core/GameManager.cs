@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using DarkChronicle.Battle;
@@ -140,7 +141,7 @@ namespace DarkChronicle.Core
             switch (result)
             {
                 case BattleResult.Victory:
-                    // TODO: award EXP, gold, items
+                    AwardBattleRewards(BattleManager.Instance.VictoryEnemyData);
                     SetState(GameState.Field);
                     break;
                 case BattleResult.Defeat:
@@ -181,6 +182,58 @@ namespace DarkChronicle.Core
 
         public void EarnGold(int amount) => Gold += amount;
 
+        // ── Battle Rewards ─────────────────────────────────────────────────
+        void AwardBattleRewards(List<EnemyData> enemies)
+        {
+            if (enemies == null || enemies.Count == 0) return;
+
+            int totalExp  = enemies.Sum(e => e?.ExpReward  ?? 0);
+            int totalJP   = enemies.Sum(e => e?.JPReward   ?? 0);
+            int totalGold = enemies.Sum(e => e?.GoldReward ?? 0);
+
+            EarnGold(totalGold);
+
+            foreach (var member in Party)
+            {
+                if (member.CurrentHP <= 0) continue;   // KO'd members gain nothing
+
+                // EXP — level ups
+                member.Experience += totalExp;
+                while (member.Level < 50)
+                {
+                    int needed = 80 + 20 * member.Level * member.Level;
+                    if (member.Experience < needed) break;
+                    member.Experience -= needed;
+                    member.Level++;
+
+                    var g = member.CurrentJob?.GrowthRates;
+                    if (g != null)
+                    {
+                        member.RuntimeStats.MaxHP           += g.MaxHP;
+                        member.RuntimeStats.MaxMP           += g.MaxMP;
+                        member.RuntimeStats.PhysicalAttack  += g.PhysicalAttack;
+                        member.RuntimeStats.MagicAttack     += g.MagicAttack;
+                        member.RuntimeStats.PhysicalDefense += g.PhysicalDefense;
+                        member.RuntimeStats.MagicDefense    += g.MagicDefense;
+                        member.RuntimeStats.Speed           += g.Speed;
+                        member.RuntimeStats.Luck            += g.Luck;
+                        member.RuntimeStats.CriticalRate    += g.CriticalRate;
+                        member.CurrentHP = Mathf.Min(member.CurrentHP + g.MaxHP, member.RuntimeStats.MaxHP);
+                    }
+                }
+
+                // JP — job level ups
+                member.JobPoints += totalJP;
+                while (member.JobLevel < 10)
+                {
+                    int needed = 50 * member.JobLevel;
+                    if (member.JobPoints < needed) break;
+                    member.JobPoints -= needed;
+                    member.JobLevel++;
+                }
+            }
+        }
+
         // ── Save / Load ────────────────────────────────────────────────────
         public void SaveGame(int slot) => SaveSystem.Save(BuildSaveData(), slot);
 
@@ -191,18 +244,60 @@ namespace DarkChronicle.Core
             RestoreFromSave(data);
         }
 
-        SaveData BuildSaveData() => new SaveData
+        SaveData BuildSaveData()
         {
-            SceneName      = CurrentAreaName,
-            Gold           = Gold,
-            PlaytimeSeconds = PlaytimeSeconds,
-        };
+            var save = new SaveData
+            {
+                SceneName       = CurrentAreaName,
+                Gold            = Gold,
+                PlaytimeSeconds = PlaytimeSeconds,
+            };
+
+            var player = FindAnyObjectByType<PlayerController>();
+            if (player != null)
+            {
+                save.PlayerPosX = player.transform.position.x;
+                save.PlayerPosY = player.transform.position.y;
+                save.PlayerPosZ = player.transform.position.z;
+            }
+
+            foreach (var m in Party)
+            {
+                save.Party.Add(new PartyMemberSaveData
+                {
+                    CharacterName = m.BaseData.CharacterName,
+                    Level         = m.Level,
+                    Experience    = m.Experience,
+                    JobLevel      = m.JobLevel,
+                    JobPoints     = m.JobPoints,
+                    CurrentHP     = m.CurrentHP,
+                    CurrentMP     = m.CurrentMP,
+                });
+            }
+
+            return save;
+        }
 
         void RestoreFromSave(SaveData data)
         {
             Gold            = data.Gold;
             PlaytimeSeconds = data.PlaytimeSeconds;
-            TransitionToScene(data.SceneName);
+
+            // Restore saved numeric fields into already-loaded party members (matched by name)
+            foreach (var saved in data.Party)
+            {
+                var member = Party.Find(m => m.BaseData.CharacterName == saved.CharacterName);
+                if (member == null) continue;
+                member.Level      = saved.Level;
+                member.Experience = saved.Experience;
+                member.JobLevel   = saved.JobLevel;
+                member.JobPoints  = saved.JobPoints;
+                member.CurrentHP  = Mathf.Clamp(saved.CurrentHP, 1, member.RuntimeStats.MaxHP);
+                member.CurrentMP  = Mathf.Clamp(saved.CurrentMP, 0, member.RuntimeStats.MaxMP);
+            }
+
+            TransitionToScene(data.SceneName,
+                new Vector3(data.PlayerPosX, data.PlayerPosY, data.PlayerPosZ));
         }
     }
 
@@ -231,12 +326,27 @@ namespace DarkChronicle.Core
 
     // ── Save Data ──────────────────────────────────────────────────────────
     [System.Serializable]
+    public class PartyMemberSaveData
+    {
+        public string CharacterName;
+        public int    Level;
+        public int    Experience;
+        public int    JobLevel;
+        public int    JobPoints;
+        public int    CurrentHP;
+        public int    CurrentMP;
+    }
+
+    [System.Serializable]
     public class SaveData
     {
         public string SceneName;
         public int    Gold;
         public int    PlaytimeSeconds;
-        // TODO: party state, flags, map position
+        public float  PlayerPosX;
+        public float  PlayerPosY;
+        public float  PlayerPosZ;
+        public List<PartyMemberSaveData> Party = new();
     }
 
     // ── Save System (JSON) ─────────────────────────────────────────────────

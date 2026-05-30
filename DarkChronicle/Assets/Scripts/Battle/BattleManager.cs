@@ -229,6 +229,19 @@ namespace DarkChronicle.Battle
 
                 if (chosen == null || chosen.Skill == null) continue;
 
+                // Silenced enemies cannot use skills — fall back to basic attack
+                if (enemy.IsSilenced && chosen.Skill.MPCost > 0)
+                {
+                    var silTarget = GetRandomLivingHero();
+                    if (silTarget != null)
+                    {
+                        _battleUI.ShowMessage($"{enemy.DisplayName} は沈黙中！通常攻撃に切り替え");
+                        yield return ExecuteBasicAttack(enemy, new List<BattleCharacter> { silTarget });
+                    }
+                    if (i < actionsToTake - 1) yield return new WaitForSeconds(0.25f);
+                    continue;
+                }
+
                 // Shield-restore support skills target self, not heroes
                 if (chosen.Skill.ShieldRestore > 0)
                 {
@@ -270,9 +283,19 @@ namespace DarkChronicle.Battle
                     yield return ExecuteBasicAttack(_activeCharacter, command.Targets, command.BoostLevel);
                     break;
                 case CommandType.Skill:
+                    if (_activeCharacter.IsSilenced)
+                    {
+                        _battleUI.ShowMessage($"{_activeCharacter.DisplayName} は沈黙中でスキルを使えない！");
+                        yield break;
+                    }
                     yield return ExecuteSkill(_activeCharacter, command.Skill, command.Targets, command.BoostLevel);
                     break;
                 case CommandType.GrimoireSkill:
+                    if (_activeCharacter.IsSilenced)
+                    {
+                        _battleUI.ShowMessage($"{_activeCharacter.DisplayName} は沈黙中でスキルを使えない！");
+                        yield break;
+                    }
                     yield return ExecuteGrimoireSkill(_activeCharacter, command.GrimoireSkill, command.Targets);
                     break;
                 case CommandType.Item:
