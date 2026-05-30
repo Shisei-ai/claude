@@ -599,7 +599,8 @@ namespace DarkChronicle.Roguelike
             BattleManager.Instance.StartBattle(heroDataList, heroStatList, enemies,
                 new List<ItemData>(_run.Inventory),
                 usedItem => _run.Inventory.Remove(usedItem),
-                heroSkills: new List<List<Data.SkillData>> { new List<Data.SkillData>(_run.Deck) });
+                heroSkills:    new List<List<Data.SkillData>> { new List<Data.SkillData>(_run.Deck) },
+                heroCurrentHP: new List<int> { _run.CurrentHP });
 
             // Wait for battle to finish
             bool battleDone = false;
@@ -611,6 +612,9 @@ namespace DarkChronicle.Roguelike
 
             if (lastResult == BattleResult.Victory)
             {
+                // Sync hero HP from battle result
+                _run.CurrentHP = Mathf.Clamp(BattleManager.Instance.VictoryHeroHP, 1, _run.MaxHP);
+
                 // EXP / JP rewards from defeated enemies
                 var defeatedEnemies = BattleManager.Instance.VictoryEnemyData;
                 var (totalExp, totalJP) = LevelSystem.ComputeBattleRewards(defeatedEnemies);
@@ -639,6 +643,7 @@ namespace DarkChronicle.Roguelike
             }
             else if (lastResult == BattleResult.Defeat)
             {
+                _run.CurrentHP = 0;
                 yield return RunDeath();
             }
 
@@ -646,11 +651,7 @@ namespace DarkChronicle.Roguelike
             AudioManager.Instance?.PlayBGM(_currentFloor.FloorBGM);
         }
 
-        void OnBattleEnd(BattleResult result)
-        {
-            // HP is synced from BattleCharacter back to RunData after battle
-            // (handled in the coroutine above)
-        }
+        void OnBattleEnd(BattleResult result) { }
 
         // ── Treasure ───────────────────────────────────────────────────────
         // ── Enemy Selection ────────────────────────────────────────────────

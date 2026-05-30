@@ -141,6 +141,9 @@ namespace DarkChronicle.Battle
             HP = Mathf.Max(1, Mathf.RoundToInt(MaxHP * Mathf.Clamp01(hpRatio)));
         }
 
+        // ── HP Init Override ───────────────────────────────────────────────
+        public void SetInitialHP(int hp) => HP = Mathf.Clamp(hp, 1, MaxHP);
+
         // ── BP / Boost System ──────────────────────────────────────────────
         public int  MaxBP { get; set; } = 5;
         public void AddBP(int amount = 1) => BP = Mathf.Min(MaxBP, BP + amount);

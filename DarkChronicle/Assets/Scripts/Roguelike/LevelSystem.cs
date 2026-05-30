@@ -19,7 +19,7 @@ namespace DarkChronicle.Roguelike
     public static class LevelSystem
     {
         public const int MaxCharacterLevel = 50;
-        public const int MaxJobLevel       = 10;
+        public const int MaxJobLevel       = 12;
 
         // ── EXP curve ─────────────────────────────────────────────────────
         /// <summary>EXP required to advance from <paramref name="level"/> to level+1.</summary>

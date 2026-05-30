@@ -44,6 +44,9 @@ namespace DarkChronicle.Battle
         /// <summary>EnemyData list from the last victorious battle. Used by RoguelikeManager to compute EXP/JP rewards.</summary>
         public List<EnemyData> VictoryEnemyData { get; private set; } = new();
 
+        /// <summary>Hero HP at the moment of victory. Synced to RunData.CurrentHP after the field scene unloads.</summary>
+        public int VictoryHeroHP { get; private set; }
+
         // ── Special mechanics state ────────────────────────────────────────
         // Death Sentence: target → turns remaining until execution
         readonly Dictionary<BattleCharacter, int> _deathSentenceTimers = new();
@@ -70,9 +73,10 @@ namespace DarkChronicle.Battle
         public void StartBattle(List<CharacterData>      heroDataList,
                                 List<CharacterStats>     heroStats,
                                 List<EnemyData>          enemyDataList,
-                                List<ItemData>           inventory   = null,
-                                System.Action<ItemData>  onItemUsed  = null,
-                                List<List<SkillData>>    heroSkills  = null)
+                                List<ItemData>           inventory    = null,
+                                System.Action<ItemData>  onItemUsed   = null,
+                                List<List<SkillData>>    heroSkills   = null,
+                                List<int>                heroCurrentHP = null)
         {
             _battleInventory  = inventory != null ? new List<ItemData>(inventory) : new();
             _itemUsedCallback = onItemUsed;
@@ -86,7 +90,10 @@ namespace DarkChronicle.Battle
             for (int i = 0; i < heroDataList.Count; i++)
             {
                 var skills = heroSkills != null && i < heroSkills.Count ? heroSkills[i] : null;
-                _heroes.Add(new BattleCharacter(heroDataList[i], heroStats[i], skills));
+                var hero   = new BattleCharacter(heroDataList[i], heroStats[i], skills);
+                if (heroCurrentHP != null && i < heroCurrentHP.Count && heroCurrentHP[i] > 0)
+                    hero.SetInitialHP(heroCurrentHP[i]);
+                _heroes.Add(hero);
             }
             foreach (var ed in enemyDataList)
                 _enemies.Add(new BattleCharacter(ed));
@@ -1266,6 +1273,9 @@ namespace DarkChronicle.Battle
                 .Where(e => e.EnemyData != null)
                 .Select(e => e.EnemyData)
                 .ToList();
+
+            // Capture hero HP for RunData sync after the field scene exits
+            VictoryHeroHP = _heroes.Count > 0 ? _heroes[0].HP : 0;
 
             _battleUI.ShowVictoryScreen();
             yield return new WaitForSeconds(2f);

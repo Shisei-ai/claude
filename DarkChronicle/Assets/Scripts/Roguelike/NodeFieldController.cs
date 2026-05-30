@@ -219,7 +219,8 @@ namespace DarkChronicle.Roguelike
                 new List<CharacterStats> { _ctx.GetHeroStats() },
                 enemies,
                 new List<ItemData>(run.Inventory),
-                usedItem => run.Inventory.Remove(usedItem));
+                usedItem => run.Inventory.Remove(usedItem),
+                heroCurrentHP: new List<int> { run.CurrentHP });
         }
 
         // ── Battle end ─────────────────────────────────────────────────────
@@ -237,6 +238,11 @@ namespace DarkChronicle.Roguelike
                 if (defeated != null) _defeatedEnemies.AddRange(defeated);
                 if (_ctx?.Run != null) _ctx.Run.EnemiesKilled += defeated?.Count ?? 0;
 
+                // Sync hero HP from battle result into RunData
+                if (_ctx?.Run != null)
+                    _ctx.Run.CurrentHP = Mathf.Clamp(BattleManager.Instance.VictoryHeroHP,
+                                                     1, _ctx.Run.MaxHP);
+
                 if (_ctx?.ActiveNodeType == NodeType.Battle)
                 {
                     // Re-enable random encounters; player can fight more or leave via exit
@@ -250,7 +256,8 @@ namespace DarkChronicle.Roguelike
             }
             else
             {
-                // Defeat — signal immediately so RoguelikeManager can show the death screen
+                // Defeat — hero is dead; zero out HP before signalling
+                if (_ctx?.Run != null) _ctx.Run.CurrentHP = 0;
                 _ctx?.CompleteNode(new NodeResult
                 {
                     WasVictory      = false,
