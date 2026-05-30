@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using DarkChronicle.Roguelike.Relics;
 
 namespace DarkChronicle.Roguelike.Map
 {
@@ -55,6 +56,7 @@ namespace DarkChronicle.Roguelike.Map
         GameObject                 _playerMarkerInstance;
         Coroutine                  _pulseRoutine;
         int                        _lastCurrentNodeID = -1;
+        HashSet<int>               _shortcutNodeIDs   = new();
 
         // ── Public API ─────────────────────────────────────────────────────
         public void BuildMap(MapData data, int currentNodeID, System.Action<MapNode> onNodeSelected)
@@ -67,10 +69,14 @@ namespace DarkChronicle.Roguelike.Map
 
             // Compute reachable IDs before drawing
             var (currentNode, availableIDs) = ComputeAvailability(data, currentNodeID);
+            ComputeShortcutNodes(data, availableIDs);
+
+            var drawAvailableIDs = new HashSet<int>(availableIDs);
+            drawAvailableIDs.UnionWith(_shortcutNodeIDs);
 
             SetMapContentSize();
-            DrawEdges(data, currentNode, availableIDs);
-            DrawNodes(data, currentNodeID, currentNode, availableIDs);
+            DrawEdges(data, currentNode, drawAvailableIDs);
+            DrawNodes(data, currentNodeID, currentNode, drawAvailableIDs);
 
             if (_floorLabel != null)
                 _floorLabel.text = $"第{data.FloorIndex + 1}層";
@@ -87,6 +93,7 @@ namespace DarkChronicle.Roguelike.Map
             _lastCurrentNodeID = currentNodeID;
 
             var (currentNode, availableIDs) = ComputeAvailability(_mapData, currentNodeID);
+            ComputeShortcutNodes(_mapData, availableIDs);
 
             foreach (var (id, icon) in _nodeIcons)
             {
@@ -94,10 +101,10 @@ namespace DarkChronicle.Roguelike.Map
                 if (node == null) continue;
 
                 NodeIconState state;
-                if (node.Visited)                     state = NodeIconState.Visited;
-                else if (id == currentNodeID)         state = NodeIconState.Current;
-                else if (availableIDs.Contains(id))   state = NodeIconState.Available;
-                else                                  state = NodeIconState.Locked;
+                if (node.Visited)                                                   state = NodeIconState.Visited;
+                else if (id == currentNodeID)                                       state = NodeIconState.Current;
+                else if (availableIDs.Contains(id) || _shortcutNodeIDs.Contains(id)) state = NodeIconState.Available;
+                else                                                                state = NodeIconState.Locked;
 
                 icon.SetState(state);
                 if (state == NodeIconState.Available)
@@ -288,7 +295,27 @@ namespace DarkChronicle.Roguelike.Map
             _playerMarkerInstance = null;
         }
 
-        void OnNodeClicked(MapNode node) => _onNodeSelected?.Invoke(node);
+        void OnNodeClicked(MapNode node)
+        {
+            // Consume ShortcutKey when a grandchild node is selected
+            if (_shortcutNodeIDs.Contains(node.ID))
+                RelicManager.Instance?.UseShortcutKey();
+            _onNodeSelected?.Invoke(node);
+        }
+
+        void ComputeShortcutNodes(MapData data, HashSet<int> directAvailable)
+        {
+            _shortcutNodeIDs.Clear();
+            if (RelicManager.Instance?.HasShortcutKey() != true) return;
+            foreach (int nextID in directAvailable)
+            {
+                var nextNode = data.GetNode(nextID);
+                if (nextNode == null) continue;
+                foreach (int nnID in nextNode.NextIDs)
+                    if (!directAvailable.Contains(nnID))
+                        _shortcutNodeIDs.Add(nnID);
+            }
+        }
 
         Vector2 NodePosition(int row, int col)
         {

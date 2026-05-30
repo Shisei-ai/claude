@@ -233,8 +233,11 @@ namespace DarkChronicle.Roguelike.Events
             {
                 if (result.GoldChange > 0)
                 {
-                    int earned = RelicManager.Instance?.ModifyGoldDrop(result.GoldChange)
-                                 ?? result.GoldChange;
+                    var rm     = RelicManager.Instance;
+                    int earned = rm?.ModifyGoldDrop(result.GoldChange) ?? result.GoldChange;
+                    earned     = rm?.ModifyEventGold(earned) ?? earned;
+                    float risk = rm?.GetRiskRewardMultiplier() ?? 1f;
+                    if (risk != 1f) earned = Mathf.RoundToInt(earned * risk);
                     _run.EarnGold(earned);
                 }
                 else

@@ -77,6 +77,7 @@ namespace DarkChronicle.Roguelike
             _run.EarnGold(goldReward);
 
             int choiceCount   = RelicManager.Instance.GetLootChoiceCount();
+            if (isElite) choiceCount += RelicManager.Instance?.GetEliteRewardBonus() ?? 0;
             if (isElite && sanity >= 3) choiceCount++;   // max Sanity bonus on elite
 
             // Build choice pool: mix skills and relics by floor and sanity
@@ -122,6 +123,13 @@ namespace DarkChronicle.Roguelike
                 }
             }
 
+            // MiracleChance: 2% chance to add an extra Rare relic
+            if (RelicManager.Instance?.ShouldTriggerMiracleChance() == true)
+            {
+                var miracleRelic = DrawRelic(RelicRarity.Rare, false, used);
+                if (miracleRelic != null) choices.Add(new LootChoice { Relic = miracleRelic });
+            }
+
             // Shuffle
             return choices.OrderBy(_ => Random.value).ToList();
         }
@@ -161,6 +169,20 @@ namespace DarkChronicle.Roguelike
             {
                 _run.AddRelic(choice.Relic);
                 if (choice.Relic.AttachedCurse != null) _run.AddCurse(choice.Relic.AttachedCurse);
+
+                // DuplicateRelic: copy a random existing relic (excluding the one just picked)
+                if (RelicManager.Instance?.HasDuplicateRelic() == true && _run.Relics.Count > 1)
+                {
+                    var candidates = _run.Relics.Where(r => r != choice.Relic).ToList();
+                    if (candidates.Count > 0)
+                    {
+                        var copy = candidates[Random.Range(0, candidates.Count)];
+                        _run.AddRelic(copy);
+                        StartCoroutine(ShowRelicObtained(copy));
+                        return; // ShowRelicObtained sets _choiceMade = true at end
+                    }
+                }
+
                 StartCoroutine(ShowRelicObtained(choice.Relic));
             }
             else

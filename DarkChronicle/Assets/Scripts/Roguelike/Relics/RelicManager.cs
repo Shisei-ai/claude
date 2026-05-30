@@ -922,6 +922,9 @@ namespace DarkChronicle.Roguelike.Relics
                 _shieldPerFloorBarrier += _run.MaxHP * pct;
         }
 
+        /// <summary>True if DuplicateRelic relic should copy a random existing relic on new relic pickup.</summary>
+        public bool HasDuplicateRelic() => HasEffect(RelicEffectType.DuplicateRelic);
+
         // ── Query Helpers ──────────────────────────────────────────────────
         bool HasEffect(RelicEffectType effect) =>
             _run != null && _run.HasRelic(effect);
