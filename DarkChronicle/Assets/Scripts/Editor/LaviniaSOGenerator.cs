@@ -54,7 +54,7 @@ namespace DarkChronicle.Editor
                 LaviniaDesign.Skill_FireBolt.CanBreak,
                 statusChance: LaviniaDesign.Skill_FireBolt.BurnChance);
 
-            s.FireBoltPlus = CreateMagicSkill("SKL_L_FireBolt_Plus",
+            s.FireBoltPlus = CreateMagicSkill("U_SKL_L_FireBolt",
                 LaviniaDesign.Skill_FireBolt.NameUpgrade, LaviniaDesign.Skill_FireBolt.DescUpgrade,
                 LaviniaDesign.Skill_FireBolt.Element, LaviniaDesign.Skill_FireBolt.BasePowerU,
                 LaviniaDesign.Skill_FireBolt.HitCount, LaviniaDesign.Skill_FireBolt.MPCostU,

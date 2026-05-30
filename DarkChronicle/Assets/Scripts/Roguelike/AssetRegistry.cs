@@ -44,6 +44,9 @@ namespace DarkChronicle.Roguelike
             _relicMap  = (_allRelics    ?? new()).Where(x => x).ToDictionary(x => x.name);
             _itemMap   = (_allItems     ?? new()).Where(x => x).ToDictionary(x => x.name);
             _equipMap  = (_allEquipment ?? new()).Where(x => x).ToDictionary(x => x.name);
+
+            // SkillUpgradeSystemにすべてのスキル（U_プレフィックスのアップグレード版含む）を登録する
+            SkillUpgradeSystem.BuildUpgradeMap(_allSkills ?? Enumerable.Empty<SkillData>());
         }
 
         public CharacterData  FindCharacter(string n)  => _charMap.TryGetValue(n,   out var v) ? v : null;

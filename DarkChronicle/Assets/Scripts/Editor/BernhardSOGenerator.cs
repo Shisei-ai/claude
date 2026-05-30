@@ -58,7 +58,7 @@ namespace DarkChronicle.Editor
                                                BernhardDesign.Skill_DoubleSlash.MPCost,
                                                BernhardDesign.Skill_DoubleSlash.CanBreak),
 
-                DoubleSlashPlus  = CreateSkill("SKL_DoubleSlash_Plus",  BernhardDesign.Skill_DoubleSlash.NameUpgrade,
+                DoubleSlashPlus  = CreateSkill("U_SKL_DoubleSlash",     BernhardDesign.Skill_DoubleSlash.NameUpgrade,
                                                BernhardDesign.Skill_DoubleSlash.DescUpgrade,
                                                BernhardDesign.Skill_DoubleSlash.Element,
                                                BernhardDesign.Skill_DoubleSlash.DmgType,
@@ -82,7 +82,7 @@ namespace DarkChronicle.Editor
                                                BernhardDesign.Skill_WarCry.MPCost,
                                                hitsAllAllies: true),
 
-                WarCryPlus       = CreateSupportSkill("SKL_WarCry_Plus",BernhardDesign.Skill_WarCry.NameUpgrade,
+                WarCryPlus       = CreateSupportSkill("U_SKL_WarCry",   BernhardDesign.Skill_WarCry.NameUpgrade,
                                                BernhardDesign.Skill_WarCry.DescUpgrade,
                                                BernhardDesign.Skill_WarCry.MPCostU,
                                                hitsAllAllies: true),
