@@ -48,7 +48,7 @@ namespace DarkChronicle.World
             _sprite       = GetComponent<SpriteRenderer>();
             _homePosition = transform.position;
 
-            var player = FindObjectOfType<Character.PlayerController>();
+            var player = FindFirstObjectByType<Character.PlayerController>();
             if (player != null) _playerTransform = player.transform;
 
             Character.PlayerController.OnInteract += OnPlayerInteract;
