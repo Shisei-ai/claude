@@ -73,10 +73,11 @@ namespace DarkChronicle.Battle
         public void StartBattle(List<CharacterData>      heroDataList,
                                 List<CharacterStats>     heroStats,
                                 List<EnemyData>          enemyDataList,
-                                List<ItemData>           inventory    = null,
-                                System.Action<ItemData>  onItemUsed   = null,
-                                List<List<SkillData>>    heroSkills   = null,
-                                List<int>                heroCurrentHP = null)
+                                List<ItemData>           inventory     = null,
+                                System.Action<ItemData>  onItemUsed    = null,
+                                List<List<SkillData>>    heroSkills    = null,
+                                List<int>                heroCurrentHP = null,
+                                List<int>                heroInitialBP = null)
         {
             _battleInventory  = inventory != null ? new List<ItemData>(inventory) : new();
             _itemUsedCallback = onItemUsed;
@@ -93,6 +94,8 @@ namespace DarkChronicle.Battle
                 var hero   = new BattleCharacter(heroDataList[i], heroStats[i], skills);
                 if (heroCurrentHP != null && i < heroCurrentHP.Count && heroCurrentHP[i] > 0)
                     hero.SetInitialHP(heroCurrentHP[i]);
+                if (heroInitialBP != null && i < heroInitialBP.Count && heroInitialBP[i] > 0)
+                    hero.AddBP(heroInitialBP[i]);
                 _heroes.Add(hero);
             }
             foreach (var ed in enemyDataList)

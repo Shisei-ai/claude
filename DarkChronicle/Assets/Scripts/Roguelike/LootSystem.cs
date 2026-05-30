@@ -79,6 +79,7 @@ namespace DarkChronicle.Roguelike
             int choiceCount   = RelicManager.Instance.GetLootChoiceCount();
             if (isElite) choiceCount += RelicManager.Instance?.GetEliteRewardBonus() ?? 0;
             if (isElite && sanity >= 3) choiceCount++;   // max Sanity bonus on elite
+            choiceCount += _run?.MetaExtraRelicChoices ?? 0;
 
             // Build choice pool: mix skills and relics by floor and sanity
             var choices = BuildChoices(choiceCount, isElite, isBoss, sanity);

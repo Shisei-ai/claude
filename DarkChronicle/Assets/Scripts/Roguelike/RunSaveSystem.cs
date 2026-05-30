@@ -16,6 +16,9 @@ namespace DarkChronicle.Roguelike
         public long   StartTimeTicks;
         public string ActiveEnding;
 
+        // Difficulty
+        public int  DifficultyLevel;
+
         // Progress
         public int  CurrentFloor;
         public int  CurrentNodeIndex;
@@ -59,6 +62,23 @@ namespace DarkChronicle.Roguelike
         public int   CurrentNodeID    = -1;
         public int[] VisitedNodeIDs;
         public int[] AvailableNodeIDs;
+
+        // Meta bonus fields (baked in at run start; needed for mid-run resume)
+        public float MetaMaxHPMult              = 1.0f;
+        public float MetaPhysAtkMult            = 1.0f;
+        public float MetaMagAtkMult             = 1.0f;
+        public float MetaPhysDefMult            = 1.0f;
+        public float MetaMagDefMult             = 1.0f;
+        public int   MetaCritRateBonus          = 0;
+        public int   MetaMaxMPBonus             = 0;
+        public int   MetaExtraStartGold         = 0;
+        public int   MetaExtraRelicChoices      = 0;
+        public int   MetaStartBP                = 0;
+        public float MetaShopDiscount           = 0f;
+        public float MetaCurseDmgReduction      = 0f;
+        public bool  MetaFloorClearExtraHeal    = false;
+        public bool  MetaStartWithCommonRelic   = false;
+        public bool  MetaCurseHPReductionImmune = false;
     }
 
     public static class RunSaveSystem
@@ -73,6 +93,7 @@ namespace DarkChronicle.Roguelike
                 Seed              = run.Seed,
                 StartTimeTicks    = run.StartTime.Ticks,
                 ActiveEnding      = run.ActiveEnding.ToString(),
+                DifficultyLevel   = run.DifficultyLevel,
                 CurrentFloor      = run.CurrentFloor,
                 CurrentNodeIndex  = run.CurrentNodeIndex,
                 TotalRoomsCleared = run.TotalRoomsCleared,
@@ -105,6 +126,21 @@ namespace DarkChronicle.Roguelike
                                     ?? new int[0],
                 AvailableNodeIDs  = mapData?.Nodes.FindAll(n => n.Available).ConvertAll(n => n.ID).ToArray()
                                     ?? new int[0],
+                MetaMaxHPMult              = run.MetaMaxHPMult,
+                MetaPhysAtkMult            = run.MetaPhysAtkMult,
+                MetaMagAtkMult             = run.MetaMagAtkMult,
+                MetaPhysDefMult            = run.MetaPhysDefMult,
+                MetaMagDefMult             = run.MetaMagDefMult,
+                MetaCritRateBonus          = run.MetaCritRateBonus,
+                MetaMaxMPBonus             = run.MetaMaxMPBonus,
+                MetaExtraStartGold         = run.MetaExtraStartGold,
+                MetaExtraRelicChoices      = run.MetaExtraRelicChoices,
+                MetaStartBP                = run.MetaStartBP,
+                MetaShopDiscount           = run.MetaShopDiscount,
+                MetaCurseDmgReduction      = run.MetaCurseDmgReduction,
+                MetaFloorClearExtraHeal    = run.MetaFloorClearExtraHeal,
+                MetaStartWithCommonRelic   = run.MetaStartWithCommonRelic,
+                MetaCurseHPReductionImmune = run.MetaCurseHPReductionImmune,
             };
 
             PlayerPrefs.SetString(SaveKey, JsonUtility.ToJson(dto));
@@ -134,6 +170,7 @@ namespace DarkChronicle.Roguelike
                 SelectedCharacter = registry.FindCharacter(dto.CharacterName),
                 Seed              = dto.Seed,
                 StartTime         = new DateTime(dto.StartTimeTicks),
+                DifficultyLevel   = dto.DifficultyLevel,
                 CurrentFloor      = dto.CurrentFloor,
                 CurrentNodeIndex  = dto.CurrentNodeIndex,
                 TotalRoomsCleared = dto.TotalRoomsCleared,
@@ -153,6 +190,21 @@ namespace DarkChronicle.Roguelike
                 RelicsFound       = dto.RelicsFound,
                 EventsVisited     = dto.EventsVisited,
                 IsRunActive       = true,
+                MetaMaxHPMult              = dto.MetaMaxHPMult,
+                MetaPhysAtkMult            = dto.MetaPhysAtkMult,
+                MetaMagAtkMult             = dto.MetaMagAtkMult,
+                MetaPhysDefMult            = dto.MetaPhysDefMult,
+                MetaMagDefMult             = dto.MetaMagDefMult,
+                MetaCritRateBonus          = dto.MetaCritRateBonus,
+                MetaMaxMPBonus             = dto.MetaMaxMPBonus,
+                MetaExtraStartGold         = dto.MetaExtraStartGold,
+                MetaExtraRelicChoices      = dto.MetaExtraRelicChoices,
+                MetaStartBP                = dto.MetaStartBP,
+                MetaShopDiscount           = dto.MetaShopDiscount,
+                MetaCurseDmgReduction      = dto.MetaCurseDmgReduction,
+                MetaFloorClearExtraHeal    = dto.MetaFloorClearExtraHeal,
+                MetaStartWithCommonRelic   = dto.MetaStartWithCommonRelic,
+                MetaCurseHPReductionImmune = dto.MetaCurseHPReductionImmune,
             };
 
             if (Enum.TryParse<EndingType>(dto.ActiveEnding, out var ending))

@@ -213,6 +213,10 @@ namespace DarkChronicle.Roguelike
             if (_ctx?.Run == null) return;
             var run = _ctx.Run;
 
+            var initialBP = run.MetaStartBP > 0
+                ? new List<int> { run.MetaStartBP }
+                : null;
+
             AtmosphereManager.Instance?.EnterBattle();
             BattleManager.Instance.StartBattle(
                 new List<CharacterData> { run.SelectedCharacter },
@@ -220,7 +224,8 @@ namespace DarkChronicle.Roguelike
                 enemies,
                 new List<ItemData>(run.Inventory),
                 usedItem => run.Inventory.Remove(usedItem),
-                heroCurrentHP: new List<int> { run.CurrentHP });
+                heroCurrentHP: new List<int> { run.CurrentHP },
+                heroInitialBP: initialBP);
         }
 
         // ── Battle end ─────────────────────────────────────────────────────

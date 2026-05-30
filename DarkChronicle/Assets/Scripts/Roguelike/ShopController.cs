@@ -118,12 +118,19 @@ namespace DarkChronicle.Roguelike
             AddService("スキル強化", SkillUpgradePrice,  OnUpgradeSkill, false);
         }
 
+        int ApplyMetaDiscount(int price)
+        {
+            float discount = _run?.MetaShopDiscount ?? 0f;
+            if (discount <= 0f) return price;
+            return Mathf.Max(1, Mathf.RoundToInt(price * (1f - discount)));
+        }
+
         void AddSkillItem(int floor, int sanity)
         {
             var skill = LootSystem.Instance?.DrawSkill(sanity);
             if (skill == null) return;
-            int price = RelicManager.Instance.ModifyShopPrice(
-                Mathf.RoundToInt(SkillBasePrice * (1f + floor * 0.3f)));
+            int price = ApplyMetaDiscount(RelicManager.Instance.ModifyShopPrice(
+                Mathf.RoundToInt(SkillBasePrice * (1f + floor * 0.3f))));
             var item = CreateShopItem(_skillSection, skill.SkillName, skill.Description,
                                       skill.Icon, price, () => BuySkill(skill, price));
             _stock.Add(new ShopItem { Skill = skill, Price = price, GO = item });
@@ -136,8 +143,8 @@ namespace DarkChronicle.Roguelike
             var relic  = LootSystem.Instance?.DrawRelic(rarity, false);
             if (relic == null) return;
             int basePrice = RelicBasePrices.TryGetValue(relic.Rarity, out int p) ? p : 100;
-            int price     = RelicManager.Instance.ModifyShopPrice(
-                Mathf.RoundToInt(basePrice * (1f + floor * 0.25f)));
+            int price     = ApplyMetaDiscount(RelicManager.Instance.ModifyShopPrice(
+                Mathf.RoundToInt(basePrice * (1f + floor * 0.25f))));
             var item = CreateShopItem(_relicSection, relic.RelicName, relic.Description,
                                       relic.Icon, price, () => BuyRelic(relic, price));
             _stock.Add(new ShopItem { Relic = relic, Price = price, GO = item });
@@ -147,7 +154,7 @@ namespace DarkChronicle.Roguelike
         {
             var item = LootSystem.Instance?.DrawConsumable();
             if (item == null) return;
-            int price = RelicManager.Instance.ModifyShopPrice(ConsumablePrice);
+            int price = ApplyMetaDiscount(RelicManager.Instance.ModifyShopPrice(ConsumablePrice));
             var go = CreateShopItem(_consumableSection, item.ItemName, item.Description,
                                     item.Icon, price, () => BuyConsumable(item, price));
             _stock.Add(new ShopItem { Item = item, Price = price, GO = go });
@@ -163,7 +170,7 @@ namespace DarkChronicle.Roguelike
                 if (candidate != null && _run.CanEquip(candidate)) { equip = candidate; break; }
             }
             if (equip == null) return;
-            int price = RelicManager.Instance.ModifyShopPrice(equip.Value);
+            int price = ApplyMetaDiscount(RelicManager.Instance.ModifyShopPrice(equip.Value));
             var go = CreateShopItem(_equipmentSection, equip.EquipName, equip.Description,
                                     equip.Icon, price, () => BuyEquipment(equip, price));
             _stock.Add(new ShopItem { Equipment = equip, Price = price, GO = go });
@@ -171,7 +178,7 @@ namespace DarkChronicle.Roguelike
 
         void AddService(string name, int baseCost, System.Action action, bool isFree)
         {
-            int price = isFree ? 0 : RelicManager.Instance.ModifyShopPrice(baseCost);
+            int price = isFree ? 0 : ApplyMetaDiscount(RelicManager.Instance.ModifyShopPrice(baseCost));
             CreateShopItem(_serviceSection, name, string.Empty, null, price, action);
         }
 

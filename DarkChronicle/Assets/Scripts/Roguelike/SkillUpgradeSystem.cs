@@ -84,10 +84,44 @@ namespace DarkChronicle.Roguelike
         const string KeyMaxFloor     = "Meta_MaxFloor";
         const string KeyUnlockFlags  = "Meta_Unlocks";
         const string KeyRelicsFound  = "Meta_RelicsFound";
+        const string KeyTotalEpitaphs = "Meta_TotalEpitaphs";
 
-        public static int  TotalRuns    => PlayerPrefs.GetInt(KeyTotalRuns,   0);
-        public static int  TotalWins    => PlayerPrefs.GetInt(KeyTotalWins,   0);
-        public static int  MaxFloor     => PlayerPrefs.GetInt(KeyMaxFloor,    0);
+        public static int  TotalRuns     => PlayerPrefs.GetInt(KeyTotalRuns,      0);
+        public static int  TotalWins     => PlayerPrefs.GetInt(KeyTotalWins,      0);
+        public static int  MaxFloor      => PlayerPrefs.GetInt(KeyMaxFloor,       0);
+        public static int  TotalEpitaphs => PlayerPrefs.GetInt(KeyTotalEpitaphs,  0);
+
+        public static void AddEpitaphs(int amount)
+        {
+            if (amount <= 0) return;
+            PlayerPrefs.SetInt(KeyTotalEpitaphs, TotalEpitaphs + amount);
+            PlayerPrefs.Save();
+        }
+
+        public static bool SpendEpitaphs(int amount)
+        {
+            if (amount <= 0 || TotalEpitaphs < amount) return false;
+            PlayerPrefs.SetInt(KeyTotalEpitaphs, TotalEpitaphs - amount);
+            PlayerPrefs.Save();
+            return true;
+        }
+
+        /// <summary>
+        /// 碑文の獲得量を計算する。
+        /// 基本: 10 + floors×10 + win20 + (enemies/3 max20) + (relics×2 max15)
+        /// × (1 + difficultyLevel × 0.3)
+        /// </summary>
+        public static int CalculateEpitaphsEarned(RunData run, bool won)
+        {
+            int base_ = 10
+                      + run.CurrentFloor * 10
+                      + (won ? 20 : 0)
+                      + Mathf.Min(run.EnemiesKilled / 3, 20)
+                      + Mathf.Min(run.RelicsFound   * 2, 15);
+
+            float diffMult = 1f + run.DifficultyLevel * 0.3f;
+            return Mathf.RoundToInt(base_ * diffMult);
+        }
 
         public static void RecordRunEnd(RunData run, bool won)
         {
@@ -104,6 +138,11 @@ namespace DarkChronicle.Roguelike
             // Record ending cleared
             if (won && run.ActiveEnding != EndingType.None)
                 RecordEndingCleared(run.ActiveEnding);
+
+            // Award Epitaphs (碑文) for this run
+            int earned = CalculateEpitaphsEarned(run, won);
+            run.EpitaphsEarned = earned;
+            PlayerPrefs.SetInt(KeyTotalEpitaphs, TotalEpitaphs + earned);
 
             // Unlock new characters / relics based on milestone
             CheckUnlocks(run, won);
@@ -192,7 +231,8 @@ namespace DarkChronicle.Roguelike
                    $"クリア数: {TotalWins}\n" +
                    $"最高到達: Floor {MaxFloor + 1}\n" +
                    $"解放難易度: {tier.DisplayName}（Lv{MaxUnlockedDifficulty}）\n" +
-                   $"エンディング: {GetClearedEndingCount()}/5";
+                   $"エンディング: {GetClearedEndingCount()}/5\n" +
+                   $"碑文（ヒトブン）: {TotalEpitaphs}";
         }
     }
 }

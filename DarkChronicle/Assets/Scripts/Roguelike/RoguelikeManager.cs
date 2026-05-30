@@ -10,6 +10,7 @@ using DarkChronicle.Data;
 using DarkChronicle.HD2D;
 using DarkChronicle.Roguelike.Events;
 using DarkChronicle.Roguelike.Map;
+using DarkChronicle.Roguelike.Meta;
 using DarkChronicle.Roguelike.Relics;
 using DarkChronicle.UI;
 
@@ -168,6 +169,8 @@ namespace DarkChronicle.Roguelike
 
             if (_run.HasRelic(RelicEffectType.FloorClearHeal))
                 _run.HealHP(_relicManager.ModifyHealAmount(Mathf.RoundToInt(_run.MaxHP * 0.3f)));
+            if (_run.MetaFloorClearExtraHeal)
+                _run.HealHP(_relicManager.ModifyHealAmount(Mathf.RoundToInt(_run.MaxHP * 0.05f)));
             _relicManager.NotifyFloorCleared();
             yield return ShowFloorClearScreen(resumeFloor);
 
@@ -181,6 +184,8 @@ namespace DarkChronicle.Roguelike
 
                 if (_run.HasRelic(RelicEffectType.FloorClearHeal))
                     _run.HealHP(_relicManager.ModifyHealAmount(Mathf.RoundToInt(_run.MaxHP * 0.3f)));
+                if (_run.MetaFloorClearExtraHeal)
+                    _run.HealHP(_relicManager.ModifyHealAmount(Mathf.RoundToInt(_run.MaxHP * 0.05f)));
                 _relicManager.NotifyFloorCleared();
                 yield return ShowFloorClearScreen(_run.CurrentFloor);
             }
@@ -294,7 +299,7 @@ namespace DarkChronicle.Roguelike
                                                                            _currentNode?.ID ?? -1);
                 _pauseMenu.OnAbandonConfirmed  += () => StartCoroutine(AbandonRun());
                 _pauseMenu.OnMainMenuConfirmed += () =>
-                    UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
+                    UnityEngine.SceneManagement.SceneManager.LoadScene(SceneNames.MainMenu);
                 _pauseMenu.OnEquipRequested    += () =>
                 {
                     if (_equipMenuUI != null) StartCoroutine(_equipMenuUI.Open(_run));
@@ -322,14 +327,35 @@ namespace DarkChronicle.Roguelike
         // ── Run Loop ───────────────────────────────────────────────────────
         IEnumerator StartRun()
         {
+            // Apply meta upgrades before difficulty bonuses
+            MetaUpgradeTree.ApplyAll(_run);
+
+            // MaxHP multiplier from meta (apply to both MaxHP and CurrentHP)
+            if (_run.MetaMaxHPMult > 1.0f)
+            {
+                int newMax = Mathf.RoundToInt(_run.MaxHP * _run.MetaMaxHPMult);
+                int bonus  = newMax - _run.MaxHP;
+                _run.MaxHP     = newMax;
+                _run.CurrentHP = newMax;  // start at full HP
+            }
+
             // 難易度に応じた初期ゴールドと初期呪いを付与する
             var diff = DifficultyConfig.Get(_run.DifficultyLevel);
             if (diff.StartingGold > 0)
                 _run.EarnGold(diff.StartingGold);
+            if (_run.MetaExtraStartGold > 0)
+                _run.EarnGold(_run.MetaExtraStartGold);
             if (diff.StartWithCurse)
             {
                 var curse = DrawRandomCurse();
                 if (curse != null) _run.AddCurse(curse);
+            }
+
+            // Meta: start with an additional common relic
+            if (_run.MetaStartWithCommonRelic)
+            {
+                var metaRelic = _lootSystem.DrawRelic(RelicRarity.Common, false);
+                if (metaRelic != null) _run.AddRelic(metaRelic);
             }
 
             yield return FadeGroup(_hud, 0f, 1f, 0.5f);
@@ -346,6 +372,9 @@ namespace DarkChronicle.Roguelike
                     int healAmt = Mathf.RoundToInt(_run.MaxHP * 0.3f);
                     _run.HealHP(_relicManager.ModifyHealAmount(healAmt));
                 }
+                // Meta: extra 5% heal on floor clear
+                if (_run.MetaFloorClearExtraHeal)
+                    _run.HealHP(_relicManager.ModifyHealAmount(Mathf.RoundToInt(_run.MaxHP * 0.05f)));
                 _relicManager.NotifyFloorCleared();
 
                 yield return ShowFloorClearScreen(_run.CurrentFloor);
@@ -425,8 +454,9 @@ namespace DarkChronicle.Roguelike
                 _run.CurrentNodeIndex++;
                 _run.TotalRoomsCleared++;
 
-                // AncientCurse: lose HP each room
-                if (_run.Curses.Exists(c => c.Effect == CurseEffectType.ReduceMaxHP))
+                // AncientCurse: lose HP each room (immune if meta upgrade active)
+                if (!_run.MetaCurseHPReductionImmune &&
+                    _run.Curses.Exists(c => c.Effect == CurseEffectType.ReduceMaxHP))
                     _run.TakeDamage(Mathf.RoundToInt(_run.MaxHP * 0.05f));
 
                 yield return ResolveNode(_currentNode, floorIndex);
@@ -451,7 +481,7 @@ namespace DarkChronicle.Roguelike
         // ── Field scene name (all node types share one parametric scene) ──
         // Create "NodeField" in Unity Build Settings; NodeFieldController
         // configures it at runtime based on NodeFieldContext.ActiveNodeType.
-        const string NodeFieldScene = "NodeField";
+        static string NodeFieldScene => SceneNames.NodeField;
 
         // ── Node Resolution ────────────────────────────────────────────────
         IEnumerator ResolveNode(MapNode node, int floorIndex)
@@ -802,6 +832,20 @@ namespace DarkChronicle.Roguelike
                 base_.Speed           = Mathf.RoundToInt(base_.Speed           * (1f + ancientBonus));
             }
 
+            // Meta stat multipliers
+            if (_run.MetaPhysAtkMult > 1.0f)
+                base_.PhysicalAttack  = Mathf.RoundToInt(base_.PhysicalAttack  * _run.MetaPhysAtkMult);
+            if (_run.MetaMagAtkMult > 1.0f)
+                base_.MagicAttack     = Mathf.RoundToInt(base_.MagicAttack     * _run.MetaMagAtkMult);
+            if (_run.MetaPhysDefMult > 1.0f)
+                base_.PhysicalDefense = Mathf.RoundToInt(base_.PhysicalDefense * _run.MetaPhysDefMult);
+            if (_run.MetaMagDefMult > 1.0f)
+                base_.MagicDefense    = Mathf.RoundToInt(base_.MagicDefense    * _run.MetaMagDefMult);
+            if (_run.MetaCritRateBonus > 0)
+                base_.CriticalRate   += _run.MetaCritRateBonus;
+            if (_run.MetaMaxMPBonus > 0)
+                base_.MaxMP          += _run.MetaMaxMPBonus;
+
             return base_;
         }
 
@@ -967,12 +1011,12 @@ namespace DarkChronicle.Roguelike
         void SetupEndButtons()
         {
             _restartButton.onClick.RemoveAllListeners();
-            _restartButton.onClick.AddListener(() => UnityEngine.SceneManagement.SceneManager.LoadScene(
-                UnityEngine.SceneManagement.SceneManager.GetActiveScene().name));
+            _restartButton.onClick.AddListener(() =>
+                UnityEngine.SceneManagement.SceneManager.LoadScene(SceneNames.Roguelike));
 
             _menuButton.onClick.RemoveAllListeners();
             _menuButton.onClick.AddListener(() =>
-                UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu"));
+                UnityEngine.SceneManagement.SceneManager.LoadScene(SceneNames.MainMenu));
         }
 
         static string SanityLabel(int sanity)
@@ -995,7 +1039,8 @@ namespace DarkChronicle.Roguelike
                    $"ダメージ: {_run.DamageDealt}\n" +
                    $"入手ゴールド: {_run.GoldEarned}\n" +
                    $"レリック数: {_run.RelicsFound}\n" +
-                   $"プレイ時間: {(int)elapsed.TotalMinutes}分{elapsed.Seconds:D2}秒";
+                   $"プレイ時間: {(int)elapsed.TotalMinutes}分{elapsed.Seconds:D2}秒\n" +
+                   $"獲得碑文（ヒトブン）: {_run.EpitaphsEarned}  合計: {MetaProgression.TotalEpitaphs}";
         }
 
         // ── HUD ────────────────────────────────────────────────────────────

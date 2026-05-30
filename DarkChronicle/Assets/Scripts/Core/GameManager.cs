@@ -164,7 +164,7 @@ namespace DarkChronicle.Core
         {
             SetState(GameState.GameOver);
             yield return FadeOut();
-            SceneManager.LoadScene("GameOver");
+            SceneManager.LoadScene(SceneNames.GameOver);
         }
 
         // ── Party Management ───────────────────────────────────────────────

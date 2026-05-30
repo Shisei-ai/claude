@@ -435,9 +435,12 @@ namespace DarkChronicle.Roguelike.Relics
             if (HasEffect(RelicEffectType.DeathMark))
                 rawDamage = Mathf.RoundToInt(rawDamage * 1.25f);
 
-            // Curse: FragileHP
+            // Curse: FragileHP — base +10%, reduced by MetaCurseDmgReduction
             if (_run.Curses.Exists(c => c.Effect == CurseEffectType.FragileHP))
-                rawDamage = Mathf.RoundToInt(rawDamage * 1.10f);
+            {
+                float mult = 1f + 0.10f * (1f - _run.MetaCurseDmgReduction);
+                rawDamage = Mathf.RoundToInt(rawDamage * mult);
+            }
 
             // ── New incoming modifiers ─────────────────────────────────────
 

@@ -65,12 +65,13 @@ namespace DarkChronicle.Roguelike
         public List<string> UnlockedSkillNames = new();
 
         // ── Statistics (for end screen) ────────────────────────────────────
-        public int  DamageDealt   = 0;
-        public int  DamageTaken   = 0;
-        public int  EnemiesKilled = 0;
-        public int  GoldEarned    = 0;
-        public int  RelicsFound   = 0;
-        public int  EventsVisited = 0;
+        public int  DamageDealt    = 0;
+        public int  DamageTaken    = 0;
+        public int  EnemiesKilled  = 0;
+        public int  GoldEarned     = 0;
+        public int  RelicsFound    = 0;
+        public int  EventsVisited  = 0;
+        public int  EpitaphsEarned = 0;  // set by MetaProgression.RecordRunEnd
 
         // ── Map State ──────────────────────────────────────────────────────
         public int[]  ChosenPath;            // serialized node choices per floor
@@ -180,6 +181,27 @@ namespace DarkChronicle.Roguelike
         public void EarnGold(int amount)  { Gold += amount; GoldEarned += amount; }
 
         public void AddSanity(int delta) => Sanity = Mathf.Clamp(Sanity + delta, -3, 3);
+
+        // ── Meta Upgrade Bonuses (applied at run start by MetaUpgradeTree.ApplyAll) ──
+        // Multiplicative stat bonuses (1.0 = no bonus)
+        public float MetaMaxHPMult   = 1.0f;
+        public float MetaPhysAtkMult = 1.0f;
+        public float MetaMagAtkMult  = 1.0f;
+        public float MetaPhysDefMult = 1.0f;
+        public float MetaMagDefMult  = 1.0f;
+        // Flat bonuses
+        public int   MetaCritRateBonus       = 0;
+        public int   MetaMaxMPBonus          = 0;
+        public int   MetaExtraStartGold      = 0;
+        public int   MetaExtraRelicChoices   = 0;
+        public int   MetaStartBP             = 0;
+        // Fractional discounts / reductions (0.0 = none)
+        public float MetaShopDiscount        = 0f;
+        public float MetaCurseDmgReduction   = 0f;
+        // Boolean flags
+        public bool  MetaFloorClearExtraHeal    = false;
+        public bool  MetaStartWithCommonRelic   = false;
+        public bool  MetaCurseHPReductionImmune = false;
     }
 
     // ── Curse Data ─────────────────────────────────────────────────────────

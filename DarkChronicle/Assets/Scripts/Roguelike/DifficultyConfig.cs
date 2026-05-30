@@ -43,7 +43,7 @@ namespace DarkChronicle.Roguelike
 
             new DifficultyTier(DifficultyLevel.Abyss,     "深淵",
                 "呪いを背負って旅立て。これが最難関だ。",
-                hpMult: 1.75f, dmgMult: 1.55f, startGold: 0,
+                hpMult: 1.75f, dmgMult: 1.55f, startGold: 100,
                 eliteShields: 2, allShields: 2, startCurse: true),
         };
 
