@@ -2,7 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
-using Unity.Cinemachine;
+using Cinemachine;
 
 namespace DarkChronicle.HD2D
 {
@@ -37,7 +37,7 @@ namespace DarkChronicle.HD2D
         Camera            _cam;
         Volume            _ppVolume;
         DepthOfField      _dof;
-        CinemachineCamera        _vcam;
+        CinemachineVirtualCamera _vcam;
         Transform         _target;
         Vector3           _shakeOffset;
         float             _shakeMagnitude;

@@ -41,8 +41,10 @@ namespace DarkChronicle.Character
         bool    _canMove    = true;
         float   _stepCounter;
 
-        // Input Actions (generated from Input Action asset)
-        PlayerInputActions _inputActions;
+        // Input Actions (inline — no generated asset file required)
+        InputAction _moveAction;
+        InputAction _runAction;
+        InputAction _interactAction;
 
         // ── Encounter Step Tracking ────────────────────────────────────────
         float _distanceSinceLastStep;
@@ -59,25 +61,55 @@ namespace DarkChronicle.Character
             _anim   = GetComponent<Animator>();
             _sprite = GetComponent<SpriteRenderer>();
 
-            _inputActions = new PlayerInputActions();
+            _moveAction     = new InputAction("Move",     InputActionType.Value,  expectedControlType: "Vector2");
+            _runAction      = new InputAction("Run",      InputActionType.Button);
+            _interactAction = new InputAction("Interact", InputActionType.Button);
+
+            // Move: WASD
+            _moveAction.AddCompositeBinding("2DVector")
+                .With("Up",    "<Keyboard>/w")
+                .With("Down",  "<Keyboard>/s")
+                .With("Left",  "<Keyboard>/a")
+                .With("Right", "<Keyboard>/d");
+            // Move: Arrow keys
+            _moveAction.AddCompositeBinding("2DVector")
+                .With("Up",    "<Keyboard>/upArrow")
+                .With("Down",  "<Keyboard>/downArrow")
+                .With("Left",  "<Keyboard>/leftArrow")
+                .With("Right", "<Keyboard>/rightArrow");
+            // Move: Gamepad left stick
+            _moveAction.AddBinding("<Gamepad>/leftStick");
+
+            // Run: Left Shift / Gamepad left stick click
+            _runAction.AddBinding("<Keyboard>/leftShift");
+            _runAction.AddBinding("<Gamepad>/leftStickPress");
+
+            // Interact: E / Space / Gamepad A
+            _interactAction.AddBinding("<Keyboard>/e");
+            _interactAction.AddBinding("<Keyboard>/space");
+            _interactAction.AddBinding("<Gamepad>/buttonSouth");
         }
 
         void OnEnable()
         {
-            _inputActions.Enable();
-            _inputActions.Player.Move    .performed += OnMovePerformed;
-            _inputActions.Player.Move    .canceled  += OnMoveCanceled;
-            _inputActions.Player.Run     .performed += ctx => _isRunning = true;
-            _inputActions.Player.Run     .canceled  += ctx => _isRunning = false;
-            _inputActions.Player.Interact.performed += OnInteractPerformed;
+            _moveAction    .performed += OnMovePerformed;
+            _moveAction    .canceled  += OnMoveCanceled;
+            _runAction     .performed += ctx => _isRunning = true;
+            _runAction     .canceled  += ctx => _isRunning = false;
+            _interactAction.performed += OnInteractPerformed;
+            _moveAction    .Enable();
+            _runAction     .Enable();
+            _interactAction.Enable();
         }
 
         void OnDisable()
         {
-            _inputActions.Player.Move    .performed -= OnMovePerformed;
-            _inputActions.Player.Move    .canceled  -= OnMoveCanceled;
-            _inputActions.Player.Interact.performed -= OnInteractPerformed;
-            _inputActions.Disable();
+            _moveAction    .performed -= OnMovePerformed;
+            _moveAction    .canceled  -= OnMoveCanceled;
+            _interactAction.performed -= OnInteractPerformed;
+            _moveAction    .Disable();
+            _runAction     .Disable();
+            _interactAction.Disable();
         }
 
         void FixedUpdate()
