@@ -187,7 +187,7 @@ namespace DarkChronicle.Roguelike
                 yield return StartFloor4();
                 if (!_run.IsRunActive) yield break;
                 if (_endingManager != null)
-                    yield return _endingManager.ShowEnding(_run.ActiveEnding);
+                    yield return _endingManager.ShowEnding(_run.ActiveEnding, won: true);
             }
 
             yield return RunVictory();
@@ -354,7 +354,7 @@ namespace DarkChronicle.Roguelike
                 if (!_run.IsRunActive) yield break;
 
                 if (_endingManager != null)
-                    yield return _endingManager.ShowEnding(_run.ActiveEnding);
+                    yield return _endingManager.ShowEnding(_run.ActiveEnding, won: true);
             }
 
             // All floors cleared = victory
@@ -515,6 +515,11 @@ namespace DarkChronicle.Roguelike
             if (!ctx.LastResult.WasVictory)
             {
                 Destroy(ctxGO);
+                // Show defeat ending narrative when the Floor 4 boss beats the player
+                if (_run.ActiveEnding != EndingType.None &&
+                    node.Type == NodeType.Boss &&
+                    _endingManager != null)
+                    yield return _endingManager.ShowEnding(_run.ActiveEnding, won: false);
                 yield return RunDeath();
                 yield break;
             }

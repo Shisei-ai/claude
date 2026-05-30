@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using DarkChronicle.Data;
 
@@ -100,10 +101,35 @@ namespace DarkChronicle.Roguelike
             foreach (var relic in run.Relics)
                 SetRelicSeen(relic.name);
 
+            // Record ending cleared
+            if (won && run.ActiveEnding != EndingType.None)
+                RecordEndingCleared(run.ActiveEnding);
+
             // Unlock new characters / relics based on milestone
             CheckUnlocks(run, won);
             PlayerPrefs.Save();
         }
+
+        // ── Ending Tracking ────────────────────────────────────────────────
+        static readonly EndingType[] AllEndings =
+        {
+            EndingType.DemonKing, EndingType.AbyssGod, EndingType.TimeWraith,
+            EndingType.CursedKing, EndingType.TrueCore,
+        };
+
+        static string EndingKey(EndingType ending) => $"Meta_Ending_{(int)ending}";
+
+        public static void RecordEndingCleared(EndingType ending) =>
+            PlayerPrefs.SetInt(EndingKey(ending), 1);
+
+        public static bool HasClearedEnding(EndingType ending) =>
+            PlayerPrefs.GetInt(EndingKey(ending), 0) == 1;
+
+        public static int GetClearedEndingCount() =>
+            AllEndings.Count(e => HasClearedEnding(e));
+
+        public static bool HasClearedAllEndings() =>
+            AllEndings.All(e => HasClearedEnding(e));
 
         // ── Unlocks ────────────────────────────────────────────────────────
         static readonly Dictionary<string, System.Func<RunData, bool, bool>> UnlockConditions = new()
@@ -116,6 +142,8 @@ namespace DarkChronicle.Roguelike
             ["cursed_pool"] = (run, won) => run.Curses.Count >= 5,
             // Unlock true final boss: win 3 times
             ["final_boss"] = (run, won) => TotalWins >= 2 && won,
+            // Unlock true colour gallery: clear all 5 endings
+            ["all_endings"] = (run, won) => HasClearedAllEndings(),
         };
 
         static void CheckUnlocks(RunData run, bool won)
@@ -163,7 +191,8 @@ namespace DarkChronicle.Roguelike
             return $"総ラン数: {TotalRuns}\n" +
                    $"クリア数: {TotalWins}\n" +
                    $"最高到達: Floor {MaxFloor + 1}\n" +
-                   $"解放難易度: {tier.DisplayName}（Lv{MaxUnlockedDifficulty}）";
+                   $"解放難易度: {tier.DisplayName}（Lv{MaxUnlockedDifficulty}）\n" +
+                   $"エンディング: {GetClearedEndingCount()}/5";
         }
     }
 }

@@ -123,7 +123,7 @@ namespace DarkChronicle.UI
         /// Stage 2: Show the full ending narrative after the final boss is resolved.
         /// Fades in over the tinted overlay, typewriters the ending text, then waits for continue.
         /// </summary>
-        public IEnumerator ShowEnding(EndingType ending)
+        public IEnumerator ShowEnding(EndingType ending, bool won = true)
         {
             // Audio
             PlaySFX(_endingSFX);
@@ -132,9 +132,11 @@ namespace DarkChronicle.UI
             _endingTitle.text = EndingSystem.GetEndingTitle(ending);
             _endingText.text  = string.Empty;
 
-            // Dark tint overlay behind the text
+            // Dark tint overlay: defeat endings use a slightly lighter tint
             if (_endingTintOverlay != null)
-                _endingTintOverlay.color = new Color(0f, 0f, 0f, 0.7f);
+                _endingTintOverlay.color = won
+                    ? new Color(0f, 0f, 0f, 0.7f)
+                    : new Color(0.1f, 0f, 0f, 0.75f);
 
             // Fade the panel in slowly
             yield return StartCoroutine(UIAnimator.FadeIn(_endingPanel, 1.0f));
@@ -142,10 +144,10 @@ namespace DarkChronicle.UI
             // Brief dramatic pause before text begins
             yield return new WaitForSeconds(1f);
 
-            // Typewrite the ending narrative (won: true — player defeated the boss)
+            // Typewrite the ending narrative
             yield return StartCoroutine(
                 UIAnimator.Typewriter(_endingText,
-                                      EndingSystem.GetEndingText(ending, won: true),
+                                      EndingSystem.GetEndingText(ending, won),
                                       _endingTypewriterSpeed));
 
             // Show continue button and wait for click
