@@ -128,12 +128,19 @@ namespace DarkChronicle.Core
             SetState(GameState.Battle);
             var heroDataList = new List<CharacterData>();
             var heroStatList = new List<CharacterStats>();
+            var heroSkills   = new List<List<SkillData>>();
             foreach (var c in Party)
             {
                 heroDataList.Add(c.BaseData);
                 heroStatList.Add(c.RuntimeStats);
+                heroSkills.Add(
+                    c.CurrentJob?.LearnableSkills
+                        ?.Where(e => e.Skill != null && e.JobLevel <= c.JobLevel)
+                         .Select(e => e.Skill).ToList()
+                    ?? new List<SkillData>());
             }
-            BattleManager.Instance.StartBattle(heroDataList, heroStatList, enemies);
+            BattleManager.Instance.StartBattle(heroDataList, heroStatList, enemies,
+                                               heroSkills: heroSkills);
         }
 
         void OnBattleEnd(BattleResult result)

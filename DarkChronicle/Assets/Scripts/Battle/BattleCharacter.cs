@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using DarkChronicle.Data;
 using DarkChronicle.Character.Traits;
@@ -15,6 +16,7 @@ namespace DarkChronicle.Battle
         public CharacterData  CharData   { get; private set; }   // null for enemies
         public EnemyData      EnemyData  { get; private set; }   // null for heroes
         public bool           IsPlayer   => CharData != null;
+        public IReadOnlyList<SkillData> Skills { get; private set; }
 
         // ── Stats (base + equipment buffs + status-effect % modifiers) ────
         public CharacterStats BaseStats  { get; private set; }
@@ -71,13 +73,18 @@ namespace DarkChronicle.Battle
         public ElementalResonanceSystem ResonanceSystem { get; private set; }
 
         // ── Constructor ────────────────────────────────────────────────────
-        public BattleCharacter(CharacterData data, CharacterStats stats)
+        public BattleCharacter(CharacterData data, CharacterStats stats,
+                               List<SkillData> skills = null)
         {
             CharData  = data;
             BaseStats = stats.Clone();
             HP = MaxHP;
             MP = MaxMP;
             BP = 0;
+            Skills = skills
+                  ?? data.StarterJob?.LearnableSkills
+                        ?.Select(e => e.Skill).Where(s => s != null).ToList()
+                  ?? new List<SkillData>();
             Traits          = new TraitProcessor(this, data.Traits ?? System.Array.Empty<CharacterTrait>());
             ResonanceSystem = new ElementalResonanceSystem();
         }

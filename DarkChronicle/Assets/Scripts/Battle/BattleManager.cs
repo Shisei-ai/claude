@@ -70,8 +70,9 @@ namespace DarkChronicle.Battle
         public void StartBattle(List<CharacterData>      heroDataList,
                                 List<CharacterStats>     heroStats,
                                 List<EnemyData>          enemyDataList,
-                                List<ItemData>           inventory  = null,
-                                System.Action<ItemData>  onItemUsed = null)
+                                List<ItemData>           inventory   = null,
+                                System.Action<ItemData>  onItemUsed  = null,
+                                List<List<SkillData>>    heroSkills  = null)
         {
             _battleInventory  = inventory != null ? new List<ItemData>(inventory) : new();
             _itemUsedCallback = onItemUsed;
@@ -83,13 +84,16 @@ namespace DarkChronicle.Battle
             _bossPhaseLevel.Clear();
 
             for (int i = 0; i < heroDataList.Count; i++)
-                _heroes.Add(new BattleCharacter(heroDataList[i], heroStats[i]));
+            {
+                var skills = heroSkills != null && i < heroSkills.Count ? heroSkills[i] : null;
+                _heroes.Add(new BattleCharacter(heroDataList[i], heroStats[i], skills));
+            }
             foreach (var ed in enemyDataList)
                 _enemies.Add(new BattleCharacter(ed));
 
             _allCombatants = _heroes.Concat(_enemies).ToList();
 
-            // Initialise traits and resonance systems
+            // Traits and resonance init
             var heroArray = _heroes.ToArray();
             foreach (var h in _heroes)
             {
@@ -103,6 +107,16 @@ namespace DarkChronicle.Battle
             // Stagger initial gauges
             foreach (var c in _allCombatants)
                 c.TurnGauge = Random.Range(0f, 50f);
+
+            // UI setup — hero panels and enemy panels
+            for (int i = 0; i < _heroes.Count; i++)
+                _battleUI.InitHeroPanel(i, _heroes[i]);
+            for (int i = 0; i < _enemies.Count; i++)
+            {
+                Vector3 worldPos = (i < _enemyPositions.Length && _enemyPositions[i] != null)
+                    ? _enemyPositions[i].position : Vector3.zero;
+                _battleUI.RegisterEnemy(_enemies[i], worldPos);
+            }
 
             AtmosphereManager.Instance?.EnterBattle();
             _battleUI.SetBattleInventory(_battleInventory);

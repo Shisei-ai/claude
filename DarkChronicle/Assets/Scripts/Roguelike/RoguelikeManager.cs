@@ -590,7 +590,8 @@ namespace DarkChronicle.Roguelike
 
             BattleManager.Instance.StartBattle(heroDataList, heroStatList, enemies,
                 new List<ItemData>(_run.Inventory),
-                usedItem => _run.Inventory.Remove(usedItem));
+                usedItem => _run.Inventory.Remove(usedItem),
+                heroSkills: new List<List<Data.SkillData>> { new List<Data.SkillData>(_run.Deck) });
 
             // Wait for battle to finish
             bool battleDone = false;

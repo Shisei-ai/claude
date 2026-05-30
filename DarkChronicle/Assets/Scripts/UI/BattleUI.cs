@@ -170,6 +170,12 @@ namespace DarkChronicle.UI
         }
 
         // ── Public API (called by BattleManager) ───────────────────────────
+        public void InitHeroPanel(int index, BattleCharacter hero)
+        {
+            if (index >= 0 && index < _heroPanels.Length)
+                _heroPanels[index].Refresh(hero);
+        }
+
         public void ShowPlayerCommandMenu(BattleCharacter hero)
         {
             _activeHero    = hero;
@@ -178,13 +184,18 @@ namespace DarkChronicle.UI
             _pendingGrimoire = null;
             TransitionTo(MenuState.Root);
 
-            // Show grimoire button only when Zeno is active
+            bool silenced = hero.IsSilenced;
+
+            // Skill button — greyed out when silenced
+            _skillButton.interactable = !silenced;
+
+            // Grimoire button — shown only for Zeno, greyed out when silenced
             bool hasGrimoire = hero.Traits.GetTrait<Trait_GrimoireMaster>() != null;
             _grimoireButton.gameObject.SetActive(hasGrimoire);
             if (hasGrimoire)
             {
                 var gm = hero.Traits.GetTrait<Trait_GrimoireMaster>();
-                _grimoireButton.interactable = gm.GrimoireSystem.HasAnyEntry;
+                _grimoireButton.interactable = !silenced && gm.GrimoireSystem.HasAnyEntry;
             }
 
             if (_itemButton != null)
@@ -396,14 +407,9 @@ namespace DarkChronicle.UI
         {
             foreach (Transform child in _skillListContent) Destroy(child.gameObject);
 
-            if (_activeHero?.CharData?.StarterJob == null) return;
+            if (_activeHero == null || _activeHero.Skills.Count == 0) return;
 
-            var learnedSkills = _activeHero.CharData.StarterJob.LearnableSkills
-                .Where(e => e.Skill != null)
-                .Select(e => e.Skill)
-                .ToList();
-
-            foreach (var skill in learnedSkills)
+            foreach (var skill in _activeHero.Skills)
             {
                 var entry = Instantiate(_skillEntryPrefab, _skillListContent);
                 var texts = entry.GetComponentsInChildren<TextMeshProUGUI>();
@@ -1020,7 +1026,11 @@ namespace DarkChronicle.UI
             StatusEffectType.Blind     => new Color(0.3f,  0.3f,  0.4f),
             StatusEffectType.Silence   => new Color(0.7f,  0.4f,  0.8f),
             StatusEffectType.AtkUp     => new Color(1f,    0.6f,  0.2f),
+            StatusEffectType.AtkDown   => new Color(0.4f,  0.4f,  0.85f),
+            StatusEffectType.DefUp     => new Color(0.3f,  0.65f, 1f),
             StatusEffectType.DefDown   => new Color(0.7f,  0.2f,  0.2f),
+            StatusEffectType.SpdUp     => new Color(0.35f, 1f,    0.85f),
+            StatusEffectType.SpdDown   => new Color(0.5f,  0.35f, 0.35f),
             StatusEffectType.Regen     => new Color(0.3f,  1f,    0.5f),
             _                          => Color.grey,
         };
@@ -1036,7 +1046,11 @@ namespace DarkChronicle.UI
             StatusEffectType.Blind     => "暗",
             StatusEffectType.Silence   => "沈",
             StatusEffectType.AtkUp     => "攻↑",
+            StatusEffectType.AtkDown   => "攻↓",
+            StatusEffectType.DefUp     => "防↑",
             StatusEffectType.DefDown   => "防↓",
+            StatusEffectType.SpdUp     => "速↑",
+            StatusEffectType.SpdDown   => "速↓",
             StatusEffectType.Regen     => "再生",
             _                          => t.ToString()[..2],
         };
@@ -1052,7 +1066,11 @@ namespace DarkChronicle.UI
             StatusEffectType.Blind     => "暗闇",
             StatusEffectType.Silence   => "沈黙",
             StatusEffectType.AtkUp     => "攻撃力上昇",
+            StatusEffectType.AtkDown   => "攻撃力低下",
+            StatusEffectType.DefUp     => "防御力上昇",
             StatusEffectType.DefDown   => "防御力低下",
+            StatusEffectType.SpdUp     => "速度上昇",
+            StatusEffectType.SpdDown   => "速度低下",
             StatusEffectType.Regen     => "リジェネ",
             _                          => t.ToString(),
         };
@@ -1155,7 +1173,11 @@ namespace DarkChronicle.UI
             StatusEffectType.Blind     => new Color(0.3f,  0.3f,  0.4f),
             StatusEffectType.Silence   => new Color(0.7f,  0.4f,  0.8f),
             StatusEffectType.AtkUp     => new Color(1f,    0.6f,  0.2f),
+            StatusEffectType.AtkDown   => new Color(0.4f,  0.4f,  0.85f),
+            StatusEffectType.DefUp     => new Color(0.3f,  0.65f, 1f),
             StatusEffectType.DefDown   => new Color(0.7f,  0.2f,  0.2f),
+            StatusEffectType.SpdUp     => new Color(0.35f, 1f,    0.85f),
+            StatusEffectType.SpdDown   => new Color(0.5f,  0.35f, 0.35f),
             StatusEffectType.Regen     => new Color(0.3f,  1f,    0.5f),
             _                          => Color.grey,
         };
@@ -1170,6 +1192,13 @@ namespace DarkChronicle.UI
             StatusEffectType.Sleep     => "眠",
             StatusEffectType.Blind     => "暗",
             StatusEffectType.Silence   => "沈",
+            StatusEffectType.AtkUp     => "攻↑",
+            StatusEffectType.AtkDown   => "攻↓",
+            StatusEffectType.DefUp     => "防↑",
+            StatusEffectType.DefDown   => "防↓",
+            StatusEffectType.SpdUp     => "速↑",
+            StatusEffectType.SpdDown   => "速↓",
+            StatusEffectType.Regen     => "再生",
             _                          => t.ToString()[..2],
         };
 
@@ -1184,7 +1213,11 @@ namespace DarkChronicle.UI
             StatusEffectType.Blind     => "暗闇",
             StatusEffectType.Silence   => "沈黙",
             StatusEffectType.AtkUp     => "攻撃力上昇",
+            StatusEffectType.AtkDown   => "攻撃力低下",
+            StatusEffectType.DefUp     => "防御力上昇",
             StatusEffectType.DefDown   => "防御力低下",
+            StatusEffectType.SpdUp     => "速度上昇",
+            StatusEffectType.SpdDown   => "速度低下",
             StatusEffectType.Regen     => "リジェネ",
             _                          => t.ToString(),
         };
