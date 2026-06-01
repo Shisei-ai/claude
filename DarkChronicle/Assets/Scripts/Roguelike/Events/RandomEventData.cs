@@ -89,6 +89,7 @@ namespace DarkChronicle.Roguelike.Events
         public bool         OneTimeOnly = false;    // once per run
         public RelicEffectType RequiredRelic = (RelicEffectType)(-1); // -1 = no requirement
         public float        SanityWeight = 0f;   // selection weight modifier per Sanity point
+        public string       RequiredCharacter = ""; // empty = any character; match by CharacterData.name
 
         [Header("Choices")]
         public List<EventChoice> Choices;
@@ -149,6 +150,13 @@ namespace DarkChronicle.Roguelike.Events
         public const string DarkMirror        = "dark_mirror";
         public const string TimeEchoChamber   = "time_echo_chamber";
         public const string SovereignsTrial   = "sovereigns_trial";
+
+        // キャラクター固有イベント
+        public const string AshRavenReturns      = "ash_raven_returns";
+        public const string ZenoAkariMemory      = "zeno_akari_memory";
+        public const string BernhardAshOath      = "bernhard_ash_oath";
+        public const string LaviniaContractFade  = "lavinia_contract_fade";
+        public const string LiliaGodsSilence     = "lilia_gods_silence";
 
         // エンディング分岐（1回限り）
         public const string DemonKingsBeckoning = "demon_kings_beckoning";

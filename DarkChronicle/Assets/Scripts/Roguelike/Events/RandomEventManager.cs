@@ -68,7 +68,9 @@ namespace DarkChronicle.Roguelike.Events
                 .Where(e => e != null
                          && e.MinFloor <= floorIndex
                          && e.MaxFloor >= floorIndex
-                         && (!e.OneTimeOnly || !_usedOneTimeEvents.Contains(e.EventID)))
+                         && (!e.OneTimeOnly || !_usedOneTimeEvents.Contains(e.EventID))
+                         && (string.IsNullOrEmpty(e.RequiredCharacter)
+                             || e.RequiredCharacter == _run.SelectedCharacter?.name))
                 .ToList();
 
             if (pool.Count == 0) return null;

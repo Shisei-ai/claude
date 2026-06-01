@@ -150,7 +150,7 @@ namespace DarkChronicle.UI
                                       EndingSystem.GetEndingText(ending, won),
                                       _endingTypewriterSpeed));
 
-            // Show continue button and wait for click
+            // Show continue button and wait for click (between main text and epilogue)
             bool clicked = false;
             if (_endingContinueButton != null)
             {
@@ -165,6 +165,34 @@ namespace DarkChronicle.UI
             {
                 _endingContinueButton.onClick.RemoveAllListeners();
                 _endingContinueButton.gameObject.SetActive(false);
+            }
+
+            // Character-specific epilogue
+            string charName = RoguelikeManager.Instance?.CurrentCharacterName ?? string.Empty;
+            string epilogue = EndingSystem.GetCharacterEpilogue(charName, ending, won);
+            if (!string.IsNullOrEmpty(epilogue))
+            {
+                yield return new WaitForSeconds(0.5f);
+
+                _endingText.text = string.Empty;
+                yield return StartCoroutine(
+                    UIAnimator.Typewriter(_endingText, epilogue, _endingTypewriterSpeed));
+
+                bool epilogueContinued = false;
+                if (_endingContinueButton != null)
+                {
+                    _endingContinueButton.gameObject.SetActive(true);
+                    _endingContinueButton.onClick.RemoveAllListeners();
+                    _endingContinueButton.onClick.AddListener(() => epilogueContinued = true);
+                }
+
+                yield return new WaitUntil(() => epilogueContinued);
+
+                if (_endingContinueButton != null)
+                {
+                    _endingContinueButton.onClick.RemoveAllListeners();
+                    _endingContinueButton.gameObject.SetActive(false);
+                }
             }
 
             // Fade out

@@ -52,7 +52,7 @@ namespace DarkChronicle.UI
         {
             _titleGroup.alpha   = 0f;
             _buttonsGroup.alpha = 0f;
-            _saveSlotPanel.SetActive(false);
+            _saveSlotPanel?.SetActive(false);
             _settingsPanel.SetActive(false);
 
             _newGameButton    .onClick.AddListener(OnNewGame);
@@ -62,7 +62,7 @@ namespace DarkChronicle.UI
             _settingsButton   .onClick.AddListener(OnSettings);
             _quitButton       .onClick.AddListener(OnQuit);
 
-            _continueButton.interactable = SaveSystem.Load(0) != null;
+            _continueButton.interactable = RunSaveSystem.HasSave();
 
             // Show Epitaph count on meta upgrade button label if available
             if (_metaUpgradeButton != null)
@@ -121,22 +121,26 @@ namespace DarkChronicle.UI
         }
 
         // ── Button Handlers ────────────────────────────────────────────────
-        void OnStartRoguelike() =>
+        void OnStartRoguelike()
+        {
+            RoguelikeManager.ForceNewRun = true;
             SceneManager.LoadScene(SceneNames.Roguelike);
+        }
 
         void OnMetaUpgrade() =>
             SceneManager.LoadScene(SceneNames.MetaUpgrade);
 
         void OnNewGame()
         {
-            _saveSlotPanel.SetActive(true);
-            RefreshSaveSlots(isLoad: false);
+            RoguelikeManager.ForceNewRun = true;
+            SceneManager.LoadScene(SceneNames.Roguelike);
         }
 
         void OnContinue()
         {
-            _saveSlotPanel.SetActive(true);
-            RefreshSaveSlots(isLoad: true);
+            if (!RunSaveSystem.HasSave()) return;
+            RoguelikeManager.ForceNewRun = false;
+            SceneManager.LoadScene(SceneNames.Roguelike);
         }
 
         void OnSettings()

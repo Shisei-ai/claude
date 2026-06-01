@@ -75,6 +75,13 @@ namespace DarkChronicle.Roguelike.Events
             list.Add(CursedCrowns());
             list.Add(TrueCoreEcho());
 
+            // ── キャラクター固有イベント ──────────────────────────────────
+            list.Add(AshRavenReturns());
+            list.Add(ZenoAkariMemory());
+            list.Add(BernhardAshOath());
+            list.Add(LaviniaContractFade());
+            list.Add(LiliaGodsSilence());
+
             return list;
         }
 
@@ -852,6 +859,107 @@ namespace DarkChronicle.Roguelike.Events
             Choice("無視する",
                    Res("振動はやがて静まり、世界は沈黙した。今は耳を傾ける時ではない。"))
         );
+
+        // ════════════════════════════════════════════════════════════════════
+        //   キャラクター固有イベント
+        // ════════════════════════════════════════════════════════════════════
+
+        static RandomEventData AshRavenReturns()
+        {
+            var ev = Ev(
+                EventLibrary.AshRavenReturns, "影の密使",
+                "廃墟の柱の影に、見覚えのある男が立っていた。\n" +
+                "昔の同僚——国の秘密を共有した仲間の一人だ。\n" +
+                "彼の目に懐かしさと緊張が混じっている。「Ash……生きていたのか。」",
+                minFloor: 0, maxFloor: 5, tint: new Color(0.15f, 0.15f, 0.2f),
+                Choice("話を聞く",
+                       Res("仲間の近況を聞いた。情報を交換し合い、お互いに背を向けて別の道へ歩いた。",
+                           hp: 0.1f, sanity: 5)),
+                Choice("距離を置く",
+                       Res("信じていいのかわからない。Ashは静かに立ち去った。影の中では友を信じることが命取りになる。",
+                           sanity: -3))
+            );
+            ev.RequiredCharacter = "Ash";
+            return ev;
+        }
+
+        static RandomEventData ZenoAkariMemory()
+        {
+            var ev = Ev(
+                EventLibrary.ZenoAkariMemory, "妹の痕跡",
+                "崩れた書架の奥に、見覚えのある魔法文字が刻まれた石版があった。\n" +
+                "アカリが研究していた術式の記録——ここを通ったのか、それとも手がかりなのか。\n" +
+                "Zenoの手が、石版をそっとなぞる。",
+                minFloor: 0, maxFloor: 5, tint: new Color(0.1f, 0.1f, 0.25f),
+                Choice("石版を詳しく調べる",
+                       Res("断片的な記録が読み取れた。アカリの足跡が——確かにここにある。希望が一つ増えた。",
+                           sanity: 8, skillDraft: true, skillCount: 1)),
+                Choice("記録だけ写す",
+                       Res("石版の内容を記憶に刻み込んだ。アカリを探す旅に、また一つ灯台ができた。",
+                           sanity: 5))
+            );
+            ev.RequiredCharacter = "Zeno";
+            return ev;
+        }
+
+        static RandomEventData BernhardAshOath()
+        {
+            var ev = Ev(
+                EventLibrary.BernhardAshOath, "王国の生き残り",
+                "荒れ果てた野営地の跡に、老いた兵士が一人座っていた。\n" +
+                "その胸の紋章——かつてBernhardが仕えた王国のものだ。\n" +
+                "老兵はBernhardを見上げ、「……将軍、生きておられたか」と震える声で言った。",
+                minFloor: 0, maxFloor: 5, tint: new Color(0.2f, 0.15f, 0.1f),
+                Choice("共に戦った日々を語る",
+                       Res("かつての戦場の記憶を語り合った。老兵の目に涙が光る。贖罪の道は、まだ続いている。",
+                           hp: 0.15f, sanity: 6)),
+                Choice("先を急ぐ",
+                       Res("Bernhardは足を止めなかった。過去を振り返る時間はない——まだやるべきことがある。",
+                           sanity: -2))
+            );
+            ev.RequiredCharacter = "Bernhard";
+            return ev;
+        }
+
+        static RandomEventData LaviniaContractFade()
+        {
+            var ev = Ev(
+                EventLibrary.LaviniaContractFade, "契約の衰え",
+                "一瞬だけ、体から力が抜けた。\n" +
+                "契約の紋様が薄れているのがわかる——代償が、また一段階進んだのだ。\n" +
+                "Laviniaはそれを静かに受け止め、それでも前を向いた。",
+                minFloor: 1, maxFloor: 5, tint: new Color(0.25f, 0.05f, 0.2f),
+                Choice("契約の力を再確認する",
+                       Res("力はまだある。衰えを認めた上で、今ある力を最大限に使う——それがLaviniaの選択だ。",
+                           relic: true, relicPool: RelicRarity.Uncommon, maxHP: -5)),
+                Choice("衰えを受け入れ、進む",
+                       Res("命の時間が減る分、この旅の密度が増す。Laviniaは静かに微笑み、歩き続けた。",
+                           sanity: 3))
+            );
+            ev.RequiredCharacter = "Lavinia";
+            return ev;
+        }
+
+        static RandomEventData LiliaGodsSilence()
+        {
+            var ev = Ev(
+                EventLibrary.LiliaGodsSilence, "神の沈黙",
+                "目の前の負傷した旅人に、回復の祈りを捧げた。\n" +
+                "しかし——何も起きなかった。神の声が、届かない。\n" +
+                "Liliaは膝をついたまま、しばらく動けなかった。",
+                minFloor: 0, maxFloor: 5, tint: new Color(0.1f, 0.1f, 0.15f),
+                Choice("それでも祈り続ける",
+                       Res("繰り返し祈り続けた。やがてかすかな光が宿り、旅人の傷が少しだけ癒えた。\n" +
+                           "神は、聞いていた。",
+                           fullHeal: false, hp: 0.1f, sanity: 5)),
+                Choice("自分の手で傷を手当する",
+                       Res("神の力ではなく、自分の手で処置を施した。\n" +
+                           "神に頼らなくても、できることはある——Liliaは静かにそれを学んだ。",
+                           sanity: 8))
+            );
+            ev.RequiredCharacter = "Lilia";
+            return ev;
+        }
 
         // ════════════════════════════════════════════════════════════════════
         //   ファクトリ ヘルパー

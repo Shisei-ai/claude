@@ -93,6 +93,18 @@ namespace DarkChronicle.Roguelike
         [Header("Equipment")]
         [SerializeField] UI.EquipMenuUI      _equipMenuUI;
 
+        // ── Character Prologue ─────────────────────────────────────────────
+        [Header("Character Prologue")]
+        [SerializeField] CanvasGroup         _prologuePanel;
+        [SerializeField] TextMeshProUGUI     _prologueText;
+
+        // ── Flow Control ───────────────────────────────────────────────────
+        /// <summary>
+        /// Set to true before loading the Roguelike scene to force a fresh run
+        /// even when a saved run exists.
+        /// </summary>
+        public static bool ForceNewRun = false;
+
         // ── State ──────────────────────────────────────────────────────────
         RunData     _run;
         MapData     _currentMapData;
@@ -110,26 +122,53 @@ namespace DarkChronicle.Roguelike
         // ── Main Flow ──────────────────────────────────────────────────────
         IEnumerator MainFlow()
         {
-            if (RunSaveSystem.HasSave() && _assetRegistry != null)
+            if (!ForceNewRun && RunSaveSystem.HasSave() && _assetRegistry != null)
             {
                 var dto = RunSaveSystem.LoadDTO();
                 if (dto != null)
                 {
                     _run = RunSaveSystem.RestoreRunData(dto, _assetRegistry);
+                    ForceNewRun = false;
                     InitSubSystems();
                     yield return ResumeRun(dto);
                     yield break;
                 }
             }
+            ForceNewRun = false;
 
             yield return CharacterSelect();
             if (_run == null) yield break;
+
+            yield return ShowCharacterPrologue();
 
             yield return DifficultySelect();
 
             InitSubSystems();
             yield return StartRun();
         }
+
+        IEnumerator ShowCharacterPrologue()
+        {
+            if (_prologuePanel == null || _prologueText == null) yield break;
+
+            string charName = _run?.SelectedCharacter?.name ?? string.Empty;
+            string[] lines  = CharacterPrologueSystem.GetPrologue(charName);
+
+            yield return FadeGroup(_prologuePanel, 0f, 1f, 0.5f);
+
+            foreach (var line in lines)
+            {
+                _prologueText.text = string.Empty;
+                yield return StartCoroutine(
+                    UIAnimator.Typewriter(_prologueText, line, 30f));
+                yield return new WaitForSeconds(2f);
+            }
+
+            yield return FadeGroup(_prologuePanel, 1f, 0f, 0.5f);
+        }
+
+        // ── Public Character Info ──────────────────────────────────────────
+        public string CurrentCharacterName => _run?.SelectedCharacter?.name ?? string.Empty;
 
         IEnumerator ResumeRun(RunSaveDTO dto)
         {
