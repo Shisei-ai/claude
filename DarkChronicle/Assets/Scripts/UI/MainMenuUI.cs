@@ -52,7 +52,7 @@ namespace DarkChronicle.UI
         {
             _titleGroup.alpha   = 0f;
             _buttonsGroup.alpha = 0f;
-            _saveSlotPanel?.SetActive(false);
+            if (_saveSlotPanel != null) _saveSlotPanel.SetActive(false);
             _settingsPanel.SetActive(false);
 
             _newGameButton    .onClick.AddListener(OnNewGame);
