@@ -4,6 +4,7 @@ using UnityEditor;
 using UnityEngine;
 using DarkChronicle.Data;
 using DarkChronicle.EnemyDesigns;
+using DarkChronicle.Roguelike;
 
 namespace DarkChronicle.Editor
 {
@@ -16,6 +17,7 @@ namespace DarkChronicle.Editor
     {
         const string BaseDir  = "Assets/Data/Enemies/Floor3";
         const string SkillDir = BaseDir + "/Skills";
+        const string FloorDir = "Assets/Data/Floors";
 
         [MenuItem("DarkChronicle/Generate/Floor3 Boss (Valgott) Assets")]
         public static void GenerateAll()
@@ -36,6 +38,7 @@ namespace DarkChronicle.Editor
                 "Assets/Data/Enemies",
                 BaseDir,
                 SkillDir,
+                FloorDir,
             };
             foreach (var dir in dirs)
                 if (!AssetDatabase.IsValidFolder(dir))
@@ -199,6 +202,12 @@ namespace DarkChronicle.Editor
 
             enemy.ActionsPerTurn = 1;
             EditorUtility.SetDirty(enemy);
+
+            // Register Valgott as the Floor 3 boss (non-relic default ending route)
+            var floor = CreateOrLoad<FloorData>(FloorDir + "/FLD_Floor3.asset");
+            floor.BossPool = new List<EnemyData> { enemy };
+            floor.BossGivesRelic = true;
+            EditorUtility.SetDirty(floor);
         }
 
         // ── ファクトリ ────────────────────────────────────────────────

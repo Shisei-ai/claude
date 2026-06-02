@@ -238,6 +238,11 @@ namespace DarkChronicle.Roguelike
                 if (_endingManager != null)
                     yield return _endingManager.ShowEnding(_run.ActiveEnding, won: true);
             }
+            else if (_run.IsRunActive && _endingManager != null)
+            {
+                // No ending relic: Valgott (Floor 3) was the final boss — show default ending
+                yield return _endingManager.ShowEnding(EndingType.None, won: true);
+            }
 
             yield return RunVictory();
         }
@@ -430,6 +435,11 @@ namespace DarkChronicle.Roguelike
                 if (_endingManager != null)
                     yield return _endingManager.ShowEnding(_run.ActiveEnding, won: true);
             }
+            else if (_run.IsRunActive && _endingManager != null)
+            {
+                // No ending relic: Valgott (Floor 3) was the final boss — show default ending
+                yield return _endingManager.ShowEnding(EndingType.None, won: true);
+            }
 
             // All floors cleared = victory
             yield return RunVictory();
@@ -590,10 +600,12 @@ namespace DarkChronicle.Roguelike
             if (!ctx.LastResult.WasVictory)
             {
                 Destroy(ctxGO);
-                // Show defeat ending narrative when the Floor 4 boss beats the player
-                if (_run.ActiveEnding != EndingType.None &&
-                    node.Type == NodeType.Boss &&
-                    _endingManager != null)
+                // Show defeat ending narrative when the final boss beats the player
+                bool isEndingFloorBoss = _run.ActiveEnding != EndingType.None;
+                bool isDefaultFinalBoss = _run.ActiveEnding == EndingType.None &&
+                                          _run.CurrentFloor == _floorLibrary.Floors.Count - 1;
+                if (node.Type == NodeType.Boss && _endingManager != null &&
+                    (isEndingFloorBoss || isDefaultFinalBoss))
                     yield return _endingManager.ShowEnding(_run.ActiveEnding, won: false);
                 yield return RunDeath();
                 yield break;
