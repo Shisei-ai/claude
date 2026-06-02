@@ -189,7 +189,7 @@ namespace DarkChronicle.Roguelike
             else
             {
                 _run.AddSkill(choice.Skill);
-                _audioSource?.PlayOneShot(_commonLootSFX);
+                if (_audioSource != null) _audioSource.PlayOneShot(_commonLootSFX);
                 _choiceMade = true;
             }
         }
@@ -226,7 +226,7 @@ namespace DarkChronicle.Roguelike
             _relicObtainRarity.text   = relic.RarityLabel;
             _relicObtainRarity.color  = relic.RarityColor;
 
-            _audioSource?.PlayOneShot(_relicSFX);
+            if (_audioSource != null) _audioSource.PlayOneShot(_relicSFX);
 
             yield return FadeGroup(_relicObtainPanel, 0f, 1f, 0.5f);
 

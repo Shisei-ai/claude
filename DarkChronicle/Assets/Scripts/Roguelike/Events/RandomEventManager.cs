@@ -327,7 +327,7 @@ namespace DarkChronicle.Roguelike.Events
         // ── Hide Panel ─────────────────────────────────────────────────────
         IEnumerator HidePanel()
         {
-            _ambientSource?.Stop();
+            if (_ambientSource != null) _ambientSource.Stop();
             yield return StartCoroutine(UIAnimator.FadeOut(_eventPanel, 0.3f));
             foreach (Transform child in _choiceContainer) Destroy(child.gameObject);
         }

@@ -51,7 +51,7 @@ namespace DarkChronicle.Roguelike
             _actionTaken = false;
             _isOpen      = true;
 
-            _campfireParticles?.Play();
+            if (_campfireParticles != null) _campfireParticles.Play();
             if (_audioSource != null && _campfireBGM != null)
             {
                 _audioSource.clip = _campfireBGM;
@@ -65,8 +65,8 @@ namespace DarkChronicle.Roguelike
 
             while (_isOpen) yield return null;
 
-            _campfireParticles?.Stop();
-            _audioSource?.Stop();
+            if (_campfireParticles != null) _campfireParticles.Stop();
+            if (_audioSource != null) _audioSource.Stop();
             yield return FadeGroup(_restPanel, 1f, 0f, 0.3f);
         }
 
@@ -179,7 +179,7 @@ namespace DarkChronicle.Roguelike
         IEnumerator ShowMeditateEffect()
         {
             // Extra campfire burst
-            _campfireParticles?.Emit(30);
+            if (_campfireParticles != null) _campfireParticles.Emit(30);
 
             // Pulse HP text with a calm purple glow
             Color origColor = _hpText.color;

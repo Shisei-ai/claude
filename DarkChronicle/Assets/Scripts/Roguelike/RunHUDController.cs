@@ -110,7 +110,7 @@ namespace DarkChronicle.Roguelike
             _run     = run;
             _ghostHP = run.CurrentHP;
 
-            _deckViewButton?.onClick.AddListener(() => DeckViewPanel.Instance?.OpenView());
+            if (_deckViewButton != null) _deckViewButton.onClick.AddListener(() => DeckViewPanel.Instance?.OpenView());
 
             if (_levelUpBadge    != null) _levelUpBadge.SetActive(false);
             if (_jobLevelUpBadge != null) _jobLevelUpBadge.SetActive(false);

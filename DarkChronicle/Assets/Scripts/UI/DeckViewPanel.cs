@@ -45,7 +45,7 @@ namespace DarkChronicle.UI
             Instance = this;
             if (_group) { _group.alpha = 0f; _group.blocksRaycasts = false; }
             if (_detailGroup) { _detailGroup.alpha = 0f; _detailGroup.blocksRaycasts = false; }
-            _closeButton?.onClick.AddListener(() => _isOpen = false);
+            if (_closeButton != null) _closeButton.onClick.AddListener(() => _isOpen = false);
         }
 
         public void InitForRun(RunData run) => _run = run;
@@ -62,7 +62,7 @@ namespace DarkChronicle.UI
             _removeMode = false;
             _selectedSkill = null;
             if (_headerText) _headerText.text = $"デッキ一覧（{_run.Deck.Count}枚）";
-            _removeConfirmButton?.gameObject.SetActive(false);
+            if (_removeConfirmButton != null) _removeConfirmButton.gameObject.SetActive(false);
             HideDetail();
             BuildCards();
 

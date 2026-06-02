@@ -1120,7 +1120,7 @@ namespace DarkChronicle.UI
             float hpRatio = enemy.HPRatio;
             if (_hpSlider) _hpSlider.value = hpRatio;
             if (_hpText)   _hpText.text    = $"{enemy.HP}/{enemy.MaxHP}";
-            if (_hpSlider?.fillRect?.GetComponent<Image>() is Image fill)
+            if (_hpSlider != null && _hpSlider.fillRect != null && _hpSlider.fillRect.GetComponent<Image>() is Image fill)
                 fill.color = hpRatio < 0.25f ? new Color(0.95f, 0.1f, 0.1f) : EnemyHPColor;
 
             RefreshShieldIcons(enemy);

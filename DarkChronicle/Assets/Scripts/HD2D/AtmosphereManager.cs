@@ -84,19 +84,19 @@ namespace DarkChronicle.HD2D
 
         public void SetWeather(WeatherType weather)
         {
-            _snowParticles?.Stop();
-            _ashParticles?.Stop();
-            _dustParticles?.Stop();
-            _fireflyParticles?.Stop();
+            if (_snowParticles != null)    _snowParticles.Stop();
+            if (_ashParticles != null)     _ashParticles.Stop();
+            if (_dustParticles != null)    _dustParticles.Stop();
+            if (_fireflyParticles != null) _fireflyParticles.Stop();
 
             switch (weather)
             {
-                case WeatherType.Snow:       _snowParticles?.Play();  break;
-                case WeatherType.AshFall:    _ashParticles?.Play();   break;
-                case WeatherType.DustStorm:  _dustParticles?.Play();  break;
+                case WeatherType.Snow:       if (_snowParticles != null)    _snowParticles.Play();  break;
+                case WeatherType.AshFall:    if (_ashParticles != null)     _ashParticles.Play();   break;
+                case WeatherType.DustStorm:  if (_dustParticles != null)    _dustParticles.Play();  break;
                 case WeatherType.Night:
-                    _fireflyParticles?.Play();
-                    _dustParticles?.Play();
+                    if (_fireflyParticles != null) _fireflyParticles.Play();
+                    if (_dustParticles != null)    _dustParticles.Play();
                     break;
             }
         }

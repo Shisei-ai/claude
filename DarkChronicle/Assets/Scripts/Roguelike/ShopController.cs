@@ -322,7 +322,7 @@ namespace DarkChronicle.Roguelike
             if (_nameText)  _nameText.text  = name;
             if (_priceText) _priceText.text = price > 0 ? $"{price} G" : "無料";
             if (_icon && icon != null) _icon.sprite = icon;
-            _buyButton?.onClick.AddListener(() => { onBuy?.Invoke(); MarkSold(); });
+            if (_buyButton != null) _buyButton.onClick.AddListener(() => { onBuy?.Invoke(); MarkSold(); });
             _onHover = onHover;
         }
 

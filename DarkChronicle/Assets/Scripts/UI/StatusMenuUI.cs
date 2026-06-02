@@ -79,9 +79,9 @@ namespace DarkChronicle.UI
         // ── Unity ──────────────────────────────────────────────────────────
         void Awake()
         {
-            _closeButton?.onClick.AddListener(Close);
-            _prevCharButton?.onClick.AddListener(ShowPrev);
-            _nextCharButton?.onClick.AddListener(ShowNext);
+            if (_closeButton != null)    _closeButton.onClick.AddListener(Close);
+            if (_prevCharButton != null) _prevCharButton.onClick.AddListener(ShowPrev);
+            if (_nextCharButton != null) _nextCharButton.onClick.AddListener(ShowNext);
 
             if (_tooltipGroup) { _tooltipGroup.alpha = 0f; _tooltipGroup.blocksRaycasts = false; }
             if (_rootGroup)    { _rootGroup.alpha    = 0f; _rootGroup.blocksRaycasts    = false; }

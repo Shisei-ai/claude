@@ -242,18 +242,18 @@ namespace DarkChronicle.UI
 
         void Awake()
         {
-            _closeButton?.onClick.AddListener(Close);
-            _bgmSlider?.onValueChanged.AddListener(v =>
+            if (_closeButton != null) _closeButton.onClick.AddListener(Close);
+            if (_bgmSlider != null) _bgmSlider.onValueChanged.AddListener(v =>
             {
                 PlayerPrefs.SetFloat(BGMKey, v);
                 // Audio manager hook: AudioManager.Instance?.SetBGMVolume(v);
             });
-            _sfxSlider?.onValueChanged.AddListener(v =>
+            if (_sfxSlider != null) _sfxSlider.onValueChanged.AddListener(v =>
             {
                 PlayerPrefs.SetFloat(SFXKey, v);
                 // AudioManager.Instance?.SetSFXVolume(v);
             });
-            _fullscreenToggle?.onValueChanged.AddListener(v =>
+            if (_fullscreenToggle != null) _fullscreenToggle.onValueChanged.AddListener(v =>
             {
                 Screen.fullScreen = v;
                 PlayerPrefs.SetInt(FullscreenKey, v ? 1 : 0);

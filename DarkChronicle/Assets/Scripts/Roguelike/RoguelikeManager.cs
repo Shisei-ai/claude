@@ -1156,7 +1156,7 @@ namespace DarkChronicle.Roguelike
             if (_nameText)  _nameText.text = data.CharacterName;
             if (_jobText)   _jobText.text  = data.StarterJob?.JobName ?? string.Empty;
             _selectButton = GetComponent<Button>() ?? GetComponentInChildren<Button>();
-            _selectButton?.onClick.AddListener(() => onSelected?.Invoke());
+            if (_selectButton != null) _selectButton.onClick.AddListener(() => onSelected?.Invoke());
         }
     }
 }

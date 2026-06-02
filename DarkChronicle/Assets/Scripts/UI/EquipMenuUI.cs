@@ -46,7 +46,7 @@ namespace DarkChronicle.UI
         void Awake()
         {
             Instance = this;
-            _closeButton?.onClick.AddListener(OnClose);
+            if (_closeButton != null) _closeButton.onClick.AddListener(OnClose);
             if (_rootGroup)   { _rootGroup.alpha   = 0f; _rootGroup.blocksRaycasts   = false; }
             if (_detailGroup) { _detailGroup.alpha  = 0f; _detailGroup.blocksRaycasts = false; }
             gameObject.SetActive(false);
@@ -199,8 +199,8 @@ namespace DarkChronicle.UI
             if (Icon)       Icon.enabled    = has && equip.Icon != null;
             if (has && equip.Icon != null && Icon) Icon.sprite = equip.Icon;
             if (NameText)   NameText.text   = has ? equip.EquipName : "──";
-            UnequipButton?.gameObject.SetActive(has);
-            if (has) { UnequipButton?.onClick.RemoveAllListeners(); UnequipButton?.onClick.AddListener(() => onUnequip?.Invoke()); }
+            if (UnequipButton != null) UnequipButton.gameObject.SetActive(has);
+            if (has && UnequipButton != null) { UnequipButton.onClick.RemoveAllListeners(); UnequipButton.onClick.AddListener(() => onUnequip?.Invoke()); }
         }
     }
 }
