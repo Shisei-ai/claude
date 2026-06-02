@@ -55,12 +55,12 @@ namespace DarkChronicle.UI
             if (_saveSlotPanel != null) _saveSlotPanel.SetActive(false);
             _settingsPanel.SetActive(false);
 
-            _newGameButton    .onClick.AddListener(OnNewGame);
-            _continueButton   .onClick.AddListener(OnContinue);
-            _roguelikeButton  ?.onClick.AddListener(OnStartRoguelike);
-            _metaUpgradeButton?.onClick.AddListener(OnMetaUpgrade);
-            _settingsButton   .onClick.AddListener(OnSettings);
-            _quitButton       .onClick.AddListener(OnQuit);
+            _newGameButton.onClick.AddListener(OnNewGame);
+            _continueButton.onClick.AddListener(OnContinue);
+            if (_roguelikeButton   != null) _roguelikeButton.onClick.AddListener(OnStartRoguelike);
+            if (_metaUpgradeButton != null) _metaUpgradeButton.onClick.AddListener(OnMetaUpgrade);
+            _settingsButton.onClick.AddListener(OnSettings);
+            _quitButton.onClick.AddListener(OnQuit);
 
             _continueButton.interactable = RunSaveSystem.HasSave();
 
@@ -81,7 +81,7 @@ namespace DarkChronicle.UI
             yield return new WaitForSeconds(_introDelay);
 
             // Fade in background particles
-            _backgroundParticles?.Play();
+            if (_backgroundParticles != null) _backgroundParticles.Play();
 
             // Music fade in
             if (_bgmSource != null && _titleBGM != null)
