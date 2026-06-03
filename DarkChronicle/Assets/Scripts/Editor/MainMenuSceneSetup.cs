@@ -224,7 +224,10 @@ namespace DarkChronicle.Editor
 
             var vel = ps.velocityOverLifetime;
             vel.enabled = true;
+            // All three axes must share the same MinMaxCurveMode
+            vel.x = new ParticleSystem.MinMaxCurve(0f, 0f);
             vel.y = new ParticleSystem.MinMaxCurve(0.1f, 0.3f);
+            vel.z = new ParticleSystem.MinMaxCurve(0f, 0f);
 
             var renderer = ps.GetComponent<ParticleSystemRenderer>();
             renderer.sortingOrder = -1;
