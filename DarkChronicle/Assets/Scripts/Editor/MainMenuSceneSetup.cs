@@ -491,13 +491,13 @@ namespace DarkChronicle.Editor
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
-            var cg = go.AddComponent<CanvasGroup>();
-            var rt = go.GetComponent<RectTransform>();
+            var rt = go.AddComponent<RectTransform>();
             rt.anchorMin        = new Vector2(0.5f, 0.5f);
             rt.anchorMax        = new Vector2(0.5f, 0.5f);
             rt.pivot            = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = anchoredPos;
             rt.sizeDelta        = size;
+            var cg = go.AddComponent<CanvasGroup>();
             return (go, cg);
         }
 
@@ -505,6 +505,7 @@ namespace DarkChronicle.Editor
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
+            go.AddComponent<RectTransform>();
 
             var vlg = go.AddComponent<VerticalLayoutGroup>();
             vlg.spacing             = 14f;
