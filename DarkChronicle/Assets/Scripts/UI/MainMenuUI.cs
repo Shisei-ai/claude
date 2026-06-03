@@ -130,11 +130,7 @@ namespace DarkChronicle.UI
         void OnMetaUpgrade() =>
             SceneManager.LoadScene(SceneNames.MetaUpgrade);
 
-        void OnNewGame()
-        {
-            RoguelikeManager.ForceNewRun = true;
-            SceneManager.LoadScene(SceneNames.Roguelike);
-        }
+        void OnNewGame() => SceneManager.LoadScene(SceneNames.RunSetup);
 
         void OnContinue()
         {

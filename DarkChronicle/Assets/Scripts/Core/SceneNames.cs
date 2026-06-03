@@ -13,6 +13,13 @@ namespace DarkChronicle.Core
         /// </summary>
         public const string MainMenu    = "MainMenu";
 
+        // ── Run Setup ────────────────────────────────────────────────────────
+        /// <summary>
+        /// ニューゲーム時の初期準備シーン。
+        /// キャラクター・祝福・難易度を選択し、確定後に Roguelike シーンへ遷移する。
+        /// </summary>
+        public const string RunSetup    = "RunSetup";
+
         // ── Roguelike ─────────────────────────────────────────────────────────
         /// <summary>
         /// ローグライクのメインシーン。RoguelikeManagerが常駐し、

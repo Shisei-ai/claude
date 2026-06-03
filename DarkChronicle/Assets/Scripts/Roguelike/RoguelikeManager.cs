@@ -136,6 +136,32 @@ namespace DarkChronicle.Roguelike
             }
             ForceNewRun = false;
 
+            // RunSetup シーンで設定が確定している場合はキャラ/難易度選択をスキップ
+            if (PendingRunConfig.HasPendingConfig)
+            {
+                var cd = PendingRunConfig.SelectedCharacter;
+                _run = new RunData
+                {
+                    SelectedCharacter = cd,
+                    Seed              = Random.Range(0, int.MaxValue),
+                    StartTime         = System.DateTime.Now,
+                    MaxHP             = cd.BaseStats.MaxHP,
+                    CurrentHP         = cd.BaseStats.MaxHP,
+                    IsRunActive       = true,
+                    DifficultyLevel   = PendingRunConfig.DifficultyLevel,
+                };
+                var startRelic = _lootSystem.DrawRelic(RelicRarity.Common, false);
+                if (startRelic != null) _run.AddRelic(startRelic);
+                LevelSystem.InitStartingSkills(_run, cd.StarterJob);
+                ApplyStartingBlessing(_run, PendingRunConfig.SelectedBlessing);
+                PendingRunConfig.Clear();
+
+                yield return ShowCharacterPrologue();
+                InitSubSystems();
+                yield return StartRun();
+                yield break;
+            }
+
             yield return CharacterSelect();
             if (_run == null) yield break;
 
@@ -145,6 +171,25 @@ namespace DarkChronicle.Roguelike
 
             InitSubSystems();
             yield return StartRun();
+        }
+
+        void ApplyStartingBlessing(RunData run, StartingBlessingType blessing)
+        {
+            switch (blessing)
+            {
+                case StartingBlessingType.VitalGuard:
+                    run.MaxHP     = Mathf.RoundToInt(run.MaxHP * 1.25f);
+                    run.CurrentHP = run.MaxHP;
+                    break;
+                case StartingBlessingType.GoldenCompass:
+                    run.EarnGold(150);
+                    break;
+                case StartingBlessingType.IronWill:
+                    var extra = _lootSystem?.DrawRelic(RelicRarity.Common, false);
+                    if (extra != null) run.AddRelic(extra);
+                    break;
+                // AncientKnowledge・ShadowVeil は将来のカウンタシステム実装時に有効化
+            }
         }
 
         IEnumerator ShowCharacterPrologue()
