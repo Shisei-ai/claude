@@ -98,6 +98,10 @@ namespace DarkChronicle.Roguelike
         [SerializeField] CanvasGroup         _prologuePanel;
         [SerializeField] TextMeshProUGUI     _prologueText;
 
+        // ── Phantom Join (Floor 0→1 transition event) ──────────────────────
+        [Header("Phantom Join")]
+        [SerializeField] UI.PhantomJoinUI    _phantomJoinUI;
+
         // ── Flow Control ───────────────────────────────────────────────────
         /// <summary>
         /// Set to true before loading the Roguelike scene to force a fresh run
@@ -472,6 +476,10 @@ namespace DarkChronicle.Roguelike
                 _relicManager.NotifyFloorCleared();
 
                 yield return ShowFloorClearScreen(_run.CurrentFloor);
+
+                // Phantom party-join event fires once when clearing Floor 0
+                if (_run.CurrentFloor == 0)
+                    yield return PhantomJoinEvent();
             }
 
             // Floor 4: ending branch if player acquired an ending relic
@@ -600,6 +608,15 @@ namespace DarkChronicle.Roguelike
             var ctx   = ctxGO.AddComponent<NodeFieldContext>();
             ctx.Prepare(node.Type, _currentFloor, floorIndex, _run, BuildCurrentHeroStats);
 
+            // Populate party member data so NodeFieldController can build multi-hero battles
+            for (int i = 0; i < _run.PartyMembers.Count; i++)
+            {
+                ctx.PartyData.Add(_run.PartyMembers[i]);
+                ctx.PartyStats.Add(BuildPartyMemberStats(_run.PartyMembers[i], _run.PartyMemberLevels[i]));
+                ctx.PartyCurrentHP.Add(i < _run.PartyCurrentHP.Count ? _run.PartyCurrentHP[i]
+                                                                       : _run.PartyMaxHP[i]);
+            }
+
             // Pre-resolve battle enemies so NodeFieldController can set up fixed fights
             if (node.Type == NodeType.EliteBattle || node.Type == NodeType.Boss)
             {
@@ -725,12 +742,18 @@ namespace DarkChronicle.Roguelike
 
             AtmosphereManager.Instance?.EnterBattle();
 
-            // Trigger battle
-            var heroDataList = new List<CharacterData> { _run.SelectedCharacter };
-            var heroStatList = new List<CharacterStats>
+            // Build hero lists — main hero first, then party members
+            var heroDataList  = new List<CharacterData>  { _run.SelectedCharacter };
+            var heroStatList  = new List<CharacterStats> { BuildCurrentHeroStats() };
+            var heroHPList    = new List<int>            { _run.CurrentHP };
+            var heroSkillList = new List<List<Data.SkillData>> { new List<Data.SkillData>(_run.Deck) };
+            for (int i = 0; i < _run.PartyMembers.Count; i++)
             {
-                BuildCurrentHeroStats()
-            };
+                heroDataList.Add(_run.PartyMembers[i]);
+                heroStatList.Add(BuildPartyMemberStats(_run.PartyMembers[i], _run.PartyMemberLevels[i]));
+                heroHPList.Add(i < _run.PartyCurrentHP.Count ? _run.PartyCurrentHP[i] : _run.PartyMaxHP[i]);
+                heroSkillList.Add(new List<Data.SkillData>());
+            }
 
             _relicManager.OnBattleStart(
                 new List<BattleCharacter>(), // battle characters built inside BattleManager
@@ -740,8 +763,8 @@ namespace DarkChronicle.Roguelike
             BattleManager.Instance.StartBattle(heroDataList, heroStatList, enemies,
                 new List<ItemData>(_run.Inventory),
                 usedItem => _run.Inventory.Remove(usedItem),
-                heroSkills:    new List<List<Data.SkillData>> { new List<Data.SkillData>(_run.Deck) },
-                heroCurrentHP: new List<int> { _run.CurrentHP });
+                heroSkills:    heroSkillList,
+                heroCurrentHP: heroHPList);
 
             // Wait for battle to finish
             bool battleDone = false;
@@ -755,6 +778,13 @@ namespace DarkChronicle.Roguelike
             {
                 // Sync hero HP from battle result
                 _run.CurrentHP = Mathf.Clamp(BattleManager.Instance.VictoryHeroHP, 1, _run.MaxHP);
+                var allHP = BattleManager.Instance.VictoryAllHeroHP;
+                for (int i = 0; i < _run.PartyCurrentHP.Count; i++)
+                {
+                    int idx = i + 1;
+                    if (idx < allHP.Count && i < _run.PartyMaxHP.Count)
+                        _run.PartyCurrentHP[i] = Mathf.Clamp(allHP[idx], 1, _run.PartyMaxHP[i]);
+                }
 
                 // EXP / JP rewards from defeated enemies
                 var defeatedEnemies = BattleManager.Instance.VictoryEnemyData;
@@ -966,6 +996,74 @@ namespace DarkChronicle.Roguelike
                 base_.MaxMP          += _run.MetaMaxMPBonus;
 
             return base_;
+        }
+
+        // ── Party helpers ──────────────────────────────────────────────────
+        CharacterStats BuildPartyMemberStats(CharacterData cd, int level)
+        {
+            var stats  = cd.BaseStats.Clone();
+            var growth = LevelSystem.GetAccumulatedStatGrowth(cd, level);
+            stats.MaxHP           += growth.MaxHP;
+            stats.MaxMP           += growth.MaxMP;
+            stats.PhysicalAttack  += growth.PhysicalAttack;
+            stats.MagicAttack     += growth.MagicAttack;
+            stats.PhysicalDefense += growth.PhysicalDefense;
+            stats.MagicDefense    += growth.MagicDefense;
+            stats.Speed           += growth.Speed;
+            stats.Luck            += growth.Luck;
+            stats.CriticalRate    += growth.CriticalRate;
+            return stats;
+        }
+
+        // ── Phantom Join Event (Floor 0 → Floor 1) ─────────────────────────
+        IEnumerator PhantomJoinEvent()
+        {
+            if (_phantomJoinUI == null) yield break;
+
+            // Pick up to 4 candidates from the roster (excluding the main character)
+            var candidates = new List<CharacterData>(_playableCharacters);
+            candidates.RemoveAll(c => c == _run.SelectedCharacter);
+            // Shuffle
+            for (int i = candidates.Count - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                (candidates[i], candidates[j]) = (candidates[j], candidates[i]);
+            }
+            // Trim to 2 for display (those will be the ones who join)
+            var joinPool = candidates.Count >= 2 ? candidates.GetRange(0, 2) : candidates;
+
+            yield return _phantomJoinUI.Show(joinPool);
+
+            if (_phantomJoinUI.AcceptedPhantoms)
+            {
+                // 2 random characters join at level 4
+                const int joinLevel = 4;
+                foreach (var cd in joinPool)
+                {
+                    var memberStats = BuildPartyMemberStats(cd, joinLevel);
+                    _run.PartyMembers.Add(cd);
+                    _run.PartyMemberLevels.Add(joinLevel);
+                    _run.PartyMaxHP.Add(memberStats.MaxHP);
+                    _run.PartyCurrentHP.Add(memberStats.MaxHP);
+                }
+            }
+            else
+            {
+                // Refuse: main character gains 2 levels
+                var rates = _run.SelectedCharacter?.StarterJob?.GrowthRates;
+                for (int i = 0; i < 2; i++)
+                {
+                    if (rates != null)
+                    {
+                        _run.MaxHP     = Mathf.Max(1, _run.MaxHP + rates.MaxHP);
+                        _run.CurrentHP = Mathf.Min(_run.CurrentHP + rates.MaxHP, _run.MaxHP);
+                    }
+                    _run.CharacterLevel = Mathf.Min(LevelSystem.MaxCharacterLevel,
+                                                    _run.CharacterLevel + 1);
+                }
+            }
+
+            RefreshHUD();
         }
 
         // ── Drop Table Processing ─────────────────────────────────────────

@@ -235,18 +235,29 @@ namespace DarkChronicle.Roguelike
                 enemies = reduced;
             }
 
+            // Build hero lists — main hero first, then party members
+            var heroData  = new List<CharacterData>  { run.SelectedCharacter };
+            var heroStats = new List<CharacterStats> { _ctx.GetHeroStats() };
+            var heroHP    = new List<int>            { run.CurrentHP };
+            for (int i = 0; i < _ctx.PartyData.Count; i++)
+            {
+                heroData.Add(_ctx.PartyData[i]);
+                heroStats.Add(_ctx.PartyStats[i]);
+                heroHP.Add(i < _ctx.PartyCurrentHP.Count ? _ctx.PartyCurrentHP[i] : _ctx.PartyStats[i].MaxHP);
+            }
+
             var initialBP = run.MetaStartBP > 0
                 ? new List<int> { run.MetaStartBP }
                 : null;
 
             AtmosphereManager.Instance?.EnterBattle();
             BattleManager.Instance.StartBattle(
-                new List<CharacterData> { run.SelectedCharacter },
-                new List<CharacterStats> { _ctx.GetHeroStats() },
+                heroData,
+                heroStats,
                 enemies,
                 new List<ItemData>(run.Inventory),
                 usedItem => run.Inventory.Remove(usedItem),
-                heroCurrentHP: new List<int> { run.CurrentHP },
+                heroCurrentHP: heroHP,
                 heroInitialBP: initialBP);
         }
 
@@ -267,8 +278,17 @@ namespace DarkChronicle.Roguelike
 
                 // Sync hero HP from battle result into RunData
                 if (_ctx?.Run != null)
+                {
                     _ctx.Run.CurrentHP = Mathf.Clamp(BattleManager.Instance.VictoryHeroHP,
                                                      1, _ctx.Run.MaxHP);
+                    var allHP = BattleManager.Instance.VictoryAllHeroHP;
+                    for (int i = 0; i < _ctx.Run.PartyCurrentHP.Count; i++)
+                    {
+                        int idx = i + 1;
+                        if (idx < allHP.Count && i < _ctx.Run.PartyMaxHP.Count)
+                            _ctx.Run.PartyCurrentHP[i] = Mathf.Clamp(allHP[idx], 1, _ctx.Run.PartyMaxHP[i]);
+                    }
+                }
 
                 if (_ctx?.ActiveNodeType == NodeType.Battle)
                 {

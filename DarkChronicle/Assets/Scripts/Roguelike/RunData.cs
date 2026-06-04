@@ -182,6 +182,12 @@ namespace DarkChronicle.Roguelike
 
         public void AddSanity(int delta) => Sanity = Mathf.Clamp(Sanity + delta, -3, 3);
 
+        // ── Party Members (join at Floor 0→1 transition) ──────────────────────
+        public List<CharacterData> PartyMembers      = new();
+        public List<int>           PartyMemberLevels = new();
+        public List<int>           PartyCurrentHP    = new();
+        public List<int>           PartyMaxHP        = new();
+
         // ── Blessing Bonuses (consumed on first use) ────────────────────────
         // AncientKnowledge: 初回戦闘後にスキル選択画面を1枚追加表示する
         public int  BlessingFirstCombatSkillBonus      = 0;

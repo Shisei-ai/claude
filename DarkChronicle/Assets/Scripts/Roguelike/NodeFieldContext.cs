@@ -31,6 +31,11 @@ namespace DarkChronicle.Roguelike
         public RunData                     Run;
         public System.Func<CharacterStats> GetHeroStats;
 
+        // ── Party members for multi-hero battles (filled by RoguelikeManager) ─
+        public List<CharacterData>  PartyData      = new();
+        public List<CharacterStats> PartyStats     = new();
+        public List<int>            PartyCurrentHP = new();
+
         // ── Completion state ──────────────────────────────────────────────
         public bool       IsComplete { get; private set; }
         public NodeResult LastResult { get; private set; }
@@ -56,6 +61,9 @@ namespace DarkChronicle.Roguelike
             Run            = run;
             GetHeroStats   = getStats;
             OverrideEnemies.Clear();
+            PartyData.Clear();
+            PartyStats.Clear();
+            PartyCurrentHP.Clear();
             PendingEvent   = null;
             IsComplete     = false;
             LastResult     = null;

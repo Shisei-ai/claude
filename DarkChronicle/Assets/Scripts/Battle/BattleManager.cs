@@ -47,6 +47,9 @@ namespace DarkChronicle.Battle
         /// <summary>Hero HP at the moment of victory. Synced to RunData.CurrentHP after the field scene unloads.</summary>
         public int VictoryHeroHP { get; private set; }
 
+        /// <summary>HP of all heroes at the moment of victory (index-aligned with the hero list passed to StartBattle).</summary>
+        public List<int> VictoryAllHeroHP { get; private set; } = new();
+
         // ── Special mechanics state ────────────────────────────────────────
         // Death Sentence: target → turns remaining until execution
         readonly Dictionary<BattleCharacter, int> _deathSentenceTimers = new();
@@ -1279,6 +1282,7 @@ namespace DarkChronicle.Battle
 
             // Capture hero HP for RunData sync after the field scene exits
             VictoryHeroHP = _heroes.Count > 0 ? _heroes[0].HP : 0;
+            VictoryAllHeroHP = _heroes.Select(h => h.HP).ToList();
 
             _battleUI.ShowVictoryScreen();
             yield return new WaitForSeconds(2f);
