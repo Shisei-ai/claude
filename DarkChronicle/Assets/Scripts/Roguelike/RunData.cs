@@ -182,6 +182,12 @@ namespace DarkChronicle.Roguelike
 
         public void AddSanity(int delta) => Sanity = Mathf.Clamp(Sanity + delta, -3, 3);
 
+        // ── Blessing Bonuses (consumed on first use) ────────────────────────
+        // AncientKnowledge: 初回戦闘後にスキル選択画面を1枚追加表示する
+        public int  BlessingFirstCombatSkillBonus      = 0;
+        // ShadowVeil: 初回戦闘開始時に全敵のシールドを1枚減らす
+        public bool BlessingFirstCombatShieldReduction = false;
+
         // ── Meta Upgrade Bonuses (applied at run start by MetaUpgradeTree.ApplyAll) ──
         // Multiplicative stat bonuses (1.0 = no bonus)
         public float MetaMaxHPMult   = 1.0f;

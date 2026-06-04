@@ -214,6 +214,27 @@ namespace DarkChronicle.Roguelike
             if (_ctx?.Run == null) return;
             var run = _ctx.Run;
 
+            // ShadowVeil: 通常戦闘ノードの初回戦闘で全敵シールド-1（フラグを消費）
+            if (run.BlessingFirstCombatShieldReduction && enemies != null)
+            {
+                run.BlessingFirstCombatShieldReduction = false;
+                var reduced = new List<EnemyData>(enemies.Count);
+                foreach (var e in enemies)
+                {
+                    if (e != null && e.ShieldPoints > 1)
+                    {
+                        var copy = Object.Instantiate(e);
+                        copy.ShieldPoints = e.ShieldPoints - 1;
+                        reduced.Add(copy);
+                    }
+                    else
+                    {
+                        reduced.Add(e);
+                    }
+                }
+                enemies = reduced;
+            }
+
             var initialBP = run.MetaStartBP > 0
                 ? new List<int> { run.MetaStartBP }
                 : null;

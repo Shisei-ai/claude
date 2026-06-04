@@ -188,7 +188,12 @@ namespace DarkChronicle.Roguelike
                     var extra = _lootSystem?.DrawRelic(RelicRarity.Common, false);
                     if (extra != null) run.AddRelic(extra);
                     break;
-                // AncientKnowledge・ShadowVeil は将来のカウンタシステム実装時に有効化
+                case StartingBlessingType.AncientKnowledge:
+                    run.BlessingFirstCombatSkillBonus = 1;
+                    break;
+                case StartingBlessingType.ShadowVeil:
+                    run.BlessingFirstCombatShieldReduction = true;
+                    break;
             }
         }
 
@@ -698,6 +703,13 @@ namespace DarkChronicle.Roguelike
             yield return _lootSystem.ShowBattleRewards(gold, isElite, isBoss);
             if (_run.ActiveEnding != endingBefore && _endingManager != null)
                 yield return _endingManager.ShowPremonition(_run.ActiveEnding);
+
+            // AncientKnowledge: 最初の戦闘後スキル選択肢+1
+            if (_run.BlessingFirstCombatSkillBonus > 0)
+            {
+                _run.BlessingFirstCombatSkillBonus = 0;
+                yield return _lootSystem.ShowSkillDraft(1);
+            }
         }
 
         // ── Battle ─────────────────────────────────────────────────────────
@@ -769,6 +781,13 @@ namespace DarkChronicle.Roguelike
                 yield return _lootSystem.ShowBattleRewards(goldReward, isElite, isBoss);
                 if (_run.ActiveEnding != endingBefore && _endingManager != null)
                     yield return _endingManager.ShowPremonition(_run.ActiveEnding);
+
+                // AncientKnowledge: 最初の戦闘後スキル選択肢+1（イベント戦闘）
+                if (_run.BlessingFirstCombatSkillBonus > 0)
+                {
+                    _run.BlessingFirstCombatSkillBonus = 0;
+                    yield return _lootSystem.ShowSkillDraft(1);
+                }
             }
             else if (lastResult == BattleResult.Defeat)
             {
@@ -839,7 +858,11 @@ namespace DarkChronicle.Roguelike
             int   floorSh = isBoss  ? _currentFloor.BossShieldBonus
                           : isElite ? _currentFloor.AdditionalShieldsOnElite + diff.ExtraEliteShields
                           :           0;
-            int   shBonus = floorSh + diff.ExtraAllEnemyShields;
+            // ShadowVeil: Elite/Boss の初回戦闘でシールド-1（フラグを消費）
+            int   blessShieldReduct = (_run != null && _run.BlessingFirstCombatShieldReduction) ? 1 : 0;
+            if (_run != null && _run.BlessingFirstCombatShieldReduction)
+                _run.BlessingFirstCombatShieldReduction = false;
+            int   shBonus = floorSh + diff.ExtraAllEnemyShields - blessShieldReduct;
 
             for (int i = 0; i < enemies.Count; i++)
             {
