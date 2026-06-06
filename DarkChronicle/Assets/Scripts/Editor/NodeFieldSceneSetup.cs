@@ -1,5 +1,6 @@
 using System.IO;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using DarkChronicle.Roguelike;
@@ -63,12 +64,15 @@ namespace DarkChronicle.Editor
 
             // ExitRoot: contains the NodeExit trigger collider
             SetupExitTrigger(exitRoot);
-            // TreasureRoot: contains a TreasureChest trigger (player must interact to loot)
+            // TreasureRoot: normal chest + Ash-only LockedChest
             SetupInteractTrigger(treasureRoot, "TreasureChest",
                 EventTrigger.TriggerType.TreasureChest, triggerOnce: true);
-            // CursedRoomRoot: contains a CursedAltar trigger
+            var lockedChest = SetupLockedChest(treasureRoot);
+            // CursedRoomRoot: altar + traps + darkness overlay
             SetupInteractTrigger(cursedRoot, "CursedAltar",
                 EventTrigger.TriggerType.CursedAltar, triggerOnce: true);
+            var fieldTraps   = SetupFieldTraps(cursedRoot);
+            var darknessZone = SetupDarknessZone(cursedRoot);
 
             // ── Floor visual roots (NodeFieldVisualSwapper activates one at start) ─
             var floor0 = MakeRoot("FloorVisual_0_廃墟",          active: true);
@@ -85,7 +89,7 @@ namespace DarkChronicle.Editor
             var controller   = controllerGO.AddComponent<NodeFieldController>();
             WireController(controller, exitRoot, eliteRoot, bossRoot,
                            restRoot, shopRoot, eventRoot_, treasureRoot, cursedRoot,
-                           spawnGO.transform);
+                           spawnGO.transform, lockedChest, fieldTraps, darknessZone);
 
             // ── NodeFieldVisualSwapper ───────────────────────────────────────
             var swapperGO = new GameObject("NodeFieldVisualSwapper");
@@ -184,7 +188,8 @@ namespace DarkChronicle.Editor
         static void WireController(NodeFieldController c,
             GameObject exit, GameObject elite, GameObject boss,
             GameObject rest, GameObject shop, GameObject ev,
-            GameObject treasure, GameObject cursed, Transform spawn)
+            GameObject treasure, GameObject cursed, Transform spawn,
+            LockedChest lockedChest, FieldTrap[] fieldTraps, DarknessZone darknessZone)
         {
             var so = new SerializedObject(c);
             so.FindProperty("_exitRoot")       .objectReferenceValue = exit;
@@ -196,6 +201,14 @@ namespace DarkChronicle.Editor
             so.FindProperty("_treasureRoot")   .objectReferenceValue = treasure;
             so.FindProperty("_cursedRoomRoot") .objectReferenceValue = cursed;
             so.FindProperty("_playerSpawn")    .objectReferenceValue = spawn;
+            so.FindProperty("_lockedChest")    .objectReferenceValue = lockedChest;
+            so.FindProperty("_darknessZone")   .objectReferenceValue = darknessZone;
+
+            var trapsP = so.FindProperty("_fieldTraps");
+            trapsP.arraySize = fieldTraps.Length;
+            for (int i = 0; i < fieldTraps.Length; i++)
+                trapsP.GetArrayElementAtIndex(i).objectReferenceValue = fieldTraps[i];
+
             so.ApplyModifiedProperties();
         }
 
@@ -216,6 +229,127 @@ namespace DarkChronicle.Editor
         {
             p.FindPropertyRelative("FloorLabel").stringValue          = label;
             p.FindPropertyRelative("Root")      .objectReferenceValue = root;
+        }
+
+        // ── Ash フィールドギミック生成 ─────────────────────────────────────
+
+        /// <summary>
+        /// TreasureRoot の子に LockedChest を生成する。
+        /// Ash がいる場合のみ有効化され、追加ルート（ExtraLootAtTreasure）を提供する。
+        /// _lockedVisual・_chestTriggerGO の子はデザイナーがスプライトを追加すること。
+        /// </summary>
+        static LockedChest SetupLockedChest(GameObject parent)
+        {
+            var go = new GameObject("LockedChest");
+            go.transform.SetParent(parent.transform);
+            go.transform.localPosition = new Vector3(2f, 0f, 0f);
+
+            // 施錠状態ビジュアル（プレースホルダ）
+            var lockedVisualGO = new GameObject("LockedVisual");
+            lockedVisualGO.transform.SetParent(go.transform, false);
+
+            // 開錠後の宝箱トリガー（初期は無効）
+            var triggerGO = new GameObject("ChestTrigger");
+            triggerGO.transform.SetParent(go.transform, false);
+            var triggerCol  = triggerGO.AddComponent<BoxCollider2D>();
+            triggerCol.isTrigger = true;
+            triggerCol.size      = new Vector2(1.5f, 1.5f);
+            var et   = triggerGO.AddComponent<EventTrigger>();
+            var etSO = new SerializedObject(et);
+            etSO.FindProperty("_triggerType")     .enumValueIndex        = EnumIndex<EventTrigger.TriggerType>("TreasureChest");
+            etSO.FindProperty("_triggerOnce")     .boolValue             = true;
+            etSO.FindProperty("_hideAfterTrigger").boolValue             = true;
+            etSO.ApplyModifiedProperties();
+            triggerGO.SetActive(false);
+
+            var chest   = go.AddComponent<LockedChest>();
+            var chestSO = new SerializedObject(chest);
+            chestSO.FindProperty("_lockedVisual")  .objectReferenceValue = lockedVisualGO;
+            chestSO.FindProperty("_chestTriggerGO").objectReferenceValue = triggerGO;
+            chestSO.ApplyModifiedProperties();
+            EditorUtility.SetDirty(chest);
+            return chest;
+        }
+
+        /// <summary>
+        /// CursedRoomRoot の子に FieldTrap を 3 つ生成する。
+        /// 各ビジュアル子GOはプレースホルダ——デザイナーがスプライトを追加すること。
+        /// </summary>
+        static FieldTrap[] SetupFieldTraps(GameObject parent)
+        {
+            var positions = new[]
+            {
+                new Vector3(-2f, -1f, 0f),
+                new Vector3( 1f,  1.5f, 0f),
+                new Vector3( 3f, -2f, 0f),
+            };
+
+            var traps = new FieldTrap[positions.Length];
+            for (int i = 0; i < positions.Length; i++)
+            {
+                var go = new GameObject($"FieldTrap_{i + 1:00}");
+                go.transform.SetParent(parent.transform);
+                go.transform.localPosition = positions[i];
+
+                var col      = go.AddComponent<BoxCollider2D>();
+                col.isTrigger = true;
+                col.size      = new Vector2(1f, 1f);
+
+                var activeVisual = new GameObject("TrapActiveVisual");
+                activeVisual.transform.SetParent(go.transform, false);
+
+                var disarmedVisual = new GameObject("TrapDisarmedVisual");
+                disarmedVisual.transform.SetParent(go.transform, false);
+                disarmedVisual.SetActive(false);
+
+                var detectedIndicator = new GameObject("DetectedIndicator");
+                detectedIndicator.transform.SetParent(go.transform, false);
+                detectedIndicator.SetActive(false);
+
+                var trap   = go.AddComponent<FieldTrap>();
+                var trapSO = new SerializedObject(trap);
+                trapSO.FindProperty("_trapActiveVisual")  .objectReferenceValue = activeVisual;
+                trapSO.FindProperty("_trapDisarmedVisual").objectReferenceValue = disarmedVisual;
+                trapSO.FindProperty("_detectedIndicator") .objectReferenceValue = detectedIndicator;
+                trapSO.ApplyModifiedProperties();
+                EditorUtility.SetDirty(trap);
+                traps[i] = trap;
+            }
+            return traps;
+        }
+
+        /// <summary>
+        /// CursedRoomRoot の子に DarknessZone を生成する。
+        /// ScreenSpaceOverlay キャンバス（sortingOrder=50）上に黒パネルを構築し、
+        /// CanvasGroup を DarknessZone に配線する。
+        /// </summary>
+        static DarknessZone SetupDarknessZone(GameObject parent)
+        {
+            var go = new GameObject("DarknessZone");
+            go.transform.SetParent(parent.transform);
+
+            var canvas           = go.AddComponent<Canvas>();
+            canvas.renderMode    = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder  = 50;
+
+            var overlayGO = new GameObject("DarknessOverlay");
+            overlayGO.transform.SetParent(go.transform, false);
+            var rt        = overlayGO.AddComponent<RectTransform>();
+            rt.anchorMin  = Vector2.zero;
+            rt.anchorMax  = Vector2.one;
+            rt.offsetMin  = rt.offsetMax = Vector2.zero;
+            overlayGO.AddComponent<Image>().color = Color.black;
+            var cg               = overlayGO.AddComponent<CanvasGroup>();
+            cg.alpha             = 0f;
+            cg.blocksRaycasts    = false;
+            cg.interactable      = false;
+
+            var zone   = go.AddComponent<DarknessZone>();
+            var zoneSO = new SerializedObject(zone);
+            zoneSO.FindProperty("_overlay").objectReferenceValue = cg;
+            zoneSO.ApplyModifiedProperties();
+            EditorUtility.SetDirty(zone);
+            return zone;
         }
 
         static void AddToBuildSettings(string path)

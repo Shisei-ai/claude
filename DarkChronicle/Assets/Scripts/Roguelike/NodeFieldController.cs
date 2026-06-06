@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using DarkChronicle.Battle;
+using DarkChronicle.Character.Traits;
 using DarkChronicle.Core;
 using DarkChronicle.Data;
 using DarkChronicle.HD2D;
@@ -48,6 +49,11 @@ namespace DarkChronicle.Roguelike
         [Header("Player Spawn")]
         [SerializeField] Transform  _playerSpawn;
 
+        [Header("Field Gimmicks")]
+        [SerializeField] LockedChest  _lockedChest;
+        [SerializeField] FieldTrap[]  _fieldTraps;
+        [SerializeField] DarknessZone _darknessZone;
+
         NodeFieldContext         _ctx;
         readonly List<EnemyData> _defeatedEnemies = new();
 
@@ -68,6 +74,14 @@ namespace DarkChronicle.Roguelike
             _cursedRoomRoot ??= GameObject.Find("CursedRoomRoot");
             if (_playerSpawn == null)
                 _playerSpawn = GameObject.Find("PlayerSpawn")?.transform;
+
+            // Gimmick auto-find (used when not wired in Inspector)
+            if (_lockedChest == null && _treasureRoot != null)
+                _lockedChest = _treasureRoot.GetComponentInChildren<LockedChest>(true);
+            if (_darknessZone == null && _cursedRoomRoot != null)
+                _darknessZone = _cursedRoomRoot.GetComponentInChildren<DarknessZone>(true);
+            if ((_fieldTraps == null || _fieldTraps.Length == 0) && _cursedRoomRoot != null)
+                _fieldTraps = _cursedRoomRoot.GetComponentsInChildren<FieldTrap>(true);
         }
 
         void OnDestroy()
@@ -142,10 +156,12 @@ namespace DarkChronicle.Roguelike
                 case NodeType.Treasure:
                     DisableEncounters();
                     SetActive(_treasureRoot, true);
+                    SetupTreasureNode();
                     break;
                 case NodeType.CursedRoom:
                     DisableEncounters();
                     SetActive(_cursedRoomRoot, true);
+                    SetupCursedRoomNode();
                     break;
             }
         }
@@ -181,6 +197,30 @@ namespace DarkChronicle.Roguelike
 
         void DisableEncounters()
             => FindAnyObjectByType<Character.PlayerController>()?.SetEncountersEnabled(false);
+
+        void SetupTreasureNode()
+        {
+            bool canPickLock = HasTrait<Trait_RoguesCraft>();
+            _lockedChest?.Initialize(canPickLock);
+        }
+
+        void SetupCursedRoomNode()
+        {
+            bool hasRoguesCraft = HasTrait<Trait_RoguesCraft>();
+
+            if (_fieldTraps != null)
+                foreach (var trap in _fieldTraps)
+                    trap?.Initialize(hasRoguesCraft);
+
+            _darknessZone?.Initialize(hasRoguesCraft);
+        }
+
+        bool HasTrait<T>() where T : CharacterTrait
+        {
+            var traits = _ctx?.Run?.SelectedCharacter?.Traits;
+            if (traits == null) return false;
+            return System.Array.Exists(traits, t => t is T);
+        }
 
         // ── Random encounter ───────────────────────────────────────────────
         void OnRandomEncounter()
