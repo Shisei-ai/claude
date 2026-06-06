@@ -203,8 +203,11 @@ namespace DarkChronicle.Editor
             var titleTopRule = MakeImage("Rule_Top", titleGroupGO.transform, ColDivider);
             PlaceCenter(titleTopRule, new Vector2(0f, 93f), new Vector2(720f, 1f));
 
-            // タイトルロゴ（スプライト割り当てまで透明）
-            var logoGO = MakeImage("TitleLogo", titleGroupGO.transform, new Color(1f, 1f, 1f, 0f));
+            // タイトルロゴ（スプライト割り当てまで非表示）
+            var logoGO  = MakeImage("TitleLogo", titleGroupGO.transform, Color.white);
+            var logoImg = logoGO.GetComponent<Image>();
+            logoImg.enabled       = false;   // ← スプライト設定後に手動で有効化
+            logoImg.raycastTarget = false;
             PlaceCenter(logoGO, new Vector2(0f, 28f), new Vector2(820f, 130f));
 
             // タイトルテキスト
@@ -303,7 +306,7 @@ namespace DarkChronicle.Editor
                 "  " + fontMsg + "\n\n" +
                 "=== 残りの手動作業 ===\n" +
                 "  1. MainMenuController → _titleBGM に BGM クリップを割り当て\n" +
-                "  2. TitleLogo → Image にロゴスプライトを割り当て（不要なら非表示化）\n" +
+                "  2. TitleLogo → Image を有効化し、ロゴスプライトを割り当て（不要なら削除）\n" +
                 "  3. BackgroundParticles → ParticleSystemRenderer → Material に\n" +
                 "     Particles/Additive マテリアルを割り当て\n" +
                 (jaFont == null ? "  4. 全 TextMeshProUGUI に日本語フォントを手動割り当て\n" : ""));
@@ -715,7 +718,6 @@ namespace DarkChronicle.Editor
         {
             var go  = new GameObject(name);
             go.transform.SetParent(parent, false);
-            go.AddComponent<RectTransform>();
             var tmp = go.AddComponent<TextMeshProUGUI>();
             tmp.text               = text;
             tmp.fontSize           = fontSize;
@@ -724,6 +726,7 @@ namespace DarkChronicle.Editor
             tmp.fontStyle          = style;
             tmp.enableWordWrapping = false;
             tmp.overflowMode       = TextOverflowModes.Overflow;
+            tmp.raycastTarget      = false;
             if (font != null) tmp.font = font;
             return go;
         }
