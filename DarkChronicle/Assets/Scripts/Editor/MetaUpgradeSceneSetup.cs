@@ -112,6 +112,14 @@ namespace DarkChronicle.Editor
             eRT.offsetMin         = new Vector2(40f, 0f);
             eRT.offsetMax         = Vector2.zero;
 
+            // スクリーンタイトル（中央）
+            var titleGO = MakeTMP("ScreenTitle", headerGO.transform,
+                "彼方の墓標", 22f, ColText, TextAlignmentOptions.Center, FontStyles.Normal);
+            var tRT = titleGO.GetComponent<RectTransform>();
+            tRT.anchorMin = new Vector2(0.3f, 0f);
+            tRT.anchorMax = new Vector2(0.7f, 1f);
+            tRT.offsetMin = tRT.offsetMax = Vector2.zero;
+
             // 戻るボタン（右寄せ）
             var backBtnGO  = MakeButton("BackButton",  "← メインメニュー", headerGO.transform, 220f, 48f,
                 anchorPivot: new Vector2(1f, 0.5f), pos: new Vector2(-260f, 0f));

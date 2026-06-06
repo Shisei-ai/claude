@@ -133,7 +133,7 @@ namespace DarkChronicle.Editor
             var newGameBtn     = CreateButton("NewGameButton",    "新しい旅を始める",     btnContainerGO.transform, 300f, 52f);
             var continueBtn    = CreateButton("ContinueButton",   "旅を続ける",          btnContainerGO.transform, 300f, 52f);
             var sepGO          = CreateSeparator("Separator",     btnContainerGO.transform);
-            var metaUpgradeBtn = CreateButton("MetaUpgradeButton","メタ強化  [0 碑文]",  btnContainerGO.transform, 300f, 52f);
+            var metaUpgradeBtn = CreateButton("MetaUpgradeButton","彼方の墓標  [0 碑文]", btnContainerGO.transform, 300f, 52f);
             var settingsBtn    = CreateButton("SettingsButton",   "設定",               btnContainerGO.transform, 300f, 52f);
             var quitBtn        = CreateButton("QuitButton",       "終了",               btnContainerGO.transform, 300f, 44f);
             var quitTMP = quitBtn.GetComponentInChildren<TextMeshProUGUI>();
