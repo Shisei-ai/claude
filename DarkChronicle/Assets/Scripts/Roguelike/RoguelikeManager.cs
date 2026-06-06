@@ -760,11 +760,17 @@ namespace DarkChronicle.Roguelike
                 new List<BattleCharacter>()
             );
 
+            // 全パーティメンバーにメタアップグレードの初期BPを配布
+            var heroBPList = new List<int>();
+            for (int i = 0; i < heroDataList.Count; i++)
+                heroBPList.Add(_run.MetaStartBP);
+
             BattleManager.Instance.StartBattle(heroDataList, heroStatList, enemies,
                 new List<ItemData>(_run.Inventory),
                 usedItem => _run.Inventory.Remove(usedItem),
                 heroSkills:    heroSkillList,
-                heroCurrentHP: heroHPList);
+                heroCurrentHP: heroHPList,
+                heroInitialBP: heroBPList);
 
             // Wait for battle to finish
             bool battleDone = false;
@@ -829,6 +835,7 @@ namespace DarkChronicle.Roguelike
             AudioManager.Instance?.PlayBGM(_currentFloor.FloorBGM);
         }
 
+        // OnBattleEnd は ResolveBattle 内のローカルラムダで処理するため不要
         void OnBattleEnd(BattleResult result) { }
 
         // ── Treasure ───────────────────────────────────────────────────────

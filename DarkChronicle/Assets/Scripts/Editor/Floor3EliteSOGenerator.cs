@@ -175,10 +175,20 @@ namespace DarkChronicle.Editor
             var sealRelease = CreateSupportSkill("SKL_F3E_SealRelease",
                 FarunDesign.Action_SealRelease.Name,
                 FarunDesign.Action_SealRelease.Desc);
+            sealRelease.ClearsOwnStatusEffects = true;
+            EditorUtility.SetDirty(sealRelease);
 
             var runeBoost = CreateSupportSkill("SKL_F3E_RuneBoost",
                 FarunDesign.Action_RuneBoost.Name,
                 FarunDesign.Action_RuneBoost.Desc);
+            runeBoost.BuffsAlliedEnemies = true;
+            runeBoost.AlliedEnemyBuff    = new StatusEffect
+            {
+                Type     = StatusEffectType.AtkUp,
+                Value    = 0.20f,
+                Duration = 2,
+            };
+            EditorUtility.SetDirty(runeBoost);
 
             var enemy = CreateOrLoad<EnemyData>(BaseDir + "/ENM_Farun.asset");
             enemy.EnemyName  = FarunDesign.EnemyName;
@@ -363,6 +373,8 @@ namespace DarkChronicle.Editor
             var voidPurge = CreateSupportSkill("SKL_F3E_VoidPurge",
                 VorgaDesign.Action_VoidPurge.Name,
                 VorgaDesign.Action_VoidPurge.Desc);
+            voidPurge.ClearsOwnStatusEffects = true;
+            EditorUtility.SetDirty(voidPurge);
 
             // ── Phase 2 Skills (HP ≤ 45%) ───────────────────────────────
             var abyssOpening = CreateMagicSkill("SKL_F3E_AbyssOpening",

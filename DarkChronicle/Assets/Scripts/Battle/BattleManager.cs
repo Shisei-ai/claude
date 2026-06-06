@@ -51,8 +51,8 @@ namespace DarkChronicle.Battle
         public List<int> VictoryAllHeroHP { get; private set; } = new();
 
         // ── Special mechanics state ────────────────────────────────────────
-        // Death Sentence: target → turns remaining until execution
-        readonly Dictionary<BattleCharacter, int> _deathSentenceTimers = new();
+        // Death Sentence: target → (turns remaining, boss damage pct)
+        readonly Dictionary<BattleCharacter, (int Turns, float BossPct)> _deathSentenceTimers = new();
         // Causal Chain: A ↔ B linked pairs with propagation percent
         readonly List<(BattleCharacter A, BattleCharacter B, float Pct)> _causalChainLinks = new();
         // Boss phase tracking: boss → highest phase level reached so far
@@ -183,7 +183,8 @@ namespace DarkChronicle.Battle
                     _activeCharacter.TickBreak();
 
                     bool stunned = _activeCharacter.HasStatus(StatusEffectType.Sleep)
-                                || _activeCharacter.HasStatus(StatusEffectType.Paralysis);
+                                || _activeCharacter.HasStatus(StatusEffectType.Paralysis)
+                                || _activeCharacter.HasStatus(StatusEffectType.ActionSeal);
                     if (stunned)
                     {
                         _battleUI.ShowMessage($"{_activeCharacter.DisplayName} は行動できない！");
@@ -277,6 +278,28 @@ namespace DarkChronicle.Battle
                 {
                     enemy.RestoreShields(chosen.Skill.ShieldRestore);
                     _battleUI.ShowMessage($"{enemy.DisplayName} がシールドを{chosen.Skill.ShieldRestore}回復！");
+                    yield return new WaitForSeconds(0.4f);
+                    if (i < actionsToTake - 1) yield return new WaitForSeconds(0.25f);
+                    continue;
+                }
+
+                // Self-debuff cleanse (ファルン「封印解除」、ヴォルガ「虚無の浄化」等)
+                if (chosen.Skill.ClearsOwnStatusEffects)
+                {
+                    enemy.ClearAllStatus();
+                    _battleUI.ShowMessage($"{enemy.DisplayName} は状態異常を解除した！");
+                    yield return new WaitForSeconds(0.4f);
+                    if (i < actionsToTake - 1) yield return new WaitForSeconds(0.25f);
+                    continue;
+                }
+
+                // Allied-enemy buff (ファルン「刻印強化」等)
+                if (chosen.Skill.BuffsAlliedEnemies && chosen.Skill.AlliedEnemyBuff != null
+                    && chosen.Skill.AlliedEnemyBuff.Type != default)
+                {
+                    foreach (var ally in _enemies.Where(e => e.IsAlive && e != enemy))
+                        ally.ApplyStatus(chosen.Skill.AlliedEnemyBuff, 1f);
+                    _battleUI.ShowMessage($"{enemy.DisplayName} が仲間を強化した！");
                     yield return new WaitForSeconds(0.4f);
                     if (i < actionsToTake - 1) yield return new WaitForSeconds(0.25f);
                     continue;
@@ -572,7 +595,7 @@ namespace DarkChronicle.Battle
                 {
                     foreach (var target in finalTargets.Where(t => t.IsAlive))
                     {
-                        _deathSentenceTimers[target] = Mathf.Max(1, delay);
+                        _deathSentenceTimers[target] = (Mathf.Max(1, delay), skill.DeathSentenceBossDmgPct);
                         _battleUI.ShowMessage($"{target.DisplayName} に死の宣告（{Mathf.Max(1, delay)}ターン後）！");
                     }
                 }
@@ -1006,7 +1029,8 @@ namespace DarkChronicle.Battle
         // ── Evasion Check ──────────────────────────────────────────────────
         bool TryEvade(BattleCharacter attacker, BattleCharacter target)
         {
-            if (!target.IsPlayer) return false;  // enemies don't evade by default
+            // 敵キャラは回避しない（意図的な非対称設計。エネミーの生存性はシールドで担保する）
+            if (!target.IsPlayer) return false;
 
             float hitChance = Mathf.Clamp01(attacker.Accuracy / 100f);
 
@@ -1070,16 +1094,15 @@ namespace DarkChronicle.Battle
 
             foreach (var kv in _deathSentenceTimers.ToList())
             {
-                int newVal = kv.Value - 1;
-                if (newVal <= 0)
+                int newTurns = kv.Value.Turns - 1;
+                if (newTurns <= 0)
                 {
-                    // We'll pick bossPct from the skill when it was set; store it as 0.5 default
-                    toExecute.Add((kv.Key, 0.50f));
+                    toExecute.Add((kv.Key, kv.Value.BossPct));
                     _deathSentenceTimers.Remove(kv.Key);
                 }
                 else
                 {
-                    _deathSentenceTimers[kv.Key] = newVal;
+                    _deathSentenceTimers[kv.Key] = (newTurns, kv.Value.BossPct);
                 }
             }
 

@@ -32,8 +32,8 @@ namespace DarkChronicle.Battle
 
         public int MaxHP   => BaseStats.MaxHP  + _buffStats.MaxHP;
         public int MaxMP   => BaseStats.MaxMP  + _buffStats.MaxMP;
-        public int Patk    => Mathf.Max(1, _basePatk  + StatusStatBonus(_basePatk,  StatusEffectType.AtkUp, StatusEffectType.AtkDown));
-        public int Matk    => Mathf.Max(1, _baseMatk  + StatusStatBonus(_baseMatk,  StatusEffectType.AtkUp, StatusEffectType.AtkDown));
+        public int Patk    => Mathf.Max(1, _basePatk  + StatusStatBonus(_basePatk,  StatusEffectType.AtkUp,  StatusEffectType.AtkDown));
+        public int Matk    => Mathf.Max(1, _baseMatk  + StatusStatBonus(_baseMatk,  StatusEffectType.MatkUp, StatusEffectType.MatkDown));
         public int Pdef    => Mathf.Max(0, _basePdef  + StatusStatBonus(_basePdef,  StatusEffectType.DefUp, StatusEffectType.DefDown));
         public int Mdef    => Mathf.Max(0, _baseMdef  + StatusStatBonus(_baseMdef,  StatusEffectType.DefUp, StatusEffectType.DefDown));
         public int Speed   => Mathf.Max(1, _baseSpeed + StatusStatBonus(_baseSpeed, StatusEffectType.SpdUp, StatusEffectType.SpdDown));

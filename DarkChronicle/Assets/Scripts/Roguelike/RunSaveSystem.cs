@@ -63,6 +63,12 @@ namespace DarkChronicle.Roguelike
         public int[] VisitedNodeIDs;
         public int[] AvailableNodeIDs;
 
+        // Party members (join at Floor 0→1 transition)
+        public string[] PartyMemberNames;
+        public int[]    PartyMemberLevels;
+        public int[]    PartyCurrentHP;
+        public int[]    PartyMaxHP;
+
         // Meta bonus fields (baked in at run start; needed for mid-run resume)
         public float MetaMaxHPMult              = 1.0f;
         public float MetaPhysAtkMult            = 1.0f;
@@ -121,6 +127,10 @@ namespace DarkChronicle.Roguelike
                 EquippedArmorName      = run.EquippedArmor?.name     ?? string.Empty,
                 EquippedAccessoryName  = run.EquippedAccessory?.name ?? string.Empty,
                 EquipmentInventoryNames = run.EquipmentInventory.ConvertAll(e => e.name).ToArray(),
+                PartyMemberNames  = run.PartyMembers.ConvertAll(c => c.name).ToArray(),
+                PartyMemberLevels = run.PartyMemberLevels.ToArray(),
+                PartyCurrentHP    = run.PartyCurrentHP.ToArray(),
+                PartyMaxHP        = run.PartyMaxHP.ToArray(),
                 CurrentNodeID     = currentNodeID,
                 VisitedNodeIDs    = mapData?.Nodes.FindAll(n => n.Visited).ConvertAll(n => n.ID).ToArray()
                                     ?? new int[0],
@@ -240,6 +250,22 @@ namespace DarkChronicle.Roguelike
             if (dto.EquipmentInventoryNames != null)
                 foreach (var n in dto.EquipmentInventoryNames)
                 { var e = registry.FindEquipment(n); if (e != null) run.EquipmentInventory.Add(e); }
+
+            if (dto.PartyMemberNames != null)
+            {
+                for (int i = 0; i < dto.PartyMemberNames.Length; i++)
+                {
+                    var c = registry.FindCharacter(dto.PartyMemberNames[i]);
+                    if (c == null) continue;
+                    run.PartyMembers.Add(c);
+                    run.PartyMemberLevels.Add(dto.PartyMemberLevels != null && i < dto.PartyMemberLevels.Length
+                        ? dto.PartyMemberLevels[i] : 1);
+                    run.PartyMaxHP.Add(dto.PartyMaxHP != null && i < dto.PartyMaxHP.Length
+                        ? dto.PartyMaxHP[i] : 0);
+                    run.PartyCurrentHP.Add(dto.PartyCurrentHP != null && i < dto.PartyCurrentHP.Length
+                        ? dto.PartyCurrentHP[i] : run.PartyMaxHP[run.PartyMaxHP.Count - 1]);
+                }
+            }
 
             return run;
         }

@@ -107,7 +107,7 @@ namespace DarkChronicle.Editor
                 AshDesign.Skill_ShadowStitch.Name, AshDesign.Skill_ShadowStitch.Desc,
                 AshDesign.Skill_ShadowStitch.BasePower, 1,
                 AshDesign.Skill_ShadowStitch.MPCost, false,
-                statusChance: 1.00f, statusEffect: StatusEffectType.Sleep);  // Sleep = 行動不能
+                statusChance: 1.00f, statusEffect: StatusEffectType.ActionSeal);
 
             // ── 最終奥義 ─────────────────────────────────────────────────
             s.DanceOfDeath = CreatePhysicalSkill("SKL_A_DanceOfDeath",
@@ -235,13 +235,14 @@ namespace DarkChronicle.Editor
                     Duration = statusEffect switch
                     {
                         StatusEffectType.Poison    => 3,
-                        StatusEffectType.Bleed     => 3,
-                        StatusEffectType.Burn      => 2,
-                        StatusEffectType.Paralysis => 2,
-                        StatusEffectType.Sleep     => 2,
-                        StatusEffectType.Freeze    => 2,
-                        StatusEffectType.Blind     => 3,
-                        StatusEffectType.Silence   => 3,
+                        StatusEffectType.Bleed      => 3,
+                        StatusEffectType.Burn       => 2,
+                        StatusEffectType.Paralysis  => 2,
+                        StatusEffectType.Sleep      => 2,
+                        StatusEffectType.ActionSeal => 1,
+                        StatusEffectType.Freeze     => 2,
+                        StatusEffectType.Blind      => 3,
+                        StatusEffectType.Silence    => 3,
                         _                          => 2,
                     },
                     Value = statusEffect switch

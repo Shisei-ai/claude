@@ -153,7 +153,7 @@ namespace DarkChronicle.UI
                     int close = fullText.IndexOf('>', i);
                     if (close > i) { i = close; text.text = fullText[..i]; continue; }
                 }
-                yield return new WaitForSeconds(secPerChar);
+                yield return new WaitForSecondsRealtime(secPerChar);
             }
         }
 

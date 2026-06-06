@@ -29,6 +29,7 @@ namespace DarkChronicle.Core
         public string CurrentAreaName  { get; private set; }
         public int    Gold             { get; private set; } = 500;
         public int    PlaytimeSeconds  { get; private set; }
+        float _playtimeAccum;
 
         // ── Scene Transition ───────────────────────────────────────────────
         [Header("Transition")]
@@ -53,7 +54,10 @@ namespace DarkChronicle.Core
         void Update()
         {
             if (State == GameState.Field || State == GameState.Battle)
-                PlaytimeSeconds++;   // crude; replace with Time.unscaledDeltaTime accumulator
+            {
+                _playtimeAccum += Time.unscaledDeltaTime;
+                while (_playtimeAccum >= 1f) { PlaytimeSeconds++; _playtimeAccum -= 1f; }
+            }
         }
 
         void OnDestroy() => BattleManager.OnBattleEnd -= OnBattleEnd;

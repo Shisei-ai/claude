@@ -65,7 +65,7 @@ namespace DarkChronicle.Editor
                 ZenoDesign.Skill_Terror.Name, ZenoDesign.Skill_Terror.Desc,
                 ZenoDesign.Skill_Terror.MPCost,
                 statusChance: ZenoDesign.Skill_Terror.FearChance,
-                statusEffect: StatusEffectType.Sleep);  // Sleep = 行動封じの代用
+                statusEffect: StatusEffectType.ActionSeal);
 
             // ── 全ステータスデバフ ────────────────────────────────────────
             s.EvilEye = CreateDebuffSkill("SKL_Z_EvilEye",
@@ -93,7 +93,7 @@ namespace DarkChronicle.Editor
             s.SoulShackle = CreateDebuffSkill("SKL_Z_SoulShackle",
                 ZenoDesign.Skill_SoulShackle.Name, ZenoDesign.Skill_SoulShackle.Desc,
                 ZenoDesign.Skill_SoulShackle.MPCost,
-                statusChance: 1.00f, statusEffect: StatusEffectType.Sleep);
+                statusChance: 1.00f, statusEffect: StatusEffectType.ActionSeal);
 
             // ── ランダムデバフ ────────────────────────────────────────────
             s.CurseFog = CreateDebuffSkill("SKL_Z_CurseFog",
@@ -239,13 +239,14 @@ namespace DarkChronicle.Editor
                     Duration = statusEffect switch
                     {
                         StatusEffectType.Poison    => 3,
-                        StatusEffectType.Bleed     => 3,
-                        StatusEffectType.Burn      => 2,
-                        StatusEffectType.Paralysis => 2,
-                        StatusEffectType.Sleep     => 2,
-                        StatusEffectType.Freeze    => 2,
-                        StatusEffectType.Blind     => 3,
-                        StatusEffectType.Silence   => 3,
+                        StatusEffectType.Bleed      => 3,
+                        StatusEffectType.Burn       => 2,
+                        StatusEffectType.Paralysis  => 2,
+                        StatusEffectType.Sleep      => 2,
+                        StatusEffectType.ActionSeal => 1,
+                        StatusEffectType.Freeze     => 2,
+                        StatusEffectType.Blind      => 3,
+                        StatusEffectType.Silence    => 3,
                         _                          => 2,
                     },
                     Value = statusEffect switch

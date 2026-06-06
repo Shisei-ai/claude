@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.EventSystems;
 
 namespace DarkChronicle.UI
 {
@@ -43,6 +44,8 @@ namespace DarkChronicle.UI
 
             _group.alpha          = 1f;
             _group.blocksRaycasts = false;
+            // Force ContentSizeFitter to recalculate before clamping position
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_panel);
             FollowCursor();
         }
 

@@ -76,7 +76,10 @@ namespace DarkChronicle.Data
         public float HealPower;
 
         [Header("Enemy Support")]
-        public int   ShieldRestore;
+        public int          ShieldRestore;
+        public bool         ClearsOwnStatusEffects;  // 使用時に自身の状態異常を全て解除する（ファルン・ヴォルガ等）
+        public bool         BuffsAlliedEnemies;       // 使用時に生存している味方敵全員にバフを付与する
+        public StatusEffect AlliedEnemyBuff;          // BuffsAlliedEnemies=trueの場合に付与するバフ
 
         [Header("Revive")]
         public bool  IsRevive;
@@ -110,24 +113,31 @@ namespace DarkChronicle.Data
 
         public string DisplayName => Type switch
         {
-            StatusEffectType.Poison   => "毒",
-            StatusEffectType.Bleed    => "出血",
-            StatusEffectType.Burn     => "炎上",
-            StatusEffectType.Freeze   => "凍結",
-            StatusEffectType.Paralysis=> "麻痺",
-            StatusEffectType.Sleep    => "睡眠",
-            StatusEffectType.Blind    => "暗闇",
-            StatusEffectType.Silence  => "沈黙",
-            StatusEffectType.AtkUp    => "攻撃UP",
-            StatusEffectType.DefDown  => "防御DOWN",
-            _                         => Type.ToString()
+            StatusEffectType.Poison      => "毒",
+            StatusEffectType.Bleed       => "出血",
+            StatusEffectType.Burn        => "炎上",
+            StatusEffectType.Freeze      => "凍結",
+            StatusEffectType.Paralysis   => "麻痺",
+            StatusEffectType.Sleep       => "睡眠",
+            StatusEffectType.Blind       => "暗闇",
+            StatusEffectType.Silence     => "沈黙",
+            StatusEffectType.AtkUp       => "物理攻撃UP",
+            StatusEffectType.AtkDown     => "物理攻撃DOWN",
+            StatusEffectType.MatkUp      => "魔法攻撃UP",
+            StatusEffectType.MatkDown    => "魔法攻撃DOWN",
+            StatusEffectType.DefUp       => "防御UP",
+            StatusEffectType.DefDown     => "防御DOWN",
+            StatusEffectType.ActionSeal  => "行動封じ",
+            _                            => Type.ToString()
         };
     }
 
     public enum StatusEffectType
     {
         Poison, Bleed, Burn, Freeze, Paralysis, Sleep, Blind, Silence,
-        AtkUp, AtkDown, DefUp, DefDown, SpdUp, SpdDown, Regen
+        AtkUp, AtkDown, DefUp, DefDown, SpdUp, SpdDown, Regen,
+        ActionSeal,   // 行動封じ（Sleep代替。被弾で解除されない）
+        MatkUp, MatkDown,  // 魔法攻撃専用バフ/デバフ（AtkUp/AtkDownは物理専用に変更）
     }
 
     // ── Job / Class System ─────────────────────────────────────────────────

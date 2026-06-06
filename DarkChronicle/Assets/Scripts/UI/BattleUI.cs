@@ -130,6 +130,7 @@ namespace DarkChronicle.UI
         readonly Queue<string>  _messageQueue  = new();
         bool                    _showingMessage;
         Coroutine               _messageRoutine;
+        Coroutine               _skillNameRoutine;
 
         // ── Unity lifecycle ────────────────────────────────────────────────
         void Awake()
@@ -284,8 +285,8 @@ namespace DarkChronicle.UI
 
         public void ShowSkillName(string skillName)
         {
-            StopCoroutine(nameof(FlashSkillNameRoutine));
-            StartCoroutine(FlashSkillNameRoutine(skillName));
+            if (_skillNameRoutine != null) StopCoroutine(_skillNameRoutine);
+            _skillNameRoutine = StartCoroutine(FlashSkillNameRoutine(skillName));
         }
 
         public void ShowMessage(string msg)

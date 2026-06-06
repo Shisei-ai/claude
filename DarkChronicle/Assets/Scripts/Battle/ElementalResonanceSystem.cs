@@ -110,9 +110,9 @@ namespace DarkChronicle.Battle
                 {
                     result.BonusMultiplier += reaction.BonusValue;
                     result.ReactionName     = reaction.Name;
-                    result.HasForbiddenCost = reaction.IsForbitten;
+                    result.HasForbiddenCost = reaction.IsForbidden;
 
-                    if (reaction.IsForbitten)
+                    if (reaction.IsForbidden)
                     {
                         // 禁忌共鳴: HPを5%失う
                         int hpCost = Mathf.Max(1, Mathf.RoundToInt(caster.MaxHP * ForbiddenHPCost));
@@ -209,8 +209,8 @@ namespace DarkChronicle.Battle
     {
         public readonly string  Name;
         public readonly float   BonusValue;
-        public readonly bool    IsForbitten;
+        public readonly bool    IsForbidden;
         public ElementReaction(string name, float bonus, bool forbidden)
-        { Name = name; BonusValue = bonus; IsForbitten = forbidden; }
+        { Name = name; BonusValue = bonus; IsForbidden = forbidden; }
     }
 }
