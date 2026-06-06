@@ -26,7 +26,6 @@ namespace DarkChronicle.UI
         [SerializeField] CanvasGroup    _buttonsGroup;
         [SerializeField] Button         _newGameButton;
         [SerializeField] Button         _continueButton;
-        [SerializeField] Button         _roguelikeButton;
         [SerializeField] Button         _metaUpgradeButton;
         [SerializeField] Button         _settingsButton;
         [SerializeField] Button         _quitButton;
@@ -57,14 +56,12 @@ namespace DarkChronicle.UI
 
             _newGameButton.onClick.AddListener(OnNewGame);
             _continueButton.onClick.AddListener(OnContinue);
-            if (_roguelikeButton   != null) _roguelikeButton.onClick.AddListener(OnStartRoguelike);
             if (_metaUpgradeButton != null) _metaUpgradeButton.onClick.AddListener(OnMetaUpgrade);
             _settingsButton.onClick.AddListener(OnSettings);
             _quitButton.onClick.AddListener(OnQuit);
 
             _continueButton.interactable = RunSaveSystem.HasSave();
 
-            // Show Epitaph count on meta upgrade button label if available
             if (_metaUpgradeButton != null)
             {
                 var label = _metaUpgradeButton.GetComponentInChildren<TextMeshProUGUI>();
@@ -80,10 +77,8 @@ namespace DarkChronicle.UI
         {
             yield return new WaitForSeconds(_introDelay);
 
-            // Fade in background particles
             if (_backgroundParticles != null) _backgroundParticles.Play();
 
-            // Music fade in
             if (_bgmSource != null && _titleBGM != null)
             {
                 _bgmSource.clip   = _titleBGM;
@@ -92,15 +87,12 @@ namespace DarkChronicle.UI
                 StartCoroutine(FadeAudio(_bgmSource, 0f, 0.8f, 3f));
             }
 
-            // Title text reveal with typewriter
             yield return StartCoroutine(FadeCanvasGroup(_titleGroup, 0f, 1f, 1.5f));
 
-            // Animate title flicker (dark fantasy style)
             StartCoroutine(TitleFlickerLoop());
 
             yield return new WaitForSeconds(0.5f);
 
-            // Show buttons
             yield return StartCoroutine(FadeCanvasGroup(_buttonsGroup, 0f, 1f, 0.8f));
         }
 
@@ -109,7 +101,6 @@ namespace DarkChronicle.UI
             while (true)
             {
                 yield return new WaitForSeconds(Random.Range(4f, 8f));
-                // Brief flicker
                 _titleText.alpha = 0.7f;
                 yield return new WaitForSeconds(0.05f);
                 _titleText.alpha = 1f;
@@ -121,15 +112,6 @@ namespace DarkChronicle.UI
         }
 
         // ── Button Handlers ────────────────────────────────────────────────
-        void OnStartRoguelike()
-        {
-            RoguelikeManager.ForceNewRun = true;
-            SceneManager.LoadScene(SceneNames.Roguelike);
-        }
-
-        void OnMetaUpgrade() =>
-            SceneManager.LoadScene(SceneNames.MetaUpgrade);
-
         void OnNewGame() => SceneManager.LoadScene(SceneNames.RunSetup);
 
         void OnContinue()
@@ -138,6 +120,9 @@ namespace DarkChronicle.UI
             RoguelikeManager.ForceNewRun = false;
             SceneManager.LoadScene(SceneNames.Roguelike);
         }
+
+        void OnMetaUpgrade() =>
+            SceneManager.LoadScene(SceneNames.MetaUpgrade);
 
         void OnSettings()
         {
@@ -162,36 +147,12 @@ namespace DarkChronicle.UI
 #endif
         }
 
-        void RefreshSaveSlots(bool isLoad)
-        {
-            for (int i = 0; i < _saveSlots.Length; i++)
-            {
-                var data = SaveSystem.Load(i);
-                int slot = i;
-                _saveSlots[i].Setup(data, isLoad, () =>
-                {
-                    if (isLoad && data != null)
-                        GameManager.Instance.LoadGame(slot);
-                    else
-                        StartCoroutine(StartNewGame(slot));
-                });
-            }
-        }
-
-        IEnumerator StartNewGame(int slot)
-        {
-            yield return StartCoroutine(FadeCanvasGroup(_buttonsGroup, 1f, 0f, 0.5f));
-            yield return StartCoroutine(FadeCanvasGroup(_titleGroup,   1f, 0f, 0.8f));
-            GameManager.Instance.SaveGame(slot);
-            GameManager.Instance.TransitionToScene("PrologueScene");
-        }
-
         // ── Utilities ──────────────────────────────────────────────────────
         IEnumerator FadeCanvasGroup(CanvasGroup group, float from, float to, float duration)
         {
             float elapsed = 0f;
             group.alpha   = from;
-            group.blocksRaycasts = from > to ? true : false;
+            group.blocksRaycasts = from > to;
             while (elapsed < duration)
             {
                 elapsed    += Time.deltaTime;
