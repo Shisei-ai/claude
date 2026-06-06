@@ -62,10 +62,10 @@ namespace DarkChronicle.Editor
             var guids = AssetDatabase.FindAssets("t:TMP_FontAsset");
             if (guids.Length == 0) return null;
 
-            // 日本語対応フォントの優先キーワード（パス名・アセット名で判定）
+            // Pass 1: 名前キーワードで日本語フォントを優先検索
             string[] priority = {
                 "Shippori", "しっぽり",
-                "NotoSerifJP", "NotoSansJP", "Noto",
+                "NotoSerifJP", "NotoSansJP", "NotoSans", "Noto",
                 "ZenOldMincho", "ZenMaruGothic", "ZenKakuGothic",
                 "YuMincho", "游明朝", "YuGothic", "游ゴシック",
                 "GenYoMincho", "源ノ明朝",
@@ -73,15 +73,11 @@ namespace DarkChronicle.Editor
                 "MPlus", "RoundedMplus",
                 "UDDigiKyokasho",
             };
-
-            TMP_FontAsset fallback = null;
             foreach (var guid in guids)
             {
                 var path = AssetDatabase.GUIDToAssetPath(guid);
                 var fa   = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
                 if (fa == null) continue;
-                if (fallback == null) fallback = fa;
-
                 foreach (var kw in priority)
                     if (path.Contains(kw) || fa.name.Contains(kw))
                     {
@@ -89,8 +85,24 @@ namespace DarkChronicle.Editor
                         return s_JaFont;
                     }
             }
-            s_JaFont = fallback;
-            return s_JaFont;
+
+            // Pass 2: グリフ実在チェック（ひらがな「あ」が収録されているか）
+            // 名前に日本語キーワードがなくても実際に日本語を持つフォントを検出する
+            foreach (var guid in guids)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                var fa   = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
+                if (fa == null) continue;
+                if (fa.HasCharacter('あ')) // 'あ'
+                {
+                    s_JaFont = fa;
+                    return s_JaFont;
+                }
+            }
+
+            // 日本語グリフを持つフォントが存在しない — null を返してデフォルトを維持
+            // （ラテン専用フォントを誤って適用しない）
+            return null;
         }
 
         // ── エントリポイント ────────────────────────────────────────────────

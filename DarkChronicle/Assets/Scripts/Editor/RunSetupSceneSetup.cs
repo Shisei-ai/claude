@@ -74,23 +74,22 @@ namespace DarkChronicle.Editor
             var guids = AssetDatabase.FindAssets("t:TMP_FontAsset");
             if (guids.Length == 0) return null;
 
+            // Pass 1: 名前キーワードで日本語フォントを優先検索
             string[] priority = {
                 "Shippori", "しっぽり",
-                "NotoSerifJP", "NotoSansJP", "Noto",
+                "NotoSerifJP", "NotoSansJP", "NotoSans", "Noto",
                 "ZenOldMincho", "ZenMaruGothic", "ZenKakuGothic",
                 "YuMincho", "游明朝", "YuGothic", "游ゴシック",
                 "GenYoMincho", "源ノ明朝",
                 "IPAexMincho", "IPAexGothic",
                 "MPlus", "RoundedMplus",
+                "UDDigiKyokasho",
             };
-
-            TMP_FontAsset fallback = null;
             foreach (var guid in guids)
             {
                 var path  = AssetDatabase.GUIDToAssetPath(guid);
                 var asset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
                 if (asset == null) continue;
-                fallback ??= asset;
                 foreach (var kw in priority)
                     if (path.Contains(kw) || asset.name.Contains(kw))
                     {
@@ -98,8 +97,22 @@ namespace DarkChronicle.Editor
                         return s_JaFont;
                     }
             }
-            s_JaFont = fallback;
-            return s_JaFont;
+
+            // Pass 2: グリフ実在チェック（ひらがな「あ」が収録されているか）
+            foreach (var guid in guids)
+            {
+                var path  = AssetDatabase.GUIDToAssetPath(guid);
+                var asset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
+                if (asset == null) continue;
+                if (asset.HasCharacter('あ'))
+                {
+                    s_JaFont = asset;
+                    return s_JaFont;
+                }
+            }
+
+            // 日本語グリフを持つフォントが存在しない — null を返してデフォルトを維持
+            return null;
         }
 
         // ── エントリポイント ────────────────────────────────────────────────────
