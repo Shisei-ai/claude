@@ -16,7 +16,7 @@ namespace DarkChronicle.Editor
     ///   - Canvas（1920×1080 ScaleWithScreenSize）
     ///   - 背景 Image（深紫）
     ///   - TitleGroup（CanvasGroup + タイトル/サブタイトル TextMeshPro）
-    ///   - ButtonsGroup（CanvasGroup + 6ボタン + セパレーター）
+    ///   - ButtonsGroup（CanvasGroup + 5ボタン + セパレーター）
     ///   - SaveSlotPanel（3スロット）
     ///   - SettingsPanel（BGM/SEスライダー + フルスクリーントグル）
     ///   - BackgroundParticles（金の塵パーティクル）
@@ -33,17 +33,16 @@ namespace DarkChronicle.Editor
         const string ScenePath = "Assets/Scenes/MainMenu.unity";
 
         // ── カラーパレット ──────────────────────────────────────────────────
-        // ダークファンタジー HD-2D: 深紫・羊皮紙白・くすみ金
-        static readonly Color ColBg          = new Color(0.024f, 0.016f, 0.067f, 1.000f); // #060411
-        static readonly Color ColTitle       = new Color(0.929f, 0.878f, 0.769f, 1.000f); // #EDE0C4
-        static readonly Color ColSubtitle    = new Color(0.722f, 0.604f, 0.353f, 1.000f); // #B89A5A
-        static readonly Color ColBtnText     = new Color(0.867f, 0.816f, 0.706f, 1.000f); // #DDD0B4
-        static readonly Color ColBtnTextDim  = new Color(0.416f, 0.353f, 0.290f, 1.000f); // #6A5A4A
-        static readonly Color ColBtnBg       = new Color(0.082f, 0.043f, 0.165f, 0.784f); // #150B2A a200
-        static readonly Color ColSeparator   = new Color(0.290f, 0.188f, 0.376f, 0.471f); // #4A3060 a120
-        static readonly Color ColPanelBg     = new Color(0.040f, 0.020f, 0.100f, 0.950f); // #0A0519 a242
-        static readonly Color ColParticle    = new Color(0.784f, 0.588f, 0.235f, 0.350f); // #C8963C a89
-        static readonly Color ColSliderFill  = new Color(0.722f, 0.604f, 0.353f, 1.000f); // B89A5A
+        static readonly Color ColBg          = new Color(0.024f, 0.016f, 0.067f, 1.000f);
+        static readonly Color ColTitle       = new Color(0.929f, 0.878f, 0.769f, 1.000f);
+        static readonly Color ColSubtitle    = new Color(0.722f, 0.604f, 0.353f, 1.000f);
+        static readonly Color ColBtnText     = new Color(0.867f, 0.816f, 0.706f, 1.000f);
+        static readonly Color ColBtnTextDim  = new Color(0.416f, 0.353f, 0.290f, 1.000f);
+        static readonly Color ColBtnBg       = new Color(0.082f, 0.043f, 0.165f, 0.784f);
+        static readonly Color ColSeparator   = new Color(0.290f, 0.188f, 0.376f, 0.471f);
+        static readonly Color ColPanelBg     = new Color(0.040f, 0.020f, 0.100f, 0.950f);
+        static readonly Color ColParticle    = new Color(0.784f, 0.588f, 0.235f, 0.350f);
+        static readonly Color ColSliderFill  = new Color(0.722f, 0.604f, 0.353f, 1.000f);
 
         // ── エントリポイント ────────────────────────────────────────────────
         [MenuItem("DarkChronicle/Create MainMenu Scene", priority = 102)]
@@ -78,9 +77,9 @@ namespace DarkChronicle.Editor
             // ── BGM AudioSource ──────────────────────────────────────────────
             var bgmGO     = new GameObject("BGMAudioSource");
             var bgmSource = bgmGO.AddComponent<AudioSource>();
-            bgmSource.loop         = true;
-            bgmSource.playOnAwake  = false;
-            bgmSource.volume       = 0.8f;
+            bgmSource.loop        = true;
+            bgmSource.playOnAwake = false;
+            bgmSource.volume      = 0.8f;
 
             // ── BackgroundParticles (World Space) ────────────────────────────
             var particlesGO = new GameObject("BackgroundParticles");
@@ -91,14 +90,14 @@ namespace DarkChronicle.Editor
             // ── Canvas ───────────────────────────────────────────────────────
             var canvasGO = new GameObject("MainMenuCanvas");
             var canvas   = canvasGO.AddComponent<Canvas>();
-            canvas.renderMode    = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder  = 0;
+            canvas.renderMode   = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 0;
 
             var scaler = canvasGO.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode         = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution  = new Vector2(1920f, 1080f);
-            scaler.screenMatchMode     = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight  = 0.5f;
+            scaler.uiScaleMode        = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode    = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
 
             canvasGO.AddComponent<GraphicRaycaster>();
 
@@ -108,41 +107,35 @@ namespace DarkChronicle.Editor
 
             // ── TitleGroup ───────────────────────────────────────────────────
             var (titleGroupGO, titleGroup) = CreateCanvasGroup("TitleGroup", canvasGO.transform,
-                anchoredPos: new Vector2(0f, 200f),
-                size:        new Vector2(1000f, 200f));
+                anchoredPos: new Vector2(0f, 200f), size: new Vector2(1000f, 200f));
             titleGroup.alpha = 0f;
 
             var logoGO = CreateImage("TitleLogo", titleGroupGO.transform, new Color(1f, 1f, 1f, 0f));
             PlaceRect(logoGO, new Vector2(0f, 20f), new Vector2(800f, 140f));
 
             var titleTextGO = CreateText("TitleText", titleGroupGO.transform,
-                "DARK  CHRONICLE", 96f, ColTitle,
-                TextAlignmentOptions.Center, FontStyles.Bold);
+                "DARK  CHRONICLE", 96f, ColTitle, TextAlignmentOptions.Center, FontStyles.Bold);
             PlaceRect(titleTextGO, new Vector2(0f, 20f), new Vector2(900f, 140f));
             titleTextGO.GetComponent<TextMeshProUGUI>().characterSpacing = 10f;
 
             var subtitleTextGO = CreateText("SubtitleText", titleGroupGO.transform,
-                "——  闇 の 年 代 記  ——", 24f, ColSubtitle,
-                TextAlignmentOptions.Center, FontStyles.Italic);
+                "——  闇 の 年 代 記  ——", 24f, ColSubtitle, TextAlignmentOptions.Center, FontStyles.Italic);
             PlaceRect(subtitleTextGO, new Vector2(0f, -68f), new Vector2(600f, 40f));
             subtitleTextGO.GetComponent<TextMeshProUGUI>().characterSpacing = 14f;
 
             // ── ButtonsGroup ─────────────────────────────────────────────────
             var (buttonsGroupGO, buttonsGroup) = CreateCanvasGroup("ButtonsGroup", canvasGO.transform,
-                anchoredPos: new Vector2(0f, -80f),
-                size:        new Vector2(320f, 420f));
+                anchoredPos: new Vector2(0f, -80f), size: new Vector2(320f, 360f));
             buttonsGroup.alpha = 0f;
 
             var btnContainerGO = CreateButtonContainer("ButtonContainer", buttonsGroupGO.transform);
 
-            var newGameBtn     = CreateButton("NewGameButton",     "新しい旅を始める",  btnContainerGO.transform, 300f, 52f);
-            var continueBtn    = CreateButton("ContinueButton",    "旅を続ける",       btnContainerGO.transform, 300f, 52f);
-            var sepGO          = CreateSeparator("Separator",       btnContainerGO.transform);
-            var roguelikeBtn   = CreateButton("RoguelikeButton",   "ローグライク開始",   btnContainerGO.transform, 300f, 52f);
-            var metaUpgradeBtn = CreateButton("MetaUpgradeButton", "メタ強化  [0 碑文]", btnContainerGO.transform, 300f, 52f);
-            var settingsBtn    = CreateButton("SettingsButton",    "設定",              btnContainerGO.transform, 300f, 52f);
-            var quitBtn        = CreateButton("QuitButton",        "終了",              btnContainerGO.transform, 300f, 44f);
-            // 終了ボタンは一回り小さい文字で控えめに
+            var newGameBtn     = CreateButton("NewGameButton",    "新しい旅を始める",     btnContainerGO.transform, 300f, 52f);
+            var continueBtn    = CreateButton("ContinueButton",   "旅を続ける",          btnContainerGO.transform, 300f, 52f);
+            var sepGO          = CreateSeparator("Separator",     btnContainerGO.transform);
+            var metaUpgradeBtn = CreateButton("MetaUpgradeButton","メタ強化  [0 碑文]",  btnContainerGO.transform, 300f, 52f);
+            var settingsBtn    = CreateButton("SettingsButton",   "設定",               btnContainerGO.transform, 300f, 52f);
+            var quitBtn        = CreateButton("QuitButton",       "終了",               btnContainerGO.transform, 300f, 44f);
             var quitTMP = quitBtn.GetComponentInChildren<TextMeshProUGUI>();
             if (quitTMP != null) { quitTMP.fontSize = 18f; quitTMP.color = ColBtnTextDim; }
 
@@ -158,7 +151,7 @@ namespace DarkChronicle.Editor
             settingsPanel.SetActive(false);
             var (musicSlider, sfxSlider, fsToggle) = BuildSettingsPanel(settingsPanel.transform);
 
-            // ── MainMenuController (MainMenuUI をアタッチ) ─────────────────
+            // ── MainMenuController ─────────────────────────────────────────
             var controllerGO = new GameObject("MainMenuController");
             var ui = controllerGO.AddComponent<MainMenuUI>();
 
@@ -170,7 +163,6 @@ namespace DarkChronicle.Editor
                 buttonsGroup:      buttonsGroup,
                 newGameButton:     newGameBtn.GetComponent<Button>(),
                 continueButton:    continueBtn.GetComponent<Button>(),
-                roguelikeButton:   roguelikeBtn.GetComponent<Button>(),
                 metaUpgradeButton: metaUpgradeBtn.GetComponent<Button>(),
                 settingsButton:    settingsBtn.GetComponent<Button>(),
                 quitButton:        quitBtn.GetComponent<Button>(),
@@ -193,27 +185,22 @@ namespace DarkChronicle.Editor
                 "[MainMenu] シーン生成完了: " + ScenePath + "\n\n" +
                 "=== 残りの手動作業 ===\n" +
                 "  1. TitleText・SubtitleText・各ボタンLabel の Font を割り当て\n" +
-                "     推奨: しっぽり明朝 v2 SDF（日本語）/ Crimson Text SDF（英語タイトル）\n" +
                 "  2. MainMenuController の _titleBGM に BGM クリップを割り当て\n" +
                 "  3. TitleLogo の Image にロゴスプライトを割り当て\n" +
-                "     （ロゴなしの場合は TitleLogo GameObject を非アクティブに）\n" +
-                "  4. BackgroundParticles の ParticleSystemRenderer → Material を\n" +
-                "     Particles/Additive または Mobile/Particles/Additive に設定\n" +
-                "  5. ボタンにホバー演出が必要な場合は EventTrigger + DOTween で\n" +
-                "     X位置 +8px / テキスト金色化（0.12秒 EaseOut）を追加");
+                "  4. BackgroundParticles の ParticleSystemRenderer → Material を設定");
         }
 
-        // ── パーティクル設定（背景の舞う金の塵） ───────────────────────────
+        // ── パーティクル設定 ────────────────────────────────────────────────
         static void ConfigureBackgroundParticles(ParticleSystem ps)
         {
             var main = ps.main;
-            main.loop             = true;
-            main.startLifetime    = new ParticleSystem.MinMaxCurve(8f, 12f);
-            main.startSpeed       = new ParticleSystem.MinMaxCurve(0.3f, 0.8f);
-            main.startSize        = new ParticleSystem.MinMaxCurve(0.02f, 0.06f);
-            main.startColor       = new ParticleSystem.MinMaxGradient(ColParticle);
-            main.maxParticles     = 80;
-            main.simulationSpace  = ParticleSystemSimulationSpace.World;
+            main.loop            = true;
+            main.startLifetime   = new ParticleSystem.MinMaxCurve(8f, 12f);
+            main.startSpeed      = new ParticleSystem.MinMaxCurve(0.3f, 0.8f);
+            main.startSize       = new ParticleSystem.MinMaxCurve(0.02f, 0.06f);
+            main.startColor      = new ParticleSystem.MinMaxGradient(ColParticle);
+            main.maxParticles    = 80;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
 
             var emission = ps.emission;
             emission.rateOverTime = 6f;
@@ -224,7 +211,6 @@ namespace DarkChronicle.Editor
 
             var vel = ps.velocityOverLifetime;
             vel.enabled = true;
-            // All three axes must share the same MinMaxCurveMode
             vel.x = new ParticleSystem.MinMaxCurve(0f, 0f);
             vel.y = new ParticleSystem.MinMaxCurve(0.1f, 0.3f);
             vel.z = new ParticleSystem.MinMaxCurve(0f, 0f);
@@ -247,7 +233,6 @@ namespace DarkChronicle.Editor
             var slots = new SaveSlotEntry[3];
             for (int i = 0; i < 3; i++)
             {
-                // スロットルート
                 var slotGO  = CreateImage($"SaveSlot_{i}", parent, ColBtnBg);
                 var slotRT  = slotGO.GetComponent<RectTransform>();
                 slotRT.anchorMin = slotRT.anchorMax = new Vector2(0.5f, 1f);
@@ -258,40 +243,32 @@ namespace DarkChronicle.Editor
                 var slotBtn = slotGO.AddComponent<Button>();
                 SetButtonColors(slotBtn, slotGO.GetComponent<Image>());
 
-                // スロット番号
                 var numGO = CreateText("SlotNumber", slotGO.transform,
-                    $"SLOT {i + 1}", 14f, ColSubtitle,
-                    TextAlignmentOptions.MidlineLeft, FontStyles.Normal);
+                    $"SLOT {i + 1}", 14f, ColSubtitle, TextAlignmentOptions.MidlineLeft, FontStyles.Normal);
                 var numRT = numGO.GetComponent<RectTransform>();
                 numRT.anchorMin = new Vector2(0f, 0.5f); numRT.anchorMax = new Vector2(0f, 0.5f);
                 numRT.pivot = new Vector2(0f, 0.5f);
                 numRT.sizeDelta = new Vector2(80f, 40f);
                 numRT.anchoredPosition = new Vector2(16f, 0f);
 
-                // エリア名
                 var areaGO = CreateText("AreaName", slotGO.transform,
-                    "──", 18f, ColBtnText,
-                    TextAlignmentOptions.MidlineLeft, FontStyles.Normal);
+                    "──", 18f, ColBtnText, TextAlignmentOptions.MidlineLeft, FontStyles.Normal);
                 var areaRT = areaGO.GetComponent<RectTransform>();
                 areaRT.anchorMin = new Vector2(0f, 0.5f); areaRT.anchorMax = new Vector2(0f, 0.5f);
                 areaRT.pivot = new Vector2(0f, 0.5f);
                 areaRT.sizeDelta = new Vector2(320f, 40f);
                 areaRT.anchoredPosition = new Vector2(110f, 0f);
 
-                // プレイ時間
                 var timeGO = CreateText("Playtime", slotGO.transform,
-                    "00:00", 14f, ColSubtitle,
-                    TextAlignmentOptions.MidlineRight, FontStyles.Normal);
+                    "00:00", 14f, ColSubtitle, TextAlignmentOptions.MidlineRight, FontStyles.Normal);
                 var timeRT = timeGO.GetComponent<RectTransform>();
                 timeRT.anchorMin = new Vector2(1f, 0.5f); timeRT.anchorMax = new Vector2(1f, 0.5f);
                 timeRT.pivot = new Vector2(1f, 0.5f);
                 timeRT.sizeDelta = new Vector2(80f, 40f);
                 timeRT.anchoredPosition = new Vector2(-16f, 0f);
 
-                // 空スロットラベル
                 var emptyGO = CreateText("EmptyLabel", slotGO.transform,
-                    "─── NEW GAME ───", 16f, ColBtnTextDim,
-                    TextAlignmentOptions.Center, FontStyles.Normal);
+                    "─── NEW GAME ───", 16f, ColBtnTextDim, TextAlignmentOptions.Center, FontStyles.Normal);
                 var emptyRT = emptyGO.GetComponent<RectTransform>();
                 emptyRT.anchorMin = Vector2.zero; emptyRT.anchorMax = Vector2.one;
                 emptyRT.sizeDelta = Vector2.zero; emptyRT.anchoredPosition = Vector2.zero;
@@ -307,7 +284,6 @@ namespace DarkChronicle.Editor
                 };
             }
 
-            // 閉じるボタン
             var closeBtn = CreateButton("CloseButton", "閉じる", parent, 200f, 44f);
             var closeRT  = closeBtn.GetComponent<RectTransform>();
             closeRT.anchorMin = new Vector2(0.5f, 0f);
@@ -329,10 +305,9 @@ namespace DarkChronicle.Editor
             titleRT.sizeDelta = new Vector2(420f, 52f);
             titleRT.anchoredPosition = new Vector2(0f, -24f);
 
-            var musicSlider = CreateLabeledSlider("BGMVolume",    "BGM 音量", parent, new Vector2(0f, -110f));
-            var sfxSlider   = CreateLabeledSlider("SFXVolume",    "SE 音量",  parent, new Vector2(0f, -188f));
+            var musicSlider = CreateLabeledSlider("BGMVolume", "BGM 音量", parent, new Vector2(0f, -110f));
+            var sfxSlider   = CreateLabeledSlider("SFXVolume", "SE 音量",  parent, new Vector2(0f, -188f));
 
-            // フルスクリーントグル
             var fsContainerGO = new GameObject("FullscreenContainer");
             fsContainerGO.transform.SetParent(parent, false);
             var fsRT = fsContainerGO.AddComponent<RectTransform>();
@@ -342,8 +317,7 @@ namespace DarkChronicle.Editor
             fsRT.anchoredPosition = new Vector2(0f, -266f);
 
             var fsLabelGO = CreateText("Label", fsContainerGO.transform,
-                "フルスクリーン", 18f, ColBtnText,
-                TextAlignmentOptions.MidlineLeft, FontStyles.Normal);
+                "フルスクリーン", 18f, ColBtnText, TextAlignmentOptions.MidlineLeft, FontStyles.Normal);
             var fsLabelRT = fsLabelGO.GetComponent<RectTransform>();
             fsLabelRT.anchorMin = Vector2.zero; fsLabelRT.anchorMax = new Vector2(0.65f, 1f);
             fsLabelRT.sizeDelta = Vector2.zero; fsLabelRT.anchoredPosition = Vector2.zero;
@@ -364,7 +338,6 @@ namespace DarkChronicle.Editor
             checkRT.sizeDelta = Vector2.zero; checkRT.anchoredPosition = Vector2.zero;
             toggle.graphic = checkmarkGO.GetComponent<Image>();
 
-            // 閉じるボタン
             var closeBtn = CreateButton("CloseButton", "閉じる", parent, 200f, 44f);
             var closeRT  = closeBtn.GetComponent<RectTransform>();
             closeRT.anchorMin = new Vector2(0.5f, 0f);
@@ -391,7 +364,6 @@ namespace DarkChronicle.Editor
             labelRT.anchorMin = new Vector2(0f, 0f); labelRT.anchorMax = new Vector2(0.38f, 1f);
             labelRT.sizeDelta = Vector2.zero; labelRT.anchoredPosition = Vector2.zero;
 
-            // スライダー本体
             var sliderGO = new GameObject("Slider");
             sliderGO.transform.SetParent(containerGO.transform, false);
             var sRT = sliderGO.AddComponent<RectTransform>();
@@ -401,11 +373,8 @@ namespace DarkChronicle.Editor
             sliderBg.color = new Color(0.2f, 0.1f, 0.3f, 0.8f);
 
             var slider = sliderGO.AddComponent<Slider>();
-            slider.minValue = 0f;
-            slider.maxValue = 1f;
-            slider.value    = 0.8f;
+            slider.minValue = 0f; slider.maxValue = 1f; slider.value = 0.8f;
 
-            // Fill Area
             var fillAreaGO = new GameObject("Fill Area");
             fillAreaGO.transform.SetParent(sliderGO.transform, false);
             var faRT = fillAreaGO.AddComponent<RectTransform>();
@@ -418,7 +387,6 @@ namespace DarkChronicle.Editor
             fillRT.sizeDelta = Vector2.zero; fillRT.anchoredPosition = Vector2.zero;
             slider.fillRect = fillRT;
 
-            // Handle
             var handleAreaGO = new GameObject("Handle Slide Area");
             handleAreaGO.transform.SetParent(sliderGO.transform, false);
             var haRT = handleAreaGO.AddComponent<RectTransform>();
@@ -435,19 +403,17 @@ namespace DarkChronicle.Editor
             return slider;
         }
 
-        // ── MainMenuUI SerializeField 配線 ─────────────────────────────────
+        // ── MainMenuUI 配線 ────────────────────────────────────────────────
         static void WireMainMenuUI(
             MainMenuUI ui,
-            CanvasGroup titleGroup,  TextMeshProUGUI titleText, TextMeshProUGUI subtitleText,
-            Image titleLogo,         CanvasGroup buttonsGroup,
-            Button newGameButton,    Button continueButton,
-            Button roguelikeButton,  Button metaUpgradeButton,
-            Button settingsButton,   Button quitButton,
+            CanvasGroup titleGroup, TextMeshProUGUI titleText, TextMeshProUGUI subtitleText,
+            Image titleLogo, CanvasGroup buttonsGroup,
+            Button newGameButton, Button continueButton,
+            Button metaUpgradeButton, Button settingsButton, Button quitButton,
             GameObject saveSlotPanelGO, SaveSlotEntry[] saveSlots,
             GameObject settingsPanelGO,
-            Slider musicSlider,      Slider sfxSlider,
-            Toggle fsToggle,         ParticleSystem bgParticles,
-            AudioSource bgmSource)
+            Slider musicSlider, Slider sfxSlider, Toggle fsToggle,
+            ParticleSystem bgParticles, AudioSource bgmSource)
         {
             var so = new SerializedObject(ui);
 
@@ -458,7 +424,6 @@ namespace DarkChronicle.Editor
             so.FindProperty("_buttonsGroup")        .objectReferenceValue = buttonsGroup;
             so.FindProperty("_newGameButton")       .objectReferenceValue = newGameButton;
             so.FindProperty("_continueButton")      .objectReferenceValue = continueButton;
-            so.FindProperty("_roguelikeButton")     .objectReferenceValue = roguelikeButton;
             so.FindProperty("_metaUpgradeButton")   .objectReferenceValue = metaUpgradeButton;
             so.FindProperty("_settingsButton")      .objectReferenceValue = settingsButton;
             so.FindProperty("_quitButton")          .objectReferenceValue = quitButton;
@@ -488,18 +453,16 @@ namespace DarkChronicle.Editor
         }
 
         // ── UI ファクトリ ──────────────────────────────────────────────────
-
         static (GameObject go, CanvasGroup group) CreateCanvasGroup(
             string name, Transform parent, Vector2 anchoredPos, Vector2 size)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var rt = go.AddComponent<RectTransform>();
-            rt.anchorMin        = new Vector2(0.5f, 0.5f);
-            rt.anchorMax        = new Vector2(0.5f, 0.5f);
-            rt.pivot            = new Vector2(0.5f, 0.5f);
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = anchoredPos;
-            rt.sizeDelta        = size;
+            rt.sizeDelta = size;
             var cg = go.AddComponent<CanvasGroup>();
             return (go, cg);
         }
@@ -511,23 +474,20 @@ namespace DarkChronicle.Editor
             go.AddComponent<RectTransform>();
 
             var vlg = go.AddComponent<VerticalLayoutGroup>();
-            vlg.spacing             = 14f;
-            vlg.childAlignment      = TextAnchor.UpperCenter;
-            vlg.childControlWidth   = true;
-            vlg.childControlHeight  = true;
+            vlg.spacing            = 14f;
+            vlg.childAlignment     = TextAnchor.UpperCenter;
+            vlg.childControlWidth  = true;
+            vlg.childControlHeight = true;
             vlg.childForceExpandWidth  = true;
             vlg.childForceExpandHeight = false;
-            vlg.padding = new RectOffset(0, 0, 0, 0);
 
             var csf = go.AddComponent<ContentSizeFitter>();
             csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin        = new Vector2(0f, 1f);
-            rt.anchorMax        = new Vector2(1f, 1f);
-            rt.pivot            = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = Vector2.zero;
-            rt.sizeDelta        = Vector2.zero;
+            rt.anchorMin = new Vector2(0f, 1f); rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = Vector2.zero; rt.sizeDelta = Vector2.zero;
             return go;
         }
 
@@ -536,58 +496,46 @@ namespace DarkChronicle.Editor
         {
             var go  = new GameObject(name);
             go.transform.SetParent(parent, false);
-
             var rt  = go.AddComponent<RectTransform>();
             rt.sizeDelta = new Vector2(width, height);
-
             var img = go.AddComponent<Image>();
             img.color = ColBtnBg;
-
             var btn = go.AddComponent<Button>();
             SetButtonColors(btn, img);
-
             var le = go.AddComponent<LayoutElement>();
-            le.minHeight       = height;
-            le.preferredHeight = height;
-
+            le.minHeight = height; le.preferredHeight = height;
             var txtGO = CreateText("Label", go.transform, labelText,
                 22f, ColBtnText, TextAlignmentOptions.MidlineLeft, FontStyles.Normal);
             var txtRT = txtGO.GetComponent<RectTransform>();
             txtRT.anchorMin = Vector2.zero; txtRT.anchorMax = Vector2.one;
-            txtRT.offsetMin = new Vector2(24f, 0f);
-            txtRT.offsetMax = new Vector2(-24f, 0f);
+            txtRT.offsetMin = new Vector2(24f, 0f); txtRT.offsetMax = new Vector2(-24f, 0f);
             txtGO.GetComponent<TextMeshProUGUI>().characterSpacing = 3f;
-
             return go;
         }
 
         static GameObject CreateSeparator(string name, Transform parent)
         {
-            var go  = CreateImage(name, parent, ColSeparator);
-            var le  = go.AddComponent<LayoutElement>();
-            le.minHeight       = 1f;
-            le.preferredHeight = 1f;
+            var go = CreateImage(name, parent, ColSeparator);
+            var le = go.AddComponent<LayoutElement>();
+            le.minHeight = 1f; le.preferredHeight = 1f;
             return go;
         }
 
-        static GameObject CreateDarkPanel(string name, Transform parent,
-            Vector2 anchoredPos, Vector2 size)
+        static GameObject CreateDarkPanel(string name, Transform parent, Vector2 anchoredPos, Vector2 size)
         {
             var go  = new GameObject(name);
             go.transform.SetParent(parent, false);
             var rt  = go.AddComponent<RectTransform>();
-            rt.anchorMin        = new Vector2(0.5f, 0.5f);
-            rt.anchorMax        = new Vector2(0.5f, 0.5f);
-            rt.pivot            = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = anchoredPos;
-            rt.sizeDelta        = size;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = anchoredPos; rt.sizeDelta = size;
             go.AddComponent<Image>().color = ColPanelBg;
             return go;
         }
 
         static GameObject CreateImage(string name, Transform parent, Color color)
         {
-            var go  = new GameObject(name);
+            var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             go.AddComponent<Image>().color = color;
             return go;
@@ -599,13 +547,10 @@ namespace DarkChronicle.Editor
             var go  = new GameObject(name);
             go.transform.SetParent(parent, false);
             var tmp = go.AddComponent<TextMeshProUGUI>();
-            tmp.text               = text;
-            tmp.fontSize           = fontSize;
-            tmp.color              = color;
-            tmp.alignment          = alignment;
-            tmp.fontStyle          = style;
+            tmp.text = text; tmp.fontSize = fontSize; tmp.color = color;
+            tmp.alignment = alignment; tmp.fontStyle = style;
             tmp.enableWordWrapping = false;
-            tmp.overflowMode       = TextOverflowModes.Overflow;
+            tmp.overflowMode = TextOverflowModes.Overflow;
             return go;
         }
 
@@ -614,7 +559,7 @@ namespace DarkChronicle.Editor
             btn.targetGraphic = targetImage;
             var c = btn.colors;
             c.normalColor      = Color.white;
-            c.highlightedColor = new Color(1.15f, 1.05f, 0.80f, 1f); // 暖かい金色寄りのハイライト
+            c.highlightedColor = new Color(1.15f, 1.05f, 0.80f, 1f);
             c.pressedColor     = new Color(0.85f, 0.80f, 0.65f, 1f);
             c.disabledColor    = new Color(0.50f, 0.50f, 0.50f, 0.45f);
             c.fadeDuration     = 0.12f;
@@ -624,27 +569,22 @@ namespace DarkChronicle.Editor
         static void SetStretch(GameObject go)
         {
             var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin        = Vector2.zero;
-            rt.anchorMax        = Vector2.one;
-            rt.sizeDelta        = Vector2.zero;
-            rt.anchoredPosition = Vector2.zero;
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+            rt.sizeDelta = Vector2.zero; rt.anchoredPosition = Vector2.zero;
         }
 
         static void PlaceRect(GameObject go, Vector2 anchoredPos, Vector2 size)
         {
             var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin        = new Vector2(0.5f, 0.5f);
-            rt.anchorMax        = new Vector2(0.5f, 0.5f);
-            rt.pivot            = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = anchoredPos;
-            rt.sizeDelta        = size;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = anchoredPos; rt.sizeDelta = size;
         }
 
         static void AddToBuildSettings(string path)
         {
             var current = EditorBuildSettings.scenes;
-            foreach (var s in current)
-                if (s.path == path) return;
+            foreach (var s in current) if (s.path == path) return;
             var updated = new EditorBuildSettingsScene[current.Length + 1];
             System.Array.Copy(current, updated, current.Length);
             updated[current.Length] = new EditorBuildSettingsScene(path, true);
