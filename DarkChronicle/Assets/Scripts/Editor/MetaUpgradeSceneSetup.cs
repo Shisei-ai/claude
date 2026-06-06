@@ -146,13 +146,13 @@ namespace DarkChronicle.Editor
             hlg.childForceExpandHeight = false;
 
             // ── Tooltip パネル（右下固定, alpha=0） ─────────────────────────
-            var tooltipGO = MakeImage("TooltipPanel", canvasGO.transform, ColTooltip);
-            var tRT = tooltipGO.GetComponent<RectTransform>();
-            tRT.anchorMin        = new Vector2(1f, 0f);
-            tRT.anchorMax        = new Vector2(1f, 0f);
-            tRT.pivot            = new Vector2(1f, 0f);
-            tRT.anchoredPosition = new Vector2(-24f, 24f);
-            tRT.sizeDelta        = new Vector2(340f, 230f);
+            var tooltipGO  = MakeImage("TooltipPanel", canvasGO.transform, ColTooltip);
+            var ttRT = tooltipGO.GetComponent<RectTransform>();
+            ttRT.anchorMin        = new Vector2(1f, 0f);
+            ttRT.anchorMax        = new Vector2(1f, 0f);
+            ttRT.pivot            = new Vector2(1f, 0f);
+            ttRT.anchoredPosition = new Vector2(-24f, 24f);
+            ttRT.sizeDelta        = new Vector2(340f, 230f);
             var tooltipCG = tooltipGO.AddComponent<CanvasGroup>();
             tooltipCG.alpha          = 0f;
             tooltipCG.blocksRaycasts = false;
