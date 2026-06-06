@@ -100,7 +100,6 @@ namespace DarkChronicle.Core
 
             CurrentAreaName = sceneName;
 
-            // Reposition player if spawn point given
             var player = FindAnyObjectByType<PlayerController>();
             if (player != null && spawnPos != default) player.TeleportTo(spawnPos);
 
@@ -156,19 +155,12 @@ namespace DarkChronicle.Core
                     SetState(GameState.Field);
                     break;
                 case BattleResult.Defeat:
-                    StartCoroutine(GameOverSequence());
+                    SetState(GameState.GameOver);
                     break;
                 case BattleResult.Fled:
                     SetState(GameState.Field);
                     break;
             }
-        }
-
-        IEnumerator GameOverSequence()
-        {
-            SetState(GameState.GameOver);
-            yield return FadeOut();
-            SceneManager.LoadScene(SceneNames.GameOver);
         }
 
         // ── Party Management ───────────────────────────────────────────────
@@ -206,9 +198,8 @@ namespace DarkChronicle.Core
 
             foreach (var member in Party)
             {
-                if (member.CurrentHP <= 0) continue;   // KO'd members gain nothing
+                if (member.CurrentHP <= 0) continue;
 
-                // EXP — level ups
                 member.Experience += totalExp;
                 while (member.Level < 50)
                 {
@@ -233,7 +224,6 @@ namespace DarkChronicle.Core
                     }
                 }
 
-                // JP — job level ups
                 member.JobPoints += totalJP;
                 while (member.JobLevel < 10)
                 {
@@ -294,7 +284,6 @@ namespace DarkChronicle.Core
             Gold            = data.Gold;
             PlaytimeSeconds = data.PlaytimeSeconds;
 
-            // Restore saved numeric fields into already-loaded party members (matched by name)
             foreach (var saved in data.Party)
             {
                 var member = Party.Find(m => m.BaseData.CharacterName == saved.CharacterName);
