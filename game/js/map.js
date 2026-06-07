@@ -7,29 +7,30 @@ function generateMap() {
     }
   }
 
-  // Place factory core in center-left area
   const coreX = 3, coreY = Math.floor(C.ROWS / 2);
   grid[coreY][coreX].terrain = C.CORE;
 
-  // Scatter resource nodes (avoid core area)
-  const oreTypes = [C.IRON_ORE, C.COPPER_ORE, C.COAL];
+  // Resource patches: [type, count] — avoid proximity to core
   const patches = [
-    { type: C.IRON_ORE,   count: 4 },
-    { type: C.IRON_ORE,   count: 4 },
-    { type: C.COPPER_ORE, count: 3 },
-    { type: C.COPPER_ORE, count: 3 },
-    { type: C.COAL,       count: 3 },
+    [C.IRON_ORE,   4],
+    [C.IRON_ORE,   4],
+    [C.COPPER_ORE, 3],
+    [C.COPPER_ORE, 3],
+    [C.COAL,       3],
+    [C.OIL_WELL,   2],
+    [C.OIL_WELL,   2],
+    [C.SULFUR_DEP, 3],
   ];
 
-  for (const patch of patches) {
-    let placed = 0;
-    let tries = 0;
-    while (placed < patch.count && tries < 200) {
+  for (const [type, count] of patches) {
+    let placed = 0, tries = 0;
+    while (placed < count && tries < 300) {
       tries++;
       const x = 4 + Math.floor(Math.random() * (C.COLS - 5));
       const y = 1 + Math.floor(Math.random() * (C.ROWS - 2));
-      if (grid[y][x].terrain === C.EMPTY && Math.abs(x - coreX) + Math.abs(y - coreY) > 4) {
-        grid[y][x].terrain = patch.type;
+      if (grid[y][x].terrain === C.EMPTY &&
+          Math.abs(x - coreX) + Math.abs(y - coreY) > 4) {
+        grid[y][x].terrain = type;
         placed++;
       }
     }

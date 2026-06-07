@@ -1,69 +1,77 @@
-// Game state
 let gs = null;
 let animId = null;
 let lastTime = 0;
-let tickAcc = 0;
+let tickAcc  = 0;
 const TICK_MS = 1000 / 60;
 
-// ---- Init ----
+// ── Tool order shown in sidebar ────────────────────────────
+const TOOL_ORDER = [
+  C.EQ.MINER, C.EQ.CONVEYOR, C.EQ.FURNACE, C.EQ.ASSEMBLER,
+  C.EQ.TURRET, C.EQ.WALL,
+  C.EQ.OIL_PUMP, C.EQ.WATER_PUMP, C.EQ.COKE_OVEN,
+  C.EQ.DISTILLATION, C.EQ.CHEM_PLANT, C.EQ.ELECTROLYZER,
+  C.EQ.ADV_ASSEMBLER,
+  C.EQ.GENERATOR, C.EQ.LASER,
+];
+
+// ── Init ───────────────────────────────────────────────────
 function initGame() {
-  // Reset equipment unlock state
-  EQ_DEF.laser.unlocked = false;
-  EQ_DEF.generator.unlocked = false;
+  // Reset unlock state
+  EQ_DEF.laser.unlocked        = false;
+  EQ_DEF.generator.unlocked    = false;
+  EQ_DEF.distillation.unlocked = false;
+  EQ_DEF.chem_plant.unlocked   = false;
+  EQ_DEF.electrolyzer.unlocked = false;
+  EQ_DEF.adv_assembler.unlocked= false;
 
   gs = {
-    state: 'build',  // 'build' | 'wave' | 'upgrade' | 'over' | 'victory'
+    state: 'build',
     wave: 0,
-    kills: 0,
     map: generateMap(),
     resources: {},
     enemies: [],
     projectiles: [],
-    coreHp: 100,
-    coreMaxHp: 100,
+    coreHp: 100, coreMaxHp: 100,
     upgrades: {},
     selectedTool: C.EQ.MINER,
     selectedDir: C.DIR.RIGHT,
     hover: null,
-    goalTarget: 10,
-    goalItem: C.RES.CIRCUIT,
-    totalCircuits: 0,
+    goalItem: C.RES.ADV_CIRCUIT,
+    goalTarget: 5,
   };
 
-  buildSidebar();
   resizeCanvas();
+  buildSidebar();
   showScreen('game-screen');
   updateHUD();
 
   document.getElementById('next-wave-btn').disabled = false;
+  document.getElementById('hud-phase').textContent  = 'BUILD PHASE';
+  document.getElementById('hud-phase').className    = 'hud-phase build';
 
   if (animId) cancelAnimationFrame(animId);
-  lastTime = 0;
+  lastTime = 0; tickAcc = 0;
   animId = requestAnimationFrame(loop);
 }
 
-// ---- Game Loop ----
+// ── Game Loop ──────────────────────────────────────────────
 function loop(ts) {
   animId = requestAnimationFrame(loop);
-
   const dt = lastTime ? Math.min(ts - lastTime, 100) : 16;
   lastTime = ts;
 
-  if (gs.state === 'wave') {
+  if (gs.state === 'wave' || gs.state === 'build') {
     tickAcc += dt;
     while (tickAcc >= TICK_MS) {
       tickAcc -= TICK_MS;
       tick();
     }
-    updateEnemies(gs, dt);
-    checkWaveEnd();
-  } else if (gs.state === 'build') {
-    tickAcc += dt;
-    while (tickAcc >= TICK_MS) {
-      tickAcc -= TICK_MS;
-      tick();
+    if (gs.state === 'wave') {
+      updateEnemies(gs, dt);
+      checkWaveEnd();
+    } else {
+      checkVictory();
     }
-    collectToStorage();
   }
 
   render(document.getElementById('game-canvas'), gs);
@@ -77,38 +85,37 @@ function tick() {
       cell.x = x; cell.y = y;
       if (cell.equipment) {
         const def = EQ_DEF[cell.equipment.type];
-        if (def && def.onTick) def.onTick(cell, gs);
+        if (def?.onTick) def.onTick(cell, gs);
       }
     }
   }
 }
 
-// Auto-collect items that end up in storage (core cell neighbors)
-function collectToStorage() {
-  // Already done via conveyor logic; circuits accumulate in gs.resources
-  const circuits = gs.resources[C.RES.CIRCUIT] || 0;
-  if (circuits > gs.totalCircuits) {
-    gs.totalCircuits = circuits;
-  }
-  // Check victory
-  if ((gs.resources[gs.goalItem] || 0) >= gs.goalTarget && gs.state === 'build') {
-    victory();
+function checkVictory() {
+  if ((gs.resources[gs.goalItem] || 0) >= gs.goalTarget) {
+    gs.state = 'over';
+    document.getElementById('over-title').textContent = '🏭 VICTORY!';
+    document.getElementById('over-msg').textContent =
+      `Wave ${gs.wave} | 高度回路基板 ${gs.resources[C.RES.ADV_CIRCUIT]} 個達成！`;
+    showScreen('gameover-screen');
   }
 }
 
 function checkWaveEnd() {
   if (gs.coreHp <= 0) {
     gs.state = 'over';
-    gameOver('ファクトリーコアが破壊された！');
+    document.getElementById('over-title').textContent = 'FACTORY DESTROYED';
+    document.getElementById('over-msg').textContent   = `Wave ${gs.wave} でコアが破壊された`;
+    showScreen('gameover-screen');
     return;
   }
-  if (gs.enemies.length === 0 && gs.state === 'wave') {
+  if (gs.enemies.length === 0) {
     gs.state = 'upgrade';
     showUpgradeScreen();
   }
 }
 
-// ---- Wave ----
+// ── Wave ───────────────────────────────────────────────────
 function sendWave() {
   if (gs.state !== 'build') return;
   gs.wave++;
@@ -116,13 +123,16 @@ function sendWave() {
   gs.enemies = [];
   gs.projectiles = [];
   spawnWave(gs);
+
   document.getElementById('next-wave-btn').disabled = true;
-  document.getElementById('wave-num').textContent = gs.wave;
+  document.getElementById('wave-num').textContent   = gs.wave;
+  document.getElementById('hud-phase').textContent  = `WAVE ${gs.wave}`;
+  document.getElementById('hud-phase').className    = 'hud-phase wave';
 }
 
-// ---- Upgrade ----
+// ── Upgrade ────────────────────────────────────────────────
 function showUpgradeScreen() {
-  const choices = getUpgradeChoices(gs, 3);
+  const choices   = getUpgradeChoices(gs, 3);
   const container = document.getElementById('upgrade-cards');
   container.innerHTML = '';
 
@@ -140,70 +150,53 @@ function showUpgradeScreen() {
       showScreen('game-screen');
       gs.state = 'build';
       document.getElementById('next-wave-btn').disabled = false;
-      buildSidebar(); // refresh in case new items unlocked
+      document.getElementById('hud-phase').textContent  = 'BUILD PHASE';
+      document.getElementById('hud-phase').className    = 'hud-phase build';
+      buildSidebar();
     };
     container.appendChild(card);
   }
-
   showScreen('upgrade-screen');
 }
 
-// ---- Game Over / Victory ----
-function gameOver(msg) {
-  document.getElementById('over-title').textContent = 'FACTORY DESTROYED';
-  document.getElementById('over-msg').textContent = `Wave ${gs.wave} | ${msg}`;
-  showScreen('gameover-screen');
-}
-
-function victory() {
-  gs.state = 'over';
-  document.getElementById('over-title').textContent = '🏭 VICTORY!';
-  document.getElementById('over-msg').textContent =
-    `Wave ${gs.wave} | 回路基板 ${gs.resources[C.RES.CIRCUIT]} 個生産達成！`;
-  showScreen('gameover-screen');
-}
-
-// ---- HUD ----
+// ── HUD ────────────────────────────────────────────────────
 function updateHUD() {
   if (!gs) return;
   const hp = Math.max(0, gs.coreHp);
   document.getElementById('core-hp-text').textContent = Math.ceil(hp);
   document.getElementById('core-hp-fill').style.width = (hp / gs.coreMaxHp * 100) + '%';
 
-  const r = gs.resources;
-  document.querySelector('#res-iron-ore span').textContent    = r[C.RES.IRON_ORE] || 0;
-  document.querySelector('#res-iron-plate span').textContent  = r[C.RES.IRON_PLATE] || 0;
-  document.querySelector('#res-copper-ore span').textContent  = r[C.RES.COPPER_ORE] || 0;
-  document.querySelector('#res-copper-plate span').textContent = r[C.RES.COPPER_PLATE] || 0;
-  document.querySelector('#res-circuit span').textContent     = r[C.RES.CIRCUIT] || 0;
+  const goal = gs.resources[gs.goalItem] || 0;
+  const prog = Math.min(1, goal / gs.goalTarget);
+  document.getElementById('goal-fill').style.width    = (prog * 100) + '%';
+  document.getElementById('goal-text').textContent    = `高度回路 ${goal}/${gs.goalTarget}`;
 
-  const prog = Math.min(1, (r[gs.goalItem] || 0) / gs.goalTarget);
-  document.getElementById('goal-fill').style.width = (prog * 100) + '%';
-  document.getElementById('goal-text').textContent =
-    `Circuit x${gs.goalTarget} (${r[gs.goalItem] || 0})`;
+  // Update storage rows
+  document.querySelectorAll('#storage-panel .res-row').forEach(row => {
+    const key = row.dataset.res;
+    const val = gs.resources[key] || 0;
+    const el  = row.querySelector('.res-val');
+    el.textContent = val;
+    el.className   = 'res-val' + (val > 0 ? ' nonzero' : '');
+  });
 }
 
-// ---- Sidebar ----
+// ── Sidebar ────────────────────────────────────────────────
 function buildSidebar() {
   const list = document.getElementById('tool-list');
   list.innerHTML = '';
 
-  const tools = [
-    C.EQ.MINER, C.EQ.CONVEYOR, C.EQ.FURNACE,
-    C.EQ.ASSEMBLER, C.EQ.TURRET, C.EQ.WALL,
-    C.EQ.GENERATOR, C.EQ.LASER
-  ];
-
-  for (const t of tools) {
+  TOOL_ORDER.forEach((t, idx) => {
     const def = EQ_DEF[t];
-    if (!def) continue;
+    if (!def) return;
+    const locked = def.unlocked === false;
+    const selected = gs.selectedTool === t;
 
     const btn = document.createElement('button');
-    btn.className = 'tool-btn' + (def.unlocked === false ? ' locked' : '') + (gs.selectedTool === t ? ' selected' : '');
-    btn.innerHTML = `<span class="tool-icon">${def.icon}</span><span class="tool-name">${def.name}</span>`;
-    if (!def.unlocked) {
-      btn.title = '未解放';
-    } else {
+    btn.className = `tool-btn${locked ? ' locked' : ''}${selected ? ' selected' : ''}`;
+    btn.innerHTML = `<span class="tool-icon">${def.icon}</span><span>${def.name}</span>`;
+
+    if (!locked) {
       btn.onclick = () => {
         gs.selectedTool = t;
         buildSidebar();
@@ -211,57 +204,74 @@ function buildSidebar() {
       };
     }
     list.appendChild(btn);
-  }
+  });
 
-  if (gs.selectedTool) {
-    document.getElementById('tool-info').textContent = EQ_DEF[gs.selectedTool]?.desc || '';
-  }
+  const selDef = EQ_DEF[gs.selectedTool];
+  document.getElementById('tool-info').textContent = selDef?.desc || '';
 }
 
-// ---- Canvas Input ----
+// ── Canvas Input ───────────────────────────────────────────
 function setupCanvas() {
   const canvas = document.getElementById('game-canvas');
 
   canvas.addEventListener('mousemove', e => {
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    gs.hover = { hx: Math.floor(mx / C.CELL), hy: Math.floor(my / C.CELL) };
+    if (!gs) return;
+    const r = canvas.getBoundingClientRect();
+    gs.hover = {
+      hx: Math.floor((e.clientX - r.left)  / C.CELL),
+      hy: Math.floor((e.clientY - r.top)   / C.CELL),
+    };
   });
 
-  canvas.addEventListener('mouseleave', () => { gs.hover = null; });
+  canvas.addEventListener('mouseleave', () => { if (gs) gs.hover = null; });
 
   canvas.addEventListener('click', e => {
-    if (gs.state !== 'build') return;
-    const rect = canvas.getBoundingClientRect();
-    const gx = Math.floor((e.clientX - rect.left) / C.CELL);
-    const gy = Math.floor((e.clientY - rect.top) / C.CELL);
+    if (!gs || gs.state !== 'build') return;
+    const r  = canvas.getBoundingClientRect();
+    const gx = Math.floor((e.clientX - r.left) / C.CELL);
+    const gy = Math.floor((e.clientY - r.top)  / C.CELL);
     if (!inBounds(gx, gy)) return;
     const cell = gs.map.grid[gy][gx];
     if (cell.terrain === C.CORE) return;
+
+    // If clicking on a multi-recipe machine, cycle its recipe
+    if (cell.equipment) {
+      const t = cell.equipment.type;
+      if (t === C.EQ.CHEM_PLANT || t === C.EQ.ADV_ASSEMBLER) {
+        const recipes = EQ_DEF[t].recipes;
+        cell.equipment.recipeIdx = ((cell.equipment.recipeIdx || 0) + 1) % recipes.length;
+        const r = recipes[cell.equipment.recipeIdx];
+        document.getElementById('tool-info').textContent =
+          `レシピ: ${r.icon} ${r.name}`;
+        return;
+      }
+      return; // don't stack other equipment
+    }
+
     const def = EQ_DEF[gs.selectedTool];
     if (!def || def.unlocked === false) return;
 
-    // Miner only on ore
+    // Validate terrain
     if (gs.selectedTool === C.EQ.MINER) {
-      if (![C.IRON_ORE, C.COPPER_ORE, C.COAL].includes(cell.terrain)) return;
+      if (!def.validTerrain.includes(cell.terrain)) return;
+    }
+    if (gs.selectedTool === C.EQ.OIL_PUMP) {
+      if (cell.terrain !== C.OIL_WELL) return;
     }
 
-    if (!cell.equipment) {
-      cell.equipment = makeEquipment(gs.selectedTool, gs.selectedDir);
-      cell.equipment.type = gs.selectedTool;
-    }
+    const eq = makeEquipment(gs.selectedTool, gs.selectedDir);
+    cell.equipment = eq;
   });
 
   canvas.addEventListener('contextmenu', e => {
     e.preventDefault();
-    if (gs.state !== 'build') return;
-    const rect = canvas.getBoundingClientRect();
-    const gx = Math.floor((e.clientX - rect.left) / C.CELL);
-    const gy = Math.floor((e.clientY - rect.top) / C.CELL);
+    if (!gs || gs.state !== 'build') return;
+    const r  = canvas.getBoundingClientRect();
+    const gx = Math.floor((e.clientX - r.left) / C.CELL);
+    const gy = Math.floor((e.clientY - r.top)  / C.CELL);
     if (!inBounds(gx, gy)) return;
     gs.map.grid[gy][gx].equipment = null;
-    gs.map.grid[gy][gx].item = null;
+    gs.map.grid[gy][gx].item      = null;
   });
 
   window.addEventListener('keydown', e => {
@@ -269,33 +279,35 @@ function setupCanvas() {
     if (e.key === 'r' || e.key === 'R') {
       gs.selectedDir = (gs.selectedDir + 1) % 4;
     }
-    // Number keys for tool selection
-    const tools = [C.EQ.MINER, C.EQ.CONVEYOR, C.EQ.FURNACE, C.EQ.ASSEMBLER, C.EQ.TURRET, C.EQ.WALL];
+    // 1-9 shortcuts for tool selection
     const idx = parseInt(e.key) - 1;
-    if (idx >= 0 && idx < tools.length && EQ_DEF[tools[idx]]?.unlocked !== false) {
-      gs.selectedTool = tools[idx];
-      buildSidebar();
+    if (idx >= 0 && idx < TOOL_ORDER.length) {
+      const t = TOOL_ORDER[idx];
+      if (EQ_DEF[t]?.unlocked !== false) {
+        gs.selectedTool = t;
+        buildSidebar();
+      }
     }
   });
 }
 
-// ---- Canvas resize ----
+// ── Canvas resize ──────────────────────────────────────────
 function resizeCanvas() {
   const canvas = document.getElementById('game-canvas');
   canvas.width  = C.COLS * C.CELL;
   canvas.height = C.ROWS * C.CELL;
 }
 
-// ---- Screen management ----
+// ── Screen management ──────────────────────────────────────
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 
-// ---- Bootstrap ----
+// ── Bootstrap ──────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('start-btn').onclick = initGame;
-  document.getElementById('retry-btn').onclick = initGame;
+  document.getElementById('start-btn').onclick     = initGame;
+  document.getElementById('retry-btn').onclick     = initGame;
   document.getElementById('next-wave-btn').onclick = sendWave;
   setupCanvas();
   showScreen('title-screen');
