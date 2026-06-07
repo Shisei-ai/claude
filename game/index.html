@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Industrial Rogue - 工業ローグライク</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Title Screen -->
+    <div id="title-screen" class="screen active">
+      <div class="title-content">
+        <h1>INDUSTRIAL<br><span>ROGUE</span></h1>
+        <p class="subtitle">工業設備でローグライクに生き残れ</p>
+        <button id="start-btn" class="btn-primary">START RUN</button>
+        <div class="controls-hint">
+          <p>左クリック: 設備を配置 | 右クリック: 設備を削除 | R: 方向回転</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen">
+      <div id="hud">
+        <div id="hud-left">
+          <div class="hud-block">
+            <span class="hud-label">WAVE</span>
+            <span id="wave-num" class="hud-value">1</span>
+          </div>
+          <div class="hud-block">
+            <span class="hud-label">CORE HP</span>
+            <div id="core-hp-bar"><div id="core-hp-fill"></div></div>
+            <span id="core-hp-text" class="hud-value">100</span>
+          </div>
+        </div>
+        <div id="hud-center">
+          <div class="resource-display">
+            <span class="res-item" id="res-iron-ore">⛏ Iron Ore: <span>0</span></span>
+            <span class="res-item" id="res-iron-plate">🔲 Iron Plate: <span>0</span></span>
+            <span class="res-item" id="res-copper-ore">🟤 Copper Ore: <span>0</span></span>
+            <span class="res-item" id="res-copper-plate">🟠 Copper: <span>0</span></span>
+            <span class="res-item" id="res-circuit">⚡ Circuit: <span>0</span></span>
+          </div>
+        </div>
+        <div id="hud-right">
+          <div class="hud-block">
+            <span class="hud-label">GOAL</span>
+            <span id="goal-text" class="hud-value small">Circuit x10</span>
+          </div>
+          <div class="hud-block">
+            <span class="hud-label">PROGRESS</span>
+            <div id="goal-bar"><div id="goal-fill"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="game-layout">
+        <div id="sidebar">
+          <div class="sidebar-title">BUILD MENU</div>
+          <div id="tool-list"></div>
+          <div class="sidebar-section">
+            <div class="sidebar-title">INFO</div>
+            <div id="tool-info"></div>
+          </div>
+          <div class="sidebar-section">
+            <button id="next-wave-btn" class="btn-wave" disabled>SEND WAVE</button>
+          </div>
+        </div>
+        <canvas id="game-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Upgrade Screen -->
+    <div id="upgrade-screen" class="screen">
+      <div class="upgrade-content">
+        <h2>WAVE CLEAR!</h2>
+        <p class="upgrade-subtitle">アップグレードを1つ選択してください</p>
+        <div id="upgrade-cards"></div>
+      </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameover-screen" class="screen">
+      <div class="over-content">
+        <h2 id="over-title">FACTORY DESTROYED</h2>
+        <p id="over-msg"></p>
+        <button id="retry-btn" class="btn-primary">再挑戦</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/constants.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/equipment.js"></script>
+  <script src="js/enemies.js"></script>
+  <script src="js/upgrades.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
