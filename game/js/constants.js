@@ -1,7 +1,9 @@
 const C = {
   CELL: 32,
-  COLS: 28,
-  ROWS: 20,
+  COLS: 100,
+  ROWS: 100,
+  CORE_X: 48,   // top-left of 3×3 core block
+  CORE_Y: 48,
 
   // Terrain types
   EMPTY:      0,
@@ -22,7 +24,6 @@ const C = {
     WALL:         'wall',
     GENERATOR:    'generator',
     LASER:        'laser',
-    // --- Chemistry ---
     OIL_PUMP:     'oil_pump',
     WATER_PUMP:   'water_pump',
     COKE_OVEN:    'coke_oven',
@@ -34,7 +35,6 @@ const C = {
 
   // Resource IDs
   RES: {
-    // Solid - Tier 1
     IRON_ORE:      'iron_ore',
     COPPER_ORE:    'copper_ore',
     COAL:          'coal',
@@ -42,13 +42,11 @@ const C = {
     IRON_PLATE:    'iron_plate',
     COPPER_PLATE:  'copper_plate',
     CIRCUIT:       'circuit',
-    // Solid - Tier 2
     COKE:          'coke',
     PLASTIC:       'plastic',
     REFINED_COPPER:'refined_copper',
     EXPLOSIVES:    'explosives',
     ADV_CIRCUIT:   'adv_circuit',
-    // Liquids / Gases
     CRUDE_OIL:     'crude_oil',
     PETRO_GAS:     'petro_gas',
     LIGHT_OIL:     'light_oil',

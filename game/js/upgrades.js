@@ -216,14 +216,18 @@ const UPGRADE_POOL = [
     tags: ['utility', 'combat'],
     desc: 'コア周辺に壁を3枚無料で設置する',
     apply(gs) {
-      const cx = gs.map.coreX, cy = gs.map.coreY;
-      [[cx+1,cy-1],[cx+1,cy],[cx+1,cy+1]].forEach(([x,y]) => {
-        if (inBounds(x,y) && !gs.map.grid[y][x].equipment && gs.map.grid[y][x].terrain === C.EMPTY) {
-          const w = makeEquipment(C.EQ.WALL);
-          w.type = C.EQ.WALL;
-          gs.map.grid[y][x].equipment = w;
+      // Place 3 walls on the east side of the 3×3 core block
+      const positions = [
+        [C.CORE_X + 3, C.CORE_Y],
+        [C.CORE_X + 3, C.CORE_Y + 1],
+        [C.CORE_X + 3, C.CORE_Y + 2],
+      ];
+      positions.forEach(([x, y]) => {
+        if (inBounds(x, y) && !gs.map.grid[y][x].equipment && gs.map.grid[y][x].terrain === C.EMPTY) {
+          gs.map.grid[y][x].equipment = makeEquipment(C.EQ.WALL);
         }
       });
+      gs.flowFieldDirty = true;
     }
   },
 ];

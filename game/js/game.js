@@ -15,37 +15,25 @@ const TOOL_ORDER = [
 // ── Run modes ─────────────────────────────────────────────
 const MODES = {
   standard: {
-    label: 'STANDARD',
-    icon: '⚙',
+    label: 'STANDARD', icon: '⚙',
     desc: '通常ルール。設備建設にはリソースが必要。化学設備はアップグレードで解放。',
     sub: '敵: 通常 / イベント: 50% / 選択肢: 3択',
-    enemyMult: 1.0,
-    eventChance: 0.5,
-    upgradeCount: 3,
-    startRes: { iron_plate: 8, copper_plate: 4 },
-    unlockAll: false,
+    enemyMult: 1.0, eventChance: 0.5, upgradeCount: 3,
+    startRes: { iron_plate: 8, copper_plate: 4 }, unlockAll: false,
   },
   industrial: {
-    label: 'INDUSTRIAL',
-    icon: '🏭',
+    label: 'INDUSTRIAL', icon: '🏭',
     desc: '初期リソースは鉱石のみ。自力で経済を構築せよ。敵が強化されているが報酬も豪華。',
     sub: '敵: +20%強化 / イベント: 75% / 選択肢: 3択',
-    enemyMult: 1.2,
-    eventChance: 0.75,
-    upgradeCount: 3,
-    startRes: { iron_ore: 30, copper_ore: 15, coal: 10, sulfur: 5 },
-    unlockAll: false,
+    enemyMult: 1.2, eventChance: 0.75, upgradeCount: 3,
+    startRes: { iron_ore: 30, copper_ore: 15, coal: 10, sulfur: 5 }, unlockAll: false,
   },
   chaos: {
-    label: 'CHAOS',
-    icon: '💀',
+    label: 'CHAOS', icon: '💀',
     desc: '化学設備が最初から全て解放。敵は大幅に強化されるが選択肢が豊富。毎Wave必ずイベント。',
     sub: '敵: +50%強化 / イベント: 必ず / 選択肢: 4択',
-    enemyMult: 1.5,
-    eventChance: 1.0,
-    upgradeCount: 4,
-    startRes: { iron_plate: 5, copper_plate: 3, iron_ore: 20, coal: 10 },
-    unlockAll: true,
+    enemyMult: 1.5, eventChance: 1.0, upgradeCount: 4,
+    startRes: { iron_plate: 5, copper_plate: 3, iron_ore: 20, coal: 10 }, unlockAll: true,
   },
 };
 
@@ -53,18 +41,16 @@ const MODES = {
 function startWithMode(modeKey) {
   const mode = MODES[modeKey];
 
-  EQ_DEF.laser.unlocked        = mode.unlockAll;
-  EQ_DEF.generator.unlocked    = mode.unlockAll;
-  EQ_DEF.distillation.unlocked = mode.unlockAll;
-  EQ_DEF.chem_plant.unlocked   = mode.unlockAll;
-  EQ_DEF.electrolyzer.unlocked = mode.unlockAll;
-  EQ_DEF.adv_assembler.unlocked= mode.unlockAll;
+  EQ_DEF.laser.unlocked         = mode.unlockAll;
+  EQ_DEF.generator.unlocked     = mode.unlockAll;
+  EQ_DEF.distillation.unlocked  = mode.unlockAll;
+  EQ_DEF.chem_plant.unlocked    = mode.unlockAll;
+  EQ_DEF.electrolyzer.unlocked  = mode.unlockAll;
+  EQ_DEF.adv_assembler.unlocked = mode.unlockAll;
 
   gs = {
-    state: 'build',
-    wave: 0,
-    mode: modeKey,
-    modeDef: mode,
+    state: 'build', wave: 0,
+    mode: modeKey, modeDef: mode,
     map: generateMap(),
     resources: { ...mode.startRes },
     enemies: [], projectiles: [],
@@ -73,23 +59,22 @@ function startWithMode(modeKey) {
     takenUpgrades: new Set(),
     triggeredSynergies: new Set(),
     upgradeBonus: null,
-    gears: [],
-    gearFlags: {},
+    gears: [], gearFlags: {},
     pendingGearDrops: 0,
     nextWaveEnemyReduction: 0,
-    selectedTool: C.EQ.MINER,
-    selectedDir: C.DIR.RIGHT,
+    spawnPoints: [],
+    flowField: null, flowFieldDirty: false,
+    cam: { x: 0, y: 0 },
+    selectedTool: C.EQ.MINER, selectedDir: C.DIR.RIGHT,
     hover: null,
-    goalItem: C.RES.ADV_CIRCUIT,
-    goalTarget: 5,
-    killCount: 0,
-    waveKills: 0,
+    goalItem: C.RES.ADV_CIRCUIT, goalTarget: 5,
+    killCount: 0, waveKills: 0,
   };
 
-  resizeCanvas();
+  showScreen('game-screen');
+  resizeCanvas();      // must happen after screen is shown
   buildSidebar();
   updateGearDisplay();
-  showScreen('game-screen');
   updateHUD();
   document.getElementById('next-wave-btn').disabled = false;
   setPhase('build');
@@ -116,6 +101,30 @@ function buildModifierScreen() {
     card.onclick = () => startWithMode(key);
     container.appendChild(card);
   }
+}
+
+// ── Camera ────────────────────────────────────────────────
+function resizeCanvas() {
+  const canvas = document.getElementById('game-canvas');
+  canvas.width  = Math.max(400, window.innerWidth  - 198);
+  canvas.height = Math.max(300, window.innerHeight - 58);
+  if (gs) centerOnCore();
+}
+
+function centerOnCore() {
+  const canvas = document.getElementById('game-canvas');
+  const vw = Math.ceil(canvas.width  / C.CELL);
+  const vh = Math.ceil(canvas.height / C.CELL);
+  gs.cam.x = Math.max(0, Math.min(C.COLS - vw, C.CORE_X - Math.floor(vw / 2)));
+  gs.cam.y = Math.max(0, Math.min(C.ROWS - vh, C.CORE_Y - Math.floor(vh / 2)));
+}
+
+function clampCam() {
+  const canvas = document.getElementById('game-canvas');
+  const vw = Math.ceil(canvas.width  / C.CELL);
+  const vh = Math.ceil(canvas.height / C.CELL);
+  gs.cam.x = Math.max(0, Math.min(C.COLS - vw, gs.cam.x));
+  gs.cam.y = Math.max(0, Math.min(C.ROWS - vh, gs.cam.y));
 }
 
 // ── Game Loop ─────────────────────────────────────────────
@@ -149,7 +158,7 @@ function checkVictory() {
   if ((gs.resources[gs.goalItem] || 0) >= gs.goalTarget) {
     gs.state = 'over';
     document.getElementById('over-title').textContent = '🏭 VICTORY!';
-    document.getElementById('over-msg').textContent =
+    document.getElementById('over-msg').textContent   =
       `Wave ${gs.wave} | 高度回路基板 ${gs.resources[C.RES.ADV_CIRCUIT]} 個達成！ [${gs.modeDef.label}] | ギア: ${gs.gears.length}個`;
     showScreen('gameover-screen');
   }
@@ -157,14 +166,10 @@ function checkVictory() {
 
 function checkWaveEnd() {
   if (gs.coreHp <= 0) {
-    // phoenix_protocol gear: one-time revival
     if (hasGear(gs, 'phoenix_protocol') && !gs.gearFlags.phoenixUsed) {
       gs.gearFlags.phoenixUsed = true;
       gs.coreHp = 50;
-      showSynergyPopup({
-        icon: '🦅', name: 'フェニックスプロトコル発動！',
-        desc: 'コアが50HPで復活した', color: '#1a1500', border: '#ffcc44',
-      });
+      showSynergyPopup({ icon: '🦅', name: 'フェニックスプロトコル発動！', desc: 'コアが50HPで復活した', color: '#1a1500', border: '#ffcc44' });
       return;
     }
     gs.state = 'over';
@@ -174,7 +179,7 @@ function checkWaveEnd() {
     showScreen('gameover-screen');
     return;
   }
-  if (gs.enemies.length === 0) {
+  if (gs.enemies.length === 0 && gs.state === 'wave') {
     gs.state = 'upgrade';
     waveCompleteFlow();
   }
@@ -187,6 +192,8 @@ function sendWave() {
   gs.waveKills = 0;
   gs.state = 'wave';
   gs.enemies = []; gs.projectiles = [];
+  generateSpawnPoints(gs);
+  computeFlowField(gs);
   spawnWaveWithMode(gs);
   gearWaveStart(gs);
   document.getElementById('next-wave-btn').disabled = true;
@@ -207,15 +214,11 @@ function waveCompleteFlow() {
   showNextGearOrContinue();
 }
 
-// Drain any pending gear drops, then show event → upgrade
 function showNextGearOrContinue() {
   if ((gs.pendingGearDrops || 0) > 0) {
     gs.pendingGearDrops--;
     const choices = getGearChoices(gs, 3);
-    if (choices.length > 0) {
-      showGearScreen(choices, showNextGearOrContinue);
-      return;
-    }
+    if (choices.length > 0) { showGearScreen(choices, showNextGearOrContinue); return; }
   }
   const chance = gs.modeDef.eventChance;
   if (Math.random() < chance) {
@@ -225,15 +228,11 @@ function showNextGearOrContinue() {
   showUpgradeScreen();
 }
 
-// After event: drain gear drops added by event choices, then upgrade
 function flushGearsAndUpgrade() {
   if ((gs.pendingGearDrops || 0) > 0) {
     gs.pendingGearDrops--;
     const choices = getGearChoices(gs, 3);
-    if (choices.length > 0) {
-      showGearScreen(choices, flushGearsAndUpgrade);
-      return;
-    }
+    if (choices.length > 0) { showGearScreen(choices, flushGearsAndUpgrade); return; }
   }
   showUpgradeScreen();
 }
@@ -243,22 +242,20 @@ function showUpgradeScreen() {
   let count  = gs.modeDef.upgradeCount + (gs.gearFlags?.extraUpgradeChoices || 0);
   let rarity = null;
 
-  if (gs.upgradeBonus === 'five_choices')      { count = 5; gs.upgradeBonus = null; }
-  else if (gs.upgradeBonus === 'guaranteed_rare') { rarity = 'rare';      gs.upgradeBonus = null; }
-  else if (gs.upgradeBonus === 'guaranteed_epic') { rarity = 'epic';      gs.upgradeBonus = null; }
-  else if (gs.upgradeBonus === 'two_epics')       { rarity = 'two_epics'; gs.upgradeBonus = null; }
+  if      (gs.upgradeBonus === 'five_choices')       { count = 5;           gs.upgradeBonus = null; }
+  else if (gs.upgradeBonus === 'guaranteed_rare')     { rarity = 'rare';     gs.upgradeBonus = null; }
+  else if (gs.upgradeBonus === 'guaranteed_epic')     { rarity = 'epic';     gs.upgradeBonus = null; }
+  else if (gs.upgradeBonus === 'two_epics')           { rarity = 'two_epics';gs.upgradeBonus = null; }
 
   const choices   = getUpgradeChoices(gs, count, rarity);
   const container = document.getElementById('upgrade-cards');
   container.innerHTML = '';
 
-  const synergyHints = getSynergyHints(gs);
+  const hints = getSynergyHints(gs);
   const hintEl = document.getElementById('synergy-hints');
-  if (hintEl) {
-    hintEl.innerHTML = synergyHints.map(h =>
-      `<span class="syn-hint" title="${h.requires.join(' + ')} で発動">🔗 ${h.name} まであと${h.missing}個</span>`
-    ).join('');
-  }
+  if (hintEl) hintEl.innerHTML = hints.map(h =>
+    `<span class="syn-hint" title="${h.requires.join(' + ')} で発動">🔗 ${h.name} まであと${h.missing}個</span>`
+  ).join('');
 
   for (const u of choices) {
     const card = document.createElement('div');
@@ -287,15 +284,11 @@ function showUpgradeScreen() {
 function getSynergyHints(gs) {
   return SYNERGIES
     .filter(s => !gs.triggeredSynergies.has(s.id))
-    .map(s => ({
-      ...s,
-      missing: s.requires.filter(id => !gs.takenUpgrades.has(id)).length,
-    }))
-    .filter(s => s.missing === 1)
-    .slice(0, 2);
+    .map(s => ({ ...s, missing: s.requires.filter(id => !gs.takenUpgrades.has(id)).length }))
+    .filter(s => s.missing === 1).slice(0, 2);
 }
 
-// ── HUD ──────────────────────────────────────────────────
+// ── HUD ───────────────────────────────────────────────────
 function updateHUD() {
   if (!gs) return;
   const hp = Math.max(0, gs.coreHp);
@@ -303,8 +296,8 @@ function updateHUD() {
   document.getElementById('core-hp-fill').style.width = (hp / gs.coreMaxHp * 100) + '%';
 
   const goal = gs.resources[gs.goalItem] || 0;
-  document.getElementById('goal-fill').style.width  = (Math.min(1, goal / gs.goalTarget) * 100) + '%';
-  document.getElementById('goal-text').textContent   = `高度回路 ${goal}/${gs.goalTarget}`;
+  document.getElementById('goal-fill').style.width = (Math.min(1, goal / gs.goalTarget) * 100) + '%';
+  document.getElementById('goal-text').textContent  = `高度回路 ${goal}/${gs.goalTarget}`;
 
   document.querySelectorAll('#storage-panel .res-row').forEach(row => {
     const val = Math.floor(gs.resources[row.dataset.res] || 0);
@@ -324,28 +317,18 @@ function setPhase(phase) {
 function buildSidebar() {
   const list = document.getElementById('tool-list');
   list.innerHTML = '';
-
   TOOL_ORDER.forEach(t => {
-    const def = EQ_DEF[t];
+    const def    = EQ_DEF[t];
     if (!def) return;
     const locked   = def.unlocked === false;
     const selected = gs.selectedTool === t;
     const canBuild = !locked && canAffordEquipment(t, gs);
-
     const btn = document.createElement('button');
-    btn.className = `tool-btn${locked ? ' locked' : ''}${selected ? ' selected' : ''}${!locked && !canBuild ? ' unaffordable' : ''}`;
+    btn.className = `tool-btn${locked?' locked':''}${selected?' selected':''}${!locked&&!canBuild?' unaffordable':''}`;
     btn.innerHTML = `<span class="tool-icon">${def.icon}</span><span>${def.name}</span>`;
-
-    if (!locked) {
-      btn.onclick = () => {
-        gs.selectedTool = t;
-        buildSidebar();
-        showToolInfo(t);
-      };
-    }
+    if (!locked) btn.onclick = () => { gs.selectedTool = t; buildSidebar(); showToolInfo(t); };
     list.appendChild(btn);
   });
-
   showToolInfo(gs.selectedTool);
 }
 
@@ -353,10 +336,9 @@ function showToolInfo(t) {
   const def      = EQ_DEF[t];
   const costStr  = formatEquipmentCost(t);
   const canBuild = canAffordEquipment(t, gs);
-  const costClass = canBuild ? 'cost-ok' : 'cost-ng';
   document.getElementById('tool-info').innerHTML =
     `<div>${def?.desc || ''}</div>` +
-    `<div class="build-cost ${costClass}">コスト: ${costStr}</div>`;
+    `<div class="build-cost ${canBuild?'cost-ok':'cost-ng'}">コスト: ${costStr}</div>`;
 }
 
 // ── Canvas Input ──────────────────────────────────────────
@@ -365,10 +347,10 @@ function setupCanvas() {
 
   canvas.addEventListener('mousemove', e => {
     if (!gs) return;
-    const r = canvas.getBoundingClientRect();
+    const r  = canvas.getBoundingClientRect();
     gs.hover = {
-      hx: Math.floor((e.clientX - r.left) / C.CELL),
-      hy: Math.floor((e.clientY - r.top)  / C.CELL),
+      hx: Math.floor((e.clientX - r.left) / C.CELL + gs.cam.x),
+      hy: Math.floor((e.clientY - r.top)  / C.CELL + gs.cam.y),
     };
     if (gs.state === 'build') showToolInfo(gs.selectedTool);
   });
@@ -378,8 +360,8 @@ function setupCanvas() {
   canvas.addEventListener('click', e => {
     if (!gs || gs.state !== 'build') return;
     const r  = canvas.getBoundingClientRect();
-    const gx = Math.floor((e.clientX - r.left) / C.CELL);
-    const gy = Math.floor((e.clientY - r.top)  / C.CELL);
+    const gx = Math.floor((e.clientX - r.left) / C.CELL + gs.cam.x);
+    const gy = Math.floor((e.clientY - r.top)  / C.CELL + gs.cam.y);
     if (!inBounds(gx, gy)) return;
     const cell = gs.map.grid[gy][gx];
     if (cell.terrain === C.CORE) return;
@@ -390,8 +372,7 @@ function setupCanvas() {
         const recipes = EQ_DEF[t].recipes;
         cell.equipment.recipeIdx = ((cell.equipment.recipeIdx || 0) + 1) % recipes.length;
         const recipe = recipes[cell.equipment.recipeIdx];
-        document.getElementById('tool-info').innerHTML =
-          `<div>レシピ切替: ${recipe.icon} <b>${recipe.name}</b></div>`;
+        document.getElementById('tool-info').innerHTML = `<div>レシピ切替: ${recipe.icon} <b>${recipe.name}</b></div>`;
         return;
       }
       return;
@@ -399,17 +380,13 @@ function setupCanvas() {
 
     const def = EQ_DEF[gs.selectedTool];
     if (!def || def.unlocked === false) return;
-
     if (gs.selectedTool === C.EQ.MINER    && !def.validTerrain.includes(cell.terrain)) return;
     if (gs.selectedTool === C.EQ.OIL_PUMP && cell.terrain !== C.OIL_WELL)             return;
-
-    if (!canAffordEquipment(gs.selectedTool, gs)) {
-      flashInfo('リソース不足！ ' + formatEquipmentCost(gs.selectedTool));
-      return;
-    }
+    if (!canAffordEquipment(gs.selectedTool, gs)) { flashInfo('リソース不足！ ' + formatEquipmentCost(gs.selectedTool)); return; }
 
     deductEquipmentCost(gs.selectedTool, gs);
     cell.equipment = makeEquipment(gs.selectedTool, gs.selectedDir);
+    if (gs.selectedTool === C.EQ.WALL) gs.flowFieldDirty = true;
     buildSidebar();
   });
 
@@ -417,26 +394,32 @@ function setupCanvas() {
     e.preventDefault();
     if (!gs || gs.state !== 'build') return;
     const r  = canvas.getBoundingClientRect();
-    const gx = Math.floor((e.clientX - r.left) / C.CELL);
-    const gy = Math.floor((e.clientY - r.top)  / C.CELL);
+    const gx = Math.floor((e.clientX - r.left) / C.CELL + gs.cam.x);
+    const gy = Math.floor((e.clientY - r.top)  / C.CELL + gs.cam.y);
     if (!inBounds(gx, gy)) return;
     const cell = gs.map.grid[gy][gx];
     if (cell.equipment) {
-      const cost       = EQ_DEF[cell.equipment.type]?.cost || {};
-      // memory_alloy gear: 100% refund instead of 50%
-      const refundRate = hasGear(gs, 'memory_alloy') ? 1.0 : 0.5;
-      for (const [k, v] of Object.entries(cost)) addRes(gs, k, Math.floor(v * refundRate));
-      cell.equipment = null;
-      cell.item = null;
+      const cost = EQ_DEF[cell.equipment.type]?.cost || {};
+      const rate = hasGear(gs, 'memory_alloy') ? 1.0 : 0.5;
+      for (const [k, v] of Object.entries(cost)) addRes(gs, k, Math.floor(v * rate));
+      if (cell.equipment.type === C.EQ.WALL) gs.flowFieldDirty = true;
+      cell.equipment = null; cell.item = null;
       buildSidebar();
     }
   });
 
   window.addEventListener('keydown', e => {
-    if (!gs || gs.state !== 'build') return;
-    if (e.key === 'r' || e.key === 'R') {
-      gs.selectedDir = (gs.selectedDir + 1) % 4;
-    }
+    if (!gs) return;
+    // Camera pan (always active)
+    const speed = 3;
+    if (e.key === 'ArrowLeft'  || e.key === 'a') { gs.cam.x -= speed; clampCam(); return; }
+    if (e.key === 'ArrowRight' || e.key === 'd') { gs.cam.x += speed; clampCam(); return; }
+    if (e.key === 'ArrowUp'    || e.key === 'w') { gs.cam.y -= speed; clampCam(); return; }
+    if (e.key === 'ArrowDown'  || e.key === 's') { gs.cam.y += speed; clampCam(); return; }
+    if (e.key === 'h' || e.key === 'H') { centerOnCore(); return; }
+
+    if (gs.state !== 'build') return;
+    if (e.key === 'r' || e.key === 'R') { gs.selectedDir = (gs.selectedDir + 1) % 4; buildSidebar(); }
     const idx = parseInt(e.key) - 1;
     if (idx >= 0 && idx < TOOL_ORDER.length) {
       const t = TOOL_ORDER[idx];
@@ -451,13 +434,6 @@ function flashInfo(msg) {
   setTimeout(() => showToolInfo(gs.selectedTool), 1500);
 }
 
-// ── Canvas resize ─────────────────────────────────────────
-function resizeCanvas() {
-  const canvas = document.getElementById('game-canvas');
-  canvas.width  = C.COLS * C.CELL;
-  canvas.height = C.ROWS * C.CELL;
-}
-
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
@@ -470,5 +446,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('retry-btn').onclick     = initGame;
   document.getElementById('next-wave-btn').onclick = sendWave;
   setupCanvas();
+  window.addEventListener('resize', () => { if (gs) resizeCanvas(); });
   showScreen('title-screen');
 });
