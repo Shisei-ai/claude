@@ -269,6 +269,67 @@ const EVENT_POOL = [
       }
     ]
   },
+  {
+    id: 'ancient_relic',
+    title: '🏺 古代遺物の発掘',
+    desc: '工場の地盤工事中に謎の工業遺物が発掘された。鑑定士は「かつての工業文明の産物」だと言う。',
+    choices: [
+      {
+        label: '遺物を保管・研究する',
+        detail: '➜ ランダムなギアを1つ即時獲得',
+        avail: () => true,
+        apply(gs) { gs.pendingGearDrops = (gs.pendingGearDrops || 0) + 1; }
+      },
+      {
+        label: '軍に売却（高値取引）',
+        detail: '➜ 鉄板30・銅板20・回路基板5を獲得',
+        avail: () => true,
+        apply(gs) {
+          addRes(gs, C.RES.IRON_PLATE,   30);
+          addRes(gs, C.RES.COPPER_PLATE, 20);
+          addRes(gs, C.RES.CIRCUIT,       5);
+        }
+      },
+      {
+        label: '採掘現場に戻す',
+        detail: '➜ 次のWaveの敵数-30%',
+        avail: () => true,
+        apply(gs) { gs.nextWaveEnemyReduction = (gs.nextWaveEnemyReduction || 0) + 0.3; }
+      }
+    ]
+  },
+  {
+    id: 'gear_trader',
+    title: '⚙ ギア商人の来訪',
+    desc: '特殊な工業ギアを扱う商人が現れた。素材と引き換えに貴重なギアを提供してくれる。',
+    choices: [
+      {
+        label: '高度回路基板 3個で取引',
+        detail: '➜ ランダムなギアを1つ獲得',
+        avail: gs => (gs.resources[C.RES.ADV_CIRCUIT] || 0) >= 3,
+        apply(gs) {
+          gs.resources[C.RES.ADV_CIRCUIT] -= 3;
+          gs.pendingGearDrops = (gs.pendingGearDrops || 0) + 1;
+        }
+      },
+      {
+        label: '大量の素材で取引（鉄板30＋銅板20）',
+        detail: '➜ ランダムなギアを2つから選択',
+        avail: gs => (gs.resources[C.RES.IRON_PLATE] || 0) >= 30 && (gs.resources[C.RES.COPPER_PLATE] || 0) >= 20,
+        apply(gs) {
+          gs.resources[C.RES.IRON_PLATE]   -= 30;
+          gs.resources[C.RES.COPPER_PLATE] -= 20;
+          gs.pendingGearDrops = (gs.pendingGearDrops || 0) + 2;
+        }
+      },
+      {
+        label: '断る',
+        detail: '➜ 何も変わらない',
+        avail: () => true,
+        apply() {}
+      }
+    ]
+  },
 ];
 
 function getRandomEvent(gs) {

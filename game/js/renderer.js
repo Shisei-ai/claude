@@ -91,15 +91,36 @@ function render(canvas, gs) {
   // Enemies
   for (const e of gs.enemies) {
     const bw = e.size * 2;
+    // HP bar
     ctx.fillStyle = '#330000';
     ctx.fillRect(e.x - bw/2, e.y - e.size - 6, bw, 3);
-    ctx.fillStyle = e.elite ? '#ff6600' : '#ff2222';
+    const hpColor = e.boss ? '#ffcc00' : (e.elite ? '#ff6600' : '#ff2222');
+    ctx.fillStyle = hpColor;
     ctx.fillRect(e.x - bw/2, e.y - e.size - 6, bw * (e.hp / e.maxHp), 3);
-    ctx.fillStyle = e.color;
+    // Body
+    ctx.fillStyle = e.stunTimer > 0 ? '#8888ff' : e.color;
     ctx.fillRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size);
-    if (e.elite) {
-      ctx.strokeStyle = '#ff6600'; ctx.lineWidth = 2;
+    // Outline for boss / elite
+    if (e.boss) {
+      ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 3;
       ctx.strokeRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size);
+      // Gear carrier crown
+      ctx.font = '10px serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffcc00';
+      ctx.fillText('★', e.x, e.y - e.size - 8);
+      ctx.textAlign = 'left';
+    } else if (e.elite) {
+      ctx.strokeStyle = e.gearCarrier ? '#ffee44' : '#ff6600';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size);
+      if (e.gearCarrier) {
+        ctx.font = '8px serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffee44';
+        ctx.fillText('⚙', e.x, e.y - e.size - 7);
+        ctx.textAlign = 'left';
+      }
     }
   }
 
@@ -171,8 +192,9 @@ function drawEquipment(ctx, cell, px, py, cs, gs) {
 
   // Wall HP bar
   if (eq.type === C.EQ.WALL) {
+    const maxWallHp = EQ_DEF.wall.hp * (gs.gearFlags?.eraArmor ? 3 : 1);
     ctx.fillStyle = '#ff4444';
-    ctx.fillRect(px + 2, py + 2, (cs - 4) * (eq.hp / EQ_DEF.wall.hp), 3);
+    ctx.fillRect(px + 2, py + 2, (cs - 4) * Math.min(1, eq.hp / maxWallHp), 3);
   }
 
   // Recipe indicator for multi-recipe machines

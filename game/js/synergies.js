@@ -97,6 +97,8 @@ function checkSynergies(gs) {
     if (syn.requires.every(id => gs.takenUpgrades.has(id))) {
       gs.triggeredSynergies.add(syn.id);
       syn.apply(gs);
+      // industrial_gospel gear: apply synergy bonus twice
+      if (hasGear(gs, 'industrial_gospel')) syn.apply(gs);
       showSynergyPopup(syn);
     }
   }

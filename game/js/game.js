@@ -53,7 +53,6 @@ const MODES = {
 function startWithMode(modeKey) {
   const mode = MODES[modeKey];
 
-  // Reset unlock state
   EQ_DEF.laser.unlocked        = mode.unlockAll;
   EQ_DEF.generator.unlocked    = mode.unlockAll;
   EQ_DEF.distillation.unlocked = mode.unlockAll;
@@ -74,16 +73,22 @@ function startWithMode(modeKey) {
     takenUpgrades: new Set(),
     triggeredSynergies: new Set(),
     upgradeBonus: null,
+    gears: [],
+    gearFlags: {},
+    pendingGearDrops: 0,
+    nextWaveEnemyReduction: 0,
     selectedTool: C.EQ.MINER,
     selectedDir: C.DIR.RIGHT,
     hover: null,
     goalItem: C.RES.ADV_CIRCUIT,
     goalTarget: 5,
     killCount: 0,
+    waveKills: 0,
   };
 
   resizeCanvas();
   buildSidebar();
+  updateGearDisplay();
   showScreen('game-screen');
   updateHUD();
   document.getElementById('next-wave-btn').disabled = false;
@@ -145,16 +150,27 @@ function checkVictory() {
     gs.state = 'over';
     document.getElementById('over-title').textContent = '🏭 VICTORY!';
     document.getElementById('over-msg').textContent =
-      `Wave ${gs.wave} | 高度回路基板 ${gs.resources[C.RES.ADV_CIRCUIT]} 個達成！ [${gs.modeDef.label}]`;
+      `Wave ${gs.wave} | 高度回路基板 ${gs.resources[C.RES.ADV_CIRCUIT]} 個達成！ [${gs.modeDef.label}] | ギア: ${gs.gears.length}個`;
     showScreen('gameover-screen');
   }
 }
 
 function checkWaveEnd() {
   if (gs.coreHp <= 0) {
+    // phoenix_protocol gear: one-time revival
+    if (hasGear(gs, 'phoenix_protocol') && !gs.gearFlags.phoenixUsed) {
+      gs.gearFlags.phoenixUsed = true;
+      gs.coreHp = 50;
+      showSynergyPopup({
+        icon: '🦅', name: 'フェニックスプロトコル発動！',
+        desc: 'コアが50HPで復活した', color: '#1a1500', border: '#ffcc44',
+      });
+      return;
+    }
     gs.state = 'over';
     document.getElementById('over-title').textContent = 'FACTORY DESTROYED';
-    document.getElementById('over-msg').textContent   = `Wave ${gs.wave} / ${gs.killCount} kills [${gs.modeDef.label}]`;
+    document.getElementById('over-msg').textContent   =
+      `Wave ${gs.wave} / ${gs.killCount} kills [${gs.modeDef.label}] | ギア: ${gs.gears.length}個`;
     showScreen('gameover-screen');
     return;
   }
@@ -168,48 +184,74 @@ function checkWaveEnd() {
 function sendWave() {
   if (gs.state !== 'build') return;
   gs.wave++;
+  gs.waveKills = 0;
   gs.state = 'wave';
   gs.enemies = []; gs.projectiles = [];
   spawnWaveWithMode(gs);
+  gearWaveStart(gs);
   document.getElementById('next-wave-btn').disabled = true;
   document.getElementById('wave-num').textContent   = gs.wave;
   setPhase('wave');
 }
 
 function spawnWaveWithMode(gs) {
-  const mult = gs.modeDef.enemyMult;
-  // Temporarily boost enemy stats via modifier
   const origMult = gs._enemyMult;
-  gs._enemyMult = mult;
+  gs._enemyMult  = gs.modeDef.enemyMult;
   spawnWave(gs);
-  gs._enemyMult = origMult;
+  gs._enemyMult  = origMult;
 }
 
 // ── Wave Complete Flow ────────────────────────────────────
 function waveCompleteFlow() {
+  gearWaveEnd(gs);
+  showNextGearOrContinue();
+}
+
+// Drain any pending gear drops, then show event → upgrade
+function showNextGearOrContinue() {
+  if ((gs.pendingGearDrops || 0) > 0) {
+    gs.pendingGearDrops--;
+    const choices = getGearChoices(gs, 3);
+    if (choices.length > 0) {
+      showGearScreen(choices, showNextGearOrContinue);
+      return;
+    }
+  }
   const chance = gs.modeDef.eventChance;
   if (Math.random() < chance) {
     const event = getRandomEvent(gs);
-    if (event) { showEventScreen(event, () => showUpgradeScreen()); return; }
+    if (event) { showEventScreen(event, flushGearsAndUpgrade); return; }
+  }
+  showUpgradeScreen();
+}
+
+// After event: drain gear drops added by event choices, then upgrade
+function flushGearsAndUpgrade() {
+  if ((gs.pendingGearDrops || 0) > 0) {
+    gs.pendingGearDrops--;
+    const choices = getGearChoices(gs, 3);
+    if (choices.length > 0) {
+      showGearScreen(choices, flushGearsAndUpgrade);
+      return;
+    }
   }
   showUpgradeScreen();
 }
 
 // ── Upgrade Screen ────────────────────────────────────────
 function showUpgradeScreen() {
-  let count = gs.modeDef.upgradeCount;
+  let count  = gs.modeDef.upgradeCount + (gs.gearFlags?.extraUpgradeChoices || 0);
   let rarity = null;
 
-  if (gs.upgradeBonus === 'five_choices') { count = 5; gs.upgradeBonus = null; }
-  else if (gs.upgradeBonus === 'guaranteed_rare') { rarity = 'rare'; gs.upgradeBonus = null; }
-  else if (gs.upgradeBonus === 'guaranteed_epic') { rarity = 'epic'; gs.upgradeBonus = null; }
+  if (gs.upgradeBonus === 'five_choices')      { count = 5; gs.upgradeBonus = null; }
+  else if (gs.upgradeBonus === 'guaranteed_rare') { rarity = 'rare';      gs.upgradeBonus = null; }
+  else if (gs.upgradeBonus === 'guaranteed_epic') { rarity = 'epic';      gs.upgradeBonus = null; }
   else if (gs.upgradeBonus === 'two_epics')       { rarity = 'two_epics'; gs.upgradeBonus = null; }
 
-  const choices = getUpgradeChoices(gs, count, rarity);
+  const choices   = getUpgradeChoices(gs, count, rarity);
   const container = document.getElementById('upgrade-cards');
   container.innerHTML = '';
 
-  // Show synergy hints
   const synergyHints = getSynergyHints(gs);
   const hintEl = document.getElementById('synergy-hints');
   if (hintEl) {
@@ -242,7 +284,6 @@ function showUpgradeScreen() {
   showScreen('upgrade-screen');
 }
 
-// Show which synergies are close to activating
 function getSynergyHints(gs) {
   return SYNERGIES
     .filter(s => !gs.triggeredSynergies.has(s.id))
@@ -309,8 +350,8 @@ function buildSidebar() {
 }
 
 function showToolInfo(t) {
-  const def     = EQ_DEF[t];
-  const costStr = formatEquipmentCost(t);
+  const def      = EQ_DEF[t];
+  const costStr  = formatEquipmentCost(t);
   const canBuild = canAffordEquipment(t, gs);
   const costClass = canBuild ? 'cost-ok' : 'cost-ng';
   document.getElementById('tool-info').innerHTML =
@@ -343,7 +384,6 @@ function setupCanvas() {
     const cell = gs.map.grid[gy][gx];
     if (cell.terrain === C.CORE) return;
 
-    // Cycle recipe on placed multi-recipe machines
     if (cell.equipment) {
       const t = cell.equipment.type;
       if (t === C.EQ.CHEM_PLANT || t === C.EQ.ADV_ASSEMBLER) {
@@ -360,11 +400,9 @@ function setupCanvas() {
     const def = EQ_DEF[gs.selectedTool];
     if (!def || def.unlocked === false) return;
 
-    // Terrain validation
-    if (gs.selectedTool === C.EQ.MINER   && !def.validTerrain.includes(cell.terrain)) return;
+    if (gs.selectedTool === C.EQ.MINER    && !def.validTerrain.includes(cell.terrain)) return;
     if (gs.selectedTool === C.EQ.OIL_PUMP && cell.terrain !== C.OIL_WELL)             return;
 
-    // Build cost check
     if (!canAffordEquipment(gs.selectedTool, gs)) {
       flashInfo('リソース不足！ ' + formatEquipmentCost(gs.selectedTool));
       return;
@@ -372,7 +410,7 @@ function setupCanvas() {
 
     deductEquipmentCost(gs.selectedTool, gs);
     cell.equipment = makeEquipment(gs.selectedTool, gs.selectedDir);
-    buildSidebar(); // refresh cost indicators
+    buildSidebar();
   });
 
   canvas.addEventListener('contextmenu', e => {
@@ -382,11 +420,12 @@ function setupCanvas() {
     const gx = Math.floor((e.clientX - r.left) / C.CELL);
     const gy = Math.floor((e.clientY - r.top)  / C.CELL);
     if (!inBounds(gx, gy)) return;
-    // Refund half cost on demolish
     const cell = gs.map.grid[gy][gx];
     if (cell.equipment) {
-      const cost = EQ_DEF[cell.equipment.type]?.cost || {};
-      for (const [k, v] of Object.entries(cost)) addRes(gs, k, Math.floor(v / 2));
+      const cost       = EQ_DEF[cell.equipment.type]?.cost || {};
+      // memory_alloy gear: 100% refund instead of 50%
+      const refundRate = hasGear(gs, 'memory_alloy') ? 1.0 : 0.5;
+      for (const [k, v] of Object.entries(cost)) addRes(gs, k, Math.floor(v * refundRate));
       cell.equipment = null;
       cell.item = null;
       buildSidebar();

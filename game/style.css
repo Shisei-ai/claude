@@ -168,6 +168,45 @@ body { background: #0a0a0f; color: #e0e0e0; font-family: 'Courier New', monospac
 .rarity-rare   { color: #4488ff; }
 .rarity-epic   { color: #aa44ff; }
 
+/* ── GEAR SCREEN ────────────────────────────────────────── */
+#gear-screen {
+  flex-direction: column; justify-content: center; align-items: center;
+  background: rgba(5, 5, 12, 0.97);
+}
+.gear-content { text-align: center; max-width: 820px; }
+.gear-tag {
+  font-size: 0.6rem; letter-spacing: 0.25em; color: #ffcc44;
+  border: 1px solid #ffcc44; display: inline-block; padding: 0.15rem 0.6rem; margin-bottom: 0.8rem;
+}
+.gear-content h2 { font-size: 2rem; color: #ffcc44; letter-spacing: 0.3em; margin-bottom: 0.4rem; }
+.gear-subtitle   { color: #777; margin-bottom: 1rem; font-size: 0.82rem; }
+#gear-cards { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+.gear-card {
+  width: 180px; padding: 1.2rem 1rem; background: #0d0d18;
+  cursor: pointer; transition: all 0.18s; text-align: center; border: 2px solid #555;
+}
+.gear-card:hover { background: #1a1500; transform: translateY(-4px); }
+.rarity-border-common { border-color: #555; }
+.rarity-border-rare   { border-color: #4488ff; }
+.rarity-border-epic   { border-color: #aa44ff; }
+.rarity-border-cursed { border-color: #dd3333; }
+.gear-card-icon   { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.gear-card-name   { font-size: 0.85rem; font-weight: bold; color: #ffcc44; margin-bottom: 0.5rem; }
+.gear-card-desc   { font-size: 0.62rem; color: #888; line-height: 1.5; margin-bottom: 0.5rem; }
+.gear-card-rarity { font-size: 0.58rem; letter-spacing: 0.15em; }
+.gear-rarity-common { color: #888; }
+.gear-rarity-rare   { color: #4488ff; }
+.gear-rarity-epic   { color: #aa44ff; }
+.gear-rarity-cursed { color: #dd4444; }
+
+/* ── GEAR SIDEBAR ────────────────────────────────────────── */
+.sb-gears { min-height: 32px; }
+#gear-display { display: flex; flex-wrap: wrap; gap: 3px; padding: 0.15rem 0; min-height: 22px; }
+.gear-icon-small {
+  font-size: 1rem; cursor: default; line-height: 1;
+  display: inline-block; padding: 1px 2px;
+}
+
 /* ── GAME OVER ──────────────────────────────────────────── */
 #gameover-screen {
   flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.95);
