@@ -7,129 +7,158 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app">
+<div id="app">
 
-    <!-- Title Screen -->
-    <div id="title-screen" class="screen active">
-      <div class="title-content">
-        <h1>INDUSTRIAL<br><span>ROGUE</span></h1>
-        <p class="subtitle">工業設備でローグライクに生き残れ</p>
-        <button id="start-btn" class="btn-primary">START RUN</button>
-        <div class="controls-hint">
-          <p>左クリック: 設備を配置 | 右クリック: 設備を削除 | R: 方向回転</p>
-          <p>化学プラント / 高度組立機: 設置後に左クリックでレシピ切替</p>
-        </div>
+  <!-- Title -->
+  <div id="title-screen" class="screen active">
+    <div class="title-content">
+      <h1>INDUSTRIAL<br><span>ROGUE</span></h1>
+      <p class="subtitle">工業設備でローグライクに生き残れ</p>
+      <button id="start-btn" class="btn-primary">START RUN</button>
+      <div class="controls-hint">
+        <p>左クリック: 設備配置 / 右クリック: 撤去（50%還付） / R: 方向回転</p>
+        <p>化学プラント・高度組立機は設置後に左クリックでレシピ切替</p>
       </div>
     </div>
-
-    <!-- Game Screen -->
-    <div id="game-screen" class="screen">
-      <div id="hud">
-        <div class="hud-group">
-          <span class="hud-label">WAVE</span>
-          <span id="wave-num" class="hud-value">1</span>
-        </div>
-        <div class="hud-group">
-          <span class="hud-label">CORE</span>
-          <div id="core-hp-bar"><div id="core-hp-fill"></div></div>
-          <span id="core-hp-text" class="hud-value">100</span>
-        </div>
-        <div class="hud-group hud-goal">
-          <span class="hud-label">GOAL</span>
-          <span id="goal-text" class="hud-value small">Adv.Circuit x5</span>
-          <div id="goal-bar"><div id="goal-fill"></div></div>
-        </div>
-        <div class="hud-group" id="hud-status">
-          <span id="hud-phase" class="hud-phase build">BUILD PHASE</span>
-        </div>
-      </div>
-
-      <div id="game-layout">
-        <div id="sidebar">
-
-          <div class="sb-section">
-            <div class="sb-title">BUILD  <span class="sb-hint">1-9 / R=回転</span></div>
-            <div id="tool-list"></div>
-            <div id="tool-info"></div>
-          </div>
-
-          <div class="sb-section">
-            <div class="sb-title">STORAGE</div>
-            <div id="storage-panel">
-              <div class="res-group">
-                <div class="res-group-label">─ 鉱物</div>
-                <div class="res-row" data-res="iron_ore">    <span class="res-lbl">鉄鉱石</span>   <span class="res-val">0</span></div>
-                <div class="res-row" data-res="copper_ore">  <span class="res-lbl">銅鉱石</span>   <span class="res-val">0</span></div>
-                <div class="res-row" data-res="coal">        <span class="res-lbl">石炭</span>     <span class="res-val">0</span></div>
-                <div class="res-row" data-res="sulfur">      <span class="res-lbl">硫黄</span>     <span class="res-val">0</span></div>
-              </div>
-              <div class="res-group">
-                <div class="res-group-label">─ 固体製品</div>
-                <div class="res-row" data-res="iron_plate">    <span class="res-lbl">鉄板</span>       <span class="res-val">0</span></div>
-                <div class="res-row" data-res="copper_plate">  <span class="res-lbl">銅板</span>       <span class="res-val">0</span></div>
-                <div class="res-row" data-res="coke">          <span class="res-lbl">コークス</span>   <span class="res-val">0</span></div>
-                <div class="res-row" data-res="plastic">       <span class="res-lbl">プラスチック</span><span class="res-val">0</span></div>
-                <div class="res-row" data-res="refined_copper"><span class="res-lbl">精錬銅</span>     <span class="res-val">0</span></div>
-                <div class="res-row" data-res="explosives">    <span class="res-lbl">爆薬</span>       <span class="res-val">0</span></div>
-              </div>
-              <div class="res-group">
-                <div class="res-group-label">─ 回路</div>
-                <div class="res-row" data-res="circuit">    <span class="res-lbl">回路基板</span>   <span class="res-val">0</span></div>
-                <div class="res-row" data-res="adv_circuit"><span class="res-lbl">🎯 高度回路</span><span class="res-val">0</span></div>
-              </div>
-              <div class="res-group">
-                <div class="res-group-label">─ 石油</div>
-                <div class="res-row" data-res="crude_oil"> <span class="res-lbl">原油</span>     <span class="res-val">0</span></div>
-                <div class="res-row" data-res="petro_gas"> <span class="res-lbl">石油ガス</span> <span class="res-val">0</span></div>
-                <div class="res-row" data-res="light_oil">  <span class="res-lbl">軽油</span>     <span class="res-val">0</span></div>
-                <div class="res-row" data-res="heavy_oil">  <span class="res-lbl">重油</span>     <span class="res-val">0</span></div>
-              </div>
-              <div class="res-group">
-                <div class="res-group-label">─ 化学品</div>
-                <div class="res-row" data-res="sulfuric_acid"><span class="res-lbl">硫酸</span>   <span class="res-val">0</span></div>
-                <div class="res-row" data-res="lubricant">   <span class="res-lbl">潤滑油</span> <span class="res-val">0</span></div>
-                <div class="res-row" data-res="water">       <span class="res-lbl">水</span>     <span class="res-val">0</span></div>
-                <div class="res-row" data-res="hydrogen">    <span class="res-lbl">水素</span>   <span class="res-val">0</span></div>
-                <div class="res-row" data-res="oxygen">      <span class="res-lbl">酸素</span>   <span class="res-val">0</span></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="sb-section sb-bottom">
-            <button id="next-wave-btn" class="btn-wave" disabled>▶ SEND WAVE</button>
-          </div>
-        </div>
-
-        <canvas id="game-canvas"></canvas>
-      </div>
-    </div>
-
-    <!-- Upgrade Screen -->
-    <div id="upgrade-screen" class="screen">
-      <div class="upgrade-content">
-        <h2>WAVE CLEAR!</h2>
-        <p class="upgrade-subtitle">アップグレードを1つ選択してください</p>
-        <div id="upgrade-cards"></div>
-      </div>
-    </div>
-
-    <!-- Game Over Screen -->
-    <div id="gameover-screen" class="screen">
-      <div class="over-content">
-        <h2 id="over-title">FACTORY DESTROYED</h2>
-        <p id="over-msg"></p>
-        <button id="retry-btn" class="btn-primary">再挑戦</button>
-      </div>
-    </div>
-
   </div>
 
-  <script src="js/constants.js"></script>
-  <script src="js/map.js"></script>
-  <script src="js/equipment.js"></script>
-  <script src="js/enemies.js"></script>
-  <script src="js/upgrades.js"></script>
-  <script src="js/renderer.js"></script>
-  <script src="js/game.js"></script>
+  <!-- Mode Selection -->
+  <div id="modifier-screen" class="screen">
+    <div class="modifier-content">
+      <h2>RUN MODE を選択</h2>
+      <p class="upgrade-subtitle">工場の操業方針を決定してください</p>
+      <div id="modifier-cards"></div>
+    </div>
+  </div>
+
+  <!-- Game -->
+  <div id="game-screen" class="screen">
+    <div id="hud">
+      <div class="hud-group">
+        <span class="hud-label">WAVE</span>
+        <span id="wave-num" class="hud-value">0</span>
+      </div>
+      <div class="hud-group">
+        <span class="hud-label">CORE</span>
+        <div id="core-hp-bar"><div id="core-hp-fill"></div></div>
+        <span id="core-hp-text" class="hud-value">100</span>
+      </div>
+      <div class="hud-group hud-goal">
+        <span class="hud-label">GOAL</span>
+        <div id="goal-bar"><div id="goal-fill"></div></div>
+        <span id="goal-text" class="hud-value small">高度回路 0/5</span>
+      </div>
+      <div class="hud-group">
+        <span id="hud-phase" class="hud-phase build">BUILD PHASE</span>
+      </div>
+    </div>
+
+    <div id="game-layout">
+      <div id="sidebar">
+        <div class="sb-section">
+          <div class="sb-title">BUILD <span class="sb-hint">1-9キー / R=回転</span></div>
+          <div id="tool-list"></div>
+          <div id="tool-info"></div>
+        </div>
+
+        <div class="sb-section sb-storage">
+          <div class="sb-title">STORAGE</div>
+          <div id="storage-panel">
+            <div class="res-group">
+              <div class="res-group-label">鉱物</div>
+              <div class="res-row" data-res="iron_ore">    <span class="res-lbl">鉄鉱石</span>    <span class="res-val">0</span></div>
+              <div class="res-row" data-res="copper_ore">  <span class="res-lbl">銅鉱石</span>    <span class="res-val">0</span></div>
+              <div class="res-row" data-res="coal">        <span class="res-lbl">石炭</span>      <span class="res-val">0</span></div>
+              <div class="res-row" data-res="sulfur">      <span class="res-lbl">硫黄</span>      <span class="res-val">0</span></div>
+            </div>
+            <div class="res-group">
+              <div class="res-group-label">固体製品</div>
+              <div class="res-row" data-res="iron_plate">    <span class="res-lbl">鉄板</span>        <span class="res-val">0</span></div>
+              <div class="res-row" data-res="copper_plate">  <span class="res-lbl">銅板</span>        <span class="res-val">0</span></div>
+              <div class="res-row" data-res="coke">          <span class="res-lbl">コークス</span>    <span class="res-val">0</span></div>
+              <div class="res-row" data-res="plastic">       <span class="res-lbl">プラスチック</span><span class="res-val">0</span></div>
+              <div class="res-row" data-res="refined_copper"><span class="res-lbl">精錬銅</span>      <span class="res-val">0</span></div>
+              <div class="res-row" data-res="explosives">    <span class="res-lbl">爆薬</span>        <span class="res-val">0</span></div>
+            </div>
+            <div class="res-group">
+              <div class="res-group-label">回路</div>
+              <div class="res-row" data-res="circuit">     <span class="res-lbl">回路基板</span>    <span class="res-val">0</span></div>
+              <div class="res-row" data-res="adv_circuit"> <span class="res-lbl">🎯 高度回路</span><span class="res-val">0</span></div>
+            </div>
+            <div class="res-group">
+              <div class="res-group-label">石油</div>
+              <div class="res-row" data-res="crude_oil"> <span class="res-lbl">原油</span>     <span class="res-val">0</span></div>
+              <div class="res-row" data-res="petro_gas"> <span class="res-lbl">石油ガス</span> <span class="res-val">0</span></div>
+              <div class="res-row" data-res="light_oil">  <span class="res-lbl">軽油</span>     <span class="res-val">0</span></div>
+              <div class="res-row" data-res="heavy_oil">  <span class="res-lbl">重油</span>     <span class="res-val">0</span></div>
+            </div>
+            <div class="res-group">
+              <div class="res-group-label">化学品</div>
+              <div class="res-row" data-res="sulfuric_acid"><span class="res-lbl">硫酸</span>   <span class="res-val">0</span></div>
+              <div class="res-row" data-res="lubricant">   <span class="res-lbl">潤滑油</span> <span class="res-val">0</span></div>
+              <div class="res-row" data-res="water">       <span class="res-lbl">水</span>     <span class="res-val">0</span></div>
+              <div class="res-row" data-res="hydrogen">    <span class="res-lbl">水素</span>   <span class="res-val">0</span></div>
+              <div class="res-row" data-res="oxygen">      <span class="res-lbl">酸素</span>   <span class="res-val">0</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sb-section sb-bottom">
+          <button id="next-wave-btn" class="btn-wave" disabled>▶ SEND WAVE</button>
+        </div>
+      </div>
+
+      <canvas id="game-canvas"></canvas>
+    </div>
+
+    <!-- Synergy popup (overlays game) -->
+    <div id="synergy-popup">
+      <div class="syn-label">SYNERGY UNLOCKED</div>
+      <div id="syn-icon">⚗</div>
+      <div id="syn-name"></div>
+      <div id="syn-desc"></div>
+    </div>
+  </div>
+
+  <!-- Event Screen -->
+  <div id="event-screen" class="screen">
+    <div class="event-content">
+      <div class="event-tag">EVENT</div>
+      <h2 id="event-title">イベント</h2>
+      <p id="event-desc"></p>
+      <div id="event-choices"></div>
+    </div>
+  </div>
+
+  <!-- Upgrade Screen -->
+  <div id="upgrade-screen" class="screen">
+    <div class="upgrade-content">
+      <h2>WAVE CLEAR!</h2>
+      <p class="upgrade-subtitle">アップグレードを1つ選択してください</p>
+      <div id="synergy-hints"></div>
+      <div id="upgrade-cards"></div>
+    </div>
+  </div>
+
+  <!-- Game Over -->
+  <div id="gameover-screen" class="screen">
+    <div class="over-content">
+      <h2 id="over-title">FACTORY DESTROYED</h2>
+      <p id="over-msg"></p>
+      <button id="retry-btn" class="btn-primary">再挑戦</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/constants.js"></script>
+<script src="js/map.js"></script>
+<script src="js/equipment.js"></script>
+<script src="js/enemies.js"></script>
+<script src="js/upgrades.js"></script>
+<script src="js/synergies.js"></script>
+<script src="js/events.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/game.js"></script>
 </body>
 </html>

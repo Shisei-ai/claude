@@ -1,9 +1,10 @@
 function spawnWave(gs) {
-  const wave = gs.wave;
+  const wave  = gs.wave;
+  const mult  = gs._enemyMult || 1;
   const count = 4 + wave * 2;
-  const hp    = 40 + wave * 20;
+  const hp    = (40 + wave * 20) * mult;
   const speed = 0.6 + wave * 0.05;
-  const dmg   = 5 + wave * 3;
+  const dmg   = (5 + wave * 3) * mult;
 
   const cx = gs.map.coreX * C.CELL + C.CELL / 2;
   const cy = gs.map.coreY * C.CELL + C.CELL / 2;
@@ -49,7 +50,7 @@ function updateEnemies(gs, dt) {
 
     if (e.hp <= 0) {
       gs.enemies.splice(i, 1);
-      gs.kills++;
+      gs.killCount = (gs.killCount || 0) + 1;
       continue;
     }
 
