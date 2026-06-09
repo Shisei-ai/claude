@@ -265,7 +265,7 @@ function showUpgradeScreen() {
 
   for (const u of choices) {
     const card = document.createElement('div');
-    card.className = 'upgrade-card';
+    card.className = `upgrade-card rarity-card-${u.rarity}`;
     card.innerHTML = `
       <div class="card-icon">${u.icon}</div>
       <div class="card-name">${u.name}</div>
@@ -297,9 +297,12 @@ function getSynergyHints(gs) {
 // ── HUD ───────────────────────────────────────────────────
 function updateHUD() {
   if (!gs) return;
-  const hp = Math.max(0, gs.coreHp);
+  const hp      = Math.max(0, gs.coreHp);
+  const hpRatio = hp / gs.coreMaxHp;
   document.getElementById('core-hp-text').textContent = Math.ceil(hp);
-  document.getElementById('core-hp-fill').style.width = (hp / gs.coreMaxHp * 100) + '%';
+  const hpFill = document.getElementById('core-hp-fill');
+  hpFill.style.width      = (hpRatio * 100) + '%';
+  hpFill.style.background = hpRatio > 0.5 ? '#44cc66' : hpRatio > 0.25 ? '#ffaa22' : '#ff3333';
 
   const pw = Math.floor(gs.power || 0);
   const pwMax = gs.powerMax || 500;
@@ -317,8 +320,23 @@ function updateHUD() {
     const val = Math.floor(gs.resources[row.dataset.res] || 0);
     const el  = row.querySelector('.res-val');
     el.textContent = val;
-    el.className   = 'res-val' + (val > 0 ? ' nonzero' : '');
+    const isGoal  = row.dataset.res === gs.goalItem;
+    const nonzero = val > 0;
+    el.className  = 'res-val';
+    row.className = 'res-row' + (nonzero ? ' nonzero' : '') + (isGoal ? ' goal-res' : '');
   });
+
+  const enemiesEl = document.getElementById('hud-enemies');
+  const killsEl   = document.getElementById('hud-kills');
+  if (enemiesEl) {
+    if (gs.state === 'wave') {
+      enemiesEl.style.display = '';
+      enemiesEl.textContent   = `敵 ${gs.enemies.length} 体`;
+    } else {
+      enemiesEl.style.display = 'none';
+    }
+  }
+  if (killsEl) killsEl.textContent = `${gs.killCount || 0} kills`;
 }
 
 function setPhase(phase) {
@@ -337,22 +355,46 @@ function buildSidebar() {
     const locked   = def.unlocked === false;
     const selected = gs.selectedTool === t;
     const canBuild = !locked && canAffordEquipment(t, gs);
+    const sz       = def.size || 1;
+    const badge    = sz > 1 ? `<span class="tool-size-badge">${sz}×${sz}</span>` : '';
     const btn = document.createElement('button');
     btn.className = `tool-btn${locked?' locked':''}${selected?' selected':''}${!locked&&!canBuild?' unaffordable':''}`;
-    btn.innerHTML = `<span class="tool-icon">${def.icon}</span><span>${def.name}</span>`;
+    btn.innerHTML = `<span class="tool-icon">${def.icon}</span><span class="tool-name">${def.name}</span>${badge}`;
     if (!locked) btn.onclick = () => { gs.selectedTool = t; buildSidebar(); showToolInfo(t); };
     list.appendChild(btn);
   });
+  updateDirIndicator();
   showToolInfo(gs.selectedTool);
 }
 
+function updateDirIndicator() {
+  const arrows = ['→', '↓', '←', '↑'];
+  const el = document.getElementById('dir-indicator');
+  if (el) el.textContent = arrows[gs?.selectedDir ?? 0];
+}
+
 function showToolInfo(t) {
-  const def      = EQ_DEF[t];
-  const costStr  = formatEquipmentCost(t);
-  const canBuild = canAffordEquipment(t, gs);
+  const def  = EQ_DEF[t];
+  const cost = EQ_DEF[t]?.cost || {};
+  const reduction = gs?.gearFlags?.buildCostReduction || 0;
+  const entries   = Object.entries(cost);
+  const sz        = def?.size || 1;
+
+  let costHtml;
+  if (!entries.length) {
+    costHtml = '<span class="cost-free">コスト無し</span>';
+  } else {
+    costHtml = entries.map(([k, v]) => {
+      const actual = Math.max(0, v - reduction);
+      const have   = gs?.resources[k] || 0;
+      return `<span class="cost-chip ${have >= actual ? 'ok' : 'ng'}">${RES_NAMES[k] || k} ×${actual}</span>`;
+    }).join('');
+  }
+  const sizeTag = sz > 1 ? `<span class="tool-size-info">${sz}×${sz}マス</span>` : '';
+
   document.getElementById('tool-info').innerHTML =
-    `<div>${def?.desc || ''}</div>` +
-    `<div class="build-cost ${canBuild?'cost-ok':'cost-ng'}">コスト: ${costStr}</div>`;
+    `<div class="tool-desc">${def?.desc || ''}</div>` +
+    `<div class="tool-cost-row">${costHtml}${sizeTag}</div>`;
 }
 
 // ── Canvas Input ──────────────────────────────────────────
@@ -471,7 +513,11 @@ function setupCanvas() {
     if (e.key === 'h' || e.key === 'H') { centerOnCore(); return; }
 
     if (gs.state !== 'build') return;
-    if (e.key === 'r' || e.key === 'R') { gs.selectedDir = (gs.selectedDir + 1) % 4; buildSidebar(); }
+    if (e.key === 'r' || e.key === 'R') {
+      gs.selectedDir = (gs.selectedDir + 1) % 4;
+      updateDirIndicator();
+      buildSidebar();
+    }
     const idx = parseInt(e.key) - 1;
     if (idx >= 0 && idx < TOOL_ORDER.length) {
       const t = TOOL_ORDER[idx];

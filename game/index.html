@@ -37,22 +37,33 @@
     <div id="hud">
       <div class="hud-group">
         <span class="hud-label">WAVE</span>
-        <span id="wave-num" class="hud-value">0</span>
+        <span id="wave-num" class="hud-value big">0</span>
       </div>
       <div class="hud-group">
         <span class="hud-label">CORE</span>
-        <div id="core-hp-bar"><div id="core-hp-fill"></div></div>
+        <div class="hud-bar-wrap">
+          <div class="hud-bar"><div id="core-hp-fill" class="hud-bar-fill"></div></div>
+        </div>
         <span id="core-hp-text" class="hud-value">100</span>
       </div>
       <div class="hud-group">
         <span class="hud-label">POWER</span>
-        <div id="power-bar"><div id="power-fill"></div></div>
+        <div class="hud-bar-wrap">
+          <div class="hud-bar sm"><div id="power-fill" class="hud-bar-fill"></div></div>
+        </div>
         <span id="power-text" class="hud-value small">0/500</span>
       </div>
-      <div class="hud-group hud-goal">
+      <div class="hud-group">
         <span class="hud-label">GOAL</span>
-        <div id="goal-bar"><div id="goal-fill"></div></div>
+        <div class="hud-bar-wrap">
+          <div class="hud-bar"><div id="goal-fill" class="hud-bar-fill"></div></div>
+        </div>
         <span id="goal-text" class="hud-value small">高度回路 0/5</span>
+      </div>
+      <div class="hud-spacer"></div>
+      <div class="hud-group">
+        <span id="hud-enemies" class="hud-value" style="display:none">敵 0 体</span>
+        <span id="hud-kills" class="hud-value small" style="color:var(--c-dim)">0 kills</span>
       </div>
       <div class="hud-group">
         <span id="hud-phase" class="hud-phase build">BUILD PHASE</span>
@@ -62,7 +73,11 @@
     <div id="game-layout">
       <div id="sidebar">
         <div class="sb-section">
-          <div class="sb-title">BUILD <span class="sb-hint">1-9キー / R=回転</span></div>
+          <div class="sb-section-hdr">
+            <span class="sb-title">BUILD</span>
+            <span class="sb-hint">1-9キー</span>
+            <div id="dir-indicator" title="R キーで回転">→</div>
+          </div>
           <div id="tool-list"></div>
           <div id="tool-info"></div>
         </div>
