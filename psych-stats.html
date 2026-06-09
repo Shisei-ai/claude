@@ -180,6 +180,7 @@
                 <select id="faExtraction" style="margin-top:0;">
                     <option value="pca">主成分法 (PCA)</option>
                     <option value="paf">主因子法 (PAF)</option>
+                    <option value="ml">最尤法 (ML)</option>
                 </select>
             </div>
             <div style="flex:1;">
@@ -1629,11 +1630,166 @@
             if (maxChange < 1e-6) break;
         }
         // m列に揃える
-        return loadings.map(row=>{
+        const finalLoadings = loadings.map(row=>{
             const r=[...row];
             while (r.length<m) r.push(0);
             return r.slice(0,m);
         });
+        return { loadings: finalLoadings, communalities };
+    }
+
+    // 正規乱数生成 (Box-Muller変換)
+    function randomNormal() {
+        let u, v;
+        do { u = Math.random(); } while (u === 0);
+        do { v = Math.random(); } while (v === 0);
+        return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+
+    // 対角SMC平行分析: 観測固有値とモンテカルロ95%点を比較
+    function parallelAnalysisSMC(R, n, nSim=200) {
+        const p = R.length;
+        const Rinv = StatsLib.invertMatrix(R);
+        const smcDiag = Rinv
+            ? R.map((_, i) => Math.min(0.99, Math.max(0.01, 1 - 1 / Rinv[i][i])))
+            : R.map(() => 0.5);
+        const Rsmc = R.map((row, i) => row.map((v, j) => i === j ? smcDiag[i] : v));
+        const { values: obsEigVals } = jacobiEigen(Rsmc);
+        const simEigsByFactor = Array.from({ length: p }, () => []);
+        for (let sim = 0; sim < nSim; sim++) {
+            const randCols = Array.from({ length: p }, () =>
+                Array.from({ length: n }, () => randomNormal()));
+            const stdCols = randCols.map(col => {
+                const mean = col.reduce((s, v) => s + v, 0) / n;
+                const sd = Math.sqrt(col.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1));
+                return sd > 1e-10 ? col.map(v => (v - mean) / sd) : col.map(() => 0);
+            });
+            const Rsim = Array.from({ length: p }, (_, i) =>
+                Array.from({ length: p }, (_, j) => {
+                    if (i === j) return 1;
+                    return ss.sampleCorrelation(stdCols[i], stdCols[j]);
+                }));
+            const RsimInv = StatsLib.invertMatrix(Rsim);
+            const simSMC = RsimInv
+                ? Rsim.map((_, i) => Math.min(0.99, Math.max(0.01, 1 - 1 / RsimInv[i][i])))
+                : Rsim.map(() => 0.5);
+            const RsimSMC = Rsim.map((row, i) => row.map((v, j) => i === j ? simSMC[i] : v));
+            const { values: simEigVals } = jacobiEigen(RsimSMC);
+            simEigVals.forEach((v, j) => simEigsByFactor[j].push(v));
+        }
+        const pa95 = simEigsByFactor.map(vals => {
+            const sorted = [...vals].sort((a, b) => a - b);
+            return sorted[Math.floor(0.95 * nSim)];
+        });
+        const paCount = Math.max(1, obsEigVals.filter((v, j) => v > (pa95[j] || 0)).length);
+        return { paCount, pa95, obsEigVals };
+    }
+
+    // VelicerのMAP検定
+    function mapTest(R, pcaVals, pcaVecs) {
+        const p = R.length;
+        const maps = [];
+        let s0 = 0, c0 = 0;
+        for (let i = 0; i < p; i++)
+            for (let j = 0; j < p; j++)
+                if (i !== j) { s0 += R[i][j] ** 2; c0++; }
+        maps.push(c0 > 0 ? s0 / c0 : 0);
+        for (let k = 1; k < p; k++) {
+            const L = Array.from({ length: p }, (_, i) =>
+                Array.from({ length: k }, (_, j) => pcaVecs[j][i] * Math.sqrt(Math.max(0, pcaVals[j]))));
+            const LLT = StatsLib.multiply(L, StatsLib.transpose(L));
+            const Rres = R.map((row, i) => row.map((v, j) => v - LLT[i][j]));
+            let s = 0, cnt = 0;
+            for (let i = 0; i < p; i++) {
+                for (let j = 0; j < p; j++) {
+                    if (i === j) continue;
+                    const denom = Math.sqrt(Math.abs(Rres[i][i] * Rres[j][j]));
+                    if (denom > 1e-10) { s += (Rres[i][j] / denom) ** 2; cnt++; }
+                }
+            }
+            maps.push(cnt > 0 ? s / cnt : 0);
+        }
+        let minVal = Infinity, mapCount = 0;
+        maps.forEach((v, k) => { if (v < minVal) { minVal = v; mapCount = k; } });
+        return { maps, mapCount };
+    }
+
+    // 最尤因子分析 (EMアルゴリズム, Rubin & Thayer 1982)
+    function computeMLLoadings(R, m, maxIter=500, tol=1e-6) {
+        const p = R.length;
+        const { values: eigVals, vectors: eigVecs } = jacobiEigen(R);
+        let Lambda = Array.from({ length: p }, (_, i) =>
+            Array.from({ length: m }, (_, j) => eigVecs[j][i] * Math.sqrt(Math.max(0, eigVals[j]))));
+        let Psi = Lambda.map(row => Math.max(0.005, 1 - row.reduce((s, v) => s + v * v, 0)));
+        for (let iter = 0; iter < maxIter; iter++) {
+            const PsiInv = Psi.map(v => 1 / v);
+            // M = I_m + Lambda' Psi^{-1} Lambda
+            const M = Array.from({ length: m }, (_, i) =>
+                Array.from({ length: m }, (_, j) => {
+                    let s = (i === j) ? 1 : 0;
+                    for (let k = 0; k < p; k++) s += Lambda[k][i] * PsiInv[k] * Lambda[k][j];
+                    return s;
+                }));
+            const Minv = StatsLib.invertMatrix(M);
+            if (!Minv) break;
+            // beta = Minv * Lambda' * diag(PsiInv)  [m×p]
+            const beta = Array.from({ length: m }, (_, i) =>
+                Array.from({ length: p }, (_, k) => {
+                    let s = 0;
+                    for (let j = 0; j < m; j++) s += Minv[i][j] * Lambda[k][j] * PsiInv[k];
+                    return s;
+                }));
+            const EXF = StatsLib.multiply(R, StatsLib.transpose(beta));    // p×m
+            const betaR = StatsLib.multiply(beta, R);                       // m×p
+            const betaRbetaT = StatsLib.multiply(betaR, StatsLib.transpose(beta)); // m×m
+            const betaLambda = StatsLib.multiply(beta, Lambda);             // m×m
+            const EFF = betaRbetaT.map((row, i) =>
+                row.map((v, j) => (i === j ? 1 : 0) - betaLambda[i][j] + v));
+            const EFFinv = StatsLib.invertMatrix(EFF);
+            if (!EFFinv) break;
+            const LambdaNew = StatsLib.multiply(EXF, EFFinv);              // p×m
+            const LambdaEXFt = StatsLib.multiply(LambdaNew, StatsLib.transpose(EXF)); // p×p
+            const PsiNew = R.map((row, i) => Math.max(0.005, row[i] - LambdaEXFt[i][i]));
+            const maxChange = LambdaNew.reduce((mx, row, i) =>
+                Math.max(mx, row.reduce((mx2, v, j) => Math.max(mx2, Math.abs(v - Lambda[i][j])), 0)), 0);
+            Lambda = LambdaNew;
+            Psi = PsiNew;
+            if (maxChange < tol) break;
+        }
+        const communalities = Lambda.map(row => Math.min(1, row.reduce((s, v) => s + v * v, 0)));
+        return { loadings: Lambda, uniquenesses: Psi, communalities };
+    }
+
+    // 最尤因子分析の適合度統計量
+    function computeFactorFit(R, loadings, uniquenesses, n, m) {
+        const p = R.length;
+        const LL = StatsLib.multiply(loadings, StatsLib.transpose(loadings));
+        const Sigma = LL.map((row, i) => row.map((v, j) => v + (i === j ? uniquenesses[i] : 0)));
+        const SigmaInv = StatsLib.invertMatrix(Sigma);
+        if (!SigmaInv) return null;
+        const { values: sigEigVals } = jacobiEigen(Sigma);
+        const logDetSigma = sigEigVals.reduce((s, v) => s + Math.log(Math.max(1e-10, v)), 0);
+        const { values: rEigVals } = jacobiEigen(R);
+        const logDetR = rEigVals.reduce((s, v) => s + Math.log(Math.max(1e-10, v)), 0);
+        let trRSigmaInv = 0;
+        for (let i = 0; i < p; i++)
+            for (let j = 0; j < p; j++) trRSigmaInv += R[i][j] * SigmaInv[j][i];
+        const Fmin = logDetSigma + trRSigmaInv - logDetR - p;
+        const df = Math.max(1, ((p - m) ** 2 - (p + m)) / 2);
+        const chi2 = Math.max(0, (n - 1 - (2 * p + 4 * m + 5) / 6) * Fmin);
+        const pVal = StatsLib.chiSquareP(chi2, df);
+        const rmsea = Math.sqrt(Math.max(0, (chi2 / df - 1) / (n - 1)));
+        // CFI: null model = independence (Sigma_0 = I)
+        const Fnull = Math.max(0, -logDetR);
+        const chi2Null = Math.max(0, (n - 1 - (2 * p + 5) / 6) * Fnull);
+        const dfNull = p * (p - 1) / 2;
+        const dModel = Math.max(0, chi2 - df);
+        const dNull = Math.max(1e-10, chi2Null - dfNull);
+        const cfi = Math.min(1, Math.max(0, 1 - dModel / dNull));
+        const nPar = p * m - m * (m - 1) / 2 + p;
+        const aic = n * Fmin + 2 * nPar;
+        const bic = n * Fmin + Math.log(n) * nPar;
+        return { Fmin, chi2, df, pVal, rmsea, cfi, aic, bic };
     }
 
     // --- 因子分析メイン ---
@@ -1643,37 +1799,93 @@
         const rotation   = document.getElementById('faRotation').value;
         const nFactorInput = parseInt(document.getElementById('faNumFactors').value);
 
-        const valid = rawData.filter(row=>keys.every(k=>!isNaN(parseFloat(row[k]))));
-        const n=valid.length, p=keys.length;
-        if (n < p+1) throw new Error(`サンプルサイズ(${n})が変数数(${p})に対して不足しています。最低${p+1}ケース必要です。`);
+        const valid = rawData.filter(row => keys.every(k => !isNaN(parseFloat(row[k]))));
+        const n = valid.length, p = keys.length;
+        if (n < p + 1) throw new Error(`サンプルサイズ(${n})が変数数(${p})に対して不足しています。最低${p+1}ケース必要です。`);
 
         // 相関行列
-        const cols = keys.map(k=>valid.map(row=>parseFloat(row[k])));
-        const R = Array.from({length:p}, (_,i)=>Array.from({length:p}, (_,j)=>{
-            if (i===j) return 1;
+        const cols = keys.map(k => valid.map(row => parseFloat(row[k])));
+        const R = Array.from({length:p}, (_,i) => Array.from({length:p}, (_,j) => {
+            if (i === j) return 1;
             return ss.sampleCorrelation(cols[i], cols[j]);
         }));
 
-        // PCAで固有値計算 (スクリープロット・カイザー基準用)
+        // PCAで固有値計算
         const {values: pcaValues, vectors: pcaVectors} = jacobiEigen(R);
-        const kaiserCount = Math.max(1, pcaValues.filter(v=>v>1).length);
-        const m = (!isNaN(nFactorInput) && nFactorInput>0) ? Math.min(nFactorInput, p-1) : kaiserCount;
 
-        // 因子負荷量の抽出
-        let rawLoadings;
-        if (extraction === 'paf') {
-            rawLoadings = computePAFLoadings(R, m);
-        } else {
-            rawLoadings = Array.from({length:p}, (_,i)=>
-                Array.from({length:m}, (_,j)=>pcaVectors[j][i]*Math.sqrt(Math.max(0,pcaValues[j]))));
+        // ===== 5基準による因子数決定 =====
+
+        // ①カイザー基準 (λ > 1)
+        const kaiserCount = Math.max(1, pcaValues.filter(v => v > 1).length);
+
+        // ②累積寄与率 ≥ 50%
+        let cumVarCount = 1, cumPctAt50 = 0;
+        { let acc = 0;
+          for (let j = 0; j < p; j++) {
+              acc += pcaValues[j] / p * 100;
+              if (acc >= 50) { cumVarCount = j + 1; cumPctAt50 = acc; break; }
+              cumVarCount = j + 1; cumPctAt50 = acc;
+          }
+          cumVarCount = Math.max(1, cumVarCount);
         }
 
-        // 回転
-        let finalLoadings, phiMatrix=null, structureMatrix=null;
+        // ③対角SMC平行分析
+        const nSim = p <= 15 ? 200 : 100;
+        const paResult = parallelAnalysisSMC(R, n, nSim);
+        const paCount = Math.max(1, Math.min(paResult.paCount, p - 1));
+
+        // ④VelicerのMAP検定
+        const mapResult = mapTest(R, pcaValues, pcaVectors);
+        const mapCount = Math.max(1, mapResult.mapCount);
+
+        // ⑤PAF共通性合計 ≥ 60% (SMC固有値和で近似)
+        const Rinv = StatsLib.invertMatrix(R);
+        const smcDiag = Rinv
+            ? R.map((_, i) => Math.min(0.99, Math.max(0.01, 1 - 1 / Rinv[i][i])))
+            : R.map(() => 0.5);
+        const Rsmc = R.map((row, i) => row.map((v, j) => i === j ? smcDiag[i] : v));
+        const {values: smcEigVals} = jacobiEigen(Rsmc);
+        let communalityCount = 1, cumSmcPct = 0;
+        { let acc = 0;
+          for (let j = 0; j < p; j++) {
+              acc += Math.max(0, smcEigVals[j]);
+              if (acc / p >= 0.60) { communalityCount = j + 1; cumSmcPct = acc / p * 100; break; }
+              communalityCount = j + 1; cumSmcPct = acc / p * 100;
+          }
+          communalityCount = Math.max(1, Math.min(communalityCount, p - 1));
+        }
+
+        // 多数決による推奨因子数
+        const criteriaVotes = [kaiserCount, cumVarCount, paCount, mapCount, communalityCount];
+        const voteCounts = {};
+        criteriaVotes.forEach(v => { voteCounts[v] = (voteCounts[v] || 0) + 1; });
+        const autoM = parseInt(Object.entries(voteCounts).sort((a,b) => b[1]-a[1] || a[0]-b[0])[0][0]);
+
+        // 最終因子数
+        const isManual = !isNaN(nFactorInput) && nFactorInput > 0;
+        const m = isManual ? Math.min(nFactorInput, p - 1) : Math.min(autoM, p - 1);
+
+        // ===== 因子負荷量の抽出 =====
+        let rawLoadings, uniquenesses = null;
+        if (extraction === 'paf') {
+            const pafResult = computePAFLoadings(R, m);
+            rawLoadings = pafResult.loadings;
+            uniquenesses = pafResult.communalities.map(h2 => Math.max(0.005, 1 - h2));
+        } else if (extraction === 'ml') {
+            const mlResult = computeMLLoadings(R, m);
+            rawLoadings = mlResult.loadings;
+            uniquenesses = mlResult.uniquenesses;
+        } else {
+            rawLoadings = Array.from({length:p}, (_,i) =>
+                Array.from({length:m}, (_,j) => pcaVectors[j][i] * Math.sqrt(Math.max(0, pcaValues[j]))));
+        }
+
+        // ===== 回転 =====
+        let finalLoadings, phiMatrix = null, structureMatrix = null;
         if (rotation === 'varimax') {
-            finalLoadings = varimaxRotation(rawLoadings.map(r=>[...r]));
+            finalLoadings = varimaxRotation(rawLoadings.map(r => [...r]));
         } else if (rotation === 'promax') {
-            const res = promaxRotation(rawLoadings.map(r=>[...r]));
+            const res = promaxRotation(rawLoadings.map(r => [...r]));
             finalLoadings = res.pattern;
             phiMatrix = res.phi;
             structureMatrix = res.structure;
@@ -1681,35 +1893,90 @@
             finalLoadings = rawLoadings;
         }
 
-        const rotLabel = rotation==='varimax' ? 'バリマックス回転後 (パターン行列)' :
-                         rotation==='promax'  ? 'プロマックス回転後 (パターン行列)' : '回転なし';
-        const communalities = finalLoadings.map(row=>row.reduce((s,v)=>s+v*v, 0));
-        const factorVars = Array.from({length:m}, (_,j)=>finalLoadings.reduce((s,row)=>s+row[j]*row[j],0));
-        const totalExplained = factorVars.reduce((s,v)=>s+v, 0);
-        const displayCount = Math.min(p, Math.max(m+3, 8));
+        const rotLabel = rotation === 'varimax' ? 'バリマックス回転後 (パターン行列)' :
+                         rotation === 'promax'  ? 'プロマックス回転後 (パターン行列)' : '回転なし';
+        const communalities = finalLoadings.map(row => row.reduce((s,v) => s+v*v, 0));
+        const factorVars = Array.from({length:m}, (_,j) => finalLoadings.reduce((s,row) => s+row[j]*row[j], 0));
+        const totalExplained = factorVars.reduce((s,v) => s+v, 0);
+        const displayCount = Math.min(p, Math.max(m + 3, 8));
 
-        // ========== HTML出力 ==========
+        // ===== 適合度統計量 (PAF/MLのみ, df > 0) =====
+        let fitStats = null;
+        const dfFit = ((p - m) ** 2 - (p + m)) / 2;
+        if ((extraction === 'ml' || extraction === 'paf') && uniquenesses && dfFit > 0) {
+            fitStats = computeFactorFit(R, rawLoadings, uniquenesses, n, m);
+        }
+
+        // ===== HTML出力 =====
+        const extractionLabel = extraction === 'paf' ? '主因子法 (PAF)' :
+                                extraction === 'ml'  ? '最尤法 (ML)' : '主成分法 (PCA)';
+
         let h = `<div class="report-card">
             <h2 style="color:var(--primary);border-bottom:2px solid #cbd5e1;padding-bottom:5px;">因子分析</h2>
-            <p>抽出法: <b>${extraction==='paf'?'主因子法 (PAF)':'主成分法 (PCA)'}</b> &nbsp;|&nbsp;
+            <p>抽出法: <b>${extractionLabel}</b> &nbsp;|&nbsp;
                回転法: <b>${rotation==='varimax'?'バリマックス (直交)':rotation==='promax'?'プロマックス (斜交)':'なし'}</b> &nbsp;|&nbsp;
-               N = ${n} &nbsp;|&nbsp; 変数数 = ${p} &nbsp;|&nbsp; 抽出因子数 = <b>${m}</b></p>`;
+               N = ${n} &nbsp;|&nbsp; 変数数 = ${p} &nbsp;|&nbsp;
+               抽出因子数: <b>${m}</b>${isManual ? ' （手動指定）' : ' （自動決定）'}</p>`;
 
-        // 固有値テーブル
+        // --- 因子数決定基準テーブル ---
+        h += `<h3 style="margin-top:20px;color:#1e293b;font-size:1rem;">因子数決定基準</h3>
+            <table class="stats-table">
+            <tr><th>基準</th><th>推奨因子数</th><th>詳細</th></tr>
+            <tr>
+                <td>① カイザー基準 (λ &gt; 1)</td>
+                <td><b>${kaiserCount}</b></td>
+                <td>固有値 &gt; 1 を満たす主成分数: ${kaiserCount}個</td>
+            </tr>
+            <tr>
+                <td>② 累積寄与率 ≥ 50%</td>
+                <td><b>${cumVarCount}</b></td>
+                <td>${cumVarCount}因子で累積 ${cumPctAt50.toFixed(1)}% を説明</td>
+            </tr>
+            <tr>
+                <td>③ 対角SMC平行分析 (95%点)</td>
+                <td><b>${paCount}</b></td>
+                <td>モンテカルロ法 (${nSim}回試行): ${paCount}因子が95%点を超過</td>
+            </tr>
+            <tr>
+                <td>④ Velicer の MAP 検定</td>
+                <td><b>${mapCount}</b></td>
+                <td>平均偏相関最小: k=${mapCount}, MAP = ${mapResult.maps[mapCount] !== undefined ? mapResult.maps[mapCount].toFixed(4) : '—'}</td>
+            </tr>
+            <tr>
+                <td>⑤ PAF共通性合計 ≥ 60% (SMC近似)</td>
+                <td><b>${communalityCount}</b></td>
+                <td>${communalityCount}因子で共通性合計 ${cumSmcPct.toFixed(1)}% / ${p}変数</td>
+            </tr>
+            <tr style="background:#f0fdf4;border-top:2px solid #cbd5e1;">
+                <td><b>多数決による推奨</b></td>
+                <td><b style="font-size:1.1rem;color:#059669;">${autoM}</b></td>
+                <td>各基準の票: [${criteriaVotes.join(', ')}] → <b>${autoM}因子</b>が最多</td>
+            </tr>
+            </table>
+            ${isManual
+                ? `<p style="font-size:0.85rem;color:#64748b;margin-top:6px;">※手動で ${nFactorInput} 因子を指定しています。</p>`
+                : `<p style="font-size:0.85rem;color:#059669;margin-top:6px;">自動決定: <b>${autoM}因子</b>を採用しました。</p>`}`;
+
+        // --- 固有値テーブル (PA 95%点列付き) ---
         h += `<h3 style="margin-top:20px;color:#1e293b;font-size:1rem;">固有値と説明分散 (主成分ベース)</h3>
             <table class="stats-table">
-            <tr><th>因子</th><th>固有値 (λ)</th><th>説明分散 (%)</th><th>累積分散 (%)</th><th>採用</th></tr>`;
+            <tr><th>因子</th><th>固有値 (λ)</th><th>説明分散 (%)</th><th>累積分散 (%)</th><th>PA 95%点</th><th>採用</th></tr>`;
         let cumPct = 0;
-        for (let j=0; j<displayCount; j++) {
-            const ev=pcaValues[j], pct=ev/p*100;
+        for (let j = 0; j < displayCount; j++) {
+            const ev = pcaValues[j], pct = ev / p * 100;
             cumPct += pct;
-            const adopted = j<m;
-            h += `<tr ${adopted?'style="background:#f0fdf4;"':''}>
-                <td>${adopted?`<b>第${j+1}因子</b>`:`第${j+1}因子`}</td>
-                <td>${adopted?`<b>${ev.toFixed(4)}</b>`:ev.toFixed(4)}</td>
+            const adopted = j < m;
+            const pa95v = paResult.pa95[j] !== undefined ? paResult.pa95[j] : null;
+            const paCell = pa95v !== null
+                ? `<td style="color:${ev > pa95v ? '#059669' : '#dc2626'}">${pa95v.toFixed(3)}</td>`
+                : `<td>—</td>`;
+            h += `<tr ${adopted ? 'style="background:#f0fdf4;"' : ''}>
+                <td>${adopted ? `<b>第${j+1}因子</b>` : `第${j+1}因子`}</td>
+                <td>${adopted ? `<b>${ev.toFixed(4)}</b>` : ev.toFixed(4)}</td>
                 <td>${pct.toFixed(2)}</td>
                 <td>${cumPct.toFixed(2)}</td>
-                <td>${adopted?'<span style="color:#059669;font-weight:bold;">✓</span>':'—'}</td>
+                ${paCell}
+                <td>${adopted ? '<span style="color:#059669;font-weight:bold;">✓</span>' : '—'}</td>
             </tr>`;
         }
         h += '</table>';
@@ -1718,63 +1985,65 @@
         const screeId = `faScree_${chartCounter++}`;
         h += `<div class="chart-container"><canvas id="${screeId}"></canvas></div>`;
 
-        // 因子負荷量行列
+        // --- 因子負荷量行列 ---
         h += `<h3 style="margin-top:20px;color:#1e293b;font-size:1rem;">因子負荷量行列 (${escapeHtml(rotLabel)})</h3>
-            <p style="font-size:0.8rem;color:#64748b;margin-bottom:8px;">|負荷量| ≥ .40 を強調表示（Comrey & Lee, 1992 基準）</p>
+            <p style="font-size:0.8rem;color:#64748b;margin-bottom:8px;">|負荷量| ≥ .40 を強調表示（Comrey &amp; Lee, 1992 基準）</p>
             <table class="stats-table">
             <tr><th>変数</th>`;
-        for (let j=0; j<m; j++) h += `<th>F${j+1}</th>`;
+        for (let j = 0; j < m; j++) h += `<th>F${j+1}</th>`;
         h += `<th>共通性 (h²)</th><th>独自性 (u²)</th></tr>`;
 
-        keys.forEach((k,i)=>{
+        keys.forEach((k, i) => {
             h += `<tr><td><b>${escapeHtml(k)}</b></td>`;
-            finalLoadings[i].forEach(loading=>{
-                const abs=Math.abs(loading);
-                const style = abs>=0.6 ? 'font-weight:bold;color:#1e3a5f;background:#bfdbfe;' :
-                              abs>=0.4 ? 'font-weight:bold;color:#1e3a5f;background:#dbeafe;' : '';
+            finalLoadings[i].forEach(loading => {
+                const abs = Math.abs(loading);
+                const style = abs >= 0.6 ? 'font-weight:bold;color:#1e3a5f;background:#bfdbfe;' :
+                              abs >= 0.4 ? 'font-weight:bold;color:#1e3a5f;background:#dbeafe;' : '';
                 h += `<td style="${style}">${loading.toFixed(3)}</td>`;
             });
-            const h2=communalities[i], u2=Math.max(0,1-h2);
+            const h2 = communalities[i], u2 = Math.max(0, 1 - h2);
             h += `<td>${h2.toFixed(3)}</td><td>${u2.toFixed(3)}</td></tr>`;
         });
 
-        // 説明分散行
-        h += `<tr style="background:#f8fafc;border-top:2px solid #cbd5e1;"><td><b>説明分散</b></td>`;
-        factorVars.forEach(v=>h+=`<td><b>${v.toFixed(3)}</b></td>`);
+        // 因子寄与 (SS Loadings) + 因子寄与率 + 累積寄与率
+        h += `<tr style="background:#f8fafc;border-top:2px solid #cbd5e1;"><td><b>因子寄与 (SS Loadings)</b></td>`;
+        factorVars.forEach(v => h += `<td><b>${v.toFixed(3)}</b></td>`);
         h += `<td colspan="2"><b>計: ${totalExplained.toFixed(3)}</b></td></tr>
-        <tr style="background:#f8fafc;"><td><b>説明分散 (%)</b></td>`;
-        factorVars.forEach(v=>h+=`<td><b>${(v/p*100).toFixed(2)}%</b></td>`);
-        h += `<td colspan="2"><b>${(totalExplained/p*100).toFixed(2)}%</b></td></tr></table>`;
+        <tr style="background:#f8fafc;"><td><b>因子寄与率 (%)</b></td>`;
+        factorVars.forEach(v => h += `<td><b>${(v/p*100).toFixed(2)}%</b></td>`);
+        h += `<td colspan="2"><b>${(totalExplained/p*100).toFixed(2)}%</b></td></tr>
+        <tr style="background:#f8fafc;"><td><b>累積寄与率 (%)</b></td>`;
+        { let cum = 0;
+          factorVars.forEach(v => { cum += v/p*100; h += `<td><b>${cum.toFixed(2)}%</b></td>`; });
+        }
+        h += `<td colspan="2">—</td></tr></table>`;
 
-        // 因子間相関行列 (プロマックスのみ)
-        if (phiMatrix && rotation==='promax') {
+        // --- 因子間相関行列 (Promax) ---
+        if (phiMatrix && rotation === 'promax') {
             h += `<h3 style="margin-top:20px;color:#1e293b;font-size:1rem;">因子間相関行列 (Φ)</h3>
                 <table class="stats-table"><tr><th></th>`;
-            for (let j=0; j<m; j++) h += `<th>F${j+1}</th>`;
+            for (let j = 0; j < m; j++) h += `<th>F${j+1}</th>`;
             h += '</tr>';
-            for (let i=0; i<m; i++) {
+            for (let i = 0; i < m; i++) {
                 h += `<tr><th>F${i+1}</th>`;
-                for (let j=0; j<m; j++) {
-                    const v=phiMatrix[i][j];
-                    h += i===j ? `<td style="background:#f8fafc;">1.000</td>` :
-                        `<td ${Math.abs(v)>=0.3?'style="font-weight:bold;"':''}>${v.toFixed(3)}</td>`;
+                for (let j = 0; j < m; j++) {
+                    const v = phiMatrix[i][j];
+                    h += i === j ? `<td style="background:#f8fafc;">1.000</td>` :
+                        `<td ${Math.abs(v) >= 0.3 ? 'style="font-weight:bold;"' : ''}>${v.toFixed(3)}</td>`;
                 }
                 h += '</tr>';
             }
             h += '</table>';
-
-            // 構造行列
             if (structureMatrix) {
                 h += `<h3 style="margin-top:20px;color:#1e293b;font-size:1rem;">構造行列 (Structure Matrix)</h3>
-                    <p style="font-size:0.8rem;color:#64748b;margin-bottom:8px;">各変数と各因子の単純相関（パターン行列との差が因子間相関の影響を示す）</p>
+                    <p style="font-size:0.8rem;color:#64748b;margin-bottom:8px;">各変数と各因子の単純相関</p>
                     <table class="stats-table"><tr><th>変数</th>`;
-                for (let j=0; j<m; j++) h += `<th>F${j+1}</th>`;
+                for (let j = 0; j < m; j++) h += `<th>F${j+1}</th>`;
                 h += '</tr>';
-                keys.forEach((k,i)=>{
+                keys.forEach((k, i) => {
                     h += `<tr><td><b>${escapeHtml(k)}</b></td>`;
-                    structureMatrix[i].forEach(v=>{
-                        const style=Math.abs(v)>=0.4?'font-weight:bold;':'';
-                        h += `<td style="${style}">${v.toFixed(3)}</td>`;
+                    structureMatrix[i].forEach(v => {
+                        h += `<td style="${Math.abs(v)>=0.4?'font-weight:bold;':''}">${v.toFixed(3)}</td>`;
                     });
                     h += '</tr>';
                 });
@@ -1782,42 +2051,66 @@
             }
         }
 
-        // 解釈ガイド
+        // --- 適合度統計量 ---
+        if (fitStats) {
+            const { Fmin, chi2, df, pVal, rmsea, cfi, aic, bic } = fitStats;
+            const cfiColor = cfi >= 0.97 ? '#059669' : cfi >= 0.95 ? '#d97706' : '#dc2626';
+            const rmseaColor = rmsea <= 0.05 ? '#059669' : rmsea <= 0.08 ? '#d97706' : '#dc2626';
+            h += `<h3 style="margin-top:20px;color:#1e293b;font-size:1rem;">適合度統計量 (${extractionLabel})</h3>
+                <table class="stats-table">
+                <tr><th>統計量</th><th>値</th><th>解釈の目安</th></tr>
+                <tr><td>乖離度 (F_min)</td><td>${Fmin.toFixed(4)}</td><td>0 = 完全適合、小さいほど良い</td></tr>
+                <tr><td>χ² 値 (Bartlett修正)</td><td>${chi2.toFixed(3)}</td><td rowspan="2">p &gt; .05 でモデルは棄却されない</td></tr>
+                <tr><td>自由度 (df)</td><td>${df}</td></tr>
+                <tr><td>p 値</td><td><span class="${pVal<0.05?'sig-text':'ns-text'}">${StatsLib.getSigLabel(pVal)}</span></td><td>p &gt; .05: 適合可 (サンプルが大きいと敏感)</td></tr>
+                <tr><td>CFI</td><td style="color:${cfiColor};font-weight:bold;">${cfi.toFixed(3)}</td><td>≥ .97 = 良好、≥ .95 = 許容</td></tr>
+                <tr><td>RMSEA</td><td style="color:${rmseaColor};font-weight:bold;">${rmsea.toFixed(4)}</td><td>≤ .05 = 良好、≤ .08 = 許容</td></tr>
+                <tr><td>AIC</td><td>${aic.toFixed(2)}</td><td rowspan="2">因子数比較に使用（値が小さいほど良い）</td></tr>
+                <tr><td>BIC</td><td>${bic.toFixed(2)}</td></tr>
+                </table>`;
+        }
+
+        // --- 解釈ガイド ---
         h += `<div style="background:#f0f9ff;border:1px solid #bae6fd;padding:14px;border-radius:6px;margin-top:15px;font-size:0.85rem;line-height:1.8;">
             <strong style="color:#0369a1;">📖 解釈ガイド</strong><br>
-            • <b>カイザー基準 (λ &gt; 1)</b>: ${kaiserCount}因子が推奨されます。${m!==kaiserCount?`（手動で${m}因子を指定）`:''}
-            スクリープロットの「肘」の前の因子数も参照してください。<br>
+            • <b>因子数の決定</b>: 複数基準を参照。平行分析（③）とMAP（④）は過抽出を防ぐ点で信頼性が高い（Hayton et al., 2004; Velicer, 1976）。<br>
             • <b>共通性 (h²)</b>: 0.40未満は因子による説明が不十分な可能性があります。<br>
-            • <b>因子負荷量の目安</b>: |.60|以上=非常に強い、|.40|以上=有意、|.40|未満=弱い（Comrey &amp; Lee, 1992）。<br>
-            • <b>バリマックス</b>: 因子間無相関を仮定。各因子の意味を独立して解釈できます。<br>
-            • <b>プロマックス</b>: 因子間の相関を許容。心理尺度では概念間の相関が自然なため推奨されることが多い。<br>
-            • <b>PAF vs PCA</b>: 共通因子モデルには主因子法が理論的に適切です（Fabrigar et al., 1999）。
+            • <b>因子負荷量の目安</b>: |.60|以上=非常に強い、|.40|以上=有意（Comrey &amp; Lee, 1992）。<br>
+            ${extraction === 'ml' ? '• <b>最尤法 (ML)</b>: 適合度統計量が得られ因子数の比較検討が可能。正規性を仮定。<br>' : ''}
+            • <b>バリマックス</b>: 因子間無相関を仮定。<b>プロマックス</b>: 因子間相関を許容（心理尺度に多い）。<br>
+            • <b>PAF vs PCA</b>: 共通因子モデルにはPAFが理論的に適切（Fabrigar et al., 1999）。
         </div></div>`;
 
         out.innerHTML += h;
 
-        // スクリープロット描画
+        // スクリープロット描画 (PA 95%点ライン付き)
         const screeVals = pcaValues.slice(0, displayCount);
+        const screeDatasets = [
+            { label: '固有値', data: screeVals,
+              borderColor:'#4f46e5', backgroundColor:'rgba(79,70,229,0.08)',
+              pointBackgroundColor: screeVals.map((_,i) => i < m ? '#4f46e5' : '#94a3b8'),
+              pointRadius: screeVals.map((_,i) => i < m ? 7 : 5),
+              fill: true, tension: 0.3, borderWidth: 2 },
+            { label: 'カイザー基準 (λ=1)', data: screeVals.map(() => 1),
+              borderColor:'#ef4444', borderDash:[6,4], borderWidth:2,
+              pointRadius:0, fill:false }
+        ];
+        if (paResult.pa95 && paResult.pa95.length > 0) {
+            screeDatasets.push({
+                label: '平行分析 95%点 (PA)',
+                data: paResult.pa95.slice(0, displayCount),
+                borderColor:'#10b981', borderDash:[4,3], borderWidth:2,
+                pointRadius:0, fill:false
+            });
+        }
         renderChartAsImage(screeId, {
             type: 'line',
-            data: {
-                labels: screeVals.map((_,i)=>`F${i+1}`),
-                datasets: [
-                    { label: '固有値', data: screeVals,
-                      borderColor:'#4f46e5', backgroundColor:'rgba(79,70,229,0.08)',
-                      pointBackgroundColor: screeVals.map((_,i)=>i<m?'#4f46e5':'#94a3b8'),
-                      pointRadius: screeVals.map((_,i)=>i<m?7:5),
-                      fill: true, tension: 0.3, borderWidth: 2 },
-                    { label: 'カイザー基準 (λ=1)', data: screeVals.map(()=>1),
-                      borderColor:'#ef4444', borderDash:[6,4], borderWidth:2,
-                      pointRadius:0, fill:false }
-                ]
-            },
+            data: { labels: screeVals.map((_,i) => `F${i+1}`), datasets: screeDatasets },
             options: {
                 maintainAspectRatio: false,
                 scales: {
-                    y: { title:{display:true,text:'固有値 (Eigenvalue)'}, min:0 },
-                    x: { title:{display:true,text:'因子番号'} }
+                    y: { title:{display:true, text:'固有値 (Eigenvalue)'}, min:0 },
+                    x: { title:{display:true, text:'因子番号'} }
                 },
                 plugins: {
                     title: { display:true, text:'スクリープロット (Scree Plot)', font:{size:14} },
