@@ -62,6 +62,7 @@ function startWithMode(modeKey) {
     gears: [], gearFlags: {},
     pendingGearDrops: 0,
     nextWaveEnemyReduction: 0,
+    power: 0, powerMax: 500,
     spawnPoints: [],
     flowField: null, flowFieldDirty: false,
     cam: { x: 0, y: 0 },
@@ -144,7 +145,12 @@ function loop(ts) {
   updateHUD();
 }
 
+let _tickCount = 0;
 function tick() {
+  _tickCount++;
+  if (gs.upgrades.solarPanel && _tickCount % 60 === 0) {
+    gs.power = Math.min(gs.powerMax || 500, (gs.power || 0) + 1);
+  }
   for (let y = 0; y < C.ROWS; y++) {
     for (let x = 0; x < C.COLS; x++) {
       const cell = gs.map.grid[y][x];
@@ -294,6 +300,14 @@ function updateHUD() {
   const hp = Math.max(0, gs.coreHp);
   document.getElementById('core-hp-text').textContent = Math.ceil(hp);
   document.getElementById('core-hp-fill').style.width = (hp / gs.coreMaxHp * 100) + '%';
+
+  const pw = Math.floor(gs.power || 0);
+  const pwMax = gs.powerMax || 500;
+  document.getElementById('power-text').textContent = `${pw}/${pwMax}`;
+  const pwRatio = pw / pwMax;
+  const pwFill = document.getElementById('power-fill');
+  pwFill.style.width = (pwRatio * 100) + '%';
+  pwFill.style.background = pwRatio < 0.15 ? '#ff3333' : pwRatio < 0.4 ? '#ffaa22' : '#33aaff';
 
   const goal = gs.resources[gs.goalItem] || 0;
   document.getElementById('goal-fill').style.width = (Math.min(1, goal / gs.goalTarget) * 100) + '%';

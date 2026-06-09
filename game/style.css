@@ -59,9 +59,10 @@ body { background: #0a0a0f; color: #e0e0e0; font-family: 'Courier New', monospac
 .hud-label { font-size: 0.6rem; color: #555; letter-spacing: 0.1em; }
 .hud-value { font-size: 0.85rem; color: #ff6b35; font-weight: bold; }
 .hud-value.small { font-size: 0.72rem; }
-#core-hp-bar, #goal-bar { width: 72px; height: 7px; background: #1a1a1a; border: 1px solid #333; }
+#core-hp-bar, #goal-bar, #power-bar { width: 72px; height: 7px; background: #1a1a1a; border: 1px solid #333; }
 #core-hp-fill { height: 100%; background: #ff3333; width: 100%; transition: width 0.3s; }
 #goal-fill    { height: 100%; background: #44ffaa; width: 0%;   transition: width 0.3s; }
+#power-fill   { height: 100%; background: #33aaff; width: 0%;   transition: width 0.3s, background 0.5s; }
 .hud-phase { font-size: 0.65rem; letter-spacing: 0.1em; padding: 0.15rem 0.5rem; border: 1px solid; }
 .hud-phase.build { color: #44ff88; border-color: #2a6644; }
 .hud-phase.wave  { color: #ff4444; border-color: #882222; }

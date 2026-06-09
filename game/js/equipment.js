@@ -239,15 +239,19 @@ const EQ_DEF = {
   laser: {
     name: 'Laser', icon: '🔴', color: '#442233', unlocked: false,
     cost: { iron_plate: 10, copper_plate: 5, circuit: 3 },
-    desc: '高威力レーザー砲。射程が長い。潤滑油をストレージに持つとクールダウン半減。',
+    desc: '高威力レーザー砲。射程が長い。電力×3消費。潤滑油でクールダウン半減。',
+    powerCost: 3,
     onTick(cell, gs) {
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
+      const pwCost = Math.max(0, (EQ_DEF.laser.powerCost) - (gs.upgrades.powerEfficiency || 0));
+      if ((gs.power || 0) < pwCost) return;
       const range = gs.upgrades.infiniteRange ? 99999 : (gs.upgrades.turretRange || 4) * C.CELL * 2;
       const dmg   = (gs.upgrades.turretDmg || 15) * 3 * (gs.upgrades.turretDmgMult || 1);
       const cx    = cell.x * C.CELL + C.CELL / 2;
       const cy    = cell.y * C.CELL + C.CELL / 2;
       const best  = nearestEnemy(cx, cy, range, gs);
       if (!best) return;
+      gs.power -= pwCost;
       let actualDmg = dmg;
       if (hasGear(gs, 'black_powder') && best.hp < best.maxHp * 0.3) actualDmg *= 1.5;
       best.hp -= actualDmg;
@@ -261,12 +265,12 @@ const EQ_DEF = {
   generator: {
     name: 'Generator', icon: '🔌', color: '#225544', unlocked: false,
     cost: { iron_plate: 5, copper_plate: 3 },
-    desc: 'コークス×1を消費して電力+10を生産（将来の電力システム用）。',
+    desc: 'コークス×1を消費して電力+10を生産（毎300tick）。上限はpowerMax。',
     onTick(cell, gs) {
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
       if ((gs.resources[C.RES.COKE] || 0) < 1) return;
       gs.resources[C.RES.COKE]--;
-      gs.power = (gs.power || 0) + 10;
+      gs.power = Math.min(gs.powerMax || 500, (gs.power || 0) + 10);
       cell.equipment.timer = 300;
     }
   },
@@ -334,7 +338,8 @@ const EQ_DEF = {
   chem_plant: {
     name: 'Chem Plant', icon: '⚗', color: '#1e3322', unlocked: false,
     cost: { iron_plate: 8, copper_plate: 5, circuit: 2 },
-    desc: '左クリックでレシピ切替（6種）。全入出力はグローバルストレージ経由。',
+    desc: '左クリックでレシピ切替（6種）。全入出力はグローバルストレージ経由。電力×2消費。',
+    powerCost: 2,
     recipes: [
       { id:'plastic',     name:'プラスチック棒', icon:'🟡', inputs:{ [C.RES.PETRO_GAS]:3, [C.RES.COAL]:2 },           output:C.RES.PLASTIC,       count:2, time:240 },
       { id:'lubricant',   name:'潤滑油',         icon:'🟠', inputs:{ [C.RES.HEAVY_OIL]:3 },                            output:C.RES.LUBRICANT,     count:4, time:200 },
@@ -345,11 +350,14 @@ const EQ_DEF = {
     ],
     onTick(cell, gs) {
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
+      const pwCost = Math.max(0, (EQ_DEF.chem_plant.powerCost) - (gs.upgrades.powerEfficiency || 0));
+      if ((gs.power || 0) < pwCost) return;
       const recipe = EQ_DEF[C.EQ.CHEM_PLANT].recipes[cell.equipment.recipeIdx || 0];
       const save = gs.upgrades.chemSave ? 1 : 0;
       for (const [res, amt] of Object.entries(recipe.inputs)) {
         if ((gs.resources[res] || 0) < Math.max(1, amt - save)) return;
       }
+      gs.power -= pwCost;
       for (const [res, amt] of Object.entries(recipe.inputs)) {
         gs.resources[res] -= Math.max(1, amt - save);
       }
@@ -373,10 +381,14 @@ const EQ_DEF = {
   electrolyzer: {
     name: 'Electrolyzer', icon: '⚡', color: '#1a2244', unlocked: false,
     cost: { iron_plate: 8, copper_plate: 8, circuit: 3 },
-    desc: '水×2→水素×2＋酸素×1。水素は化学合成・酸素は爆薬生産に使用できる。',
+    desc: '水×2→水素×2＋酸素×1。電力×2消費。',
+    powerCost: 2,
     onTick(cell, gs) {
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
+      const pwCost = Math.max(0, (EQ_DEF.electrolyzer.powerCost) - (gs.upgrades.powerEfficiency || 0));
+      if ((gs.power || 0) < pwCost) return;
       if ((gs.resources[C.RES.WATER] || 0) < 2) return;
+      gs.power -= pwCost;
       gs.resources[C.RES.WATER] -= 2;
       cell.equipment.timer = Math.floor(gs.upgrades.chemSpeed || 150);
       addRes(gs, C.RES.HYDROGEN, 2);
@@ -387,7 +399,8 @@ const EQ_DEF = {
   adv_assembler: {
     name: 'Adv. Assembler', icon: '🤖', color: '#1a3322', unlocked: false,
     cost: { iron_plate: 12, copper_plate: 6, circuit: 5 },
-    desc: '左クリックでレシピ切替（3種）。全リソースはストレージから直接消費する。',
+    desc: '左クリックでレシピ切替（3種）。全リソースはストレージから直接消費する。電力×3消費。',
+    powerCost: 3,
     recipes: [
       { id:'adv_circuit', name:'高度回路基板', icon:'💚', inputs:{ [C.RES.CIRCUIT]:2, [C.RES.PLASTIC]:2, [C.RES.REFINED_COPPER]:1 }, output:C.RES.ADV_CIRCUIT,    count:1, time:400 },
       { id:'lubri_gear',  name:'潤滑ギア',    icon:'⚙',  inputs:{ [C.RES.IRON_PLATE]:3, [C.RES.LUBRICANT]:1 },                     output:C.RES.CIRCUIT,        count:3, time:300 },
@@ -395,10 +408,13 @@ const EQ_DEF = {
     ],
     onTick(cell, gs) {
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
+      const pwCost = Math.max(0, (EQ_DEF.adv_assembler.powerCost) - (gs.upgrades.powerEfficiency || 0));
+      if ((gs.power || 0) < pwCost) return;
       const recipe = EQ_DEF[C.EQ.ADV_ASSEMBLER].recipes[cell.equipment.recipeIdx || 0];
       for (const [res, amt] of Object.entries(recipe.inputs)) {
         if ((gs.resources[res] || 0) < amt) return;
       }
+      gs.power -= pwCost;
       for (const [res, amt] of Object.entries(recipe.inputs)) {
         gs.resources[res] -= amt;
       }

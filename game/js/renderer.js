@@ -289,6 +289,13 @@ function drawEquipment(ctx, cell, px, py, cs, gs) {
   ctx.font = '14px serif'; ctx.textAlign = 'center';
   ctx.fillStyle = '#fff';
   ctx.fillText(def.icon, px + cs / 2, py + cs / 2 + 5);
+
+  // Low-power warning for electricity-consuming machines
+  if (def.powerCost > 0 && (gs.power || 0) < def.powerCost) {
+    ctx.font = '9px sans-serif'; ctx.fillStyle = '#ff4444';
+    ctx.fillText('⚡✗', px + cs / 2, py + 9);
+  }
+
   ctx.textAlign = 'left';
 }
 

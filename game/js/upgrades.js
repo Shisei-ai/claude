@@ -198,6 +198,28 @@ const UPGRADE_POOL = [
     apply(gs) { gs.upgrades.overcharge = true; }
   },
 
+  // ── Power ──────────────────────────────────────────────
+  {
+    id: 'power_capacity', name: '大容量電池', icon: '🔋', rarity: 'rare',
+    tags: ['utility', 'chemistry'],
+    desc: '電力最大容量が500増加する（重ねがけ可）',
+    apply(gs) { gs.powerMax = (gs.powerMax || 500) + 500; }
+  },
+  {
+    id: 'power_efficiency', name: '省電力回路', icon: '💡', rarity: 'rare',
+    tags: ['chemistry'],
+    desc: '全電力消費設備の消費量が1減少する（最低0）',
+    onlyIf: gs => !gs.upgrades.powerEfficiency,
+    apply(gs) { gs.upgrades.powerEfficiency = 1; }
+  },
+  {
+    id: 'solar_panel', name: '太陽光パネル', icon: '☀', rarity: 'epic',
+    tags: ['utility', 'chemistry'],
+    desc: '毎60tickに電力+1を無条件で補充する（コークス不要の継続電源）',
+    onlyIf: gs => !gs.upgrades.solarPanel,
+    apply(gs) { gs.upgrades.solarPanel = true; }
+  },
+
   // ── Utility ────────────────────────────────────────────
   {
     id: 'core_heal', name: '緊急修復', icon: '🛡', rarity: 'common',
