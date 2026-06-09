@@ -155,7 +155,7 @@ function tick() {
     for (let x = 0; x < C.COLS; x++) {
       const cell = gs.map.grid[y][x];
       cell.x = x; cell.y = y;
-      if (cell.equipment) EQ_DEF[cell.equipment.type]?.onTick?.(cell, gs);
+      if (cell.equipment && cell.equipment.type !== '_occ') EQ_DEF[cell.equipment.type]?.onTick?.(cell, gs);
     }
   }
 }
@@ -380,12 +380,17 @@ function setupCanvas() {
     const cell = gs.map.grid[gy][gx];
     if (cell.terrain === C.CORE) return;
 
-    if (cell.equipment) {
-      const t = cell.equipment.type;
+    // resolve _occ satellite cells to root for interaction
+    const rootCell = (cell.equipment?.type === '_occ')
+      ? gs.map.grid[cell.equipment.rootY][cell.equipment.rootX]
+      : cell;
+
+    if (rootCell.equipment) {
+      const t = rootCell.equipment.type;
       if (t === C.EQ.CHEM_PLANT || t === C.EQ.ADV_ASSEMBLER) {
         const recipes = EQ_DEF[t].recipes;
-        cell.equipment.recipeIdx = ((cell.equipment.recipeIdx || 0) + 1) % recipes.length;
-        const recipe = recipes[cell.equipment.recipeIdx];
+        rootCell.equipment.recipeIdx = ((rootCell.equipment.recipeIdx || 0) + 1) % recipes.length;
+        const recipe = recipes[rootCell.equipment.recipeIdx];
         document.getElementById('tool-info').innerHTML = `<div>レシピ切替: ${recipe.icon} <b>${recipe.name}</b></div>`;
         return;
       }
@@ -394,12 +399,33 @@ function setupCanvas() {
 
     const def = EQ_DEF[gs.selectedTool];
     if (!def || def.unlocked === false) return;
+
+    const sz  = def.size || 1;
+    // validate footprint
+    for (let dy = 0; dy < sz; dy++) {
+      for (let dx = 0; dx < sz; dx++) {
+        const fx = gx + dx, fy = gy + dy;
+        if (!inBounds(fx, fy)) return;
+        const fc = gs.map.grid[fy][fx];
+        if (fc.terrain === C.CORE) return;
+        if (fc.equipment) return;
+      }
+    }
     if (gs.selectedTool === C.EQ.MINER    && !def.validTerrain.includes(cell.terrain)) return;
     if (gs.selectedTool === C.EQ.OIL_PUMP && cell.terrain !== C.OIL_WELL)             return;
     if (!canAffordEquipment(gs.selectedTool, gs)) { flashInfo('リソース不足！ ' + formatEquipmentCost(gs.selectedTool)); return; }
 
     deductEquipmentCost(gs.selectedTool, gs);
     cell.equipment = makeEquipment(gs.selectedTool, gs.selectedDir);
+    // mark satellite cells for 2×2 machines
+    if (sz === 2) {
+      for (let dy = 0; dy < sz; dy++) {
+        for (let dx = 0; dx < sz; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          gs.map.grid[gy + dy][gx + dx].equipment = { type: '_occ', rootX: gx, rootY: gy };
+        }
+      }
+    }
     if (gs.selectedTool === C.EQ.WALL) gs.flowFieldDirty = true;
     buildSidebar();
   });
@@ -412,12 +438,24 @@ function setupCanvas() {
     const gy = Math.floor((e.clientY - r.top)  / C.CELL + gs.cam.y);
     if (!inBounds(gx, gy)) return;
     const cell = gs.map.grid[gy][gx];
-    if (cell.equipment) {
-      const cost = EQ_DEF[cell.equipment.type]?.cost || {};
+    let rx = gx, ry = gy, rc = cell;
+    if (cell.equipment?.type === '_occ') {
+      rx = cell.equipment.rootX; ry = cell.equipment.rootY;
+      rc = gs.map.grid[ry][rx];
+    }
+    if (rc.equipment && rc.equipment.type !== '_occ') {
+      const t    = rc.equipment.type;
+      const cost = EQ_DEF[t]?.cost || {};
       const rate = hasGear(gs, 'memory_alloy') ? 1.0 : 0.5;
       for (const [k, v] of Object.entries(cost)) addRes(gs, k, Math.floor(v * rate));
-      if (cell.equipment.type === C.EQ.WALL) gs.flowFieldDirty = true;
-      cell.equipment = null; cell.item = null;
+      if (t === C.EQ.WALL) gs.flowFieldDirty = true;
+      const sz = EQ_DEF[t]?.size || 1;
+      for (let dy = 0; dy < sz; dy++) {
+        for (let dx = 0; dx < sz; dx++) {
+          const fc = gs.map.grid[ry + dy][rx + dx];
+          fc.equipment = null; fc.item = null;
+        }
+      }
       buildSidebar();
     }
   });
