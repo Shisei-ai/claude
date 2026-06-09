@@ -44,7 +44,7 @@ const UPGRADE_POOL = [
     id: 'assembler_speed', name: 'ロボット組立', icon: '⚙', rarity: 'common',
     tags: ['production'],
     desc: '組立速度が50%向上する',
-    apply(gs) { gs.upgrades.assemblerSpeed = Math.floor((gs.upgrades.assemblerSpeed || 300) * 0.5); }
+    apply(gs) { gs.upgrades.assemblerSpeed = Math.floor((gs.upgrades.assemblerSpeed || 240) * 0.5); }
   },
   {
     id: 'assembler_yield', name: '量産ライン', icon: '📦', rarity: 'rare',

@@ -19,21 +19,21 @@ const MODES = {
     desc: '通常ルール。設備建設にはリソースが必要。化学設備はアップグレードで解放。',
     sub: '敵: 通常 / イベント: 50% / 選択肢: 3択',
     enemyMult: 1.0, eventChance: 0.5, upgradeCount: 3,
-    startRes: { iron_plate: 8, copper_plate: 4 }, unlockAll: false,
+    startRes: { iron_plate: 10, copper_plate: 5 }, unlockAll: false,
   },
   industrial: {
     label: 'INDUSTRIAL', icon: '🏭',
     desc: '初期リソースは鉱石のみ。自力で経済を構築せよ。敵が強化されているが報酬も豪華。',
     sub: '敵: +20%強化 / イベント: 75% / 選択肢: 3択',
     enemyMult: 1.2, eventChance: 0.75, upgradeCount: 3,
-    startRes: { iron_ore: 30, copper_ore: 15, coal: 10, sulfur: 5 }, unlockAll: false,
+    startRes: { iron_ore: 30, copper_ore: 20, coal: 15, iron_plate: 3 }, unlockAll: false,
   },
   chaos: {
     label: 'CHAOS', icon: '💀',
     desc: '化学設備が最初から全て解放。敵は大幅に強化されるが選択肢が豊富。毎Wave必ずイベント。',
     sub: '敵: +50%強化 / イベント: 必ず / 選択肢: 4択',
     enemyMult: 1.5, eventChance: 1.0, upgradeCount: 4,
-    startRes: { iron_plate: 5, copper_plate: 3, iron_ore: 20, coal: 10 }, unlockAll: true,
+    startRes: { iron_plate: 8, copper_plate: 5, iron_ore: 20, coal: 10 }, unlockAll: true,
   },
 };
 

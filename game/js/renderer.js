@@ -253,7 +253,7 @@ function drawEquipment(ctx, cell, px, py, cs, gs) {
   if (eq.type === C.EQ.FURNACE && eq.inputItem)
     drawProgressBar(ctx, px, py, cs, 1 - eq.timer / maxFurnace, '#ff6622');
 
-  const maxAssembler = gs.upgrades.assemblerSpeed || 300;
+  const maxAssembler = gs.upgrades.assemblerSpeed || 240;
   if (eq.type === C.EQ.ASSEMBLER && eq.crafting)
     drawProgressBar(ctx, px, py, cs, 1 - eq.timer / maxAssembler, '#22cc66');
 
@@ -262,7 +262,7 @@ function drawEquipment(ctx, cell, px, py, cs, gs) {
     drawProgressBar(ctx, px, py, cs, 1 - eq.timer / maxChem, '#44ccaa');
 
   if (eq.type === C.EQ.ADV_ASSEMBLER && eq.timer > 0)
-    drawProgressBar(ctx, px, py, cs, 1 - eq.timer / (gs.upgrades.assemblerSpeed || 400), '#44ffaa');
+    drawProgressBar(ctx, px, py, cs, 1 - eq.timer / (gs.upgrades.assemblerSpeed || 300), '#44ffaa');
 
   if (eq.type === C.EQ.DISTILLATION && eq.timer > 0)
     drawProgressBar(ctx, px, py, cs, 1 - eq.timer / 200, '#88ccaa');

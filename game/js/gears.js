@@ -20,7 +20,7 @@ const GEAR_POOL = [
       gs.upgrades.minerSpeed     = Math.floor((gs.upgrades.minerSpeed     || 120) * 0.83);
       gs.upgrades.conveyorSpeed  = Math.floor((gs.upgrades.conveyorSpeed  ||  60) * 0.83);
       gs.upgrades.furnaceSpeed   = Math.floor((gs.upgrades.furnaceSpeed   || 180) * 0.83);
-      gs.upgrades.assemblerSpeed = Math.floor((gs.upgrades.assemblerSpeed || 300) * 0.83);
+      gs.upgrades.assemblerSpeed = Math.floor((gs.upgrades.assemblerSpeed || 240) * 0.83);
       gs.upgrades.chemSpeed      = Math.floor((gs.upgrades.chemSpeed      || 240) * 0.83);
     }
   },
@@ -213,7 +213,7 @@ const GEAR_POOL = [
       gs.upgrades.minerSpeed     = Math.floor((gs.upgrades.minerSpeed     || 120) * 0.67);
       gs.upgrades.conveyorSpeed  = Math.floor((gs.upgrades.conveyorSpeed  ||  60) * 0.67);
       gs.upgrades.furnaceSpeed   = Math.floor((gs.upgrades.furnaceSpeed   || 180) * 0.67);
-      gs.upgrades.assemblerSpeed = Math.floor((gs.upgrades.assemblerSpeed || 300) * 0.67);
+      gs.upgrades.assemblerSpeed = Math.floor((gs.upgrades.assemblerSpeed || 240) * 0.67);
       gs.gearFlags.extraEnemies  = (gs.gearFlags.extraEnemies || 0) + 0.2;
     }
   },

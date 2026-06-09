@@ -86,7 +86,7 @@ const EQ_DEF = {
 
   furnace: {
     name: 'Furnace', icon: '🔥', color: '#553322', unlocked: true,
-    cost: { iron_plate: 3 },
+    cost: { iron_plate: 2 },
     desc: '鉄鉱石→鉄板 / 銅鉱石→銅板。コンベア未接続時はストレージから自動消費。',
     recipes: {
       [C.RES.IRON_ORE]:   C.RES.IRON_PLATE,
@@ -120,7 +120,7 @@ const EQ_DEF = {
 
   assembler: {
     name: 'Assembler', icon: '⚙', color: '#224433', unlocked: true,
-    cost: { iron_plate: 5, copper_plate: 3 },
+    cost: { iron_plate: 4, copper_plate: 2 },
     desc: '鉄板+銅板→回路基板。コンベアで投入。出力はコンベアまたはストレージへ。',
     recipe: { inputs: { [C.RES.IRON_PLATE]: 1, [C.RES.COPPER_PLATE]: 1 }, output: C.RES.CIRCUIT },
     canAccept(item, cell, _gs) {
@@ -136,11 +136,30 @@ const EQ_DEF = {
       if (ready && !cell.equipment.crafting) {
         for (const k in r.inputs) inv[k] -= r.inputs[k];
         cell.equipment.crafting = true;
-        cell.equipment.timer = Math.floor(gs.upgrades.assemblerSpeed || 300);
+        cell.equipment.timer = Math.floor(gs.upgrades.assemblerSpeed || 240);
       }
     },
     onTick(cell, gs) {
-      if (!cell.equipment.crafting) return;
+      if (!cell.equipment.crafting) {
+        const r   = EQ_DEF.assembler.recipe;
+        const inv = cell.equipment.inventory;
+        let allMet = true;
+        for (const [res, need] of Object.entries(r.inputs)) {
+          const have = inv[res] || 0;
+          const deficit = need - have;
+          if (deficit > 0) {
+            const pull = Math.min(deficit, gs.resources[res] || 0);
+            if (pull > 0) { gs.resources[res] -= pull; inv[res] = have + pull; }
+            if ((inv[res] || 0) < need) allMet = false;
+          }
+        }
+        if (allMet) {
+          for (const k in r.inputs) inv[k] -= r.inputs[k];
+          cell.equipment.crafting = true;
+          cell.equipment.timer = Math.floor(gs.upgrades.assemblerSpeed || 240);
+        }
+        if (!cell.equipment.crafting) return;
+      }
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
       cell.equipment.crafting = false;
       const out   = EQ_DEF.assembler.recipe.output;
@@ -156,7 +175,7 @@ const EQ_DEF = {
 
   turret: {
     name: 'Turret', icon: '🔫', color: '#334422', unlocked: true,
-    cost: { iron_plate: 5, copper_plate: 2 },
+    cost: { iron_plate: 4, copper_plate: 2 },
     desc: '射程内の最も近い敵を自動攻撃する。',
     onTick(cell, gs) {
       if (gs.upgrades.wallRegen) {
@@ -173,7 +192,7 @@ const EQ_DEF = {
 
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
       const range  = gs.upgrades.infiniteRange ? 99999 : (gs.upgrades.turretRange || 4) * C.CELL;
-      const dmg    = (gs.upgrades.turretDmg || 15) * (gs.upgrades.turretDmgMult || 1);
+      const dmg    = (gs.upgrades.turretDmg || 20) * (gs.upgrades.turretDmgMult || 1);
       const rate   = gs.upgrades.turretFireRate || 1;
       const cx     = cell.x * C.CELL + C.CELL / 2;
       const cy     = cell.y * C.CELL + C.CELL / 2;
@@ -224,7 +243,7 @@ const EQ_DEF = {
 
   wall: {
     name: 'Wall', icon: '🧱', color: '#443322', unlocked: true,
-    cost: { iron_plate: 2 },
+    cost: { iron_plate: 1 },
     desc: '敵の進路を塞ぐ壁。HPあり。iron_curtainギアで自然回復、era_armorギアでHP3倍。',
     hp: 200,
     onTick(cell, gs) {
@@ -238,9 +257,9 @@ const EQ_DEF = {
 
   laser: {
     name: 'Laser', icon: '🔴', color: '#442233', unlocked: false,
-    cost: { iron_plate: 10, copper_plate: 5, circuit: 3 },
-    desc: '高威力レーザー砲。射程が長い。電力×3消費。潤滑油でクールダウン半減。',
-    powerCost: 3,
+    cost: { iron_plate: 8, copper_plate: 4, circuit: 3 },
+    desc: '高威力レーザー砲。射程が長い。電力×2消費。潤滑油でクールダウン半減。',
+    powerCost: 2,
     onTick(cell, gs) {
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
       const pwCost = Math.max(0, (EQ_DEF.laser.powerCost) - (gs.upgrades.powerEfficiency || 0));
@@ -264,13 +283,13 @@ const EQ_DEF = {
 
   generator: {
     name: 'Generator', icon: '🔌', color: '#225544', unlocked: false,
-    cost: { iron_plate: 5, copper_plate: 3 },
-    desc: 'コークス×1を消費して電力+10を生産（毎300tick）。上限はpowerMax。',
+    cost: { iron_plate: 6, copper_plate: 3 },
+    desc: 'コークス×1を消費して電力+15を生産（毎300tick）。上限はpowerMax。',
     onTick(cell, gs) {
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
       if ((gs.resources[C.RES.COKE] || 0) < 1) return;
       gs.resources[C.RES.COKE]--;
-      gs.power = Math.min(gs.powerMax || 500, (gs.power || 0) + 10);
+      gs.power = Math.min(gs.powerMax || 500, (gs.power || 0) + 15);
       cell.equipment.timer = 300;
     }
   },
@@ -304,13 +323,13 @@ const EQ_DEF = {
 
   coke_oven: {
     name: 'Coke Oven', icon: '🟤', color: '#332211', unlocked: true,
-    cost: { iron_plate: 4, copper_plate: 1 },
+    cost: { iron_plate: 3 },
     desc: '石炭×2→コークス×1。発電機の燃料・高品質製錬の素材になる。',
     onTick(cell, gs) {
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
       if ((gs.resources[C.RES.COAL] || 0) < 2) return;
       gs.resources[C.RES.COAL] -= 2;
-      cell.equipment.timer = 180;
+      cell.equipment.timer = 150;
       // ancient_fire gear: double output
       addRes(gs, C.RES.COKE, gs.gearFlags?.doubleCokeYield ? 2 : 1);
     }
@@ -318,7 +337,7 @@ const EQ_DEF = {
 
   distillation: {
     name: 'Distillation', icon: '🏭', color: '#334433', unlocked: false,
-    cost: { iron_plate: 10, copper_plate: 5 },
+    cost: { iron_plate: 8, copper_plate: 4 },
     desc: '原油×3→石油ガス×2＋軽油×2＋重油×1に分留する。',
     onTick(cell, gs) {
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
@@ -337,7 +356,7 @@ const EQ_DEF = {
 
   chem_plant: {
     name: 'Chem Plant', icon: '⚗', color: '#1e3322', unlocked: false,
-    cost: { iron_plate: 8, copper_plate: 5, circuit: 2 },
+    cost: { iron_plate: 6, copper_plate: 4, circuit: 2 },
     desc: '左クリックでレシピ切替（6種）。全入出力はグローバルストレージ経由。電力×2消費。',
     powerCost: 2,
     recipes: [
@@ -380,7 +399,7 @@ const EQ_DEF = {
 
   electrolyzer: {
     name: 'Electrolyzer', icon: '⚡', color: '#1a2244', unlocked: false,
-    cost: { iron_plate: 8, copper_plate: 8, circuit: 3 },
+    cost: { iron_plate: 8, copper_plate: 6, circuit: 2 },
     desc: '水×2→水素×2＋酸素×1。電力×2消費。',
     powerCost: 2,
     onTick(cell, gs) {
@@ -398,13 +417,13 @@ const EQ_DEF = {
 
   adv_assembler: {
     name: 'Adv. Assembler', icon: '🤖', color: '#1a3322', unlocked: false,
-    cost: { iron_plate: 12, copper_plate: 6, circuit: 5 },
+    cost: { iron_plate: 10, copper_plate: 5, circuit: 4 },
     desc: '左クリックでレシピ切替（3種）。全リソースはストレージから直接消費する。電力×3消費。',
     powerCost: 3,
     recipes: [
-      { id:'adv_circuit', name:'高度回路基板', icon:'💚', inputs:{ [C.RES.CIRCUIT]:2, [C.RES.PLASTIC]:2, [C.RES.REFINED_COPPER]:1 }, output:C.RES.ADV_CIRCUIT,    count:1, time:400 },
-      { id:'lubri_gear',  name:'潤滑ギア',    icon:'⚙',  inputs:{ [C.RES.IRON_PLATE]:3, [C.RES.LUBRICANT]:1 },                     output:C.RES.CIRCUIT,        count:3, time:300 },
-      { id:'expl_shell',  name:'爆発弾頭',    icon:'💣',  inputs:{ [C.RES.EXPLOSIVES]:2, [C.RES.IRON_PLATE]:1 },                    output:C.RES.EXPLOSIVES,     count:3, time:250 },
+      { id:'adv_circuit', name:'高度回路基板', icon:'💚', inputs:{ [C.RES.CIRCUIT]:2, [C.RES.PLASTIC]:2, [C.RES.REFINED_COPPER]:1 }, output:C.RES.ADV_CIRCUIT,    count:1, time:300 },
+      { id:'lubri_gear',  name:'潤滑ギア',    icon:'⚙',  inputs:{ [C.RES.IRON_PLATE]:3, [C.RES.LUBRICANT]:1 },                     output:C.RES.CIRCUIT,        count:3, time:240 },
+      { id:'expl_shell',  name:'爆発弾頭',    icon:'💣',  inputs:{ [C.RES.EXPLOSIVES]:2, [C.RES.IRON_PLATE]:1 },                    output:C.RES.EXPLOSIVES,     count:3, time:200 },
     ],
     onTick(cell, gs) {
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
