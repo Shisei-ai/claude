@@ -1,60 +1,92 @@
-function generateMap() {
+// ── Grid helpers ──────────────────────────────────────────
+function makeGrid() {
   const grid = [];
   for (let y = 0; y < C.ROWS; y++) {
     grid[y] = [];
     for (let x = 0; x < C.COLS; x++)
       grid[y][x] = { terrain: C.EMPTY, equipment: null, item: null };
   }
+  return grid;
+}
 
-  // 3×3 core block at center
-  for (let dy = 0; dy < 3; dy++)
-    for (let dx = 0; dx < 3; dx++)
-      grid[C.CORE_Y + dy][C.CORE_X + dx].terrain = C.CORE;
-
-  // Ore patches — fewer, denser to match smaller map
-  const patchDefs = [
-    { terrain: C.IRON_ORE,   count: 4 },
-    { terrain: C.COPPER_ORE, count: 3 },
-    { terrain: C.COAL,       count: 3 },
-    { terrain: C.OIL_WELL,   count: 2 },
-    { terrain: C.SULFUR_DEP, count: 1 },
-  ];
-
+function placePatches(grid, patchDefs, opts = {}) {
+  const patchSize = opts.patchSize || 2;
   const occupied = new Set();
 
-  // Core area + 5-cell buffer
-  for (let dy = -5; dy < 8; dy++)
-    for (let dx = -5; dx < 8; dx++) {
-      const bx = C.CORE_X + dx, by = C.CORE_Y + dy;
-      if (bx >= 0 && by >= 0 && bx < C.COLS - 1 && by < C.ROWS - 1)
-        occupied.add(`${bx},${by}`);
-    }
+  // Keep a buffer around the core so spawn lanes stay open
+  if (opts.coreBuffer) {
+    for (let dy = -5; dy < 8; dy++)
+      for (let dx = -5; dx < 8; dx++) {
+        const bx = C.CORE_X + dx, by = C.CORE_Y + dy;
+        if (bx >= 0 && by >= 0 && bx < C.COLS - 1 && by < C.ROWS - 1)
+          occupied.add(`${bx},${by}`);
+      }
+  }
 
   for (const { terrain, count } of patchDefs) {
     let placed = 0, tries = 0;
     while (placed < count && tries < 2000) {
       tries++;
-      const px = 2 + Math.floor(Math.random() * (C.COLS - 4));
-      const py = 2 + Math.floor(Math.random() * (C.ROWS - 4));
+      const px = 2 + Math.floor(Math.random() * (C.COLS - 4 - patchSize));
+      const py = 2 + Math.floor(Math.random() * (C.ROWS - 4 - patchSize));
 
       let clear = true;
       outer:
-      for (let dy2 = -3; dy2 <= 4; dy2++)
-        for (let dx2 = -3; dx2 <= 4; dx2++)
-          if (occupied.has(`${px + dx2},${py + dy2}`)) { clear = false; break outer; }
+      for (let dy = -3; dy <= patchSize + 2; dy++)
+        for (let dx = -3; dx <= patchSize + 2; dx++)
+          if (occupied.has(`${px + dx},${py + dy}`)) { clear = false; break outer; }
       if (!clear) continue;
 
-      for (let dy2 = 0; dy2 < 2; dy2++)
-        for (let dx2 = 0; dx2 < 2; dx2++)
-          grid[py + dy2][px + dx2].terrain = terrain;
+      for (let dy = 0; dy < patchSize; dy++)
+        for (let dx = 0; dx < patchSize; dx++)
+          grid[py + dy][px + dx].terrain = terrain;
 
-      for (let dy2 = -2; dy2 <= 3; dy2++)
-        for (let dx2 = -2; dx2 <= 3; dx2++)
-          occupied.add(`${px + dx2},${py + dy2}`);
+      for (let dy = -2; dy <= patchSize + 1; dy++)
+        for (let dx = -2; dx <= patchSize + 1; dx++)
+          occupied.add(`${px + dx},${py + dy}`);
 
       placed++;
     }
   }
+}
 
-  return { grid, coreX: C.CORE_X + 1, coreY: C.CORE_Y + 1 };
+// ── Industrial map: no resources, no core ─────────────────
+//    Pure processing space: machines pull raw materials from
+//    the shared warehouse (filled by rogue-map nodes).
+function generateFactoryMap() {
+  return { grid: makeGrid(), hasCore: false };
+}
+
+// ── Battle mission map: core defense + minable ore ────────
+function generateBattleMap(depth, isBoss = false) {
+  const grid = makeGrid();
+  for (let dy = 0; dy < 3; dy++)
+    for (let dx = 0; dx < 3; dx++)
+      grid[C.CORE_Y + dy][C.CORE_X + dx].terrain = C.CORE;
+
+  const defs = [
+    { terrain: C.IRON_ORE,   count: 2 },
+    { terrain: C.COPPER_ORE, count: 2 },
+    { terrain: C.COAL,       count: 1 },
+  ];
+  if (depth >= 4) defs.push({ terrain: C.OIL_WELL,   count: 1 });
+  if (depth >= 5) defs.push({ terrain: C.SULFUR_DEP, count: 1 });
+  if (isBoss)     defs.push({ terrain: C.IRON_ORE,   count: 1 });
+
+  placePatches(grid, defs, { coreBuffer: true, patchSize: 2 });
+  return { grid, hasCore: true, coreX: C.CORE_X + 1, coreY: C.CORE_Y + 1 };
+}
+
+// ── Mining mission map: rich deposits, no core, no enemies ─
+function generateMiningMap(depth) {
+  const grid = makeGrid();
+  const defs = [
+    { terrain: C.IRON_ORE,   count: 4 },
+    { terrain: C.COPPER_ORE, count: 3 },
+    { terrain: C.COAL,       count: 3 },
+    { terrain: C.OIL_WELL,   count: 2 },
+    { terrain: C.SULFUR_DEP, count: depth >= 4 ? 2 : 1 },
+  ];
+  placePatches(grid, defs, { coreBuffer: false, patchSize: 3 });
+  return { grid, hasCore: false };
 }

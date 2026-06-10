@@ -57,9 +57,10 @@ function generateSpawnPoints(gs) {
 }
 
 // ── Wave Spawning ─────────────────────────────────────────
-function spawnWave(gs) {
+//  opts: { boss, elite, mult } — determined by rogue-map node type
+function spawnWave(gs, opts = {}) {
   const wave  = gs.wave;
-  const mult  = gs._enemyMult || 1;
+  const mult  = opts.mult || gs._enemyMult || 1;
   const extraFactor  = 1 + (gs.gearFlags?.extraEnemies || 0);
   const reduceFactor = 1 - Math.min(0.9, gs.nextWaveEnemyReduction || 0);
   gs.nextWaveEnemyReduction = 0;
@@ -68,7 +69,8 @@ function spawnWave(gs) {
   const speed = 0.6 + wave * 0.05;
   const dmg   = (5 + wave * 3) * mult;
 
-  const isBossWave = wave % 5 === 0 && wave > 0;
+  const isBossWave  = !!opts.boss;
+  const isEliteWave = !!opts.elite;
   const spawnPts = gs.spawnPoints?.length ? gs.spawnPoints : [{ x: C.COLS - 1, y: Math.floor(C.ROWS / 2) }];
 
   for (let i = 0; i < count; i++) {
@@ -78,8 +80,8 @@ function spawnWave(gs) {
     const sy = Math.max(0.5, Math.min(C.ROWS - 0.5, sp.y + 0.5 + (Math.random() - 0.5) * 3));
 
     const isBoss  = isBossWave && i === 0;
-    const isElite = !isBoss && wave >= 3 && i === 0;
-    const gearCarrier = isBoss ? true : (isElite && Math.random() < 0.40);
+    const isElite = !isBoss && (isEliteWave ? i < 2 : (wave >= 3 && i === 0));
+    const gearCarrier = isBoss ? true : (isElite && (isEliteWave ? i === 0 : Math.random() < 0.40));
 
     gs.enemies.push({
       x: sx * C.CELL, y: sy * C.CELL,

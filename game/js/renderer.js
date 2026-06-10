@@ -86,10 +86,10 @@ function render(canvas, gs) {
     }
   }
 
-  // Map border
+  // Map border — warmer tint while on a mission map
   const mx0 = Math.round(-cam.x * cs);
   const my0 = Math.round(-cam.y * cs);
-  ctx.strokeStyle = '#2a2a44';
+  ctx.strokeStyle = gs.view === 'mission' ? '#4a3450' : '#2a2a44';
   ctx.lineWidth = 2;
   ctx.strokeRect(mx0, my0, C.COLS * cs, C.ROWS * cs);
 
@@ -121,8 +121,11 @@ function render(canvas, gs) {
     }
   }
 
+  // Combat layer only renders on mission maps
+  const showCombat = gs.view === 'mission' && gs.mission;
+
   // Spawn point markers
-  if (gs.spawnPoints) {
+  if (showCombat && gs.spawnPoints) {
     for (const sp of gs.spawnPoints) {
       const sx = Math.round((sp.x - cam.x) * cs + cs / 2);
       const sy = Math.round((sp.y - cam.y) * cs + cs / 2);
@@ -140,7 +143,7 @@ function render(canvas, gs) {
   }
 
   // Enemies
-  for (const e of gs.enemies) {
+  for (const e of (showCombat ? gs.enemies : [])) {
     const sx = e.x - cam.x * cs;
     const sy = e.y - cam.y * cs;
     if (sx < -60 || sx > canvas.width + 60 || sy < -60 || sy > canvas.height + 60) continue;
@@ -177,7 +180,7 @@ function render(canvas, gs) {
   }
 
   // Projectiles
-  for (const p of gs.projectiles) {
+  for (const p of (showCombat ? gs.projectiles : [])) {
     ctx.strokeStyle = p.laser ? 'rgba(255,80,80,0.85)' : 'rgba(255,220,80,0.85)';
     ctx.lineWidth   = p.laser ? 2 : 1;
     ctx.beginPath();
@@ -187,7 +190,7 @@ function render(canvas, gs) {
   }
 
   // Hover ghost
-  if (gs.hover && gs.selectedTool && gs.state === 'build') {
+  if (gs.hover && gs.selectedTool && gs.state === 'play') {
     const { hx, hy } = gs.hover;
     const def   = EQ_DEF[gs.selectedTool];
     const cellSz = def?.size || 1;
@@ -614,6 +617,7 @@ function drawProgressBar(ctx, px, py, sz, progress, color) {
 function isHoverPlacementValid(gs, hx, hy, tool) {
   const def = EQ_DEF[tool];
   if (!def || def.unlocked === false) return false;
+  if (def.place === 'mission' && gs.view !== 'mission') return false;
   const sz = def.size || 1;
   for (let dy = 0; dy < sz; dy++) {
     for (let dx = 0; dx < sz; dx++) {

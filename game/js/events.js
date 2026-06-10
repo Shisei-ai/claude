@@ -5,10 +5,12 @@
 // ──────────────────────────────────────────────────────────
 
 function destroyRandomEquipment(gs, count) {
+  // Events strike the industrial map (missions are transient)
+  const grid = gs.factoryMap?.grid || gs.map.grid;
   const roots = [];
   for (let y = 0; y < C.ROWS; y++) {
     for (let x = 0; x < C.COLS; x++) {
-      const cell = gs.map.grid[y][x];
+      const cell = grid[y][x];
       if (cell.equipment && cell.equipment.type !== '_occ' && cell.terrain !== C.CORE)
         roots.push({ cell, x, y });
     }
@@ -24,8 +26,8 @@ function destroyRandomEquipment(gs, count) {
     for (let dy = 0; dy < sz; dy++) {
       for (let dx = 0; dx < sz; dx++) {
         if (inBounds(x + dx, y + dy)) {
-          gs.map.grid[y + dy][x + dx].equipment = null;
-          gs.map.grid[y + dy][x + dx].item      = null;
+          grid[y + dy][x + dx].equipment = null;
+          grid[y + dy][x + dx].item      = null;
         }
       }
     }

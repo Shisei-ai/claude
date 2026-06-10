@@ -98,9 +98,12 @@ const GEAR_POOL = [
     desc: '全Wallの最大HPが3倍になる（設置済み・新規設置両方）。',
     apply(gs) {
       gs.gearFlags.eraArmor = true;
+      // Walls only exist on mission maps
+      const grid = gs.mission?.map?.grid;
+      if (!grid) return;
       for (let y = 0; y < C.ROWS; y++) {
         for (let x = 0; x < C.COLS; x++) {
-          const eq = gs.map.grid[y][x].equipment;
+          const eq = grid[y][x].equipment;
           if (eq?.type === C.EQ.WALL) eq.hp = Math.min(eq.hp * 3, EQ_DEF.wall.hp * 3);
         }
       }

@@ -13,12 +13,13 @@
   <div id="title-screen" class="screen active">
     <div class="title-content">
       <h1>INDUSTRIAL<br><span>ROGUE</span></h1>
-      <p class="subtitle">工業設備でローグライクに生き残れ</p>
+      <p class="subtitle">工場を育て、ルートマップを踏破せよ</p>
       <button id="start-btn" class="btn-primary">START RUN</button>
       <div class="controls-hint">
-        <p>左クリック: 設備配置 / 右クリック: 撤去（50%還付） / R: 方向回転</p>
-        <p>矢印キー / WASD: カメラ移動 / H: コアに戻る</p>
-        <p>化学プラント・高度組立機は設置後に左クリックでレシピ切替</p>
+        <p>🏭 工場マップ: 倉庫の原料を加工して製品を生産（常時稼働）</p>
+        <p>🗺 ルートマップ: ノードを選んで出撃。資源・ギア・強化を獲得</p>
+        <p>勝利条件: 高度回路25個の生産 または 最深部ボスの撃破</p>
+        <p>左クリック: 設置 / 右クリック: 撤去 / R: 回転 / M: マップ / F: 視点切替</p>
       </div>
     </div>
   </div>
@@ -36,8 +37,8 @@
   <div id="game-screen" class="screen">
     <div id="hud">
       <div class="hud-group">
-        <span class="hud-label">WAVE</span>
-        <span id="wave-num" class="hud-value big">0</span>
+        <span class="hud-label">DEPTH</span>
+        <span id="depth-num" class="hud-value big">0/10</span>
       </div>
       <div class="hud-group">
         <span class="hud-label">CORE</span>
@@ -58,7 +59,7 @@
         <div class="hud-bar-wrap">
           <div class="hud-bar"><div id="goal-fill" class="hud-bar-fill"></div></div>
         </div>
-        <span id="goal-text" class="hud-value small">高度回路 0/5</span>
+        <span id="goal-text" class="hud-value small">高度回路 0/25</span>
       </div>
       <div class="hud-spacer"></div>
       <div class="hud-group" id="obj-group" style="display:none">
@@ -67,11 +68,16 @@
         <span id="obj-badge" style="font-size:0.58rem;color:#44e880;margin-left:2px">+1択</span>
       </div>
       <div class="hud-group">
-        <span id="hud-enemies" class="hud-value" style="display:none;color:var(--c-red)">敵 0</span>
+        <span id="hud-mission" class="hud-value small" style="display:none"></span>
         <span id="hud-kills" class="hud-value small" style="color:var(--c-dim)">0 kills</span>
       </div>
+      <div class="hud-group" id="view-tabs">
+        <button id="tab-factory" class="view-tab active">🏭 工場</button>
+        <button id="tab-mission" class="view-tab" style="display:none">⚔ 出撃先</button>
+        <button id="tab-rogue" class="view-tab">🗺 マップ</button>
+      </div>
       <div class="hud-group">
-        <span id="hud-phase" class="hud-phase build">BUILD PHASE</span>
+        <span id="hud-phase" class="hud-phase build">🏭 FACTORY</span>
       </div>
     </div>
 
@@ -88,7 +94,7 @@
         </div>
 
         <div class="sb-section sb-storage">
-          <div class="sb-title">STORAGE</div>
+          <div class="sb-title">WAREHOUSE（共有倉庫）</div>
           <div id="storage-panel">
             <div class="res-group">
               <div class="res-group-label">鉱物</div>
@@ -135,11 +141,42 @@
         </div>
 
         <div class="sb-section sb-bottom">
-          <button id="next-wave-btn" class="btn-wave" disabled>▶ SEND WAVE</button>
+          <button id="action-btn" class="btn-wave">🗺 ルートマップを開く</button>
         </div>
       </div>
 
       <canvas id="game-canvas"></canvas>
+    </div>
+
+    <!-- Rogue route map overlay -->
+    <div id="rogue-overlay">
+      <div class="rogue-panel">
+        <div class="rogue-hdr">
+          <span class="rogue-title">🗺 ルートマップ</span>
+          <span id="rogue-progress" class="rogue-progress"></span>
+          <span class="rogue-hint">光るノードをクリック → 報酬を確認して出発。獲得資源は共有倉庫へ。</span>
+          <button id="rogue-close">✕ 閉じる</button>
+        </div>
+        <div class="rogue-legend">
+          <span>⚔ 戦闘</span><span>💀 エリート</span><span>⛏ 採掘</span>
+          <span>❓ イベント</span><span>🔨 鍛冶場</span><span>📦 宝物庫</span><span>👑 ボス</span>
+        </div>
+        <div id="rogue-scroll">
+          <div id="rogue-canvas-wrap">
+            <svg id="rogue-lines"></svg>
+            <div id="rogue-nodes"></div>
+          </div>
+        </div>
+        <div id="node-preview" style="display:none">
+          <div class="np-head"><span id="np-icon"></span><span id="np-title"></span></div>
+          <div id="np-desc"></div>
+          <div id="np-rewards"></div>
+          <div class="np-actions">
+            <button id="np-go" class="btn-primary">出発する</button>
+            <button id="np-cancel">キャンセル</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Synergy popup (overlays game) -->
@@ -164,7 +201,7 @@
   <!-- Upgrade Screen -->
   <div id="upgrade-screen" class="screen">
     <div class="upgrade-content">
-      <h2>WAVE CLEAR!</h2>
+      <h2>REWARD</h2>
       <p class="upgrade-subtitle">アップグレードを1つ選択してください</p>
       <div id="synergy-hints"></div>
       <div id="upgrade-cards"></div>
@@ -184,7 +221,7 @@
   <!-- Game Over -->
   <div id="gameover-screen" class="screen">
     <div class="over-content">
-      <h2 id="over-title">FACTORY DESTROYED</h2>
+      <h2 id="over-title">CORE DESTROYED</h2>
       <p id="over-msg"></p>
       <button id="retry-btn" class="btn-primary">再挑戦</button>
     </div>
@@ -200,6 +237,7 @@
 <script src="js/synergies.js"></script>
 <script src="js/gears.js"></script>
 <script src="js/events.js"></script>
+<script src="js/rogue.js"></script>
 <script src="js/renderer.js"></script>
 <script src="js/game.js"></script>
 </body>

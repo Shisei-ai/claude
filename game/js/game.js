@@ -16,24 +16,27 @@ const TOOL_ORDER = [
 const MODES = {
   standard: {
     label: 'STANDARD', icon: '⚙',
-    desc: '通常ルール。設備建設にはリソースが必要。化学設備はアップグレードで解放。',
-    sub: '敵: 通常 / イベント: 50% / 選択肢: 3択',
-    enemyMult: 1.0, eventChance: 0.5, upgradeCount: 3,
-    startRes: { iron_plate: 10, copper_plate: 5 }, unlockAll: false,
+    desc: '通常ルール。初期資源あり。工業と探索のバランスを学ぶのに最適。',
+    sub: '敵: 通常 / アップグレード選択肢: 3択',
+    enemyMult: 1.0, upgradeCount: 3,
+    startRes: { iron_plate: 12, copper_plate: 6, iron_ore: 20, copper_ore: 12, coal: 10 },
+    unlockAll: false,
   },
   industrial: {
     label: 'INDUSTRIAL', icon: '🏭',
-    desc: '初期リソースは鉱石のみ。自力で経済を構築せよ。敵が強化されているが報酬も豪華。',
-    sub: '敵: +20%強化 / イベント: 75% / 選択肢: 3択',
-    enemyMult: 1.2, eventChance: 0.75, upgradeCount: 3,
-    startRes: { iron_ore: 30, copper_ore: 20, coal: 15, iron_plate: 3 }, unlockAll: false,
+    desc: '初期リソースはほぼ鉱石のみ。自力で経済を構築せよ。敵が強化されている。',
+    sub: '敵: +20%強化 / アップグレード選択肢: 3択',
+    enemyMult: 1.2, upgradeCount: 3,
+    startRes: { iron_ore: 35, copper_ore: 25, coal: 20, iron_plate: 4 },
+    unlockAll: false,
   },
   chaos: {
     label: 'CHAOS', icon: '💀',
-    desc: '化学設備が最初から全て解放。敵は大幅に強化されるが選択肢が豊富。毎Wave必ずイベント。',
-    sub: '敵: +50%強化 / イベント: 必ず / 選択肢: 4択',
-    enemyMult: 1.5, eventChance: 1.0, upgradeCount: 4,
-    startRes: { iron_plate: 8, copper_plate: 5, iron_ore: 20, coal: 10 }, unlockAll: true,
+    desc: '化学設備が最初から全て解放。敵は大幅に強化されるが選択肢が豊富。',
+    sub: '敵: +50%強化 / アップグレード選択肢: 4択',
+    enemyMult: 1.5, upgradeCount: 4,
+    startRes: { iron_plate: 10, copper_plate: 6, iron_ore: 25, coal: 12 },
+    unlockAll: true,
   },
 };
 
@@ -49,12 +52,16 @@ function startWithMode(modeKey) {
   EQ_DEF.adv_assembler.unlocked = mode.unlockAll;
 
   gs = {
-    state: 'build', wave: 0,
+    state: 'play',           // play | reward | over
+    view: 'factory',         // factory | mission
     mode: modeKey, modeDef: mode,
-    map: generateMap(),
+    factoryMap: generateFactoryMap(),
+    mission: null,           // { node, type, map, combatActive, timer, depth }
+    map: null,               // points at the currently-viewed map
+    rogue: generateRogueMap(),
     resources: { ...mode.startRes },
-    enemies: [], projectiles: [],
-    coreHp: 100, coreMaxHp: 100,
+    enemies: [], projectiles: [], spawnPoints: [],
+    coreHp: 100, coreMaxHp: 100,   // persistent across the whole run (StS-style)
     upgrades: {},
     takenUpgrades: new Set(),
     triggeredSynergies: new Set(),
@@ -65,26 +72,30 @@ function startWithMode(modeKey) {
     power: 0, powerMax: 500,
     waveProductionCount: 0, waveObjective: null,
     bonusUpgradeCount: 0, surgeTimer: 0, productionHealAccum: 0,
-    spawnPoints: [],
     flowField: null, flowFieldDirty: false,
     cam: { x: 0, y: 0 },
-    selectedTool: C.EQ.MINER, selectedDir: C.DIR.RIGHT,
+    selectedTool: C.EQ.FURNACE, selectedDir: C.DIR.RIGHT,
     hover: null,
-    goalItem: C.RES.ADV_CIRCUIT, goalTarget: 5,
-    killCount: 0, waveKills: 0,
+    goalItem: C.RES.ADV_CIRCUIT, goalTarget: 25,
+    killCount: 0, waveKills: 0, wave: 0,
+    afterUpgrade: null,
+    _missionTick: false,
   };
+  gs.map = gs.factoryMap;
 
   showScreen('game-screen');
-  resizeCanvas();      // must happen after screen is shown
+  resizeCanvas();
+  setView('factory');
   buildSidebar();
   updateGearDisplay();
   updateHUD();
-  document.getElementById('next-wave-btn').disabled = false;
-  setPhase('build');
+  updateActionButton();
 
   if (animId) cancelAnimationFrame(animId);
   lastTime = 0; tickAcc = 0;
   animId = requestAnimationFrame(loop);
+
+  openRogueMap();   // show the route at run start
 }
 
 function initGame() { showScreen('modifier-screen'); }
@@ -106,20 +117,47 @@ function buildModifierScreen() {
   }
 }
 
+// ── View switching (factory ⇄ mission) ───────────────────
+function setView(v) {
+  if (v === 'mission' && !gs.mission) v = 'factory';
+  gs.view = v;
+  gs.map  = (v === 'mission') ? gs.mission.map : gs.factoryMap;
+
+  document.getElementById('tab-factory')?.classList.toggle('active', v === 'factory');
+  const tm = document.getElementById('tab-mission');
+  if (tm) {
+    tm.style.display = gs.mission ? '' : 'none';
+    tm.classList.toggle('active', v === 'mission');
+  }
+
+  centerCamera();
+  buildSidebar();
+  updateActionButton();
+}
+
+function withWorld(world, fn) {
+  const prev = gs.map;
+  gs.map = world;
+  fn();
+  gs.map = prev;
+}
+
 // ── Camera ────────────────────────────────────────────────
 function resizeCanvas() {
   const canvas = document.getElementById('game-canvas');
   canvas.width  = Math.max(400, window.innerWidth  - 198);
   canvas.height = Math.max(300, window.innerHeight - 58);
-  if (gs) centerOnCore();
+  if (gs) centerCamera();
 }
 
-function centerOnCore() {
+function centerCamera() {
   const canvas = document.getElementById('game-canvas');
   const vw = Math.ceil(canvas.width  / C.CELL);
   const vh = Math.ceil(canvas.height / C.CELL);
-  gs.cam.x = Math.max(0, Math.min(C.COLS - vw, C.CORE_X - Math.floor(vw / 2)));
-  gs.cam.y = Math.max(0, Math.min(C.ROWS - vh, C.CORE_Y - Math.floor(vh / 2)));
+  const cx = (gs.view === 'mission' && gs.map.hasCore) ? C.CORE_X : Math.floor(C.COLS / 2);
+  const cy = (gs.view === 'mission' && gs.map.hasCore) ? C.CORE_Y : Math.floor(C.ROWS / 2);
+  gs.cam.x = Math.max(0, Math.min(C.COLS - vw, cx - Math.floor(vw / 2)));
+  gs.cam.y = Math.max(0, Math.min(C.ROWS - vh, cy - Math.floor(vh / 2)));
 }
 
 function clampCam() {
@@ -136,11 +174,14 @@ function loop(ts) {
   const dt = lastTime ? Math.min(ts - lastTime, 100) : 16;
   lastTime = ts;
 
-  if (gs.state === 'wave' || gs.state === 'build') {
+  if (gs.state === 'play') {
     tickAcc += dt;
     while (tickAcc >= TICK_MS) { tickAcc -= TICK_MS; tick(); }
-    if (gs.state === 'wave') { updateEnemies(gs, dt); checkWaveEnd(); }
-    else checkVictory();
+    if (gs.mission?.combatActive) {
+      withWorld(gs.mission.map, () => updateEnemies(gs, dt));
+      checkBattleEnd();
+    }
+    checkIndustryVictory();
   }
 
   render(document.getElementById('game-canvas'), gs);
@@ -153,11 +194,27 @@ function tick() {
   if (gs.upgrades.solarPanel && _tickCount % 60 === 0) {
     gs.power = Math.min(gs.powerMax || 500, (gs.power || 0) + 1);
   }
-  // Production Surge: countdown the 2x speed buff timer
   if (gs.surgeTimer > 0) gs.surgeTimer--;
+
+  // Factory always runs — even mid-battle on another map
+  tickGrid(gs.factoryMap, false);
+
+  if (gs.mission) {
+    tickGrid(gs.mission.map, true);
+    if (gs.mission.type === 'mining') {
+      gs.mission.timer--;
+      if (gs.mission.timer <= 0) finishMining();
+    }
+  }
+}
+
+function tickGrid(world, isMission) {
+  gs._missionTick = isMission;
+  const prev = gs.map;
+  gs.map = world;
   for (let y = 0; y < C.ROWS; y++) {
     for (let x = 0; x < C.COLS; x++) {
-      const cell = gs.map.grid[y][x];
+      const cell = world.grid[y][x];
       cell.x = x; cell.y = y;
       if (cell.equipment && cell.equipment.type !== '_occ') {
         // Production Surge: extra timer decrement = effectively 2x speed
@@ -166,19 +223,28 @@ function tick() {
       }
     }
   }
+  gs.map = prev;
+  gs._missionTick = false;
 }
 
-function checkVictory() {
-  if ((gs.resources[gs.goalItem] || 0) >= gs.goalTarget) {
-    gs.state = 'over';
-    document.getElementById('over-title').textContent = '🏭 VICTORY!';
-    document.getElementById('over-msg').textContent   =
-      `Wave ${gs.wave} | 高度回路基板 ${gs.resources[C.RES.ADV_CIRCUIT]} 個達成！ [${gs.modeDef.label}] | ギア: ${gs.gears.length}個`;
-    showScreen('gameover-screen');
-  }
+// ── Victory / Defeat ──────────────────────────────────────
+function checkIndustryVictory() {
+  if ((gs.resources[gs.goalItem] || 0) >= gs.goalTarget) victory('industry');
 }
 
-function checkWaveEnd() {
+function victory(kind) {
+  gs.state = 'over';
+  const title = kind === 'industry' ? '🏭 INDUSTRIAL VICTORY!' : '👑 ROGUE VICTORY!';
+  const detail = kind === 'industry'
+    ? `高度回路基板 ${gs.goalTarget} 個の生産に成功した！`
+    : 'ルートマップ最深部のボスを撃破した！';
+  document.getElementById('over-title').textContent = title;
+  document.getElementById('over-msg').textContent =
+    `${detail} [${gs.modeDef.label}] | 撃破数: ${gs.killCount} | ギア: ${gs.gears.length}個`;
+  showScreen('gameover-screen');
+}
+
+function checkBattleEnd() {
   if (gs.coreHp <= 0) {
     if (hasGear(gs, 'phoenix_protocol') && !gs.gearFlags.phoenixUsed) {
       gs.gearFlags.phoenixUsed = true;
@@ -187,65 +253,135 @@ function checkWaveEnd() {
       return;
     }
     gs.state = 'over';
-    document.getElementById('over-title').textContent = 'FACTORY DESTROYED';
-    document.getElementById('over-msg').textContent   =
-      `Wave ${gs.wave} / ${gs.killCount} kills [${gs.modeDef.label}] | ギア: ${gs.gears.length}個`;
+    document.getElementById('over-title').textContent = 'CORE DESTROYED';
+    document.getElementById('over-msg').textContent =
+      `深度 ${currentDepth()} で撃破された / ${gs.killCount} kills [${gs.modeDef.label}] | ギア: ${gs.gears.length}個`;
     showScreen('gameover-screen');
     return;
   }
-  if (gs.enemies.length === 0 && gs.state === 'wave') {
-    gs.state = 'upgrade';
-    waveCompleteFlow();
+  if (gs.enemies.length === 0 && gs.mission?.combatActive) battleCleared();
+}
+
+function currentDepth() {
+  const cur = gs.rogue.nodes.find(n => n.id === gs.rogue.current);
+  return cur ? cur.col : 0;
+}
+
+// ── Node lifecycle ────────────────────────────────────────
+function startNode(node) {
+  if (gs.mission) return;
+  closeRogueMap();
+
+  if (node.type === 'event') {
+    const ev = getRandomEvent(gs);
+    if (!ev) {
+      completeNode(node); grantNodeRewards(node); openRogueMap(); return;
+    }
+    gs.state = 'reward';
+    showEventScreen(ev, () => {
+      completeNode(node);
+      grantNodeRewards(node);
+      flushGearsThen(() => returnToMap());
+    });
+  } else if (node.type === 'treasure') {
+    gs.state = 'reward';
+    const choices = getGearChoices(gs, 3);
+    if (choices.length === 0) {
+      completeNode(node); grantNodeRewards(node); returnToMap(); return;
+    }
+    showGearScreen(choices, () => {
+      completeNode(node);
+      returnToMap();
+    });
+  } else if (node.type === 'forge') {
+    gs.state = 'reward';
+    completeNode(node);
+    gs.upgradeBonus = gs.upgradeBonus || 'guaranteed_rare';
+    gs.afterUpgrade = () => openRogueMap();
+    showUpgradeScreen();
+  } else if (node.type === 'mining') {
+    startMission(node, generateMiningMap(node.col), 'mining');
+  } else {
+    // battle / elite / boss
+    startMission(node, generateBattleMap(node.col, node.type === 'boss'), 'battle');
   }
 }
 
-// ── Wave ──────────────────────────────────────────────────
-function sendWave() {
-  if (gs.state !== 'build') return;
-  gs.wave++;
+function startMission(node, map, kind) {
+  gs.mission = {
+    node, type: kind, map,
+    combatActive: false,
+    timer: kind === 'mining' ? 90 * 60 : 0,   // 90 seconds for mining nodes
+    depth: node.col,
+  };
+  gs.flowField = null;
+  gs.flowFieldDirty = false;
+  gs.enemies = []; gs.projectiles = []; gs.spawnPoints = [];
+  setView('mission');
+}
+
+function completeNode(node) {
+  node.visited = true;
+  gs.rogue.current = node.id;
+}
+
+function grantNodeRewards(node) {
+  for (const [k, v] of Object.entries(node.rewards.res)) addRes(gs, k, v);
+}
+
+function returnToMap() {
+  gs.state = 'play';
+  showScreen('game-screen');
+  openRogueMap();
+}
+
+// ── Battle missions ───────────────────────────────────────
+function startBattle() {
+  const m = gs.mission;
+  if (!m || m.type !== 'battle' || m.combatActive) return;
+  gs.wave = m.depth;
   gs.waveKills = 0;
   gs.waveProductionCount = 0;
   gs.waveObjective = generateWaveObjective(gs);
-  gs.state = 'wave';
   gs.enemies = []; gs.projectiles = [];
-  generateSpawnPoints(gs);
-  computeFlowField(gs);
-  spawnWaveWithMode(gs);
+  withWorld(m.map, () => {
+    generateSpawnPoints(gs);
+    computeFlowField(gs);
+    spawnWave(gs, {
+      boss:  m.node.type === 'boss',
+      elite: m.node.type === 'elite',
+      mult:  gs.modeDef.enemyMult,
+    });
+  });
   gearWaveStart(gs);
-  document.getElementById('next-wave-btn').disabled = true;
-  document.getElementById('wave-num').textContent   = gs.wave;
-  setPhase('wave');
+  m.combatActive = true;
+  updateActionButton();
 }
 
 function generateWaveObjective(gs) {
   const opts = [
-    { res: C.RES.IRON_PLATE,   label: '鉄板',         base: 3 },
-    { res: C.RES.COPPER_PLATE, label: '銅板',         base: 2 },
-    { res: C.RES.CIRCUIT,      label: '回路基板',     base: 1 },
-    { res: C.RES.COKE,         label: 'コークス',     base: 2 },
-    { res: C.RES.IRON_ORE,     label: '鉄鉱石',       base: 6 },
+    { res: C.RES.IRON_PLATE,   label: '鉄板',     base: 3 },
+    { res: C.RES.COPPER_PLATE, label: '銅板',     base: 2 },
+    { res: C.RES.CIRCUIT,      label: '回路基板', base: 1 },
+    { res: C.RES.COKE,         label: 'コークス', base: 2 },
+    { res: C.RES.IRON_ORE,     label: '鉄鉱石',   base: 6 },
   ];
   const o = opts[Math.floor(Math.random() * opts.length)];
   return { res: o.res, label: o.label, target: o.base + Math.floor(gs.wave / 2), progress: 0, met: false };
 }
 
-function spawnWaveWithMode(gs) {
-  const origMult = gs._enemyMult;
-  gs._enemyMult  = gs.modeDef.enemyMult;
-  spawnWave(gs);
-  gs._enemyMult  = origMult;
-}
+function battleCleared() {
+  const mission = gs.mission;
+  mission.combatActive = false;
 
-// ── Wave Complete Flow ────────────────────────────────────
-function waveCompleteFlow() {
   gearWaveEnd(gs);
 
-  // Production Surge: if produced 20+ items this wave, grant 30s 2x speed next wave
+  // Production Surge: heavy wartime production grants a speed buff
   if (gs.upgrades.productionSurge && (gs.waveProductionCount || 0) >= 20) {
-    gs.surgeTimer = 1800; // 30 seconds at 60 ticks/s
+    gs.surgeTimer = 1800;
   }
 
-  // Overflow Smelter: auto-convert surplus ores to plates at wave end
+  // Overflow Smelter: auto-convert surplus ores at battle end
   if (gs.upgrades.overflowSmelter) {
     const ironConvert = Math.min(10, Math.floor((gs.resources[C.RES.IRON_ORE] || 0) / 2));
     if (ironConvert > 0) {
@@ -259,35 +395,62 @@ function waveCompleteFlow() {
     }
   }
 
-  // Wave objective bonus
-  if (gs.waveObjective?.met) {
-    gs.bonusUpgradeCount = (gs.bonusUpgradeCount || 0) + 1;
-  }
+  if (gs.waveObjective?.met) gs.bonusUpgradeCount = (gs.bonusUpgradeCount || 0) + 1;
+  gs.waveObjective = null;
 
-  showNextGearOrContinue();
+  if (mission.node.type === 'elite') gs.pendingGearDrops = (gs.pendingGearDrops || 0) + 1;
+
+  refundMissionEquipment(mission.map);
+  grantNodeRewards(mission.node);
+  const node = mission.node;
+  completeNode(node);
+
+  gs.mission = null;
+  gs.enemies = []; gs.projectiles = []; gs.spawnPoints = [];
+  setView('factory');
+
+  if (node.type === 'boss') { victory('rogue'); return; }
+
+  gs.state = 'reward';
+  gs.afterUpgrade = () => openRogueMap();
+  flushGearsThen(() => showUpgradeScreen());
 }
 
-function showNextGearOrContinue() {
+// ── Mining missions ───────────────────────────────────────
+function finishMining() {
+  const m = gs.mission;
+  if (!m || m.type !== 'mining') return;
+  refundMissionEquipment(m.map);
+  grantNodeRewards(m.node);
+  completeNode(m.node);
+  gs.mission = null;
+  setView('factory');
+  openRogueMap();
+}
+
+// ── Mission equipment refund ──────────────────────────────
+function refundMissionEquipment(map) {
+  const reduction = gs.gearFlags?.buildCostReduction || 0;
+  for (let y = 0; y < C.ROWS; y++) {
+    for (let x = 0; x < C.COLS; x++) {
+      const eq = map.grid[y][x].equipment;
+      if (!eq || eq.type === '_occ') continue;
+      const cost = EQ_DEF[eq.type]?.cost || {};
+      for (const [k, v] of Object.entries(cost)) {
+        addRes(gs, k, Math.max(0, v - reduction));
+      }
+    }
+  }
+}
+
+// ── Reward flow helpers ───────────────────────────────────
+function flushGearsThen(cb) {
   if ((gs.pendingGearDrops || 0) > 0) {
     gs.pendingGearDrops--;
     const choices = getGearChoices(gs, 3);
-    if (choices.length > 0) { showGearScreen(choices, showNextGearOrContinue); return; }
+    if (choices.length > 0) { showGearScreen(choices, () => flushGearsThen(cb)); return; }
   }
-  const chance = gs.modeDef.eventChance;
-  if (Math.random() < chance) {
-    const event = getRandomEvent(gs);
-    if (event) { showEventScreen(event, flushGearsAndUpgrade); return; }
-  }
-  showUpgradeScreen();
-}
-
-function flushGearsAndUpgrade() {
-  if ((gs.pendingGearDrops || 0) > 0) {
-    gs.pendingGearDrops--;
-    const choices = getGearChoices(gs, 3);
-    if (choices.length > 0) { showGearScreen(choices, flushGearsAndUpgrade); return; }
-  }
-  showUpgradeScreen();
+  cb();
 }
 
 // ── Upgrade Screen ────────────────────────────────────────
@@ -296,10 +459,10 @@ function showUpgradeScreen() {
   gs.bonusUpgradeCount = 0;
   let rarity = null;
 
-  if      (gs.upgradeBonus === 'five_choices')       { count = Math.max(count, 5); gs.upgradeBonus = null; }
-  else if (gs.upgradeBonus === 'guaranteed_rare')     { rarity = 'rare';     gs.upgradeBonus = null; }
-  else if (gs.upgradeBonus === 'guaranteed_epic')     { rarity = 'epic';     gs.upgradeBonus = null; }
-  else if (gs.upgradeBonus === 'two_epics')           { rarity = 'two_epics';gs.upgradeBonus = null; }
+  if      (gs.upgradeBonus === 'five_choices')    { count = Math.max(count, 5); gs.upgradeBonus = null; }
+  else if (gs.upgradeBonus === 'guaranteed_rare') { rarity = 'rare';      gs.upgradeBonus = null; }
+  else if (gs.upgradeBonus === 'guaranteed_epic') { rarity = 'epic';      gs.upgradeBonus = null; }
+  else if (gs.upgradeBonus === 'two_epics')       { rarity = 'two_epics'; gs.upgradeBonus = null; }
 
   const choices   = getUpgradeChoices(gs, count, rarity);
   const container = document.getElementById('upgrade-cards');
@@ -325,10 +488,11 @@ function showUpgradeScreen() {
       gs.takenUpgrades.add(u.id);
       checkSynergies(gs);
       showScreen('game-screen');
-      gs.state = 'build';
-      document.getElementById('next-wave-btn').disabled = false;
-      setPhase('build');
+      gs.state = 'play';
       buildSidebar();
+      const cb = gs.afterUpgrade;
+      gs.afterUpgrade = null;
+      cb?.();
     };
     container.appendChild(card);
   }
@@ -345,6 +509,12 @@ function getSynergyHints(gs) {
 // ── HUD ───────────────────────────────────────────────────
 function updateHUD() {
   if (!gs) return;
+
+  // Depth (rogue progress)
+  const depthEl = document.getElementById('depth-num');
+  if (depthEl) depthEl.textContent = `${currentDepth()}/${gs.rogue.colCount - 1}`;
+
+  // Core HP (persistent across the run)
   const hp      = Math.max(0, gs.coreHp);
   const hpRatio = hp / gs.coreMaxHp;
   document.getElementById('core-hp-text').textContent = Math.ceil(hp);
@@ -374,58 +544,115 @@ function updateHUD() {
     row.className = 'res-row' + (nonzero ? ' nonzero' : '') + (isGoal ? ' goal-res' : '');
   });
 
-  const enemiesEl = document.getElementById('hud-enemies');
-  const killsEl   = document.getElementById('hud-kills');
-  if (enemiesEl) {
-    if (gs.state === 'wave') {
-      enemiesEl.style.display = '';
-      enemiesEl.textContent   = `敵 ${gs.enemies.length}`;
+  // Mission status text
+  const missionEl = document.getElementById('hud-mission');
+  if (missionEl) {
+    if (gs.mission?.combatActive) {
+      missionEl.style.display = '';
+      missionEl.style.color   = 'var(--c-red)';
+      missionEl.textContent   = `敵 ${gs.enemies.length}`;
+    } else if (gs.mission?.type === 'mining') {
+      missionEl.style.display = '';
+      missionEl.style.color   = 'var(--c-blue)';
+      missionEl.textContent   = `⛏ 残り ${Math.ceil(gs.mission.timer / 60)}s`;
     } else {
-      enemiesEl.style.display = 'none';
+      missionEl.style.display = 'none';
     }
   }
+  const killsEl = document.getElementById('hud-kills');
   if (killsEl) killsEl.textContent = `${gs.killCount || 0} kills`;
 
-  // Wave objective display
+  // Wave objective display (battle missions only)
   const objGroup = document.getElementById('obj-group');
   const objText  = document.getElementById('obj-text');
   const objBadge = document.getElementById('obj-badge');
-  if (objGroup && gs.waveObjective && gs.state === 'wave') {
+  if (objGroup && gs.waveObjective && gs.mission?.combatActive) {
     objGroup.style.display = '';
     const prog = gs.waveObjective.progress || 0;
     const tgt  = gs.waveObjective.target;
     const met  = gs.waveObjective.met;
     objText.textContent = `${gs.waveObjective.label} ${prog}/${tgt}`;
     objText.style.color = met ? '#44e880' : 'var(--c-text)';
-    objBadge.style.display = met ? '' : '';
     objBadge.textContent = met ? '✓ +1択' : '+1択';
     objBadge.style.color = met ? '#44e880' : 'var(--c-dim)';
   } else if (objGroup) {
     objGroup.style.display = 'none';
   }
+
+  // Phase chip
+  const phaseEl = document.getElementById('hud-phase');
+  if (phaseEl) {
+    if (gs.mission?.combatActive)            { phaseEl.textContent = '⚔ COMBAT';   phaseEl.className = 'hud-phase wave'; }
+    else if (gs.mission?.type === 'mining')  { phaseEl.textContent = '⛏ MINING';   phaseEl.className = 'hud-phase mining'; }
+    else if (gs.mission)                     { phaseEl.textContent = '⚔ 戦闘準備'; phaseEl.className = 'hud-phase prep'; }
+    else                                     { phaseEl.textContent = '🏭 FACTORY'; phaseEl.className = 'hud-phase build'; }
+  }
+
+  // Alert pulse on mission tab while combat runs unattended
+  const tm = document.getElementById('tab-mission');
+  if (tm) tm.classList.toggle('alert', !!gs.mission?.combatActive && gs.view !== 'mission');
+
+  // Mining countdown on the action button
+  if (gs.mission?.type === 'mining' && gs.view === 'mission') {
+    const btn = document.getElementById('action-btn');
+    if (btn) btn.textContent = `⛏ 撤収する（残り ${Math.ceil(gs.mission.timer / 60)}s）`;
+  }
 }
 
-function setPhase(phase) {
-  const el = document.getElementById('hud-phase');
-  el.textContent = phase === 'build' ? 'BUILD PHASE' : `WAVE ${gs.wave}`;
-  el.className   = `hud-phase ${phase}`;
+// ── Action button (context-sensitive) ─────────────────────
+function updateActionButton() {
+  const btn = document.getElementById('action-btn');
+  if (!btn || !gs) return;
+
+  if (gs.view === 'factory' || !gs.mission) {
+    if (gs.mission) {
+      btn.textContent = '⚔ ミッションへ戻る';
+      btn.disabled = false;
+      btn.onclick = () => setView('mission');
+    } else {
+      btn.textContent = '🗺 ルートマップを開く';
+      btn.disabled = false;
+      btn.onclick = openRogueMap;
+    }
+    return;
+  }
+
+  const m = gs.mission;
+  if (m.type === 'battle') {
+    if (!m.combatActive) {
+      btn.textContent = '⚔ 戦闘開始';
+      btn.disabled = false;
+      btn.onclick = startBattle;
+    } else {
+      btn.textContent = '戦闘中…';
+      btn.disabled = true;
+      btn.onclick = null;
+    }
+  } else {
+    btn.textContent = '⛏ 撤収する';
+    btn.disabled = false;
+    btn.onclick = finishMining;
+  }
 }
 
 // ── Sidebar ───────────────────────────────────────────────
 function buildSidebar() {
   const list = document.getElementById('tool-list');
+  if (!list || !gs) return;
   list.innerHTML = '';
   TOOL_ORDER.forEach(t => {
     const def    = EQ_DEF[t];
     if (!def) return;
     const locked   = def.unlocked === false;
+    const ctxLock  = !locked && def.place === 'mission' && gs.view !== 'mission';
     const selected = gs.selectedTool === t;
     const canBuild = !locked && canAffordEquipment(t, gs);
     const sz       = def.size || 1;
     const badge    = sz > 1 ? `<span class="tool-size-badge">${sz}×${sz}</span>` : '';
+    const ctxBadge = ctxLock ? `<span class="tool-ctx-badge">出撃時</span>` : '';
     const btn = document.createElement('button');
-    btn.className = `tool-btn${locked?' locked':''}${selected?' selected':''}${!locked&&!canBuild?' unaffordable':''}`;
-    btn.innerHTML = `<span class="tool-icon">${def.icon}</span><span class="tool-name">${def.name}</span>${badge}`;
+    btn.className = `tool-btn${locked ? ' locked' : ''}${ctxLock ? ' ctx-locked' : ''}${selected ? ' selected' : ''}${!locked && !canBuild ? ' unaffordable' : ''}`;
+    btn.innerHTML = `<span class="tool-icon">${def.icon}</span><span class="tool-name">${def.name}</span>${ctxBadge}${badge}`;
     if (!locked) btn.onclick = () => { gs.selectedTool = t; buildSidebar(); showToolInfo(t); };
     list.appendChild(btn);
   });
@@ -457,10 +684,12 @@ function showToolInfo(t) {
     }).join('');
   }
   const sizeTag = sz > 1 ? `<span class="tool-size-info">${sz}×${sz}マス</span>` : '';
+  const ctxNote = (def?.place === 'mission' && gs?.view !== 'mission')
+    ? '<div class="tool-ctx-note">⚠ この設備は出撃先マップでのみ設置できます</div>' : '';
 
   document.getElementById('tool-info').innerHTML =
     `<div class="tool-desc">${def?.desc || ''}</div>` +
-    `<div class="tool-cost-row">${costHtml}${sizeTag}</div>`;
+    `<div class="tool-cost-row">${costHtml}${sizeTag}</div>` + ctxNote;
 }
 
 // ── Canvas Input ──────────────────────────────────────────
@@ -474,13 +703,12 @@ function setupCanvas() {
       hx: Math.floor((e.clientX - r.left) / C.CELL + gs.cam.x),
       hy: Math.floor((e.clientY - r.top)  / C.CELL + gs.cam.y),
     };
-    if (gs.state === 'build') showToolInfo(gs.selectedTool);
   });
 
   canvas.addEventListener('mouseleave', () => { if (gs) gs.hover = null; });
 
   canvas.addEventListener('click', e => {
-    if (!gs || gs.state !== 'build') return;
+    if (!gs || gs.state !== 'play') return;
     const r  = canvas.getBoundingClientRect();
     const gx = Math.floor((e.clientX - r.left) / C.CELL + gs.cam.x);
     const gy = Math.floor((e.clientY - r.top)  / C.CELL + gs.cam.y);
@@ -507,9 +735,12 @@ function setupCanvas() {
 
     const def = EQ_DEF[gs.selectedTool];
     if (!def || def.unlocked === false) return;
+    if (def.place === 'mission' && gs.view !== 'mission') {
+      flashInfo('この設備は出撃先マップ専用です');
+      return;
+    }
 
-    const sz  = def.size || 1;
-    // validate footprint
+    const sz = def.size || 1;
     for (let dy = 0; dy < sz; dy++) {
       for (let dx = 0; dx < sz; dx++) {
         const fx = gx + dx, fy = gy + dy;
@@ -525,7 +756,6 @@ function setupCanvas() {
 
     deductEquipmentCost(gs.selectedTool, gs);
     cell.equipment = makeEquipment(gs.selectedTool, gs.selectedDir);
-    // mark satellite cells for 2×2 machines
     if (sz === 2) {
       for (let dy = 0; dy < sz; dy++) {
         for (let dx = 0; dx < sz; dx++) {
@@ -540,7 +770,7 @@ function setupCanvas() {
 
   canvas.addEventListener('contextmenu', e => {
     e.preventDefault();
-    if (!gs || gs.state !== 'build') return;
+    if (!gs || gs.state !== 'play') return;
     const r  = canvas.getBoundingClientRect();
     const gx = Math.floor((e.clientX - r.left) / C.CELL + gs.cam.x);
     const gy = Math.floor((e.clientY - r.top)  / C.CELL + gs.cam.y);
@@ -576,13 +806,24 @@ function setupCanvas() {
     if (e.key === 'ArrowRight' || e.key === 'd') { gs.cam.x += speed; clampCam(); return; }
     if (e.key === 'ArrowUp'    || e.key === 'w') { gs.cam.y -= speed; clampCam(); return; }
     if (e.key === 'ArrowDown'  || e.key === 's') { gs.cam.y += speed; clampCam(); return; }
-    if (e.key === 'h' || e.key === 'H') { centerOnCore(); return; }
+    if (e.key === 'h' || e.key === 'H') { centerCamera(); return; }
 
-    if (gs.state !== 'build') return;
+    if (gs.state !== 'play') return;
+
+    // M: toggle rogue map / F: toggle factory⇄mission view
+    if (e.key === 'm' || e.key === 'M') {
+      const ov = document.getElementById('rogue-overlay');
+      if (ov.classList.contains('visible')) closeRogueMap(); else openRogueMap();
+      return;
+    }
+    if (e.key === 'f' || e.key === 'F') {
+      setView(gs.view === 'factory' ? 'mission' : 'factory');
+      return;
+    }
+
     if (e.key === 'r' || e.key === 'R') {
       gs.selectedDir = (gs.selectedDir + 1) % 4;
       updateDirIndicator();
-      buildSidebar();
     }
     const idx = parseInt(e.key) - 1;
     if (idx >= 0 && idx < TOOL_ORDER.length) {
@@ -595,7 +836,7 @@ function setupCanvas() {
 function flashInfo(msg) {
   const el = document.getElementById('tool-info');
   el.innerHTML = `<div class="flash-msg">${msg}</div>`;
-  setTimeout(() => showToolInfo(gs.selectedTool), 1500);
+  setTimeout(() => { if (gs) showToolInfo(gs.selectedTool); }, 1500);
 }
 
 function showScreen(id) {
@@ -606,9 +847,13 @@ function showScreen(id) {
 // ── Bootstrap ─────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   buildModifierScreen();
-  document.getElementById('start-btn').onclick     = initGame;
-  document.getElementById('retry-btn').onclick     = initGame;
-  document.getElementById('next-wave-btn').onclick = sendWave;
+  document.getElementById('start-btn').onclick   = initGame;
+  document.getElementById('retry-btn').onclick   = initGame;
+  document.getElementById('tab-factory').onclick = () => setView('factory');
+  document.getElementById('tab-mission').onclick = () => setView('mission');
+  document.getElementById('tab-rogue').onclick   = openRogueMap;
+  document.getElementById('rogue-close').onclick = closeRogueMap;
+  document.getElementById('np-cancel').onclick   = hideNodePreview;
   setupCanvas();
   window.addEventListener('resize', () => { if (gs) resizeCanvas(); });
   showScreen('title-screen');

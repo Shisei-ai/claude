@@ -234,22 +234,12 @@ const UPGRADE_POOL = [
     apply(gs) { gs.coreMaxHp += 150; gs.coreHp += 150; }
   },
   {
-    id: 'free_wall', name: '即席防衛壁', icon: '🧱', rarity: 'common',
+    id: 'free_wall', name: '防衛物資', icon: '🧱', rarity: 'common',
     tags: ['utility', 'combat'],
-    desc: 'コア周辺に壁を3枚無料で設置する',
+    desc: '鉄板+8・銅板+4を即時入手する（防衛設備の材料に）',
     apply(gs) {
-      // Place 3 walls on the east side of the 3×3 core block
-      const positions = [
-        [C.CORE_X + 3, C.CORE_Y],
-        [C.CORE_X + 3, C.CORE_Y + 1],
-        [C.CORE_X + 3, C.CORE_Y + 2],
-      ];
-      positions.forEach(([x, y]) => {
-        if (inBounds(x, y) && !gs.map.grid[y][x].equipment && gs.map.grid[y][x].terrain === C.EMPTY) {
-          gs.map.grid[y][x].equipment = makeEquipment(C.EQ.WALL);
-        }
-      });
-      gs.flowFieldDirty = true;
+      addRes(gs, C.RES.IRON_PLATE,   8);
+      addRes(gs, C.RES.COPPER_PLATE, 4);
     }
   },
   // ── Roguelite × Industrial intersection ───────────────────
@@ -288,13 +278,16 @@ const UPGRADE_POOL = [
 // ── Upgrade pool weighting by current factory build ────────
 function getPlayerStrategy(gs) {
   let chem = 0, combat = 0, prod = 0;
-  for (let y = 0; y < C.ROWS; y++) {
-    for (let x = 0; x < C.COLS; x++) {
-      const eq = gs.map.grid[y][x].equipment;
-      if (!eq) continue;
-      if ([C.EQ.TURRET, C.EQ.LASER, C.EQ.WALL].includes(eq.type)) combat++;
-      if ([C.EQ.CHEM_PLANT, C.EQ.DISTILLATION, C.EQ.ELECTROLYZER, C.EQ.OIL_PUMP].includes(eq.type)) chem++;
-      if ([C.EQ.MINER, C.EQ.FURNACE, C.EQ.ASSEMBLER, C.EQ.ADV_ASSEMBLER, C.EQ.COKE_OVEN].includes(eq.type)) prod++;
+  const grids = [gs.factoryMap?.grid, gs.mission?.map?.grid].filter(Boolean);
+  for (const grid of grids) {
+    for (let y = 0; y < C.ROWS; y++) {
+      for (let x = 0; x < C.COLS; x++) {
+        const eq = grid[y][x].equipment;
+        if (!eq) continue;
+        if ([C.EQ.TURRET, C.EQ.LASER, C.EQ.WALL].includes(eq.type)) combat++;
+        if ([C.EQ.CHEM_PLANT, C.EQ.DISTILLATION, C.EQ.ELECTROLYZER, C.EQ.OIL_PUMP].includes(eq.type)) chem++;
+        if ([C.EQ.MINER, C.EQ.FURNACE, C.EQ.ASSEMBLER, C.EQ.ADV_ASSEMBLER, C.EQ.COKE_OVEN].includes(eq.type)) prod++;
+      }
     }
   }
   const total = Math.max(1, chem + combat + prod);

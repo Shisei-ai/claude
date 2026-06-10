@@ -6,8 +6,12 @@
 // ─────────────────────────────────────────────────────────
 
 const RES_NAMES = {
-  iron_plate: '鉄板', copper_plate: '銅板', circuit: '回路',
-  iron_ore: '鉄鉱石', copper_ore: '銅鉱石', coal: '石炭',
+  iron_ore: '鉄鉱石', copper_ore: '銅鉱石', coal: '石炭', sulfur: '硫黄',
+  iron_plate: '鉄板', copper_plate: '銅板', coke: 'コークス', plastic: 'プラスチック',
+  refined_copper: '精錬銅', explosives: '爆薬',
+  circuit: '回路基板', adv_circuit: '高度回路基板',
+  crude_oil: '原油', petro_gas: '石油ガス', light_oil: '軽油', heavy_oil: '重油',
+  sulfuric_acid: '硫酸', lubricant: '潤滑油', water: '水', hydrogen: '水素', oxygen: '酸素',
 };
 
 const EQ_DEF = {
@@ -15,9 +19,9 @@ const EQ_DEF = {
   // ── Tier 1 : Solid Production ─────────────────────────
 
   miner: {
-    name: 'Miner', icon: '⛏', color: '#445566', unlocked: true, size: 1,
+    name: 'Miner', icon: '⛏', color: '#445566', unlocked: true, size: 1, place: 'mission',
     cost: {},
-    desc: '鉱石・石炭・硫黄ノード上に設置。採掘物はコンベアへ、なければ直接ストレージへ。',
+    desc: '【出撃先専用】鉱石・石炭・硫黄ノード上に設置。採掘物はコンベアへ、なければ直接倉庫へ。',
     validTerrain: [C.IRON_ORE, C.COPPER_ORE, C.COAL, C.SULFUR_DEP],
     onTick(cell, gs) {
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
@@ -177,10 +181,11 @@ const EQ_DEF = {
   // ── Defense ───────────────────────────────────────────
 
   turret: {
-    name: 'Turret', icon: '🔫', color: '#334422', unlocked: true, size: 2,
+    name: 'Turret', icon: '🔫', color: '#334422', unlocked: true, size: 2, place: 'mission',
     cost: { iron_plate: 4, copper_plate: 2 },
-    desc: '射程内の最も近い敵を自動攻撃する。',
+    desc: '【出撃先専用】射程内の最も近い敵を自動攻撃する。ミッション終了時にコストは全額還付。',
     onTick(cell, gs) {
+      if (!gs._missionTick) return;
       if (gs.upgrades.wallRegen) {
         const maxHp = EQ_DEF.wall.hp * (gs.gearFlags?.eraArmor ? 3 : 1);
         const perim = [
@@ -247,9 +252,9 @@ const EQ_DEF = {
   },
 
   wall: {
-    name: 'Wall', icon: '🧱', color: '#443322', unlocked: true, size: 1,
+    name: 'Wall', icon: '🧱', color: '#443322', unlocked: true, size: 1, place: 'mission',
     cost: { iron_plate: 1 },
-    desc: '敵の進路を塞ぐ壁。HPあり。iron_curtainギアで自然回復、era_armorギアでHP3倍。',
+    desc: '【出撃先専用】敵の進路を塞ぐ壁。HPあり。ギアで自然回復・HP3倍化が可能。',
     hp: 200,
     onTick(cell, gs) {
       // iron_curtain gear: passive HP regen
@@ -261,11 +266,12 @@ const EQ_DEF = {
   },
 
   laser: {
-    name: 'Laser', icon: '🔴', color: '#442233', unlocked: false, size: 2,
+    name: 'Laser', icon: '🔴', color: '#442233', unlocked: false, size: 2, place: 'mission',
     cost: { iron_plate: 8, copper_plate: 4, circuit: 3 },
-    desc: '高威力レーザー砲。射程が長い。電力×2消費。潤滑油でクールダウン半減。',
+    desc: '【出撃先専用】高威力レーザー砲。射程が長い。電力×2消費。潤滑油でクールダウン半減。',
     powerCost: 2,
     onTick(cell, gs) {
+      if (!gs._missionTick) return;
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
       const pwCost = Math.max(0, (EQ_DEF.laser.powerCost) - (gs.upgrades.powerEfficiency || 0));
       if ((gs.power || 0) < pwCost) return;
@@ -302,9 +308,9 @@ const EQ_DEF = {
   // ── Tier 2 : Chemistry ────────────────────────────────
 
   oil_pump: {
-    name: 'Oil Pump', icon: '🛢', color: '#222233', unlocked: true, size: 1,
+    name: 'Oil Pump', icon: '🛢', color: '#222233', unlocked: true, size: 1, place: 'mission',
     cost: {},
-    desc: '油田（OIL）ノードに設置。原油をストレージへ継続的に抽出する。',
+    desc: '【出撃先専用】油田（OIL）ノードに設置。原油を倉庫へ継続的に抽出する。',
     validTerrain: [C.OIL_WELL],
     onTick(cell, gs) {
       if (cell.terrain !== C.OIL_WELL) return;
@@ -461,8 +467,8 @@ function addRes(gs, key, n) {
     if (gs.gearFlags.amplifierCount % 10 === 0) gs.resources[key]++;
   }
 
-  // Production tracking (during wave)
-  if (gs.state === 'wave') {
+  // Production tracking (during battle missions)
+  if (gs.mission?.combatActive) {
     gs.waveProductionCount = (gs.waveProductionCount || 0) + n;
 
     // Wave objective tracking
