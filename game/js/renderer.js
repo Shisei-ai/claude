@@ -189,17 +189,19 @@ function render(canvas, gs) {
   // Hover ghost
   if (gs.hover && gs.selectedTool && gs.state === 'build') {
     const { hx, hy } = gs.hover;
-    const def = EQ_DEF[gs.selectedTool];
-    const sz  = (def?.size || 1) * cs;
-    const px  = Math.round((hx - cam.x) * cs);
-    const py  = Math.round((hy - cam.y) * cs);
-    ctx.strokeStyle = 'rgba(255,120,60,0.9)';
+    const def   = EQ_DEF[gs.selectedTool];
+    const cellSz = def?.size || 1;
+    const sz    = cellSz * cs;
+    const px    = Math.round((hx - cam.x) * cs);
+    const py    = Math.round((hy - cam.y) * cs);
+    const valid = isHoverPlacementValid(gs, hx, hy, gs.selectedTool);
+    ctx.strokeStyle = valid ? 'rgba(255,120,60,0.9)' : 'rgba(255,50,50,0.9)';
     ctx.lineWidth = 2;
     ctx.setLineDash([4, 3]);
     ctx.strokeRect(px + 1, py + 1, sz - 2, sz - 2);
     ctx.setLineDash([]);
-    ctx.globalAlpha = 0.2;
-    ctx.fillStyle = def?.color || '#555';
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = valid ? (def?.color || '#555') : '#aa2020';
     ctx.fillRect(px + 2, py + 2, sz - 4, sz - 4);
     ctx.globalAlpha = 1;
   }
@@ -607,6 +609,26 @@ function drawAdvAssembler(ctx, px, py, sz) {
 function drawProgressBar(ctx, px, py, sz, progress, color) {
   ctx.fillStyle = color;
   ctx.fillRect(px + 2, py + sz - 5, (sz - 4) * Math.max(0, Math.min(1, progress)), 3);
+}
+
+function isHoverPlacementValid(gs, hx, hy, tool) {
+  const def = EQ_DEF[tool];
+  if (!def || def.unlocked === false) return false;
+  const sz = def.size || 1;
+  for (let dy = 0; dy < sz; dy++) {
+    for (let dx = 0; dx < sz; dx++) {
+      const fx = hx + dx, fy = hy + dy;
+      if (!inBounds(fx, fy)) return false;
+      const fc = gs.map.grid[fy][fx];
+      if (fc.terrain === C.CORE) return false;
+      if (fc.equipment) return false;
+    }
+  }
+  if (!inBounds(hx, hy)) return false;
+  const cell = gs.map.grid[hy][hx];
+  if (tool === C.EQ.MINER    && !(def.validTerrain?.includes(cell.terrain))) return false;
+  if (tool === C.EQ.OIL_PUMP && cell.terrain !== C.OIL_WELL) return false;
+  return true;
 }
 
 function shadeColor(hex, amount) {

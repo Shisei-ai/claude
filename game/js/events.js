@@ -5,20 +5,30 @@
 // ──────────────────────────────────────────────────────────
 
 function destroyRandomEquipment(gs, count) {
-  const cells = [];
+  const roots = [];
   for (let y = 0; y < C.ROWS; y++) {
     for (let x = 0; x < C.COLS; x++) {
       const cell = gs.map.grid[y][x];
-      if (cell.equipment && cell.terrain !== C.CORE) cells.push(cell);
+      if (cell.equipment && cell.equipment.type !== '_occ' && cell.terrain !== C.CORE)
+        roots.push({ cell, x, y });
     }
   }
-  for (let i = cells.length - 1; i > 0; i--) {
+  for (let i = roots.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [cells[i], cells[j]] = [cells[j], cells[i]];
+    [roots[i], roots[j]] = [roots[j], roots[i]];
   }
-  for (let i = 0; i < Math.min(count, cells.length); i++) {
-    cells[i].equipment = null;
-    cells[i].item      = null;
+  for (let i = 0; i < Math.min(count, roots.length); i++) {
+    const { cell, x, y } = roots[i];
+    if (cell.equipment.type === C.EQ.WALL) gs.flowFieldDirty = true;
+    const sz = EQ_DEF[cell.equipment.type]?.size || 1;
+    for (let dy = 0; dy < sz; dy++) {
+      for (let dx = 0; dx < sz; dx++) {
+        if (inBounds(x + dx, y + dy)) {
+          gs.map.grid[y + dy][x + dx].equipment = null;
+          gs.map.grid[y + dy][x + dx].item      = null;
+        }
+      }
+    }
   }
 }
 
