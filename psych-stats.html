@@ -10,7 +10,9 @@
         :root { --primary: #0f172a; --secondary: #1e293b; --accent: #4f46e5; --success: #10b981; --warning: #f59e0b; --danger: #ef4444; --bg: #f8fafc; --text: #334155; --sig: #dc2626; --ns: #64748b; }
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg); margin: 0; display: flex; height: 100vh; overflow: hidden; color: var(--text); }
 
-        #sidebar { width: 440px; background: var(--primary); color: white; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; border-right: 1px solid #334155; }
+        #sidebar { width: 440px; background: var(--primary); color: white; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; border-right: 1px solid #334155; flex-shrink: 0; min-width: 0; transition: width 0.3s ease, padding 0.3s ease; }
+        #sidebar.sb-hidden { width: 0 !important; padding: 0 !important; overflow: hidden; border: none !important; }
+        #sb-expand-btn { display: none; position: fixed; top: 50%; left: 0; transform: translateY(-50%); z-index: 1000; background: var(--accent); color: white; border: none; width: 24px; height: 64px; border-radius: 0 8px 8px 0; cursor: pointer; font-size: 0.85rem; }
         .logo { font-size: 1.4rem; font-weight: bold; color: #818cf8; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-bottom: 5px; text-align: center; }
         .nav-section { background: var(--secondary); padding: 12px; border-radius: 8px; border: 1px solid #334155; }
         .label { font-size: 0.75rem; font-weight: bold; color: #94a3b8; margin-bottom: 6px; display: block; text-transform: uppercase; }
@@ -38,10 +40,11 @@
         .report-card { background: white; border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         .word-hint { background: #fffbeb; border: 1px solid #fde68a; color: #b45309; padding: 10px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
 
-        .stats-table { width: 100%; border-collapse: collapse; margin: 15px 0; border: 1px solid #cbd5e1; }
-        .stats-table th { background: #f8fafc; text-align: left; padding: 10px; border: 1px solid #cbd5e1; color: #475569; font-size: 0.85rem; }
-        .stats-table td { padding: 10px; border: 1px solid #cbd5e1; font-size: 0.9rem; }
-        .metric-label { font-weight: 600; color: #334155; width: 35%; background: #f8fafc; }
+        .stats-table { width: 100%; border-collapse: collapse; margin: 15px 0; border-top: 2px solid #334155; }
+        .stats-table th { background: #fafafa; text-align: left; padding: 9px 10px; border-bottom: 1.5px solid #475569; color: #334155; font-size: 0.85rem; font-weight: 700; }
+        .stats-table td { padding: 9px 10px; font-size: 0.9rem; border-bottom: 1px solid #eef2f7; }
+        .stats-table tr:last-child td { border-bottom: 2px solid #334155; }
+        .metric-label { font-weight: 600; color: #334155; width: 35%; background: #fafafa; }
 
         .sig-text { color: var(--sig); font-weight: bold; }
         .ns-text { color: var(--ns); }
@@ -54,12 +57,23 @@
         .canvas-hidden { display: none; }
         .posthoc-sig { color: #b91c1c; font-weight: bold; }
         .posthoc-ns { color: #64748b; }
+        /* APA 論文記述文ボックス */
+        .apa-box { background: #fffbeb; border-left: 4px solid #d97706; border-radius: 0 8px 8px 0; padding: 15px 18px; margin-top: 20px; }
+        .apa-box-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .apa-box-label { font-size: 0.78rem; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: 0.05em; }
+        .apa-text { font-size: 0.9rem; line-height: 1.95; color: #1c1917; font-family: 'Times New Roman', 'ヒラギノ明朝 Pro', Georgia, serif; }
+        .apa-copy-btn { font-size: 0.72rem; padding: 3px 10px; background: #d97706; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; white-space: nowrap; }
+        .apa-copy-btn:hover { background: #b45309; }
     </style>
 </head>
 <body>
 
+<button id="sb-expand-btn" onclick="toggleSidebar()" title="サイドバーを表示">▶</button>
 <div id="sidebar">
-    <div class="logo">PSYCH-STATS ULTIMATE v16.1</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #334155;padding-bottom:10px;margin-bottom:5px;">
+        <div class="logo" style="border:none;padding:0;margin:0;flex:1;">PSYCH-STATS ULTIMATE v16.1</div>
+        <button onclick="toggleSidebar()" title="格納" style="background:none;border:none;color:#94a3b8;font-size:1.2rem;cursor:pointer;padding:2px 8px;border-radius:4px;line-height:1;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='none'">◀</button>
+    </div>
 
     <div class="nav-section">
         <span class="label">1. データ読み込み</span>
@@ -222,6 +236,48 @@
     let activeIn = 'yTarget';
     let chartList = [];
     let chartCounter = 0;
+
+    // ===== APA ヘルパー関数 =====
+    function apaPfmt(p) {
+        if (p < .001) return '< .001';
+        return '= ' + p.toFixed(3).replace(/^0\./, '.');
+    }
+    function apaFmt(x, dec = 2, noLeadZero = false) {
+        const s = x.toFixed(dec);
+        return noLeadZero ? s.replace(/^(-?)0\./, '$1.') : s;
+    }
+    function apaSigWord(p) { return p < .05 ? '有意であった' : '有意でなかった'; }
+    function apaDiffWord(p) { return p < .05 ? '有意差が認められた' : '有意差は認められなかった'; }
+    function apaAlphaLabel(a) {
+        if (a >= .90) return '非常に高い';
+        if (a >= .80) return '十分な';
+        if (a >= .70) return '許容できる';
+        if (a >= .60) return 'やや低い';
+        return '低い';
+    }
+    function apaBox(html) {
+        return `<div class="apa-box">
+            <div class="apa-box-header">
+                <span class="apa-box-label">📄 論文記述文 (APA 形式)</span>
+                <button class="apa-copy-btn" onclick="apaCopy(this)">コピー</button>
+            </div>
+            <div class="apa-text">${html}</div>
+        </div>`;
+    }
+    function apaCopy(btn) {
+        const txt = btn.closest('.apa-box').querySelector('.apa-text').innerText;
+        navigator.clipboard.writeText(txt).then(() => {
+            btn.textContent = '✓ 完了';
+            setTimeout(() => btn.textContent = 'コピー', 2000);
+        }).catch(() => { btn.textContent = '失敗'; setTimeout(() => btn.textContent = 'コピー', 2000); });
+    }
+    function toggleSidebar() {
+        const sb = document.getElementById('sidebar');
+        const btn = document.getElementById('sb-expand-btn');
+        const hidden = sb.classList.toggle('sb-hidden');
+        btn.style.display = hidden ? 'block' : 'none';
+    }
+    // ===========================
 
     // XSS対策: ユーザーデータをHTMLに挿入する前にエスケープ
     function escapeHtml(str) {
@@ -598,6 +654,7 @@
                     </tr>
                 </table>
                 <div class="chart-container"><canvas id="${cId}"></canvas></div>
+                ${apaBox(`変数「${escapeHtml(k)}」の記述統計量を算出した（<i>N</i> = ${n}）。平均値は <i>M</i> = ${apaFmt(m,2)}（<i>SD</i> = ${apaFmt(sd,2)}），95% CI [${apaFmt(ciLow,2)}, ${apaFmt(ciHigh,2)}] であった。分布の形状については，歪度 = ${apaFmt(skew,2)}，尖度 = ${apaFmt(kurt,2)} であった。Jarque-Bera 正規性検定の結果，${pJB >= .05 ? '正規性の仮定は棄却されなかった' : '正規性の仮定が有意に棄却された'}（<i>JB</i> = ${jb.toFixed(3)}，<i>p</i> ${apaPfmt(pJB)}）${pJB < .05 ? '。ノンパラメトリック検定の使用を検討されたい' : ''}。`)}
             </div>`;
 
             renderChartAsImage(cId, {
@@ -664,8 +721,32 @@
             h += `</table>
                 <p style="font-size:0.78rem;color:#64748b;margin-top:8px;">
                     *** p &lt; .001 &nbsp; ** p &lt; .01 &nbsp; * p &lt; .05 &nbsp; † p &lt; .10 &nbsp;|&nbsp; 括弧内は95%CI (Fisher's z変換)
-                </p>
-            </div>`;
+                </p>`;
+            // 有意な相関ペアを収集してAPA文生成
+            { const sigPairs = [];
+              numericKeys.forEach((k1,i) => numericKeys.forEach((k2,j) => {
+                if (j <= i) return;
+                const prs = rawData.filter(d => !isNaN(parseFloat(d[k1])) && !isNaN(parseFloat(d[k2])));
+                if (prs.length < 3) return;
+                const c1 = prs.map(d => parseFloat(d[k1])), c2 = prs.map(d => parseFloat(d[k2]));
+                const r = ss.sampleCorrelation(c1, c2), nP = c1.length;
+                const tV = r * Math.sqrt((nP-2)/(1-r*r)), pV = StatsLib.tP(tV, nP-2);
+                const z = 0.5*Math.log((1+r)/(1-r)), seZ = 1/Math.sqrt(nP-3);
+                const rLo = Math.tanh(z-1.96*seZ), rHi = Math.tanh(z+1.96*seZ);
+                sigPairs.push({k1,k2,r,p:pV,n:nP,rLo,rHi,sig:pV<.05});
+              }));
+              const sigLines = sigPairs.filter(sp=>sp.sig).map(sp =>
+                `${escapeHtml(sp.k1)} と ${escapeHtml(sp.k2)} の間に有意な${sp.r>0?'正':'負'}の相関が認められた（<i>r</i>(${sp.n-2}) = ${apaFmt(sp.r,3,true)}，<i>p</i> ${apaPfmt(sp.p)}，95% CI [${apaFmt(sp.rLo,3,true)}, ${apaFmt(sp.rHi,3,true)}]）`
+              );
+              const nsLines = sigPairs.filter(sp=>!sp.sig).map(sp =>
+                `${escapeHtml(sp.k1)} と ${escapeHtml(sp.k2)}（<i>r</i>(${sp.n-2}) = ${apaFmt(sp.r,3,true)}，<i>p</i> ${apaPfmt(sp.p)}）`
+              );
+              let apaCorr = `${numericKeys.map(k=>escapeHtml(k)).join('，')} の ${numericKeys.length} 変数間の Pearson の積率相関係数を算出した。`;
+              if (sigLines.length > 0) apaCorr += sigLines.join('。') + '。';
+              if (nsLines.length > 0) apaCorr += `有意な相関が認められなかった組み合わせは ${nsLines.join('，')} であった。`;
+              h += apaBox(apaCorr);
+            }
+            h += `</div>`;
             out.innerHTML += h;
         }
     }
@@ -726,6 +807,7 @@
                 </tr>
                 ${itemRows}
             </table>
+            ${apaBox(`${keys.length} 項目から構成される尺度の内的一貫性を検討するために，Cronbach の α 係数を算出した（<i>k</i> = ${k}，<i>N</i> = ${validRows.length}）。その結果，α = ${apaFmt(alpha,3,true)} であり，${apaAlphaLabel(alpha)}内的一貫性が示された（Nunnally, 1978）。${alpha >= .70 ? '' : '項目の精査または追加が望まれる。'}`)}
         </div>`;
     }
 
@@ -770,6 +852,10 @@
                 <tr><td>Welch</td><td>${tW.toFixed(3)}</td><td>${dfW.toFixed(2)}</td><td>${StatsLib.getSigLabel(pW)}</td><td>[${ciWLow.toFixed(3)}, ${ciWHigh.toFixed(3)}]</td></tr>
             </table>
             <div class="chart-container"><canvas id="${cId}"></canvas></div>
+            ${(()=>{
+                const sd1=Math.sqrt(v1), sd2=Math.sqrt(v2), dW=Math.abs(diff)/Math.sqrt(pVar);
+                return apaBox(`変数「${escapeHtml(y)}」について，${escapeHtml(String(x))} の2群間（${escapeHtml(String(groups[0]))}：<i>M</i> = ${apaFmt(m1,2)}，<i>SD</i> = ${apaFmt(sd1,2)}，<i>n</i> = ${n1}；${escapeHtml(String(groups[1]))}：<i>M</i> = ${apaFmt(m2,2)}，<i>SD</i> = ${apaFmt(sd2,2)}，<i>n</i> = ${n2}）で独立サンプルの <i>t</i> 検定（Welch 法）を実施した。その結果，${apaDiffWord(pW)}（<i>t</i>(${apaFmt(dfW,2)}) = ${apaFmt(tW,2)}，<i>p</i> ${apaPfmt(pW)}，Cohen's <i>d</i> = ${apaFmt(dW,2)}，95% CI [${apaFmt(ciWLow,3)}, ${apaFmt(ciWHigh,3)}]）。`);
+            })()}
         </div>`;
         renderChartAsImage(cId, {
             type: 'bar',
@@ -802,6 +888,7 @@
                 <tr><td>平均差の95%CI</td><td>[${ciLow.toFixed(3)}, ${ciHigh.toFixed(3)}]</td></tr>
             </table>
             <div class="chart-container"><canvas id="${cId}"></canvas></div>
+            ${apaBox(`${escapeHtml(v1)} と ${escapeHtml(v2)} の差（${escapeHtml(v1)} − ${escapeHtml(v2)}）について，対応のある <i>t</i> 検定を実施した（<i>N</i> = ${pairs.length}）。${escapeHtml(v1)}（<i>M</i> = ${apaFmt(m1,2)}）と ${escapeHtml(v2)}（<i>M</i> = ${apaFmt(m2,2)}）を比較した結果，${apaDiffWord(p)}（<i>t</i>(${n-1}) = ${apaFmt(t,2)}，<i>p</i> ${apaPfmt(p)}，Cohen's <i>d</i><sub>z</sub> = ${apaFmt(dz,2)}，95% CI [${apaFmt(ciLow,3)}, ${apaFmt(ciHigh,3)}]）。`)}
         </div>`;
         renderChartAsImage(cId, {
             type: 'bar',
@@ -824,6 +911,7 @@
         // ボンフェローニ補正による全ペア比較
         const numPairs = groups.length * (groups.length - 1) / 2;
         let postHocRows = '';
+        const sigPosthocPairs = [];
         for (let i = 0; i < groups.length; i++) {
             for (let j = i + 1; j < groups.length; j++) {
                 const ni = samples[i].length, nj = samples[j].length;
@@ -833,6 +921,7 @@
                 const pRaw = StatsLib.tP(tij, df2);
                 const pAdj = Math.min(pRaw * numPairs, 1);
                 const sigClass = pAdj < 0.05 ? 'posthoc-sig' : 'posthoc-ns';
+                if (pAdj < 0.05) sigPosthocPairs.push({g1:String(groups[i]),g2:String(groups[j]),pAdj});
                 postHocRows += `<tr>
                     <td>${escapeHtml(String(groups[i]))} vs ${escapeHtml(String(groups[j]))}</td>
                     <td>${(mi - mj).toFixed(3)}</td>
@@ -858,6 +947,15 @@
             </table>
             <p style="font-size:0.8rem; color:#64748b; margin-top:5px;">* p &lt; .05 (補正後)</p>
             <div class="chart-container"><canvas id="${cId}"></canvas></div>
+            ${(()=>{
+                const grpDesc = groups.map((g,gi) => `${escapeHtml(String(g))}（<i>M</i> = ${apaFmt(ss.mean(samples[gi]),2)}，<i>SD</i> = ${apaFmt(ss.sampleStandardDeviation(samples[gi]),2)}，<i>n</i> = ${samples[gi].length}）`).join('，');
+                let txt = `${escapeHtml(y)} を従属変数，${escapeHtml(String(x))} を独立変数とした一元配置分散分析を実施した（${grpDesc}；全 <i>N</i> = ${all.length}）。その結果，${escapeHtml(String(x))} の主効果は${apaSigWord(p)}（<i>F</i>(${df1}, ${df2}) = ${apaFmt(f,2)}，<i>p</i> ${apaPfmt(p)}，η² = ${apaFmt(eta,3,true)}）。`;
+                if (p < .05 && sigPosthocPairs.length > 0)
+                    txt += `Bonferroni 法による多重比較の結果，${sigPosthocPairs.map(sp=>`${escapeHtml(sp.g1)} と ${escapeHtml(sp.g2)} の間に有意差が認められた（<i>p</i> ${apaPfmt(sp.pAdj)}）`).join('，')}。`;
+                else if (p < .05)
+                    txt += 'Bonferroni 法による多重比較では，補正後に有意差が認められた群対はなかった。';
+                return apaBox(txt);
+            })()}
         </div>`;
         renderChartAsImage(cId, {
             type: 'bar',
@@ -1107,6 +1205,17 @@
             </div>
             ${buildCoeffTableHTML(model)}
             <div class="chart-container"><canvas id="${cId}"></canvas></div>
+            ${(()=>{
+                const df2r = n - model.k - 1;
+                const xsList = xs.map(x=>escapeHtml(x)).join('，');
+                let txt = `${escapeHtml(y)} を目的変数，${xsList} を説明変数とした${xs.length===1?'単':'重'}回帰分析（強制投入法）を実施した（<i>N</i> = ${n}）。回帰モデルは${apaSigWord(pMod)}（<i>F</i>(${model.k}, ${df2r}) = ${apaFmt(fMod,2)}，<i>p</i> ${apaPfmt(pMod)}，<i>R</i>² = ${apaFmt(r2,3,true)}，調整済み <i>R</i>² = ${apaFmt(adjR2,3,true)}）。`;
+                const predLines = xs.map((xn,i)=>{
+                    const idx=i+1;
+                    return `${escapeHtml(xn)}（<i>β</i> = ${apaFmt(model.Beta[idx],3,true)}，<i>t</i>(${df2r}) = ${apaFmt(model.tVals[idx],2)}，<i>p</i> ${apaPfmt(model.pVals[idx])}）`;
+                });
+                txt += `各説明変数の標準化偏回帰係数は，${predLines.join('，')} であった。`;
+                return apaBox(txt);
+            })()}
         </div>`;
         out.innerHTML += h;
         renderRegressionChart(cId, actual, pred, xs, model);
@@ -1174,6 +1283,25 @@
             ${coeffHtml}
             <p style="font-size:0.8rem;color:#64748b;margin-top:15px;">※散布図は最終モデル(Block ${final.blockNum})の予測値と実測値の関係を示します。</p>
             <div class="chart-container"><canvas id="${cId}"></canvas></div>
+            ${(()=>{
+                let txt = `${escapeHtml(y)} を目的変数として，重回帰分析（階層的投入法）を実施した（<i>N</i> = ${final.n}）。`;
+                models.forEach((m,i) => {
+                    const df2r = m.n - m.k - 1;
+                    const xsLabel = blocks[i].map(x=>escapeHtml(x)).join('，');
+                    if (i === 0) {
+                        txt += `Step 1 では ${xsLabel} を投入した（<i>F</i>(${m.k}, ${df2r}) = ${apaFmt(m.fMod,2)}，<i>p</i> ${apaPfmt(m.pMod)}，<i>R</i>² = ${apaFmt(m.r2,3,true)}）。`;
+                    } else {
+                        const prev = models[i-1];
+                        const dR2 = m.r2 - prev.r2;
+                        const dSsReg = prev.ssRes - m.ssRes;
+                        const dDf1 = blocks[i].length, dDf2 = df2r;
+                        const dF = (dSsReg/dDf1)/(m.ssRes/dDf2);
+                        const dP = StatsLib.fP(dF, dDf1, dDf2);
+                        txt += `Step ${i+1} では ${xsLabel} を追加投入したところ，<i>R</i>² が ${apaFmt(prev.r2,3,true)} から ${apaFmt(m.r2,3,true)} に増加し（Δ<i>R</i>² = ${apaFmt(dR2,3,true)}），Δ<i>F</i>(${dDf1}, ${dDf2}) = ${apaFmt(dF,2)}，<i>p</i> ${apaPfmt(dP)} であった${dP<.05 ? '（有意な増分）' : '（有意な増分なし）'}。`;
+                    }
+                });
+                return apaBox(txt);
+            })()}
         </div>`;
         renderRegressionChart(cId, final.actual, final.pred, final.xs, final);
     }
@@ -1302,6 +1430,18 @@
             </div>
             ${buildCoeffTableHTML(model)}
             <div class="chart-container"><canvas id="${cId}"></canvas></div>
+            ${(()=>{
+                const df2r = n - model.k - 1;
+                let txt = `${escapeHtml(y)} を目的変数とした調整（交互作用）分析を実施した（<i>N</i> = ${n}）。すべての説明変数は分析前に平均中心化した。回帰モデルは${apaSigWord(pMod)}（<i>F</i>(${model.k}, ${df2r}) = ${apaFmt(fMod,2)}，<i>p</i> ${apaPfmt(pMod)}，<i>R</i>² = ${apaFmt(r2,3,true)}，調整済み <i>R</i>² = ${apaFmt(adjR2,3,true)}）。`;
+                interactionTerms.forEach(it => {
+                    const intIdx = finalXs.indexOf(it.name);
+                    if (intIdx < 0) return;
+                    const intPVal = model.pVals[intIdx + 1];
+                    const intBeta = model.Beta[intIdx + 1];
+                    txt += `交互作用項 ${escapeHtml(it.predictor)} × ${escapeHtml(it.moderator)} は${apaSigWord(intPVal)}（<i>β</i> = ${apaFmt(intBeta,3,true)}，<i>t</i>(${df2r}) = ${apaFmt(model.tVals[intIdx+1],2)}，<i>p</i> ${apaPfmt(intPVal)}）。`;
+                });
+                return apaBox(txt);
+            })()}
         </div>`;
         renderRegressionChart(cId, actual, pred, finalXs, model);
 
@@ -1471,7 +1611,26 @@
             });
             h += `</tr>`;
         });
-        out.innerHTML += h + `</table></div>`;
+        // APA テキスト生成 (全ペアを再計算して有意なものを抽出)
+        { const corrPairs = [];
+          keys.forEach((k1,i) => keys.forEach((k2,j) => {
+            if (j <= i) return;
+            const prs = rawData.filter(d => !isNaN(parseFloat(d[k1])) && !isNaN(parseFloat(d[k2])));
+            if (prs.length < 3) return;
+            const c1=prs.map(d=>parseFloat(d[k1])), c2=prs.map(d=>parseFloat(d[k2]));
+            const r=ss.sampleCorrelation(c1,c2), nP=c1.length;
+            const tV=r*Math.sqrt((nP-2)/(1-r*r)), pV=StatsLib.tP(tV,nP-2);
+            const zV=0.5*Math.log((1+r)/(1-r)), seZ=1/Math.sqrt(nP-3);
+            const rLo=Math.tanh(zV-1.96*seZ), rHi=Math.tanh(zV+1.96*seZ);
+            corrPairs.push({k1,k2,r,p:pV,n:nP,rLo,rHi});
+          }));
+          const sig=corrPairs.filter(c=>c.p<.05);
+          let apaC = `${keys.map(k=>escapeHtml(k)).join('，')} の変数間の Pearson の積率相関係数行列を算出した（Table 参照）。`;
+          if (sig.length>0) apaC += sig.map(c=>`${escapeHtml(c.k1)} と ${escapeHtml(c.k2)} の間に有意な${c.r>0?'正':'負'}の相関が認められた（<i>r</i>(${c.n-2}) = ${apaFmt(c.r,3,true)}，<i>p</i> ${apaPfmt(c.p)}，95% CI [${apaFmt(c.rLo,3,true)}, ${apaFmt(c.rHi,3,true)}]）`).join('。') + '。';
+          else apaC += 'いずれの変数間にも有意な相関は認められなかった。';
+          h += apaBox(apaC);
+        }
+        out.innerHTML += h + `</div>`;
     }
 
     // --- カイ二乗検定 ---
@@ -1494,7 +1653,9 @@
         });
         htmlTable += `<tr><th>計</th>` + cats2.map(c => `<td><b>${colTotal[c]}</b></td>`).join('') + `<td><b>${grandTotal}</b></td></tr></table>`;
         const df = (cats1.length - 1) * (cats2.length - 1), p = StatsLib.chiSquareP(chiSq, df);
-        out.innerHTML += `<div class="report-card"><h2>カイ二乗検定: ${escapeHtml(String(var1))} × ${escapeHtml(String(var2))}</h2>${htmlTable}<table class="stats-table"><tr><td class="metric-label">χ²値</td><td>${chiSq.toFixed(3)}</td></tr><tr><td class="metric-label">df</td><td>${df}</td></tr><tr><td class="metric-label">p値</td><td>${StatsLib.getSigLabel(p)}</td></tr></table></div>`;
+        out.innerHTML += `<div class="report-card"><h2>カイ二乗検定: ${escapeHtml(String(var1))} × ${escapeHtml(String(var2))}</h2>${htmlTable}<table class="stats-table"><tr><td class="metric-label">χ²値</td><td>${chiSq.toFixed(3)}</td></tr><tr><td class="metric-label">df</td><td>${df}</td></tr><tr><td class="metric-label">p値</td><td>${StatsLib.getSigLabel(p)}</td></tr></table>
+        ${apaBox(`${escapeHtml(String(var1))} と ${escapeHtml(String(var2))} の関連についてカイ二乗検定を実施した（<i>N</i> = ${grandTotal}）。その結果，両変数の間に有意な関連が${p<.05?'認められた':'認められなかった'}（χ²(${df}) = ${chiSq.toFixed(3)}，<i>p</i> ${apaPfmt(p)}）。`)}
+        </div>`;
     }
 
     // --- マン・ホイットニーU検定 ---
@@ -1513,7 +1674,9 @@
         const r1 = ss.sum(all.filter(a => a.g === 1).map(a => a.r)), n1 = d1.length, n2 = d2.length;
         const u1 = r1 - (n1 * (n1 + 1)) / 2, u2 = n1 * n2 - u1, u = Math.min(u1, u2);
         const z = (u - (n1 * n2) / 2) / Math.sqrt((n1 * n2 * (n1 + n2 + 1)) / 12), p = StatsLib.zP(z);
-        out.innerHTML += `<div class="report-card"><h2>マン・ホイットニーのU検定: ${escapeHtml(String(x))}</h2><table class="stats-table"><tr><th>U値</th><th>Z値</th><th>p値</th></tr><tr><td>${u}</td><td>${z.toFixed(3)}</td><td>${StatsLib.getSigLabel(p)}</td></tr></table></div>`;
+        out.innerHTML += `<div class="report-card"><h2>マン・ホイットニーのU検定: ${escapeHtml(String(x))}</h2><table class="stats-table"><tr><th>U値</th><th>Z値</th><th>p値</th></tr><tr><td>${u}</td><td>${z.toFixed(3)}</td><td>${StatsLib.getSigLabel(p)}</td></tr></table>
+        ${apaBox(`変数「${escapeHtml(y)}」について，${escapeHtml(String(x))} の2群間（${escapeHtml(String(groups[0]))}：<i>n</i> = ${n1}；${escapeHtml(String(groups[1]))}：<i>n</i> = ${n2}）で Mann-Whitney の <i>U</i> 検定を実施した。その結果，${apaDiffWord(p)}（<i>U</i> = ${u}，<i>z</i> = ${apaFmt(z,3)}，<i>p</i> ${apaPfmt(p)}）。`)}
+        </div>`;
     }
 
     // ============================================================
@@ -2079,7 +2242,17 @@
             ${extraction === 'ml' ? '• <b>最尤法 (ML)</b>: 適合度統計量が得られ因子数の比較検討が可能。正規性を仮定。<br>' : ''}
             • <b>バリマックス</b>: 因子間無相関を仮定。<b>プロマックス</b>: 因子間相関を許容（心理尺度に多い）。<br>
             • <b>PAF vs PCA</b>: 共通因子モデルにはPAFが理論的に適切（Fabrigar et al., 1999）。
-        </div></div>`;
+        </div>
+        ${(()=>{
+            const rotLabel2 = rotation==='varimax'?'バリマックス回転（直交）':rotation==='promax'?'プロマックス回転（斜交）':'回転なし';
+            let txt = `${keys.map(k=>escapeHtml(k)).join('，')} の ${p} 変数を対象として，${extractionLabel}を用いた${rotLabel2}による探索的因子分析を実施した（<i>N</i> = ${n}）。因子数の決定にあたっては，①カイザー基準（${kaiserCount} 因子），②累積寄与率基準（${cumVarCount} 因子），③対角SMC平行分析（${paCount} 因子），④MAP 検定（${mapCount} 因子），⑤共通性基準（${communalityCount} 因子）の5基準を参照し，多数決により <b>${m} 因子解</b>を採択した。採択された ${m} 因子の累積寄与率は ${(totalExplained/p*100).toFixed(1)}% であった。`;
+            if (fitStats) {
+                const fi = fitStats;
+                txt += `モデル適合度は，CFI = ${apaFmt(fi.cfi,3,true)}，RMSEA = ${apaFmt(fi.rmsea,4,true)}，χ²(${fi.df}) = ${fi.chi2.toFixed(2)}，<i>p</i> ${apaPfmt(fi.pVal)} であった（${fi.cfi>=.95&&fi.rmsea<=.08?'許容できる適合':fi.cfi>=.97&&fi.rmsea<=.05?'良好な適合':'適合度が低い可能性がある'}）。`;
+            }
+            return apaBox(txt);
+        })()}
+        </div>`;
 
         out.innerHTML += h;
 
@@ -2136,7 +2309,9 @@
         absDiffs.forEach(d => { if (d.orig > 0) wPlus += d.rank; else wMinus += d.rank; });
         const n = absDiffs.length, w = Math.min(wPlus, wMinus);
         const z = (w - (n * (n + 1)) / 4) / Math.sqrt((n * (n + 1) * (2 * n + 1)) / 24), p = StatsLib.zP(z);
-        out.innerHTML += `<div class="report-card"><h2>ウィルコクソン符号付順位検定: ${escapeHtml(v1)} vs ${escapeHtml(v2)}</h2><table class="stats-table"><tr><th>W値</th><th>Z値</th><th>p値</th></tr><tr><td>${w}</td><td>${z.toFixed(3)}</td><td>${StatsLib.getSigLabel(p)}</td></tr></table></div>`;
+        out.innerHTML += `<div class="report-card"><h2>ウィルコクソン符号付順位検定: ${escapeHtml(v1)} vs ${escapeHtml(v2)}</h2><table class="stats-table"><tr><th>W値</th><th>Z値</th><th>p値</th></tr><tr><td>${w}</td><td>${z.toFixed(3)}</td><td>${StatsLib.getSigLabel(p)}</td></tr></table>
+        ${apaBox(`変数「${escapeHtml(v1)}」と「${escapeHtml(v2)}」の差（有効ペア数 <i>N</i> = ${pairs.length}，同順位除外後 <i>n</i> = ${n}）について，Wilcoxon の符号付き順位検定を実施した。その結果，${apaDiffWord(p)}（<i>T</i> = ${w}，<i>z</i> = ${apaFmt(z,3)}，<i>p</i> ${apaPfmt(p)}）。`)}
+        </div>`;
     }
 </script>
 
