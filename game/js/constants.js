@@ -31,6 +31,8 @@ const C = {
     CHEM_PLANT:   'chem_plant',
     ELECTROLYZER: 'electrolyzer',
     ADV_ASSEMBLER:'adv_assembler',
+    EXTRACTOR:    'extractor',
+    INSERTER:     'inserter',
   },
 
   // Resource IDs

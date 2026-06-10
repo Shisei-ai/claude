@@ -5,11 +5,13 @@ let tickAcc  = 0;
 const TICK_MS = 1000 / 60;
 
 const TOOL_ORDER = [
-  C.EQ.MINER, C.EQ.CONVEYOR, C.EQ.FURNACE, C.EQ.ASSEMBLER,
+  C.EQ.EXTRACTOR, C.EQ.INSERTER, C.EQ.CONVEYOR,
+  C.EQ.FURNACE, C.EQ.ASSEMBLER,
   C.EQ.TURRET, C.EQ.WALL,
   C.EQ.OIL_PUMP, C.EQ.WATER_PUMP, C.EQ.COKE_OVEN,
   C.EQ.DISTILLATION, C.EQ.CHEM_PLANT, C.EQ.ELECTROLYZER,
   C.EQ.ADV_ASSEMBLER, C.EQ.GENERATOR, C.EQ.LASER,
+  C.EQ.MINER,
 ];
 
 // ── Run modes ─────────────────────────────────────────────
@@ -80,6 +82,7 @@ function startWithMode(modeKey) {
     killCount: 0, waveKills: 0, wave: 0,
     afterUpgrade: null,
     _missionTick: false,
+    pendingPlacement: null,   // { tool, x, y, dir } — two-step placement
   };
   gs.map = gs.factoryMap;
 
@@ -644,7 +647,7 @@ function buildSidebar() {
     const def    = EQ_DEF[t];
     if (!def) return;
     const locked   = def.unlocked === false;
-    const ctxLock  = !locked && def.place === 'mission' && gs.view !== 'mission';
+    const ctxLock  = !locked && ((def.place === 'mission' && gs.view !== 'mission') || (def.place === 'factory' && gs.view !== 'factory'));
     const selected = gs.selectedTool === t;
     const canBuild = !locked && canAffordEquipment(t, gs);
     const sz       = def.size || 1;
@@ -685,7 +688,9 @@ function showToolInfo(t) {
   }
   const sizeTag = sz > 1 ? `<span class="tool-size-info">${sz}×${sz}マス</span>` : '';
   const ctxNote = (def?.place === 'mission' && gs?.view !== 'mission')
-    ? '<div class="tool-ctx-note">⚠ この設備は出撃先マップでのみ設置できます</div>' : '';
+    ? '<div class="tool-ctx-note">⚠ この設備は出撃先マップでのみ設置できます</div>'
+    : (def?.place === 'factory' && gs?.view !== 'factory')
+    ? '<div class="tool-ctx-note">⚠ この設備は工場マップでのみ設置できます</div>' : '';
 
   document.getElementById('tool-info').innerHTML =
     `<div class="tool-desc">${def?.desc || ''}</div>` +
@@ -713,10 +718,17 @@ function setupCanvas() {
     const gx = Math.floor((e.clientX - r.left) / C.CELL + gs.cam.x);
     const gy = Math.floor((e.clientY - r.top)  / C.CELL + gs.cam.y);
     if (!inBounds(gx, gy)) return;
+
+    // Second click confirms pending placement regardless of where clicked
+    if (gs.pendingPlacement) {
+      confirmPendingPlacement();
+      return;
+    }
+
     const cell = gs.map.grid[gy][gx];
     if (cell.terrain === C.CORE) return;
 
-    // resolve _occ satellite cells to root for interaction
+    // Resolve _occ satellite cells
     const rootCell = (cell.equipment?.type === '_occ')
       ? gs.map.grid[cell.equipment.rootY][cell.equipment.rootX]
       : cell;
@@ -726,51 +738,41 @@ function setupCanvas() {
       if (t === C.EQ.CHEM_PLANT || t === C.EQ.ADV_ASSEMBLER) {
         const recipes = EQ_DEF[t].recipes;
         rootCell.equipment.recipeIdx = ((rootCell.equipment.recipeIdx || 0) + 1) % recipes.length;
+        rootCell.equipment.inventory = {};
         const recipe = recipes[rootCell.equipment.recipeIdx];
         document.getElementById('tool-info').innerHTML = `<div>レシピ切替: ${recipe.icon} <b>${recipe.name}</b></div>`;
+        return;
+      }
+      if (t === C.EQ.EXTRACTOR) {
+        const keys = Object.keys(RES_NAMES);
+        const cur  = keys.indexOf(rootCell.equipment.selectedItem);
+        rootCell.equipment.selectedItem = keys[(cur + 1) % keys.length];
+        flashInfo(`取り出し: ${RES_NAMES[rootCell.equipment.selectedItem]}`);
         return;
       }
       return;
     }
 
+    // First click: lock placement position
     const def = EQ_DEF[gs.selectedTool];
     if (!def || def.unlocked === false) return;
     if (def.place === 'mission' && gs.view !== 'mission') {
-      flashInfo('この設備は出撃先マップ専用です');
-      return;
+      flashInfo('この設備は出撃先マップ専用です'); return;
     }
-
-    const sz = def.size || 1;
-    for (let dy = 0; dy < sz; dy++) {
-      for (let dx = 0; dx < sz; dx++) {
-        const fx = gx + dx, fy = gy + dy;
-        if (!inBounds(fx, fy)) return;
-        const fc = gs.map.grid[fy][fx];
-        if (fc.terrain === C.CORE) return;
-        if (fc.equipment) return;
-      }
+    if (def.place === 'factory' && gs.view !== 'factory') {
+      flashInfo('この設備は工場マップ専用です'); return;
     }
-    if (gs.selectedTool === C.EQ.MINER    && !def.validTerrain.includes(cell.terrain)) return;
-    if (gs.selectedTool === C.EQ.OIL_PUMP && cell.terrain !== C.OIL_WELL)             return;
-    if (!canAffordEquipment(gs.selectedTool, gs)) { flashInfo('リソース不足！ ' + formatEquipmentCost(gs.selectedTool)); return; }
-
-    deductEquipmentCost(gs.selectedTool, gs);
-    cell.equipment = makeEquipment(gs.selectedTool, gs.selectedDir);
-    if (sz === 2) {
-      for (let dy = 0; dy < sz; dy++) {
-        for (let dx = 0; dx < sz; dx++) {
-          if (dx === 0 && dy === 0) continue;
-          gs.map.grid[gy + dy][gx + dx].equipment = { type: '_occ', rootX: gx, rootY: gy };
-        }
-      }
+    if (!isHoverPlacementValid(gs, gx, gy, gs.selectedTool)) {
+      flashInfo('ここには設置できません'); return;
     }
-    if (gs.selectedTool === C.EQ.WALL) gs.flowFieldDirty = true;
-    buildSidebar();
+    gs.pendingPlacement = { tool: gs.selectedTool, x: gx, y: gy, dir: gs.selectedDir };
+    flashInfo('向き確定: R キーで回転 → クリックで設置');
   });
 
   canvas.addEventListener('contextmenu', e => {
     e.preventDefault();
     if (!gs || gs.state !== 'play') return;
+    if (gs.pendingPlacement) { gs.pendingPlacement = null; return; }
     const r  = canvas.getBoundingClientRect();
     const gx = Math.floor((e.clientX - r.left) / C.CELL + gs.cam.x);
     const gy = Math.floor((e.clientY - r.top)  / C.CELL + gs.cam.y);
@@ -821,8 +823,16 @@ function setupCanvas() {
       return;
     }
 
+    if (e.key === 'Escape') {
+      gs.pendingPlacement = null;
+      return;
+    }
     if (e.key === 'r' || e.key === 'R') {
-      gs.selectedDir = (gs.selectedDir + 1) % 4;
+      if (gs.pendingPlacement) {
+        gs.pendingPlacement.dir = (gs.pendingPlacement.dir + 1) % 4;
+      } else {
+        gs.selectedDir = (gs.selectedDir + 1) % 4;
+      }
       updateDirIndicator();
     }
     const idx = parseInt(e.key) - 1;
@@ -831,6 +841,34 @@ function setupCanvas() {
       if (EQ_DEF[t]?.unlocked !== false) { gs.selectedTool = t; buildSidebar(); }
     }
   });
+}
+
+function confirmPendingPlacement() {
+  const p = gs.pendingPlacement;
+  if (!p) return;
+  gs.pendingPlacement = null;
+  gs.selectedDir = p.dir;
+
+  if (!canAffordEquipment(p.tool, gs)) { flashInfo('リソース不足！ ' + formatEquipmentCost(p.tool)); return; }
+
+  const gx = p.x, gy = p.y;
+  if (!inBounds(gx, gy)) return;
+  if (!isHoverPlacementValid(gs, gx, gy, p.tool)) { flashInfo('設置できません（場所が塞がれました）'); return; }
+
+  deductEquipmentCost(p.tool, gs);
+  const cell = gs.map.grid[gy][gx];
+  cell.equipment = makeEquipment(p.tool, p.dir);
+  const sz = EQ_DEF[p.tool]?.size || 1;
+  if (sz === 2) {
+    for (let dy = 0; dy < sz; dy++) {
+      for (let dx = 0; dx < sz; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        gs.map.grid[gy + dy][gx + dx].equipment = { type: '_occ', rootX: gx, rootY: gy };
+      }
+    }
+  }
+  if (p.tool === C.EQ.WALL) gs.flowFieldDirty = true;
+  buildSidebar();
 }
 
 function flashInfo(msg) {

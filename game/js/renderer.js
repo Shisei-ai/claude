@@ -189,8 +189,24 @@ function render(canvas, gs) {
     ctx.stroke();
   }
 
-  // Hover ghost
-  if (gs.hover && gs.selectedTool && gs.state === 'play') {
+  // Pending placement ghost (solid — locked position, awaiting direction + confirm)
+  if (gs.pendingPlacement && gs.state === 'play') {
+    const p   = gs.pendingPlacement;
+    const def = EQ_DEF[p.tool];
+    const sz  = (def?.size || 1) * cs;
+    const px  = Math.round((p.x - cam.x) * cs);
+    const py  = Math.round((p.y - cam.y) * cs);
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = def?.color || '#555';
+    ctx.fillRect(px + 2, py + 2, sz - 4, sz - 4);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = 'rgba(255,210,60,0.95)';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([]);
+    ctx.strokeRect(px + 1, py + 1, sz - 2, sz - 2);
+    drawDirArrow(ctx, px, py, sz, p.dir);
+  } else if (gs.hover && gs.selectedTool && gs.state === 'play') {
+    // Hover ghost (dashed — preview)
     const { hx, hy } = gs.hover;
     const def   = EQ_DEF[gs.selectedTool];
     const cellSz = def?.size || 1;
@@ -250,6 +266,8 @@ function drawEquipmentBody(ctx, cell, px, py, cs, sz, gs) {
   else if (t === C.EQ.CHEM_PLANT)   drawChemPlant(ctx, px, py, sz);
   else if (t === C.EQ.ELECTROLYZER) drawElectrolyzer(ctx, px, py, sz);
   else if (t === C.EQ.ADV_ASSEMBLER)drawAdvAssembler(ctx, px, py, sz);
+  else if (t === C.EQ.EXTRACTOR)    drawExtractor(ctx, cell, px, py, cs);
+  else if (t === C.EQ.INSERTER)     drawInserter(ctx, cell, px, py, cs);
 
   // Recipe icon
   if ((t === C.EQ.CHEM_PLANT || t === C.EQ.ADV_ASSEMBLER) && eq.recipeIdx !== undefined) {
@@ -618,6 +636,7 @@ function isHoverPlacementValid(gs, hx, hy, tool) {
   const def = EQ_DEF[tool];
   if (!def || def.unlocked === false) return false;
   if (def.place === 'mission' && gs.view !== 'mission') return false;
+  if (def.place === 'factory' && gs.view !== 'factory') return false;
   const sz = def.size || 1;
   for (let dy = 0; dy < sz; dy++) {
     for (let dx = 0; dx < sz; dx++) {
@@ -633,6 +652,49 @@ function isHoverPlacementValid(gs, hx, hy, tool) {
   if (tool === C.EQ.MINER    && !(def.validTerrain?.includes(cell.terrain))) return false;
   if (tool === C.EQ.OIL_PUMP && cell.terrain !== C.OIL_WELL) return false;
   return true;
+}
+
+function drawDirArrow(ctx, px, py, sz, dir) {
+  const cx = px + sz / 2, cy = py + sz / 2;
+  ctx.fillStyle = 'rgba(255,220,80,0.9)';
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(dir * Math.PI / 2);
+  ctx.beginPath();
+  ctx.moveTo(sz * 0.22, 0);
+  ctx.lineTo(-sz * 0.12, -sz * 0.12);
+  ctx.lineTo(-sz * 0.12,  sz * 0.12);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawExtractor(ctx, cell, px, py, cs) {
+  const cx = px + cs / 2, cy = py + cs / 2;
+  ctx.fillStyle = '#5a7030';
+  ctx.fillRect(px + 4, py + 4, cs - 8, cs - 8);
+  // Arrow showing output direction
+  drawDirArrow(ctx, px, py, cs, cell.equipment.dir);
+  // Selected item indicator
+  const item = cell.equipment.selectedItem;
+  ctx.font = '8px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = item ? '#ffffff' : '#888888';
+  ctx.fillText(item ? (RES_NAMES[item]?.slice(0, 3) || '?') : '---', cx, cy + 3);
+  ctx.textAlign = 'left';
+}
+
+function drawInserter(ctx, cell, px, py, cs) {
+  const cx = px + cs / 2, cy = py + cs / 2;
+  ctx.fillStyle = '#305060';
+  ctx.fillRect(px + 4, py + 4, cs - 8, cs - 8);
+  // Arrow showing input direction (from which conveyor it reads)
+  drawDirArrow(ctx, px, py, cs, cell.equipment.dir);
+  ctx.font = '8px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#88ccee';
+  ctx.fillText('IN', cx, cy + 3);
+  ctx.textAlign = 'left';
 }
 
 function shadeColor(hex, amount) {
