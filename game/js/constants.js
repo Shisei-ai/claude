@@ -1,9 +1,9 @@
 const C = {
   CELL: 32,
-  COLS: 100,
-  ROWS: 100,
-  CORE_X: 48,   // top-left of 3×3 core block
-  CORE_Y: 48,
+  COLS: 52,
+  ROWS: 30,
+  CORE_X: 24,   // top-left of 3×3 core block
+  CORE_Y: 13,
 
   // Terrain types
   EMPTY:      0,

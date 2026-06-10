@@ -108,6 +108,17 @@ function updateEnemies(gs, dt) {
       gs.enemies.splice(i, 1);
       gs.killCount = (gs.killCount || 0) + 1;
       gs.waveKills = (gs.waveKills || 0) + 1;
+
+      // Combat → Production feedback: enemies drop resources
+      const dropRate = gs.upgrades.scrapProtocol ? 0.7 : 0.28;
+      if (Math.random() < dropRate) {
+        addRes(gs, Math.random() < 0.65 ? C.RES.IRON_ORE : C.RES.COAL, 1);
+      }
+      if (e.elite && !e.boss) addRes(gs, C.RES.COPPER_ORE, 1);
+      if (e.boss) {
+        addRes(gs, C.RES.IRON_PLATE, 2 + Math.floor(gs.wave / 3));
+        addRes(gs, C.RES.COPPER_PLATE, 1 + Math.floor(gs.wave / 4));
+      }
       continue;
     }
 

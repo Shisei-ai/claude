@@ -11,20 +11,20 @@ function generateMap() {
     for (let dx = 0; dx < 3; dx++)
       grid[C.CORE_Y + dy][C.CORE_X + dx].terrain = C.CORE;
 
-  // 2×2 resource patches – keep a buffer from core and from each other
+  // Ore patches — fewer, denser to match smaller map
   const patchDefs = [
-    { terrain: C.IRON_ORE,   count: 5 },
-    { terrain: C.COPPER_ORE, count: 4 },
+    { terrain: C.IRON_ORE,   count: 4 },
+    { terrain: C.COPPER_ORE, count: 3 },
     { terrain: C.COAL,       count: 3 },
-    { terrain: C.OIL_WELL,   count: 3 },
-    { terrain: C.SULFUR_DEP, count: 2 },
+    { terrain: C.OIL_WELL,   count: 2 },
+    { terrain: C.SULFUR_DEP, count: 1 },
   ];
 
   const occupied = new Set();
 
-  // Core area + 8-cell buffer
-  for (let dy = -8; dy < 11; dy++)
-    for (let dx = -8; dx < 11; dx++) {
+  // Core area + 5-cell buffer
+  for (let dy = -5; dy < 8; dy++)
+    for (let dx = -5; dx < 8; dx++) {
       const bx = C.CORE_X + dx, by = C.CORE_Y + dy;
       if (bx >= 0 && by >= 0 && bx < C.COLS - 1 && by < C.ROWS - 1)
         occupied.add(`${bx},${by}`);
@@ -39,8 +39,8 @@ function generateMap() {
 
       let clear = true;
       outer:
-      for (let dy2 = -4; dy2 <= 5; dy2++)
-        for (let dx2 = -4; dx2 <= 5; dx2++)
+      for (let dy2 = -3; dy2 <= 4; dy2++)
+        for (let dx2 = -3; dx2 <= 4; dx2++)
           if (occupied.has(`${px + dx2},${py + dy2}`)) { clear = false; break outer; }
       if (!clear) continue;
 
@@ -48,8 +48,8 @@ function generateMap() {
         for (let dx2 = 0; dx2 < 2; dx2++)
           grid[py + dy2][px + dx2].terrain = terrain;
 
-      for (let dy2 = -3; dy2 <= 4; dy2++)
-        for (let dx2 = -3; dx2 <= 4; dx2++)
+      for (let dy2 = -2; dy2 <= 3; dy2++)
+        for (let dx2 = -2; dx2 <= 3; dx2++)
           occupied.add(`${px + dx2},${py + dy2}`);
 
       placed++;

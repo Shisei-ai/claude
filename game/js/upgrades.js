@@ -252,6 +252,37 @@ const UPGRADE_POOL = [
       gs.flowFieldDirty = true;
     }
   },
+  // ── Roguelite × Industrial intersection ───────────────────
+
+  {
+    id: 'scrap_protocol', name: 'スクラップ収集', icon: '🔩', rarity: 'rare',
+    tags: ['production', 'combat'],
+    onlyIf: gs => !gs.upgrades.scrapProtocol,
+    desc: '敵撃破時の資源ドロップ率が大幅に上昇（28%→70%）。戦闘が生産を支援する。',
+    apply(gs) { gs.upgrades.scrapProtocol = true; }
+  },
+  {
+    id: 'factory_heart', name: '工場の心臓', icon: '💚', rarity: 'rare',
+    tags: ['production', 'utility'],
+    onlyIf: gs => !gs.upgrades.factoryHeart,
+    desc: 'Wave中に6個生産するごとにコアHP+1。工業生産が防衛力に直結する。',
+    apply(gs) { gs.upgrades.factoryHeart = true; }
+  },
+  {
+    id: 'overflow_smelter', name: 'オーバーフロー精錬', icon: '♻', rarity: 'rare',
+    tags: ['production', 'chemistry'],
+    onlyIf: gs => !gs.upgrades.overflowSmelter,
+    desc: 'Wave終了時、余剰鉱石の半分（最大10個）を自動で金属板に変換する。',
+    apply(gs) { gs.upgrades.overflowSmelter = true; }
+  },
+  {
+    id: 'production_surge', name: '生産加速', icon: '📈', rarity: 'epic',
+    tags: ['production'],
+    onlyIf: gs => !gs.upgrades.productionSurge,
+    desc: 'Wave中の生産数が20を超えると、次のWave開始時に全機械が30秒間2倍速で動作する。',
+    apply(gs) { gs.upgrades.productionSurge = true; }
+  },
+
 ];
 
 // ── Upgrade pool weighting by current factory build ────────

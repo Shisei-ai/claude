@@ -1,24 +1,25 @@
 :root {
-  --c-accent:  #ff6b35;
-  --c-green:   #44ff88;
-  --c-blue:    #33aaff;
-  --c-gold:    #ffcc44;
-  --c-red:     #ff4444;
-  --c-purple:  #aa44ff;
-  --c-bg:      #0a0a10;
-  --c-panel:   #0e0e18;
-  --c-hover:   #161624;
-  --c-border:  #20202e;
-  --c-border2: #2c2c3e;
-  --c-text:    #d0d0d8;
-  --c-muted:   #888;
-  --c-dim:     #4a4a5a;
+  --c-accent:  #f07840;
+  --c-green:   #44e880;
+  --c-blue:    #40b0f0;
+  --c-gold:    #f0c040;
+  --c-red:     #f05050;
+  --c-purple:  #b060f0;
+  --c-bg:      #12121e;
+  --c-panel:   #181828;
+  --c-hover:   #1e1e32;
+  --c-border:  #24243a;
+  --c-border2: #2e2e48;
+  --c-text:    #c8c8d8;
+  --c-muted:   #808090;
+  --c-dim:     #484858;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
   background: var(--c-bg); color: var(--c-text);
   font-family: 'Courier New', monospace; overflow: hidden; height: 100vh;
+  font-size: 14px;
 }
 #app { width: 100vw; height: 100vh; }
 .screen { display: none; width: 100%; height: 100%; }

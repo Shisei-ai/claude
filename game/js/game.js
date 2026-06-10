@@ -63,6 +63,8 @@ function startWithMode(modeKey) {
     pendingGearDrops: 0,
     nextWaveEnemyReduction: 0,
     power: 0, powerMax: 500,
+    waveProductionCount: 0, waveObjective: null,
+    bonusUpgradeCount: 0, surgeTimer: 0, productionHealAccum: 0,
     spawnPoints: [],
     flowField: null, flowFieldDirty: false,
     cam: { x: 0, y: 0 },
@@ -151,11 +153,17 @@ function tick() {
   if (gs.upgrades.solarPanel && _tickCount % 60 === 0) {
     gs.power = Math.min(gs.powerMax || 500, (gs.power || 0) + 1);
   }
+  // Production Surge: countdown the 2x speed buff timer
+  if (gs.surgeTimer > 0) gs.surgeTimer--;
   for (let y = 0; y < C.ROWS; y++) {
     for (let x = 0; x < C.COLS; x++) {
       const cell = gs.map.grid[y][x];
       cell.x = x; cell.y = y;
-      if (cell.equipment && cell.equipment.type !== '_occ') EQ_DEF[cell.equipment.type]?.onTick?.(cell, gs);
+      if (cell.equipment && cell.equipment.type !== '_occ') {
+        // Production Surge: extra timer decrement = effectively 2x speed
+        if (gs.surgeTimer > 0 && cell.equipment.timer > 0) cell.equipment.timer--;
+        EQ_DEF[cell.equipment.type]?.onTick?.(cell, gs);
+      }
     }
   }
 }
@@ -196,6 +204,8 @@ function sendWave() {
   if (gs.state !== 'build') return;
   gs.wave++;
   gs.waveKills = 0;
+  gs.waveProductionCount = 0;
+  gs.waveObjective = generateWaveObjective(gs);
   gs.state = 'wave';
   gs.enemies = []; gs.projectiles = [];
   generateSpawnPoints(gs);
@@ -205,6 +215,18 @@ function sendWave() {
   document.getElementById('next-wave-btn').disabled = true;
   document.getElementById('wave-num').textContent   = gs.wave;
   setPhase('wave');
+}
+
+function generateWaveObjective(gs) {
+  const opts = [
+    { res: C.RES.IRON_PLATE,   label: '鉄板',         base: 3 },
+    { res: C.RES.COPPER_PLATE, label: '銅板',         base: 2 },
+    { res: C.RES.CIRCUIT,      label: '回路基板',     base: 1 },
+    { res: C.RES.COKE,         label: 'コークス',     base: 2 },
+    { res: C.RES.IRON_ORE,     label: '鉄鉱石',       base: 6 },
+  ];
+  const o = opts[Math.floor(Math.random() * opts.length)];
+  return { res: o.res, label: o.label, target: o.base + Math.floor(gs.wave / 2), progress: 0, met: false };
 }
 
 function spawnWaveWithMode(gs) {
@@ -217,6 +239,31 @@ function spawnWaveWithMode(gs) {
 // ── Wave Complete Flow ────────────────────────────────────
 function waveCompleteFlow() {
   gearWaveEnd(gs);
+
+  // Production Surge: if produced 20+ items this wave, grant 30s 2x speed next wave
+  if (gs.upgrades.productionSurge && (gs.waveProductionCount || 0) >= 20) {
+    gs.surgeTimer = 1800; // 30 seconds at 60 ticks/s
+  }
+
+  // Overflow Smelter: auto-convert surplus ores to plates at wave end
+  if (gs.upgrades.overflowSmelter) {
+    const ironConvert = Math.min(10, Math.floor((gs.resources[C.RES.IRON_ORE] || 0) / 2));
+    if (ironConvert > 0) {
+      gs.resources[C.RES.IRON_ORE] -= ironConvert * 2;
+      addRes(gs, C.RES.IRON_PLATE, ironConvert);
+    }
+    const copperConvert = Math.min(8, Math.floor((gs.resources[C.RES.COPPER_ORE] || 0) / 2));
+    if (copperConvert > 0) {
+      gs.resources[C.RES.COPPER_ORE] -= copperConvert * 2;
+      addRes(gs, C.RES.COPPER_PLATE, copperConvert);
+    }
+  }
+
+  // Wave objective bonus
+  if (gs.waveObjective?.met) {
+    gs.bonusUpgradeCount = (gs.bonusUpgradeCount || 0) + 1;
+  }
+
   showNextGearOrContinue();
 }
 
@@ -245,10 +292,11 @@ function flushGearsAndUpgrade() {
 
 // ── Upgrade Screen ────────────────────────────────────────
 function showUpgradeScreen() {
-  let count  = gs.modeDef.upgradeCount + (gs.gearFlags?.extraUpgradeChoices || 0);
+  let count  = gs.modeDef.upgradeCount + (gs.gearFlags?.extraUpgradeChoices || 0) + (gs.bonusUpgradeCount || 0);
+  gs.bonusUpgradeCount = 0;
   let rarity = null;
 
-  if      (gs.upgradeBonus === 'five_choices')       { count = 5;           gs.upgradeBonus = null; }
+  if      (gs.upgradeBonus === 'five_choices')       { count = Math.max(count, 5); gs.upgradeBonus = null; }
   else if (gs.upgradeBonus === 'guaranteed_rare')     { rarity = 'rare';     gs.upgradeBonus = null; }
   else if (gs.upgradeBonus === 'guaranteed_epic')     { rarity = 'epic';     gs.upgradeBonus = null; }
   else if (gs.upgradeBonus === 'two_epics')           { rarity = 'two_epics';gs.upgradeBonus = null; }
@@ -331,12 +379,30 @@ function updateHUD() {
   if (enemiesEl) {
     if (gs.state === 'wave') {
       enemiesEl.style.display = '';
-      enemiesEl.textContent   = `敵 ${gs.enemies.length} 体`;
+      enemiesEl.textContent   = `敵 ${gs.enemies.length}`;
     } else {
       enemiesEl.style.display = 'none';
     }
   }
   if (killsEl) killsEl.textContent = `${gs.killCount || 0} kills`;
+
+  // Wave objective display
+  const objGroup = document.getElementById('obj-group');
+  const objText  = document.getElementById('obj-text');
+  const objBadge = document.getElementById('obj-badge');
+  if (objGroup && gs.waveObjective && gs.state === 'wave') {
+    objGroup.style.display = '';
+    const prog = gs.waveObjective.progress || 0;
+    const tgt  = gs.waveObjective.target;
+    const met  = gs.waveObjective.met;
+    objText.textContent = `${gs.waveObjective.label} ${prog}/${tgt}`;
+    objText.style.color = met ? '#44e880' : 'var(--c-text)';
+    objBadge.style.display = met ? '' : '';
+    objBadge.textContent = met ? '✓ +1択' : '+1択';
+    objBadge.style.color = met ? '#44e880' : 'var(--c-dim)';
+  } else if (objGroup) {
+    objGroup.style.display = 'none';
+  }
 }
 
 function setPhase(phase) {

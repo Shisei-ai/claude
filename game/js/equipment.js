@@ -453,10 +453,33 @@ const EQ_DEF = {
 
 function addRes(gs, key, n) {
   gs.resources[key] = (gs.resources[key] || 0) + n;
+  if (n <= 0) return;
+
   // amplifier_coil gear: every 10th addition, +1 bonus
-  if (n > 0 && hasGear(gs, 'amplifier_coil')) {
+  if (hasGear(gs, 'amplifier_coil')) {
     gs.gearFlags.amplifierCount = (gs.gearFlags.amplifierCount || 0) + 1;
     if (gs.gearFlags.amplifierCount % 10 === 0) gs.resources[key]++;
+  }
+
+  // Production tracking (during wave)
+  if (gs.state === 'wave') {
+    gs.waveProductionCount = (gs.waveProductionCount || 0) + n;
+
+    // Wave objective tracking
+    if (gs.waveObjective && !gs.waveObjective.met && key === gs.waveObjective.res) {
+      gs.waveObjective.progress = (gs.waveObjective.progress || 0) + n;
+      if (gs.waveObjective.progress >= gs.waveObjective.target)
+        gs.waveObjective.met = true;
+    }
+
+    // Factory Heart upgrade: production heals core
+    if (gs.upgrades.factoryHeart) {
+      gs.productionHealAccum = (gs.productionHealAccum || 0) + n;
+      if (gs.productionHealAccum >= 6) {
+        gs.productionHealAccum -= 6;
+        gs.coreHp = Math.min(gs.coreMaxHp, (gs.coreHp || 0) + 1);
+      }
+    }
   }
 }
 
@@ -533,4 +556,9 @@ function makeEquipment(type, dir = C.DIR.RIGHT) {
   if (type === C.EQ.WALL)         base.hp = EQ_DEF.wall.hp * (gs && gs.gearFlags?.eraArmor ? 3 : 1);
   if (type === C.EQ.CHEM_PLANT || type === C.EQ.ADV_ASSEMBLER) base.recipeIdx = 0;
   return base;
+}
+
+// Applies surge multiplier: if Production Surge buff is active, halve timer durations
+function surgeTimer(gs, base) {
+  return (gs?.surgeTimer > 0) ? Math.max(1, Math.floor(base / 2)) : base;
 }
