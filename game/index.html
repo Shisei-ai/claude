@@ -19,7 +19,8 @@
         <p>🏭 工場マップ: 倉庫の原料を加工して製品を生産（常時稼働）</p>
         <p>🗺 ルートマップ: ノードを選んで出撃。資源・ギア・強化を獲得</p>
         <p>勝利条件: 高度回路25個の生産 または 最深部ボスの撃破</p>
-        <p>左クリック: 設置 / 右クリック: 撤去 / R: 回転 / M: マップ / F: 視点切替</p>
+        <p>🔬 研究ツリー: 資源を消費してレシピ・設備を解放（工学/化学/軍事）</p>
+        <p>左クリック: 設置 / 右クリック: 撤去 / R: 回転 / T: 研究 / M: マップ / F: 視点切替</p>
       </div>
     </div>
   </div>
@@ -141,6 +142,7 @@
         </div>
 
         <div class="sb-section sb-bottom">
+          <button id="tech-btn" class="btn-tech">🔬 研究ツリー (T)</button>
           <button id="action-btn" class="btn-wave">🗺 ルートマップを開く</button>
         </div>
       </div>
@@ -176,6 +178,19 @@
             <button id="np-cancel">キャンセル</button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Tech tree overlay -->
+    <div id="tech-overlay">
+      <div class="tech-panel">
+        <div class="tech-hdr">
+          <span class="tech-title">🔬 研究ツリー</span>
+          <span id="tech-free" class="tech-free"></span>
+          <span class="tech-hint">倉庫の資源を消費してレシピや設備を解放。研究すると次の段階が明らかになる。</span>
+          <button id="tech-close">✕ 閉じる</button>
+        </div>
+        <div id="tech-axes"></div>
       </div>
     </div>
 
@@ -237,6 +252,7 @@
 <script src="js/synergies.js"></script>
 <script src="js/gears.js"></script>
 <script src="js/events.js"></script>
+<script src="js/tech.js"></script>
 <script src="js/rogue.js"></script>
 <script src="js/renderer.js"></script>
 <script src="js/game.js"></script>

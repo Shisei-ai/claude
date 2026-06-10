@@ -233,7 +233,7 @@ function drawEquipmentBody(ctx, cell, px, py, cs, sz, gs) {
   const t   = eq.type;
 
   // State assessment
-  const isActive     = eq.timer > 0 || !!eq.inputItem || !!eq.crafting;
+  const isActive     = eq.timer > 0 || !!eq.inputItem || !!eq.crafting || (eq.outQueue?.length > 0);
   const hasPowerIssue = def.powerCost > 0 && (gs.power || 0) < def.powerCost;
 
   // Background

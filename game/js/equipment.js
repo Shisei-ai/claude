@@ -93,7 +93,7 @@ const EQ_DEF = {
   furnace: {
     name: 'Furnace', icon: '🔥', color: '#553322', unlocked: true, size: 2,
     cost: { iron_plate: 2 },
-    desc: '鉄鉱石→鉄板 / 銅鉱石→銅板。コンベア未接続時はストレージから自動消費。',
+    desc: '鉄鉱石→鉄板 / 銅鉱石→銅板。コンベアで鉱石を投入。出力はコンベアへ。',
     recipes: {
       [C.RES.IRON_ORE]:   C.RES.IRON_PLATE,
       [C.RES.COPPER_ORE]: C.RES.COPPER_PLATE,
@@ -105,23 +105,19 @@ const EQ_DEF = {
       cell.equipment.timer = Math.floor((gs.upgrades.furnaceSpeed || 180) * (hasGear(gs, 'auto_smelter') ? 0.5 : 1));
     },
     onTick(cell, gs) {
-      // Flush output buffer first (back-pressure)
-      if (cell.equipment.outputItem) {
-        if (outputToConveyor(cell, cell.equipment.outputItem, gs)) cell.equipment.outputItem = null;
-        return;
-      }
+      if (flushOutput(cell, gs)) return;   // back-pressure: stall until queue drains
       if (!cell.equipment.inputItem || cell.equipment.timer > 0) { cell.equipment.timer--; return; }
       const out = EQ_DEF.furnace.recipes[cell.equipment.inputItem];
       cell.equipment.inputItem = null;
-      cell.equipment.outputItem = out;
-      if (outputToConveyor(cell, out, gs)) cell.equipment.outputItem = null;
+      pushOutput(cell, out, gs.upgrades.furnaceYield || 1);
+      flushOutput(cell, gs);
     }
   },
 
   assembler: {
-    name: 'Assembler', icon: '⚙', color: '#224433', unlocked: true, size: 2,
+    name: 'Assembler', icon: '⚙', color: '#224433', unlocked: false, size: 2,
     cost: { iron_plate: 4, copper_plate: 2 },
-    desc: '鉄板+銅板→回路基板。コンベアで投入。出力はコンベアまたはストレージへ。',
+    desc: '鉄板+銅板→回路基板。コンベアで投入。出力はコンベアへ。【要研究: 組立工学】',
     recipe: { inputs: { [C.RES.IRON_PLATE]: 1, [C.RES.COPPER_PLATE]: 1 }, output: C.RES.CIRCUIT },
     canAccept(item, cell, _gs) {
       const inv = cell.equipment.inventory;
@@ -140,10 +136,7 @@ const EQ_DEF = {
       }
     },
     onTick(cell, gs) {
-      if (cell.equipment.outputItem) {
-        if (outputToConveyor(cell, cell.equipment.outputItem, gs)) cell.equipment.outputItem = null;
-        return;
-      }
+      if (flushOutput(cell, gs)) return;
       if (!cell.equipment.crafting) {
         const r   = EQ_DEF.assembler.recipe;
         const inv = cell.equipment.inventory;
@@ -156,9 +149,9 @@ const EQ_DEF = {
       }
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
       cell.equipment.crafting = false;
-      const out = EQ_DEF.assembler.recipe.output;
-      cell.equipment.outputItem = out;
-      if (outputToConveyor(cell, out, gs)) cell.equipment.outputItem = null;
+      const count = (gs.upgrades.assemblerYield || 1) + (gs.gearFlags?.craftsmanBonus || 0);
+      pushOutput(cell, EQ_DEF.assembler.recipe.output, count);
+      flushOutput(cell, gs);
     }
   },
 
@@ -171,7 +164,7 @@ const EQ_DEF = {
     onTick(cell, gs) {
       if (!gs._missionTick) return;
       if (gs.upgrades.wallRegen) {
-        const maxHp = EQ_DEF.wall.hp * (gs.gearFlags?.eraArmor ? 3 : 1);
+        const maxHp = wallMaxHp(gs);
         const perim = [
           [cell.x-1,cell.y],[cell.x+2,cell.y],[cell.x-1,cell.y+1],[cell.x+2,cell.y+1],
           [cell.x,cell.y-1],[cell.x+1,cell.y-1],[cell.x,cell.y+2],[cell.x+1,cell.y+2],
@@ -243,7 +236,7 @@ const EQ_DEF = {
     onTick(cell, gs) {
       // iron_curtain gear: passive HP regen
       if (hasGear(gs, 'iron_curtain')) {
-        const maxHp = EQ_DEF.wall.hp * (gs.gearFlags?.eraArmor ? 3 : 1);
+        const maxHp = wallMaxHp(gs);
         if (cell.equipment.hp < maxHp) cell.equipment.hp = Math.min(maxHp, cell.equipment.hp + 0.15);
       }
     }
@@ -309,50 +302,44 @@ const EQ_DEF = {
   water_pump: {
     name: 'Water Pump', icon: '💧', color: '#1a2f44', unlocked: true, size: 1,
     cost: {},
-    desc: '周囲から水を収集。電解槽・化学プラントの水源として使用する。',
+    desc: '周囲から水を収集してコンベアへ流す。電解槽・化学プラントの水源。',
     onTick(cell, gs) {
+      if (flushOutput(cell, gs)) return;
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
       cell.equipment.timer = 120;
       // water_deity gear: produce 2 water instead of 1
-      addRes(gs, C.RES.WATER, gs.gearFlags?.doubleWater ? 2 : 1);
+      pushOutput(cell, C.RES.WATER, gs.gearFlags?.doubleWater ? 2 : 1);
+      flushOutput(cell, gs);
     }
   },
 
   coke_oven: {
-    name: 'Coke Oven', icon: '🟤', color: '#332211', unlocked: true, size: 2,
+    name: 'Coke Oven', icon: '🟤', color: '#332211', unlocked: false, size: 2,
     cost: { iron_plate: 3 },
-    desc: '石炭×2→コークス×1。コンベアで石炭を投入。出力はコンベアへ。',
+    desc: '石炭×2→コークス×1。コンベアで石炭を投入。出力はコンベアへ。【要研究: コークス精製】',
     canAccept(item, cell, _gs) { return item === C.RES.COAL && (cell.equipment.inventory?.coal || 0) < 4; },
     accept(item, cell, _gs) { cell.equipment.inventory = cell.equipment.inventory || {}; cell.equipment.inventory.coal = (cell.equipment.inventory.coal || 0) + 1; },
     onTick(cell, gs) {
-      if (cell.equipment.outputItem) {
-        if (outputToConveyor(cell, cell.equipment.outputItem, gs)) cell.equipment.outputItem = null;
-        return;
-      }
+      if (flushOutput(cell, gs)) return;
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
       cell.equipment.inventory = cell.equipment.inventory || {};
       if ((cell.equipment.inventory.coal || 0) < 2) return;
       cell.equipment.inventory.coal -= 2;
       cell.equipment.timer = 150;
-      const out = gs.gearFlags?.doubleCokeYield ? C.RES.COKE : C.RES.COKE;
-      cell.equipment.outputItem = C.RES.COKE;
-      if (gs.gearFlags?.doubleCokeYield) addRes(gs, C.RES.COKE, 1); // bonus via warehouse
-      if (outputToConveyor(cell, C.RES.COKE, gs)) cell.equipment.outputItem = null;
+      // ancient_fire gear: double output
+      pushOutput(cell, C.RES.COKE, gs.gearFlags?.doubleCokeYield ? 2 : 1);
+      flushOutput(cell, gs);
     }
   },
 
   distillation: {
     name: 'Distillation', icon: '🏭', color: '#334433', unlocked: false, size: 2,
     cost: { iron_plate: 8, copper_plate: 4 },
-    desc: '原油×3→石油ガス×2＋軽油×2＋重油×1に分留する。コンベアで原油を投入。',
+    desc: '原油×3→石油ガス×2＋軽油×2＋重油×1に分留する。コンベアで原油を投入。【要研究: 石油化学】',
     canAccept(item, cell, _gs) { return item === C.RES.CRUDE_OIL && (cell.equipment.oilStock || 0) < 9; },
     accept(item, cell, _gs) { cell.equipment.oilStock = (cell.equipment.oilStock || 0) + 1; },
     onTick(cell, gs) {
-      if (cell.equipment.outputItems?.length) {
-        const item = cell.equipment.outputItems[0];
-        if (outputToConveyor(cell, item, gs)) cell.equipment.outputItems.shift();
-        return;
-      }
+      if (flushOutput(cell, gs)) return;
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
       const master    = hasGear(gs, 'distill_master');
       const batchSize = master ? 6 : 3;
@@ -360,28 +347,25 @@ const EQ_DEF = {
       cell.equipment.oilStock -= batchSize;
       cell.equipment.timer = 200;
       const mult = (gs.upgrades.distillYield ? 1.5 : 1) * (master ? 2 : 1);
-      const queue = [];
-      for (let i = 0; i < Math.floor(2 * mult); i++) queue.push(C.RES.PETRO_GAS);
-      for (let i = 0; i < Math.floor(2 * mult); i++) queue.push(C.RES.LIGHT_OIL);
-      for (let i = 0; i < Math.floor(1 * mult); i++) queue.push(C.RES.HEAVY_OIL);
-      cell.equipment.outputItems = queue;
-      if (cell.equipment.outputItems.length && outputToConveyor(cell, cell.equipment.outputItems[0], gs))
-        cell.equipment.outputItems.shift();
+      pushOutput(cell, C.RES.PETRO_GAS, Math.floor(2 * mult));
+      pushOutput(cell, C.RES.LIGHT_OIL, Math.floor(2 * mult));
+      pushOutput(cell, C.RES.HEAVY_OIL, Math.floor(1 * mult));
+      flushOutput(cell, gs);
     }
   },
 
   chem_plant: {
     name: 'Chem Plant', icon: '⚗', color: '#1e3322', unlocked: false, size: 2,
     cost: { iron_plate: 6, copper_plate: 4, circuit: 2 },
-    desc: '左クリックでレシピ切替（6種）。全入出力はグローバルストレージ経由。電力×2消費。',
+    desc: '左クリックでレシピ切替。コンベアで素材を投入。電力×2消費。【要研究: 化学合成】',
     powerCost: 2,
     recipes: [
       { id:'plastic',     name:'プラスチック棒', icon:'🟡', inputs:{ [C.RES.PETRO_GAS]:3, [C.RES.COAL]:2 },           output:C.RES.PLASTIC,       count:2, time:240 },
       { id:'lubricant',   name:'潤滑油',         icon:'🟠', inputs:{ [C.RES.HEAVY_OIL]:3 },                            output:C.RES.LUBRICANT,     count:4, time:200 },
-      { id:'sulfuric',    name:'硫酸',           icon:'🟢', inputs:{ [C.RES.SULFUR]:2, [C.RES.WATER]:3 },             output:C.RES.SULFURIC_ACID, count:3, time:220 },
-      { id:'ref_copper',  name:'精錬銅',         icon:'🔵', inputs:{ [C.RES.COPPER_ORE]:3, [C.RES.SULFURIC_ACID]:2 }, output:C.RES.REFINED_COPPER,count:4, time:260 },
-      { id:'explosives',  name:'爆薬',           icon:'🔴', inputs:{ [C.RES.COAL]:3, [C.RES.SULFUR]:2, [C.RES.LIGHT_OIL]:2 }, output:C.RES.EXPLOSIVES, count:2, time:280 },
-      { id:'water_synth', name:'水（合成）',     icon:'💙', inputs:{ [C.RES.HYDROGEN]:2, [C.RES.OXYGEN]:1 },          output:C.RES.WATER,         count:3, time:180 },
+      { id:'sulfuric',    name:'硫酸',           icon:'🟢', inputs:{ [C.RES.SULFUR]:2, [C.RES.WATER]:3 },             output:C.RES.SULFURIC_ACID, count:3, time:220, tech:'chem_acid' },
+      { id:'ref_copper',  name:'精錬銅',         icon:'🔵', inputs:{ [C.RES.COPPER_ORE]:3, [C.RES.SULFURIC_ACID]:2 }, output:C.RES.REFINED_COPPER,count:4, time:260, tech:'chem_acid' },
+      { id:'explosives',  name:'爆薬',           icon:'🔴', inputs:{ [C.RES.COAL]:3, [C.RES.SULFUR]:2, [C.RES.LIGHT_OIL]:2 }, output:C.RES.EXPLOSIVES, count:2, time:280, tech:'mil_explosives' },
+      { id:'water_synth', name:'水（合成）',     icon:'💙', inputs:{ [C.RES.HYDROGEN]:2, [C.RES.OXYGEN]:1 },          output:C.RES.WATER,         count:3, time:180, tech:'chem_electro' },
     ],
     canAccept(item, cell, _gs) {
       const recipe = EQ_DEF[C.EQ.CHEM_PLANT].recipes[cell.equipment.recipeIdx || 0];
@@ -394,14 +378,12 @@ const EQ_DEF = {
       cell.equipment.inventory[item] = (cell.equipment.inventory[item] || 0) + 1;
     },
     onTick(cell, gs) {
-      if (cell.equipment.outputItem) {
-        if (outputToConveyor(cell, cell.equipment.outputItem, gs)) cell.equipment.outputItem = null;
-        return;
-      }
+      if (flushOutput(cell, gs)) return;
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
       const pwCost = Math.max(0, (EQ_DEF.chem_plant.powerCost) - (gs.upgrades.powerEfficiency || 0));
       if ((gs.power || 0) < pwCost) return;
       const recipe = EQ_DEF[C.EQ.CHEM_PLANT].recipes[cell.equipment.recipeIdx || 0];
+      if (!recipeAvailable(recipe, gs)) return;
       const save = gs.upgrades.chemSave ? 1 : 0;
       const inv = cell.equipment.inventory || {};
       for (const [res, amt] of Object.entries(recipe.inputs)) {
@@ -417,15 +399,13 @@ const EQ_DEF = {
         const rk = keys[Math.floor(Math.random() * keys.length)];
         if ((inv[rk] || 0) > 0) inv[rk]--;
       }
-      const mult = gs.upgrades.chemYield || 1;
-      const count = Math.floor(recipe.count * mult);
-      cell.equipment.outputItem = recipe.output;
+      let count = Math.floor(recipe.count * (gs.upgrades.chemYield || 1));
       if (hasGear(gs, 'alchemist_still')) {
         gs.gearFlags.alchemistCount = (gs.gearFlags.alchemistCount || 0) + 1;
-        if (gs.gearFlags.alchemistCount % 3 === 0) addRes(gs, recipe.output, 1);
+        if (gs.gearFlags.alchemistCount % 3 === 0) count++;
       }
-      if (outputToConveyor(cell, recipe.output, gs)) cell.equipment.outputItem = null;
-      if (count > 1) addRes(gs, recipe.output, count - 1); // bonus units go to warehouse
+      pushOutput(cell, recipe.output, count);
+      flushOutput(cell, gs);
       cell.equipment.timer = Math.floor(gs.upgrades.chemSpeed || recipe.time);
     }
   },
@@ -433,16 +413,12 @@ const EQ_DEF = {
   electrolyzer: {
     name: 'Electrolyzer', icon: '⚡', color: '#1a2244', unlocked: false, size: 2,
     cost: { iron_plate: 8, copper_plate: 6, circuit: 2 },
-    desc: '水×2→水素×2＋酸素×1。コンベアで水を投入。電力×2消費。',
+    desc: '水×2→水素×2＋酸素×1。コンベアで水を投入。電力×2消費。【要研究: 電気分解】',
     powerCost: 2,
     canAccept(item, cell, _gs) { return item === C.RES.WATER && (cell.equipment.waterStock || 0) < 4; },
     accept(item, cell, _gs) { cell.equipment.waterStock = (cell.equipment.waterStock || 0) + 1; },
     onTick(cell, gs) {
-      if (cell.equipment.outputItems?.length) {
-        const item = cell.equipment.outputItems[0];
-        if (outputToConveyor(cell, item, gs)) cell.equipment.outputItems.shift();
-        return;
-      }
+      if (flushOutput(cell, gs)) return;
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
       const pwCost = Math.max(0, (EQ_DEF.electrolyzer.powerCost) - (gs.upgrades.powerEfficiency || 0));
       if ((gs.power || 0) < pwCost) return;
@@ -450,20 +426,21 @@ const EQ_DEF = {
       gs.power -= pwCost;
       cell.equipment.waterStock -= 2;
       cell.equipment.timer = Math.floor(gs.upgrades.chemSpeed || 150);
-      cell.equipment.outputItems = [C.RES.HYDROGEN, C.RES.HYDROGEN, C.RES.OXYGEN];
-      if (outputToConveyor(cell, cell.equipment.outputItems[0], gs)) cell.equipment.outputItems.shift();
+      pushOutput(cell, C.RES.HYDROGEN, 2);
+      pushOutput(cell, C.RES.OXYGEN, 1);
+      flushOutput(cell, gs);
     }
   },
 
   adv_assembler: {
     name: 'Adv. Assembler', icon: '🤖', color: '#1a3322', unlocked: false, size: 2,
     cost: { iron_plate: 10, copper_plate: 5, circuit: 4 },
-    desc: '左クリックでレシピ切替（3種）。全リソースはストレージから直接消費する。電力×3消費。',
+    desc: '左クリックでレシピ切替。コンベアで素材を投入。電力×3消費。【要研究: 高度組立】',
     powerCost: 3,
     recipes: [
       { id:'adv_circuit', name:'高度回路基板', icon:'💚', inputs:{ [C.RES.CIRCUIT]:2, [C.RES.PLASTIC]:2, [C.RES.REFINED_COPPER]:1 }, output:C.RES.ADV_CIRCUIT,    count:1, time:300 },
-      { id:'lubri_gear',  name:'潤滑ギア',    icon:'⚙',  inputs:{ [C.RES.IRON_PLATE]:3, [C.RES.LUBRICANT]:1 },                     output:C.RES.CIRCUIT,        count:3, time:240 },
-      { id:'expl_shell',  name:'爆発弾頭',    icon:'💣',  inputs:{ [C.RES.EXPLOSIVES]:2, [C.RES.IRON_PLATE]:1 },                    output:C.RES.EXPLOSIVES,     count:3, time:200 },
+      { id:'lubri_gear',  name:'潤滑ギア',    icon:'⚙',  inputs:{ [C.RES.IRON_PLATE]:3, [C.RES.LUBRICANT]:1 },                     output:C.RES.CIRCUIT,        count:3, time:240, tech:'eng_lubri' },
+      { id:'expl_shell',  name:'爆発弾頭',    icon:'💣',  inputs:{ [C.RES.EXPLOSIVES]:2, [C.RES.IRON_PLATE]:1 },                    output:C.RES.EXPLOSIVES,     count:3, time:200, tech:'mil_explosives' },
     ],
     canAccept(item, cell, _gs) {
       const recipe = EQ_DEF[C.EQ.ADV_ASSEMBLER].recipes[cell.equipment.recipeIdx || 0];
@@ -476,14 +453,12 @@ const EQ_DEF = {
       cell.equipment.inventory[item] = (cell.equipment.inventory[item] || 0) + 1;
     },
     onTick(cell, gs) {
-      if (cell.equipment.outputItem) {
-        if (outputToConveyor(cell, cell.equipment.outputItem, gs)) cell.equipment.outputItem = null;
-        return;
-      }
+      if (flushOutput(cell, gs)) return;
       if (cell.equipment.timer > 0) { cell.equipment.timer--; return; }
       const pwCost = Math.max(0, (EQ_DEF.adv_assembler.powerCost) - (gs.upgrades.powerEfficiency || 0));
       if ((gs.power || 0) < pwCost) return;
       const recipe = EQ_DEF[C.EQ.ADV_ASSEMBLER].recipes[cell.equipment.recipeIdx || 0];
+      if (!recipeAvailable(recipe, gs)) return;
       const inv = cell.equipment.inventory || {};
       for (const [res, amt] of Object.entries(recipe.inputs)) {
         if ((inv[res] || 0) < amt) return;
@@ -491,10 +466,8 @@ const EQ_DEF = {
       gs.power -= pwCost;
       for (const [res, amt] of Object.entries(recipe.inputs)) inv[res] -= amt;
       cell.equipment.inventory = inv;
-      const bonus = gs.gearFlags?.craftsmanBonus || 0;
-      cell.equipment.outputItem = recipe.output;
-      if (bonus > 0) addRes(gs, recipe.output, bonus);
-      if (outputToConveyor(cell, recipe.output, gs)) cell.equipment.outputItem = null;
+      pushOutput(cell, recipe.output, recipe.count + (gs.gearFlags?.craftsmanBonus || 0));
+      flushOutput(cell, gs);
       cell.equipment.timer = Math.floor(gs.upgrades.assemblerSpeed || recipe.time);
     }
   },
@@ -516,7 +489,7 @@ const EQ_DEF = {
       if (nc.equipment?.type === C.EQ.CONVEYOR && !nc.item) {
         nc.item = item;
         gs.resources[item]--;
-        cell.equipment.timer = 60;
+        cell.equipment.timer = Math.floor(gs.upgrades.portSpeed || 60);
       }
     }
   },
@@ -534,7 +507,7 @@ const EQ_DEF = {
       if (nc.equipment?.type === C.EQ.CONVEYOR && nc.item) {
         addRes(gs, nc.item, 1);
         nc.item = null;
-        cell.equipment.timer = 60;
+        cell.equipment.timer = Math.floor(gs.upgrades.portSpeed || 60);
       }
     }
   },
@@ -576,6 +549,31 @@ function addRes(gs, key, n) {
 
 function inBounds(x, y) {
   return x >= 0 && y >= 0 && x < C.COLS && y < C.ROWS;
+}
+
+// Production output queue — machines never write to the warehouse directly.
+// pushOutput queues items; flushOutput moves the head onto the output conveyor.
+// Returns true while the queue still holds items (machine should stall).
+function pushOutput(cell, item, n = 1) {
+  cell.equipment.outQueue = cell.equipment.outQueue || [];
+  for (let i = 0; i < n; i++) cell.equipment.outQueue.push(item);
+}
+
+function flushOutput(cell, gs) {
+  const q = cell.equipment.outQueue;
+  if (!q || !q.length) return false;
+  while (q.length && outputToConveyor(cell, q[0], gs)) q.shift();
+  return q.length > 0;
+}
+
+function recipeAvailable(recipe, gs) {
+  return !recipe.tech || !!gs.tech?.has(recipe.tech);
+}
+
+function wallMaxHp(gs) {
+  return EQ_DEF.wall.hp
+    * (gs.gearFlags?.eraArmor ? 3 : 1)
+    * (gs.upgrades?.wallHpMult || 1);
 }
 
 function outputToConveyor(cell, item, gs) {
@@ -646,7 +644,7 @@ function makeEquipment(type, dir = C.DIR.RIGHT) {
   if (type === C.EQ.ASSEMBLER || type === C.EQ.CHEM_PLANT || type === C.EQ.ADV_ASSEMBLER)
     base.inventory = {};
   if (type === C.EQ.COKE_OVEN)    base.inventory = { coal: 0 };
-  if (type === C.EQ.WALL)         base.hp = EQ_DEF.wall.hp * (gs && gs.gearFlags?.eraArmor ? 3 : 1);
+  if (type === C.EQ.WALL)         base.hp = gs ? wallMaxHp(gs) : EQ_DEF.wall.hp;
   if (type === C.EQ.CHEM_PLANT || type === C.EQ.ADV_ASSEMBLER) base.recipeIdx = 0;
   if (type === C.EQ.EXTRACTOR)    base.selectedItem = null;
   return base;

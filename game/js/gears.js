@@ -104,7 +104,7 @@ const GEAR_POOL = [
       for (let y = 0; y < C.ROWS; y++) {
         for (let x = 0; x < C.COLS; x++) {
           const eq = grid[y][x].equipment;
-          if (eq?.type === C.EQ.WALL) eq.hp = Math.min(eq.hp * 3, EQ_DEF.wall.hp * 3);
+          if (eq?.type === C.EQ.WALL) eq.hp = Math.min(eq.hp * 3, wallMaxHp(gs));
         }
       }
     }
@@ -168,15 +168,8 @@ const GEAR_POOL = [
   },
   {
     id: 'black_market_access', name: 'ブラックマーケット', icon: '🌑', rarity: 'epic', category: 'economy',
-    desc: '全化学系設備が即座に解放される（レーザー・発電機含む）。',
-    apply(_gs) {
-      EQ_DEF.laser.unlocked         = true;
-      EQ_DEF.generator.unlocked     = true;
-      EQ_DEF.distillation.unlocked  = true;
-      EQ_DEF.chem_plant.unlocked    = true;
-      EQ_DEF.electrolyzer.unlocked  = true;
-      EQ_DEF.adv_assembler.unlocked = true;
-    }
+    desc: '盗まれた研究データが手に入る。全研究コストが恒久的に半減する。',
+    apply(gs) { gs.gearFlags.techCostMult = (gs.gearFlags.techCostMult || 1) * 0.5; }
   },
 
   // ── Special ────────────────────────────────────────────

@@ -69,41 +69,24 @@ const UPGRADE_POOL = [
     apply(gs) { gs.upgrades.wallRegen = true; }
   },
 
-  // ── Chemistry Unlocks ───────────────────────────────────
+  // ── Research Support ────────────────────────────────────
   {
-    id: 'unlock_distillation', name: '設計図：蒸留塔', icon: '🏭', rarity: 'rare',
-    tags: ['chemistry'],
-    desc: '蒸留塔が建設可能になる。原油→石油ガス・軽油・重油に分留する。',
-    onlyIf: _gs => !EQ_DEF.distillation.unlocked,
-    apply() { EQ_DEF.distillation.unlocked = true; }
+    id: 'research_grant', name: '研究助成金', icon: '🎫', rarity: 'rare',
+    tags: ['utility'],
+    desc: '次の研究1回が無料になる（重ねがけ可）',
+    apply(gs) { gs.upgrades.freeTech = (gs.upgrades.freeTech || 0) + 1; }
   },
   {
-    id: 'unlock_chem_plant', name: '設計図：化学プラント', icon: '⚗', rarity: 'rare',
-    tags: ['chemistry'],
-    desc: '化学プラントが建設可能になる。6種の化学レシピを実行できる。',
-    onlyIf: _gs => !EQ_DEF.chem_plant.unlocked,
-    apply() { EQ_DEF.chem_plant.unlocked = true; }
+    id: 'tech_synergy', name: '産学連携', icon: '🎓', rarity: 'rare',
+    tags: ['utility'],
+    desc: '全研究コストが恒久的に25%減少する（重ねがけ可）',
+    apply(gs) { gs.upgrades.techCostMult = (gs.upgrades.techCostMult || 1) * 0.75; }
   },
   {
-    id: 'unlock_electrolyzer', name: '設計図：電解槽', icon: '⚡', rarity: 'rare',
-    tags: ['chemistry'],
-    desc: '電解槽が建設可能になる。水→水素+酸素に電気分解する。',
-    onlyIf: _gs => !EQ_DEF.electrolyzer.unlocked,
-    apply() { EQ_DEF.electrolyzer.unlocked = true; }
-  },
-  {
-    id: 'unlock_adv_assembler', name: '設計図：高度組立機', icon: '🤖', rarity: 'epic',
-    tags: ['chemistry', 'production'],
-    desc: '高度組立機が建設可能になる。高度回路基板・潤滑ギアを生産できる。',
-    onlyIf: _gs => !EQ_DEF.adv_assembler.unlocked,
-    apply() { EQ_DEF.adv_assembler.unlocked = true; }
-  },
-  {
-    id: 'unlock_generator', name: '設計図：発電機', icon: '🔌', rarity: 'rare',
-    tags: ['chemistry'],
-    desc: '発電機が建設可能になる。コークスを消費して電力を生産する。',
-    onlyIf: _gs => !EQ_DEF.generator.unlocked,
-    apply() { EQ_DEF.generator.unlocked = true; }
+    id: 'port_speed', name: '高速搬出入', icon: '📤', rarity: 'common',
+    tags: ['production'],
+    desc: '取り出し口・取り入れ口の動作速度が2倍になる',
+    apply(gs) { gs.upgrades.portSpeed = Math.floor((gs.upgrades.portSpeed || 60) * 0.5); }
   },
 
   // ── Chemistry Efficiency ────────────────────────────────
@@ -173,13 +156,6 @@ const UPGRADE_POOL = [
     desc: 'タレットが対象の周囲の敵1体にも連鎖攻撃する',
     onlyIf: gs => !gs.upgrades.chainLightning,
     apply(gs) { gs.upgrades.chainLightning = true; }
-  },
-  {
-    id: 'unlock_laser', name: '設計図：レーザー砲', icon: '🔴', rarity: 'epic',
-    tags: ['combat'],
-    desc: '高威力レーザー砲台が建設可能になる。潤滑油でクールダウン半減。',
-    onlyIf: _gs => !EQ_DEF.laser.unlocked,
-    apply() { EQ_DEF.laser.unlocked = true; }
   },
   {
     id: 'explosive_shells', name: '爆発弾', icon: '💣', rarity: 'epic',

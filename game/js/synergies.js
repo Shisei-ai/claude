@@ -13,7 +13,7 @@ const SYNERGIES = [
     color: '#1a3322',
     border: '#3a8855',
     desc: '石油系全設備の収率+50%。ポンプ・蒸留・化学を統合した完全なOC体制。',
-    requires: ['pump_yield', 'unlock_distillation', 'unlock_chem_plant'],
+    requires: ['pump_yield', 'chem_oil', 'chem_synthesis'],
     apply(gs) {
       gs.upgrades.pumpYield    = (gs.upgrades.pumpYield || 1) * 1.5;
       gs.upgrades.distillYield = true;
@@ -55,7 +55,7 @@ const SYNERGIES = [
     color: '#0d1f11',
     border: '#22aa55',
     desc: '化学プラントの速度2倍・出力2倍。反応速度と収率が同時に極限まで高まった。',
-    requires: ['chem_speed', 'chem_yield', 'unlock_electrolyzer'],
+    requires: ['chem_speed', 'chem_yield', 'chem_electro'],
     apply(gs) {
       gs.upgrades.chemSpeed = Math.floor((gs.upgrades.chemSpeed || 240) * 0.5);
       gs.upgrades.chemYield = (gs.upgrades.chemYield || 1) * 2;
@@ -82,7 +82,7 @@ const SYNERGIES = [
     color: '#1a0a0a',
     border: '#ff4444',
     desc: '爆薬消費量0・チェーン雷撃が全敵にヒット・タレット射程が無限大になる。',
-    requires: ['explosive_shells', 'chain_lightning', 'unlock_laser'],
+    requires: ['explosive_shells', 'chain_lightning', 'mil_laser'],
     apply(gs) {
       gs.upgrades.freeExplosives  = true;
       gs.upgrades.globalChain     = true;
@@ -91,10 +91,15 @@ const SYNERGIES = [
   },
 ];
 
+// Synergy requirements may mix upgrade ids and tech-tree node ids
+function hasSynReq(gs, id) {
+  return gs.takenUpgrades.has(id) || !!gs.tech?.has(id);
+}
+
 function checkSynergies(gs) {
   for (const syn of SYNERGIES) {
     if (gs.triggeredSynergies.has(syn.id)) continue;
-    if (syn.requires.every(id => gs.takenUpgrades.has(id))) {
+    if (syn.requires.every(id => hasSynReq(gs, id))) {
       gs.triggeredSynergies.add(syn.id);
       syn.apply(gs);
       // industrial_gospel gear: apply synergy bonus twice

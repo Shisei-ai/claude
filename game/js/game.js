@@ -22,7 +22,6 @@ const MODES = {
     sub: '敵: 通常 / アップグレード選択肢: 3択',
     enemyMult: 1.0, upgradeCount: 3,
     startRes: { iron_plate: 12, copper_plate: 6, iron_ore: 20, copper_ore: 12, coal: 10 },
-    unlockAll: false,
   },
   industrial: {
     label: 'INDUSTRIAL', icon: '🏭',
@@ -30,28 +29,20 @@ const MODES = {
     sub: '敵: +20%強化 / アップグレード選択肢: 3択',
     enemyMult: 1.2, upgradeCount: 3,
     startRes: { iron_ore: 35, copper_ore: 25, coal: 20, iron_plate: 4 },
-    unlockAll: false,
   },
   chaos: {
     label: 'CHAOS', icon: '💀',
-    desc: '化学設備が最初から全て解放。敵は大幅に強化されるが選択肢が豊富。',
-    sub: '敵: +50%強化 / アップグレード選択肢: 4択',
+    desc: '全研究コストが半額。敵は大幅に強化されるが選択肢が豊富。',
+    sub: '敵: +50%強化 / アップグレード選択肢: 4択 / 研究コスト50%',
     enemyMult: 1.5, upgradeCount: 4,
     startRes: { iron_plate: 10, copper_plate: 6, iron_ore: 25, coal: 12 },
-    unlockAll: true,
+    techDiscount: 0.5,
   },
 };
 
 // ── Init ──────────────────────────────────────────────────
 function startWithMode(modeKey) {
   const mode = MODES[modeKey];
-
-  EQ_DEF.laser.unlocked         = mode.unlockAll;
-  EQ_DEF.generator.unlocked     = mode.unlockAll;
-  EQ_DEF.distillation.unlocked  = mode.unlockAll;
-  EQ_DEF.chem_plant.unlocked    = mode.unlockAll;
-  EQ_DEF.electrolyzer.unlocked  = mode.unlockAll;
-  EQ_DEF.adv_assembler.unlocked = mode.unlockAll;
 
   gs = {
     state: 'play',           // play | reward | over
@@ -83,8 +74,10 @@ function startWithMode(modeKey) {
     afterUpgrade: null,
     _missionTick: false,
     pendingPlacement: null,   // { tool, x, y, dir } — two-step placement
+    tech: new Set(),          // unlocked tech-tree node ids
   };
   gs.map = gs.factoryMap;
+  resetTechLocks(gs);
 
   showScreen('game-screen');
   resizeCanvas();
@@ -505,7 +498,7 @@ function showUpgradeScreen() {
 function getSynergyHints(gs) {
   return SYNERGIES
     .filter(s => !gs.triggeredSynergies.has(s.id))
-    .map(s => ({ ...s, missing: s.requires.filter(id => !gs.takenUpgrades.has(id)).length }))
+    .map(s => ({ ...s, missing: s.requires.filter(id => !hasSynReq(gs, id)).length }))
     .filter(s => s.missing === 1).slice(0, 2);
 }
 
@@ -656,6 +649,7 @@ function buildSidebar() {
     const btn = document.createElement('button');
     btn.className = `tool-btn${locked ? ' locked' : ''}${ctxLock ? ' ctx-locked' : ''}${selected ? ' selected' : ''}${!locked && !canBuild ? ' unaffordable' : ''}`;
     btn.innerHTML = `<span class="tool-icon">${def.icon}</span><span class="tool-name">${def.name}</span>${ctxBadge}${badge}`;
+    if (locked) btn.title = '🔬 研究ツリーで解放 (Tキー)';
     if (!locked) btn.onclick = () => { gs.selectedTool = t; buildSidebar(); showToolInfo(t); };
     list.appendChild(btn);
   });
@@ -737,9 +731,15 @@ function setupCanvas() {
       const t = rootCell.equipment.type;
       if (t === C.EQ.CHEM_PLANT || t === C.EQ.ADV_ASSEMBLER) {
         const recipes = EQ_DEF[t].recipes;
-        rootCell.equipment.recipeIdx = ((rootCell.equipment.recipeIdx || 0) + 1) % recipes.length;
+        // cycle to next researched recipe
+        let idx = rootCell.equipment.recipeIdx || 0;
+        for (let i = 0; i < recipes.length; i++) {
+          idx = (idx + 1) % recipes.length;
+          if (recipeAvailable(recipes[idx], gs)) break;
+        }
+        rootCell.equipment.recipeIdx = idx;
         rootCell.equipment.inventory = {};
-        const recipe = recipes[rootCell.equipment.recipeIdx];
+        const recipe = recipes[idx];
         document.getElementById('tool-info').innerHTML = `<div>レシピ切替: ${recipe.icon} <b>${recipe.name}</b></div>`;
         return;
       }
@@ -822,6 +822,11 @@ function setupCanvas() {
       setView(gs.view === 'factory' ? 'mission' : 'factory');
       return;
     }
+    if (e.key === 't' || e.key === 'T') {
+      const ov = document.getElementById('tech-overlay');
+      if (ov.classList.contains('visible')) closeTechTree(); else openTechTree();
+      return;
+    }
 
     if (e.key === 'Escape') {
       gs.pendingPlacement = null;
@@ -892,6 +897,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-rogue').onclick   = openRogueMap;
   document.getElementById('rogue-close').onclick = closeRogueMap;
   document.getElementById('np-cancel').onclick   = hideNodePreview;
+  document.getElementById('tech-btn').onclick    = openTechTree;
+  document.getElementById('tech-close').onclick  = closeTechTree;
   setupCanvas();
   window.addEventListener('resize', () => { if (gs) resizeCanvas(); });
   showScreen('title-screen');
