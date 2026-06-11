@@ -262,7 +262,7 @@
       <span class="row-label" id="labelB">話者B の声</span>
       <select id="voiceB"></select>
     </div>
-    <div class="hint" style="margin:0 0 12px;">※ iPhoneのSafariはプライバシー保護のため、ダウンロード済みの声の多くをウェブページに公開しません(イギリス英語がDanielしか出ないのはこのためです)。そこでこのアプリは、<b>イギリス英語の声が1つしかない場合、話者Aにはアイルランド(Moira)・オーストラリア(Karen)など他地域の英語の女性の声を自動で割り当て、2人の声を確実に聞き分けられるようにします。</b>「設定 → アクセシビリティ → 読み上げコンテンツ → 声 → 英語」でDaniel(拡張)をダウンロードすると、表示は同じでも再生音質が向上します。それでも両話者が同じ声になる場合は、高さと速さで自動的に演じ分けます。</div>
+    <div class="hint" style="margin:0 0 12px;">※ iPhoneのSafariはプライバシー保護のため、ダウンロード済みの声の多くをウェブページに公開しません(イギリス英語がDanielしか出ないのはこのためです)。そこでこのアプリは、<b>イギリス英語の声が1つしかない場合、話者Aにはアイルランド(Moira)・オーストラリア(Karen)など他地域の英語の女性の声を自動で割り当て、2人の声を確実に聞き分けられるようにします。</b>「設定 → アクセシビリティ → 読み上げコンテンツ → 声 → 英語」でDaniel(拡張)をダウンロードすると、表示は同じでも再生音質が向上します。それでも両話者が同じ声になる場合は、高さと速さで自動的に演じ分けます。なお、<b>ネイティブアプリ版にはこの制限自体がなく、端末にダウンロード済みのすべての声がこの一覧に表示されます。</b></div>
     <div class="row">
       <span class="row-label">速度</span>
       <div class="seg" id="rateSeg">
@@ -599,6 +599,12 @@ let rate = 1, playing = false;
 let voices = [], pool = [], voiceA = null, voiceB = null, sysA = false, sysB = false;
 
 const synth = window.speechSynthesis;
+// ネイティブアプリ(Capacitor)では AVSpeechSynthesizer を直接使う。
+// SafariのWebKitが課す「声の公開制限」を受けないため、端末にダウンロード済みの
+// すべての声(Daniel拡張版・Serena・Martha等)が一覧に表示され指定できる。
+const NativeTTS = (window.Capacitor
+  && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
+  && window.Capacitor.Plugins && window.Capacitor.Plugins.TextToSpeech) || null;
 const scriptEl = document.getElementById('script');
 const dot = document.getElementById('dot');
 
@@ -688,11 +694,24 @@ function voiceScore(v){
 const LS_VOICE_A = 'bl-voiceA', LS_VOICE_B = 'bl-voiceB';
 
 function loadVoices(){
+  if(NativeTTS){
+    // ネイティブアプリ: AVSpeechSynthesizer から端末の全音声を取得。
+    // speak() には getSupportedVoices() の配列内インデックスを渡すため _idx を保持する
+    NativeTTS.getSupportedVoices().then(res=>{
+      const list = ((res && res.voices) || []).map((v,i)=>Object.assign({_idx:i}, v));
+      if(list.length) buildVoiceUI(list);
+    }).catch(()=>{});
+    return;
+  }
   voices = synth.getVoices();
   if(!voices.length) return;
-  // GBの声しか出ないiPhoneでも話者を聞き分けられるよう、
+  buildVoiceUI(voices);
+}
+
+function buildVoiceUI(allVoices){
+  // GBの声しか出ないiPhoneのSafariでも話者を聞き分けられるよう、
   // 全ロケールの英語音声を候補に含める(GBが先頭に並ぶ)
-  pool = voices
+  pool = allVoices
     .filter(v=>v.lang && v.lang.toLowerCase().startsWith('en'))
     .sort((a,b)=>voiceScore(b)-voiceScore(a));
   document.getElementById('voiceWarn').classList.toggle('show', !pool.some(isGB));
@@ -791,17 +810,36 @@ const IS_APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
 
 function speakTTS(i, onend){
   const l = EPISODES[epIdx].lines[i];
-  const u = new SpeechSynthesisUtterance(l.en);
   const isA = l.sp==='A';
   const v = isA ? voiceA : voiceB;
-  u.lang = v ? v.lang : 'en-GB';
-  if(v) u.voice = v;
   // 両話者が同じ声(または共にシステム既定)のときは高さと速さで演じ分け:
   // 話者A(女性役)は高め、話者B(男性役)は低め・わずかにゆっくり
   const sameVoice = (sysA && sysB) ||
     (voiceA && voiceB && voiceA.name===voiceB.name);
-  u.pitch = sameVoice ? (isA ? 1.35 : 0.75) : 1;
-  u.rate = rate * (sameVoice && !isA ? 0.96 : 1);
+  const pitch = sameVoice ? (isA ? 1.35 : 0.75) : 1;
+  const r = rate * (sameVoice && !isA ? 0.96 : 1);
+
+  if(NativeTTS){
+    // ネイティブアプリ: AVSpeechSynthesizer で再生(speakは読み上げ完了時に解決)
+    highlight(i);
+    const done = ()=>{ unhighlight(i); if(onend) onend(); };
+    NativeTTS.speak({
+      text: l.en,
+      lang: v ? v.lang : 'en-GB',
+      rate: r,
+      pitch: pitch,
+      volume: 1.0,
+      voice: v ? v._idx : undefined,
+      category: 'playback'   // マナーモードでも再生し、画面ロック中も継続
+    }).then(done).catch(done);
+    return;
+  }
+
+  const u = new SpeechSynthesisUtterance(l.en);
+  u.lang = v ? v.lang : 'en-GB';
+  if(v) u.voice = v;
+  u.pitch = pitch;
+  u.rate = r;
   u.onstart = ()=>highlight(i);
   const done = ()=>{
     unhighlight(i);
@@ -857,6 +895,7 @@ document.getElementById('stopBtn').onclick = ()=>stopAll();
 
 function stopAll(){
   playing = false;
+  if(NativeTTS) NativeTTS.stop().catch(()=>{});
   synth.cancel();
   currentUtter = null;
   if(resumeTimer){ clearInterval(resumeTimer); resumeTimer = null; }

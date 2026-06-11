@@ -1,0 +1,8 @@
+{
+  "appId": "com.shisei.britishlistening",
+  "appName": "British Listening",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "automatic"
+  }
+}

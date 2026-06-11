@@ -1,49 +1,65 @@
 # British English Listening(イギリス英語リスニング練習アプリ)
 
-ネイティブ会話スクリプト(全4話)を端末の読み上げ音声(Web Speech API)で聴いて学ぶ、
-インストール可能なPWA(プログレッシブ・ウェブアプリ)です。
+ネイティブ会話スクリプト(全4話)を読み上げ音声で聴いて学ぶアプリです。
+**iOSネイティブアプリ(Capacitor)** と **PWA(ブラウザ)** の両方で動く1ソース構成です。
+
+## なぜネイティブアプリ版があるのか
+
+iPhoneの読み上げ音声の制限は **Safari(ブラウザ)側の制限であり、OSの制限ではありません**。
+
+| | 声の取得元 | 使える声 |
+|---|---|---|
+| Safari / PWA | Web Speech API(WebKitが制限) | イギリス英語は実質 Daniel のみ |
+| **ネイティブアプリ** | **AVSpeechSynthesizer(OS直接)** | **ダウンロード済みのすべての声**(Daniel拡張・Serena・Martha など) |
+
+ネイティブアプリ版では `@capacitor-community/text-to-speech` プラグインが
+AVSpeechSynthesizer を直接呼び出すため、話者A・Bに本物のイギリス英語の女声・男声を
+それぞれ割り当てられます(※Siriの声のみAppleの方針でアプリからは使えません)。
+
+アプリ側は実行環境を自動判別します:
+ネイティブで起動すれば AVSpeechSynthesizer、ブラウザで開けば従来どおり Web Speech API
+(他地域の女声による代替+ピッチ演じ分け)で動作します。
 
 ## 構成
 
-| ファイル | 役割 |
+| パス | 役割 |
 |---|---|
-| `index.html` | アプリ本体(スクリプト・再生・設定すべて込み) |
-| `manifest.webmanifest` | ホーム画面追加用のアプリ情報 |
-| `sw.js` | Service Worker(オフライン対応・キャッシュ) |
-| `icons/` | アプリアイコン(192 / 512 / maskable / apple-touch) |
-| `audio/`(任意) | `ep01-1.m4a` のような録音ファイルを置くとTTSの代わりに再生 |
+| `www/` | アプリ本体(HTML/SW/manifest/アイコン)— PWAとしてもこのまま動く |
+| `ios/` | Xcodeプロジェクト(`npx cap add ios` で生成済み・SPM方式) |
+| `capacitor.config.json` | Capacitor設定(appId: `com.shisei.britishlistening`) |
+| `package.json` | Capacitor本体とTTSプラグインの依存定義 |
+| `www/audio/`(任意) | `ep01-1.m4a` 等を置くとTTSの代わりに録音を再生 |
 
-## 公開方法(GitHub Pages)
+## iPhoneネイティブアプリのビルド手順(Mac + Xcode が必要)
 
-1. リポジトリの **Settings → Pages** で「Deploy from a branch」を選び、ブランチとルートを指定
-2. `https://<ユーザー名>.github.io/<リポジトリ名>/british-listening/` にアクセス
+```bash
+cd british-listening
+npm install            # Package.swift が node_modules を参照するため必須
+npx cap sync ios       # www/ をネイティブプロジェクトへコピー
+npx cap open ios       # Xcodeが開く
+```
 
-※ Service Worker は HTTPS(または localhost)でのみ動作します。
-ローカル確認は `python3 -m http.server` などで `http://localhost:8000/british-listening/` を開いてください。
+Xcodeで:
+1. 左ペインで **App** プロジェクト → **Signing & Capabilities** → 自分のApple IDのTeamを選択
+   (無料のApple IDでも実機インストール可。その場合7日ごとに再署名が必要。
+   App Store配布や年単位の有効期限にはApple Developer Program加入が必要)
+2. 上部のデバイス選択でiPhone実機を選び **▶ Run**
 
-## iPhoneでの使い方
+`www/` を編集したら `npx cap sync ios` で反映されます。
 
-1. Safari で公開URLを開く
-2. 共有ボタン → **「ホーム画面に追加」**
-3. ホーム画面のアイコンから起動(全画面のアプリとして動作・オフライン対応)
+### より良い声を使うには
 
-### 読み上げ音声について(重要)
+iPhoneの **設定 → アクセシビリティ → 読み上げコンテンツ → 声 → 英語** から
+**Daniel(拡張)・Serena・Martha** などをダウンロードしてください。
+ネイティブアプリ版なら、ダウンロードした声がすべて選択リストに表示されます。
 
-iPhoneのSafariはプライバシー保護のため、端末にダウンロード済みの声の多くを
-ウェブページに公開しません(イギリス英語は実質 **Daniel** のみ)。
-このアプリは次の方法で2人の話者を聞き分けられるようにしています:
+## PWAとして使う場合(Macがない場合の代替)
 
-- **話者B(男性役)** には Daniel などイギリス英語の男声を自動割り当て
-- **話者A(女性役)** には、イギリス英語の女声がない場合、アイルランド(Moira)・
-  オーストラリア(Karen)・南アフリカ(Tessa)など**他地域の英語の女性の声**を自動割り当て
-- それでも同じ声になる場合は、**声の高さ(ピッチ)と速さ**で自動的に演じ分け
+1. リポジトリの Settings → Pages でブランチを公開
+2. Safariで `https://<ユーザー名>.github.io/<リポジトリ名>/british-listening/www/` を開く
+3. 共有 → 「ホーム画面に追加」
 
-音質を上げたい場合は、iPhoneの
-**設定 → アクセシビリティ → 読み上げコンテンツ → 声 → 英語** から
-**Daniel(拡張)** をダウンロードしてください(表示は同じでも再生音質が向上します)。
+PWA版はSafariの声制限を受けるため、話者Aにはアイルランド(Moira)等の
+他地域の英語の女声を自動割り当てして聞き分けを確保します。
 
-## 録音音声の差し替え(任意)
-
-`audio/ep{話数}-{行番号}.m4a`(例: `audio/ep01-1.m4a`)を置くと、
-その行はTTSの代わりに録音ファイルが再生されます。ファイルがない行は自動的にTTSへ
-フォールバックします。
+ローカル確認: `cd www && python3 -m http.server` → `http://localhost:8000/`
