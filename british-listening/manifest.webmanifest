@@ -1,0 +1,17 @@
+{
+  "name": "British English Listening — Episodes 01–04",
+  "short_name": "British Listening",
+  "description": "イギリス英語リスニング練習アプリ。ネイティブ会話スクリプト×読み上げ音声で学ぶ。",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F3F5F2",
+  "theme_color": "#0E4733",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
