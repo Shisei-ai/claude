@@ -71,7 +71,7 @@ function render(canvas, gs) {
 
       if (cell.terrain === C.CORE) {
         ctx.fillStyle = '#58c860';
-        ctx.font = 'bold 8px monospace';
+        ctx.font = 'bold 9px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('CORE', px + cs / 2, py + cs / 2 + 3);
         ctx.textAlign = 'left';
@@ -79,7 +79,7 @@ function render(canvas, gs) {
         const lbl = TERRAIN_LABEL[cell.terrain];
         if (lbl) {
           ctx.fillStyle = lbl.color;
-          ctx.font = '8px monospace';
+          ctx.font = 'bold 9px sans-serif';
           ctx.fillText(lbl.text, px + 2, py + cs - 3);
         }
       }
@@ -677,9 +677,9 @@ function drawExtractor(ctx, cell, px, py, cs) {
   drawDirArrow(ctx, px, py, cs, cell.equipment.dir);
   // Selected item indicator
   const item = cell.equipment.selectedItem;
-  ctx.font = '8px monospace';
+  ctx.font = 'bold 9px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillStyle = item ? '#ffffff' : '#888888';
+  ctx.fillStyle = item ? '#ffffff' : '#999999';
   ctx.fillText(item ? (RES_NAMES[item]?.slice(0, 3) || '?') : '---', cx, cy + 3);
   ctx.textAlign = 'left';
 }
@@ -690,7 +690,7 @@ function drawInserter(ctx, cell, px, py, cs) {
   ctx.fillRect(px + 4, py + 4, cs - 8, cs - 8);
   // Arrow showing input direction (from which conveyor it reads)
   drawDirArrow(ctx, px, py, cs, cell.equipment.dir);
-  ctx.font = '8px monospace';
+  ctx.font = 'bold 9px sans-serif';
   ctx.textAlign = 'center';
   ctx.fillStyle = '#88ccee';
   ctx.fillText('IN', cx, cy + 3);

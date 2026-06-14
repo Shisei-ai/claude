@@ -19,7 +19,7 @@ const EQ_DEF = {
   // ── Tier 1 : Solid Production ─────────────────────────
 
   miner: {
-    name: 'Miner', icon: '⛏', color: '#3c5070', unlocked: true, size: 1, place: 'mission',
+    name: '採掘機', icon: '⛏', color: '#3c5070', unlocked: true, size: 1, place: 'mission',
     cost: {},
     desc: '【出撃先専用】鉱石・石炭・硫黄ノード上に設置。採掘物はコンベアへ、なければ直接倉庫へ。',
     validTerrain: [C.IRON_ORE, C.COPPER_ORE, C.COAL, C.SULFUR_DEP],
@@ -67,7 +67,7 @@ const EQ_DEF = {
   },
 
   conveyor: {
-    name: 'Conveyor', icon: '➡', color: '#2c3e50', unlocked: true, size: 1,
+    name: 'コンベア', icon: '➡', color: '#2c3e50', unlocked: true, size: 1,
     cost: {},
     desc: 'アイテムを向いた方向の隣セルへ搬送する。R で向きを変えること。',
     onTick(cell, gs) {
@@ -91,7 +91,7 @@ const EQ_DEF = {
   },
 
   furnace: {
-    name: 'Furnace', icon: '🔥', color: '#503020', unlocked: true, size: 2,
+    name: '製錬炉', icon: '🔥', color: '#503020', unlocked: true, size: 2,
     cost: { iron_plate: 2 },
     desc: '鉄鉱石→鉄板 / 銅鉱石→銅板。コンベアで鉱石を投入。出力はコンベアへ。',
     recipes: {
@@ -115,7 +115,7 @@ const EQ_DEF = {
   },
 
   assembler: {
-    name: 'Assembler', icon: '⚙', color: '#1e3c30', unlocked: false, size: 2,
+    name: '組立機', icon: '⚙', color: '#1e3c30', unlocked: false, size: 2,
     cost: { iron_plate: 4, copper_plate: 2 },
     desc: '鉄板+銅板→回路基板。コンベアで投入。出力はコンベアへ。【要研究: 組立工学】',
     recipe: { inputs: { [C.RES.IRON_PLATE]: 1, [C.RES.COPPER_PLATE]: 1 }, output: C.RES.CIRCUIT },
@@ -158,7 +158,7 @@ const EQ_DEF = {
   // ── Defense ───────────────────────────────────────────
 
   turret: {
-    name: 'Turret', icon: '🔫', color: '#2e3c1e', unlocked: true, size: 2, place: 'mission',
+    name: 'タレット', icon: '🔫', color: '#2e3c1e', unlocked: true, size: 2, place: 'mission',
     cost: { iron_plate: 4, copper_plate: 2 },
     desc: '【出撃先専用】射程内の最も近い敵を自動攻撃する。ミッション終了時にコストは全額還付。',
     onTick(cell, gs) {
@@ -229,7 +229,7 @@ const EQ_DEF = {
   },
 
   wall: {
-    name: 'Wall', icon: '🧱', color: '#3e2e1c', unlocked: true, size: 1, place: 'mission',
+    name: '防壁', icon: '🧱', color: '#3e2e1c', unlocked: true, size: 1, place: 'mission',
     cost: { iron_plate: 1 },
     desc: '【出撃先専用】敵の進路を塞ぐ壁。HPあり。ギアで自然回復・HP3倍化が可能。',
     hp: 200,
@@ -243,7 +243,7 @@ const EQ_DEF = {
   },
 
   laser: {
-    name: 'Laser', icon: '🔴', color: '#3c1e2e', unlocked: false, size: 2, place: 'mission',
+    name: 'レーザー砲', icon: '🔴', color: '#3c1e2e', unlocked: false, size: 2, place: 'mission',
     cost: { iron_plate: 8, copper_plate: 4, circuit: 3 },
     desc: '【出撃先専用】高威力レーザー砲。射程が長い。電力×2消費。潤滑油でクールダウン半減。',
     powerCost: 2,
@@ -270,7 +270,7 @@ const EQ_DEF = {
   },
 
   generator: {
-    name: 'Generator', icon: '🔌', color: '#1c4a3a', unlocked: false, size: 2,
+    name: '発電機', icon: '🔌', color: '#1c4a3a', unlocked: false, size: 2,
     cost: { iron_plate: 6, copper_plate: 3 },
     desc: 'コークス×1を消費して電力+15を生産（毎300tick）。コンベアでコークスを投入。',
     canAccept(item, cell, _gs) { return item === C.RES.COKE && (cell.equipment.fuel || 0) < 4; },
@@ -287,7 +287,7 @@ const EQ_DEF = {
   // ── Tier 2 : Chemistry ────────────────────────────────
 
   oil_pump: {
-    name: 'Oil Pump', icon: '🛢', color: '#1e1e30', unlocked: true, size: 1, place: 'mission',
+    name: '石油ポンプ', icon: '🛢', color: '#1e1e30', unlocked: true, size: 1, place: 'mission',
     cost: {},
     desc: '【出撃先専用】油田（OIL）ノードに設置。原油を倉庫へ継続的に抽出する。',
     validTerrain: [C.OIL_WELL],
@@ -300,7 +300,7 @@ const EQ_DEF = {
   },
 
   water_pump: {
-    name: 'Water Pump', icon: '💧', color: '#162c42', unlocked: true, size: 1,
+    name: '揚水ポンプ', icon: '💧', color: '#162c42', unlocked: true, size: 1,
     cost: {},
     desc: '周囲から水を収集してコンベアへ流す。電解槽・化学プラントの水源。',
     onTick(cell, gs) {
@@ -314,7 +314,7 @@ const EQ_DEF = {
   },
 
   coke_oven: {
-    name: 'Coke Oven', icon: '🟤', color: '#3a2610', unlocked: false, size: 2,
+    name: 'コークス炉', icon: '🟤', color: '#3a2610', unlocked: false, size: 2,
     cost: { iron_plate: 3 },
     desc: '石炭×2→コークス×1。コンベアで石炭を投入。出力はコンベアへ。【要研究: コークス精製】',
     canAccept(item, cell, _gs) { return item === C.RES.COAL && (cell.equipment.inventory?.coal || 0) < 4; },
@@ -333,7 +333,7 @@ const EQ_DEF = {
   },
 
   distillation: {
-    name: 'Distillation', icon: '🏭', color: '#2a3c28', unlocked: false, size: 2,
+    name: '蒸留塔', icon: '🏭', color: '#2a3c28', unlocked: false, size: 2,
     cost: { iron_plate: 8, copper_plate: 4 },
     desc: '原油×3→石油ガス×2＋軽油×2＋重油×1に分留する。コンベアで原油を投入。【要研究: 石油化学】',
     canAccept(item, cell, _gs) { return item === C.RES.CRUDE_OIL && (cell.equipment.oilStock || 0) < 9; },
@@ -355,7 +355,7 @@ const EQ_DEF = {
   },
 
   chem_plant: {
-    name: 'Chem Plant', icon: '⚗', color: '#1a3020', unlocked: false, size: 2,
+    name: '化学プラント', icon: '⚗', color: '#1a3020', unlocked: false, size: 2,
     cost: { iron_plate: 6, copper_plate: 4, circuit: 2 },
     desc: '左クリックでレシピ切替。コンベアで素材を投入。電力×2消費。【要研究: 化学合成】',
     powerCost: 2,
@@ -411,7 +411,7 @@ const EQ_DEF = {
   },
 
   electrolyzer: {
-    name: 'Electrolyzer', icon: '⚡', color: '#18203c', unlocked: false, size: 2,
+    name: '電解槽', icon: '⚡', color: '#18203c', unlocked: false, size: 2,
     cost: { iron_plate: 8, copper_plate: 6, circuit: 2 },
     desc: '水×2→水素×2＋酸素×1。コンベアで水を投入。電力×2消費。【要研究: 電気分解】',
     powerCost: 2,
@@ -433,7 +433,7 @@ const EQ_DEF = {
   },
 
   adv_assembler: {
-    name: 'Adv. Assembler', icon: '🤖', color: '#162e20', unlocked: false, size: 2,
+    name: '高度組立機', icon: '🤖', color: '#162e20', unlocked: false, size: 2,
     cost: { iron_plate: 10, copper_plate: 5, circuit: 4 },
     desc: '左クリックでレシピ切替。コンベアで素材を投入。電力×3消費。【要研究: 高度組立】',
     powerCost: 3,
@@ -475,7 +475,7 @@ const EQ_DEF = {
   // ── Factory logistics ─────────────────────────────────
 
   extractor: {
-    name: 'Extractor', icon: '📤', color: '#303c1c', unlocked: true, size: 1, place: 'factory',
+    name: '取り出し口', icon: '📤', color: '#303c1c', unlocked: true, size: 1, place: 'factory',
     cost: { iron_plate: 1 },
     desc: '【工場専用】倉庫から選択素材をコンベアへ取り出す。クリックでアイテム選択。',
     onTick(cell, gs) {
@@ -495,7 +495,7 @@ const EQ_DEF = {
   },
 
   inserter: {
-    name: 'Inserter', icon: '📥', color: '#1c2e3a', unlocked: true, size: 1, place: 'factory',
+    name: '取り入れ口', icon: '📥', color: '#1c2e3a', unlocked: true, size: 1, place: 'factory',
     cost: { iron_plate: 1 },
     desc: '【工場専用】コンベアのアイテムを倉庫へ格納する。向いた方向のコンベアから回収。',
     onTick(cell, gs) {
