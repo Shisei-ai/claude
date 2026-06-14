@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="British Listening">
+<meta name="theme-color" content="#0E4733">
+<title>British English Listening — Episodes 01–04</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<script>
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+<style>
+  :root{
+    --paper:#F3F5F2;
+    --ink:#1C2B27;
+    --card:#FFFFFF;
+  }
+  body[data-ep="0"]{
+    --accent:#166649;
+    --accent-deep:#0E4733;
+    --accent2:#B07514;
+    --line:#D6DCD6;
+    --muted:#5E6E68;
+    --soft:#F4F8F4;
+    --head-sub:#C2D6C6;
+    --head-eyebrow:#9CC4AC;
+  }
+  body[data-ep="1"]{
+    --accent:#14586B;
+    --accent-deep:#0C3A48;
+    --accent2:#A8551E;
+    --line:#D4DBDE;
+    --muted:#5C6E75;
+    --soft:#F1F6F7;
+    --head-sub:#BCD4DC;
+    --head-eyebrow:#8FBECB;
+  }
+  body[data-ep="2"]{
+    --accent:#7C3041;
+    --accent-deep:#4E1E2A;
+    --accent2:#1F6E5C;
+    --line:#DED4D6;
+    --muted:#756065;
+    --soft:#F8F2F3;
+    --head-sub:#DCC2C9;
+    --head-eyebrow:#CB9AA6;
+  }
+  body[data-ep="3"]{
+    --accent:#7A5A12;
+    --accent-deep:#4A380C;
+    --accent2:#205A6B;
+    --line:#DFD8C8;
+    --muted:#73684F;
+    --soft:#F8F4E9;
+    --head-sub:#DECFA8;
+    --head-eyebrow:#C4AE76;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Hiragino Sans","Noto Sans JP",sans-serif;
+    line-height:1.6;
+    padding-bottom:90px;
+  }
+  .wrap{max-width:680px;margin:0 auto;padding:0 16px;}
+
+  header{
+    background:var(--accent-deep);
+    color:#EAF2EC;
+    padding:22px 0 22px;
+    margin-bottom:20px;
+    transition:background .3s;
+  }
+  .eyebrow{
+    font-family:"SF Mono",ui-monospace,Menlo,monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--head-eyebrow);margin-bottom:8px;
+  }
+  h1{
+    font-family:Georgia,"Iowan Old Style","Times New Roman",serif;
+    font-size:28px;font-weight:600;line-height:1.2;letter-spacing:-.01em;
+  }
+  .sub{font-size:13px;color:var(--head-sub);margin-top:8px;}
+
+  /* episode tabs */
+  .eptabs{
+    display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;
+  }
+  .eptabs button{
+    flex:1 1 45%;border:1px solid rgba(255,255,255,.35);
+    background:transparent;color:#fff;
+    border-radius:10px;padding:9px 6px;
+    font-size:11.5px;font-weight:600;cursor:pointer;
+    line-height:1.3;
+  }
+  .eptabs button.on{
+    background:#fff;color:var(--accent-deep);border-color:#fff;
+  }
+  .eptabs .epnum{
+    display:block;font-family:"SF Mono",ui-monospace,Menlo,monospace;
+    font-size:10px;letter-spacing:.14em;opacity:.75;font-weight:700;
+  }
+
+  .panel{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px;
+    margin-bottom:20px;
+  }
+  .panel h2{
+    font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:10px;
+    font-family:"SF Mono",ui-monospace,Menlo,monospace;font-weight:600;
+  }
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;}
+  .row:last-child{margin-bottom:0;}
+  .row-label{font-size:13px;color:var(--muted);min-width:5.5em;}
+  select{
+    flex:1;min-width:0;
+    font-size:13px;padding:8px 10px;
+    border:1px solid var(--line);border-radius:8px;
+    background:#FBFCFB;color:var(--ink);
+  }
+  .seg{display:flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .seg button{
+    border:none;background:#FBFCFB;color:var(--ink);
+    font-size:13px;padding:8px 14px;cursor:pointer;
+  }
+  .seg button + button{border-left:1px solid var(--line);}
+  .seg button.on{background:var(--accent);color:#fff;}
+  .hint{font-size:12px;color:var(--muted);margin-top:10px;}
+
+  .onair{
+    position:fixed;left:0;right:0;bottom:0;z-index:50;
+    background:var(--accent-deep);
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+    transition:background .3s;
+  }
+  .onair-inner{max-width:680px;margin:0 auto;display:flex;gap:10px;align-items:center;}
+  .onair button{
+    flex:1;border:none;border-radius:10px;
+    font-size:15px;font-weight:600;padding:13px;
+    cursor:pointer;
+  }
+  #playAllBtn{background:#fff;color:var(--accent-deep);}
+  #stopBtn{background:rgba(255,255,255,.16);color:#fff;flex:0 0 auto;padding:13px 18px;}
+  .onair-dot{
+    width:9px;height:9px;border-radius:50%;
+    background:rgba(255,255,255,.35);flex:0 0 auto;
+  }
+  .onair-dot.live{background:#FF5A47;animation:blink 1.1s infinite;}
+  @keyframes blink{50%{opacity:.35;}}
+
+  .scene{
+    font-family:"SF Mono",ui-monospace,Menlo,monospace;
+    font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--muted);margin:24px 0 12px;text-align:center;
+  }
+  .turn{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:14px 16px;
+    margin-bottom:10px;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  .turn.playing{
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+  .turn-top{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .cue{
+    font-family:"SF Mono",ui-monospace,Menlo,monospace;
+    font-size:11px;font-weight:700;letter-spacing:.1em;
+    padding:3px 8px;border-radius:6px;
+  }
+  .cue.a{background:color-mix(in srgb, var(--accent) 11%, transparent);color:var(--accent);}
+  .cue.b{background:color-mix(in srgb, var(--accent2) 13%, transparent);color:var(--accent2);}
+  .playline{
+    margin-left:auto;
+    border:1px solid var(--line);background:#FBFCFB;color:var(--accent);
+    width:38px;height:38px;border-radius:50%;
+    font-size:15px;cursor:pointer;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .en{
+    font-family:Georgia,"Iowan Old Style","Times New Roman",serif;
+    font-size:17.5px;line-height:1.55;
+    transition:filter .25s;
+  }
+  body.hide-en .en{filter:blur(7px);cursor:pointer;}
+  body.hide-en .en.revealed{filter:none;}
+  .jp{
+    font-size:13.5px;color:var(--muted);margin-top:7px;
+    border-left:3px solid var(--line);padding-left:10px;
+  }
+  body.hide-jp .jp{display:none;}
+  details.note{margin-top:9px;}
+  details.note summary{
+    font-size:12px;color:var(--accent);cursor:pointer;
+    font-weight:600;list-style:none;
+  }
+  details.note summary::before{content:"▸ ";}
+  details.note[open] summary::before{content:"▾ ";}
+  .note-body{
+    font-size:13px;color:var(--ink);
+    background:var(--soft);border-radius:8px;
+    padding:10px 12px;margin-top:6px;
+  }
+  .note-body b{color:var(--accent-deep);}
+
+  .warn{
+    background:#FFF6E8;border:1px solid #EAD7AE;border-radius:10px;
+    font-size:13px;color:#7A5A14;padding:10px 12px;margin-bottom:16px;
+    display:none;
+  }
+  .warn.show{display:block;}
+
+  footer{
+    text-align:center;font-size:11px;color:var(--muted);
+    margin:30px 0 10px;
+    font-family:"SF Mono",ui-monospace,Menlo,monospace;letter-spacing:.1em;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .onair-dot.live{animation:none;}
+  }
+</style>
+</head>
+<body class="hide-jp" data-ep="0">
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow" id="hEyebrow">British English · Listening Practice · Episode 01</div>
+    <h1 id="hTitle">A Bit of a Dilemma</h1>
+    <div class="sub" id="hSub"></div>
+    <div class="eptabs" id="epTabs"></div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="warn" id="voiceWarn">
+    お使いの端末にイギリス英語(en-GB)の音声が見つかりませんでした。代わりに利用可能な英語音声を使います。iPhoneの場合「設定 → アクセシビリティ → 読み上げコンテンツ → 声 → 英語」から British の声(Daniel など)を追加すると本来の発音で聴けます。
+  </div>
+
+  <div class="panel">
+    <h2>Settings</h2>
+    <div class="row">
+      <span class="row-label" id="labelA">話者A の声</span>
+      <select id="voiceA"></select>
+    </div>
+    <div class="row">
+      <span class="row-label" id="labelB">話者B の声</span>
+      <select id="voiceB"></select>
+    </div>
+    <div class="hint" style="margin:0 0 12px;">※ iPhoneのSafariはプライバシー保護のため、ダウンロード済みの声の多くをウェブページに公開しません(一覧にDanielしか出ないのはこのためです)。<b>Daniel(拡張)をダウンロードすると、表示は「Daniel」のままでも再生音質が自動的に向上します。</b>両話者が同じ声のときは、女性役を高め・男性役を低めの声で自動的に演じ分けます。</div>
+    <div id="sameVoiceHint" class="hint" style="display:none;margin:10px 0 12px;">「話者A・Bが同じ声です。ピッチ・速度で自動演じ分けします。 <button id="voiceTestBtn" style="display:inline;border:none;background:var(--accent);color:#fff;border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer;">▶ 声を確認</button>」</div>
+    <div class="row">
+      <span class="row-label">速度</span>
+      <div class="seg" id="rateSeg">
+        <button data-rate="0.7">0.7×</button>
+        <button data-rate="0.85">0.85×</button>
+        <button data-rate="1" class="on">1.0×</button>
+        <button data-rate="1.15">1.15×</button>
+      </div>
+    </div>
+    <div class="row">
+      <span class="row-label">表示</span>
+      <div class="seg" id="modeSeg">
+        <button data-mode="none">字幕なし</button>
+        <button data-mode="en" class="on">英語のみ</button>
+        <button data-mode="both">英+日</button>
+      </div>
+    </div>
+    <div class="hint" id="hint"></div>
+  </div>
+
+  <div class="scene" id="sceneEl"></div>
+
+  <div id="script"></div>
+
+  <footer id="footerEl"></footer>
+</div>
+
+<div class="onair">
+  <div class="onair-inner">
+    <div class="onair-dot" id="dot"></div>
+    <button id="playAllBtn">▶ 最初から通しで再生</button>
+    <button id="stopBtn">■ 停止</button>
+  </div>
+</div>
+
+<script>
+const EPISODES = [
+{
+ num:"01",
+ title:"A Bit of a Dilemma",
+ sub:"ロンドン在住の友人同士、ソフィー(S)とジェームズ(J)の会話 — 転職のオファーをめぐって。全20ターン / 友人同士のネイティブ英会話。",
+ scene:"— Scene: A flat in South London, Saturday afternoon —",
+ hint:"第一話のテーマは「友人同士の本音の相談」。おすすめ手順: ① 字幕なしで通しで聴く → ② 英語のみで確認 → ③ 解説を読む → ④ 1.0×でシャドーイング。「字幕なし」モードでは本文をタップすると1文ずつ表示されます。",
+ footer:"SCRIPT 01 · A BIT OF A DILEMMA · EN-GB",
+ spA:{key:"S", name:"SOPHIE", label:"Sophie の声"},
+ spB:{key:"J", name:"JAMES", label:"James の声"},
+ lines:[
+ {sp:"A", en:"You'll never guess what — I've only gone and been offered that job in Manchester.",
+  jp:"ねえ聞いて、信じられないと思うけど——例のマンチェスターの仕事、なんとオファーされちゃったの。",
+  note:"<b>You'll never guess what</b> は驚きのニュースを切り出す定番表現。<b>I've only gone and (done)...</b> は「なんと〜しちゃった」という英国特有の強調話法で、自分でも驚いている・呆れているニュアンスを出します。"},
+ {sp:"B", en:"You're joking! That's brilliant, isn't it? Or… hang on, why the face?",
+  jp:"嘘でしょ!それ最高じゃない?…いや待って、なんでそんな顔してるの?",
+  note:"<b>brilliant</b> は英国で多用される「最高・素晴らしい」。<b>isn't it?</b> の付加疑問は会話のキャッチボールの基本。<b>hang on</b>(ちょっと待って)、<b>why the face?</b>(動詞を省いた口語)も超頻出です。"},
+ {sp:"A", en:"Well, that's the thing. Had you asked me a month ago, I'd have bitten their hand off. But now I'm not so sure.",
+  jp:"それがさ、問題はそこなの。1か月前に聞かれてたら飛びついてたと思う。でも今は正直わからなくて。",
+  note:"<b>That's the thing</b>=「そこが問題なんだよね」。<b>Had you asked me...</b> は <i>If you had asked me</i> の倒置(仮定法過去完了)で、ネイティブの自然な発話にも普通に出ます。<b>bite someone's hand off</b>=「(好条件に)飛びつく」。"},
+ {sp:"B", en:"How come? You've been banging on about getting out of London for ages.",
+  jp:"なんで?ロンドンを出たいってずーっと言い続けてたじゃん。",
+  note:"<b>How come?</b>=Why? のくだけた形(語順がそのままな点に注意)。<b>bang on about 〜</b>=「〜について延々と話す・愚痴る」は英国口語の頻出イディオム。<b>for ages</b>=for a long time。"},
+ {sp:"A", en:"I know, I know. It's just — the salary's nothing to write home about, and I'd be giving up quite a lot here. My flat, for one. Took me years to find somewhere half-decent.",
+  jp:"わかってる、わかってるよ。ただね——給料は別に大したことないし、こっちで手放すものも結構多いの。まずこのフラット。まともな部屋を見つけるのに何年もかかったんだから。",
+  note:"<b>nothing to write home about</b>=「特筆するほどではない」。<b>for one</b>=「一つには・まず第一に」。<b>half-decent</b>=「まずまずの」。文頭の <b>(It) took me years...</b> のように主語を落とすのも話し言葉の特徴です。"},
+ {sp:"B", en:"Fair enough, but flats come and go, don't they? It's not like you're madly attached to the place.",
+  jp:"まあそれはわかるけど、フラットなんてまた見つかるでしょ。あの部屋に死ぬほど愛着があるわけでもないし。",
+  note:"<b>Fair enough</b>=「それは一理ある」と一旦認める相づち。<b>It's not like 〜</b>=「別に〜ってわけじゃないでしょ」。<b>madly attached to 〜</b>=「〜に強い愛着がある」。"},
+ {sp:"A", en:"It's not just the flat, though, is it? It's the whole faff of starting from scratch. New city, new people… I can't be doing with all that at the moment, if I'm honest.",
+  jp:"でもフラットだけの話じゃないのよ。ゼロから始める面倒くささ全部のこと。新しい街、新しい人間関係……正直、今はそういうの無理なの。",
+  note:"<b>faff</b> は英国特有の口語で「面倒な手間」。<b>start from scratch</b>=「ゼロから始める」。<b>can't be doing with 〜</b>=「〜には付き合いきれない・我慢ならない」(英国口語)。<b>if I'm honest</b>=「正直に言うと」。"},
+ {sp:"B", en:"Mm. Having said that, you've been absolutely miserable at work lately. Don't think I haven't noticed.",
+  jp:"うーん。とはいえさ、最近の君、仕事で本当に参ってるよね。気づいてないとでも思った?",
+  note:"<b>Having said that</b>=「そうは言っても」(直前の発言を一部修正する論理マーカー)。<b>miserable</b>=「惨めなほど辛い」。<b>Don't think I haven't noticed</b> は二重否定で「ちゃんと気づいてるからね」という念押し。"},
+ {sp:"A", en:"That obvious, is it?",
+  jp:"そんなにバレバレだった?",
+  note:"<i>Is it that obvious?</i> を崩した形。平叙文の語順+付加疑問風の <b>is it?</b> という、話し言葉ならではの構造です。短い返しこそ聞き取りの難所。"},
+ {sp:"B", en:"Put it this way — last Friday you spent twenty minutes moaning about the office printer. The printer, Soph.",
+  jp:"こう言えばわかるかな——先週の金曜、君はオフィスのプリンターについて20分も愚痴ってた。プリンターだよ、ソフ。",
+  note:"<b>Put it this way</b>=「こう言い換えようか」。<b>moan about 〜</b>=「〜について愚痴る」(英国で非常によく使う)。最後に <b>The printer, Soph.</b> と名詞だけ繰り返すのは呆れを込めた強調です。"},
+ {sp:"A", en:"Alright, point taken. To be fair, it is a dreadful printer.",
+  jp:"はいはい、わかりました。まあ公平に言って、あれが本当にひどいプリンターなのは事実だけどね。",
+  note:"<b>Point taken</b>=「言いたいことはわかった・一本取られた」。<b>To be fair</b>=「公平に言えば」。<b>it <u>is</u> a dreadful printer</b> の is は強勢を置いて「実際〜なのだ」と強調する用法。<b>dreadful</b>=「ひどい」(英国的な語彙)。"},
+ {sp:"B", en:"Look, all I'm saying is, don't turn it down just because moving's a hassle. You'd kick yourself further down the line.",
+  jp:"いいかい、僕が言いたいのはただ一つ。引っ越しが面倒だからってだけで断るなってこと。あとになって絶対後悔するよ。",
+  note:"<b>All I'm saying is...</b>=「要するに言いたいのは」。<b>turn down</b>=「断る」。<b>kick yourself</b>=「(自分を蹴りたいほど)後悔する」。<b>further down the line</b>=「もっと先になって・将来」。"},
+ {sp:"A", en:"Maybe. Though there's also the small matter of Tom. Long-distance has never exactly worked wonders for us.",
+  jp:"そうかもね。ただ、トムっていうちょっとした問題もあるのよ。遠距離って、私たちの場合うまくいった試しがないから。",
+  note:"<b>the small matter of 〜</b> は反語的な控えめ表現(understatement)で、実際は「大問題」。<b>not exactly</b>=「お世辞にも〜とは言えない」も英国的な遠回しの否定。<b>work wonders</b>=「素晴らしい効果を上げる」。"},
+ {sp:"B", en:"Ah. Now we're getting to it.",
+  jp:"ああ、なるほど。やっと本題に来たね。",
+  note:"<b>Now we're getting to it</b>=「やっと核心に近づいてきた」。短い決まり文句で、相手の本音がようやく出たことを指摘しています。"},
+ {sp:"A", en:"What's that supposed to mean?",
+  jp:"それ、どういう意味よ?",
+  note:"<b>What's that supposed to mean?</b>=「それどういうつもりで言ってるの?」。軽い苛立ちや警戒を含む定番の返しです。"},
+ {sp:"B", en:"Nothing, nothing. Just that you've mentioned everything but him until now, which is rather telling, wouldn't you say?",
+  jp:"いや別に、別に。ただ、君は今まで彼のこと以外は全部話したよねって。それってかなり物語ってると思わない?",
+  note:"<b>everything but 〜</b>=「〜以外のすべて」。<b>telling</b>(形容詞)=「(本心を)物語っている・示唆的な」。<b>rather</b> は英国で好まれる「かなり」の控えめ表現。<b>wouldn't you say?</b>=「そう思わない?」という丁寧な同意要求。"},
+ {sp:"A", en:"…I suppose I have been burying my head in the sand a bit.",
+  jp:"……確かに、ちょっと現実から目を背けてたかもしれない。",
+  note:"<b>I suppose</b>=「まあ〜かもね」としぶしぶ認めるニュアンス(I think より消極的)。<b>bury one's head in the sand</b>=「(ダチョウのように)現実から目を背ける」。<b>I <u>have</u> been...</b> の have にも強勢が乗ります。"},
+ {sp:"B", en:"A bit? Listen, why don't you sleep on it over the weekend? Whatever you decide, I'll back you — though for what it's worth, I reckon Manchester would do you the world of good.",
+  jp:"「ちょっと」?ねえ、週末ゆっくり考えてみたら?どっちに決めても僕は応援するよ——まあ参考までに言うと、マンチェスターは君にすごくプラスになると思うけどね。",
+  note:"<b>sleep on it</b>=「一晩寝かせて考える」。<b>back you</b>=「君を支持する」。<b>for what it's worth</b>=「参考までに言えば」。<b>I reckon</b>=I think の英国口語。<b>do someone the world of good</b>=「〜に絶大な好影響を与える」。"},
+ {sp:"A", en:"Yeah… you might be right. God, I could murder a cup of tea.",
+  jp:"うん……そうかもね。ああもう、紅茶が死ぬほど飲みたい。",
+  note:"<b>I could murder a 〜</b>=「〜が無性に欲しい」という英国スラング(直訳は「殺せるくらい」)。深刻な話を紅茶で締めるのは極めて英国的な流れです。"},
+ {sp:"B", en:"Now that I can sort out. Stick the kettle on, shall I?",
+  jp:"それなら僕がなんとかできるよ。じゃあ、お湯わかそうか?",
+  note:"<b>Now <u>that</u> I can sort out</b> は目的語 that を文頭に出した倒置で「『それ』なら解決できる」と対比を強調。<b>sort out</b>=「解決する・手配する」(英国頻出)。<b>stick the kettle on</b>=「ケトルを火にかける」。<b>shall I?</b> は英国らしい申し出の付加疑問。"}
+ ]
+},
+{
+ num:"02",
+ title:"Back to the Drawing Board",
+ sub:"マーケティング部の同僚、プリヤ(P)とエド(E)の会話 — 失敗したキャンペーンの善後策をめぐって。全20ターン / 職場のネイティブ英会話。",
+ scene:"— Scene: The office kitchen, Tuesday morning —",
+ hint:"第二話のテーマは「職場の率直な議論」。責任の所在・反論・皮肉・提案など、ビジネス会話特有の駆け引き表現が中心です。「字幕なし」モードでは本文をタップすると1文ずつ表示されます。",
+ footer:"SCRIPT 02 · BACK TO THE DRAWING BOARD · EN-GB",
+ spA:{key:"P", name:"PRIYA", label:"Priya の声"},
+ spB:{key:"E", name:"ED", label:"Ed の声"},
+ lines:[
+ {sp:"B", en:"Have you seen the engagement figures from the spring campaign? Go on, have a guess.",
+  jp:"春のキャンペーンのエンゲージメント数値、もう見た?ほら、当ててみてよ。",
+  note:"<b>Go on</b>=「ほら、やってみて」と促す英国口語。<b>have a guess</b>=「当ててみる」(米語では take a guess が多い)。悪い知らせをクイズ風に切り出す、皮肉まじりの導入です。"},
+ {sp:"A", en:"That bad, is it? I had a feeling it'd gone down like a lead balloon when nobody mentioned it at Monday's meeting.",
+  jp:"そんなにひどいの?月曜の会議で誰も触れなかった時点で、大コケしたんだろうなって予感はしてたけど。",
+  note:"<b>That bad, is it?</b> は平叙語順+付加疑問の口語形。<b>go down like a lead balloon</b>=「鉛の風船のように落ちる」→「(企画・冗談などが)大失敗する・全くウケない」という定番イディオム。<b>I had a feeling (that)...</b>=「〜という予感がしていた」。"},
+ {sp:"B", en:"'Lead balloon' is putting it kindly. We're miles off target — barely a third of what we projected. Marcus is going to hit the roof.",
+  jp:"「大コケ」なんて優しい言い方だよ。目標には遠く及ばない——予測の3分の1にも届かない。マーカスは間違いなくブチ切れるね。",
+  note:"<b>putting it kindly</b>=「控えめに言っても」。<b>miles off (target)</b>=「(目標から)大きく外れて」。<b>barely a third</b>=「かろうじて3分の1」。<b>hit the roof</b>=「激怒する」(=go through the roof)。"},
+ {sp:"A", en:"Right. Well, no use crying over spilt milk. The question is what we say to him on Thursday.",
+  jp:"なるほどね。まあ、済んだことを嘆いても仕方ない。問題は木曜に彼へ何て言うかよ。",
+  note:"<b>(It's) no use crying over spilt milk</b>=「覆水盆に返らず」。英国綴りは <b>spilt</b>(米 spilled)。<b>The question is...</b> で議論の焦点を切り替えるのは会議英語の基本動作です。"},
+ {sp:"B", en:"I'm not being funny, but shouldn't we work out what actually went wrong first? Otherwise we're just papering over the cracks.",
+  jp:"嫌味で言うんじゃないけどさ、まず何が実際にまずかったのかを突き止めるべきじゃない?でないと、ただのその場しのぎになるよ。",
+  note:"<b>I'm not being funny, but...</b>=「悪気はないんだけど」と言いにくいことを切り出す英国特有の前置き。<b>work out</b>=「解明する」。<b>paper over the cracks</b>=「ひび割れを壁紙で隠す」→「問題を取り繕う」。"},
+ {sp:"A", en:"Fair point. My hunch is the timing scuppered us. Launching the week the trains were on strike — half our footfall vanished overnight.",
+  jp:"一理あるわね。私の勘では、タイミングにやられたんだと思う。よりによって鉄道スト週にローンチして——来店客が一晩で半減したのよ。",
+  note:"<b>Fair point</b>=「もっともだ」。<b>hunch</b>=「直感・勘」。<b>scupper</b>=「(計画を)台無しにする」(英国口語。米語の scuttle に近い)。<b>footfall</b>=「来店客数」(英国の小売・マーケ用語)。<b>on strike</b>=「スト中」。"},
+ {sp:"B", en:"Mm, that didn't help, but I don't think it's the whole story. If you ask me, the messaging was muddled from the off. We tried to please everyone and ended up saying nothing.",
+  jp:"うーん、確かにそれは痛手だったけど、それが全てだとは思わないな。僕に言わせれば、メッセージングが最初からごちゃごちゃだった。全員にいい顔をしようとして、結局何も言ってないのと同じになった。",
+  note:"<b>that didn't help</b>=「それも痛手ではあった」(控えめな譲歩)。<b>the whole story</b>=「事の全容」。<b>If you ask me</b>=「私見では」。<b>muddled</b>=「混乱した」。<b>from the off</b>=「最初から」(英国口語。=from the start)。<b>end up -ing</b>=「結局〜する羽目になる」。"},
+ {sp:"A", en:"That's a bit harsh, isn't it? The focus groups were perfectly happy with it.",
+  jp:"それはちょっと言い過ぎじゃない?フォーカスグループの評判は全然悪くなかったわよ。",
+  note:"<b>a bit harsh</b>=「ちょっと手厳しい」。<b>perfectly happy with 〜</b>=「〜に何の不満もない」。perfectly は「完璧に」より「全く・十分に」の強調として頻出します。"},
+ {sp:"B", en:"Were they, though? Or were they just being polite? You know what focus groups are like — people say what they think you want to hear.",
+  jp:"本当にそうかな?単に礼儀で言ってただけじゃなくて?フォーカスグループってそういうものでしょ——みんな、こっちが聞きたがってることを言うんだよ。",
+  note:"<b>Were they, though?</b> は相手の発言(They were happy)を疑う省略疑問。文末の <b>though</b> は「でも本当に?」のニュアンス。<b>You know what 〜 are like</b>=「〜がどういうものか知ってるでしょ」。<b>what they think you want to hear</b> は関係詞+間接疑問の入れ子で、聞き取りの難所。"},
+ {sp:"A", en:"Hmm. I suppose the penny should've dropped when even our own interns couldn't explain the slogan.",
+  jp:"うーん……うちのインターンですらスローガンを説明できなかった時点で、気づくべきだったのかもね。",
+  note:"<b>the penny dropped</b>=「(コインが落ちて機械が動くように)はっと合点がいく」という英国イディオム。ここでは <b>should've dropped</b>=「気づくべきだった(のに気づかなかった)」と仮定法的に使われています。<b>even our own 〜</b>=「身内の〜でさえ」。"},
+ {sp:"B", en:"Exactly. Look, I'm not trying to point fingers — we were all under the cosh with that deadline. But if we trot out the strike excuse on Thursday, Marcus will see straight through it.",
+  jp:"そういうこと。いやね、誰かを責めたいわけじゃないんだ——あの締切でみんな追い詰められてたから。ただ、木曜に「ストのせいです」なんて言い訳を持ち出したら、マーカスには一瞬で見抜かれるよ。",
+  note:"<b>point fingers</b>=「責任を人になすりつける」。<b>under the cosh</b>=「強いプレッシャー下で」(英国口語。cosh は棍棒)。<b>trot out</b>=「(使い古した言い訳などを)持ち出す」(軽蔑的)。<b>see straight through 〜</b>=「〜をすっかり見透かす」。"},
+ {sp:"A", en:"So what are you suggesting? We fall on our swords?",
+  jp:"じゃあどうしろって言うの?私たちが潔く責任を被るの?",
+  note:"<b>What are you suggesting?</b>=「つまり何が言いたいの?」(やや警戒気味)。<b>fall on one's sword</b>=「(古代ローマの自害から)自ら責任を取って身を引く・全面的に罪を被る」。"},
+ {sp:"B", en:"Not quite. We own the messaging problem, show we've learnt from it, and pitch a revamped version for autumn. Get ahead of it, rather than waiting to be hauled over the coals.",
+  jp:"そこまでじゃない。メッセージングの問題は自分たちの非として認めて、そこから学んだことを示して、秋に向けた改良版を提案する。呼び出されて絞られるのを待つんじゃなくて、先手を打つんだ。",
+  note:"<b>Not quite</b>=「そこまでではない」。<b>own a problem</b>=「問題を自分事として認める」(現代ビジネス英語)。<b>learnt</b> は英国綴り(米 learned)。<b>revamped</b>=「刷新された」。<b>get ahead of it</b>=「先手を打つ」。<b>haul someone over the coals</b>=「厳しく叱責する」。"},
+ {sp:"A", en:"Risky. If push comes to shove, he might just pull the budget altogether.",
+  jp:"リスキーね。いざとなったら、予算ごと引き上げられるかもしれないわよ。",
+  note:"<b>if push comes to shove</b>=「いざという段になったら・最悪の場合」。<b>pull the budget</b>=「予算を引き揚げる」。<b>altogether</b>=「丸ごと・完全に」(all together「全員一緒に」との違いに注意)。"},
+ {sp:"B", en:"He might. Then again, he might respect us for being straight with him. He can't stand people who beat around the bush — you know that better than anyone.",
+  jp:"その可能性はある。でも逆に、正直に話したことを評価してくれるかもしれない。彼、遠回しな物言いをする人間が大嫌いだろ——それは君が誰より知ってるはずだ。",
+  note:"<b>He might.</b> と助動詞だけで返すのは英語の相づちの基本。<b>Then again</b>=「とはいえ逆に」。<b>be straight with 〜</b>=「〜に率直である」。<b>can't stand 〜</b>=「〜が我慢ならない」。<b>beat around the bush</b>=「遠回しに言う・本題を避ける」。"},
+ {sp:"A", en:"True. And to be fair, the autumn idea's been knocking around my head for weeks. Stripped-back, one clear message, proper regional testing this time.",
+  jp:"確かにね。それに実を言うと、秋の案はもう何週間も頭の中で温めてたの。余計なものを削ぎ落として、メッセージは一つに絞って、今度はちゃんと地域別テストもやる。",
+  note:"<b>knock around</b>=「(考えが)頭の中をうろうろする」。<b>stripped-back</b>=「装飾を削ぎ落とした」。<b>proper</b> は英国口語で「ちゃんとした・本格的な」の意の頻出形容詞。名詞句だけを畳みかける言い方も、話し言葉らしいリズムです。"},
+ {sp:"B", en:"There you go. Honestly, between you and me, I always thought the spring concept was a camel — you know, a horse designed by committee.",
+  jp:"ほら、それだよ。正直、ここだけの話、春のコンセプトは最初から「ラクダ」だと思ってたんだ——ほら、委員会が馬を設計するとラクダになる、ってやつ。",
+  note:"<b>There you go</b>=「ほらね・その調子」。<b>between you and me</b>=「ここだけの話」。<b>a camel is a horse designed by committee</b> は「大勢の合議でデザインすると不格好なものになる」という有名な英語の格言。こうした引用を会話に織り込むのもネイティブらしさです。"},
+ {sp:"A", en:"Ha! You might've mentioned that three months ago.",
+  jp:"はは!それ、3か月前に言ってくれてもよかったんじゃない?",
+  note:"<b>You might've mentioned that</b>=「言ってくれてもよかったのに」。might have+過去分詞で過去への軽い非難を表す、皮肉のきいた英国的表現です。"},
+ {sp:"B", en:"I did, actually. Repeatedly. Nobody listened — story of my life. Right, shall we hash out the autumn pitch over lunch? My shout.",
+  jp:"言ったよ、実は。何度もね。誰も聞いてなかったけど——僕の人生いつもこう。よし、ランチしながら秋の提案を詰めようか?僕のおごりで。",
+  note:"<b>I did, actually.</b>=「実は言ったんだよ」(actually は軽い訂正・反論の合図)。<b>story of my life</b>=「私の人生いつもこれだ」という自嘲の決まり文句。<b>hash out</b>=「徹底的に話し合って詰める」。<b>My shout</b>=「僕のおごり」(英・豪の口語)。<b>Right, shall we...?</b> は英国らしい行動への切り替えです。"},
+ {sp:"A", en:"Go on then. But if this backfires, I'm telling Marcus it was all your idea.",
+  jp:"じゃあお言葉に甘えて。でもこれが裏目に出たら、全部あなたのアイデアだったってマーカスに言うからね。",
+  note:"<b>Go on then</b>=「じゃあそうしようか・お言葉に甘えて」と誘いを受ける英国口語。<b>backfire</b>=「裏目に出る」。<b>I'm telling...</b> と現在進行形で「(そうなったら)言うからね」と冗談めかして宣言するのも口語的です。"}
+ ]
+},
+{
+ num:"03",
+ title:"A Gesture of Goodwill",
+ sub:"家電量販店での交渉 — 客のヘレン(H)と店員のカラム(C)。故障したコーヒーメーカーの返金・交換をめぐる駆け引き。全20ターン / 店頭交渉のネイティブ英会話。",
+ scene:"— Scene: An electrical shop on the high street, Saturday morning —",
+ hint:"第三話のテーマは「店員との交渉」。丁寧な切り出し→主張→譲歩→駆け引き→合意という交渉の流れと、英国らしい礼儀正しい応酬が学べます。「字幕なし」モードでは本文をタップすると1文ずつ表示されます。",
+ footer:"SCRIPT 03 · A GESTURE OF GOODWILL · EN-GB",
+ spA:{key:"H", name:"HELEN", label:"Helen の声"},
+ spB:{key:"C", name:"CALLUM", label:"Callum の声"},
+ lines:[
+ {sp:"A", en:"Hello — sorry to bother you. I wonder if you could help me with this coffee machine. It's given up the ghost after barely six weeks.",
+  jp:"こんにちは——お忙しいところすみません。このコーヒーメーカーの件でご相談したいんですが。買ってわずか6週間で完全に壊れてしまって。",
+  note:"<b>Sorry to bother you</b>+<b>I wonder if you could...</b> は英国流の超丁寧な切り出しの定石。いきなり要求せず一段引いて始めます。<b>give up the ghost</b>=「(機械などが)息絶える・完全に壊れる」というユーモラスなイディオム。<b>barely</b>=「たった・わずか」。"},
+ {sp:"B", en:"Oh dear, that's not ideal, is it? Let's have a look. What seems to be the trouble exactly?",
+  jp:"おやおや、それは困りますね。ちょっと拝見しましょう。具体的にはどんな不具合ですか?",
+  note:"<b>Oh dear</b>=「おやまあ」(英国的な同情の間投詞)。<b>not ideal</b>=「理想的ではない」→実際は「かなりまずい」の控えめ表現(understatement)。<b>What seems to be the trouble?</b> は店員・医者などの定番の問いかけ。"},
+ {sp:"A", en:"It cuts out halfway through brewing. At first it was every now and then, but now it's every single time. I've descaled it, checked the filter — the lot.",
+  jp:"抽出の途中で電源が落ちるんです。最初はたまにだったのが、今や毎回。湯垢の除去もフィルターの確認も——できることは全部やりました。",
+  note:"<b>cut out</b>=「(機械が)突然止まる」。<b>halfway through 〜</b>=「〜の途中で」。<b>every now and then</b>=「時々」⇔<b>every single time</b>=「毎回必ず」(single は強調)。<b>the lot</b>=「全部」(英国口語。=everything)。"},
+ {sp:"B", en:"Right. Have you got the receipt on you, by any chance?",
+  jp:"なるほど。ひょっとして、レシートは今お持ちですか?",
+  note:"<b>Have you got 〜?</b> は英国で好まれる所有の聞き方(米 Do you have)。<b>on you</b>=「今身につけて・手元に」。<b>by any chance</b>=「ひょっとして」と当たりを柔らかくする頻出表現。"},
+ {sp:"A", en:"That's the thing — I can't for the life of me find it. I've got the bank statement, though, if that's any use. You can see the transaction clear as day.",
+  jp:"それが問題で——どうしても見つからないんです。ただ銀行の明細ならあります、お役に立つなら。取引はこの通りはっきり載っています。",
+  note:"<b>That's the thing</b>=「そこが問題で」。<b>can't for the life of me (do)</b>=「どうしても〜できない」という強調。<b>if that's any use</b>=「もし役に立つなら」。<b>clear as day</b>=「火を見るより明らか・一目瞭然」。"},
+ {sp:"B", en:"Hmm. Strictly speaking, we do ask for proof of purchase… but a bank statement should do at a pinch. Bear with me a moment while I check the system.",
+  jp:"うーん。厳密に言えば購入証明をお願いしているんですが……まあ、銀行明細でもいざとなれば大丈夫でしょう。システムを確認しますので少々お待ちください。",
+  note:"<b>Strictly speaking</b>=「厳密に言えば」。<b>we <u>do</u> ask...</b> の do は「一応規則では求めている」という強調。<b>should do</b>=「それで足りるはず」(do=suffice)。<b>at a pinch</b>=「いざという場合には」(米 in a pinch)。<b>Bear with me</b>=「少々お待ちを・ご辛抱を」。"},
+ {sp:"A", en:"Of course. Take your time.",
+  jp:"もちろんです。どうぞごゆっくり。",
+  note:"<b>Take your time</b>=「急がなくていいですよ」。交渉では相手に協力的な姿勢を見せておくことが後の駆け引きを有利にします。短い相づちも含めて聞き取れるようにしましょう。"},
+ {sp:"B", en:"Right, so here's where we stand. As it's past the 30-day mark, I'm afraid a straight refund's off the table. What I can offer is a repair — we'd send it off to the manufacturer.",
+  jp:"はい、現状をご説明しますと。購入から30日を過ぎていますので、申し訳ありませんが単純な返金は選択肢から外れます。ご提案できるのは修理ですね——メーカーに送る形になります。",
+  note:"<b>Here's where we stand</b>=「現状はこうです」(交渉の状況整理)。<b>past the 30-day mark</b>=「30日の節目を過ぎて」。<b>I'm afraid 〜</b>=「残念ながら」(断りのクッション)。<b>off the table</b>=「(交渉の)選択肢にない」⇔ on the table。<b>send off</b>=「送り出す」。"},
+ {sp:"A", en:"And how long would that take, roughly?",
+  jp:"それって、だいたいどのくらいかかるんでしょう?",
+  note:"<b>would</b> を使うことで「仮にそうした場合」という丁寧な仮定の聞き方に。<b>roughly</b>=「ざっくり・おおよそ」。条件を即決せず、まず情報を引き出すのが交渉の基本動作です。"},
+ {sp:"B", en:"Honestly? Three to four weeks, give or take.",
+  jp:"正直に言いますと?3〜4週間ですね、多少前後はありますが。",
+  note:"<b>Honestly?</b> と一語で「率直に言えば」と前置きする話し方。<b>give or take</b>=「多少の誤差はあるが・前後して」(数字の後に付ける口語)。"},
+ {sp:"A", en:"A month without coffee? You're having a laugh. Look, I don't mean to be difficult, but under the Consumer Rights Act, if a fault shows up within six months, it's presumed to have been there from the start. I'd say I'm entitled to a replacement at the very least.",
+  jp:"1か月コーヒーなしで?ご冗談でしょう。あの、面倒な客になるつもりはないんですが、消費者権利法では、6か月以内に欠陥が出た場合は最初からあったものと推定されるはずです。少なくとも交換を受ける権利はあると思いますが。",
+  note:"<b>You're having a laugh</b>=「冗談でしょう・ふざけてるの?」(英国口語)。<b>I don't mean to be difficult, but...</b>=「困らせたいわけではないのですが」と強い主張の前に置くクッション。<b>Consumer Rights Act</b>(2015年消費者権利法)は英国の実際の法律。<b>be presumed to have been 〜</b>=「〜だったと推定される」(完了不定詞)。<b>be entitled to 〜</b>=「〜を受ける権利がある」。<b>at the very least</b>=「最低でも」。"},
+ {sp:"B", en:"You've done your homework, I'll give you that. Let me see what I can do — although I should warn you, that model's been discontinued, so a like-for-like swap is out, I'm afraid.",
+  jp:"よく調べていらっしゃいますね、それは認めます。できることを探してみましょう——ただ先に申し上げておくと、そのモデルは生産終了になっていまして、同一品との交換は無理なんです、あいにく。",
+  note:"<b>do one's homework</b>=「下調べをしてくる」。<b>I'll give you that</b>=「その点は認めよう」。<b>Let me see what I can do</b>=「何ができるか検討します」(店員の譲歩開始の合図)。<b>discontinued</b>=「生産終了の」。<b>like-for-like</b>=「同等品同士の」。<b>〜 is out</b>=「〜は不可能」。"},
+ {sp:"A", en:"What about the newer one over there? Same brand, by the looks of it.",
+  jp:"あそこにある新しいモデルはどうですか?見たところ同じブランドのようですけど。",
+  note:"<b>What about 〜?</b> で代替案を即座に提示。<b>by the looks of it</b>=「見たところ」。交渉では断られた瞬間に次の選択肢を出すのが有効です。"},
+ {sp:"B", en:"It is, but it retails at twenty pounds more, so there'd be a difference to make up. Unless… hold on. The display model's just been reduced. If you were happy to take that one, I could let it go for what you originally paid, and throw in a year's extended warranty as a gesture of goodwill.",
+  jp:"そうなんですが、定価が20ポンド高いので差額をいただくことになります。ただ……ちょっと待ってください。展示品がちょうど値下げになったところでして。もしそちらでよろしければ、元のお支払い額のままでお譲りして、誠意のしるしに1年の延長保証もお付けしますよ。",
+  note:"<b>retail at 〜</b>=「〜の小売価格で売られる」。<b>make up the difference</b>=「差額を埋める」。<b>Unless… hold on.</b> と途中で言い直すのも自然な発話。<b>let it go for 〜</b>=「〜の値段で手放す」。<b>throw in 〜</b>=「〜をおまけに付ける」。<b>a gesture of goodwill</b>=「誠意の証・好意のしるし」(英国の苦情対応の定型句)。"},
+ {sp:"A", en:"The display model? It's been sat there gathering dust with people prodding at it all day. You'd have to do a bit better than that, I'm afraid.",
+  jp:"展示品ですか?ずっとあそこに置きっぱなしで埃をかぶって、一日中いろんな人に触られてたわけですよね。それではちょっと不十分かと思いますが、あいにく。",
+  note:"<b>It's been sat there</b> は英国口語特有の形(標準では It's been sitting there)。<b>gather dust</b>=「埃をかぶる・放置される」。<b>prod at 〜</b>=「〜をつつく」。<b>You'd have to do a bit better than that</b>=「もう一声お願いします」という値切りの決まり文句。<b>I'm afraid</b> を付けて礼儀は保つのが英国流。"},
+ {sp:"B", en:"It's been looked after, I promise you. Tell you what — knock off another tenner, warranty included, and that's genuinely as far as I can stretch without getting the manager involved.",
+  jp:"ちゃんと手入れされていますよ、お約束します。じゃあこうしましょう——もう10ポンドお引きして、保証も込み。これが店長を呼ばずに私の裁量でできる、本当にぎりぎりの線です。",
+  note:"<b>look after 〜</b>=「〜の面倒を見る・手入れする」(英国頻出)。<b>(I'll) tell you what</b>=「じゃあこうしよう」(提案の前置き)。<b>knock off 〜</b>=「〜を値引きする」。<b>tenner</b>=「10ポンド札」(英国スラング。5ポンドは fiver)。<b>as far as I can stretch</b>=「私が譲歩できる限界」。<b>get 〜 involved</b>=「〜を巻き込む」。"},
+ {sp:"A", en:"Hmm. Throw in a bag of those coffee beans by the till and you've got yourself a deal.",
+  jp:"うーん。レジ横のあのコーヒー豆を1袋付けてくれたら、それで手を打ちましょう。",
+  note:"<b>till</b>=「レジ」(英国。米 register)。<b>you've got yourself a deal</b>=「それで取引成立だ」。最後に小さな+αを要求して締めるのは交渉術の定番(nibbling)です。"},
+ {sp:"B", en:"Ha! You drive a hard bargain. Go on then — but only because you've been so patient about the whole thing.",
+  jp:"はは!手強い交渉相手だ。いいでしょう——ただし、ここまで辛抱強くお付き合いいただいたからですよ。",
+  note:"<b>drive a hard bargain</b>=「手強い交渉をする・なかなか妥協しない」。<b>Go on then</b>=「わかったよ、いいだろう」(しぶしぶ・楽しげに折れる英国口語)。<b>only because 〜</b>=「あくまで〜だからだよ」と理由を限定して面子を保っています。"},
+ {sp:"A", en:"Lovely. Much obliged. And for what it's worth, you've handled this far better than the chap I spoke to on the phone.",
+  jp:"よかった。本当に助かりました。それから、言わせていただくと、電話で話した男性よりずっと丁寧に対応してくださいましたよ。",
+  note:"<b>Lovely</b>=「結構・よかった」(英国では合意・満足の相づちとして多用)。<b>Much obliged</b>=「恐れ入ります・痛み入ります」(やや古風で丁寧な感謝)。<b>for what it's worth</b>=「参考までに言えば」。<b>chap</b>=「男の人」(英国口語)。"},
+ {sp:"B", en:"I'll take that as a compliment. Right, let's get you sorted at the till, shall we?",
+  jp:"褒め言葉として受け取っておきます。それでは、レジでお会計を済ませましょうか?",
+  note:"<b>I'll take that as a compliment</b>=「褒め言葉と受け取ります」(軽いユーモアの定型)。<b>get you sorted</b>=「あなたの用件を片付ける」(sort は英国万能動詞)。<b>Right, ..., shall we?</b> は行動への切り替え+英国らしい付加疑問の締めです。"}
+ ]
+},
+{
+ num:"04",
+ title:"Down the Local",
+ sub:"近所のパブで再会した大学時代の友人、ジェマ(G)とオリー(O)の雑談 — 近況、サッカー、共通の友人の噂話。全21ターン / 最もくだけたネイティブ英会話。",
+ scene:"— Scene: The Fox & Hounds, a pub in North London, Friday evening —",
+ hint:"第四話のテーマは「パブでの雑談(banter)」。4話中で最も口語的・文化的な内容で、おごりの順番(rounds)、スラング、軽口の応酬など、教科書には載らない英国の社交英語が詰まっています。「字幕なし」モードでは本文をタップすると1文ずつ表示されます。",
+ footer:"SCRIPT 04 · DOWN THE LOCAL · EN-GB",
+ spA:{key:"G", name:"GEMMA", label:"Gemma の声"},
+ spB:{key:"O", name:"OLLIE", label:"Ollie の声"},
+ lines:[
+ {sp:"B", en:"Gemma! Over here! Blimey, how long's it been — two years? You haven't aged a day.",
+  jp:"ジェマ!こっちこっち!うわ、何年ぶりだ——2年?全然変わってないね。",
+  note:"タイトルの <b>the local</b> は「行きつけの近所のパブ」を指す英国の言い方。<b>Blimey</b>=「うわっ・おやまあ」(英国の驚きの間投詞。God blind me が語源)。<b>You haven't aged a day</b>=「1日も歳を取ってない」=再会時の定番のお世辞。"},
+ {sp:"A", en:"Flattery will get you everywhere, Ollie. Budge up, then. Have you ordered?",
+  jp:"お世辞がうまいんだから、オリー。ほら、ちょっと詰めて。もう注文した?",
+  note:"<b>Flattery will get you everywhere</b>=「お世辞を言えば何でも思い通りよ」(決まり文句 flattery will get you nowhere「お世辞は通じない」をひっくり返した冗談)。<b>Budge up</b>=「(席を)詰めて」(英国口語。=move up)。"},
+ {sp:"B", en:"Not yet. What are you having? First round's on me — I insist.",
+  jp:"まだだよ。何にする?最初の一巡は僕のおごり——遠慮しないで。",
+  note:"<b>What are you having?</b>=「何を飲む(食べる)?」(注文の定番)。<b>round</b>=「(同席者全員分の)1巡分の飲み物」。英国のパブでは <b>buying rounds</b>(交代で全員分をおごる)が重要な社交ルールです。<b>on me</b>=「私のおごりで」。<b>I insist</b>=「ぜひそうさせて」。"},
+ {sp:"A", en:"Go on then, I'll have a pint of that pale ale they do. Half the reason I suggested this place, to be honest.",
+  jp:"じゃあお言葉に甘えて、ここのペールエールをパイントで。正直、この店を提案した理由の半分はそれなのよね。",
+  note:"<b>Go on then</b>=「じゃあそうしてもらおうかな」。<b>a pint of 〜</b>=「〜を1パイント(約568ml)」(英国のビールの基本単位)。<b>they do</b> の do=「(店が)出している・扱っている」(英国口語)。<b>Half the reason...</b>=「理由の半分は〜」。"},
+ {sp:"B", en:"A woman of taste. Right, back in a tick — bag us those seats by the window before that lot over there beat us to it.",
+  jp:"お目が高い。よし、すぐ戻る——あそこの連中に取られる前に、窓際の席を確保しといて。",
+  note:"<b>a woman/man of taste</b>=「センスのいい人」。<b>back in a tick</b>=「すぐ戻る」(tick=一瞬。in a sec と同じ)。<b>bag</b>=「(席などを)確保する」(英国口語)。<b>that lot</b>=「あの連中」。<b>beat us to it</b>=「先を越す」。"},
+ {sp:"B", en:"Here we are — one pale ale. Cheers, then! So come on, what have you been up to? Last I heard, you'd packed in the law firm.",
+  jp:"はいどうぞ——ペールエール1杯。じゃ、乾杯!で、ほら、最近どうしてたの?最後に聞いた話だと、法律事務所を辞めたんだって?",
+  note:"<b>Here we are</b>=「はい、着いた・はいどうぞ」。<b>Cheers</b> は「乾杯」のほか「ありがとう」「じゃあね」にも使う英国万能語。<b>What have you been up to?</b>=「最近何してた?」(近況を聞く定番)。<b>Last I heard</b>=「最後に聞いた話では」。<b>pack in 〜</b>=「〜を辞める」(英国口語)。"},
+ {sp:"A", en:"Cheers! Yeah, jacked it in last spring. Best decision I ever made, hand on heart. I'm freelancing now — less money, mind, but I actually sleep at night.",
+  jp:"乾杯!そう、去年の春にスパッと辞めたの。誓って言うけど、人生最高の決断だったわ。今はフリーランス——お金は減ったけどね、でも夜ちゃんと眠れるようになった。",
+  note:"<b>jack 〜 in</b>=「〜を(思い切って)辞める」(pack in と同義の英国口語)。<b>hand on heart</b>=「胸に手を当てて誓って」。<b>mind (you)</b>=「とはいえ・言っとくけど」(文中・文末に挿入される英国口語)。<b>actually</b>=「実際に・ちゃんと」。"},
+ {sp:"B", en:"Good on you. I keep threatening to do the same, but you know me — all mouth and no trousers.",
+  jp:"えらいよ。僕も「辞めてやる」っていつも息巻いてるんだけど、ほら僕のことだから——口ばっかりで実行が伴わない。",
+  note:"<b>Good on you</b>=「えらい・よくやった」(英・豪の口語)。<b>keep threatening to 〜</b>=「〜するぞといつも言っている(だけ)」。<b>all mouth and no trousers</b>=「口先ばかりで行動しない」という英国の有名な自虐イディオム。"},
+ {sp:"A", en:"Ha! You said the exact same thing at uni about learning the guitar. How's that coming along, by the way?",
+  jp:"はは!大学のとき、ギターを覚えるんだって全く同じこと言ってたわよね。ちなみにあれはどうなってるの?",
+  note:"<b>uni</b>=university の英国略語(米 college)。<b>the exact same thing</b>=「全く同じこと」。<b>How's 〜 coming along?</b>=「〜の進み具合はどう?」。<b>by the way</b>=「ところで・ちなみに」。"},
+ {sp:"B", en:"Touché. It's gathering dust under the bed, since you ask. Anyway, never mind that — did you catch the match on Saturday?",
+  jp:"一本取られたね。聞かれたから言うけど、ベッドの下で埃をかぶってるよ。まあその話はいいんだ——土曜の試合、見た?",
+  note:"<b>Touché</b>(トゥシェ)=「一本取られた」(フェンシング用語から)。<b>gather dust</b>=「埃をかぶる・放置される」。<b>since you ask</b>=「聞かれたから(白状すると)」。<b>never mind that</b>=「その話はもういい」。<b>catch the match</b>=「試合を見る」(catch=見聞きする)。"},
+ {sp:"A", en:"Don't. I was gutted. Two-nil up with twenty minutes to go and we still managed to throw it away. Typical.",
+  jp:"その話やめて。本気でへこんだんだから。残り20分で2対0でリードしてたのに、それでも見事に台無しにしたのよ。いつものことだけど。",
+  note:"<b>Don't.</b> 一語で「(その話を)しないで」。<b>gutted</b>=「ひどく落胆した」(英国口語の超頻出語)。<b>two-nil</b>=「2対0」(<b>nil</b>=スコアのゼロは英国用法)。<b>with twenty minutes to go</b>=「残り20分の時点で」。<b>manage to 〜</b> は皮肉で「ご丁寧に〜してくれる」。<b>throw it away</b>=「(勝ちを)棒に振る」。<b>Typical.</b>=「いつもこうだ」(諦めの一言)。"},
+ {sp:"B", en:"Sod's law, isn't it? The one weekend I splash out on tickets, they fall apart. Cost me sixty quid, that did.",
+  jp:"まさにマーフィーの法則だろ?僕が奮発してチケットを買った週末に限って、チームが崩壊するんだから。60ポンドもしたんだぞ、あれ。",
+  note:"<b>Sod's law</b>=「最悪のタイミングで物事は起こる」という英国版マーフィーの法則。<b>The one weekend I 〜</b>=「よりによって私が〜したその週末に」。<b>splash out on 〜</b>=「〜に奮発する」。<b>quid</b>=「ポンド」の口語(複数形も quid)。文末の <b>, that did</b> は強調の繰り返し(英国口語)。"},
+ {sp:"A", en:"Sixty quid?! Daylight robbery. For that money you'd want them to at least put up a fight.",
+  jp:"60ポンド?!白昼堂々の強盗ね。それだけ払ったら、せめて戦う姿勢くらいは見せてほしいわよね。",
+  note:"<b>Daylight robbery</b>=「法外な値段・ぼったくり」(直訳は「白昼の強盗」)。<b>For that money</b>=「その金額なら」。<b>you'd want 〜 to...</b>=「〜には…してほしいところだ」。<b>put up a fight</b>=「抵抗する・戦う姿勢を見せる」。"},
+ {sp:"B", en:"You'd think. Oh — before I forget, you'll never guess who I bumped into last week. Only Priya from our old halls.",
+  jp:"そう思うだろ?あ——忘れないうちに言っとくと、先週誰にばったり会ったと思う?なんと、寮で一緒だったプリヤだよ。",
+  note:"<b>You'd think.</b>=「普通はそう思うよね(でも現実は違う)」という皮肉の相づち。<b>before I forget</b>=「忘れないうちに」。<b>bump into 〜</b>=「〜にばったり会う」。<b>Only Priya!</b> の only は「なんとプリヤだよ」という驚きの強調(英国口語)。<b>halls</b>=halls of residence(大学の寮)の略。"},
+ {sp:"A", en:"No way! How is she? I haven't seen her since her wedding — which, between you and me, was the dullest do I've ever been to.",
+  jp:"嘘でしょ!元気にしてた?結婚式以来会ってないわ——あの式、ここだけの話、人生で出た中で一番退屈なパーティーだったけど。",
+  note:"<b>No way!</b>=「まさか・信じられない」。<b>between you and me</b>=「ここだけの話」。<b>dull</b>=「退屈な」。<b>do</b>(名詞)=「パーティー・催し」(英国口語。a leaving do=送別会など)。<b>the dullest do I've ever been to</b> と最上級+経験の現在完了の組み合わせ。"},
+ {sp:"B", en:"Oh, it dragged on a bit, didn't it? Anyway, she's expecting — due in August, apparently. She was asking after you, actually.",
+  jp:"ああ、確かにちょっと間延びしてたよね。それはそうと、彼女おめでたなんだって——予定日は8月らしい。君のこと気にかけてたよ、ほんとに。",
+  note:"<b>drag on</b>=「だらだら長引く」。<b>be expecting</b>=「妊娠している」(婉曲表現)。<b>due in August</b>=「8月が予定日」。<b>apparently</b>=「どうやら〜らしい」(伝聞)。<b>ask after 〜</b>=「〜の様子を尋ねる・気にかける」(英国的)。"},
+ {sp:"A", en:"Aw, bless her. I really must drop her a line. I keep meaning to and it keeps slipping my mind — story of my life.",
+  jp:"わあ、よかったわね。ほんとに連絡しなきゃ。ずっとそのつもりなのに、いっつも忘れちゃうのよ——私の人生いつもこう。",
+  note:"<b>Bless her</b>=「まあ、いい子ね・よかったわね」(英国の愛情表現)。<b>drop someone a line</b>=「〜に一筆送る・連絡する」。<b>keep meaning to 〜</b>=「ずっと〜するつもりでいる(のにしていない)」。<b>slip one's mind</b>=「うっかり忘れる」。<b>story of my life</b>=「私はいつもこれだ」(自嘲)。"},
+ {sp:"B", en:"Tell you what — a few of the old crowd are meeting up next month for Dev's birthday. Why don't you come along? It'd be a proper reunion.",
+  jp:"じゃあこうしよう——来月、昔の仲間が何人かデヴの誕生日に集まるんだ。君も来なよ。本格的な同窓会になるよ。",
+  note:"<b>(I'll) tell you what</b>=「じゃあこうしよう」(提案の前置き)。<b>the old crowd</b>=「昔の仲間たち」。<b>meet up</b>=「集まる」。<b>come along</b>=「一緒に来る」。<b>proper</b>=「本格的な・ちゃんとした」(英国口語の万能強調語)。"},
+ {sp:"A", en:"D'you know what, I'd love that. Count me in. Right — same again? It's my round, and don't even think about arguing.",
+  jp:"あのね、それすごく嬉しい。私も参加で。さて——同じのもう一杯?今度は私の番だから、反論しようなんて考えないでよ。",
+  note:"<b>D'you know what</b>=「あのね・実はさ」(决意や本音の前置き)。<b>Count me in</b>=「私も入れて・参加する」。<b>Same again?</b>=「同じものをもう一杯?」(パブの定番フレーズ)。<b>It's my round</b>=「今度は私がおごる番」(rounds の文化)。<b>don't even think about -ing</b>=「〜しようなんて考えるな」。"},
+ {sp:"B", en:"Wouldn't dream of it. And grab some crisps while you're up — I'm absolutely starving.",
+  jp:"夢にも思わないよ。あと、立ったついでにポテトチップスも頼む——腹ぺこなんだ。",
+  note:"<b>(I) wouldn't dream of it</b>=「そんなこと夢にも思わない」(冗談めかした快諾)。<b>crisps</b>=「ポテトチップス」(英国。米 chips/英国の chips はフライドポテト)。<b>while you're up</b>=「立ったついでに」。<b>absolutely starving</b>=「死ぬほど腹ペコ」(starving は hungry の誇張)。"},
+ {sp:"A", en:"Honestly, some things never change. Two minutes back in your company and I'm already fetching your snacks.",
+  jp:"ほんと、変わらないものは変わらないわね。あなたと再会して2分で、もうおやつを取りに行かされてるんだから。",
+  note:"<b>Honestly</b> は文頭で「まったくもう」という呆れの間投詞にもなります。<b>some things never change</b>=「変わらないものは変わらない」(definite な決まり文句)。<b>in someone's company</b>=「〜と一緒にいて」。<b>fetch</b>=「取ってくる」(英国でよく使う動詞)。"}
+ ]
+}
+];
+
+/* ---------- state ---------- */
+let epIdx = 0;
+let rate = 1, playing = false;
+let voices = [], pool = [], voiceA = null, voiceB = null, sysA = false, sysB = false;
+
+const synth = window.speechSynthesis;
+const scriptEl = document.getElementById('script');
+const dot = document.getElementById('dot');
+
+/* ---------- episode tabs ---------- */
+const tabsEl = document.getElementById('epTabs');
+EPISODES.forEach((ep,i)=>{
+  const b = document.createElement('button');
+  b.innerHTML = `<span class="epnum">EP ${ep.num}</span>${ep.title}`;
+  b.onclick = ()=>switchEpisode(i);
+  tabsEl.appendChild(b);
+});
+
+function switchEpisode(i){
+  stopAll();
+  epIdx = i;
+  document.body.dataset.ep = i;
+  const ep = EPISODES[i];
+  document.getElementById('hEyebrow').textContent =
+    `British English · Listening Practice · Episode ${ep.num}`;
+  document.getElementById('hTitle').textContent = ep.title;
+  document.getElementById('hSub').textContent = ep.sub;
+  document.getElementById('sceneEl').textContent = ep.scene;
+  document.getElementById('hint').textContent = ep.hint;
+  document.getElementById('footerEl').textContent = ep.footer;
+  document.getElementById('labelA').textContent = ep.spA.label;
+  document.getElementById('labelB').textContent = ep.spB.label;
+  tabsEl.querySelectorAll('button').forEach((b,j)=>b.classList.toggle('on', j===i));
+  renderScript();
+  window.scrollTo({top:0});
+}
+
+function renderScript(){
+  const ep = EPISODES[epIdx];
+  scriptEl.innerHTML = '';
+  ep.lines.forEach((l,i)=>{
+    const isA = l.sp==='A';
+    const d = document.createElement('div');
+    d.className = 'turn';
+    d.id = 'turn'+i;
+    d.innerHTML = `
+      <div class="turn-top">
+        <span class="cue ${isA?'a':'b'}">${isA?ep.spA.name:ep.spB.name}</span>
+        <button class="playline" aria-label="この行を再生" onclick="playOne(${i})">▶</button>
+      </div>
+      <p class="en" onclick="this.classList.toggle('revealed')">${l.en}</p>
+      <p class="jp">${l.jp}</p>
+      <details class="note">
+        <summary>解説</summary>
+        <div class="note-body">${l.note}</div>
+      </details>`;
+    scriptEl.appendChild(d);
+  });
+}
+
+/* ---------- voices ---------- */
+// iOSに搭載される主なイギリス英語の声
+const GB_FEMALE = /serena|kate|martha|sonia|libby|stephanie|female/i;
+const GB_MALE   = /daniel|oliver|arthur|jamie|george|ryan|male/i;
+// 練習に不向きなノベルティ/機械的な声(リスト最下部へ・自動選択しない)
+const NOVELTY   = /eloquence|eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley|jester|whisper|bells|organ|cellos|zarvox|trinoids|albert|bad news|good news|bahh|boing|bubbles|junior|kathy|ralph|fred|superstar|wobble/i;
+// 高品質版の表記(英語/日本語UIの両方に対応)
+const ENHANCED  = /enhanced|premium|拡張|プレミアム|siri/i;
+
+function voiceScore(v){
+  let s = 0;
+  if(NOVELTY.test(v.name)) return -100;          // ノベルティ系は最下位
+  if(ENHANCED.test(v.name)) s += 50;             // 拡張・プレミアム版を最優先
+  if(GB_FEMALE.test(v.name) || GB_MALE.test(v.name)) s += 20; // 既知の英国声
+  return s;
+}
+
+function loadVoices(){
+  voices = synth.getVoices();
+  if(!voices.length) return;
+  const gb = voices.filter(v=>v.lang && v.lang.replace('_','-').toLowerCase().startsWith('en-gb'));
+  const en = voices.filter(v=>v.lang && v.lang.toLowerCase().startsWith('en'));
+  pool = (gb.length ? gb : en).slice().sort((a,b)=>voiceScore(b)-voiceScore(a));
+  document.getElementById('voiceWarn').classList.toggle('show', !gb.length);
+
+  const selA = document.getElementById('voiceA');
+  const selB = document.getElementById('voiceB');
+  const prevA = sysA ? '__SYS__' : (voiceA ? voiceA.name : null);
+  const prevB = sysB ? '__SYS__' : (voiceB ? voiceB.name : null);
+  selA.innerHTML=''; selB.innerHTML='';
+  selA.add(new Option('システム既定の声 (en-GB)', -1));
+  selB.add(new Option('システム既定の声 (en-GB)', -1));
+  pool.forEach((v,idx)=>{
+    const star = ENHANCED.test(v.name) ? "★ " : "";
+    selA.add(new Option(`${star}${v.name} (${v.lang})`, idx));
+    selB.add(new Option(`${star}${v.name} (${v.lang})`, idx));
+  });
+
+  // 既定の声: 拡張版を優先しつつ、女声→話者A / 男声→話者B
+  const usable = pool.map((v,i)=>({v,i})).filter(o=>!NOVELTY.test(o.v.name));
+  const pick = (regex)=> {
+    const enh = usable.find(o=>regex.test(o.v.name) && ENHANCED.test(o.v.name));
+    return enh || usable.find(o=>regex.test(o.v.name)) || null;
+  };
+  let ai, bi;
+  if(prevA==='__SYS__') ai = -1;
+  else if(prevA && pool.some(v=>v.name===prevA)) ai = pool.findIndex(v=>v.name===prevA);
+  else ai = (pick(GB_FEMALE)?.i ?? (usable[0]?.i ?? 0));
+  if(prevB==='__SYS__') bi = -1;
+  else if(prevB && pool.some(v=>v.name===prevB)) bi = pool.findIndex(v=>v.name===prevB);
+  else {
+    const m = pick(GB_MALE);
+    bi = m ? m.i : -2;
+    if(bi<0 || bi===ai){
+      const alt = usable.find(o=>o.i!==ai && o.i>=0);
+      bi = alt ? alt.i : (ai>=0 ? ai : (usable[0]?.i ?? 0));
+    }
+  }
+  selA.value = ai; selB.value = bi;
+  const apply = ()=>{
+    const a = +selA.value, b = +selB.value;
+    sysA = a < 0; sysB = b < 0;
+    voiceA = a >= 0 ? pool[a] : null;
+    voiceB = b >= 0 ? pool[b] : null;
+    document.getElementById('sameVoiceHint').style.display =
+      (sysA&&sysB)||(voiceA&&voiceB&&voiceA.name===voiceB.name) ? '' : 'none';
+  };
+  apply();
+  selA.onchange = apply;
+  selB.onchange = apply;
+}
+loadVoices();
+if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = loadVoices;
+
+/* ---------- voice test button ---------- */
+document.getElementById('voiceTestBtn').addEventListener('click', ()=>{
+  stopAll();
+  const sameVoice = (sysA&&sysB)||(voiceA&&voiceB&&voiceA.name===voiceB.name);
+  const uA = new SpeechSynthesisUtterance('Hello, I\'m speaker A.');
+  uA.lang = 'en-GB';
+  if(voiceA) uA.voice = voiceA;
+  uA.pitch = sameVoice ? 1.45 : 1;
+  uA.rate = sameVoice ? rate * 1.05 : rate;
+  const uB = new SpeechSynthesisUtterance('And I\'m speaker B.');
+  uB.lang = 'en-GB';
+  if(voiceB) uB.voice = voiceB;
+  uB.pitch = sameVoice ? 0.68 : 1;
+  uB.rate = sameVoice ? rate * 0.97 : rate;
+  synth.speak(uA);
+  synth.speak(uB);
+});
+
+/* ---------- speech ---------- */
+// 音声ファイル(audio/epXX-N.m4a)があればそれを再生し、なければ端末のTTSで読み上げる
+let audioEl = null;
+
+function speak(i, onend){
+  const ep = EPISODES[epIdx];
+  const src = `audio/ep${ep.num}-${i+1}.m4a`;
+  let fellBack = false;
+  const fallback = ()=>{
+    if(fellBack) return;
+    fellBack = true;
+    audioEl = null;
+    speakTTS(i, onend);
+  };
+  const a = new Audio(src);
+  a.playbackRate = rate;
+  a.onplay = ()=>highlight(i);
+  a.onended = ()=>{ unhighlight(i); if(onend) onend(); };
+  a.onerror = fallback;
+  audioEl = a;
+  a.play().catch(fallback);
+}
+
+function speakTTS(i, onend){
+  const l = EPISODES[epIdx].lines[i];
+  const u = new SpeechSynthesisUtterance(l.en);
+  u.lang = 'en-GB';
+  const isA = l.sp==='A';
+  const v = isA ? voiceA : voiceB;
+  if(v) u.voice = v;
+  // 両話者が同じ声(または共にシステム既定)のときは高さと速度で演じ分け:
+  // 話者A(女性役)は高く速め、話者B(男性役)は低く遅め
+  const sameVoice = (sysA && sysB) ||
+    (voiceA && voiceB && voiceA.name===voiceB.name);
+  u.pitch = sameVoice ? (isA ? 1.45 : 0.68) : 1;
+  u.rate = sameVoice ? rate * (isA ? 1.05 : 0.97) : rate;
+  u.onstart = ()=>highlight(i);
+  u.onend = ()=>{ unhighlight(i); if(onend) onend(); };
+  u.onerror = ()=>{ unhighlight(i); if(onend) onend(); };
+  synth.speak(u);
+}
+
+function highlight(i){
+  const el = document.getElementById('turn'+i);
+  if(!el) return;
+  el.classList.add('playing');
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+}
+function unhighlight(i){
+  const el = document.getElementById('turn'+i);
+  if(el) el.classList.remove('playing');
+}
+
+window.playOne = function(i){
+  stopAll();
+  speak(i, null);
+};
+
+function playFrom(i){
+  if(i >= EPISODES[epIdx].lines.length){ stopAll(); return; }
+  speak(i, ()=>{ if(playing) setTimeout(()=>playFrom(i+1), 350); });
+}
+
+document.getElementById('playAllBtn').onclick = ()=>{
+  stopAll();
+  playing = true;
+  dot.classList.add('live');
+  playFrom(0);
+};
+document.getElementById('stopBtn').onclick = ()=>stopAll();
+
+function stopAll(){
+  playing = false;
+  synth.cancel();
+  if(audioEl){ audioEl.pause(); audioEl.onended = null; audioEl = null; }
+  document.querySelectorAll('.turn.playing').forEach(e=>e.classList.remove('playing'));
+  dot.classList.remove('live');
+}
+
+/* ---------- rate ---------- */
+document.querySelectorAll('#rateSeg button').forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll('#rateSeg button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    rate = parseFloat(b.dataset.rate);
+  };
+});
+
+/* ---------- display mode ---------- */
+document.querySelectorAll('#modeSeg button').forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    const m = b.dataset.mode;
+    document.body.classList.toggle('hide-en', m==='none');
+    document.body.classList.toggle('hide-jp', m!=='both');
+    if(m!=='none') document.querySelectorAll('.en').forEach(e=>e.classList.remove('revealed'));
+  };
+});
+
+/* ---------- init ---------- */
+switchEpisode(0);
+</script>
+</body>
+</html>
