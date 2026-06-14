@@ -1,44 +1,44 @@
-// Softer, warmer terrain palette
+// Warm industrial terrain palette
 const TERRAIN_COLOR = {
-  [C.EMPTY]:      '#181826',
-  [C.IRON_ORE]:   '#3a5068',
-  [C.COPPER_ORE]: '#5c3c28',
-  [C.COAL]:       '#1e1e2c',
-  [C.CORE]:       '#1c3c24',
-  [C.OIL_WELL]:   '#1c1e38',
-  [C.SULFUR_DEP]: '#3c3c18',
+  [C.EMPTY]:      '#1c1a16',   // warm dark earth
+  [C.IRON_ORE]:   '#2c3e50',   // slate grey-blue
+  [C.COPPER_ORE]: '#4a2e1a',   // copper brown
+  [C.COAL]:       '#1a1814',   // near-black coal
+  [C.CORE]:       '#162a18',   // dark forest green
+  [C.OIL_WELL]:   '#181822',   // dark indigo
+  [C.SULFUR_DEP]: '#2e2c14',   // dark sulphur
 };
 
 const TERRAIN_LABEL = {
-  [C.IRON_ORE]:   { text: 'Fe',  color: '#7aa0c0' },
-  [C.COPPER_ORE]: { text: 'Cu',  color: '#c08060' },
-  [C.COAL]:       { text: 'Co',  color: '#7070a0' },
-  [C.OIL_WELL]:   { text: 'OIL', color: '#6680cc' },
-  [C.SULFUR_DEP]: { text: 'S',   color: '#c0c040' },
+  [C.IRON_ORE]:   { text: 'Fe',  color: '#6890b0' },
+  [C.COPPER_ORE]: { text: 'Cu',  color: '#b07050' },
+  [C.COAL]:       { text: 'Co',  color: '#606070' },
+  [C.OIL_WELL]:   { text: 'OIL', color: '#5870b8' },
+  [C.SULFUR_DEP]: { text: 'S',   color: '#b8b030' },
 };
 
 const ITEM_COLOR = {
-  [C.RES.IRON_ORE]:       '#7090b8',
-  [C.RES.COPPER_ORE]:     '#b07858',
-  [C.RES.COAL]:           '#605868',
-  [C.RES.SULFUR]:         '#d4d040',
-  [C.RES.IRON_PLATE]:     '#90a8c0',
-  [C.RES.COPPER_PLATE]:   '#d09050',
-  [C.RES.CIRCUIT]:        '#50bc78',
-  [C.RES.COKE]:           '#503c3c',
-  [C.RES.PLASTIC]:        '#e8e860',
-  [C.RES.REFINED_COPPER]: '#ffa030',
-  [C.RES.EXPLOSIVES]:     '#f05040',
-  [C.RES.ADV_CIRCUIT]:    '#50f8b0',
-  [C.RES.CRUDE_OIL]:      '#505060',
-  [C.RES.PETRO_GAS]:      '#9090d0',
-  [C.RES.LIGHT_OIL]:      '#c0c090',
-  [C.RES.HEAVY_OIL]:      '#507060',
-  [C.RES.SULFURIC_ACID]:  '#90d050',
-  [C.RES.LUBRICANT]:      '#d09040',
-  [C.RES.WATER]:          '#5090d4',
-  [C.RES.HYDROGEN]:       '#b0d8ff',
-  [C.RES.OXYGEN]:         '#d0e4ff',
+  [C.RES.IRON_ORE]:       '#6888a8',   // muted steel blue
+  [C.RES.COPPER_ORE]:     '#a86030',   // raw copper
+  [C.RES.COAL]:           '#484050',   // coal dark
+  [C.RES.SULFUR]:         '#c8c028',   // bright sulphur
+  [C.RES.IRON_PLATE]:     '#8898b0',   // polished steel
+  [C.RES.COPPER_PLATE]:   '#c87838',   // bright copper
+  [C.RES.CIRCUIT]:        '#3ca860',   // circuit green
+  [C.RES.COKE]:           '#382c2c',   // dark coke
+  [C.RES.PLASTIC]:        '#c8d040',   // plastic yellow
+  [C.RES.REFINED_COPPER]: '#e07820',   // refined amber-copper
+  [C.RES.EXPLOSIVES]:     '#c82820',   // explosive red
+  [C.RES.ADV_CIRCUIT]:    '#30d890',   // adv circuit teal
+  [C.RES.CRUDE_OIL]:      '#383840',   // crude oil
+  [C.RES.PETRO_GAS]:      '#7070c0',   // petro gas
+  [C.RES.LIGHT_OIL]:      '#a8b060',   // light oil olive
+  [C.RES.HEAVY_OIL]:      '#386050',   // heavy oil dark teal
+  [C.RES.SULFURIC_ACID]:  '#68c028',   // acid green
+  [C.RES.LUBRICANT]:      '#b87820',   // lubricant amber
+  [C.RES.WATER]:          '#3080c8',   // water blue
+  [C.RES.HYDROGEN]:       '#88c0f0',   // hydrogen light
+  [C.RES.OXYGEN]:         '#b0d0f0',   // oxygen pale
 };
 
 function render(canvas, gs) {
@@ -46,7 +46,7 @@ function render(canvas, gs) {
   const cs  = C.CELL;
   const cam = gs.cam || { x: 0, y: 0 };
 
-  ctx.fillStyle = '#0f0f1c';
+  ctx.fillStyle = '#100e0a';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const startX = Math.max(0, Math.floor(cam.x));
@@ -65,12 +65,12 @@ function render(canvas, gs) {
       ctx.fillRect(px, py, cs, cs);
 
       // Subtle grid line
-      ctx.strokeStyle = '#1c1c2c';
+      ctx.strokeStyle = '#201e18';
       ctx.lineWidth = 0.5;
       ctx.strokeRect(px, py, cs, cs);
 
       if (cell.terrain === C.CORE) {
-        ctx.fillStyle = '#44dd66';
+        ctx.fillStyle = '#58c860';
         ctx.font = 'bold 8px monospace';
         ctx.textAlign = 'center';
         ctx.fillText('CORE', px + cs / 2, py + cs / 2 + 3);
@@ -89,7 +89,7 @@ function render(canvas, gs) {
   // Map border — warmer tint while on a mission map
   const mx0 = Math.round(-cam.x * cs);
   const my0 = Math.round(-cam.y * cs);
-  ctx.strokeStyle = gs.view === 'mission' ? '#4a3450' : '#2a2a44';
+  ctx.strokeStyle = gs.view === 'mission' ? '#402838' : '#2e2820';
   ctx.lineWidth = 2;
   ctx.strokeRect(mx0, my0, C.COLS * cs, C.ROWS * cs);
 
@@ -200,7 +200,7 @@ function render(canvas, gs) {
     ctx.fillStyle = def?.color || '#555';
     ctx.fillRect(px + 2, py + 2, sz - 4, sz - 4);
     ctx.globalAlpha = 1;
-    ctx.strokeStyle = 'rgba(255,210,60,0.95)';
+    ctx.strokeStyle = 'rgba(232,160,40,0.95)';
     ctx.lineWidth = 2.5;
     ctx.setLineDash([]);
     ctx.strokeRect(px + 1, py + 1, sz - 2, sz - 2);
@@ -214,7 +214,7 @@ function render(canvas, gs) {
     const px    = Math.round((hx - cam.x) * cs);
     const py    = Math.round((hy - cam.y) * cs);
     const valid = isHoverPlacementValid(gs, hx, hy, gs.selectedTool);
-    ctx.strokeStyle = valid ? 'rgba(255,120,60,0.9)' : 'rgba(255,50,50,0.9)';
+    ctx.strokeStyle = valid ? 'rgba(232,150,40,0.88)' : 'rgba(200,70,70,0.88)';
     ctx.lineWidth = 2;
     ctx.setLineDash([4, 3]);
     ctx.strokeRect(px + 1, py + 1, sz - 2, sz - 2);
@@ -283,30 +283,30 @@ function drawEquipmentBody(ctx, cell, px, py, cs, sz, gs) {
   // Progress bars
   const maxFurnace = gs.upgrades.furnaceSpeed || 180;
   if (t === C.EQ.FURNACE && eq.inputItem)
-    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / maxFurnace, '#f07030');
+    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / maxFurnace, '#d06828');
 
   const maxAssembler = gs.upgrades.assemblerSpeed || 240;
   if (t === C.EQ.ASSEMBLER && eq.crafting)
-    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / maxAssembler, '#30cc70');
+    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / maxAssembler, '#28b858');
 
   const maxChem = gs.upgrades.chemSpeed || 240;
   if (t === C.EQ.CHEM_PLANT && eq.timer > 0)
-    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / maxChem, '#40c8a0');
+    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / maxChem, '#38b890');
 
   if (t === C.EQ.ADV_ASSEMBLER && eq.timer > 0)
-    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / (gs.upgrades.assemblerSpeed || 300), '#40f8a0');
+    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / (gs.upgrades.assemblerSpeed || 300), '#30d880');
 
   if (t === C.EQ.DISTILLATION && eq.timer > 0)
-    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / 200, '#80c8a0');
+    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / 200, '#70b890');
 
   if (t === C.EQ.COKE_OVEN && eq.timer > 0)
-    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / 150, '#c07030');
+    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / 150, '#b06028');
 
   if (t === C.EQ.GENERATOR && eq.timer > 0)
-    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / 300, '#30a8f0');
+    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / 300, '#2890d8');
 
   // Status dot (top-right corner)
-  const dotColor = hasPowerIssue ? '#f04040' : isActive ? '#40e080' : '#242440';
+  const dotColor = hasPowerIssue ? '#c84040' : isActive ? '#48c068' : '#28241e';
   ctx.fillStyle = dotColor;
   ctx.beginPath();
   ctx.arc(px + sz - 5, py + 5, 3, 0, Math.PI * 2);
@@ -316,19 +316,19 @@ function drawEquipmentBody(ctx, cell, px, py, cs, sz, gs) {
 // ── Shape drawing functions ────────────────────────────
 
 function drawMiner(ctx, px, py, cs) {
-  ctx.fillStyle = '#6888a8';
+  ctx.fillStyle = '#5878a0';
   ctx.fillRect(px + cs/2 - 2, py + 5, 4, cs - 10);
-  ctx.fillStyle = '#88aac8';
+  ctx.fillStyle = '#7898b8';
   ctx.fillRect(px + 5, py + 6, cs - 10, 5);
   ctx.fillRect(px + cs - 10, py + 5, 6, 8);
-  ctx.fillStyle = '#aacce8';
+  ctx.fillStyle = '#98b8d8';
   ctx.beginPath();
   ctx.arc(px + cs/2, py + cs - 8, 3, 0, Math.PI * 2);
   ctx.fill();
 }
 
 function drawConveyor(ctx, px, py, cs, dir) {
-  ctx.strokeStyle = 'rgba(80,110,160,0.6)';
+  ctx.strokeStyle = 'rgba(90,110,140,0.55)';
   ctx.lineWidth = 1;
   const offsets = [-5, 0, 5];
   for (const o of offsets) {
@@ -342,7 +342,7 @@ function drawConveyor(ctx, px, py, cs, dir) {
     }
     ctx.stroke();
   }
-  ctx.fillStyle = '#a8c0e0';
+  ctx.fillStyle = '#9ab0c8';
   ctx.save();
   ctx.translate(px + cs/2, py + cs/2);
   ctx.rotate(dir * Math.PI / 2);
@@ -355,29 +355,29 @@ function drawConveyor(ctx, px, py, cs, dir) {
 function drawWall(ctx, cell, px, py, cs, gs) {
   const maxHp = EQ_DEF.wall.hp * (gs.gearFlags?.eraArmor ? 3 : 1);
   const ratio = Math.max(0, Math.min(1, (cell.equipment?.hp || 0) / maxHp));
-  const r = Math.floor(100 * ratio + 50), g = Math.floor(70 * ratio + 30), b = Math.floor(50 * ratio + 20);
+  const r = Math.floor(90 * ratio + 45), g = Math.floor(70 * ratio + 30), b = Math.floor(55 * ratio + 22);
   ctx.fillStyle = `rgb(${r},${g},${b})`;
   ctx.fillRect(px + 2, py + 2, cs - 4, cs - 4);
-  ctx.strokeStyle = '#1a1008';
+  ctx.strokeStyle = '#14100a';
   ctx.lineWidth = 0.8;
   ctx.strokeRect(px + 2, py + 2, cs/2 - 3, cs/2 - 3);
   ctx.strokeRect(px + cs/2 + 1, py + 2, cs/2 - 3, cs/2 - 3);
   ctx.strokeRect(px + 2, py + cs/2 + 1, cs/2 - 3, cs/2 - 3);
   ctx.strokeRect(px + cs/2 + 1, py + cs/2 + 1, cs/2 - 3, cs/2 - 3);
   // HP bar
-  ctx.fillStyle = ratio > 0.6 ? '#50c050' : ratio > 0.3 ? '#e0a030' : '#f04040';
+  ctx.fillStyle = ratio > 0.6 ? '#58b048' : ratio > 0.3 ? '#c89030' : '#c04040';
   ctx.fillRect(px + 2, py + 2, (cs - 4) * ratio, 3);
 }
 
 function drawOilPump(ctx, px, py, cs) {
-  ctx.fillStyle = '#5568a8';
+  ctx.fillStyle = '#485898';
   ctx.fillRect(px + cs/2 - 2, py + cs/2, 4, cs/2 - 5);
   ctx.fillRect(px + 5, py + cs/2 - 3, cs - 10, 5);
-  ctx.fillStyle = '#303358';
+  ctx.fillStyle = '#283050';
   ctx.beginPath();
   ctx.arc(px + cs/2, py + cs/2, 4, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#4458a8';
+  ctx.fillStyle = '#384898';
   ctx.beginPath();
   ctx.arc(px + cs/2, py + 8, 4, Math.PI, Math.PI * 2);
   ctx.lineTo(px + cs/2 + 4, py + 8);
@@ -385,11 +385,11 @@ function drawOilPump(ctx, px, py, cs) {
 }
 
 function drawWaterPump(ctx, px, py, cs) {
-  ctx.fillStyle = '#2870b8';
+  ctx.fillStyle = '#2068a8';
   ctx.beginPath();
   ctx.arc(px + cs/2, py + cs/2, cs/2 - 5, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = '#50a8d8';
+  ctx.strokeStyle = '#4898c8';
   ctx.lineWidth = 1.5;
   for (let i = 0; i < 3; i++) {
     ctx.beginPath();
