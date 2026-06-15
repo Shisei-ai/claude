@@ -314,7 +314,7 @@ const EQ_DEF = {
   },
 
   coke_oven: {
-    name: 'コークス炉', icon: '🟤', color: '#3a2610', unlocked: false, size: 2,
+    name: 'コークス炉', icon: '🟤', color: '#3a2610', unlocked: false, w: 3, h: 2,
     cost: { iron_plate: 3 },
     desc: '石炭×2→コークス×1。コンベアで石炭を投入。出力はコンベアへ。【要研究: コークス精製】',
     canAccept(item, cell, _gs) { return item === C.RES.COAL && (cell.equipment.inventory?.coal || 0) < 4; },
@@ -333,7 +333,7 @@ const EQ_DEF = {
   },
 
   distillation: {
-    name: '蒸留塔', icon: '🏭', color: '#2a3c28', unlocked: false, size: 2,
+    name: '蒸留塔', icon: '🏭', color: '#2a3c28', unlocked: false, w: 2, h: 3,
     cost: { iron_plate: 8, copper_plate: 4 },
     desc: '原油×3→石油ガス×2＋軽油×2＋重油×1に分留する。コンベアで原油を投入。【要研究: 石油化学】',
     canAccept(item, cell, _gs) { return item === C.RES.CRUDE_OIL && (cell.equipment.oilStock || 0) < 9; },
@@ -355,7 +355,7 @@ const EQ_DEF = {
   },
 
   chem_plant: {
-    name: '化学プラント', icon: '⚗', color: '#1a3020', unlocked: false, size: 2,
+    name: '化学プラント', icon: '⚗', color: '#1a3020', unlocked: false, w: 3, h: 2,
     cost: { iron_plate: 6, copper_plate: 4, circuit: 2 },
     desc: '左クリックでレシピ切替。コンベアで素材を投入。電力×2消費。【要研究: 化学合成】',
     powerCost: 2,
@@ -411,7 +411,7 @@ const EQ_DEF = {
   },
 
   electrolyzer: {
-    name: '電解槽', icon: '⚡', color: '#18203c', unlocked: false, size: 2,
+    name: '電解槽', icon: '⚡', color: '#18203c', unlocked: false, w: 2, h: 3,
     cost: { iron_plate: 8, copper_plate: 6, circuit: 2 },
     desc: '水×2→水素×2＋酸素×1。コンベアで水を投入。電力×2消費。【要研究: 電気分解】',
     powerCost: 2,
@@ -433,7 +433,7 @@ const EQ_DEF = {
   },
 
   adv_assembler: {
-    name: '高度組立機', icon: '🤖', color: '#162e20', unlocked: false, size: 2,
+    name: '高度組立機', icon: '🤖', color: '#162e20', unlocked: false, w: 3, h: 3,
     cost: { iron_plate: 10, copper_plate: 5, circuit: 4 },
     desc: '左クリックでレシピ切替。コンベアで素材を投入。電力×3消費。【要研究: 高度組立】',
     powerCost: 3,
@@ -475,7 +475,7 @@ const EQ_DEF = {
   // ── Factory logistics ─────────────────────────────────
 
   extractor: {
-    name: '取り出し口', icon: '📤', color: '#303c1c', unlocked: true, size: 1, place: 'factory',
+    name: '取り出し口', icon: '📤', color: '#303c1c', unlocked: true, w: 1, h: 2, dirAware: true, place: 'factory',
     cost: { iron_plate: 1 },
     desc: '【工場専用】倉庫から選択素材をコンベアへ取り出す。クリックでアイテム選択。',
     onTick(cell, gs) {
@@ -495,7 +495,7 @@ const EQ_DEF = {
   },
 
   inserter: {
-    name: '取り入れ口', icon: '📥', color: '#1c2e3a', unlocked: true, size: 1, place: 'factory',
+    name: '取り入れ口', icon: '📥', color: '#1c2e3a', unlocked: true, w: 1, h: 2, dirAware: true, place: 'factory',
     cost: { iron_plate: 1 },
     desc: '【工場専用】コンベアのアイテムを倉庫へ格納する。向いた方向のコンベアから回収。',
     onTick(cell, gs) {
@@ -514,6 +514,15 @@ const EQ_DEF = {
 };
 
 // ─── Helpers ─────────────────────────────────────────────
+
+// Returns effective { w, h } of equipment in grid cells, accounting for direction.
+// dirAware equipment (extractor/inserter) swaps W and H when facing vertically.
+function equipSize(def, dir) {
+  const w = def?.w !== undefined ? def.w : (def?.size || 1);
+  const h = def?.h !== undefined ? def.h : (def?.size || 1);
+  if (def?.dirAware && (dir === 1 || dir === 3)) return { w: h, h: w };
+  return { w, h };
+}
 
 function addRes(gs, key, n) {
   gs.resources[key] = (gs.resources[key] || 0) + n;
@@ -577,11 +586,12 @@ function wallMaxHp(gs) {
 }
 
 function outputToConveyor(cell, item, gs) {
-  const dv = C.DIR_VEC[cell.equipment.dir];
-  const sz = EQ_DEF[cell.equipment.type]?.size || 1;
-  // for size>1, RIGHT/DOWN exits must clear the full footprint
-  const nx = cell.x + (dv.x > 0 ? sz : dv.x);
-  const ny = cell.y + (dv.y > 0 ? sz : dv.y);
+  const dv  = C.DIR_VEC[cell.equipment.dir];
+  const def = EQ_DEF[cell.equipment.type];
+  const { w, h } = equipSize(def, cell.equipment.dir);
+  // RIGHT/DOWN: exit must clear the full w/h footprint
+  const nx = cell.x + (dv.x > 0 ? w : dv.x);
+  const ny = cell.y + (dv.y > 0 ? h : dv.y);
   if (!inBounds(nx, ny)) return false;
   const nc = gs.map.grid[ny][nx];
   if (nc.equipment?.type === C.EQ.CONVEYOR && !nc.item) { nc.item = item; return true; }

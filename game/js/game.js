@@ -645,8 +645,8 @@ function buildSidebar() {
     const ctxLock  = !locked && ((def.place === 'mission' && gs.view !== 'mission') || (def.place === 'factory' && gs.view !== 'factory'));
     const selected = gs.selectedTool === t;
     const canBuild = !locked && canAffordEquipment(t, gs);
-    const sz       = def.size || 1;
-    const badge    = sz > 1 ? `<span class="tool-size-badge">${sz}×${sz}</span>` : '';
+    const { w: bw, h: bh } = equipSize(def, gs.selectedDir || 0);
+    const badge    = (bw > 1 || bh > 1) ? `<span class="tool-size-badge">${bw}×${bh}</span>` : '';
     const ctxBadge = ctxLock ? `<span class="tool-ctx-badge">出撃時</span>` : '';
     const btn = document.createElement('button');
     btn.className = `tool-btn${locked ? ' locked' : ''}${ctxLock ? ' ctx-locked' : ''}${selected ? ' selected' : ''}${!locked && !canBuild ? ' unaffordable' : ''}`;
@@ -670,7 +670,7 @@ function showToolInfo(t) {
   const cost = EQ_DEF[t]?.cost || {};
   const reduction = gs?.gearFlags?.buildCostReduction || 0;
   const entries   = Object.entries(cost);
-  const sz        = def?.size || 1;
+  const { w: tw, h: th } = equipSize(def, gs?.selectedDir || 0);
 
   let costHtml;
   if (!entries.length) {
@@ -682,7 +682,7 @@ function showToolInfo(t) {
       return `<span class="cost-chip ${have >= actual ? 'ok' : 'ng'}">${RES_NAMES[k] || k} ×${actual}</span>`;
     }).join('');
   }
-  const sizeTag = sz > 1 ? `<span class="tool-size-info">${sz}×${sz}マス</span>` : '';
+  const sizeTag = (tw > 1 || th > 1) ? `<span class="tool-size-info">${tw}×${th}マス</span>` : '';
   const ctxNote = (def?.place === 'mission' && gs?.view !== 'mission')
     ? '<div class="tool-ctx-note">⚠ この設備は出撃先マップでのみ設置できます</div>'
     : (def?.place === 'factory' && gs?.view !== 'factory')
@@ -752,7 +752,7 @@ function setupCanvas() {
     if (def.place === 'factory' && gs.view !== 'factory') {
       flashInfo('この設備は工場マップ専用です'); return;
     }
-    if (!isHoverPlacementValid(gs, gx, gy, gs.selectedTool)) {
+    if (!isHoverPlacementValid(gs, gx, gy, gs.selectedTool, gs.selectedDir)) {
       flashInfo('ここには設置できません'); return;
     }
     gs.pendingPlacement = { tool: gs.selectedTool, x: gx, y: gy, dir: gs.selectedDir };
@@ -779,9 +779,9 @@ function setupCanvas() {
       const rate = hasGear(gs, 'memory_alloy') ? 1.0 : 0.5;
       for (const [k, v] of Object.entries(cost)) addRes(gs, k, Math.floor(v * rate));
       if (t === C.EQ.WALL) gs.flowFieldDirty = true;
-      const sz = EQ_DEF[t]?.size || 1;
-      for (let dy = 0; dy < sz; dy++) {
-        for (let dx = 0; dx < sz; dx++) {
+      const { w: rw, h: rh } = equipSize(EQ_DEF[t], rc.equipment.dir);
+      for (let dy = 0; dy < rh; dy++) {
+        for (let dx = 0; dx < rw; dx++) {
           const fc = gs.map.grid[ry + dy][rx + dx];
           fc.equipment = null; fc.item = null;
         }
@@ -822,6 +822,7 @@ function setupCanvas() {
         gs.pendingPlacement.dir = (gs.pendingPlacement.dir + 1) % 4;
       } else {
         gs.selectedDir = (gs.selectedDir + 1) % 4;
+        buildSidebar();  // refresh size badges for dir-aware equipment
       }
       updateDirIndicator();
     }
@@ -843,18 +844,16 @@ function confirmPendingPlacement() {
 
   const gx = p.x, gy = p.y;
   if (!inBounds(gx, gy)) return;
-  if (!isHoverPlacementValid(gs, gx, gy, p.tool)) { flashInfo('設置できません（場所が塞がれました）'); return; }
+  if (!isHoverPlacementValid(gs, gx, gy, p.tool, p.dir)) { flashInfo('設置できません（場所が塞がれました）'); return; }
 
   deductEquipmentCost(p.tool, gs);
   const cell = gs.map.grid[gy][gx];
   cell.equipment = makeEquipment(p.tool, p.dir);
-  const sz = EQ_DEF[p.tool]?.size || 1;
-  if (sz === 2) {
-    for (let dy = 0; dy < sz; dy++) {
-      for (let dx = 0; dx < sz; dx++) {
-        if (dx === 0 && dy === 0) continue;
-        gs.map.grid[gy + dy][gx + dx].equipment = { type: '_occ', rootX: gx, rootY: gy };
-      }
+  const { w: pw, h: ph } = equipSize(EQ_DEF[p.tool], p.dir);
+  for (let dy = 0; dy < ph; dy++) {
+    for (let dx = 0; dx < pw; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      gs.map.grid[gy + dy][gx + dx].equipment = { type: '_occ', rootX: gx, rootY: gy };
     }
   }
   if (p.tool === C.EQ.WALL) gs.flowFieldDirty = true;

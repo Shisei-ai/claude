@@ -103,8 +103,8 @@ function render(canvas, gs) {
       if (!def) continue;
       const px = Math.round((gx - cam.x) * cs);
       const py = Math.round((gy - cam.y) * cs);
-      const sz = (def.size || 1) * cs;
-      drawEquipmentBody(ctx, cell, px, py, cs, sz, gs);
+      const { w, h } = equipSize(def, eq.dir || 0);
+      drawEquipmentBody(ctx, cell, px, py, cs, w * cs, h * cs, gs);
     }
   }
 
@@ -193,41 +193,42 @@ function render(canvas, gs) {
   if (gs.pendingPlacement && gs.state === 'play') {
     const p   = gs.pendingPlacement;
     const def = EQ_DEF[p.tool];
-    const sz  = (def?.size || 1) * cs;
+    const { w, h } = equipSize(def, p.dir);
+    const sw  = w * cs, sh = h * cs;
     const px  = Math.round((p.x - cam.x) * cs);
     const py  = Math.round((p.y - cam.y) * cs);
     ctx.globalAlpha = 0.55;
     ctx.fillStyle = def?.color || '#555';
-    ctx.fillRect(px + 2, py + 2, sz - 4, sz - 4);
+    ctx.fillRect(px + 2, py + 2, sw - 4, sh - 4);
     ctx.globalAlpha = 1;
     ctx.strokeStyle = 'rgba(232,160,40,0.95)';
     ctx.lineWidth = 2.5;
     ctx.setLineDash([]);
-    ctx.strokeRect(px + 1, py + 1, sz - 2, sz - 2);
-    drawDirArrow(ctx, px, py, sz, p.dir);
+    ctx.strokeRect(px + 1, py + 1, sw - 2, sh - 2);
+    drawDirArrow(ctx, px, py, sw, sh, p.dir);
   } else if (gs.hover && gs.selectedTool && gs.state === 'play') {
     // Hover ghost (dashed — preview)
     const { hx, hy } = gs.hover;
-    const def   = EQ_DEF[gs.selectedTool];
-    const cellSz = def?.size || 1;
-    const sz    = cellSz * cs;
-    const px    = Math.round((hx - cam.x) * cs);
-    const py    = Math.round((hy - cam.y) * cs);
-    const valid = isHoverPlacementValid(gs, hx, hy, gs.selectedTool);
+    const def = EQ_DEF[gs.selectedTool];
+    const { w, h } = equipSize(def, gs.selectedDir || 0);
+    const sw  = w * cs, sh = h * cs;
+    const px  = Math.round((hx - cam.x) * cs);
+    const py  = Math.round((hy - cam.y) * cs);
+    const valid = isHoverPlacementValid(gs, hx, hy, gs.selectedTool, gs.selectedDir);
     ctx.strokeStyle = valid ? 'rgba(232,150,40,0.88)' : 'rgba(200,70,70,0.88)';
     ctx.lineWidth = 2;
     ctx.setLineDash([4, 3]);
-    ctx.strokeRect(px + 1, py + 1, sz - 2, sz - 2);
+    ctx.strokeRect(px + 1, py + 1, sw - 2, sh - 2);
     ctx.setLineDash([]);
     ctx.globalAlpha = 0.22;
     ctx.fillStyle = valid ? (def?.color || '#555') : '#aa2020';
-    ctx.fillRect(px + 2, py + 2, sz - 4, sz - 4);
+    ctx.fillRect(px + 2, py + 2, sw - 4, sh - 4);
     ctx.globalAlpha = 1;
   }
 }
 
 // ── Equipment body drawing ──────────────────────────────
-function drawEquipmentBody(ctx, cell, px, py, cs, sz, gs) {
+function drawEquipmentBody(ctx, cell, px, py, cs, sw, sh, gs) {
   const eq  = cell.equipment;
   const def = EQ_DEF[eq.type];
   const t   = eq.type;
@@ -238,7 +239,7 @@ function drawEquipmentBody(ctx, cell, px, py, cs, sz, gs) {
 
   // Background
   ctx.fillStyle = def.color || '#333';
-  ctx.fillRect(px + 1, py + 1, sz - 2, sz - 2);
+  ctx.fillRect(px + 1, py + 1, sw - 2, sh - 2);
 
   // Border — colour-coded by state
   const borderColor = hasPowerIssue ? '#7a2222'
@@ -246,28 +247,28 @@ function drawEquipmentBody(ctx, cell, px, py, cs, sz, gs) {
     : shadeColor(def.color || '#333', 28);
   ctx.strokeStyle = borderColor;
   ctx.lineWidth   = 1.5;
-  ctx.strokeRect(px + 1, py + 1, sz - 2, sz - 2);
+  ctx.strokeRect(px + 1, py + 1, sw - 2, sh - 2);
 
-  const cx = px + sz / 2, cy = py + sz / 2;
+  const cx = px + sw / 2, cy = py + sh / 2;
 
-  // Per-type custom shapes
+  // Per-type custom shapes (square equipment passes sw; non-square passes sw, sh)
   if      (t === C.EQ.MINER)        drawMiner(ctx, px, py, cs);
   else if (t === C.EQ.CONVEYOR)     drawConveyor(ctx, px, py, cs, eq.dir);
   else if (t === C.EQ.WALL)         drawWall(ctx, cell, px, py, cs, gs);
   else if (t === C.EQ.OIL_PUMP)     drawOilPump(ctx, px, py, cs);
   else if (t === C.EQ.WATER_PUMP)   drawWaterPump(ctx, px, py, cs);
-  else if (t === C.EQ.FURNACE)      drawFurnace(ctx, px, py, sz);
-  else if (t === C.EQ.ASSEMBLER)    drawAssembler(ctx, px, py, sz);
-  else if (t === C.EQ.TURRET)       drawTurret(ctx, px, py, sz);
-  else if (t === C.EQ.LASER)        drawLaser(ctx, px, py, sz);
-  else if (t === C.EQ.GENERATOR)    drawGenerator(ctx, px, py, sz);
-  else if (t === C.EQ.COKE_OVEN)    drawCokeOven(ctx, px, py, sz);
-  else if (t === C.EQ.DISTILLATION) drawDistillation(ctx, px, py, sz);
-  else if (t === C.EQ.CHEM_PLANT)   drawChemPlant(ctx, px, py, sz);
-  else if (t === C.EQ.ELECTROLYZER) drawElectrolyzer(ctx, px, py, sz);
-  else if (t === C.EQ.ADV_ASSEMBLER)drawAdvAssembler(ctx, px, py, sz);
-  else if (t === C.EQ.EXTRACTOR)    drawExtractor(ctx, cell, px, py, cs);
-  else if (t === C.EQ.INSERTER)     drawInserter(ctx, cell, px, py, cs);
+  else if (t === C.EQ.FURNACE)      drawFurnace(ctx, px, py, sw);
+  else if (t === C.EQ.ASSEMBLER)    drawAssembler(ctx, px, py, sw);
+  else if (t === C.EQ.TURRET)       drawTurret(ctx, px, py, sw);
+  else if (t === C.EQ.LASER)        drawLaser(ctx, px, py, sw);
+  else if (t === C.EQ.GENERATOR)    drawGenerator(ctx, px, py, sw);
+  else if (t === C.EQ.COKE_OVEN)    drawCokeOven(ctx, px, py, sw, sh);
+  else if (t === C.EQ.DISTILLATION) drawDistillation(ctx, px, py, sw, sh);
+  else if (t === C.EQ.CHEM_PLANT)   drawChemPlant(ctx, px, py, sw, sh);
+  else if (t === C.EQ.ELECTROLYZER) drawElectrolyzer(ctx, px, py, sw, sh);
+  else if (t === C.EQ.ADV_ASSEMBLER)drawAdvAssembler(ctx, px, py, sw);
+  else if (t === C.EQ.EXTRACTOR)    drawExtractor(ctx, cell, px, py, sw, sh);
+  else if (t === C.EQ.INSERTER)     drawInserter(ctx, cell, px, py, sw, sh);
 
   // Recipe icon
   if ((t === C.EQ.CHEM_PLANT || t === C.EQ.ADV_ASSEMBLER) && eq.recipeIdx !== undefined) {
@@ -280,36 +281,36 @@ function drawEquipmentBody(ctx, cell, px, py, cs, sz, gs) {
     }
   }
 
-  // Progress bars
+  // Progress bars (sw = width, sh = height)
   const maxFurnace = gs.upgrades.furnaceSpeed || 180;
   if (t === C.EQ.FURNACE && eq.inputItem)
-    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / maxFurnace, '#d06828');
+    drawProgressBar(ctx, px, py, sw, sh, 1 - eq.timer / maxFurnace, '#d06828');
 
   const maxAssembler = gs.upgrades.assemblerSpeed || 240;
   if (t === C.EQ.ASSEMBLER && eq.crafting)
-    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / maxAssembler, '#28b858');
+    drawProgressBar(ctx, px, py, sw, sh, 1 - eq.timer / maxAssembler, '#28b858');
 
   const maxChem = gs.upgrades.chemSpeed || 240;
   if (t === C.EQ.CHEM_PLANT && eq.timer > 0)
-    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / maxChem, '#38b890');
+    drawProgressBar(ctx, px, py, sw, sh, 1 - eq.timer / maxChem, '#38b890');
 
   if (t === C.EQ.ADV_ASSEMBLER && eq.timer > 0)
-    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / (gs.upgrades.assemblerSpeed || 300), '#30d880');
+    drawProgressBar(ctx, px, py, sw, sh, 1 - eq.timer / (gs.upgrades.assemblerSpeed || 300), '#30d880');
 
   if (t === C.EQ.DISTILLATION && eq.timer > 0)
-    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / 200, '#70b890');
+    drawProgressBar(ctx, px, py, sw, sh, 1 - eq.timer / 200, '#70b890');
 
   if (t === C.EQ.COKE_OVEN && eq.timer > 0)
-    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / 150, '#b06028');
+    drawProgressBar(ctx, px, py, sw, sh, 1 - eq.timer / 150, '#b06028');
 
   if (t === C.EQ.GENERATOR && eq.timer > 0)
-    drawProgressBar(ctx, px, py, sz, 1 - eq.timer / 300, '#2890d8');
+    drawProgressBar(ctx, px, py, sw, sh, 1 - eq.timer / 300, '#2890d8');
 
   // Status dot (top-right corner)
   const dotColor = hasPowerIssue ? '#c84040' : isActive ? '#48c068' : '#28241e';
   ctx.fillStyle = dotColor;
   ctx.beginPath();
-  ctx.arc(px + sz - 5, py + 5, 3, 0, Math.PI * 2);
+  ctx.arc(px + sw - 5, py + 5, 3, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -496,107 +497,144 @@ function drawGenerator(ctx, px, py, sz) {
   ctx.beginPath(); ctx.arc(cx, cy, sz*0.12, 0, Math.PI*2); ctx.stroke();
 }
 
-function drawCokeOven(ctx, px, py, sz) {
+function drawCokeOven(ctx, px, py, sw, sh) {
   ctx.fillStyle = '#221408';
-  ctx.fillRect(px + 3, py + 3, sz - 6, sz - 6);
-  for (let i = 0; i < 4; i++) {
+  ctx.fillRect(px + 3, py + 3, sw - 6, sh - 6);
+  // chimneys across the top — wide oven has 6 stacks
+  for (let i = 0; i < 6; i++) {
     ctx.fillStyle = '#3c3820';
-    ctx.fillRect(px + 5 + i * (sz-10)/4, py + 3, (sz-10)/4 - 1, sz*0.15);
+    ctx.fillRect(px + 5 + i * (sw - 10) / 6, py + 3, (sw - 10) / 6 - 1, sh * 0.18);
   }
-  const grad = ctx.createLinearGradient(px, py + sz*0.5, px, py + sz);
+  const grad = ctx.createLinearGradient(px, py + sh * 0.5, px, py + sh);
   grad.addColorStop(0, 'rgba(180,70,10,0)');
-  grad.addColorStop(1, 'rgba(220,110,20,0.55)');
+  grad.addColorStop(1, 'rgba(220,110,20,0.6)');
   ctx.fillStyle = grad;
-  ctx.fillRect(px + 3, py + sz*0.48, sz - 6, sz*0.48);
+  ctx.fillRect(px + 3, py + sh * 0.46, sw - 6, sh * 0.5);
+  // furnace mouth — wider opening to match wider body
   ctx.fillStyle = '#584020';
   ctx.strokeStyle = '#806040';
   ctx.lineWidth = 1;
-  ctx.fillRect(px + sz*0.2, py + sz*0.3, sz*0.6, sz*0.35);
-  ctx.strokeRect(px + sz*0.2, py + sz*0.3, sz*0.6, sz*0.35);
+  ctx.fillRect(px + sw * 0.08, py + sh * 0.28, sw * 0.84, sh * 0.46);
+  ctx.strokeRect(px + sw * 0.08, py + sh * 0.28, sw * 0.84, sh * 0.46);
   ctx.fillStyle = '#f09040';
-  ctx.fillRect(px + sz*0.28, py + sz*0.36, sz*0.44, sz*0.23);
+  ctx.fillRect(px + sw * 0.12, py + sh * 0.34, sw * 0.76, sh * 0.34);
 }
 
-function drawDistillation(ctx, px, py, sz) {
+function drawDistillation(ctx, px, py, sw, sh) {
+  // central column — tall with horizontal distillation trays
   ctx.fillStyle = '#404c40';
-  ctx.fillRect(px + sz*0.36, py + 3, sz*0.28, sz - 6);
+  ctx.fillRect(px + sw * 0.36, py + 3, sw * 0.28, sh - 6);
+  // distillation trays
   ctx.fillStyle = '#507050';
-  for (let i = 0; i < 4; i++)
-    ctx.fillRect(px + sz*0.30, py + sz*0.15 + i * sz*0.17, sz*0.40, 3);
+  for (let i = 0; i < 6; i++)
+    ctx.fillRect(px + sw * 0.28, py + sh * 0.08 + i * sh * 0.14, sw * 0.44, 3);
+  // condenser dome at top
   ctx.fillStyle = '#346044';
   ctx.beginPath();
-  ctx.arc(px + sz*0.50, py + sz*0.15, sz*0.17, Math.PI, Math.PI*2);
+  ctx.arc(px + sw * 0.50, py + sh * 0.1, sw * 0.18, Math.PI, Math.PI * 2);
   ctx.fill();
+  // output pipes
   ctx.strokeStyle = '#507858';
   ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.moveTo(px + sz*0.36, py + sz*0.3);
-  ctx.lineTo(px + sz*0.1,  py + sz*0.3);
-  ctx.lineTo(px + sz*0.1,  py + sz*0.7);
+  ctx.moveTo(px + sw * 0.36, py + sh * 0.22);
+  ctx.lineTo(px + sw * 0.08, py + sh * 0.22);
+  ctx.lineTo(px + sw * 0.08, py + sh * 0.55);
   ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(px + sz*0.64, py + sz*0.55);
-  ctx.lineTo(px + sz*0.9,  py + sz*0.55);
+  ctx.moveTo(px + sw * 0.64, py + sh * 0.55);
+  ctx.lineTo(px + sw * 0.92, py + sh * 0.55);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(px + sw * 0.64, py + sh * 0.78);
+  ctx.lineTo(px + sw * 0.92, py + sh * 0.78);
   ctx.stroke();
 }
 
-function drawChemPlant(ctx, px, py, sz) {
-  const cx = px + sz/2;
-  ctx.fillStyle = '#2a4830';
+function drawChemPlant(ctx, px, py, sw, sh) {
+  // wide horizontal processing facility — 3×2 layout
+  const cx = px + sw / 2;
+  // three reaction vessels
+  for (let i = 0; i < 3; i++) {
+    const vx = px + sw * (0.12 + i * 0.29);
+    const vw = sw * 0.22;
+    ctx.fillStyle = '#2a4830';
+    ctx.beginPath();
+    ctx.moveTo(vx + vw * 0.15, py + sh * 0.18);
+    ctx.lineTo(vx,             py + sh * 0.88);
+    ctx.lineTo(vx + vw,        py + sh * 0.88);
+    ctx.lineTo(vx + vw * 0.85, py + sh * 0.18);
+    ctx.closePath(); ctx.fill();
+    const grad = ctx.createLinearGradient(vx, py + sh * 0.45, vx, py + sh * 0.88);
+    grad.addColorStop(0, 'rgba(40,190,130,0.55)');
+    grad.addColorStop(1, 'rgba(20,130,80,0.8)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(vx + vw * 0.25, py + sh * 0.55);
+    ctx.lineTo(vx + vw * 0.05, py + sh * 0.86);
+    ctx.lineTo(vx + vw * 0.95, py + sh * 0.86);
+    ctx.lineTo(vx + vw * 0.75, py + sh * 0.55);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#58b888';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(vx + vw * 0.15, py + sh * 0.18);
+    ctx.lineTo(vx,             py + sh * 0.88);
+    ctx.lineTo(vx + vw,        py + sh * 0.88);
+    ctx.lineTo(vx + vw * 0.85, py + sh * 0.18);
+    ctx.stroke();
+    // chimney
+    ctx.fillStyle = '#2a4830';
+    ctx.fillRect(vx + vw * 0.35, py + sh * 0.06, vw * 0.3, sh * 0.14);
+    ctx.strokeRect(vx + vw * 0.35, py + sh * 0.06, vw * 0.3, sh * 0.14);
+  }
+  // connecting pipe between vessels
+  ctx.strokeStyle = '#3a7858';
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(cx - sz*0.2, py + sz*0.3);
-  ctx.lineTo(px + sz*0.1, py + sz*0.85);
-  ctx.lineTo(px + sz*0.9, py + sz*0.85);
-  ctx.lineTo(cx + sz*0.2, py + sz*0.3);
-  ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#2a4830';
-  ctx.fillRect(cx - sz*0.1, py + sz*0.1, sz*0.2, sz*0.22);
-  const grad = ctx.createLinearGradient(px, py + sz*0.5, px, py + sz*0.85);
-  grad.addColorStop(0, 'rgba(40,190,130,0.65)');
-  grad.addColorStop(1, 'rgba(20,130,80,0.85)');
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.moveTo(cx - sz*0.12, py + sz*0.56);
-  ctx.lineTo(px + sz*0.14, py + sz*0.83);
-  ctx.lineTo(px + sz*0.86, py + sz*0.83);
-  ctx.lineTo(cx + sz*0.12, py + sz*0.56);
-  ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = '#58b888';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(cx - sz*0.2, py + sz*0.3);
-  ctx.lineTo(px + sz*0.1, py + sz*0.85);
-  ctx.lineTo(px + sz*0.9, py + sz*0.85);
-  ctx.lineTo(cx + sz*0.2, py + sz*0.3);
+  ctx.moveTo(px + sw * 0.33, py + sh * 0.65);
+  ctx.lineTo(px + sw * 0.40, py + sh * 0.65);
+  ctx.moveTo(px + sw * 0.60, py + sh * 0.65);
+  ctx.lineTo(px + sw * 0.67, py + sh * 0.65);
   ctx.stroke();
-  ctx.strokeRect(cx - sz*0.1, py + sz*0.1, sz*0.2, sz*0.22);
 }
 
-function drawElectrolyzer(ctx, px, py, sz) {
-  const cx = px + sz/2;
+function drawElectrolyzer(ctx, px, py, sw, sh) {
+  // tall electrolysis tank — 2×3 portrait layout
+  const cx = px + sw / 2;
   ctx.fillStyle = '#182030';
-  ctx.fillRect(px + sz*0.1, py + sz*0.2, sz*0.8, sz*0.65);
+  ctx.fillRect(px + sw * 0.08, py + sh * 0.08, sw * 0.84, sh * 0.78);
   ctx.strokeStyle = '#3050a8';
   ctx.lineWidth = 2;
-  ctx.strokeRect(px + sz*0.1, py + sz*0.2, sz*0.8, sz*0.65);
-  const grad = ctx.createLinearGradient(px, py + sz*0.5, px, py + sz*0.85);
-  grad.addColorStop(0, 'rgba(40,120,210,0.4)');
-  grad.addColorStop(1, 'rgba(20,80,170,0.75)');
+  ctx.strokeRect(px + sw * 0.08, py + sh * 0.08, sw * 0.84, sh * 0.78);
+  // liquid fill with gradient
+  const grad = ctx.createLinearGradient(px, py + sh * 0.38, px, py + sh * 0.86);
+  grad.addColorStop(0, 'rgba(40,120,210,0.38)');
+  grad.addColorStop(1, 'rgba(20,80,170,0.72)');
   ctx.fillStyle = grad;
-  ctx.fillRect(px + sz*0.12, py + sz*0.42, sz*0.76, sz*0.41);
+  ctx.fillRect(px + sw * 0.10, py + sh * 0.38, sw * 0.80, sh * 0.46);
+  // electrode bars (tall, running most of tank height)
   ctx.fillStyle = '#a8a8ff';
-  ctx.fillRect(cx - sz*0.22, py + sz*0.12, sz*0.08, sz*0.56);
-  ctx.fillRect(cx + sz*0.14, py + sz*0.12, sz*0.08, sz*0.56);
-  ctx.fillStyle = 'rgba(200,220,255,0.65)';
-  ctx.beginPath(); ctx.arc(cx - sz*0.18, py + sz*0.5, 3, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(cx + sz*0.18, py + sz*0.45, 2, 0, Math.PI*2); ctx.fill();
+  ctx.fillRect(cx - sw * 0.28, py + sh * 0.1,  sw * 0.10, sh * 0.64);
+  ctx.fillRect(cx + sw * 0.18, py + sh * 0.1,  sw * 0.10, sh * 0.64);
+  // gas bubbles rising
+  ctx.fillStyle = 'rgba(200,220,255,0.7)';
+  for (const [bx, by, br] of [[cx - 0.18 * sw, py + sh * 0.52, 3], [cx - 0.18 * sw, py + sh * 0.38, 2],
+      [cx + 0.22 * sw, py + sh * 0.48, 2], [cx + 0.22 * sw, py + sh * 0.32, 3]]) {
+    ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
+  }
+  // top connection arc
   ctx.strokeStyle = '#6070f0';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(cx - sz*0.2, py + sz*0.14);
-  ctx.lineTo(cx,           py + sz*0.06);
-  ctx.lineTo(cx + sz*0.2, py + sz*0.14);
+  ctx.moveTo(cx - sw * 0.24, py + sh * 0.1);
+  ctx.lineTo(cx,              py + sh * 0.04);
+  ctx.lineTo(cx + sw * 0.24, py + sh * 0.1);
   ctx.stroke();
+  // output ports at bottom
+  ctx.fillStyle = '#4060c0';
+  ctx.fillRect(px + sw * 0.15, py + sh * 0.86, sw * 0.25, sh * 0.06);
+  ctx.fillRect(px + sw * 0.60, py + sh * 0.86, sw * 0.25, sh * 0.06);
 }
 
 function drawAdvAssembler(ctx, px, py, sz) {
@@ -627,19 +665,19 @@ function drawAdvAssembler(ctx, px, py, sz) {
 
 // ── Helpers ──────────────────────────────────────────────
 
-function drawProgressBar(ctx, px, py, sz, progress, color) {
+function drawProgressBar(ctx, px, py, sw, sh, progress, color) {
   ctx.fillStyle = color;
-  ctx.fillRect(px + 2, py + sz - 5, (sz - 4) * Math.max(0, Math.min(1, progress)), 3);
+  ctx.fillRect(px + 2, py + sh - 5, (sw - 4) * Math.max(0, Math.min(1, progress)), 3);
 }
 
-function isHoverPlacementValid(gs, hx, hy, tool) {
+function isHoverPlacementValid(gs, hx, hy, tool, dir) {
   const def = EQ_DEF[tool];
   if (!def || def.unlocked === false) return false;
   if (def.place === 'mission' && gs.view !== 'mission') return false;
   if (def.place === 'factory' && gs.view !== 'factory') return false;
-  const sz = def.size || 1;
-  for (let dy = 0; dy < sz; dy++) {
-    for (let dx = 0; dx < sz; dx++) {
+  const { w, h } = equipSize(def, dir ?? gs.selectedDir ?? 0);
+  for (let dy = 0; dy < h; dy++) {
+    for (let dx = 0; dx < w; dx++) {
       const fx = hx + dx, fy = hy + dy;
       if (!inBounds(fx, fy)) return false;
       const fc = gs.map.grid[fy][fx];
@@ -654,8 +692,9 @@ function isHoverPlacementValid(gs, hx, hy, tool) {
   return true;
 }
 
-function drawDirArrow(ctx, px, py, sz, dir) {
-  const cx = px + sz / 2, cy = py + sz / 2;
+function drawDirArrow(ctx, px, py, sw, sh, dir) {
+  const cx = px + sw / 2, cy = py + sh / 2;
+  const sz = Math.min(sw, sh);  // arrow size based on smaller dimension
   ctx.fillStyle = 'rgba(255,220,80,0.9)';
   ctx.save();
   ctx.translate(cx, cy);
@@ -669,13 +708,17 @@ function drawDirArrow(ctx, px, py, sz, dir) {
   ctx.restore();
 }
 
-function drawExtractor(ctx, cell, px, py, cs) {
-  const cx = px + cs / 2, cy = py + cs / 2;
+function drawExtractor(ctx, cell, px, py, sw, sh) {
+  const cx = px + sw / 2, cy = py + sh / 2;
   ctx.fillStyle = '#5a7030';
-  ctx.fillRect(px + 4, py + 4, cs - 8, cs - 8);
-  // Arrow showing output direction
-  drawDirArrow(ctx, px, py, cs, cell.equipment.dir);
-  // Selected item indicator
+  ctx.fillRect(px + 4, py + 4, sw - 8, sh - 8);
+  // Connector strip along the longer axis
+  if (sh > sw) {
+    ctx.fillStyle = '#3a5020'; ctx.fillRect(px + sw * 0.38, py + sh * 0.2, sw * 0.24, sh * 0.6);
+  } else {
+    ctx.fillStyle = '#3a5020'; ctx.fillRect(px + sw * 0.2, py + sh * 0.38, sw * 0.6, sh * 0.24);
+  }
+  drawDirArrow(ctx, px, py, sw, sh, cell.equipment.dir);
   const item = cell.equipment.selectedItem;
   ctx.font = 'bold 9px sans-serif';
   ctx.textAlign = 'center';
@@ -684,12 +727,17 @@ function drawExtractor(ctx, cell, px, py, cs) {
   ctx.textAlign = 'left';
 }
 
-function drawInserter(ctx, cell, px, py, cs) {
-  const cx = px + cs / 2, cy = py + cs / 2;
+function drawInserter(ctx, cell, px, py, sw, sh) {
+  const cx = px + sw / 2, cy = py + sh / 2;
   ctx.fillStyle = '#305060';
-  ctx.fillRect(px + 4, py + 4, cs - 8, cs - 8);
-  // Arrow showing input direction (from which conveyor it reads)
-  drawDirArrow(ctx, px, py, cs, cell.equipment.dir);
+  ctx.fillRect(px + 4, py + 4, sw - 8, sh - 8);
+  // Connector strip along the longer axis
+  if (sh > sw) {
+    ctx.fillStyle = '#203848'; ctx.fillRect(px + sw * 0.38, py + sh * 0.2, sw * 0.24, sh * 0.6);
+  } else {
+    ctx.fillStyle = '#203848'; ctx.fillRect(px + sw * 0.2, py + sh * 0.38, sw * 0.6, sh * 0.24);
+  }
+  drawDirArrow(ctx, px, py, sw, sh, cell.equipment.dir);
   ctx.font = 'bold 9px sans-serif';
   ctx.textAlign = 'center';
   ctx.fillStyle = '#88ccee';
