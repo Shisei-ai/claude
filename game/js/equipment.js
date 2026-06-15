@@ -196,12 +196,12 @@ const EQ_DEF = {
         if (free || (gs.resources[C.RES.EXPLOSIVES] || 0) >= 1) {
           if (!free) gs.resources[C.RES.EXPLOSIVES]--;
           for (const e of gs.enemies) {
-            if (e !== best && dist(e, best) < 60) e.hp -= dmg * 0.6;
+            if (e !== best && dist(e, best) < 60) e.hp -= dmg * 0.6 * (1 - (e.armor || 0));
           }
         }
       }
 
-      best.hp -= actualDmg;
+      best.hp -= actualDmg * (1 - (best.armor || 0));
       // rapid_fire gear reduces cooldown by 15 ticks
       const rapidBonus = gs.gearFlags?.rapidFireBonus || 0;
       cell.equipment.timer = Math.max(1, Math.floor(60 / rate) - rapidBonus);
@@ -216,14 +216,14 @@ const EQ_DEF = {
           }
         }
         for (const e2 of targets) {
-          e2.hp -= dmg * 0.5;
+          e2.hp -= dmg * 0.5 * (1 - (e2.armor || 0));
           gs.projectiles.push({ x: best.x, y: best.y, tx: e2.x, ty: e2.y, life: 5 });
         }
       }
 
       if (gs.upgrades.overcharge && Math.random() < 0.10) {
         const best2 = nearestEnemy(cx, cy, range, gs);
-        if (best2) { best2.hp -= actualDmg; gs.projectiles.push({ x: cx, y: cy, tx: best2.x, ty: best2.y, life: 6 }); }
+        if (best2) { best2.hp -= actualDmg * (1 - (best2.armor || 0)); gs.projectiles.push({ x: cx, y: cy, tx: best2.x, ty: best2.y, life: 6 }); }
       }
     }
   },
@@ -261,7 +261,7 @@ const EQ_DEF = {
       gs.power -= pwCost;
       let actualDmg = dmg;
       if (hasGear(gs, 'black_powder') && best.hp < best.maxHp * 0.3) actualDmg *= 1.5;
-      best.hp -= actualDmg;
+      best.hp -= actualDmg * (1 - (best.armor || 0));
       const hasLube = (gs.resources[C.RES.LUBRICANT] || 0) >= 1;
       if (hasLube) gs.resources[C.RES.LUBRICANT]--;
       cell.equipment.timer = hasLube ? 60 : 120;
@@ -603,6 +603,12 @@ function nearestEnemy(cx, cy, range, gs) {
   const useWeakest = hasGear(gs, 'targeting_computer');
   let best = null, bestDist = Infinity, bestHp = Infinity;
   for (const e of gs.enemies) {
+    if (e.stealth) {
+      // Stealth enemies are only targetable within 45% of range (or 3 cells, whichever is less)
+      const dx = e.x - cx, dy = e.y - cy;
+      const closeR = Math.min(range * 0.45, C.CELL * 3);
+      if (dx * dx + dy * dy > closeR * closeR) continue;
+    }
     const d = dist({ x: e.x, y: e.y }, { x: cx, y: cy });
     if (d < range) {
       if (useWeakest) {

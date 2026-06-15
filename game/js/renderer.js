@@ -143,10 +143,14 @@ function render(canvas, gs) {
   }
 
   // Enemies
+  const TYPE_ICON = { runner: '⚡', breaker: '🔨', swarmer: '◆', minion: '·', shielder: '🛡', stealth: '👁' };
   for (const e of (showCombat ? gs.enemies : [])) {
     const sx = e.x - cam.x * cs;
     const sy = e.y - cam.y * cs;
     if (sx < -60 || sx > canvas.width + 60 || sy < -60 || sy > canvas.height + 60) continue;
+
+    // Stealth: render semi-transparent
+    if (e.stealth) ctx.globalAlpha = 0.35;
 
     // HP bar
     const bw = e.size * 2;
@@ -177,7 +181,26 @@ function render(canvas, gs) {
         ctx.textAlign = 'left';
       }
     }
+
+    // Armor indicator: inner ring for armored types
+    if ((e.armor || 0) > 0 && !e.boss) {
+      ctx.strokeStyle = e.type === 'shielder' ? '#4488ff' : '#9933cc';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sx - e.size / 2 + 2, sy - e.size / 2 + 2, e.size - 4, e.size - 4);
+    }
+
+    // Type icon below enemy body
+    const typeIcon = TYPE_ICON[e.type];
+    if (typeIcon && !e.boss) {
+      ctx.font = '8px serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = e.color;
+      ctx.fillText(typeIcon, sx, sy + e.size / 2 + 9);
+      ctx.textAlign = 'left';
+    }
+
+    ctx.globalAlpha = 1;
   }
+  ctx.globalAlpha = 1;
 
   // Projectiles
   for (const p of (showCombat ? gs.projectiles : [])) {
