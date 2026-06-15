@@ -1,9 +1,9 @@
 const C = {
-  CELL: 32,
-  COLS: 52,
-  ROWS: 30,
-  CORE_X: 24,   // top-left of 3×3 core block
-  CORE_Y: 13,
+  CELL: 32,     // overridden dynamically by resizeCanvas() to fit 25×25 in viewport
+  COLS: 25,
+  ROWS: 25,
+  CORE_X: 11,   // top-left of 3×3 core block — centers at (11-13, 11-13)
+  CORE_Y: 11,
 
   // Terrain types
   EMPTY:      0,

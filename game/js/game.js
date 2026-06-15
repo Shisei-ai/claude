@@ -145,27 +145,37 @@ function resizeCanvas() {
   const sidebar = document.getElementById('sidebar');
   const rPanel  = document.getElementById('res-right-panel');
   const hud     = document.getElementById('hud');
-  canvas.width  = Math.max(400, window.innerWidth  - (sidebar?.offsetWidth || 252) - (rPanel?.offsetWidth || 200));
-  canvas.height = Math.max(300, window.innerHeight - (hud?.offsetHeight   || 62));
+
+  const availW  = Math.max(400, window.innerWidth  - (sidebar?.offsetWidth || 252) - (rPanel?.offsetWidth || 200));
+  const availH  = Math.max(300, window.innerHeight - (hud?.offsetHeight   || 62));
+
+  // Compute the largest integer cell size that fits all 25×25 cells in the available area
+  const newCell = Math.max(16, Math.min(Math.floor(availW / C.COLS), Math.floor(availH / C.ROWS)));
+
+  // Rescale pixel-coordinate entities when cell size changes mid-session
+  if (gs && newCell !== C.CELL) {
+    const ratio = newCell / C.CELL;
+    for (const e of (gs.enemies     || [])) { e.x *= ratio; e.y *= ratio; }
+    for (const p of (gs.projectiles || [])) { p.x *= ratio; p.y *= ratio; p.tx *= ratio; p.ty *= ratio; }
+  }
+  C.CELL = newCell;
+
+  // Canvas is exactly the grid size — no scrolling needed
+  canvas.width  = C.COLS * C.CELL;
+  canvas.height = C.ROWS * C.CELL;
+
   if (gs) centerCamera();
 }
 
 function centerCamera() {
-  const canvas = document.getElementById('game-canvas');
-  const vw = Math.ceil(canvas.width  / C.CELL);
-  const vh = Math.ceil(canvas.height / C.CELL);
-  const cx = (gs.view === 'mission' && gs.map.hasCore) ? C.CORE_X : Math.floor(C.COLS / 2);
-  const cy = (gs.view === 'mission' && gs.map.hasCore) ? C.CORE_Y : Math.floor(C.ROWS / 2);
-  gs.cam.x = Math.max(0, Math.min(C.COLS - vw, cx - Math.floor(vw / 2)));
-  gs.cam.y = Math.max(0, Math.min(C.ROWS - vh, cy - Math.floor(vh / 2)));
+  // 25×25 grid always fits exactly in the canvas — no panning needed
+  gs.cam.x = 0;
+  gs.cam.y = 0;
 }
 
 function clampCam() {
-  const canvas = document.getElementById('game-canvas');
-  const vw = Math.ceil(canvas.width  / C.CELL);
-  const vh = Math.ceil(canvas.height / C.CELL);
-  gs.cam.x = Math.max(0, Math.min(C.COLS - vw, gs.cam.x));
-  gs.cam.y = Math.max(0, Math.min(C.ROWS - vh, gs.cam.y));
+  gs.cam.x = 0;
+  gs.cam.y = 0;
 }
 
 // ── Game Loop ─────────────────────────────────────────────
