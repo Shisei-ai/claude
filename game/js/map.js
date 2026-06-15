@@ -58,56 +58,67 @@ function generateFactoryMap() {
 }
 
 // ── Battle mission map: core defense + minable ore ────────
+// Act 1: 鉄鉱石・銅鉱石のみ
+// Act 2: 硫黄・石炭・原油のみ
+// Act 3: 全資源バランス配置
 function generateBattleMap(depth, isBoss = false, act = 1) {
   const grid = makeGrid();
   for (let dy = 0; dy < 3; dy++)
     for (let dx = 0; dx < 3; dx++)
       grid[C.CORE_Y + dy][C.CORE_X + dx].terrain = C.CORE;
 
-  const defs = [
-    { terrain: C.IRON_ORE,   count: 2 },
-    { terrain: C.COPPER_ORE, count: 2 },
-  ];
+  let defs;
   if (act === 1) {
-    defs.push({ terrain: C.COAL, count: 1 });
-    if (depth >= 3) defs.push({ terrain: C.SULFUR_DEP, count: 1 });
+    defs = [
+      { terrain: C.IRON_ORE,   count: 2 },
+      { terrain: C.COPPER_ORE, count: 2 },
+    ];
   } else if (act === 2) {
-    defs.push({ terrain: C.OIL_WELL,    count: 2 });
-    defs.push({ terrain: C.SULFUR_DEP,  count: 1 });
-    defs.push({ terrain: C.COAL,        count: 1 });
+    defs = [
+      { terrain: C.SULFUR_DEP, count: 1 },
+      { terrain: C.COAL,       count: 1 },
+      { terrain: C.OIL_WELL,   count: 2 },
+    ];
   } else {
-    defs.push({ terrain: C.OIL_WELL,    count: 2 });
-    defs.push({ terrain: C.SULFUR_DEP,  count: 2 });
+    defs = [
+      { terrain: C.IRON_ORE,   count: 1 },
+      { terrain: C.COPPER_ORE, count: 1 },
+      { terrain: C.COAL,       count: 1 },
+      { terrain: C.SULFUR_DEP, count: 1 },
+      { terrain: C.OIL_WELL,   count: 1 },
+    ];
   }
-  if (isBoss) defs.push({ terrain: C.IRON_ORE, count: 1 });
+  if (isBoss) defs.push({ terrain: act <= 1 ? C.IRON_ORE : C.OIL_WELL, count: 1 });
 
   placePatches(grid, defs, { coreBuffer: true, patchSize: 2 });
   return { grid, hasCore: true, coreX: C.CORE_X + 1, coreY: C.CORE_Y + 1 };
 }
 
 // ── Mining mission map: rich deposits, no core, no enemies ─
+// Act 1: 鉄鉱石・銅鉱石のみ
+// Act 2: 硫黄・石炭・原油のみ
+// Act 3: 全資源バランス配置
 function generateMiningMap(depth, act = 1) {
   const grid = makeGrid();
   let defs;
   if (act === 1) {
     defs = [
-      { terrain: C.IRON_ORE,   count: 5 },
-      { terrain: C.COPPER_ORE, count: 4 },
-      { terrain: C.COAL,       count: 3 },
+      { terrain: C.IRON_ORE,   count: 6 },
+      { terrain: C.COPPER_ORE, count: 5 },
     ];
   } else if (act === 2) {
     defs = [
-      { terrain: C.OIL_WELL,   count: 4 },
-      { terrain: C.SULFUR_DEP, count: 3 },
-      { terrain: C.COAL,       count: 3 },
-      { terrain: C.COPPER_ORE, count: 2 },
+      { terrain: C.OIL_WELL,   count: 5 },
+      { terrain: C.SULFUR_DEP, count: 4 },
+      { terrain: C.COAL,       count: 4 },
     ];
   } else {
     defs = [
-      { terrain: C.OIL_WELL,   count: 4 },
-      { terrain: C.SULFUR_DEP, count: 4 },
       { terrain: C.IRON_ORE,   count: 3 },
-      { terrain: C.COPPER_ORE, count: 2 },
+      { terrain: C.COPPER_ORE, count: 3 },
+      { terrain: C.OIL_WELL,   count: 3 },
+      { terrain: C.SULFUR_DEP, count: 3 },
+      { terrain: C.COAL,       count: 2 },
     ];
   }
   placePatches(grid, defs, { coreBuffer: false, patchSize: 3 });
