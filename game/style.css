@@ -239,9 +239,14 @@ body {
   padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--c-border);
   display: flex; flex-direction: column; gap: 0.3rem;
 }
+/* BUILD section grows to fill sidebar; inner tool-list scrolls */
+#sb-build   { flex: 1; min-height: 0; overflow: hidden; }
+#tool-list  { overflow-y: auto; flex: 1; min-height: 0; }
+#tool-list::-webkit-scrollbar { width: 4px; }
+#tool-list::-webkit-scrollbar-thumb { background: var(--c-border2); border-radius: 2px; }
 .sb-storage { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
-.sb-bottom  { margin-top: auto; border-top: 1px solid var(--c-border); border-bottom: none; padding: 0.55rem; gap: 0.4rem; }
-.sb-gears   { min-height: 40px; }
+.sb-bottom  { flex-shrink: 0; border-top: 1px solid var(--c-border); border-bottom: none; padding: 0.55rem; gap: 0.4rem; }
+.sb-gears   { min-height: 40px; flex-shrink: 0; }
 
 .sb-section-hdr {
   display: flex; align-items: center; gap: 0.4rem; padding-bottom: 0.3rem;

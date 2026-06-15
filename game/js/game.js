@@ -141,9 +141,12 @@ function withWorld(world, fn) {
 
 // ── Camera ────────────────────────────────────────────────
 function resizeCanvas() {
-  const canvas = document.getElementById('game-canvas');
-  canvas.width  = Math.max(400, window.innerWidth  - 198);
-  canvas.height = Math.max(300, window.innerHeight - 58);
+  const canvas  = document.getElementById('game-canvas');
+  const sidebar = document.getElementById('sidebar');
+  const rPanel  = document.getElementById('res-right-panel');
+  const hud     = document.getElementById('hud');
+  canvas.width  = Math.max(400, window.innerWidth  - (sidebar?.offsetWidth || 252) - (rPanel?.offsetWidth || 200));
+  canvas.height = Math.max(300, window.innerHeight - (hud?.offsetHeight   || 62));
   if (gs) centerCamera();
 }
 
@@ -1226,18 +1229,8 @@ function buildInspectorBody(cell, eq, def, t) {
   return parts.filter(Boolean).join('');
 }
 
-function bindInspectorEvents(cell, eq, t) {
-  // Extractor: item selection
-  document.querySelectorAll('#ei-body .ei-item-btn').forEach(btn => {
-    btn.onclick = () => { cell.equipment.selectedItem = btn.dataset.item; };
-  });
-  // Chem Plant / Adv Assembler: recipe selection
-  document.querySelectorAll('#ei-body .ei-recipe-btn').forEach(btn => {
-    btn.onclick = () => {
-      cell.equipment.recipeIdx  = parseInt(btn.dataset.ridx);
-      cell.equipment.inventory  = {};
-    };
-  });
+function bindInspectorEvents(_cell, _eq, _t) {
+  // Event delegation on #ei-body (set up once in DOMContentLoaded) handles all clicks.
 }
 
 function showScreen(id) {
@@ -1258,6 +1251,20 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tech-btn').onclick    = openTechTree;
   document.getElementById('tech-close').onclick  = closeTechTree;
   document.getElementById('ei-close').onclick = closeEquipmentInspector;
+
+  // Event delegation on #ei-body so clicks survive per-frame innerHTML replacement
+  document.getElementById('ei-body').addEventListener('click', e => {
+    if (!gs?.inspectedCell) return;
+    const eq = gs.inspectedCell.equipment;
+    const itemBtn = e.target.closest('.ei-item-btn');
+    if (itemBtn) { eq.selectedItem = itemBtn.dataset.item; return; }
+    const recipeBtn = e.target.closest('.ei-recipe-btn');
+    if (recipeBtn) {
+      eq.recipeIdx = parseInt(recipeBtn.dataset.ridx);
+      eq.inventory = {};
+    }
+  });
+
   setupCanvas();
   window.addEventListener('resize', () => { if (gs) resizeCanvas(); });
   showScreen('title-screen');
