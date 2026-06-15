@@ -1292,8 +1292,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tech-close').onclick  = closeTechTree;
   document.getElementById('ei-close').onclick = closeEquipmentInspector;
 
-  // Event delegation on #ei-body so clicks survive per-frame innerHTML replacement
-  document.getElementById('ei-body').addEventListener('click', e => {
+  // Use mousedown (not click) so selection fires before next RAF frame replaces innerHTML
+  document.getElementById('ei-body').addEventListener('mousedown', e => {
     if (!gs?.inspectedCell) return;
     const eq = gs.inspectedCell.equipment;
     const itemBtn = e.target.closest('.ei-item-btn');
