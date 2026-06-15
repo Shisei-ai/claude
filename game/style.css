@@ -611,6 +611,33 @@ body {
 }
 .rogue-node.reachable:hover { transform: scale(1.18); background: #201408; }
 
+.rogue-node.act-boss {
+  width: 54px; height: 54px; margin: -2px;
+  border-color: #cc3333; border-width: 2.5px;
+  background: #1a0808; font-size: 1.4rem;
+}
+.rogue-node.act-boss.reachable {
+  border-color: #ff4444;
+  animation: nodePulseRed 1.4s ease-in-out infinite;
+}
+@keyframes nodePulseRed {
+  0%, 100% { box-shadow: 0 0 4px rgba(220,48,48,0.35); }
+  50%       { box-shadow: 0 0 24px rgba(220,48,48,0.90); }
+}
+.rogue-node.final-boss {
+  width: 56px; height: 56px; margin: -3px;
+  border-color: var(--c-gold); border-width: 3px;
+  background: #1c0e00; font-size: 1.5rem;
+  box-shadow: 0 0 12px rgba(216,184,64,0.35);
+}
+.rogue-node.final-boss.reachable {
+  animation: nodePulseGold 1.4s ease-in-out infinite;
+}
+@keyframes nodePulseGold {
+  0%, 100% { box-shadow: 0 0 6px rgba(216,184,64,0.4); }
+  50%       { box-shadow: 0 0 28px rgba(216,184,64,0.95); }
+}
+
 /* ── NODE PREVIEW ───────────────────────────────────────── */
 #node-preview {
   position: absolute; right: 1.2rem; bottom: 1.2rem;

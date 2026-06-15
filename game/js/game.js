@@ -230,7 +230,11 @@ function tickGrid(world, isMission) {
 
 // ── Victory / Defeat ──────────────────────────────────────
 function checkIndustryVictory() {
-  if ((gs.resources[gs.goalItem] || 0) >= gs.goalTarget) victory('industry');
+  if ((gs.resources[gs.goalItem] || 0) >= gs.goalTarget) {
+    // Industrial victory requires reaching Act 3 (both act bosses defeated)
+    if ((gs.rogue.actBossesDefeated || 0) < 2) return;
+    victory('industry');
+  }
 }
 
 function victory(kind) {
@@ -265,7 +269,10 @@ function checkBattleEnd() {
 
 function currentDepth() {
   const cur = gs.rogue.nodes.find(n => n.id === gs.rogue.current);
-  return cur ? cur.col : 0;
+  if (!cur) return '0';
+  const act = cur.act || 1;
+  const actBounds = [[0,4],[5,9],[10,14]][act-1];
+  return `第${act}幕 ${cur.col - actBounds[0] + 1}節`;
 }
 
 // ── Node lifecycle ────────────────────────────────────────
@@ -301,10 +308,11 @@ function startNode(node) {
     gs.afterUpgrade = () => openRogueMap();
     showUpgradeScreen();
   } else if (node.type === 'mining') {
-    startMission(node, generateMiningMap(node.col), 'mining');
+    startMission(node, generateMiningMap(node.col, node.act), 'mining');
   } else {
-    // battle / elite / boss
-    startMission(node, generateBattleMap(node.col, node.type === 'boss'), 'battle');
+    // battle / elite / boss / act_boss
+    const isBossMap = node.type === 'boss' || node.type === 'act_boss';
+    startMission(node, generateBattleMap(node.col, isBossMap, node.act), 'battle');
   }
 }
 
@@ -349,9 +357,9 @@ function startBattle() {
     generateSpawnPoints(gs);
     computeFlowField(gs);
     spawnWave(gs, {
-      boss:  m.node.type === 'boss',
+      boss:  m.node.type === 'boss' || m.node.type === 'act_boss',
       elite: m.node.type === 'elite',
-      mult:  gs.modeDef.enemyMult,
+      mult:  gs.modeDef.enemyMult * (m.node.type === 'act_boss' ? 1.4 : 1),
     });
   });
   gearWaveStart(gs);
@@ -399,7 +407,8 @@ function battleCleared() {
   if (gs.waveObjective?.met) gs.bonusUpgradeCount = (gs.bonusUpgradeCount || 0) + 1;
   gs.waveObjective = null;
 
-  if (mission.node.type === 'elite') gs.pendingGearDrops = (gs.pendingGearDrops || 0) + 1;
+  if (mission.node.type === 'elite')    gs.pendingGearDrops = (gs.pendingGearDrops || 0) + 1;
+  if (mission.node.type === 'act_boss') gs.pendingGearDrops = (gs.pendingGearDrops || 0) + 2;
 
   refundMissionEquipment(mission.map);
   grantNodeRewards(mission.node);
@@ -411,6 +420,16 @@ function battleCleared() {
   setView('factory');
 
   if (node.type === 'boss') { victory('rogue'); return; }
+
+  if (node.type === 'act_boss') {
+    gs.rogue.actBossesDefeated = (gs.rogue.actBossesDefeated || 0) + 1;
+    const nextAct = gs.rogue.actBossesDefeated + 1;
+    gs.state = 'reward';
+    gs.upgradeBonus = 'guaranteed_rare';
+    gs.afterUpgrade = () => openRogueMap();
+    flushGearsThen(() => showUpgradeScreen());
+    return;
+  }
 
   gs.state = 'reward';
   gs.afterUpgrade = () => openRogueMap();
@@ -511,9 +530,16 @@ function getSynergyHints(gs) {
 function updateHUD() {
   if (!gs) return;
 
-  // Depth (rogue progress)
+  // Depth (act + position)
   const depthEl = document.getElementById('depth-num');
-  if (depthEl) depthEl.textContent = `${currentDepth()}/${gs.rogue.colCount - 1}`;
+  if (depthEl) {
+    const curNode = gs.rogue.nodes.find(n => n.id === gs.rogue.current);
+    const act     = curNode?.act || 1;
+    const actBounds = [[0,4],[5,9],[10,14]][act-1];
+    const posInAct  = (curNode?.col || 0) - actBounds[0] + 1;
+    const actLen    = actBounds[1] - actBounds[0] + 1;
+    depthEl.textContent = `第${act}幕 ${posInAct}/${actLen}`;
+  }
 
   // Core HP (persistent across the run)
   const hp      = Math.max(0, gs.coreHp);
@@ -531,9 +557,13 @@ function updateHUD() {
   pwFill.style.width = (pwRatio * 100) + '%';
   pwFill.style.background = pwRatio < 0.15 ? '#ff3333' : pwRatio < 0.4 ? '#ffaa22' : '#33aaff';
 
-  const goal = gs.resources[gs.goalItem] || 0;
+  const goal      = gs.resources[gs.goalItem] || 0;
+  const beaten    = gs.rogue.actBossesDefeated || 0;
+  const needAct3  = beaten < 2;
   document.getElementById('goal-fill').style.width = (Math.min(1, goal / gs.goalTarget) * 100) + '%';
-  document.getElementById('goal-text').textContent  = `高度回路 ${goal}/${gs.goalTarget}`;
+  document.getElementById('goal-text').textContent  = needAct3
+    ? `高度回路 ${goal}/${gs.goalTarget} ⚠第3幕要`
+    : `高度回路 ${goal}/${gs.goalTarget}`;
 
   document.querySelectorAll('#res-right-panel .res-row').forEach(row => {
     const val = Math.floor(gs.resources[row.dataset.res] || 0);
