@@ -892,6 +892,194 @@ function refreshEquipmentInspector() {
   const def = EQ_DEF[eq.type];
   const t   = eq.type;
 
+  const isActive      = eq.timer > 0 || !!eq.inputItem || !!eq.crafting || (eq.outQueue?.length > 0);
+  const hasPowerIssue = (def.powerCost || 0) > 0 && (gs.power || 0) < def.powerCost;
+  const [scls, stxt]  = hasPowerIssue
+    ? ['ei-offline', '⚡ 電力不足']
+    : isActive
+    ? ['ei-active',  '🟢 稼働中']
+    : ['ei-idle',    '⭕ 待機中'];
+
+  document.getElementById('ei-status').innerHTML =
+    `<span class="ei-status-badge ${scls}">${stxt}</span>`;
+  document.getElementById('ei-body').innerHTML = buildInspectorBody(cell, eq, def, t);
+  bindInspectorEvents(cell, eq, t);
+}
+
+function buildInspectorBody(cell, eq, def, t) {
+  const parts = [];
+  const row  = (lbl, val) =>
+    `<div class="ei-info-row"><span class="ei-info-lbl">${lbl}</span><span class="ei-info-val">${val}</span></div>`;
+  const bar  = (ratio, color = 'var(--c-accent)') =>
+    `<div class="ei-progress-wrap"><div class="ei-progress-fill" style="width:${Math.round(Math.max(0, Math.min(1, ratio)) * 100)}%;background:${color}"></div></div>`;
+  const sec  = (title, content) =>
+    `<div class="ei-section"><div class="ei-section-title">${title}</div>${content}</div>`;
+  const queue = (q) => {
+    if (!q?.length) return '';
+    return sec('出力待ち', `<div class="ei-queue">${q.map(k => `<span class="ei-queue-item">${RES_NAMES[k] || k}</span>`).join('')}</div>`);
+  };
+  const inv = (inventory) => {
+    if (!inventory) return '';
+    const items = Object.entries(inventory).filter(([, v]) => v > 0)
+      .map(([k, v]) => `<span class="ei-inv-item">${RES_NAMES[k] || k} ×${v}</span>`).join('');
+    return items ? sec('内部在庫', `<div class="ei-inventory">${items}</div>`) : '';
+  };
+  const hint = (msg) => `<div class="ei-idle-hint">${msg}</div>`;
+
+  if (t === C.EQ.EXTRACTOR) {
+    const cur = eq.selectedItem;
+    let grid = '<div class="ei-item-grid">';
+    for (const [k, v] of Object.entries(RES_NAMES)) {
+      const qty = Math.floor(gs.resources[k] || 0);
+      const sel = k === cur ? ' selected' : '';
+      grid += `<button class="ei-item-btn${sel}" data-item="${k}">${v}<br><span class="ei-qty">${qty}</span></button>`;
+    }
+    grid += '</div>';
+    parts.push(sec('取り出しアイテム選択', grid));
+
+  } else if (t === C.EQ.INSERTER) {
+    parts.push(row('機能', 'コンベアの荷物を倉庫へ格納'));
+
+  } else if (t === C.EQ.CONVEYOR) {
+    parts.push(row('積載', cell.item ? (RES_NAMES[cell.item] || cell.item) : '（空）'));
+
+  } else if (t === C.EQ.FURNACE) {
+    const maxF = gs.upgrades.furnaceSpeed || 180;
+    if (eq.inputItem) {
+      const out = def.recipes[eq.inputItem];
+      parts.push(row('入力', RES_NAMES[eq.inputItem] || eq.inputItem));
+      if (out) parts.push(row('出力', RES_NAMES[out] || out));
+      if (eq.timer > 0) parts.push(sec('進捗', bar(1 - eq.timer / maxF, '#d06828')));
+    } else {
+      parts.push(hint('鉱石をコンベアで投入してください'));
+    }
+    parts.push(queue(eq.outQueue));
+
+  } else if (t === C.EQ.ASSEMBLER) {
+    const r = def.recipe;
+    const inputStr = Object.entries(r.inputs || {}).map(([k, v]) => `${RES_NAMES[k]}×${v}`).join(' + ');
+    parts.push(row('レシピ', `${inputStr} → ${RES_NAMES[r.output] || r.output}`));
+    parts.push(inv(eq.inventory));
+    const maxA = gs.upgrades.assemblerSpeed || 240;
+    if (eq.crafting) parts.push(sec('進捗', bar(1 - eq.timer / maxA, '#28b858')));
+    else parts.push(hint('コンベアで素材を投入してください'));
+    parts.push(queue(eq.outQueue));
+
+  } else if (t === C.EQ.COKE_OVEN) {
+    parts.push(row('レシピ', '石炭×2 → コークス'));
+    if (eq.timer > 0) parts.push(sec('進捗', bar(1 - eq.timer / 150, '#b06028')));
+    parts.push(queue(eq.outQueue));
+
+  } else if (t === C.EQ.DISTILLATION) {
+    parts.push(row('レシピ', '原油 → 石油ガス・軽油・重油'));
+    if (eq.fuel != null) parts.push(row('原油在庫', Math.floor(eq.fuel || 0)));
+    if (eq.timer > 0) parts.push(sec('進捗', bar(1 - eq.timer / 200, '#70b890')));
+    parts.push(queue(eq.outQueue));
+
+  } else if (t === C.EQ.CHEM_PLANT || t === C.EQ.ADV_ASSEMBLER) {
+    const recipes = def.recipes;
+    const curIdx  = eq.recipeIdx || 0;
+    let rlist = '<div class="ei-recipe-list">';
+    for (let i = 0; i < recipes.length; i++) {
+      if (!recipeAvailable(recipes[i], gs)) continue;
+      const sel = i === curIdx ? ' selected' : '';
+      rlist += `<button class="ei-recipe-btn${sel}" data-ridx="${i}">${recipes[i].icon} ${recipes[i].name}</button>`;
+    }
+    rlist += '</div>';
+    parts.push(sec('レシピ選択', rlist));
+    const maxC = t === C.EQ.CHEM_PLANT ? (gs.upgrades.chemSpeed || 240) : (gs.upgrades.assemblerSpeed || 300);
+    const barColor = t === C.EQ.CHEM_PLANT ? '#38b890' : '#30d880';
+    if (eq.timer > 0) parts.push(sec('進捗', bar(1 - eq.timer / maxC, barColor)));
+    parts.push(inv(eq.inventory));
+    parts.push(queue(eq.outQueue));
+
+  } else if (t === C.EQ.ELECTROLYZER) {
+    parts.push(row('レシピ', '水 → 水素 + 酸素'));
+    if (eq.fuel != null) parts.push(row('水在庫', Math.floor(eq.fuel || 0)));
+    if (eq.timer > 0) parts.push(sec('進捗', bar(1 - eq.timer / 180, '#4890d8')));
+    parts.push(queue(eq.outQueue));
+
+  } else if (t === C.EQ.GENERATOR) {
+    parts.push(row('燃料', `コークス ${Math.floor(eq.fuel || 0)}`));
+    if (eq.timer > 0) parts.push(sec('進捗', bar(1 - eq.timer / 300, '#2890d8')));
+    parts.push(row('発電', '+1 電力/tick'));
+
+  } else if (t === C.EQ.OIL_PUMP) {
+    parts.push(row('採掘物', '原油'));
+    parts.push(hint('石油地層の上に設置してください'));
+
+  } else if (t === C.EQ.WATER_PUMP) {
+    parts.push(row('汲み上げ', '水'));
+    parts.push(queue(eq.outQueue));
+
+  } else if (t === C.EQ.TURRET) {
+    parts.push(row('射程', `${gs.upgrades.turretRange || 4} マス`));
+    parts.push(row('攻撃倍率', `×${(gs.upgrades.turretDmgMult || 1).toFixed(1)}`));
+    parts.push(row('発射速度倍率', `×${(gs.upgrades.turretFireRate || 1).toFixed(1)}`));
+
+  } else if (t === C.EQ.LASER) {
+    const rng = gs.upgrades.infiniteRange ? '∞' : `${(gs.upgrades.turretRange || 4) + 3} マス`;
+    parts.push(row('射程', rng));
+    parts.push(row('攻撃倍率', `×${(gs.upgrades.turretDmgMult || 1).toFixed(1)}`));
+
+  } else if (t === C.EQ.WALL) {
+    const maxHp = wallMaxHp(gs);
+    const hp    = eq.hp || 0;
+    const ratio = Math.max(0, hp / maxHp);
+    parts.push(row('HP', `${Math.ceil(hp)} / ${maxHp}`));
+    const hpColor = ratio > 0.5 ? '#58b048' : ratio > 0.3 ? '#c89030' : '#c04040';
+    parts.push(sec('耐久', bar(ratio, hpColor)));
+
+  } else if (t === C.EQ.MINER) {
+    const terrainMap = {
+      [C.IRON_ORE]: '鉄鉱石', [C.COPPER_ORE]: '銅鉱石',
+      [C.COAL]: '石炭',       [C.SULFUR_DEP]: '硫黄',
+    };
+    const res = terrainMap[cell.terrain];
+    if (res) parts.push(row('採掘対象', res));
+    parts.push(row('産出量', `×${gs.upgrades.minerYield || 1}`));
+  }
+
+  return parts.filter(Boolean).join('');
+}
+
+function bindInspectorEvents(cell, eq, t) {
+  document.querySelectorAll('#ei-body .ei-item-btn').forEach(btn => {
+    btn.onclick = () => { cell.equipment.selectedItem = btn.dataset.item; };
+  });
+  document.querySelectorAll('#ei-body .ei-recipe-btn').forEach(btn => {
+    btn.onclick = () => {
+      cell.equipment.recipeIdx = parseInt(btn.dataset.ridx);
+      cell.equipment.inventory = {};
+    };
+  });
+}
+
+// ── Equipment Inspector ────────────────────────────────────
+
+function openEquipmentInspector(rootCell) {
+  const eq  = rootCell.equipment;
+  const def = EQ_DEF[eq.type];
+  gs.inspectedCell = rootCell;
+  document.getElementById('ei-icon').textContent = def.icon || '';
+  document.getElementById('ei-name').textContent = def.name || '';
+  refreshEquipmentInspector();
+  document.getElementById('equip-inspector').classList.add('visible');
+}
+
+function closeEquipmentInspector() {
+  gs.inspectedCell = null;
+  document.getElementById('equip-inspector').classList.remove('visible');
+}
+
+function refreshEquipmentInspector() {
+  if (!gs?.inspectedCell) return;
+  const cell = gs.inspectedCell;
+  const eq   = cell.equipment;
+  if (!eq || eq.type === '_occ') { closeEquipmentInspector(); return; }
+  const def = EQ_DEF[eq.type];
+  const t   = eq.type;
+
   // Status badge
   const isActive      = eq.timer > 0 || !!eq.inputItem || !!eq.crafting || (eq.outQueue?.length > 0);
   const hasPowerIssue = (def.powerCost || 0) > 0 && (gs.power || 0) < def.powerCost;
