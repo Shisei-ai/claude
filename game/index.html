@@ -97,48 +97,6 @@
           <div id="tool-info"></div>
         </div>
 
-        <div class="sb-section sb-storage">
-          <div class="sb-title">WAREHOUSE（共有倉庫）</div>
-          <div id="storage-panel">
-            <div class="res-group">
-              <div class="res-group-label">鉱物</div>
-              <div class="res-row" data-res="iron_ore">    <span class="res-lbl">鉄鉱石</span>    <span class="res-val">0</span></div>
-              <div class="res-row" data-res="copper_ore">  <span class="res-lbl">銅鉱石</span>    <span class="res-val">0</span></div>
-              <div class="res-row" data-res="coal">        <span class="res-lbl">石炭</span>      <span class="res-val">0</span></div>
-              <div class="res-row" data-res="sulfur">      <span class="res-lbl">硫黄</span>      <span class="res-val">0</span></div>
-            </div>
-            <div class="res-group">
-              <div class="res-group-label">固体製品</div>
-              <div class="res-row" data-res="iron_plate">    <span class="res-lbl">鉄板</span>        <span class="res-val">0</span></div>
-              <div class="res-row" data-res="copper_plate">  <span class="res-lbl">銅板</span>        <span class="res-val">0</span></div>
-              <div class="res-row" data-res="coke">          <span class="res-lbl">コークス</span>    <span class="res-val">0</span></div>
-              <div class="res-row" data-res="plastic">       <span class="res-lbl">プラスチック</span><span class="res-val">0</span></div>
-              <div class="res-row" data-res="refined_copper"><span class="res-lbl">精錬銅</span>      <span class="res-val">0</span></div>
-              <div class="res-row" data-res="explosives">    <span class="res-lbl">爆薬</span>        <span class="res-val">0</span></div>
-            </div>
-            <div class="res-group">
-              <div class="res-group-label">回路</div>
-              <div class="res-row" data-res="circuit">     <span class="res-lbl">回路基板</span>    <span class="res-val">0</span></div>
-              <div class="res-row" data-res="adv_circuit"> <span class="res-lbl">🎯 高度回路</span><span class="res-val">0</span></div>
-            </div>
-            <div class="res-group">
-              <div class="res-group-label">石油</div>
-              <div class="res-row" data-res="crude_oil"> <span class="res-lbl">原油</span>     <span class="res-val">0</span></div>
-              <div class="res-row" data-res="petro_gas"> <span class="res-lbl">石油ガス</span> <span class="res-val">0</span></div>
-              <div class="res-row" data-res="light_oil">  <span class="res-lbl">軽油</span>     <span class="res-val">0</span></div>
-              <div class="res-row" data-res="heavy_oil">  <span class="res-lbl">重油</span>     <span class="res-val">0</span></div>
-            </div>
-            <div class="res-group">
-              <div class="res-group-label">化学品</div>
-              <div class="res-row" data-res="sulfuric_acid"><span class="res-lbl">硫酸</span>   <span class="res-val">0</span></div>
-              <div class="res-row" data-res="lubricant">   <span class="res-lbl">潤滑油</span> <span class="res-val">0</span></div>
-              <div class="res-row" data-res="water">       <span class="res-lbl">水</span>     <span class="res-val">0</span></div>
-              <div class="res-row" data-res="hydrogen">    <span class="res-lbl">水素</span>   <span class="res-val">0</span></div>
-              <div class="res-row" data-res="oxygen">      <span class="res-lbl">酸素</span>   <span class="res-val">0</span></div>
-            </div>
-          </div>
-        </div>
-
         <div class="sb-section sb-gears">
           <div class="sb-title">GEARS</div>
           <div id="gear-display"></div>
@@ -151,6 +109,62 @@
       </div>
 
       <canvas id="game-canvas"></canvas>
+
+      <!-- Right resource panel -->
+      <div id="res-right-panel">
+        <div class="rp-title">WAREHOUSE（共有倉庫）</div>
+        <div id="res-right-list">
+          <div class="res-group">
+            <div class="res-group-label">鉱物</div>
+            <div class="res-row" data-res="iron_ore">    <span class="res-lbl">鉄鉱石</span>    <span class="res-val">0</span></div>
+            <div class="res-row" data-res="copper_ore">  <span class="res-lbl">銅鉱石</span>    <span class="res-val">0</span></div>
+            <div class="res-row" data-res="coal">        <span class="res-lbl">石炭</span>      <span class="res-val">0</span></div>
+            <div class="res-row" data-res="sulfur">      <span class="res-lbl">硫黄</span>      <span class="res-val">0</span></div>
+          </div>
+          <div class="res-group">
+            <div class="res-group-label">固体製品</div>
+            <div class="res-row" data-res="iron_plate">    <span class="res-lbl">鉄板</span>        <span class="res-val">0</span></div>
+            <div class="res-row" data-res="copper_plate">  <span class="res-lbl">銅板</span>        <span class="res-val">0</span></div>
+            <div class="res-row" data-res="coke">          <span class="res-lbl">コークス</span>    <span class="res-val">0</span></div>
+            <div class="res-row" data-res="plastic">       <span class="res-lbl">プラスチック</span><span class="res-val">0</span></div>
+            <div class="res-row" data-res="refined_copper"><span class="res-lbl">精錬銅</span>      <span class="res-val">0</span></div>
+            <div class="res-row" data-res="explosives">    <span class="res-lbl">爆薬</span>        <span class="res-val">0</span></div>
+          </div>
+          <div class="res-group">
+            <div class="res-group-label">回路</div>
+            <div class="res-row" data-res="circuit">     <span class="res-lbl">回路基板</span>    <span class="res-val">0</span></div>
+            <div class="res-row" data-res="adv_circuit"> <span class="res-lbl">🎯 高度回路</span><span class="res-val">0</span></div>
+          </div>
+          <div class="res-group">
+            <div class="res-group-label">石油</div>
+            <div class="res-row" data-res="crude_oil"> <span class="res-lbl">原油</span>     <span class="res-val">0</span></div>
+            <div class="res-row" data-res="petro_gas"> <span class="res-lbl">石油ガス</span> <span class="res-val">0</span></div>
+            <div class="res-row" data-res="light_oil">  <span class="res-lbl">軽油</span>     <span class="res-val">0</span></div>
+            <div class="res-row" data-res="heavy_oil">  <span class="res-lbl">重油</span>     <span class="res-val">0</span></div>
+          </div>
+          <div class="res-group">
+            <div class="res-group-label">化学品</div>
+            <div class="res-row" data-res="sulfuric_acid"><span class="res-lbl">硫酸</span>   <span class="res-val">0</span></div>
+            <div class="res-row" data-res="lubricant">   <span class="res-lbl">潤滑油</span> <span class="res-val">0</span></div>
+            <div class="res-row" data-res="water">       <span class="res-lbl">水</span>     <span class="res-val">0</span></div>
+            <div class="res-row" data-res="hydrogen">    <span class="res-lbl">水素</span>   <span class="res-val">0</span></div>
+            <div class="res-row" data-res="oxygen">      <span class="res-lbl">酸素</span>   <span class="res-val">0</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Equipment Inspector -->
+    <div id="equip-inspector">
+      <div class="ei-panel">
+        <div class="ei-hdr">
+          <span class="ei-hdr-icon" id="ei-icon"></span>
+          <span class="ei-hdr-name" id="ei-name"></span>
+          <button class="ei-close" id="ei-close">✕ 閉じる</button>
+        </div>
+        <div id="ei-status"></div>
+        <div id="ei-body"></div>
+      </div>
     </div>
 
     <!-- Rogue route map overlay -->
