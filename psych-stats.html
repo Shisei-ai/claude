@@ -195,6 +195,7 @@
                     <option value="pca">主成分法 (PCA)</option>
                     <option value="paf">主因子法 (PAF)</option>
                     <option value="ml">最尤法 (ML)</option>
+                    <option value="uls">最小二乗法 (ULS)</option>
                 </select>
             </div>
             <div style="flex:1;">
@@ -1877,6 +1878,35 @@
         return { maps, mapCount };
     }
 
+    // 最小二乗法 (ULS/MINRES) — 非対角残差の平方和を最小化 (Harman & Jones, 1966)
+    function computeULSLoadings(R, m, maxIter=500, tol=1e-8) {
+        const p = R.length;
+        const Rinv = StatsLib.invertMatrix(R);
+        let communalities = Rinv
+            ? R.map((_, i) => Math.min(0.99, Math.max(0.01, 1 - 1/Rinv[i][i])))
+            : R.map(() => 0.5);
+        let loadings = null, prevF = Infinity;
+        for (let iter = 0; iter < maxIter; iter++) {
+            const Rc = R.map((row, i) => row.map((v, j) => i === j ? communalities[i] : v));
+            const {values, vectors} = jacobiEigen(Rc);
+            const mEff = Math.min(m, values.filter(v => v > 0).length) || 1;
+            loadings = R.map((_, i) => Array.from({length: m}, (_, j) =>
+                j < mEff ? vectors[j][i] * Math.sqrt(Math.max(0, values[j])) : 0));
+            const LLT = StatsLib.multiply(loadings, StatsLib.transpose(loadings));
+            let F = 0;
+            for (let i = 0; i < p; i++)
+                for (let j = 0; j < p; j++)
+                    if (i !== j) F += 0.5 * (R[i][j] - LLT[i][j]) ** 2;
+            const newComm = loadings.map(row => Math.min(1, row.reduce((s, v) => s + v*v, 0)));
+            const maxChange = newComm.reduce((mx, v, i) => Math.max(mx, Math.abs(v - communalities[i])), 0);
+            communalities = newComm;
+            if (maxChange < tol || Math.abs(prevF - F) < tol * 100) break;
+            prevF = F;
+        }
+        const finalL = loadings.map(row => { const r=[...row]; while(r.length<m) r.push(0); return r.slice(0,m); });
+        return { loadings: finalL, communalities };
+    }
+
     // 最尤因子分析 (EMアルゴリズム, Rubin & Thayer 1982)
     function computeMLLoadings(R, m, maxIter=500, tol=1e-6) {
         const p = R.length;
@@ -2038,6 +2068,10 @@
             const mlResult = computeMLLoadings(R, m);
             rawLoadings = mlResult.loadings;
             uniquenesses = mlResult.uniquenesses;
+        } else if (extraction === 'uls') {
+            const ulsResult = computeULSLoadings(R, m);
+            rawLoadings = ulsResult.loadings;
+            uniquenesses = ulsResult.communalities.map(h2 => Math.max(0.005, 1 - h2));
         } else {
             rawLoadings = Array.from({length:p}, (_,i) =>
                 Array.from({length:m}, (_,j) => pcaVectors[j][i] * Math.sqrt(Math.max(0, pcaValues[j]))));
@@ -2072,7 +2106,40 @@
 
         // ===== HTML出力 =====
         const extractionLabel = extraction === 'paf' ? '主因子法 (PAF)' :
-                                extraction === 'ml'  ? '最尤法 (ML)' : '主成分法 (PCA)';
+                                extraction === 'ml'  ? '最尤法 (ML)' :
+                                extraction === 'uls' ? '最小二乗法 (ULS)' : '主成分法 (PCA)';
+
+        // ===== 因子ごとのCronbach α (|loading| >= .40 の主負荷項目) =====
+        const factorPrimaryItems = Array.from({length: m}, (_, j) =>
+            keys.filter((k, i) => Math.abs(finalLoadings[i][j]) >= 0.40));
+        const factorAlphas = factorPrimaryItems.map(items => {
+            if (items.length < 2) return NaN;
+            const itemCols = items.map(k => valid.map(row => parseFloat(row[k])));
+            const kk = itemCols.length, nn = itemCols[0].length;
+            const itemVars = itemCols.map(col => {
+                const mu = col.reduce((s,v)=>s+v,0)/nn;
+                return col.reduce((s,v)=>s+(v-mu)**2,0)/(nn-1);
+            });
+            const sums = Array.from({length:nn}, (_,i) => itemCols.reduce((s,col)=>s+col[i],0));
+            const mu2 = sums.reduce((s,v)=>s+v,0)/nn;
+            const sumVar = sums.reduce((s,v)=>s+(v-mu2)**2,0)/(nn-1);
+            if (sumVar < 1e-10) return NaN;
+            return (kk/(kk-1))*(1-itemVars.reduce((s,v)=>s+v,0)/sumVar);
+        });
+
+        // ===== 削除候補項目の検出 =====
+        const deletionCandidates = keys.map((k, i) => {
+            const absLoads = finalLoadings[i].map(Math.abs);
+            const sorted = [...absLoads].sort((a,b)=>b-a);
+            const h2 = communalities[i];
+            const reasons = [];
+            if (sorted[0] < 0.40) reasons.push('全因子で|負荷量| &lt; .40（どの因子にも明確に負荷しない）');
+            if (h2 < 0.30) reasons.push(`共通性が低い（h² = ${h2.toFixed(3)} &lt; .30）`);
+            if (m >= 2 && sorted[0] >= 0.35 && sorted.length >= 2 && sorted[0] - sorted[1] < 0.15)
+                reasons.push(`交差負荷（最大 ${sorted[0].toFixed(3)} vs 2位 ${sorted[1].toFixed(3)}，差 = ${(sorted[0]-sorted[1]).toFixed(3)} &lt; .15）`);
+            if (h2 > 0.95) reasons.push(`ハイウッドケース（h² = ${h2.toFixed(3)} ≥ .95）`);
+            return {key: k, reasons};
+        }).filter(it => it.reasons.length > 0);
 
         let h = `<div class="report-card">
             <h2 style="color:var(--primary);border-bottom:2px solid #cbd5e1;padding-bottom:5px;">因子分析</h2>
@@ -2214,6 +2281,44 @@
             }
         }
 
+        // --- 因子ごとの Cronbach α ---
+        h += `<h3 style="margin-top:20px;color:#1e293b;font-size:1rem;">因子ごとの Cronbach の α（|負荷量| ≥ .40 の主項目）</h3>
+            <table class="stats-table">
+            <tr><th>因子</th><th>α 係数</th><th>項目数</th><th>構成項目</th><th>内的一貫性</th></tr>`;
+        factorAlphas.forEach((alpha, j) => {
+            const items = factorPrimaryItems[j];
+            const aColor = isNaN(alpha)||items.length<2 ? '#64748b' :
+                alpha >= .80 ? '#059669' : alpha >= .70 ? '#d97706' : '#dc2626';
+            const aLabel = isNaN(alpha)||items.length<2 ? '—' :
+                alpha >= .90 ? '非常に高い' : alpha >= .80 ? '十分' :
+                alpha >= .70 ? '許容できる' : alpha >= .60 ? 'やや低い' : '低い';
+            h += `<tr>
+                <td><b>F${j+1}</b></td>
+                <td style="color:${aColor};font-weight:bold;">${isNaN(alpha)||items.length<2?'—':alpha.toFixed(3)}</td>
+                <td>${items.length}</td>
+                <td style="font-size:0.82rem;">${items.map(k=>escapeHtml(k)).join('，')||'（なし）'}</td>
+                <td style="color:${aColor};">${items.length<2?'項目数不足':aLabel}</td>
+            </tr>`;
+        });
+        h += '</table>';
+
+        // --- 削除候補項目 ---
+        if (deletionCandidates.length > 0) {
+            h += `<h3 style="margin-top:20px;color:#b91c1c;font-size:1rem;">⚠️ 削除候補項目</h3>
+                <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px;margin-bottom:4px;">
+                <p style="font-size:0.82rem;color:#7f1d1d;margin:0 0 10px 0;">以下の項目は因子構造上の問題が検出されました。削除または文言の見直しを検討してください。</p>
+                <table class="stats-table">
+                <tr><th>項目名</th><th>検出された問題</th></tr>`;
+            deletionCandidates.forEach(({key, reasons}) => {
+                h += `<tr><td><b>${escapeHtml(key)}</b></td><td style="font-size:0.82rem;">${reasons.map(r=>`• ${r}`).join('<br>')}</td></tr>`;
+            });
+            h += '</table></div>';
+        } else {
+            h += `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;margin-top:16px;font-size:0.85rem;color:#14532d;">
+                ✅ 削除候補項目なし — 全項目が適切な負荷量・共通性基準を満たしています。
+            </div>`;
+        }
+
         // --- 適合度統計量 ---
         if (fitStats) {
             const { Fmin, chi2, df, pVal, rmsea, cfi, aic, bic } = fitStats;
@@ -2240,8 +2345,10 @@
             • <b>共通性 (h²)</b>: 0.40未満は因子による説明が不十分な可能性があります。<br>
             • <b>因子負荷量の目安</b>: |.60|以上=非常に強い、|.40|以上=有意（Comrey &amp; Lee, 1992）。<br>
             ${extraction === 'ml' ? '• <b>最尤法 (ML)</b>: 適合度統計量が得られ因子数の比較検討が可能。正規性を仮定。<br>' : ''}
+            ${extraction === 'uls' ? '• <b>最小二乗法 (ULS/MINRES)</b>: 非対角残差の平方和を最小化。正規性仮定が不要で頑健（Harman &amp; Jones, 1966）。<br>' : ''}
             • <b>バリマックス</b>: 因子間無相関を仮定。<b>プロマックス</b>: 因子間相関を許容（心理尺度に多い）。<br>
-            • <b>PAF vs PCA</b>: 共通因子モデルにはPAFが理論的に適切（Fabrigar et al., 1999）。
+            • <b>PAF vs PCA</b>: 共通因子モデルにはPAFが理論的に適切（Fabrigar et al., 1999）。<br>
+            • <b>削除候補の基準</b>: |負荷量| &lt; .40、共通性 h² &lt; .30、交差負荷（差 &lt; .15）、ハイウッドケース（h² ≥ .95）。
         </div>
         ${(()=>{
             const rotLabel2 = rotation==='varimax'?'バリマックス回転（直交）':rotation==='promax'?'プロマックス回転（斜交）':'回転なし';
@@ -2249,6 +2356,15 @@
             if (fitStats) {
                 const fi = fitStats;
                 txt += `モデル適合度は，CFI = ${apaFmt(fi.cfi,3,true)}，RMSEA = ${apaFmt(fi.rmsea,4,true)}，χ²(${fi.df}) = ${fi.chi2.toFixed(2)}，<i>p</i> ${apaPfmt(fi.pVal)} であった（${fi.cfi>=.95&&fi.rmsea<=.08?'許容できる適合':fi.cfi>=.97&&fi.rmsea<=.05?'良好な適合':'適合度が低い可能性がある'}）。`;
+            }
+            const alphaLines = factorAlphas.map((a, j) => {
+                const k2 = factorPrimaryItems[j].length;
+                return `F${j+1}（${k2}項目）: α ${isNaN(a)||k2<2 ? '= 算出不可' : '= ' + apaFmt(a,3,true)}`;
+            }).join('，');
+            if (alphaLines) txt += `各因子の内的一貫性（Cronbach の α）は，${alphaLines}であった。`;
+            if (deletionCandidates.length > 0) {
+                const names = deletionCandidates.map(d => `「${escapeHtml(d.key)}」`).join('，');
+                txt += `なお，${names} については因子負荷量・共通性等の問題が検出されたため，項目の削除または改訂を検討されたい。`;
             }
             return apaBox(txt);
         })()}
