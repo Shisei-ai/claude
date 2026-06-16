@@ -854,6 +854,11 @@ function setupCanvas() {
       if (ov.classList.contains('visible')) closeTechTree(); else openTechTree();
       return;
     }
+    if (e.key === 'b' || e.key === 'B') {
+      const ov = document.getElementById('recipe-overlay');
+      if (ov.classList.contains('visible')) closeRecipeBook(); else openRecipeBook();
+      return;
+    }
 
     if (e.key === 'Escape') {
       if (gs.inspectedCell) { closeEquipmentInspector(); return; }
@@ -1278,6 +1283,102 @@ function showScreen(id) {
   document.getElementById(id).classList.add('active');
 }
 
+// ── Recipe Book ───────────────────────────────────────────
+function openRecipeBook() {
+  document.getElementById('recipe-overlay').classList.add('visible');
+  renderRecipeBook();
+}
+function closeRecipeBook() {
+  document.getElementById('recipe-overlay').classList.remove('visible');
+}
+
+function renderRecipeBook() {
+  const n = k => RES_NAMES[k] || k;
+
+  function itemSpan(res, count) {
+    return `<span class="rb-item">${count > 1 ? count + '×' : ''}${n(res)}</span>`;
+  }
+  function rowHtml(inItems, outItems) {
+    const inHtml  = inItems.map(([r, c]) => itemSpan(r, c)).join('<span class="rb-plus">＋</span>');
+    const outHtml = outItems.map(([r, c]) => `<span class="rb-item out">${c > 1 ? c + '×' : ''}${n(r)}</span>`).join('<span class="rb-plus">＋</span>');
+    return `<div class="rb-row">${inHtml}<span class="rb-arrow">→</span>${outHtml}</div>`;
+  }
+  function terrainRow(terrainLabel, outRes) {
+    return `<div class="rb-row"><span class="rb-terrain">${terrainLabel}</span><span class="rb-arrow">→</span><span class="rb-item out">${n(outRes)}</span></div>`;
+  }
+  function entryHtml(icon, eqName, rows, tech) {
+    const badge = tech ? `<span class="rb-tech-badge">🔒${tech}</span>` : '';
+    return `<div class="rb-entry"><div class="rb-eq-hdr"><span class="rb-eq-icon">${icon}</span><span class="rb-eq-name">${eqName}</span>${badge}</div>${rows}</div>`;
+  }
+
+  const SECTIONS = [
+    {
+      title: '採掘・採取',
+      entries: [
+        entryHtml('⛏', '採掘機',
+          terrainRow('鉄鉱石タイル', C.RES.IRON_ORE) +
+          terrainRow('銅鉱石タイル', C.RES.COPPER_ORE) +
+          terrainRow('石炭タイル',   C.RES.COAL) +
+          terrainRow('硫黄タイル',   C.RES.SULFUR)),
+        entryHtml('🛢', '石油ポンプ', terrainRow('油田タイル', C.RES.CRUDE_OIL)),
+        entryHtml('💧', '揚水ポンプ',
+          `<div class="rb-row"><span class="rb-terrain">どこでも設置可</span><span class="rb-arrow">→</span><span class="rb-item out">${n(C.RES.WATER)}</span></div>`),
+      ]
+    },
+    {
+      title: '製錬',
+      entries: [
+        entryHtml('🔥', '製錬炉',
+          rowHtml([[C.RES.IRON_ORE,1]],   [[C.RES.IRON_PLATE,1]]) +
+          rowHtml([[C.RES.COPPER_ORE,1]], [[C.RES.COPPER_PLATE,1]])),
+        entryHtml('🟤', 'コークス炉',
+          rowHtml([[C.RES.COAL,2]], [[C.RES.COKE,1]]), 'コークス精製'),
+      ]
+    },
+    {
+      title: '組立',
+      entries: [
+        entryHtml('⚙', '組立機',
+          rowHtml([[C.RES.IRON_PLATE,1],[C.RES.COPPER_PLATE,1]], [[C.RES.CIRCUIT,1]]), '組立工学'),
+      ]
+    },
+    {
+      title: '石油精製',
+      entries: [
+        entryHtml('🏭', '蒸留塔',
+          rowHtml([[C.RES.CRUDE_OIL,3]], [[C.RES.PETRO_GAS,2],[C.RES.LIGHT_OIL,2],[C.RES.HEAVY_OIL,1]]), '石油化学'),
+      ]
+    },
+    {
+      title: '電気分解',
+      entries: [
+        entryHtml('⚡', '電解槽',
+          rowHtml([[C.RES.WATER,2]], [[C.RES.HYDROGEN,2],[C.RES.OXYGEN,1]]), '電気分解'),
+      ]
+    },
+    {
+      title: '化学合成（化学プラント）',
+      entries: EQ_DEF[C.EQ.CHEM_PLANT].recipes.map(r =>
+        entryHtml(r.icon, r.name,
+          rowHtml(Object.entries(r.inputs), [[r.output, r.count]]),
+          r.tech ? '化学研究' : null))
+    },
+    {
+      title: '高度組立（高度組立機）',
+      entries: EQ_DEF[C.EQ.ADV_ASSEMBLER].recipes.map(r =>
+        entryHtml(r.icon, r.name,
+          rowHtml(Object.entries(r.inputs), [[r.output, r.count]]),
+          r.tech ? '高度研究' : null))
+    },
+  ];
+
+  const html = SECTIONS.map(sec =>
+    `<div class="rb-section"><div class="rb-sec-title">${sec.title}</div><div class="rb-entries">${sec.entries.join('')}</div></div>`
+  ).join('');
+
+  document.getElementById('rb-scroll').innerHTML = html;
+}
+
 // ── Bootstrap ─────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   buildModifierScreen();
@@ -1290,6 +1391,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('np-cancel').onclick   = hideNodePreview;
   document.getElementById('tech-btn').onclick    = openTechTree;
   document.getElementById('tech-close').onclick  = closeTechTree;
+  document.getElementById('recipe-btn').onclick  = openRecipeBook;
+  document.getElementById('recipe-close').onclick = closeRecipeBook;
   document.getElementById('ei-close').onclick = closeEquipmentInspector;
 
   // Use mousedown (not click) so selection fires before next RAF frame replaces innerHTML

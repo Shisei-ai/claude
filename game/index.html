@@ -104,6 +104,7 @@
 
         <div class="sb-section sb-bottom">
           <button id="tech-btn" class="btn-tech">🔬 研究ツリー (T)</button>
+          <button id="recipe-btn" class="btn-tech">📖 レシピ帳 (B)</button>
           <button id="action-btn" class="btn-wave">🗺 ルートマップを開く</button>
         </div>
       </div>
@@ -197,6 +198,18 @@
             <button id="np-cancel">キャンセル</button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Recipe book overlay -->
+    <div id="recipe-overlay">
+      <div class="recipe-panel">
+        <div class="recipe-hdr">
+          <span class="recipe-title">📖 レシピ帳</span>
+          <span class="recipe-hint">全ての生産レシピ一覧。🔒は研究解放が必要。</span>
+          <button id="recipe-close">✕ 閉じる</button>
+        </div>
+        <div id="rb-scroll"></div>
       </div>
     </div>
 
