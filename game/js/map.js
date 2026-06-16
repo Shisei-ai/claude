@@ -13,7 +13,6 @@ function placePatches(grid, patchDefs, opts = {}) {
   const patchSize = opts.patchSize || 2;
   const occupied = new Set();
 
-  // Keep a buffer around the core so spawn lanes stay open
   if (opts.coreBuffer) {
     for (let dy = -5; dy < 8; dy++)
       for (let dx = -5; dx < 8; dx++) {
@@ -23,17 +22,27 @@ function placePatches(grid, patchDefs, opts = {}) {
       }
   }
 
-  for (const { terrain, count } of patchDefs) {
-    let placed = 0, tries = 0;
-    while (placed < count && tries < 2000) {
+  // Flatten all patches into one list and shuffle so no terrain type
+  // is systematically favoured by placement order.
+  const queue = [];
+  for (const { terrain, count } of patchDefs)
+    for (let i = 0; i < count; i++) queue.push(terrain);
+  for (let i = queue.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [queue[i], queue[j]] = [queue[j], queue[i]];
+  }
+
+  for (const terrain of queue) {
+    let tries = 0;
+    while (tries < 500) {
       tries++;
       const px = 2 + Math.floor(Math.random() * (C.COLS - 4 - patchSize));
       const py = 2 + Math.floor(Math.random() * (C.ROWS - 4 - patchSize));
 
       let clear = true;
       outer:
-      for (let dy = -3; dy <= patchSize + 2; dy++)
-        for (let dx = -3; dx <= patchSize + 2; dx++)
+      for (let dy = -1; dy <= patchSize; dy++)
+        for (let dx = -1; dx <= patchSize; dx++)
           if (occupied.has(`${px + dx},${py + dy}`)) { clear = false; break outer; }
       if (!clear) continue;
 
@@ -41,11 +50,12 @@ function placePatches(grid, patchDefs, opts = {}) {
         for (let dx = 0; dx < patchSize; dx++)
           grid[py + dy][px + dx].terrain = terrain;
 
-      for (let dy = -2; dy <= patchSize + 1; dy++)
-        for (let dx = -2; dx <= patchSize + 1; dx++)
+      // 1-cell gap between patches
+      for (let dy = -1; dy <= patchSize; dy++)
+        for (let dx = -1; dx <= patchSize; dx++)
           occupied.add(`${px + dx},${py + dy}`);
 
-      placed++;
+      break;
     }
   }
 }
