@@ -1719,11 +1719,14 @@
         };
     }
 
-    // バリマックス回転 (直交回転)
+    // バリマックス回転 (直交回転, Kaiser正規化付き — R/SPSS互換)
     function varimaxRotation(L, maxIter=1000, tol=1e-8) {
         const n=L.length, k=L[0].length;
         if (k < 2) return L;
-        let Lr = L.map(r=>[...r]);
+        // Kaiser正規化: 各行をその行ノルムで割る (h²の平方根)
+        const rowH = L.map(row => Math.sqrt(row.reduce((s,v) => s+v*v, 0)));
+        let Lr = L.map((row,i) => rowH[i] > 1e-10 ? row.map(v => v/rowH[i]) : [...row]);
+        // 正規化済み行列に対してraw varimax
         for (let iter=0; iter<maxIter; iter++) {
             let changed = false;
             for (let p=0; p<k-1; p++) {
@@ -1745,31 +1748,33 @@
             }
             if (!changed) break;
         }
-        return Lr;
+        // 逆正規化: 行ノルムを掛け戻す
+        return Lr.map((row,i) => row.map(v => v * rowH[i]));
     }
 
-    // プロマックス回転 (斜交回転): バリマックスをべき乗でターゲット化
+    // プロマックス回転 (斜交回転) — R の promax() と同一アルゴリズム (Hendrickson & White, 1964)
     function promaxRotation(L, power=3) {
-        const m = L[0].length;
+        const p = L.length, m = L[0].length;
         const Lv = varimaxRotation(L.map(r=>[...r]));
-        const P = Lv.map(row=>row.map(x=>Math.sign(x)*Math.pow(Math.abs(x), power)));
+        // ターゲット行列 (符号保持でべき乗)
+        const P = Lv.map(row => row.map(x => Math.sign(x)*Math.pow(Math.abs(x), power)));
+        // T = (Lv'Lv)⁻¹ Lv' P  (m×m 回帰係数行列)
         const LvT = StatsLib.transpose(Lv);
-        const LvTLv = StatsLib.multiply(LvT, Lv);
-        const inv = StatsLib.invertMatrix(LvTLv);
-        if (!inv) return { pattern:Lv, structure:Lv, phi:Array.from({length:m},(_,i)=>Array.from({length:m},(_,j)=>i===j?1:0)) };
-        const T = StatsLib.multiply(inv, StatsLib.multiply(LvT, P));
-        const colNorms = Array.from({length:m}, (_,j)=>Math.sqrt(T.reduce((s,row)=>s+row[j]*row[j],0)));
-        const Tn = T.map(row=>row.map((v,j)=>colNorms[j]>0?v/colNorms[j]:v));
-        const pattern = StatsLib.multiply(Lv, Tn);
-        // 因子間相関: ターゲット変換列の余弦類似度
-        const TnT = StatsLib.transpose(Tn);
-        const phi = Array.from({length:m}, (_,i)=>Array.from({length:m}, (_,j)=>{
+        const LvTLvInv = StatsLib.invertMatrix(StatsLib.multiply(LvT, Lv));
+        if (!LvTLvInv) return { pattern:Lv, structure:Lv, phi:Array.from({length:m},(_,i)=>Array.from({length:m},(_,j)=>i===j?1:0)) };
+        const T = StatsLib.multiply(LvTLvInv, StatsLib.multiply(LvT, P));
+        // C = inv(T'T)  — Rが使用する因子間相関の元行列
+        const C = StatsLib.invertMatrix(StatsLib.multiply(StatsLib.transpose(T), T));
+        if (!C) return { pattern:Lv, structure:Lv, phi:Array.from({length:m},(_,i)=>Array.from({length:m},(_,j)=>i===j?1:0)) };
+        // U = T * diag(sqrt(C[j][j]))  (Rの正規化方式)
+        const sqrtD = Array.from({length:m}, (_,j) => Math.sqrt(Math.max(1e-10, C[j][j])));
+        const U = T.map(row => row.map((v,j) => v * sqrtD[j]));
+        const pattern = StatsLib.multiply(Lv, U);
+        // Φ = corr(C) = C[i][j] / sqrt(C[i][i]*C[j][j])  (対角が1の相関行列)
+        const phi = Array.from({length:m}, (_,i) => Array.from({length:m}, (_,j) => {
             if (i===j) return 1;
-            const ti=TnT[i], tj=TnT[j];
-            const dot=ti.reduce((s,v,k)=>s+v*tj[k],0);
-            const ni=Math.sqrt(ti.reduce((s,v)=>s+v*v,0));
-            const nj=Math.sqrt(tj.reduce((s,v)=>s+v*v,0));
-            return (ni>0&&nj>0) ? dot/(ni*nj) : 0;
+            const denom = Math.sqrt(C[i][i]*C[j][j]);
+            return denom > 1e-10 ? Math.max(-1, Math.min(1, C[i][j]/denom)) : 0;
         }));
         const structure = StatsLib.multiply(pattern, phi);
         return { pattern, structure, phi };
@@ -2090,14 +2095,35 @@
             finalLoadings = rawLoadings;
         }
 
+        // 因子符号の統一: 各因子列の最大絶対値負荷量が正になるよう符号を揃える (R/SPSS互換)
+        for (let j = 0; j < m; j++) {
+            let maxAbs = 0, maxSign = 1;
+            for (let i = 0; i < p; i++) {
+                if (Math.abs(finalLoadings[i][j]) > maxAbs) {
+                    maxAbs = Math.abs(finalLoadings[i][j]);
+                    maxSign = Math.sign(finalLoadings[i][j]);
+                }
+            }
+            if (maxSign < 0) {
+                for (let i = 0; i < p; i++) finalLoadings[i][j] = -finalLoadings[i][j];
+                if (structureMatrix) for (let i = 0; i < p; i++) structureMatrix[i][j] = -structureMatrix[i][j];
+            }
+        }
+
         const rotLabel = rotation === 'varimax' ? 'バリマックス回転後 (パターン行列)' :
                          rotation === 'promax'  ? 'プロマックス回転後 (パターン行列)' : '回転なし';
-        const communalities = finalLoadings.map(row => row.reduce((s,v) => s+v*v, 0));
+
+        // 共通性: 直交回転=負荷量二乗和、斜交回転=パターン×構造の積和 (Gorsuch, 1983)
+        const communalities = (rotation === 'promax' && structureMatrix)
+            ? finalLoadings.map((row, i) => Math.min(1, Math.max(0,
+                row.reduce((s, v, j) => s + v * structureMatrix[i][j], 0))))
+            : finalLoadings.map(row => row.reduce((s,v) => s+v*v, 0));
+
         const factorVars = Array.from({length:m}, (_,j) => finalLoadings.reduce((s,row) => s+row[j]*row[j], 0));
         const totalExplained = factorVars.reduce((s,v) => s+v, 0);
         const displayCount = Math.min(p, Math.max(m + 3, 8));
 
-        // ===== 適合度統計量 (PAF/MLのみ, df > 0) =====
+        // ===== 適合度統計量 (ML/PAFのみ — ULSはχ²近似不可, df > 0) =====
         let fitStats = null;
         const dfFit = ((p - m) ** 2 - (p + m)) / 2;
         if ((extraction === 'ml' || extraction === 'paf') && uniquenesses && dfFit > 0) {
