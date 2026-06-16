@@ -75,8 +75,8 @@ function generateBattleMap(depth, isBoss = false, act = 1) {
     ];
   } else if (act === 2) {
     defs = [
-      { terrain: C.SULFUR_DEP, count: 1 },
-      { terrain: C.COAL,       count: 1 },
+      { terrain: C.SULFUR_DEP, count: 2 },
+      { terrain: C.COAL,       count: 2 },
       { terrain: C.OIL_WELL,   count: 2 },
     ];
   } else {
@@ -103,12 +103,12 @@ function generateMiningMap(depth, act = 1) {
   let defs;
   if (act === 1) {
     defs = [
-      { terrain: C.IRON_ORE,   count: 6 },
+      { terrain: C.IRON_ORE,   count: 5 },
       { terrain: C.COPPER_ORE, count: 5 },
     ];
   } else if (act === 2) {
     defs = [
-      { terrain: C.OIL_WELL,   count: 5 },
+      { terrain: C.OIL_WELL,   count: 4 },
       { terrain: C.SULFUR_DEP, count: 4 },
       { terrain: C.COAL,       count: 4 },
     ];
@@ -118,7 +118,7 @@ function generateMiningMap(depth, act = 1) {
       { terrain: C.COPPER_ORE, count: 3 },
       { terrain: C.OIL_WELL,   count: 3 },
       { terrain: C.SULFUR_DEP, count: 3 },
-      { terrain: C.COAL,       count: 2 },
+      { terrain: C.COAL,       count: 3 },
     ];
   }
   placePatches(grid, defs, { coreBuffer: false, patchSize: 3 });
