@@ -105,32 +105,32 @@ function generateBattleMap(depth, isBoss = false, act = 1) {
 }
 
 // ── Mining mission map: rich deposits, no core, no enemies ─
-// Act 1: 鉄鉱石・銅鉱石のみ
-// Act 2: 硫黄・石炭・原油のみ
-// Act 3: 全資源バランス配置
+// All patches are 2×2. Act 1: iron+copper, Act 2: oil+sulfur+coal,
+// Act 3: all five types in equal quantities.
+// Capacity: patchSize=2, 1-cell gap → max ~25 patches in 25×25 grid.
 function generateMiningMap(depth, act = 1) {
   const grid = makeGrid();
   let defs;
   if (act === 1) {
     defs = [
-      { terrain: C.IRON_ORE,   count: 5 },
-      { terrain: C.COPPER_ORE, count: 5 },
+      { terrain: C.IRON_ORE,   count: 8 },
+      { terrain: C.COPPER_ORE, count: 8 },
     ];
   } else if (act === 2) {
     defs = [
+      { terrain: C.OIL_WELL,   count: 5 },
+      { terrain: C.SULFUR_DEP, count: 5 },
+      { terrain: C.COAL,       count: 5 },
+    ];
+  } else {
+    defs = [
+      { terrain: C.IRON_ORE,   count: 4 },
+      { terrain: C.COPPER_ORE, count: 4 },
       { terrain: C.OIL_WELL,   count: 4 },
       { terrain: C.SULFUR_DEP, count: 4 },
       { terrain: C.COAL,       count: 4 },
     ];
-  } else {
-    defs = [
-      { terrain: C.IRON_ORE,   count: 3 },
-      { terrain: C.COPPER_ORE, count: 3 },
-      { terrain: C.OIL_WELL,   count: 3 },
-      { terrain: C.SULFUR_DEP, count: 3 },
-      { terrain: C.COAL,       count: 3 },
-    ];
   }
-  placePatches(grid, defs, { coreBuffer: false, patchSize: 3 });
+  placePatches(grid, defs, { coreBuffer: false, patchSize: 2 });
   return { grid, hasCore: false };
 }
