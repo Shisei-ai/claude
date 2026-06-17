@@ -44,18 +44,14 @@
   <!-- 操作パネル -->
   <section id="panels">
     <nav id="tabs">
-      <button data-tab="build" class="active">🏭 建設</button>
-      <button data-tab="produce">⚙ 建造</button>
+      <button data-tab="base" class="active">🏗 設備</button>
+      <button data-tab="fab">🏭 部品工場</button>
+      <button data-tab="asm">⚙ 組立ライン</button>
       <button data-tab="tech">🔬 研究</button>
     </nav>
-    <div id="tab-build" class="tab-body active"></div>
-    <div id="tab-produce" class="tab-body">
-      <div id="produce-list"></div>
-      <div id="queue-box">
-        <div id="queue-title">建造キュー <button id="clear-queue">×全消去</button></div>
-        <div id="queue-list"></div>
-      </div>
-    </div>
+    <div id="tab-base" class="tab-body active"></div>
+    <div id="tab-fab" class="tab-body"></div>
+    <div id="tab-asm" class="tab-body"></div>
     <div id="tab-tech" class="tab-body"></div>
   </section>
 

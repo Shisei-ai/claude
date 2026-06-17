@@ -116,7 +116,55 @@ body{
   padding:11px 24px; border-radius:8px; font-weight:800; cursor:pointer; font-size:14px}
 .win h2{color:var(--ok)} .lose h2{color:var(--bad)}
 
+/* ---- 工業UI ---- */
+.hint{font-size:11px; color:var(--dim); line-height:1.5; margin-bottom:8px;
+  background:var(--panel2); border:1px solid var(--line); border-radius:7px; padding:6px 9px}
+.hint b{color:var(--accent)}
+
+/* 部品在庫 */
+#stock-box{background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:7px 10px; margin-bottom:10px}
+.stock-title{font-size:11px; color:var(--dim); margin-bottom:4px}
+.stock-rows{display:flex; flex-direction:column; gap:4px}
+.stock-row{display:flex; align-items:center; gap:6px; flex-wrap:wrap}
+.stock-row .sl{font-size:11px; color:var(--accent); width:54px}
+.schip{background:#1a2634; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:12px}
+.schip b{color:var(--ore); font-variant-numeric:tabular-nums; margin-left:3px}
+
+/* 工場カラム */
+.fab-cols{display:grid; grid-template-columns:1.2fr 0.8fr 1.2fr; gap:8px}
+.fab-col{background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px}
+.fab-head{font-size:12px; font-weight:700; color:#fff; margin-bottom:6px}
+.fabn{color:var(--accent); font-weight:600; font-size:11px}
+.fab-item{display:flex; align-items:center; gap:4px; margin-bottom:5px}
+.fab-assign{font-size:11px; color:var(--dim); flex:1; padding:4px 0}
+.fab-col select, .asm select{flex:1; background:#10202e; color:var(--txt); border:1px solid var(--line);
+  border-radius:6px; padding:4px 6px; font-size:12px; max-width:100%}
+.xbtn{background:#2a1820; color:#ff8a8a; border:1px solid #5a2a35; border-radius:5px;
+  width:22px; height:24px; cursor:pointer; font-size:13px; line-height:1; flex:none}
+.xbtn:hover{background:#3a2028}
+.addbtn{margin-top:4px; width:100%; background:#21405a; color:#dff0ff; border:1px solid #36617f;
+  border-radius:6px; padding:6px; cursor:pointer; font-weight:600; font-size:12px}
+.addbtn:hover{background:#2b5377}
+.addbtn:disabled{background:#1a2430; color:#566; border-color:#283544; cursor:default}
+
+/* 組立ライン */
+#asm-list{display:flex; flex-direction:column; gap:8px; margin-bottom:8px}
+.asm{background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:9px}
+.asm-row1{display:flex; align-items:center; gap:6px; margin-bottom:6px}
+.asm-ci{font-size:18px}
+.asm-stats{font-size:11px; color:var(--accent); margin-bottom:7px; line-height:1.4}
+.asm-cpu{display:flex; align-items:center; gap:5px; flex-wrap:wrap}
+.slotlbl{font-size:11px; color:var(--cap); margin-right:2px}
+.cpuchip{background:#1a2634; border:1px solid var(--line); border-radius:12px; padding:2px 9px;
+  font-size:11px; cursor:pointer; color:var(--dim)}
+.cpuchip:hover{border-color:var(--accent)}
+.cpuchip.on{background:#1d3a4d; border-color:var(--accent); color:#dff4ff}
+.cpu-empty{font-size:11px; color:#566}
+.asm-warn{font-size:11px; color:#ffb13b; background:#2e2410; border:1px solid #5a4a1e;
+  border-radius:6px; padding:3px 7px; margin-bottom:6px}
+
 @media(max-width:720px){
   .chapter-info{margin-left:0; width:100%; text-align:left; order:9}
-  #panels{height:230px}
+  #panels{height:268px}
+  .fab-cols{grid-template-columns:1fr}
 }
