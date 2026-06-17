@@ -136,7 +136,7 @@
     var wrap = $('tab-fac');
     wrap.innerHTML =
       '<div class="hint">設備の建設コストは<b>鉄</b>。電力で稼働し、製錬系が 基本素材＋水/燃料 から' +
-      '<b>中間素材</b>（合金・回路・動力核・秘銀鋼）を生産する。</div>' +
+      '<b>中間素材</b>（合金・回路・動力核）を生産する。</div>' +
       '<div id="util-box"></div><div class="cards" id="fac-cards"></div>';
     renderUtilBox();
     var grid = $('fac-cards');

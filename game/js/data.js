@@ -11,38 +11,37 @@
 
   G.MIN_DMG = 1;
 
-  // ===== 基本素材（鉱区で採取） =====
-  G.MATERIALS = ['iron', 'copper', 'silver', 'gold', 'platinum', 'diamond', 'mithril'];
+  // ===== 基本素材（鉱区で採取。6素材＝6鉱区＝6グレードのラダー） =====
+  G.MATERIALS = ['iron', 'copper', 'silver', 'gold', 'platinum', 'diamond'];
   G.MAT_INFO = {
-    iron:     { name: '鉄',       icon: '⛓', color: '#b8c0c8' },
-    copper:   { name: '銅',       icon: '🟧', color: '#e08a4a' },
-    silver:   { name: '銀',       icon: '⚪', color: '#cdd6e0' },
-    gold:     { name: '金',       icon: '🟡', color: '#ffcf5a' },
-    platinum: { name: 'プラチナ', icon: '⬜', color: '#cfe6ff' },
-    diamond:  { name: 'ダイヤ',   icon: '💎', color: '#7fe0ff' },
-    mithril:  { name: 'ミスリル', icon: '🔷', color: '#9af0d0' },
+    iron:     { name: '鉄',       icon: '⛓', color: '#b8c0c8', grade: 1 },
+    copper:   { name: '銅',       icon: '🟧', color: '#e08a4a', grade: 2 },
+    silver:   { name: '銀',       icon: '⚪', color: '#cdd6e0', grade: 3 },
+    gold:     { name: '金',       icon: '🟡', color: '#ffcf5a', grade: 4 },
+    platinum: { name: 'プラチナ', icon: '⬜', color: '#cfe6ff', grade: 5 },
+    diamond:  { name: 'ダイヤ',   icon: '💎', color: '#7fe0ff', grade: 6 },
   };
 
   // ===== 鉱区Ⅰ〜Ⅵ（採取モジュールを投入して素材を得る。ストーリーで解放） =====
-  //   mat = 主産物。Ⅵ(深層)のみ byproduct=mithril を副産。1モジュールあたり rate/秒。
+  //   鉱区Ⅰ→鉄(G1) … 鉱区Ⅵ→ダイヤ(G6)。1モジュールあたり rate/秒。
   G.ZONES = [
     { name: '鉱区Ⅰ', mat: 'iron',     rate: 0.55 },
     { name: '鉱区Ⅱ', mat: 'copper',   rate: 0.48 },
     { name: '鉱区Ⅲ', mat: 'silver',   rate: 0.40 },
     { name: '鉱区Ⅳ', mat: 'gold',     rate: 0.34 },
-    { name: '鉱区Ⅴ', mat: 'platinum', rate: 0.28 },
-    { name: '鉱区Ⅵ', mat: 'diamond',  rate: 0.22, byproduct: 'mithril', byRate: 0.07 },
+    { name: '鉱区Ⅴ', mat: 'platinum', rate: 0.30 },
+    { name: '鉱区Ⅵ', mat: 'diamond',  rate: 0.24 },
   ];
 
   // ===== ユーティリティ（設備を駆動する。電気=フロー、水/燃料=ストック） =====
   G.UTIL = { water: { name: '水', icon: '💧', color: '#5ec6ff' }, fuel: { name: '燃料', icon: '🛢', color: '#ffb13b' } };
 
-  // ===== 中間素材（設備が 基本素材＋水/燃料 から生産。電力で稼働効率が変わる） =====
+  // ===== 中間素材（設備が 基本素材＋水/燃料 から生産。グレード帯に対応） =====
+  //   合金=鉄+銅(G1-2) / 回路=銀+金(G3-4) / 動力核=プラチナ+ダイヤ(G5-6)
   G.INTERMEDIATES = {
     alloy:   { name: '合金',   icon: '🔩', color: '#cdd6e0', time: 1.4, mats: { iron: 1, copper: 1 }, water: 1, fac: 'smelter' },
     circuit: { name: '回路',   icon: '🧩', color: '#7fe0a8', time: 1.8, mats: { silver: 1, gold: 1 }, water: 1, fac: 'electro' },
     core:    { name: '動力核', icon: '🔋', color: '#ff9e6b', time: 2.2, mats: { platinum: 1, diamond: 1 }, fuel: 1, fac: 'coreforge' },
-    mythril: { name: '秘銀鋼', icon: '🔷', color: '#9af0d0', time: 2.6, mats: { mithril: 1 }, inter: { alloy: 1 }, fuel: 1, fac: 'lattice' },
   };
 
   // ===== パーツの中間素材コスト（最後にこの3種を合体してユニット） =====
@@ -53,7 +52,7 @@
     },
     head: { alloy: 1 },
     weapon: {
-      standard: { alloy: 1 }, splash: { alloy: 1, circuit: 1 }, chain: { alloy: 1, circuit: 1 }, heavyW: { core: 1, mythril: 1 },
+      standard: { alloy: 1 }, splash: { alloy: 1, circuit: 1 }, chain: { alloy: 1, circuit: 1 }, heavyW: { core: 1, circuit: 1 },
     },
   };
 
@@ -65,10 +64,9 @@
     pump:     { name: '取水ポンプ', icon: '💧', cost: 70, costScale: 1.2, power: -6, water: 0.7, cat: 'util', desc: '水を産出（電力消費）。' },
     refinery: { name: '精製所', icon: '🛢', cost: 95, costScale: 1.22, power: -8, fuel: 0.5, cat: 'util', desc: '燃料を精製（電力消費）。' },
     moduleFab:{ name: 'モジュール工房', icon: '📦', cost: 120, costScale: 1.24, power: -7, module: 0.10, cat: 'util', desc: '採取モジュールを製造（保有上限まで）。' },
-    smelter:  { name: '製錬炉', icon: '🔩', cost: 100, costScale: 1.22, power: -10, make: 'alloy', cat: 'smelt', desc: '鉄＋銅＋水 → 合金。' },
-    electro:  { name: '電子工房', icon: '🧩', cost: 125, costScale: 1.24, power: -10, make: 'circuit', cat: 'smelt', desc: '銀＋金＋水 → 回路。' },
-    coreforge:{ name: 'コア炉', icon: '🔋', cost: 155, costScale: 1.26, power: -14, make: 'core', cat: 'smelt', desc: 'プラチナ＋ダイヤ＋燃料 → 動力核。' },
-    lattice:  { name: '錬成炉', icon: '🔷', cost: 185, costScale: 1.28, power: -16, make: 'mythril', cat: 'smelt', desc: 'ミスリル＋合金＋燃料 → 秘銀鋼。' },
+    smelter:  { name: '製錬炉', icon: '🔩', cost: 100, costScale: 1.22, power: -10, make: 'alloy', cat: 'smelt', desc: '鉄＋銅＋水 → 合金（G1-2）。' },
+    electro:  { name: '電子工房', icon: '🧩', cost: 125, costScale: 1.24, power: -10, make: 'circuit', cat: 'smelt', desc: '銀＋金＋水 → 回路（G3-4）。' },
+    coreforge:{ name: 'コア炉', icon: '🔋', cost: 155, costScale: 1.26, power: -14, make: 'core', cat: 'smelt', desc: 'プラチナ＋ダイヤ＋燃料 → 動力核（G5-6）。' },
     lab:      { name: '研究所', icon: '🔬', cost: 110, costScale: 1.24, power: -8, research: 0.55, cat: 'base', desc: '研究ポイントを蓄積。' },
     depot:    { name: '貯蔵庫', icon: '🏪', cost: 70, costScale: 1.2, power: -1, cap: 200, cat: 'base', desc: '素材・中間素材の貯蔵上限+200。' },
     relay:    { name: '通信中継塔', icon: '📡', cost: 120, costScale: 1.25, power: -4, capacity: 6, cat: 'base', desc: '指揮容量+6。' },
@@ -156,15 +154,22 @@
     body_heavy:  { name: '重装兵 開発', branch: '機体', cost: 70, req: [], desc: '重装兵ボディを解放。', effect: { unlockBody: 'heavy' } },
     body_shooter:{ name: '射撃兵 開発', branch: '機体', cost: 60, req: [], desc: '射撃兵ボディ（対空）を解放。', effect: { unlockBody: 'shooter' } },
     body_flyer:  { name: '飛行兵 開発', branch: '機体', cost: 110, req: ['body_shooter'], desc: '飛行兵ボディを解放。', effect: { unlockBody: 'flyer' } },
-    bodyTier2:   { name: 'ボディ規格Ⅱ', branch: '機体', cost: 80, req: ['body_heavy'], desc: '全ボディのグレードを2に。', effect: { bodyTier: 2 } },
-    bodyTier3:   { name: 'ボディ規格Ⅲ', branch: '機体', cost: 160, req: ['bodyTier2'], desc: '全ボディのグレードを3に。', effect: { bodyTier: 3 } },
+    // ボディ規格Ⅱ〜Ⅵ（グレード2〜6）。対応する鉱区(=素材)の解放が前提＝6素材6グレード対応。
+    bodyTier2: { name: 'ボディ規格Ⅱ', branch: '機体', cost: 70, req: ['body_heavy'], reqZone: 1, desc: '全ボディをグレード2に（要 鉱区Ⅱ／銅）。', effect: { bodyTier: 2 } },
+    bodyTier3: { name: 'ボディ規格Ⅲ', branch: '機体', cost: 110, req: ['bodyTier2'], reqZone: 2, desc: '全ボディをグレード3に（要 鉱区Ⅲ／銀）。', effect: { bodyTier: 3 } },
+    bodyTier4: { name: 'ボディ規格Ⅳ', branch: '機体', cost: 160, req: ['bodyTier3'], reqZone: 3, desc: '全ボディをグレード4に（要 鉱区Ⅳ／金）。', effect: { bodyTier: 4 } },
+    bodyTier5: { name: 'ボディ規格Ⅴ', branch: '機体', cost: 220, req: ['bodyTier4'], reqZone: 4, desc: '全ボディをグレード5に（要 鉱区Ⅴ／プラチナ）。', effect: { bodyTier: 5 } },
+    bodyTier6: { name: 'ボディ規格Ⅵ', branch: '機体', cost: 300, req: ['bodyTier5'], reqZone: 5, desc: '全ボディをグレード6に（要 鉱区Ⅵ／ダイヤ）。', effect: { bodyTier: 6 } },
 
     // 武装（ウェポン種類 / ウェポングレード）
     wp_splash: { name: '拡散兵装 開発', branch: '武装', cost: 60, req: [], desc: '拡散兵装（範囲攻撃）を解放。', effect: { unlockWeapon: 'splash' } },
     wp_chain:  { name: '連鎖兵装 開発', branch: '武装', cost: 90, req: ['wp_splash'], desc: '連鎖兵装を解放。', effect: { unlockWeapon: 'chain' } },
     wp_heavy:  { name: '重兵装 開発', branch: '武装', cost: 100, req: ['wp_splash'], desc: '重兵装（単体高火力）を解放。', effect: { unlockWeapon: 'heavyW' } },
-    wpTier2:   { name: '兵装規格Ⅱ', branch: '武装', cost: 80, req: ['wp_splash'], desc: '全ウェポンのグレードを2に。', effect: { weaponTier: 2 } },
-    wpTier3:   { name: '兵装規格Ⅲ', branch: '武装', cost: 160, req: ['wpTier2'], desc: '全ウェポンのグレードを3に。', effect: { weaponTier: 3 } },
+    wpTier2: { name: '兵装規格Ⅱ', branch: '武装', cost: 70, req: ['wp_splash'], reqZone: 1, desc: '全ウェポンをグレード2に（要 鉱区Ⅱ／銅）。', effect: { weaponTier: 2 } },
+    wpTier3: { name: '兵装規格Ⅲ', branch: '武装', cost: 110, req: ['wpTier2'], reqZone: 2, desc: '全ウェポンをグレード3に（要 鉱区Ⅲ／銀）。', effect: { weaponTier: 3 } },
+    wpTier4: { name: '兵装規格Ⅳ', branch: '武装', cost: 160, req: ['wpTier3'], reqZone: 3, desc: '全ウェポンをグレード4に（要 鉱区Ⅳ／金）。', effect: { weaponTier: 4 } },
+    wpTier5: { name: '兵装規格Ⅴ', branch: '武装', cost: 220, req: ['wpTier4'], reqZone: 4, desc: '全ウェポンをグレード5に（要 鉱区Ⅴ／プラチナ）。', effect: { weaponTier: 5 } },
+    wpTier6: { name: '兵装規格Ⅵ', branch: '武装', cost: 300, req: ['wpTier5'], reqZone: 5, desc: '全ウェポンをグレード6に（要 鉱区Ⅵ／ダイヤ）。', effect: { weaponTier: 6 } },
 
     // CPU / ヘッド
     cpu_armor:   { name: 'CPU:装甲', branch: 'CPU', cost: 45, req: [], desc: '装甲CPUを解放。', effect: { unlockCpu: 'cpu_armor' } },

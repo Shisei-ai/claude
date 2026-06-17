@@ -317,9 +317,10 @@
     infantry: [inf1, inf2, inf3], assault: [asl1, asl2, asl3], heavy: [hvy1, hvy2, hvy3],
     shooter: [sht1, sht2, sht3], flyer: [fly1, fly2, fly3],
   };
+  // グレード1〜6 → 3フレーム（Ⅰ:G1-2 / Ⅱ:G3-4 / Ⅲ:G5-6）
   G.unitFrame = function (body, grade) {
     var f = G.UNIT_FRAMES[body]; if (!f) return G.SPRITES[body];
-    var i = grade >= 3 ? 2 : grade >= 2 ? 1 : 0;
+    var i = grade >= 5 ? 2 : grade >= 3 ? 1 : 0;
     return f[Math.min(i, f.length - 1)];
   };
 

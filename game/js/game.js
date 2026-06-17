@@ -22,8 +22,8 @@
       zones: G.ZONES.map(function () { return { unlocked: false, modules: 0 }; }),
       grantsApplied: {},
       // 設備（カウント式）
-      buildings: { reactor: 4, pump: 1, refinery: 1, moduleFab: 1, smelter: 2, electro: 0, coreforge: 0, lattice: 0, lab: 1, depot: 0, relay: 0, turret: 0 },
-      proc: { smelter: 0, electro: 0, coreforge: 0, lattice: 0 },
+      buildings: { reactor: 4, pump: 1, refinery: 1, moduleFab: 1, smelter: 2, electro: 0, coreforge: 0, lab: 1, depot: 0, relay: 0, turret: 0 },
+      proc: { smelter: 0, electro: 0, coreforge: 0 },
       // 部品工場（インスタンス）
       bodyFabs: [{ assign: 'infantry', prog: 0 }],
       headFabs: [{ prog: 0 }],
@@ -69,8 +69,8 @@
     }
     for (var id in state.researched) if (state.researched[id]) applyEffect(G.TECHS[id].effect);
     applyEffect(state.perm);
-    tier.body += (state.perm.bodyTierBonus || 0);
-    tier.weapon += (state.perm.weaponTierBonus || 0);
+    tier.body = Math.min(6, tier.body + (state.perm.bodyTierBonus || 0));   // グレードは最大6
+    tier.weapon = Math.min(6, tier.weapon + (state.perm.weaponTierBonus || 0));
 
     m.powerSave = Math.min(0.6, m.powerSave);
     state.mod = m;
@@ -154,6 +154,7 @@
   function canResearch(id) {
     var t = G.TECHS[id]; if (state.researched[id]) return false;
     for (var i = 0; i < t.req.length; i++) if (!state.researched[t.req[i]]) return false;
+    if (t.reqZone != null && !(state.zones[t.reqZone] && state.zones[t.reqZone].unlocked)) return false; // 鉱区前提
     return state.research >= t.cost;
   }
   function doResearch(id) { if (!canResearch(id)) return false; state.research -= G.TECHS[id].cost; state.researched[id] = true; recomputeMod(); return true; }
