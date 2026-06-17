@@ -141,13 +141,15 @@
       var card = document.createElement('div');
       card.className = 'card';
       card.dataset.uid = id;
-      var typeLabel = { light: '軽', heavy: '重', ranged: '射', none: '支' }[u.atkType];
+      var domLabel = u.domain === 'air' ? '空' : '地';
+      var tags = domLabel + (u.antiAir ? '・対空' : '');
       card.innerHTML =
         '<div class="h"><span class="ci">' + u.icon + '</span><span class="nm">' + u.name + '</span>' +
-        '<span class="ct">[' + typeLabel + ']</span></div>' +
+        '<span class="ct">[' + tags + ']</span></div>' +
         '<div class="ds">' + u.desc + '</div>' +
         '<div class="meta"><span>HP' + u.hp + '</span><span>攻' + u.dmg + '</span>' +
-        '<span>射' + u.range + '</span><span>建造' + u.build + 's</span></div>' +
+        '<span>防' + u.def + '</span><span>射' + u.range + '</span>' +
+        '<span>速' + u.speed + '</span><span>建造' + u.build + 's</span></div>' +
         '<button data-make>建造 ' + costSpan(u.cost, 'ore') + ' ' + costSpan(u.cap, 'cap') + '</button>' +
         '<div class="lockmsg" data-lock></div>';
       card.querySelector('[data-make]').onclick = function () {
@@ -354,18 +356,28 @@
   }
   function drawEntity(ent, spec, sx, midY, dpr, isEnemy) {
     var x = ent.x * sx;
-    var jitter = (isEnemy ? -1 : 1);
-    var y = midY - 8 * dpr;
-    var col = isEnemy ? spec.color : typeColor(spec.atkType);
+    var isAir = spec.domain === 'air';
+    var y = midY - 8 * dpr - (isAir ? 44 * dpr : 0);   // 空中ユニットは上空に描画
+    var col = isEnemy ? spec.color : UNIT_COLOR[ent.type] || '#6bd0ff';
     var r = (spec.boss ? 14 : isEnemy ? 7 : 8) * dpr;
 
-    // 影
+    // 影（地上の真下に落とす）
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
     ctx.beginPath(); ctx.ellipse(x, midY + 4 * dpr, r * 0.9, r * 0.4, 0, 0, 7); ctx.fill();
+    // 空中ユニットは係留線で高度を示す
+    if (isAir) {
+      ctx.strokeStyle = 'rgba(150,180,210,0.25)'; ctx.lineWidth = 1 * dpr;
+      ctx.beginPath(); ctx.moveTo(x, y + r); ctx.lineTo(x, midY); ctx.stroke();
+    }
     // 本体
     ctx.fillStyle = col;
     ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1 * dpr;
-    if (isEnemy) {
+    if (isAir) {
+      // ひし形（空中）
+      ctx.beginPath();
+      ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    } else if (isEnemy) {
       ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r, y + r); ctx.lineTo(x - r, y + r); ctx.closePath();
       ctx.fill(); ctx.stroke();
     } else {
@@ -379,9 +391,9 @@
       ctx.fillStyle = isEnemy ? '#ff7b7b' : '#6bff9e'; ctx.fillRect(bx, byy, bw * hp, 3 * dpr);
     }
   }
-  function typeColor(t) {
-    return t === 'light' ? '#6bd0ff' : t === 'heavy' ? '#9b8bff' : t === 'ranged' ? '#5be0a8' : '#ffd86b';
-  }
+  var UNIT_COLOR = {
+    infantry: '#6bd0ff', assault: '#ff9a4a', heavy: '#9b8bff', shooter: '#5be0a8', flyer: '#ffe06b',
+  };
 
   // =======================================================================
   //  入力 / タブ

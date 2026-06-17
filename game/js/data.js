@@ -6,11 +6,14 @@
 (function (G) {
   'use strict';
 
-  // ---- 3すくみ（属性相性） ------------------------------------------------
-  //   軽(light) は 射(ranged) に強い / 射(ranged) は 重(heavy) に強い / 重(heavy) は 軽(light) に強い
-  G.STRONG_AGAINST = { light: 'ranged', ranged: 'heavy', heavy: 'light' };
-  G.ADV_MULT = 1.6;   // 有利時のダメージ倍率
-  G.DIS_MULT = 0.65;  // 不利時のダメージ倍率
+  // ---- 戦闘モデルの基礎値 ------------------------------------------------
+  //   ・相性は抽象的な3すくみではなく、具体的な「ドメイン(地上/空中)」「装甲(防御力)」
+  //     「射程」の噛み合いで表現する。
+  //   ・ダメージ = max(MIN_DMG, 攻撃力 - 相手の防御力)。
+  //       → 低火力の物量(歩兵)は装甲持ちに刺さらず、高火力(突撃兵/射撃兵)が装甲を割る。
+  //   ・空中(domain:'air')ユニットは「対空(antiAir)」を持つ相手にしか攻撃されない。
+  //       射撃兵・飛行兵・防衛砲台が対空を担う。
+  G.MIN_DMG = 1;
 
   // ---- 建物 ---------------------------------------------------------------
   //   power: 正=供給(発電)、負=消費。cost は鉱石。costScale で買うほど高くなる。
@@ -46,46 +49,51 @@
   };
 
   // ---- ユニット -----------------------------------------------------------
-  //   atkType: 攻撃属性 / 進軍してきた敵を自動で迎撃する自走ユニット。
+  //   domain : 'ground'（地上）/ 'air'（空中・地上敵から攻撃されない）
+  //   def    : 防御力。被ダメージを軽減（max(MIN_DMG, 攻撃 - def)）
+  //   antiAir: 空中の敵を攻撃できるか
+  //   range  : 射程（小さい=近接、大きい=後方射撃）
   G.UNITS = {
-    scout: {
-      name: '軽兵ロボ', icon: '🤖', atkType: 'light', cost: 22, cap: 1, build: 1.8,
-      hp: 34, dmg: 7, speed: 70, range: 26, rate: 0.8,
-      desc: '安価で快速。物量で押す。射撃型に強い。',
+    infantry: {
+      name: '歩兵', icon: '🪖', cost: 22, cap: 1, build: 1.8,
+      hp: 65, dmg: 9, def: 1, speed: 52, range: 30, rate: 1.0,
+      domain: 'ground', antiAir: false,
+      desc: '最もスタンダードで安価。量産して物量を担保する主力。',
     },
-    trooper: {
-      name: '歩兵ロボ', icon: '🛡', atkType: 'light', cost: 40, cap: 2, build: 3.2,
-      hp: 78, dmg: 12, speed: 52, range: 30, rate: 1.0,
-      desc: '汎用バランス型。前線の主力。',
+    assault: {
+      name: '突撃兵', icon: '⚡', cost: 46, cap: 2, build: 3.0,
+      hp: 46, dmg: 27, def: 0, speed: 92, range: 28, rate: 1.1,
+      domain: 'ground', antiAir: false,
+      desc: '火力と機動力が高いが脆い。敵陣を突破して活路を開く。',
     },
     heavy: {
-      name: '重装ロボ', icon: '🦾', atkType: 'heavy', cost: 95, cap: 4, build: 6.0,
-      hp: 240, dmg: 22, speed: 30, range: 30, rate: 1.3, locked: true,
-      desc: '頑強で打たれ強い壁役。軽量型を踏み潰す。',
+      name: '重装兵', icon: '🛡', cost: 95, cap: 4, build: 6.0,
+      hp: 300, dmg: 15, def: 9, speed: 24, range: 30, rate: 1.0, locked: true,
+      domain: 'ground', antiAir: false,
+      desc: '体力・防御力が高く鈍重。前線を支える鉄壁の防衛線。',
     },
-    gunner: {
-      name: '射撃ロボ', icon: '🎯', atkType: 'ranged', cost: 70, cap: 3, build: 4.5,
-      hp: 60, dmg: 26, speed: 42, range: 150, rate: 1.1, locked: true,
-      desc: '遠距離から高火力。重装型を溶かすが脆い。',
+    shooter: {
+      name: '射撃兵', icon: '🎯', cost: 70, cap: 3, build: 4.2,
+      hp: 55, dmg: 24, def: 1, speed: 40, range: 165, rate: 1.0, locked: true,
+      domain: 'ground', antiAir: true,
+      desc: '後方から高火力で狙撃。対空も可能で安定して敵戦力を削る。',
     },
-    engineer: {
-      name: '工兵ロボ', icon: '🔧', atkType: 'none', cost: 55, cap: 2, build: 4.0,
-      hp: 70, dmg: 0, speed: 48, range: 90, rate: 1.0, heal: 14, locked: true,
-      desc: '味方ユニットと砲台を継続修理する支援機。',
-    },
-    drone: {
-      name: '自爆ドローン', icon: '💥', atkType: 'light', cost: 30, cap: 1, build: 2.2,
-      hp: 26, dmg: 60, speed: 95, range: 22, rate: 1.0, kamikaze: true, aoe: 60, locked: true,
-      desc: '敵に突撃し自爆、範囲ダメージ。密集した群体に有効。',
+    flyer: {
+      name: '飛行兵', icon: '🚁', cost: 82, cap: 3, build: 4.8,
+      hp: 95, dmg: 16, def: 2, speed: 56, range: 120, rate: 1.0, locked: true,
+      domain: 'air', antiAir: true,
+      desc: '空中から地上・空中の敵を射撃。地上敵に阻まれず敵陣の奥へ進む。',
     },
   };
 
   // ---- 敵（群体） ---------------------------------------------------------
+  //   domain/def/antiAir はユニットと同じ意味。空中型は対空ユニットでしか落とせない。
   G.ENEMIES = {
-    swarmling: { name: '小型・群体', icon: '▾', atkType: 'light', hp: 40, dmg: 6, speed: 30, range: 24, rate: 0.9, bounty: 3, color: '#e0556b' },
-    armored:   { name: '装甲・群体', icon: '◆', atkType: 'heavy', hp: 170, dmg: 14, speed: 20, range: 26, rate: 1.2, bounty: 7, color: '#c23b78' },
-    spitter:   { name: '砲塔・群体', icon: '✶', atkType: 'ranged', hp: 55, dmg: 20, speed: 24, range: 140, rate: 1.2, bounty: 6, color: '#d65fa0' },
-    titan:     { name: '巨核・群体', icon: '✪', atkType: 'heavy', hp: 1400, dmg: 60, speed: 14, range: 34, rate: 1.5, bounty: 60, color: '#ff3b3b', boss: true },
+    swarmling: { name: '小型・群体', icon: '▾', hp: 42, dmg: 6, def: 0, speed: 30, range: 24, rate: 0.9, bounty: 3, domain: 'ground', antiAir: false, color: '#e0556b' },
+    armored:   { name: '装甲・群体', icon: '◆', hp: 185, dmg: 14, def: 7, speed: 20, range: 26, rate: 1.1, bounty: 7, domain: 'ground', antiAir: false, color: '#c23b78' },
+    spitter:   { name: '砲塔・群体', icon: '✶', hp: 55, dmg: 19, def: 1, speed: 24, range: 145, rate: 1.1, bounty: 6, domain: 'ground', antiAir: false, color: '#d65fa0' },
+    wyrm:      { name: '飛翔・群体', icon: '✦', hp: 78, dmg: 16, def: 2, speed: 36, range: 110, rate: 1.0, bounty: 9, domain: 'air', antiAir: true, color: '#ff7ad0' },
+    titan:     { name: '巨核・群体', icon: '✪', hp: 1500, dmg: 60, def: 10, speed: 14, range: 34, rate: 1.5, bounty: 60, domain: 'ground', antiAir: true, color: '#ff3b3b', boss: true },
   };
 
   // ---- 研究ツリー ---------------------------------------------------------
@@ -99,14 +107,14 @@
 
     // 軍事系
     armor1:    { name: '装甲合金', branch: '軍事', cost: 50, req: [], desc: '全ユニットHP +25%。', effect: { hpMult: 0.25 } },
-    unlockHeavy:{ name: '重装ロボ開発', branch: '軍事', cost: 80, req: ['armor1'], desc: '重装ロボを建造可能にする。', effect: { unlock: 'heavy' } },
+    unlockHeavy:{ name: '重装兵 開発', branch: '軍事', cost: 80, req: ['armor1'], desc: '重装兵を建造可能にする。', effect: { unlock: 'heavy' } },
     weapon1:   { name: '火器強化', branch: '軍事', cost: 90, req: ['armor1'], desc: '全ユニット攻撃力 +25%。', effect: { dmgMult: 0.25 } },
-    unlockDrone:{ name: '自爆ドローン', branch: '軍事', cost: 110, req: ['weapon1'], desc: '自爆ドローンを建造可能にする。', effect: { unlock: 'drone' } },
+    armor2:    { name: '複合装甲', branch: '軍事', cost: 110, req: ['unlockHeavy'], desc: '全ユニットの防御力 +2。', effect: { defBonus: 2 } },
 
     // 特殊・支援系
-    unlockGunner:{ name: '射撃管制', branch: '特殊', cost: 60, req: [], desc: '射撃ロボを建造可能にする。', effect: { unlock: 'gunner' } },
-    command1:  { name: '指揮系統拡張', branch: '特殊', cost: 70, req: ['unlockGunner'], desc: '指揮容量 +10。', effect: { capacity: 10 } },
-    unlockEng: { name: '野戦修理', branch: '特殊', cost: 90, req: ['unlockGunner'], desc: '工兵ロボを建造可能にする。', effect: { unlock: 'engineer' } },
+    unlockShooter:{ name: '射撃管制', branch: '特殊', cost: 55, req: [], desc: '射撃兵（対空可）を建造可能にする。', effect: { unlock: 'shooter' } },
+    command1:  { name: '指揮系統拡張', branch: '特殊', cost: 70, req: ['unlockShooter'], desc: '指揮容量 +10。', effect: { capacity: 10 } },
+    unlockFlyer:{ name: '航空戦力 配備', branch: '特殊', cost: 115, req: ['unlockShooter'], desc: '飛行兵を建造可能にする。', effect: { unlock: 'flyer' } },
     research1: { name: '解析アルゴリズム', branch: '特殊', cost: 100, req: ['command1'], desc: '研究ポイント獲得 +40%。', effect: { researchMult: 0.40 } },
   };
 
@@ -160,11 +168,12 @@
       title: '第三章　暴走する遺産',
       intro:
         '復元したログは警告していた――「中枢が目覚めれば、星は喰われる」。\n' +
-        '群体の波はもはや止まらない。砲塔型の群れが射程の外から基地を狙う。',
+        '空に新たな影。飛翔する個体が地上を無視して基地へ迫る。\n' +
+        '対空（射撃兵・飛行兵・防衛砲台）が無ければ、空から喰い破られるぞ。',
       waves: [
-        w([{ type: 'spitter', count: 8, delay: 0.5, gap: 0.9 }, { type: 'swarmling', count: 14, delay: 3, gap: 0.6 }], { ore: 200, research: 36 }),
-        w([{ type: 'armored', count: 8, delay: 1, gap: 1.6 }, { type: 'spitter', count: 6, delay: 6, gap: 1.2 }], { ore: 230, research: 40 }),
-        w([{ type: 'swarmling', count: 20, delay: 0.3, gap: 0.5 }, { type: 'armored', count: 8, delay: 5, gap: 1.4 }, { type: 'spitter', count: 8, delay: 9, gap: 1 }], { ore: 280, research: 50 }),
+        w([{ type: 'spitter', count: 8, delay: 0.5, gap: 0.9 }, { type: 'wyrm', count: 3, delay: 4, gap: 1.6 }], { ore: 200, research: 36 }),
+        w([{ type: 'armored', count: 8, delay: 1, gap: 1.6 }, { type: 'wyrm', count: 5, delay: 5, gap: 1.2 }, { type: 'spitter', count: 4, delay: 9, gap: 1.2 }], { ore: 230, research: 42 }),
+        w([{ type: 'swarmling', count: 20, delay: 0.3, gap: 0.5 }, { type: 'armored', count: 8, delay: 5, gap: 1.4 }, { type: 'wyrm', count: 6, delay: 8, gap: 1 }, { type: 'spitter', count: 6, delay: 12, gap: 1 }], { ore: 290, research: 52 }),
       ],
       outro: '群体の発信源を逆探知した。基地の地下深く――旧文明の中枢炉が脈動している。\nそれを止めぬ限り、攻勢は永遠に続く。',
       choice: {
@@ -181,13 +190,14 @@
         '地表のハッチが開き、群体が濁流のように溢れ出す。\n' +
         'これが最後の防衛戦だ。すべての生産力を戦線に注ぎ込め。',
       waves: [
-        w([{ type: 'swarmling', count: 24, delay: 0.3, gap: 0.45 }, { type: 'spitter', count: 10, delay: 4, gap: 0.9 }], { ore: 320, research: 60 }),
-        w([{ type: 'armored', count: 14, delay: 0.5, gap: 1.1 }, { type: 'spitter', count: 10, delay: 6, gap: 0.9 }, { type: 'swarmling', count: 20, delay: 9, gap: 0.4 }], { ore: 360, research: 70 }),
+        w([{ type: 'swarmling', count: 24, delay: 0.3, gap: 0.45 }, { type: 'wyrm', count: 8, delay: 4, gap: 0.8 }], { ore: 320, research: 60 }),
+        w([{ type: 'armored', count: 14, delay: 0.5, gap: 1.1 }, { type: 'spitter', count: 10, delay: 6, gap: 0.9 }, { type: 'wyrm', count: 8, delay: 9, gap: 0.7 }], { ore: 360, research: 70 }),
         w([
           { type: 'swarmling', count: 26, delay: 0.3, gap: 0.4 },
           { type: 'armored', count: 12, delay: 4, gap: 1 },
-          { type: 'spitter', count: 12, delay: 8, gap: 0.8 },
-          { type: 'titan', count: 1, delay: 14, gap: 1 },
+          { type: 'spitter', count: 10, delay: 8, gap: 0.8 },
+          { type: 'wyrm', count: 8, delay: 11, gap: 0.8 },
+          { type: 'titan', count: 1, delay: 16, gap: 1 },
         ], { ore: 500, research: 120 }),
       ],
       outro:

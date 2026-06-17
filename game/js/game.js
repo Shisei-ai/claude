@@ -18,7 +18,7 @@
       research: 0,
       buildings: { reactor: 1, miner: 2, factory: 1, lab: 0, depot: 0, relay: 0, turret: 0 },
       researched: {},                 // techId -> true
-      unlocked: { scout: true, trooper: true }, // 解放済みユニット
+      unlocked: { infantry: true, assault: true }, // 解放済みユニット
       perm: {},                       // シナリオ選択の恒久ボーナス（加算%）
       queue: [],                      // 建造待ち unitId 配列
       lines: [],                      // 工場ライン [{unitId, remaining}|null]
@@ -39,7 +39,7 @@
   // ---- 修飾子（研究＋恒久ボーナス）の再計算 -------------------------------
   function recomputeMod() {
     var m = { mineMult: 1, researchMult: 1, buildSpeed: 1, powerSave: 0,
-              hpMult: 1, dmgMult: 1, capacityBonus: 0 };
+              hpMult: 1, dmgMult: 1, capacityBonus: 0, defBonus: 0 };
     function applyEffect(e) {
       if (!e) return;
       if (e.mineMult) m.mineMult += e.mineMult;
@@ -49,6 +49,7 @@
       if (e.hpMult) m.hpMult += e.hpMult;
       if (e.dmgMult) m.dmgMult += e.dmgMult;
       if (e.capacity) m.capacityBonus += e.capacity;
+      if (e.defBonus) m.defBonus += e.defBonus;
       if (e.unlock) state.unlocked[e.unlock] = true;
     }
     for (var id in state.researched) if (state.researched[id]) applyEffect(G.TECHS[id].effect);
@@ -237,20 +238,26 @@
   function afterIntro() { state.phase = 'prep'; }
 
   // ---- 戦闘シミュレーション ----------------------------------------------
-  function rpsMult(atk, def) {
-    if (G.STRONG_AGAINST[atk] === def) return G.ADV_MULT;
-    if (G.STRONG_AGAINST[def] === atk) return G.DIS_MULT;
-    return 1;
-  }
-  function dist(a, b) { return Math.abs(a.x - b.x); }
+  function specOf(ent) { return ent.side === 'p' ? G.UNITS[ent.type] : G.ENEMIES[ent.type]; }
 
-  function nearest(list, from) {
+  // 攻撃側 aSpec が対象 ent を攻撃できるか（空中は対空持ちのみ）
+  function canHit(aSpec, ent) {
+    return specOf(ent).domain !== 'air' || aSpec.antiAir === true;
+  }
+  // 攻撃可能な対象のうち最も近いもの
+  function nearestHittable(list, from, aSpec) {
     var best = null, bd = 1e9;
     for (var i = 0; i < list.length; i++) {
+      if (!canHit(aSpec, list[i])) continue;
       var d = Math.abs(list[i].x - from.x);
       if (d < bd) { bd = d; best = list[i]; }
     }
     return best;
+  }
+  // ダメージ = max(MIN_DMG, 攻撃力 - 防御力)。defBonus は自軍の被弾側のみに加算。
+  function applyDamage(target, raw, targetSpec, targetIsAlly) {
+    var def = (targetSpec.def || 0) + (targetIsAlly ? state.mod.defBonus : 0);
+    target.hp -= Math.max(G.MIN_DMG, raw - def);
   }
 
   function addEffect(x, color) {
@@ -265,23 +272,19 @@
       u = state.units[i];
       spec = G.UNITS[u.type];
       u.cd -= dt;
+      target = nearestHittable(state.enemies, u, spec);
 
-      if (spec.atkType === 'none' && spec.heal) {
-        // 工兵：負傷した味方を修理
-        target = null; var tlow = 1e9;
-        for (var j = 0; j < state.units.length; j++) {
-          var al = state.units[j];
-          if (al === u) continue;
-          if (al.hp < al.maxHp && Math.abs(al.x - u.x) <= spec.range && al.hp < tlow) { tlow = al.hp; target = al; }
+      if (spec.domain === 'air') {
+        // 飛行兵：地上に阻まれず常に前進し、射程内の敵を撃つ
+        u.x = Math.min(LANE - 60, u.x + spec.speed * dt);
+        if (target && Math.abs(target.x - u.x) <= spec.range && u.cd <= 0) {
+          applyDamage(target, spec.dmg * state.mod.dmgMult, G.ENEMIES[target.type], false);
+          u.cd = 1 / spec.rate;
         }
-        // 前進しつつ回復
-        if (state.enemies.length) u.x = Math.min(WALL_X, u.x + spec.speed * dt);
-        if (target && u.cd <= 0) { target.hp = Math.min(target.maxHp, target.hp + spec.heal); u.cd = 1 / spec.rate; }
         continue;
       }
 
-      target = nearest(state.enemies, u);
-      if (!target) { // 敵がいなければ壁の手前で待機
+      if (!target) { // 撃てる敵がいなければ壁の手前まで前進して待機
         if (u.x < WALL_X - 30) u.x += spec.speed * dt;
         continue;
       }
@@ -289,18 +292,8 @@
       if (d > spec.range) {
         u.x += spec.speed * dt; // 敵へ前進（敵は右側）
       } else if (u.cd <= 0) {
-        var dmg = spec.dmg * state.mod.dmgMult * rpsMult(spec.atkType, G.ENEMIES[target.type].atkType);
-        if (spec.kamikaze) {
-          // 自爆：範囲ダメージ
-          for (var e2 = 0; e2 < state.enemies.length; e2++) {
-            if (Math.abs(state.enemies[e2].x - u.x) <= spec.aoe) state.enemies[e2].hp -= dmg;
-          }
-          addEffect(u.x, '#ffd24a');
-          u.hp = 0; // ドローンは消滅
-        } else {
-          target.hp -= dmg;
-          u.cd = 1 / spec.rate;
-        }
+        applyDamage(target, spec.dmg * state.mod.dmgMult, G.ENEMIES[target.type], false);
+        u.cd = 1 / spec.rate;
       }
     }
 
@@ -309,25 +302,27 @@
       e = state.enemies[i];
       spec = G.ENEMIES[e.type];
       e.cd -= dt;
-      target = nearest(state.units, e);
-      if (!target) {
-        // 迎撃する味方がいない → 司令部へ進撃
-        if (e.x > HQ_X + spec.range) { e.x -= spec.speed * dt; }
-        else if (e.cd <= 0) { state.hqHp -= spec.dmg; e.cd = 1 / spec.rate; addEffect(HQ_X, '#ff5050'); }
-      } else {
-        var td = Math.abs(target.x - e.x);
-        if (td > spec.range) { e.x -= spec.speed * dt; }
-        else if (e.cd <= 0) {
-          var ed = spec.dmg * rpsMult(spec.atkType, G.UNITS[target.type].atkType);
-          target.hp -= ed; e.cd = 1 / spec.rate;
+      target = nearestHittable(state.units, e, spec);
+      var inRange = target && Math.abs(target.x - e.x) <= spec.range;
+
+      // 移動：空中は常に前進、地上は射程外なら前進
+      if (spec.domain === 'air' || !inRange) e.x = Math.max(HQ_X, e.x - spec.speed * dt);
+
+      if (e.cd <= 0) {
+        if (inRange) {
+          applyDamage(target, spec.dmg, G.UNITS[target.type], true);
+          e.cd = 1 / spec.rate;
+        } else if (e.x <= HQ_X + spec.range) {
+          state.hqHp -= spec.dmg; e.cd = 1 / spec.rate; addEffect(HQ_X, '#ff5050');
         }
       }
     }
 
-    // --- 防衛砲台（壁の固定砲） ---
+    // --- 防衛砲台（壁の固定砲・対空可） ---
     //   0.5秒ごとに砲台数ぶん、射程内の最寄り敵を射撃（簡易DPSモデル）。
     var turrets = state.buildings.turret || 0;
     if (turrets > 0 && state.enemies.length) {
+      var turretSpec = { antiAir: true };
       state._turretTick = (state._turretTick || 0) + dt;
       if (state._turretTick >= 0.5) {
         state._turretTick = 0;
@@ -337,7 +332,7 @@
             var dx = Math.abs(state.enemies[i].x - WALL_X);
             if (dx <= 190 && dx < nd) { nd = dx; near = state.enemies[i]; }
           }
-          if (near) { near.hp -= 26; addEffect(near.x, '#7fd1ff'); }
+          if (near) { applyDamage(near, 30, G.ENEMIES[near.type], false); addEffect(near.x, '#7fd1ff'); }
         }
       }
     }
@@ -345,7 +340,7 @@
     // --- 死亡処理 ---
     for (i = state.units.length - 1; i >= 0; i--) {
       if (state.units[i].hp <= 0) {
-        if (!G.UNITS[state.units[i].type].kamikaze) state.stats.lost++;
+        state.stats.lost++;
         state.units.splice(i, 1);
       }
     }
