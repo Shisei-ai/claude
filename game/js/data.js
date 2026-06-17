@@ -11,14 +11,68 @@
 
   G.MIN_DMG = 1;
 
-  // ---- 基盤設備（カウント式・経済の土台） --------------------------------
-  G.BASE_BUILDINGS = {
-    reactor: { name: '発電所', icon: '⚡', cost: 80, costScale: 1.22, power: 22, desc: '電力を供給。全生産は電力に依存する。' },
-    miner:   { name: '採掘機', icon: '⛏', cost: 55, costScale: 1.17, power: -5, ore: 0.9, desc: '鉱石を毎秒採掘する。' },
-    lab:     { name: '研究所', icon: '🔬', cost: 110, costScale: 1.24, power: -8, research: 0.55, desc: '研究ポイントを蓄積。' },
-    depot:   { name: '補給庫', icon: '📦', cost: 70, costScale: 1.2, power: -1, oreCap: 250, desc: '鉱石の貯蔵上限を増やす。' },
-    relay:   { name: '通信中継塔', icon: '📡', cost: 120, costScale: 1.25, power: -4, capacity: 6, desc: '指揮容量を拡張。' },
-    turret:  { name: '防衛砲台', icon: '🗼', cost: 160, costScale: 1.3, power: -6, desc: '前線の固定砲。対空可。' },
+  // ===== 基本素材（鉱区で採取） =====
+  G.MATERIALS = ['iron', 'copper', 'silver', 'gold', 'platinum', 'diamond', 'mithril'];
+  G.MAT_INFO = {
+    iron:     { name: '鉄',       icon: '⛓', color: '#b8c0c8' },
+    copper:   { name: '銅',       icon: '🟧', color: '#e08a4a' },
+    silver:   { name: '銀',       icon: '⚪', color: '#cdd6e0' },
+    gold:     { name: '金',       icon: '🟡', color: '#ffcf5a' },
+    platinum: { name: 'プラチナ', icon: '⬜', color: '#cfe6ff' },
+    diamond:  { name: 'ダイヤ',   icon: '💎', color: '#7fe0ff' },
+    mithril:  { name: 'ミスリル', icon: '🔷', color: '#9af0d0' },
+  };
+
+  // ===== 鉱区Ⅰ〜Ⅵ（採取モジュールを投入して素材を得る。ストーリーで解放） =====
+  //   mat = 主産物。Ⅵ(深層)のみ byproduct=mithril を副産。1モジュールあたり rate/秒。
+  G.ZONES = [
+    { name: '鉱区Ⅰ', mat: 'iron',     rate: 0.55 },
+    { name: '鉱区Ⅱ', mat: 'copper',   rate: 0.48 },
+    { name: '鉱区Ⅲ', mat: 'silver',   rate: 0.40 },
+    { name: '鉱区Ⅳ', mat: 'gold',     rate: 0.34 },
+    { name: '鉱区Ⅴ', mat: 'platinum', rate: 0.28 },
+    { name: '鉱区Ⅵ', mat: 'diamond',  rate: 0.22, byproduct: 'mithril', byRate: 0.07 },
+  ];
+
+  // ===== ユーティリティ（設備を駆動する。電気=フロー、水/燃料=ストック） =====
+  G.UTIL = { water: { name: '水', icon: '💧', color: '#5ec6ff' }, fuel: { name: '燃料', icon: '🛢', color: '#ffb13b' } };
+
+  // ===== 中間素材（設備が 基本素材＋水/燃料 から生産。電力で稼働効率が変わる） =====
+  G.INTERMEDIATES = {
+    alloy:   { name: '合金',   icon: '🔩', color: '#cdd6e0', time: 1.4, mats: { iron: 1, copper: 1 }, water: 1, fac: 'smelter' },
+    circuit: { name: '回路',   icon: '🧩', color: '#7fe0a8', time: 1.8, mats: { silver: 1, gold: 1 }, water: 1, fac: 'electro' },
+    core:    { name: '動力核', icon: '🔋', color: '#ff9e6b', time: 2.2, mats: { platinum: 1, diamond: 1 }, fuel: 1, fac: 'coreforge' },
+    mythril: { name: '秘銀鋼', icon: '🔷', color: '#9af0d0', time: 2.6, mats: { mithril: 1 }, inter: { alloy: 1 }, fuel: 1, fac: 'lattice' },
+  };
+
+  // ===== パーツの中間素材コスト（最後にこの3種を合体してユニット） =====
+  G.PART_COST = {
+    body: {
+      infantry: { alloy: 1 }, assault: { alloy: 2 },
+      heavy: { alloy: 2, core: 1 }, shooter: { alloy: 1, circuit: 1 }, flyer: { alloy: 1, circuit: 1 },
+    },
+    head: { alloy: 1 },
+    weapon: {
+      standard: { alloy: 1 }, splash: { alloy: 1, circuit: 1 }, chain: { alloy: 1, circuit: 1 }, heavyW: { core: 1, mythril: 1 },
+    },
+  };
+
+  G.MAT_CAP_BASE = 260;   // 素材/中間素材/水/燃料 の基本貯蔵上限（貯蔵庫で増加）
+
+  // ---- 設備（カウント式。建設コストは鉄。cat=UIグループ） ----------------
+  G.FACILITIES = {
+    reactor:  { name: '発電所', icon: '⚡', cost: 90, costScale: 1.22, power: 24, cat: 'power', desc: '電力を供給。全設備の稼働に必要。' },
+    pump:     { name: '取水ポンプ', icon: '💧', cost: 70, costScale: 1.2, power: -6, water: 0.7, cat: 'util', desc: '水を産出（電力消費）。' },
+    refinery: { name: '精製所', icon: '🛢', cost: 95, costScale: 1.22, power: -8, fuel: 0.5, cat: 'util', desc: '燃料を精製（電力消費）。' },
+    moduleFab:{ name: 'モジュール工房', icon: '📦', cost: 120, costScale: 1.24, power: -7, module: 0.10, cat: 'util', desc: '採取モジュールを製造（保有上限まで）。' },
+    smelter:  { name: '製錬炉', icon: '🔩', cost: 100, costScale: 1.22, power: -10, make: 'alloy', cat: 'smelt', desc: '鉄＋銅＋水 → 合金。' },
+    electro:  { name: '電子工房', icon: '🧩', cost: 125, costScale: 1.24, power: -10, make: 'circuit', cat: 'smelt', desc: '銀＋金＋水 → 回路。' },
+    coreforge:{ name: 'コア炉', icon: '🔋', cost: 155, costScale: 1.26, power: -14, make: 'core', cat: 'smelt', desc: 'プラチナ＋ダイヤ＋燃料 → 動力核。' },
+    lattice:  { name: '錬成炉', icon: '🔷', cost: 185, costScale: 1.28, power: -16, make: 'mythril', cat: 'smelt', desc: 'ミスリル＋合金＋燃料 → 秘銀鋼。' },
+    lab:      { name: '研究所', icon: '🔬', cost: 110, costScale: 1.24, power: -8, research: 0.55, cat: 'base', desc: '研究ポイントを蓄積。' },
+    depot:    { name: '貯蔵庫', icon: '🏪', cost: 70, costScale: 1.2, power: -1, cap: 200, cat: 'base', desc: '素材・中間素材の貯蔵上限+200。' },
+    relay:    { name: '通信中継塔', icon: '📡', cost: 120, costScale: 1.25, power: -4, capacity: 6, cat: 'base', desc: '指揮容量+6。' },
+    turret:   { name: '防衛砲台', icon: '🗼', cost: 160, costScale: 1.3, power: -6, cat: 'base', desc: '前線の固定砲（対空可）。' },
   };
 
   // ---- 工業設備（インスタンス式・各台に割当を持つ） ----------------------
@@ -82,15 +136,21 @@
   };
 
   // ---- 研究ツリー ---------------------------------------------------------
-  //   effect の解釈: mineMult/researchMult/buildSpeed/powerSave/capacity（経済系）
-  //                  unlockBody/unlockWeapon/unlockCpu（解放）
-  //                  bodyTier/weaponTier/headTier（グレード/スロットの引上げ=その値以上に）
+  //   effect: mineMult(鉱区産出) / interSpeed(製錬速度) / buildSpeed(部品工場速度)
+  //           powerSave / moduleCap(モジュール保有上限) / capacity / researchMult
+  //           unlockBody/unlockWeapon/unlockCpu / bodyTier/weaponTier/headTier
   G.TECHS = {
     // 工業
-    mining1:   { name: '採掘最適化', branch: '工業', cost: 40, req: [], desc: '鉱石産出 +25%。', effect: { mineMult: 0.25 } },
-    fabspeed1: { name: '生産自動化', branch: '工業', cost: 60, req: ['mining1'], desc: '全工場の生産速度 +30%。', effect: { buildSpeed: 0.30 } },
+    mining1:   { name: '採掘最適化', branch: '工業', cost: 40, req: [], desc: '全鉱区の産出 +25%。', effect: { mineMult: 0.25 } },
+    smelt1:    { name: '製錬最適化', branch: '工業', cost: 60, req: ['mining1'], desc: '中間素材設備の生産速度 +30%。', effect: { interSpeed: 0.30 } },
     powergrid: { name: '送電網改良', branch: '工業', cost: 70, req: ['mining1'], desc: '全設備の電力消費 -20%。', effect: { powerSave: 0.20 } },
-    mining2:   { name: '深層採掘', branch: '工業', cost: 130, req: ['fabspeed1'], desc: '鉱石産出 さらに +40%。', effect: { mineMult: 0.40 } },
+    fab1:      { name: '部品増産',   branch: '工業', cost: 80, req: ['smelt1'], desc: '部品工場の生産速度 +30%。', effect: { buildSpeed: 0.30 } },
+    mining2:   { name: '深層採掘',   branch: '工業', cost: 140, req: ['fab1'], desc: '全鉱区の産出 さらに +40%。', effect: { mineMult: 0.40 } },
+
+    // 採取（モジュール保有上限）
+    module1:   { name: '採取拡張Ⅰ', branch: '採取', cost: 50, req: [], desc: '採取モジュール保有上限 +3。', effect: { moduleCap: 3 } },
+    module2:   { name: '採取拡張Ⅱ', branch: '採取', cost: 110, req: ['module1'], desc: '採取モジュール保有上限 +4。', effect: { moduleCap: 4 } },
+    module3:   { name: '採取拡張Ⅲ', branch: '採取', cost: 180, req: ['module2'], desc: '採取モジュール保有上限 +5。', effect: { moduleCap: 5 } },
 
     // 機体（兵科 / ボディグレード）
     body_heavy:  { name: '重装兵 開発', branch: '機体', cost: 70, req: [], desc: '重装兵ボディを解放。', effect: { unlockBody: 'heavy' } },
@@ -127,11 +187,13 @@
   G.CHAPTERS = [
     {
       title: '第一章　辺境基地カストル',
+      grant: { zones: [0, 1], modules: 4 },
       intro:
         '辺境採掘基地カストル、通信途絶から72時間。\n' +
         '指揮AI〈あなた〉は休眠から目覚め、防衛権限を掌握する。\n\n' +
-        'まず工業を立ち上げよ。部品工場でボディ・ヘッド・ウェポンを生産し、\n' +
-        '組立ラインに設計を組めば、戦闘中に量産ロボットが流れ出す。',
+        '工業を立ち上げよ。鉱区に採取モジュールを送って素材を掘り、\n' +
+        '製錬炉で合金などの中間素材を作り、部品工場でボディ・ヘッド・\n' +
+        'ウェポンを生産。組立ラインで3つを合体させれば量産機が流れ出す。',
       waves: [
         w([{ type: 'swarmling', count: 6, delay: 1, gap: 1.4 }], { ore: 60, research: 12 }),
         w([{ type: 'swarmling', count: 10, delay: 1, gap: 1.1 }], { ore: 80, research: 14 }),
@@ -142,12 +204,13 @@
         prompt: '残骸の解析方針を決定せよ。',
         options: [
           { label: '構造を解析（研究重視）', desc: '研究所の出力が永続+15%。', apply: { researchMult: 0.15 } },
-          { label: '素材を回収（工業重視）', desc: '採掘機の産出が永続+15%。', apply: { mineMult: 0.15 } },
+          { label: '素材を回収（工業重視）', desc: '全鉱区の産出が永続+15%。', apply: { mineMult: 0.15 } },
         ],
       },
     },
     {
       title: '第二章　増殖する前線',
+      grant: { zones: [2, 3], modules: 2 },
       intro:
         '装甲を持つ個体が現れた。低火力の物量では装甲を割れない。\n' +
         'ボディのグレード、出力CPU、あるいは重兵装――設計を見直せ。',
@@ -167,6 +230,7 @@
     },
     {
       title: '第三章　暴走する遺産',
+      grant: { zones: [4, 5], modules: 3 },
       intro:
         '空に飛翔する影。地上を無視して基地へ迫る。\n' +
         '対空（射撃兵・飛行兵・防衛砲台）が無ければ空から喰い破られる。',
@@ -186,6 +250,7 @@
     },
     {
       title: '第四章　中枢炉',
+      grant: { modules: 4 },
       intro:
         '地表のハッチが開き、群体が濁流のように溢れ出す。\n' +
         '全ての生産ラインを稼働させ、最後の防衛戦に臨め。',

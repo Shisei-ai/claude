@@ -11,17 +11,25 @@
 
   // ---- 状態 ---------------------------------------------------------------
   function freshState() {
+    var mat = {}, inter = {}, stockBody = {}, k;
+    for (k = 0; k < G.MATERIALS.length; k++) mat[G.MATERIALS[k]] = 0;
+    for (k in G.INTERMEDIATES) inter[k] = 0;
+    for (k in G.BODIES) stockBody[k] = 0;
+    mat.iron = 120; mat.copper = 12; inter.alloy = 4;
     return {
-      ore: 210, research: 0,
-      buildings: { reactor: 3, miner: 4, lab: 1, depot: 0, relay: 0, turret: 0 },
-      // 工業設備（インスタンス）
-      bodyFabs:   [{ assign: 'infantry', prog: 0 }],
-      headFabs:   [{ prog: 0 }],
+      mat: mat, water: 30, fuel: 20, inter: inter, research: 0,
+      modules: 0, grantedModules: 0,
+      zones: G.ZONES.map(function () { return { unlocked: false, modules: 0 }; }),
+      grantsApplied: {},
+      // 設備（カウント式）
+      buildings: { reactor: 4, pump: 1, refinery: 1, moduleFab: 1, smelter: 2, electro: 0, coreforge: 0, lattice: 0, lab: 1, depot: 0, relay: 0, turret: 0 },
+      proc: { smelter: 0, electro: 0, coreforge: 0, lattice: 0 },
+      // 部品工場（インスタンス）
+      bodyFabs: [{ assign: 'infantry', prog: 0 }],
+      headFabs: [{ prog: 0 }],
       weaponFabs: [{ assign: 'standard', prog: 0 }],
       assemblies: [{ body: 'infantry', weapon: 'standard', cpus: [], prog: 0 }],
-      // 部品在庫
-      stock: { body: { infantry: 0, assault: 0, heavy: 0, shooter: 0, flyer: 0 },
-               head: 0, weapon: { standard: 0, splash: 0, chain: 0, heavyW: 0 } },
+      stock: { body: stockBody, head: 0, weapon: { standard: 0, splash: 0, chain: 0, heavyW: 0 } },
       researched: {}, perm: {},
       unlockedBodies: {}, unlockedWeapons: {}, unlockedCpus: {},
       tiers: { body: 1, weapon: 1, head: 1 },
@@ -37,7 +45,7 @@
 
   // ---- 修飾子・解放・グレードの再計算 ------------------------------------
   function recomputeMod() {
-    var m = { mineMult: 1, researchMult: 1, buildSpeed: 1, powerSave: 0, capacityBonus: 0 };
+    var m = { mineMult: 1, researchMult: 1, buildSpeed: 1, interSpeed: 1, powerSave: 0, capacityBonus: 0, moduleCapBonus: 0 };
     var bodies = { infantry: true, assault: true };
     var weapons = { standard: true };
     var cpus = {};
@@ -48,8 +56,10 @@
       if (e.mineMult) m.mineMult += e.mineMult;
       if (e.researchMult) m.researchMult += e.researchMult;
       if (e.buildSpeed) m.buildSpeed += e.buildSpeed;
+      if (e.interSpeed) m.interSpeed += e.interSpeed;
       if (e.powerSave) m.powerSave += e.powerSave;
       if (e.capacity) m.capacityBonus += e.capacity;
+      if (e.moduleCap) m.moduleCapBonus += e.moduleCap;
       if (e.unlockBody) bodies[e.unlockBody] = true;
       if (e.unlockWeapon) weapons[e.unlockWeapon] = true;
       if (e.unlockCpu) cpus[e.unlockCpu] = true;
@@ -59,7 +69,6 @@
     }
     for (var id in state.researched) if (state.researched[id]) applyEffect(G.TECHS[id].effect);
     applyEffect(state.perm);
-    // 恒久ボーナス（章選択）のグレード加算
     tier.body += (state.perm.bodyTierBonus || 0);
     tier.weapon += (state.perm.weaponTierBonus || 0);
 
@@ -72,24 +81,21 @@
   }
 
   // ---- 経済の派生値 -------------------------------------------------------
-  function baseCost(id) { var b = G.BASE_BUILDINGS[id]; return Math.round(b.cost * Math.pow(b.costScale, state.buildings[id] || 0)); }
+  function facilityCost(id) { var b = G.FACILITIES[id]; return Math.round(b.cost * Math.pow(b.costScale, state.buildings[id] || 0)); }
   var KIND_DEF = { body: 'bodyFab', head: 'headFab', weapon: 'weaponFab', assembly: 'assembly' };
   function industryDef(kind) { return G.INDUSTRY[KIND_DEF[kind]]; }
-  function industryCost(kind) {
-    var d = industryDef(kind), n = industryList(kind).length;
-    return Math.round(d.cost * Math.pow(d.costScale, n));
-  }
+  function industryCost(kind) { var d = industryDef(kind), n = industryList(kind).length; return Math.round(d.cost * Math.pow(d.costScale, n)); }
   function industryList(kind) {
     return kind === 'body' ? state.bodyFabs : kind === 'head' ? state.headFabs
          : kind === 'weapon' ? state.weaponFabs : state.assemblies;
   }
   function powerSupply() {
-    var s = 0; for (var id in state.buildings) { var p = G.BASE_BUILDINGS[id].power; if (p > 0) s += p * state.buildings[id]; }
+    var s = 0; for (var id in state.buildings) { var p = G.FACILITIES[id].power; if (p > 0) s += p * state.buildings[id]; }
     return s;
   }
   function powerDemand() {
     var save = 1 - (state.mod ? state.mod.powerSave : 0), d = 0;
-    for (var id in state.buildings) { var p = G.BASE_BUILDINGS[id].power; if (p < 0) d += (-p) * state.buildings[id]; }
+    for (var id in state.buildings) { var p = G.FACILITIES[id].power; if (p < 0) d += (-p) * state.buildings[id]; }
     d += state.bodyFabs.length * (-G.INDUSTRY.bodyFab.power)
        + state.headFabs.length * (-G.INDUSTRY.headFab.power)
        + state.weaponFabs.length * (-G.INDUSTRY.weaponFab.power)
@@ -97,21 +103,23 @@
     return d * save;
   }
   function powerEfficiency() { var d = powerDemand(); return d <= 0 ? 1 : Math.min(1, powerSupply() / d); }
-  function oreCap() { return 400 + (state.buildings.depot || 0) * G.BASE_BUILDINGS.depot.oreCap; }
-  function oreRate() { return (state.buildings.miner || 0) * G.BASE_BUILDINGS.miner.ore * state.mod.mineMult * powerEfficiency(); }
-  function researchRate() { return (state.buildings.lab || 0) * G.BASE_BUILDINGS.lab.research * state.mod.researchMult * powerEfficiency(); }
-  function capacityMax() { return state.capacityMax + state.mod.capacityBonus + (state.buildings.relay || 0) * G.BASE_BUILDINGS.relay.capacity; }
+  function matCap() { return G.MAT_CAP_BASE + (state.buildings.depot || 0) * G.FACILITIES.depot.cap; }
+  function researchRate() { return (state.buildings.lab || 0) * G.FACILITIES.lab.research * state.mod.researchMult * powerEfficiency(); }
+  function capacityMax() { return state.capacityMax + state.mod.capacityBonus + (state.buildings.relay || 0) * G.FACILITIES.relay.capacity; }
   function capacityUsed() { var c = 0; for (var i = 0; i < state.units.length; i++) c += state.units[i].stats.cap; return c; }
+  function moduleCap() { return 4 + (state.mod ? state.mod.moduleCapBonus : 0) + state.grantedModules; }
+  function freeModules() { var u = 0; for (var i = 0; i < state.zones.length; i++) u += state.zones[i].modules; return state.modules - u; }
+  function addMat(k, amt) { state.mat[k] = Math.min(matCap(), (state.mat[k] || 0) + amt); }
 
   // ---- 建設・設備 ---------------------------------------------------------
-  function buyBuilding(id) {
-    var c = baseCost(id); if (state.ore < c) return false;
-    state.ore -= c; state.buildings[id] = (state.buildings[id] || 0) + 1; recomputeMod(); return true;
+  function buyFacility(id) {
+    var c = facilityCost(id); if (state.mat.iron < c) return false;
+    state.mat.iron -= c; state.buildings[id] = (state.buildings[id] || 0) + 1; recomputeMod(); return true;
   }
   function firstUnlockedBody() { for (var k in G.BODIES) if (state.unlockedBodies[k]) return k; return 'infantry'; }
   function buyIndustry(kind) {
-    var c = industryCost(kind); if (state.ore < c) return false;
-    state.ore -= c;
+    var c = industryCost(kind); if (state.mat.iron < c) return false;
+    state.mat.iron -= c;
     if (kind === 'body') state.bodyFabs.push({ assign: firstUnlockedBody(), prog: 0 });
     else if (kind === 'head') state.headFabs.push({ prog: 0 });
     else if (kind === 'weapon') state.weaponFabs.push({ assign: 'standard', prog: 0 });
@@ -123,6 +131,9 @@
     if (list.length <= 0 || i < 0 || i >= list.length) return false;
     list.splice(i, 1); return true;
   }
+  // 採取モジュールの割り当て
+  function assignModule(zi) { if (state.zones[zi] && state.zones[zi].unlocked && freeModules() > 0) { state.zones[zi].modules++; return true; } return false; }
+  function unassignModule(zi) { if (state.zones[zi] && state.zones[zi].modules > 0) { state.zones[zi].modules--; return true; } return false; }
   // 設定変更
   function setFabAssign(kind, i, assign) {
     var list = industryList(kind);
@@ -176,32 +187,84 @@
   // ---- 工業シミュレーション ----------------------------------------------
   function fabSpeed() { return state.mod.buildSpeed * powerEfficiency(); }
 
-  function tickFab(f, partTime, partCost, atCap, onDone, sp, dt) {
+  // 中間素材レシピの入力（基本素材＋中間素材＋水/燃料）が揃っているか／消費
+  function haveRecipe(r) {
+    var k;
+    if (r.mats) for (k in r.mats) if ((state.mat[k] || 0) < r.mats[k]) return false;
+    if (r.inter) for (k in r.inter) if ((state.inter[k] || 0) < r.inter[k]) return false;
+    if (r.water && state.water < r.water) return false;
+    if (r.fuel && state.fuel < r.fuel) return false;
+    return true;
+  }
+  function consumeRecipe(r) {
+    var k;
+    if (r.mats) for (k in r.mats) state.mat[k] -= r.mats[k];
+    if (r.inter) for (k in r.inter) state.inter[k] -= r.inter[k];
+    if (r.water) state.water -= r.water;
+    if (r.fuel) state.fuel -= r.fuel;
+  }
+  function haveInter(cost) { for (var k in cost) if ((state.inter[k] || 0) < cost[k]) return false; return true; }
+  function consumeInter(cost) { for (var k in cost) state.inter[k] -= cost[k]; }
+
+  // 部品工場：中間素材コストを消費して部品在庫を作る
+  function tickPart(f, time, cost, atCap, onDone, sp, dt) {
     f.prog += dt * sp;
-    if (f.prog >= partTime) {
-      if (atCap()) { f.prog = partTime; }                              // 在庫満杯→停止（鉱石消費なし）
-      else if (state.ore >= partCost) { state.ore -= partCost; onDone(); f.prog -= partTime; }
-      else { f.prog = partTime; }                                      // 鉱石待ちで頭打ち
+    if (f.prog >= time) {
+      if (atCap() || !haveInter(cost)) { f.prog = time; }
+      else { consumeInter(cost); onDone(); f.prog -= time; }
     }
   }
+
   function processIndustry(dt, inBattle) {
-    var sp = fabSpeed(), i, cap = G.STOCK_CAP;
+    var sp = fabSpeed(), eff = powerEfficiency(), cap = matCap(), i, k;
+
+    // ① 鉱区採取（投入モジュール数 × 産出。電力非依存）
+    for (i = 0; i < state.zones.length; i++) {
+      var zs = state.zones[i]; if (!zs.unlocked || zs.modules <= 0) continue;
+      var z = G.ZONES[i];
+      addMat(z.mat, zs.modules * z.rate * state.mod.mineMult * dt);
+      if (z.byproduct) addMat(z.byproduct, zs.modules * z.byRate * state.mod.mineMult * dt);
+    }
+    // ② ユーティリティ（電力で稼働）
+    state.water = Math.min(cap, state.water + (state.buildings.pump || 0) * G.FACILITIES.pump.water * eff * dt);
+    state.fuel = Math.min(cap, state.fuel + (state.buildings.refinery || 0) * G.FACILITIES.refinery.fuel * eff * dt);
+    if (state.modules < moduleCap()) state.modules = Math.min(moduleCap(), state.modules + (state.buildings.moduleFab || 0) * G.FACILITIES.moduleFab.module * eff * dt);
+
+    // ③ 中間素材設備（基本素材＋水/燃料 → 中間素材）
+    for (k in G.INTERMEDIATES) {
+      var im = G.INTERMEDIATES[k], cnt = state.buildings[im.fac] || 0;
+      if (cnt <= 0) continue;
+      state.proc[im.fac] += dt * cnt * eff * state.mod.interSpeed;
+      while (state.proc[im.fac] >= im.time) {
+        if (state.inter[k] >= cap || !haveRecipe(im)) { state.proc[im.fac] = im.time; break; }
+        consumeRecipe(im); state.inter[k] = Math.min(cap, state.inter[k] + 1); state.proc[im.fac] -= im.time;
+      }
+    }
+
+    // ④ 部品工場（中間素材 → ボディ/ヘッド/ウェポン）
+    var SC = G.STOCK_CAP;
     for (i = 0; i < state.bodyFabs.length; i++) {
       var bf = state.bodyFabs[i], bd = G.BODIES[bf.assign];
-      (function (assign) { tickFab(bf, bd.partTime, bd.partCost,
-        function () { return state.stock.body[assign] >= cap.body; },
-        function () { state.stock.body[assign]++; }, sp, dt); })(bf.assign);
+      (function (assign) {
+        tickPart(bf, bd.partTime, G.PART_COST.body[assign],
+          function () { return state.stock.body[assign] >= SC.body; },
+          function () { state.stock.body[assign]++; }, sp, dt);
+      })(bf.assign);
     }
     var hf = G.INDUSTRY.headFab;
-    for (i = 0; i < state.headFabs.length; i++) tickFab(state.headFabs[i], hf.partTime, hf.partCost,
-      function () { return state.stock.head >= cap.head; },
+    for (i = 0; i < state.headFabs.length; i++) tickPart(state.headFabs[i], hf.partTime, G.PART_COST.head,
+      function () { return state.stock.head >= SC.head; },
       function () { state.stock.head++; }, sp, dt);
     for (i = 0; i < state.weaponFabs.length; i++) {
       var wf = state.weaponFabs[i], wd = G.WEAPONS[wf.assign];
-      (function (assign) { tickFab(wf, wd.partTime, wd.partCost,
-        function () { return state.stock.weapon[assign] >= cap.weapon; },
-        function () { state.stock.weapon[assign]++; }, sp, dt); })(wf.assign);
+      (function (assign) {
+        tickPart(wf, wd.partTime, G.PART_COST.weapon[assign],
+          function () { return state.stock.weapon[assign] >= SC.weapon; },
+          function () { state.stock.weapon[assign]++; }, sp, dt);
+      })(wf.assign);
     }
+
+    // ⑤ 組立（戦闘中のみ。3部品＋容量を消費してユニット生成）
     if (!inBattle) return;
     var at = G.INDUSTRY.assembly.time;
     for (i = 0; i < state.assemblies.length; i++) {
@@ -213,7 +276,7 @@
             && state.stock.body[a.body] >= 1 && state.stock.head >= 1 && state.stock.weapon[a.weapon] >= 1) {
           state.stock.body[a.body]--; state.stock.head--; state.stock.weapon[a.weapon]--;
           spawnUnit(stats); a.prog -= at;
-        } else { a.prog = at; } // 部品・容量待ち
+        } else { a.prog = at; }
       }
     }
   }
@@ -231,18 +294,28 @@
   }
   function onWaveCleared() {
     var wave = currentWave();
-    state.ore = Math.min(oreCap(), state.ore + wave.reward.ore);
+    addMat('iron', wave.reward.ore);   // 報酬は鉄として受け取る
     state.research += wave.reward.research;
     state.wave++;
     if (state.wave < currentChapter().waves.length) state.phase = 'prep';
     else { state.pendingStory = currentChapter().outro; state.pendingChoice = currentChapter().choice; state.phase = 'story'; }
+  }
+  // 章の解放（鉱区・モジュール）。章開始時に一度だけ適用。
+  function applyGrant() {
+    if (state.grantsApplied[state.chapter]) return;
+    var gr = currentChapter().grant;
+    if (gr) {
+      if (gr.zones) for (var j = 0; j < gr.zones.length; j++) { var zi = gr.zones[j]; if (state.zones[zi]) state.zones[zi].unlocked = true; }
+      if (gr.modules) { state.modules += gr.modules; state.grantedModules += gr.modules; }
+    }
+    state.grantsApplied[state.chapter] = true;
   }
   function afterOutro() { if (state.pendingChoice) state.phase = 'choice'; else advanceChapter(); }
   function applyChoice(opt) { var ap = opt.apply; for (var k in ap) state.perm[k] = (state.perm[k] || 0) + ap[k]; state.pendingChoice = null; recomputeMod(); advanceChapter(); }
   function advanceChapter() {
     state.chapter++; state.wave = 0;
     if (state.chapter >= G.CHAPTERS.length) state.phase = 'won';
-    else { state.pendingStory = currentChapter().intro; state.phase = 'intro'; }
+    else { applyGrant(); state.pendingStory = currentChapter().intro; state.phase = 'intro'; }
   }
   function afterIntro() { state.phase = 'prep'; }
 
@@ -357,7 +430,7 @@
     }
     for (i = state.enemies.length - 1; i >= 0; i--) if (state.enemies[i].hp <= 0) {
       var de = state.enemies[i], ds = G.ENEMIES[de.type];
-      state.ore = Math.min(oreCap(), state.ore + ds.bounty);
+      addMat('iron', ds.bounty);   // 撃破報酬は鉄
       state.stats.kills++;
       vfx({ k: 'boom', x: de.x, col: ds.color, a: ds.domain === 'air', big: !!ds.boss, spr: 'e_' + de.type });
       state.enemies.splice(i, 1);
@@ -368,7 +441,6 @@
   function update(dt) {
     if (!state || state.phase === 'won' || state.phase === 'lost') return;
     if (dt > 0.1) dt = 0.1;
-    state.ore = Math.min(oreCap(), state.ore + oreRate() * dt);
     state.research += researchRate() * dt;
     processIndustry(dt, state.phase === 'battle');
     if (state.phase === 'battle') {
@@ -380,16 +452,24 @@
     }
   }
 
-  function newGame() { state = freshState(); recomputeMod(); state.pendingStory = currentChapter().intro; state.phase = 'intro'; G.state = state; return state; }
+  function newGame() {
+    state = freshState(); recomputeMod();
+    applyGrant();                                   // 第一章の鉱区Ⅰ/Ⅱ＋モジュールを解放
+    if (state.zones[0]) state.zones[0].modules = 2; // 初期配備（鉄2/銅2）
+    if (state.zones[1]) state.zones[1].modules = 2;
+    state.pendingStory = currentChapter().intro; state.phase = 'intro'; G.state = state; return state;
+  }
 
   // ---- 公開API ------------------------------------------------------------
   G.Game = {
     newGame: newGame, update: update,
-    baseCost: baseCost, industryCost: industryCost, industryList: industryList,
+    facilityCost: facilityCost, industryCost: industryCost, industryList: industryList,
     powerSupply: powerSupply, powerDemand: powerDemand, powerEfficiency: powerEfficiency,
-    oreCap: oreCap, oreRate: oreRate, researchRate: researchRate,
+    matCap: matCap, researchRate: researchRate,
     capacityUsed: capacityUsed, capacityMax: capacityMax,
-    buyBuilding: buyBuilding, buyIndustry: buyIndustry, removeIndustry: removeIndustry,
+    moduleCap: moduleCap, freeModules: freeModules,
+    buyFacility: buyFacility, buyIndustry: buyIndustry, removeIndustry: removeIndustry,
+    assignModule: assignModule, unassignModule: unassignModule,
     setFabAssign: setFabAssign, setAssemblyBody: setAssemblyBody, setAssemblyWeapon: setAssemblyWeapon, toggleCpu: toggleCpu,
     computeStats: computeStats,
     canResearch: canResearch, doResearch: doResearch,

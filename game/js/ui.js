@@ -88,33 +88,83 @@
   function restart() { Game.newGame(); lastPhase = null; lastSig = ''; rebuildAll(); }
 
   // ---- 共通パーツ --------------------------------------------------------
-  function oreCost(n) { return '<span class="cost-ore">⛏' + n + '</span>'; }
+  function ironCost(n) { return '<span class="cost-ore">⛓' + n + '</span>'; }
 
   var BODY_KEYS = ['infantry', 'assault', 'heavy', 'shooter', 'flyer'];
   var WEAPON_KEYS = ['standard', 'splash', 'chain', 'heavyW'];
 
   // =======================================================================
-  //  設備タブ（基盤）
+  //  鉱区タブ（採取モジュール割当 ＋ 基本素材在庫）
   // =======================================================================
-  function buildBasePanel() {
-    var wrap = $('tab-base');
-    wrap.innerHTML = '<div class="hint">基盤設備。電力・鉱石・研究・指揮容量の土台を整える。</div><div class="cards" id="base-cards"></div>';
-    var grid = $('base-cards');
-    Object.keys(G.BASE_BUILDINGS).forEach(function (id) {
-      var b = G.BASE_BUILDINGS[id];
-      var extra = [];
-      if (b.power > 0) extra.push('+' + b.power + '電力'); else if (b.power < 0) extra.push(b.power + '電力');
-      if (b.ore) extra.push('+' + b.ore + '鉱石/s'); if (b.research) extra.push('+' + b.research + '研究/s');
-      if (b.oreCap) extra.push('貯蔵+' + b.oreCap); if (b.capacity) extra.push('指揮+' + b.capacity);
-      var card = document.createElement('div'); card.className = 'card'; card.dataset.bid = id;
-      card.innerHTML =
-        '<div class="h"><span class="ci">' + b.icon + '</span><span class="nm">' + b.name + '</span><span class="ct" data-count></span></div>' +
-        '<div class="ds">' + b.desc + '</div>' +
-        '<div class="meta">' + extra.map(function (e) { return '<span>' + e + '</span>'; }).join('') + '</div>' +
-        '<button data-buy>建設 <span data-cost></span></button>';
-      card.querySelector('[data-buy]').onclick = function () { if (Game.buyBuilding(id)) log(b.name + 'を建設。'); };
-      grid.appendChild(card);
+  function buildZonePanel() {
+    var s = Game.state, wrap = $('tab-zone');
+    wrap.innerHTML =
+      '<div class="hint">鉱区に<b>採取モジュール</b>を投入して基本素材を採取する（投入数で産出量が変わる）。' +
+      'モジュールは設備「モジュール工房」で増え、研究／ストーリーで保有上限が拡張。鉱区はストーリーで順次解放。</div>' +
+      '<div id="mat-box"></div><div id="zone-list"></div>';
+    renderMatBox();
+    var list = $('zone-list');
+    G.ZONES.forEach(function (z, i) {
+      var zs = s.zones[i], mi = G.MAT_INFO[z.mat];
+      var row = document.createElement('div'); row.className = 'zone' + (zs.unlocked ? '' : ' zlocked');
+      if (!zs.unlocked) {
+        row.innerHTML = '<div class="zone-h"><b>' + z.name + '</b><span class="zlock">🔒 ストーリーで解放</span></div>';
+      } else {
+        row.innerHTML =
+          '<div class="zone-h"><b>' + z.name + '</b><span class="zmat">' + mi.icon + mi.name +
+          (z.byproduct ? ' ＋' + G.MAT_INFO[z.byproduct].icon + G.MAT_INFO[z.byproduct].name : '') + '</span>' +
+          '<span class="zrate" data-zrate="' + i + '"></span></div>' +
+          '<div class="zone-mod"><button class="modbtn" data-zminus="' + i + '">－</button>' +
+          '<span class="modn">📦<b data-zmod="' + i + '">' + zs.modules + '</b></span>' +
+          '<button class="modbtn" data-zplus="' + i + '">＋</button></div>';
+      }
+      list.appendChild(row);
     });
+    list.querySelectorAll('[data-zplus]').forEach(function (b) { b.onclick = function () { if (Game.assignModule(+b.dataset.zplus)) markDirty(); }; });
+    list.querySelectorAll('[data-zminus]').forEach(function (b) { b.onclick = function () { if (Game.unassignModule(+b.dataset.zminus)) markDirty(); }; });
+  }
+  function renderMatBox() {
+    var s = Game.state, h = ['<div class="stock-title">基本素材 在庫（上限 ' + Game.matCap() + '）</div><div class="stock-row">'];
+    G.MATERIALS.forEach(function (k) { var mi = G.MAT_INFO[k]; h.push('<span class="schip" title="' + mi.name + '">' + mi.icon + '<b id="mat-' + k + '">' + Math.floor(s.mat[k]) + '</b></span>'); });
+    h.push('</div>'); $('mat-box').innerHTML = h.join('');
+  }
+
+  // =======================================================================
+  //  設備タブ（鉄で建設。電力/ユーティリティ/製錬/基盤）
+  // =======================================================================
+  function buildFacPanel() {
+    var wrap = $('tab-fac');
+    wrap.innerHTML =
+      '<div class="hint">設備の建設コストは<b>鉄</b>。電力で稼働し、製錬系が 基本素材＋水/燃料 から' +
+      '<b>中間素材</b>（合金・回路・動力核・秘銀鋼）を生産する。</div>' +
+      '<div id="util-box"></div><div class="cards" id="fac-cards"></div>';
+    renderUtilBox();
+    var grid = $('fac-cards');
+    ['power', 'util', 'smelt', 'base'].forEach(function (cat) {
+      Object.keys(G.FACILITIES).forEach(function (id) {
+        var b = G.FACILITIES[id]; if (b.cat !== cat) return;
+        var extra = [];
+        if (b.power > 0) extra.push('+' + b.power + '電力'); else if (b.power < 0) extra.push(b.power + '電力');
+        if (b.water) extra.push('+' + b.water + '水/s'); if (b.fuel) extra.push('+' + b.fuel + '燃料/s');
+        if (b.module) extra.push('+モジュール'); if (b.research) extra.push('+' + b.research + '研究/s');
+        if (b.cap) extra.push('貯蔵+' + b.cap); if (b.capacity) extra.push('指揮+' + b.capacity);
+        var card = document.createElement('div'); card.className = 'card'; card.dataset.bid = id;
+        card.innerHTML =
+          '<div class="h"><span class="ci">' + b.icon + '</span><span class="nm">' + b.name + '</span><span class="ct" data-count></span></div>' +
+          '<div class="ds">' + b.desc + '</div>' +
+          '<div class="meta">' + extra.map(function (e) { return '<span>' + e + '</span>'; }).join('') + '</div>' +
+          '<button data-buy>建設 <span data-cost></span></button>';
+        card.querySelector('[data-buy]').onclick = function () { if (Game.buyFacility(id)) log(b.name + 'を建設。'); };
+        grid.appendChild(card);
+      });
+    });
+  }
+  function renderUtilBox() {
+    var s = Game.state, h = ['<div class="stock-title">ユーティリティ／中間素材 在庫</div><div class="stock-row">'];
+    h.push('<span class="schip" title="水">💧<b id="util-water">' + Math.floor(s.water) + '</b></span>');
+    h.push('<span class="schip" title="燃料">🛢<b id="util-fuel">' + Math.floor(s.fuel) + '</b></span><span class="sgap"></span>');
+    Object.keys(G.INTERMEDIATES).forEach(function (k) { var im = G.INTERMEDIATES[k]; h.push('<span class="schip" title="' + im.name + '">' + im.icon + '<b id="inter-' + k + '">' + Math.floor(s.inter[k]) + '</b></span>'); });
+    h.push('</div>'); $('util-box').innerHTML = h.join('');
   }
 
   // =======================================================================
@@ -276,23 +326,37 @@
   //  リフレッシュ（数値のみ・毎フレーム）
   // =======================================================================
   function refreshNumbers() {
-    var s = Game.state;
+    var s = Game.state, iron = s.mat.iron;
     // 設備
-    $('tab-base').querySelectorAll('.card').forEach(function (card) {
-      var id = card.dataset.bid, cost = Game.baseCost(id);
+    $('tab-fac').querySelectorAll('.card').forEach(function (card) {
+      var id = card.dataset.bid, cost = Game.facilityCost(id);
       card.querySelector('[data-count]').textContent = '×' + (s.buildings[id] || 0);
-      card.querySelector('[data-cost]').innerHTML = oreCost(cost);
-      card.querySelector('[data-buy]').disabled = s.ore < cost;
+      card.querySelector('[data-cost]').innerHTML = ironCost(cost);
+      card.querySelector('[data-buy]').disabled = iron < cost;
     });
     // 工場の追加コスト
     document.querySelectorAll('[data-fabadd]').forEach(function (b) {
       var kind = b.dataset.fabadd, cost = Game.industryCost(kind);
-      var cs = b.querySelector('[data-cost]'); if (cs) cs.innerHTML = oreCost(cost);
-      b.disabled = s.ore < cost;
+      var cs = b.querySelector('[data-cost]'); if (cs) cs.innerHTML = ironCost(cost);
+      b.disabled = iron < cost;
     });
     var asmAdd = document.querySelector('[data-asmadd]');
-    if (asmAdd) { var ac = Game.industryCost('assembly'); asmAdd.querySelector('[data-cost]').innerHTML = oreCost(ac); asmAdd.disabled = s.ore < ac; }
-    // 在庫数
+    if (asmAdd) { var ac = Game.industryCost('assembly'); asmAdd.querySelector('[data-cost]').innerHTML = ironCost(ac); asmAdd.disabled = iron < ac; }
+    // 鉱区：素材在庫・モジュール数・産出レート
+    G.MATERIALS.forEach(function (k) { var el = $('mat-' + k); if (el) el.textContent = Math.floor(s.mat[k]); });
+    var free = Game.freeModules();
+    s.zones.forEach(function (zs, i) {
+      var mEl = document.querySelector('[data-zmod="' + i + '"]'); if (mEl) mEl.textContent = zs.modules;
+      var rEl = document.querySelector('[data-zrate="' + i + '"]');
+      if (rEl) { var z = G.ZONES[i], r = zs.modules * z.rate * s.mod.mineMult; rEl.textContent = r > 0 ? '+' + r.toFixed(2) + '/s' : ''; }
+      var pl = document.querySelector('[data-zplus="' + i + '"]'); if (pl) pl.disabled = free <= 0;
+      var mn = document.querySelector('[data-zminus="' + i + '"]'); if (mn) mn.disabled = zs.modules <= 0;
+    });
+    // ユーティリティ／中間素材
+    var w = $('util-water'); if (w) w.textContent = Math.floor(s.water);
+    var fu = $('util-fuel'); if (fu) fu.textContent = Math.floor(s.fuel);
+    for (var ik in G.INTERMEDIATES) { var ie = $('inter-' + ik); if (ie) ie.textContent = Math.floor(s.inter[ik]); }
+    // 部品在庫
     BODY_KEYS.forEach(function (k) { var el = $('stk-body-' + k); if (el) el.textContent = s.stock.body[k]; });
     var hd = $('stk-head'); if (hd) hd.textContent = s.stock.head;
     WEAPON_KEYS.forEach(function (k) { var el = $('stk-weapon-' + k); if (el) el.textContent = s.stock.weapon[k]; });
@@ -307,29 +371,31 @@
 
   // 構造シグネチャ（変化時のみパネル再構築）
   function structureSig() {
-    var s = Game.state;
+    var s = Game.state, b = s.buildings;
     return s.bodyFabs.length + ',' + s.headFabs.length + ',' + s.weaponFabs.length + ',' + s.assemblies.length +
       '|' + Object.keys(s.researched).length + '|' + s.tiers.head + s.tiers.body + s.tiers.weapon +
+      '|' + Object.keys(b).map(function (k) { return b[k]; }).join('.') +
+      '|' + s.zones.map(function (z) { return (z.unlocked ? 'u' : '') + z.modules; }).join('.') +
       '|' + s.bodyFabs.map(function (f) { return f.assign; }).join('') +
       '|' + s.weaponFabs.map(function (f) { return f.assign; }).join('') +
       '|' + s.assemblies.map(function (a) { return a.body + a.weapon + a.cpus.join(''); }).join('_');
   }
   var dirty = false;
   function markDirty() { dirty = true; }
-  function rebuildAll() { buildBasePanel(); buildFabPanel(); buildAsmPanel(); buildTechPanel(); refreshNumbers(); lastSig = structureSig(); }
+  function rebuildAll() { buildZonePanel(); buildFacPanel(); buildFabPanel(); buildAsmPanel(); buildTechPanel(); refreshNumbers(); lastSig = structureSig(); }
 
   // =======================================================================
   //  HUD
   // =======================================================================
   function refreshHUD() {
     var s = Game.state;
-    $('ore-val').textContent = Math.floor(s.ore); $('ore-cap').textContent = '/' + Game.oreCap();
-    $('ore-rate').textContent = '+' + Game.oreRate().toFixed(1) + '/s';
+    $('ore-val').textContent = Math.floor(s.mat.iron); $('ore-cap').textContent = '/' + Game.matCap();
     $('res-val').textContent = Math.floor(s.research); $('res-rate').textContent = '+' + Game.researchRate().toFixed(1) + '/s';
     var sup = Game.powerSupply(), dem = Math.round(Game.powerDemand());
     $('pow-val').textContent = sup + '/' + dem;
     var eff = Game.powerEfficiency(), pe = $('pow-eff');
     if (eff < 0.999) { pe.textContent = '効率' + Math.round(eff * 100) + '%'; pe.className = 'warn'; } else { pe.textContent = ''; pe.className = ''; }
+    $('mod-val').textContent = Game.freeModules() + '/' + Game.moduleCap();
     $('cap-val').textContent = Game.capacityUsed() + '/' + Game.capacityMax();
     var ch = Game.currentChapter();
     if (ch && s.phase !== 'won') { $('chap-title').textContent = ch.title; $('wave-info').textContent = '第' + Math.min(s.wave + 1, ch.waves.length) + '波 / ' + ch.waves.length + (s.phase === 'battle' ? '　⚔交戦中' : '　待機'); }
