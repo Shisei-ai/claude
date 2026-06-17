@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>鋼鉄戦線 - Steel Front</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ヘッダー：資源 -->
+  <header id="hud">
+    <div class="logo">鋼鉄戦線<span>STEEL FRONT</span></div>
+    <div class="res" id="res-ore" title="鉱石（建設・建造の主資源）">
+      <span class="ic">⛏</span><b id="ore-val">0</b><i id="ore-cap">/0</i>
+      <em id="ore-rate">+0/s</em>
+    </div>
+    <div class="res" id="res-research" title="研究ポイント（テック解放）">
+      <span class="ic">🔬</span><b id="res-val">0</b><em id="res-rate">+0/s</em>
+    </div>
+    <div class="res" id="res-power" title="電力（供給／消費）。消費が供給を超えると生産効率が低下">
+      <span class="ic">⚡</span><b id="pow-val">0/0</b><em id="pow-eff"></em>
+    </div>
+    <div class="res" id="res-cap" title="指揮容量（展開できるユニット総量）">
+      <span class="ic">📡</span><b id="cap-val">0/0</b>
+    </div>
+    <div class="chapter-info">
+      <div id="chap-title">―</div>
+      <div id="wave-info">―</div>
+    </div>
+  </header>
+
+  <!-- 戦場 -->
+  <main id="battlefield">
+    <div id="hq-bar-wrap"><div id="hq-bar"></div><span id="hq-label">司令部 HP</span></div>
+    <canvas id="lane"></canvas>
+    <div id="battle-control">
+      <button id="wave-btn">▶ 次の波を呼ぶ</button>
+      <span id="phase-hint"></span>
+    </div>
+  </main>
+
+  <!-- 操作パネル -->
+  <section id="panels">
+    <nav id="tabs">
+      <button data-tab="build" class="active">🏭 建設</button>
+      <button data-tab="produce">⚙ 建造</button>
+      <button data-tab="tech">🔬 研究</button>
+    </nav>
+    <div id="tab-build" class="tab-body active"></div>
+    <div id="tab-produce" class="tab-body">
+      <div id="produce-list"></div>
+      <div id="queue-box">
+        <div id="queue-title">建造キュー <button id="clear-queue">×全消去</button></div>
+        <div id="queue-list"></div>
+      </div>
+    </div>
+    <div id="tab-tech" class="tab-body"></div>
+  </section>
+
+  <!-- ログ -->
+  <footer id="logbar"><div id="log"></div></footer>
+
+  <!-- モーダル（シナリオ／選択／勝敗） -->
+  <div id="overlay" class="hidden">
+    <div id="modal">
+      <h2 id="modal-title"></h2>
+      <p id="modal-body"></p>
+      <div id="modal-choices"></div>
+      <button id="modal-ok">続ける ▶</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
