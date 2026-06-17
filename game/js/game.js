@@ -171,7 +171,7 @@
   }
 
   function spawnUnit(stats) { state.units.push({ stats: stats, side: 'p', x: 4, hp: stats.hp, maxHp: stats.hp, cd: 0 }); state.stats.built++; vfx({ k: 'spawn', x: 6, body: stats.body, a: stats.domain === 'air' }); }
-  function spawnEnemy(id) { var e = G.ENEMIES[id]; state.enemies.push({ type: id, side: 'e', x: LANE, hp: e.hp, maxHp: e.hp, cd: 0 }); }
+  function spawnEnemy(id) { var e = G.ENEMIES[id]; state.enemies.push({ type: id, side: 'e', x: LANE, hp: e.hp, maxHp: e.hp, cd: 0 }); if (e.boss) vfx({ k: 'boss' }); }
 
   // ---- 工業シミュレーション ----------------------------------------------
   function fabSpeed() { return state.mod.buildSpeed * powerEfficiency(); }

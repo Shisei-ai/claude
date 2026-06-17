@@ -212,3 +212,35 @@ body{
 @media(prefers-reduced-motion:reduce){
   *{animation:none !important}
 }
+
+/* ---- カットイン演出 ---- */
+#cutin{position:absolute; left:0; right:0; top:36%; display:flex; justify-content:center;
+  pointer-events:none; opacity:0; z-index:6}
+#cutin.show{animation:ciPlay 2.2s cubic-bezier(.2,.8,.2,1) forwards}
+#cutin.boss.show{animation-duration:2.8s}
+#cutin.clear.show{animation-duration:1.9s}
+.ci-inner{position:relative; padding:9px 44px; transform:skewX(-12deg); overflow:hidden;
+  background:linear-gradient(90deg,rgba(10,18,28,0),rgba(12,22,34,.92) 18%,rgba(12,22,34,.92) 82%,rgba(10,18,28,0));
+  border-top:2px solid var(--accent); border-bottom:2px solid var(--accent); box-shadow:0 0 30px rgba(55,208,255,.35)}
+.ci-inner>div{transform:skewX(12deg); text-align:center; white-space:nowrap}
+.ci-jp{font-size:30px; font-weight:900; letter-spacing:4px; color:#fff; text-shadow:0 0 14px var(--accent),0 2px 0 #04121c}
+.ci-en{font-size:12px; letter-spacing:8px; color:var(--accent); font-weight:700; margin-top:3px}
+.ci-inner::after{content:""; position:absolute; inset:0;
+  background:linear-gradient(105deg,transparent 42%,rgba(255,255,255,.55) 50%,transparent 58%);
+  transform:translateX(-120%); animation:ciSweep 2.2s ease forwards}
+#cutin.wave .ci-inner{border-color:#ff8a3c; box-shadow:0 0 30px rgba(255,138,60,.4)}
+#cutin.wave .ci-jp{text-shadow:0 0 14px #ff8a3c,0 2px 0 #2a0f04}
+#cutin.wave .ci-en{color:#ffb36b}
+#cutin.boss .ci-inner{border-color:#ff3b3b; box-shadow:0 0 42px rgba(255,40,40,.55);
+  background:linear-gradient(90deg,rgba(30,6,8,0),rgba(42,8,10,.95) 18%,rgba(42,8,10,.95) 82%,rgba(30,6,8,0))}
+#cutin.boss .ci-jp{color:#ffd4d4; text-shadow:0 0 16px #ff2a2a,0 2px 0 #200}
+#cutin.boss.show .ci-jp{animation:ciBlink .45s steps(1) infinite}
+#cutin.boss .ci-en{color:#ff6b6b}
+#cutin.clear .ci-inner{border-color:#36e08a; box-shadow:0 0 30px rgba(54,224,138,.4)}
+#cutin.clear .ci-jp{text-shadow:0 0 14px #36e08a,0 2px 0 #042a18}
+#cutin.clear .ci-en{color:#7fffb0}
+@keyframes ciPlay{0%{opacity:0; transform:translateX(-60px) scale(.9)}12%{opacity:1; transform:translateX(0) scale(1)}
+  80%{opacity:1; transform:translateX(0) scale(1)}100%{opacity:0; transform:translateX(40px) scale(1.02)}}
+@keyframes ciSweep{0%{transform:translateX(-120%)}45%{transform:translateX(120%)}100%{transform:translateX(120%)}}
+@keyframes ciBlink{0%{opacity:1}50%{opacity:.5}}
+@media(max-width:720px){ .ci-jp{font-size:20px} .ci-inner{padding:7px 26px} }

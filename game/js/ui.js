@@ -35,10 +35,24 @@
   function hideModal() { $('overlay').classList.add('hidden'); modalCallback = null; }
   $('modal-ok').onclick = function () { var cb = modalCallback; hideModal(); if (cb) cb(); };
 
+  // ---- カットイン演出 ----------------------------------------------------
+  var cutinTimer = null;
+  function showCutin(jp, en, cls, dur) {
+    var el = $('cutin'); if (!el) return;
+    el.querySelector('.ci-jp').textContent = jp;
+    el.querySelector('.ci-en').textContent = en;
+    el.className = ''; void el.offsetWidth;        // アニメーション再始動
+    el.className = 'show ' + cls;
+    clearTimeout(cutinTimer);
+    cutinTimer = setTimeout(function () { el.className = ''; }, dur || 2200);
+  }
+
   // ---- フェーズ遷移 ------------------------------------------------------
   var lastPhase = null;
   function handlePhase() {
-    var s = Game.state; if (s.phase === lastPhase) return; lastPhase = s.phase;
+    var s = Game.state; if (s.phase === lastPhase) return; var prev = lastPhase; lastPhase = s.phase;
+    if (s.phase === 'battle') showCutin('第' + (s.wave + 1) + '波　接近', 'WAVE ' + (s.wave + 1), 'wave', 2200);
+    else if (s.phase === 'prep' && prev === 'battle') showCutin('波　殲滅', 'WAVE CLEAR', 'clear', 1900);
     if (s.phase === 'intro') showModal(Game.currentChapter().title, s.pendingStory, null, '防衛を開始 ▶', function () { Game.afterIntro(); }, '');
     else if (s.phase === 'story') showModal('― 戦域記録 ―', s.pendingStory, null, '次へ ▶', function () { Game.afterOutro(); }, '');
     else if (s.phase === 'choice') { var c = s.pendingChoice; showModal('決断', c.prompt, c.options, null, function (idx) { Game.applyChoice(c.options[idx]); log('方針決定：' + c.options[idx].label); }, ''); }
@@ -376,6 +390,9 @@
         var spx = ev.x * g.sx, spy = yLevel(ev.a, g);
         rings.push({ x: spx, y: spy, r: 2 * g.dpr, r1: 16 * g.dpr, life: 0.3, max: 0.3, color: UNIT_COLOR[ev.body] || '#8fd', w: 1.6 });
         burst(spx, spy, UNIT_COLOR[ev.body] || '#8fd', 6, 70 * g.dpr, { up: 40 * g.dpr, g: 120, glow: true });
+      } else if (ev.k === 'boss') {
+        showCutin('警告　巨核接近', 'WARNING : TITAN', 'boss', 2800);
+        addShake(6 * g.dpr, 0.5);
       }
     }
     list.length = 0;
@@ -526,89 +543,80 @@
     if (Math.sin(T * 4) > 0) { ctx.fillStyle = '#ff6b6b'; ctx.beginPath(); ctx.arc(bx + bw / 2, by - 13 * dpr, 2.2 * dpr, 0, 7); ctx.fill(); }
   }
 
+  function spriteOf(ent) { return ent.side === 'e' ? G.SPRITES['e_' + ent.type] : G.SPRITES[ent.stats.body]; }
+  function pxOf(ent, spec, dpr) { return (spec.boss ? 2.5 : ent.side === 'e' ? 1.95 : 2.0) * dpr; }
+
   function drawShadow(ent, spec, g) {
-    var x = ent.x * g.sx, r = (spec.boss ? 14 : ent.side === 'e' ? 7 : 8) * g.dpr;
-    ctx.fillStyle = 'rgba(0,0,0,0.28)';
-    ctx.beginPath(); ctx.ellipse(x, g.midY + 5 * g.dpr, r * 1.0, r * 0.36, 0, 0, 7); ctx.fill();
+    var spr = spriteOf(ent); if (!spr) return;
+    var px = pxOf(ent, spec, g.dpr), hw = spr.w * px * 0.38;
+    ctx.fillStyle = 'rgba(0,0,0,0.30)';
+    ctx.beginPath(); ctx.ellipse(ent.x * g.sx, g.midY + 5 * g.dpr, hw, hw * 0.32, 0, 0, 7); ctx.fill();
   }
   function ensurePhase(ent) { if (ent._ph === undefined) { ent._ph = rand(0, 6.28); ent._px = ent.x; } }
+
+  // ドット絵スプライト描画。cx=中心X / footY=下端Y / px=1ドット / flip=左右反転
+  // legPhase!=null のとき最下段2行を歩行モーション（脚の振り）でずらす
+  function drawSprite(spr, cx, footY, px, flip, legPhase) {
+    var w = spr.w, h = spr.h, x0 = cx - (w * px) / 2, sz = Math.ceil(px) + 1;
+    for (var r = 0; r < h; r++) {
+      var row = spr.rows[r], legs = (legPhase != null && r >= h - 2);
+      var sw = legs ? Math.sin(legPhase) * px * 0.7 : 0;
+      var py = Math.floor(footY - (h - r) * px);
+      for (var c = 0; c < w; c++) {
+        var ch = row.charAt(c); if (ch === '.') continue;
+        var col = spr.pal[ch]; if (!col) continue;
+        var gc = flip ? (w - 1 - c) : c;
+        var sh = legs ? (gc < w / 2 ? sw : -sw) : 0;
+        ctx.fillStyle = col;
+        ctx.fillRect(Math.floor(x0 + gc * px + sh), py, sz, sz);
+      }
+    }
+  }
 
   function drawUnit(ent, st, g) {
     ensurePhase(ent);
     var dpr = g.dpr, air = st.domain === 'air', x = ent.x * g.sx;
     var moving = Math.abs(ent.x - ent._px) > 0.01; ent._px = ent.x;
-    var col = UNIT_COLOR[st.body] || '#6bd0ff';
-    var r = 8 * dpr;
+    var spr = G.SPRITES[st.body] || G.SPRITES.infantry, px = 2.0 * dpr;
     if (air) {
-      var by = Math.sin(T * 3 + ent._ph) * 4 * dpr, y = yLevel(true, g) + by;
-      ctx.strokeStyle = 'rgba(150,180,210,0.18)'; ctx.lineWidth = 1 * dpr;
-      ctx.beginPath(); ctx.moveTo(x, y + r); ctx.lineTo(x, g.midY); ctx.stroke();
-      // ローター
-      var rot = T * 22 + ent._ph;
-      ctx.strokeStyle = 'rgba(220,235,255,0.6)'; ctx.lineWidth = 1.4 * dpr;
-      for (var b = 0; b < 2; b++) { var a = rot + b * Math.PI; ctx.beginPath(); ctx.moveTo(x - Math.cos(a) * 9 * dpr, y - r - 2 * dpr); ctx.lineTo(x + Math.cos(a) * 9 * dpr, y - r - 2 * dpr); }
-      ctx.stroke();
-      bodyShape(x, y, r, col, 'diamond', dpr);
-      // スラスター炎
-      ctx.fillStyle = 'rgba(255,200,120,' + (0.5 + 0.3 * Math.sin(T * 30 + ent._ph)) + ')';
-      ctx.beginPath(); ctx.arc(x, y + r + 2 * dpr, rand(1.5, 2.6) * dpr, 0, 7); ctx.fill();
-      hpBar(ent, x, y - r - 6 * dpr, r, dpr, false);
+      var cy = yLevel(true, g) + Math.sin(T * 3 + ent._ph) * 4 * dpr;
+      // 推進炎（後方＝左）
+      var fl = 0.45 + 0.4 * Math.abs(Math.sin(T * 26 + ent._ph));
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = 'rgba(120,205,255,' + fl + ')';
+      ctx.beginPath(); ctx.ellipse(x - (spr.w * px) / 2 - 1 * dpr, cy + 1 * dpr, 5 * dpr * fl, 1.8 * dpr, 0, 0, 7); ctx.fill();
+      ctx.restore();
+      drawSprite(spr, x, cy + (spr.h * px) / 2, px, false, null);
+      hpBar(ent, x, cy - (spr.h * px) / 2 - 4 * dpr, 10 * dpr, dpr, false);
     } else {
-      var walk = moving ? Math.sin(T * 11 + ent._ph) : 0;
-      var yb = yLevel(false, g) + Math.abs(walk) * 1.4 * dpr;
-      // 脚
-      ctx.strokeStyle = col; ctx.lineWidth = 1.8 * dpr;
-      ctx.beginPath(); ctx.moveTo(x - 3 * dpr, yb + r * 0.6); ctx.lineTo(x - 3 * dpr + walk * 3 * dpr, yb + r * 1.2);
-      ctx.moveTo(x + 3 * dpr, yb + r * 0.6); ctx.lineTo(x + 3 * dpr - walk * 3 * dpr, yb + r * 1.2); ctx.stroke();
-      // 胴体
-      var shape = st.body === 'heavy' ? 'hex' : st.body === 'assault' ? 'tri' : 'round';
-      bodyShape(x, yb, r, col, shape, dpr);
-      // 砲身（右＝敵方向へ）
-      ctx.strokeStyle = '#e8f6ff'; ctx.lineWidth = (st.body === 'heavy' ? 3 : 2) * dpr;
-      var bl = (st.range > 80 ? 14 : 9) * dpr;
-      ctx.beginPath(); ctx.moveTo(x + r * 0.4, yb); ctx.lineTo(x + r * 0.4 + bl, yb); ctx.stroke();
-      hpBar(ent, x, yb - r - 6 * dpr, r, dpr, false);
+      var bob = moving ? Math.abs(Math.sin(T * 9 + ent._ph)) * 1.1 * dpr : Math.sin(T * 2 + ent._ph) * 0.5 * dpr;
+      var footY = g.midY + 3 * dpr - bob;
+      drawSprite(spr, x, footY, px, false, moving ? (T * 9 + ent._ph) : null);
+      hpBar(ent, x, footY - spr.h * px - 3 * dpr, 10 * dpr, dpr, false);
     }
   }
   function drawEnemy(ent, spec, g) {
     ensurePhase(ent);
     var dpr = g.dpr, air = spec.domain === 'air', x = ent.x * g.sx;
-    var pulse = 1 + Math.sin(T * 6 + ent._ph) * 0.07;
-    var r = (spec.boss ? 15 : 7) * dpr * pulse;
-    var y = (air ? yLevel(true, g) + Math.sin(T * 3 + ent._ph) * 4 * dpr : yLevel(false, g));
-    if (air) { ctx.strokeStyle = 'rgba(255,150,190,0.18)'; ctx.lineWidth = 1 * dpr; ctx.beginPath(); ctx.moveTo(x, y + r); ctx.lineTo(x, g.midY); ctx.stroke(); }
-    // 触手/脚（うごめき）
-    ctx.strokeStyle = spec.color; ctx.globalAlpha = 0.7; ctx.lineWidth = 1.4 * dpr;
-    for (var t = -1; t <= 1; t++) { var wig = Math.sin(T * 8 + ent._ph + t) * 2.2 * dpr; ctx.beginPath(); ctx.moveTo(x + t * 4 * dpr, y + r * 0.4); ctx.lineTo(x + t * 4 * dpr - 2 * dpr + wig, y + r * 1.3); ctx.stroke(); }
-    ctx.globalAlpha = 1;
+    var spr = G.SPRITES['e_' + ent.type] || G.SPRITES.e_swarmling;
+    var pulse = 1 + Math.sin(T * 6 + ent._ph) * 0.06;
+    var px = (spec.boss ? 2.5 : 1.95) * dpr * pulse;
     if (spec.boss) {
-      // 回転するスパイク＋コア
-      ctx.save(); ctx.translate(x, y); ctx.rotate(T * 0.8);
-      ctx.fillStyle = spec.color;
-      for (var k = 0; k < 8; k++) { var a = k / 8 * 6.283; ctx.beginPath(); ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r); ctx.lineTo(Math.cos(a + 0.25) * r * 1.5, Math.sin(a + 0.25) * r * 1.5); ctx.lineTo(Math.cos(a + 0.5) * r, Math.sin(a + 0.5) * r); ctx.closePath(); ctx.fill(); }
-      ctx.restore();
-      var cg = ctx.createRadialGradient(x, y, 1, x, y, r);
-      cg.addColorStop(0, '#fff'); cg.addColorStop(0.5, spec.color); cg.addColorStop(1, 'rgba(255,40,40,0.2)');
-      ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
-    } else {
-      bodyShape(x, y, r, spec.color, air ? 'diamond' : 'spike', dpr, true);
-      // 赤いコアの目
-      ctx.fillStyle = 'rgba(255,230,230,' + (0.5 + 0.4 * Math.sin(T * 5 + ent._ph)) + ')';
-      ctx.beginPath(); ctx.arc(x, y, r * 0.32, 0, 7); ctx.fill();
+      var gy = g.midY - spr.h * px * 0.5;
+      var rg = ctx.createRadialGradient(x, gy, 2, x, gy, spr.w * px * 0.8);
+      rg.addColorStop(0, 'rgba(255,90,50,0.40)'); rg.addColorStop(1, 'rgba(255,40,40,0)');
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = rg;
+      ctx.fillRect(x - spr.w * px, gy - spr.h * px, spr.w * px * 2, spr.h * px * 2); ctx.restore();
     }
-    hpBar(ent, x, y - r - 6 * dpr, Math.max(r, 8 * dpr), dpr, true);
-  }
-  function bodyShape(x, y, r, col, shape, dpr, enemy) {
-    ctx.fillStyle = col; ctx.strokeStyle = enemy ? 'rgba(20,5,10,0.5)' : 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1 * dpr;
-    ctx.beginPath();
-    if (shape === 'round') ctx.arc(x, y, r, 0, 7);
-    else if (shape === 'diamond') { ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath(); }
-    else if (shape === 'tri') { ctx.moveTo(x + r, y); ctx.lineTo(x - r * 0.8, y - r * 0.8); ctx.lineTo(x - r * 0.8, y + r * 0.8); ctx.closePath(); }
-    else if (shape === 'hex') { for (var k = 0; k < 6; k++) { var a = k / 6 * 6.283; var fx = x + Math.cos(a) * r, fy = y + Math.sin(a) * r; if (k === 0) ctx.moveTo(fx, fy); else ctx.lineTo(fx, fy); } ctx.closePath(); }
-    else if (shape === 'spike') { ctx.moveTo(x, y - r); ctx.lineTo(x + r, y + r * 0.8); ctx.lineTo(x, y + r * 0.4); ctx.lineTo(x - r, y + r * 0.8); ctx.closePath(); }
-    ctx.fill(); ctx.stroke();
-    // ハイライト
-    ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.22, 0, 7); ctx.fill();
+    if (air) {
+      var cy = yLevel(true, g) + Math.sin(T * 3 + ent._ph) * 4 * dpr;
+      drawSprite(spr, x, cy + (spr.h * px) / 2, px, false, null);
+      hpBar(ent, x, cy - (spr.h * px) / 2 - 4 * dpr, 10 * dpr, dpr, true);
+    } else {
+      var footY = g.midY + 3 * dpr;
+      drawSprite(spr, x, footY, px, false, null);
+      hpBar(ent, x, footY - spr.h * px - 3 * dpr, (spec.boss ? 20 : 10) * dpr, dpr, true);
+    }
   }
   function hpBar(ent, x, y, r, dpr, enemy) {
     var hp = Math.max(0, ent.hp) / ent.maxHp; if (hp >= 1) return;
