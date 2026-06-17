@@ -25,7 +25,7 @@
       researched: {}, perm: {},
       unlockedBodies: {}, unlockedWeapons: {}, unlockedCpus: {},
       tiers: { body: 1, weapon: 1, head: 1 },
-      units: [], enemies: [], effects: [],
+      units: [], enemies: [], vfx: [],
       hqHp: G.HQ_HP, hqHpMax: G.HQ_HP, capacityMax: 18,
       chapter: 0, wave: 0, phase: 'intro',
       spawns: [], battleTime: 0,
@@ -170,7 +170,7 @@
     };
   }
 
-  function spawnUnit(stats) { state.units.push({ stats: stats, side: 'p', x: 4, hp: stats.hp, maxHp: stats.hp, cd: 0 }); state.stats.built++; }
+  function spawnUnit(stats) { state.units.push({ stats: stats, side: 'p', x: 4, hp: stats.hp, maxHp: stats.hp, cd: 0 }); state.stats.built++; vfx({ k: 'spawn', x: 6, body: stats.body, a: stats.domain === 'air' }); }
   function spawnEnemy(id) { var e = G.ENEMIES[id]; state.enemies.push({ type: id, side: 'e', x: LANE, hp: e.hp, maxHp: e.hp, cd: 0 }); }
 
   // ---- 工業シミュレーション ----------------------------------------------
@@ -257,12 +257,15 @@
     return best;
   }
   function dealDamage(target, raw) { target.hp -= Math.max(G.MIN_DMG, raw - defOf(target)); }
-  function addEffect(x, color) { state.effects.push({ x: x, r: 4, life: 0.4, color: color }); }
+  // 視覚イベント（純粋に演出用。ui.js が消費する。ロジックには影響しない）
+  function vfx(o) { if (state.vfx.length < 500) state.vfx.push(o); }
 
   // ウェポン挙動を含む自軍の攻撃解決
   function playerAttack(u, target) {
     var s = u.stats, raw = s.dmg, w = s.weapon;
     var token = ++state._atkToken;
+    vfx({ k: 'shot', side: 'p', body: s.body, x1: u.x, a1: s.domain === 'air',
+          x2: target.x, a2: G.ENEMIES[target.type].domain === 'air', kind: w.kind });
     target._t = token; dealDamage(target, raw);
     if (w.aoe > 0) {
       for (var i = 0; i < state.enemies.length; i++) {
@@ -270,7 +273,7 @@
         if (e._t === token) continue;
         if (Math.abs(e.x - target.x) <= w.aoe) { e._t = token; dealDamage(e, raw * 0.6); }
       }
-      addEffect(target.x, '#ffd24a');
+      vfx({ k: 'blast', x: target.x, r: w.aoe, a: G.ENEMIES[target.type].domain === 'air' });
     }
     if (w.chain > 0) {
       var cur = target, mult = 1;
@@ -284,7 +287,8 @@
           if (d <= G.CHAIN_RANGE && d < nd) { nd = d; nx = en; }
         }
         if (!nx) break;
-        nx._t = token; dealDamage(nx, raw * mult); cur = nx; addEffect(nx.x, '#7fe0ff');
+        vfx({ k: 'arc', x1: cur.x, a1: G.ENEMIES[cur.type].domain === 'air', x2: nx.x, a2: G.ENEMIES[nx.type].domain === 'air' });
+        nx._t = token; dealDamage(nx, raw * mult); cur = nx;
       }
     }
   }
@@ -314,8 +318,13 @@
       var inRange = target && Math.abs(target.x - e.x) <= spec.range;
       if (spec.domain === 'air' || !inRange) e.x = Math.max(HQ_X, e.x - spec.speed * dt);
       if (e.cd <= 0) {
-        if (inRange) { dealDamage(target, spec.dmg); e.cd = 1 / spec.rate; }
-        else if (e.x <= HQ_X + spec.range) { state.hqHp -= spec.dmg; e.cd = 1 / spec.rate; addEffect(HQ_X, '#ff5050'); }
+        if (inRange) {
+          vfx({ k: 'shot', side: 'e', col: spec.color, x1: e.x, a1: spec.domain === 'air', x2: target.x, a2: target.stats.domain === 'air' });
+          dealDamage(target, spec.dmg); e.cd = 1 / spec.rate;
+        } else if (e.x <= HQ_X + spec.range) {
+          state.hqHp -= spec.dmg; e.cd = 1 / spec.rate;
+          vfx({ k: 'hqhit', x: HQ_X, col: spec.color });
+        }
       }
     }
 
@@ -328,18 +337,27 @@
         for (var sgun = 0; sgun < turrets && state.enemies.length; sgun++) {
           var near = null, nd = 1e9;
           for (i = 0; i < state.enemies.length; i++) { var dx = Math.abs(state.enemies[i].x - WALL_X); if (dx <= 190 && dx < nd) { nd = dx; near = state.enemies[i]; } }
-          if (near) { dealDamage(near, 30); addEffect(near.x, '#7fd1ff'); }
+          if (near) {
+            vfx({ k: 'beam', x1: WALL_X, x2: near.x, a2: G.ENEMIES[near.type].domain === 'air' });
+            dealDamage(near, 30);
+          }
         }
       }
     }
 
     // 死亡処理
-    for (i = state.units.length - 1; i >= 0; i--) if (state.units[i].hp <= 0) { state.stats.lost++; state.units.splice(i, 1); }
-    for (i = state.enemies.length - 1; i >= 0; i--) if (state.enemies[i].hp <= 0) {
-      state.ore = Math.min(oreCap(), state.ore + G.ENEMIES[state.enemies[i].type].bounty);
-      state.stats.kills++; addEffect(state.enemies[i].x, '#ff8a8a'); state.enemies.splice(i, 1);
+    for (i = state.units.length - 1; i >= 0; i--) if (state.units[i].hp <= 0) {
+      var du = state.units[i];
+      vfx({ k: 'boom', x: du.x, col: '#9fd8ff', a: du.stats.domain === 'air', ally: true });
+      state.stats.lost++; state.units.splice(i, 1);
     }
-    for (i = state.effects.length - 1; i >= 0; i--) { state.effects[i].life -= dt; state.effects[i].r += dt * 120; if (state.effects[i].life <= 0) state.effects.splice(i, 1); }
+    for (i = state.enemies.length - 1; i >= 0; i--) if (state.enemies[i].hp <= 0) {
+      var de = state.enemies[i], ds = G.ENEMIES[de.type];
+      state.ore = Math.min(oreCap(), state.ore + ds.bounty);
+      state.stats.kills++;
+      vfx({ k: 'boom', x: de.x, col: ds.color, a: ds.domain === 'air', big: !!ds.boss });
+      state.enemies.splice(i, 1);
+    }
   }
 
   // ---- メイン更新 ---------------------------------------------------------
