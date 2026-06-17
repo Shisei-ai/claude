@@ -160,4 +160,19 @@
     e_swarmling: e_sw, e_armored: e_ar, e_spitter: e_sp, e_wyrm: e_wy, e_titan: e_ti,
   };
 
+  // 静的レンダラ（立ち絵・スプライトシート用）。x0,y0=左上, px=1ドットの大きさ。
+  G.renderSprite = function (ctx, spr, x0, y0, px, flip) {
+    var w = spr.w, h = spr.h, sz = Math.ceil(px) + 1;
+    for (var r = 0; r < h; r++) {
+      var row = spr.rows[r];
+      for (var c = 0; c < w; c++) {
+        var ch = row.charAt(c); if (ch === '.') continue;
+        var col = spr.pal[ch]; if (!col) continue;
+        var gc = flip ? (w - 1 - c) : c;
+        ctx.fillStyle = col;
+        ctx.fillRect(Math.floor(x0 + gc * px), Math.floor(y0 + r * px), sz, sz);
+      }
+    }
+  };
+
 })(window.G = window.G || {});

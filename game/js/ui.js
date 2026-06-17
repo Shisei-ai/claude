@@ -47,13 +47,37 @@
     cutinTimer = setTimeout(function () { el.className = ''; }, dur || 2200);
   }
 
+  // ---- 章開始のフルスクリーン・カットイン（立ち絵風） --------------------
+  var CHAPTER_FEATURE = ['e_swarmling', 'e_armored', 'e_wyrm', 'e_titan'];
+  var CHAPTER_SUB = ['群体、辺境に来襲', '装甲の群れが押し寄せる', '空を制する飛翔体', '中枢炉、ついに開く'];
+  var chapTimer = null;
+  function showChapterCutin(chIdx, done) {
+    var el = $('chapter-cut'); if (!el) { if (done) done(); return; }
+    var title = Game.currentChapter().title, parts = title.split('　');
+    el.querySelector('.cc-num').innerHTML = (parts[0] || '') + '<span>CHAPTER ' + (chIdx + 1) + '</span>';
+    el.querySelector('.cc-title').textContent = parts[1] || title;
+    el.querySelector('.cc-sub').textContent = CHAPTER_SUB[chIdx] || '';
+    // 立ち絵（その章の脅威キャラを大きく描く）
+    var pcv = el.querySelector('.cc-portrait'), pc = pcv && pcv.getContext && pcv.getContext('2d');
+    if (pc) {
+      pc.clearRect(0, 0, pcv.width, pcv.height);
+      var spr = G.SPRITES[CHAPTER_FEATURE[chIdx]] || G.SPRITES.e_swarmling;
+      var ppx = Math.floor(Math.min((pcv.width - 16) / spr.w, (pcv.height - 16) / spr.h));
+      G.renderSprite(pc, spr, (pcv.width - spr.w * ppx) / 2, (pcv.height - spr.h * ppx) / 2, ppx, false);
+    }
+    el.className = ''; void el.offsetWidth; el.className = 'show';
+    var finished = false;
+    var fin = function () { if (finished) return; finished = true; el.className = ''; el.onclick = null; clearTimeout(chapTimer); if (done) done(); };
+    el.onclick = fin; chapTimer = setTimeout(fin, 3000);
+  }
+
   // ---- フェーズ遷移 ------------------------------------------------------
   var lastPhase = null;
   function handlePhase() {
     var s = Game.state; if (s.phase === lastPhase) return; var prev = lastPhase; lastPhase = s.phase;
     if (s.phase === 'battle') showCutin('第' + (s.wave + 1) + '波　接近', 'WAVE ' + (s.wave + 1), 'wave', 2200);
     else if (s.phase === 'prep' && prev === 'battle') showCutin('波　殲滅', 'WAVE CLEAR', 'clear', 1900);
-    if (s.phase === 'intro') showModal(Game.currentChapter().title, s.pendingStory, null, '防衛を開始 ▶', function () { Game.afterIntro(); }, '');
+    if (s.phase === 'intro') showChapterCutin(s.chapter, function () { showModal(Game.currentChapter().title, s.pendingStory, null, '防衛を開始 ▶', function () { Game.afterIntro(); }, ''); });
     else if (s.phase === 'story') showModal('― 戦域記録 ―', s.pendingStory, null, '次へ ▶', function () { Game.afterOutro(); }, '');
     else if (s.phase === 'choice') { var c = s.pendingChoice; showModal('決断', c.prompt, c.options, null, function (idx) { Game.applyChoice(c.options[idx]); log('方針決定：' + c.options[idx].label); }, ''); }
     else if (s.phase === 'won') showModal('防衛成功', '全ての群体を退けた。基地カストルは陥落しなかった。\n\n――だが、戦線はまだ終わらない。', null, 'もう一度 ↻', function () { restart(); }, 'win');
@@ -356,6 +380,24 @@
         size: rand(1.2, 3) * (opt.sizeMul || 1) * dprNow(), color: Math.random() < 0.4 ? '#ffffff' : col, glow: opt.glow });
     }
   }
+  // 撃破時：そのキャラのドット絵を構成ピクセルに分解して飛散させる
+  function shatter(spr, cx, cy, g, pxScale) {
+    var px = pxScale * g.dpr, w = spr.w, h = spr.h;
+    var step = (w * h > 170) ? 2 : 1, cnt = 0;
+    for (var r = 0; r < h; r += step) {
+      var row = spr.rows[r];
+      for (var c = 0; c < w; c += step) {
+        var ch = row.charAt(c); if (ch === '.') continue;
+        var col = spr.pal[ch]; if (!col) continue;
+        if (cnt++ > 90) return;
+        var pxw = cx + (c - w / 2) * px, pyw = cy + (r - h / 2) * px;
+        var dx = (pxw - cx), dy = (pyw - cy);
+        var sp = (1.8 + Math.random() * 2.2);
+        spawnParticle({ x: pxw, y: pyw, vx: dx * sp + rand(-30, 30) * g.dpr, vy: dy * sp - rand(40, 120) * g.dpr,
+          g: 620, life: rand(0.5, 1.0), max: 1.0, size: px, color: col, debris: true });
+      }
+    }
+  }
 
   // 視覚イベントを消費して演出を生成
   function consumeVfx(g) {
@@ -380,8 +422,9 @@
       } else if (ev.k === 'boom') {
         var ex = ev.x * g.sx, ey = yLevel(ev.a, g), big = ev.big;
         rings.push({ x: ex, y: ey, r: 4 * g.dpr, r1: (big ? 70 : ev.ally ? 22 : 30) * g.dpr, life: big ? 0.5 : 0.32, max: 0.5, color: ev.ally ? '#bfe6ff' : '#ffd0a0', w: big ? 4 : 2 });
-        burst(ex, ey, ev.col || '#ff8a6a', big ? 30 : ev.ally ? 8 : 14, (big ? 280 : 180) * g.dpr, { sizeMul: big ? 1.6 : 1, glow: true });
+        burst(ex, ey, ev.col || '#ff8a6a', big ? 18 : ev.ally ? 5 : 8, (big ? 280 : 180) * g.dpr, { sizeMul: big ? 1.6 : 1, glow: true });
         spawnParticle({ x: ex, y: ey, vx: 0, vy: -10 * g.dpr, g: -20, life: big ? 0.6 : 0.35, max: 0.6, size: (big ? 26 : 13) * g.dpr, color: 'rgba(255,255,255,0.9)', flash: true });
+        if (ev.spr && G.SPRITES[ev.spr]) shatter(G.SPRITES[ev.spr], ex, ey, g, big ? 2.5 : ev.ally ? 2.0 : 1.95);
         if (big) addShake(9 * g.dpr, 0.4); else if (!ev.ally) addShake(2.2 * g.dpr, 0.12);
       } else if (ev.k === 'hqhit') {
         hqFlash = 1; addShake(7 * g.dpr, 0.3);
@@ -573,13 +616,51 @@
     }
   }
 
+  var WK_COLOR = { single: '#eaf6ff', aoe: '#ffd24a', chain: '#7fe0ff' };
+  function gradeColor(gr) { return gr >= 5 ? '#9af0ff' : gr >= 3 ? '#ffd24a' : '#d7e2ee'; }
+
+  // グレード昇格による外見変化：オーラ・追加装甲(肩当て/クレスト)・武器大型化・階級章
+  function drawGradeDecor(st, x, topY, midBodyY, px, dpr, spr) {
+    var gr = st.grade || 1, wg = st.wgrade || 1, col = gradeColor(gr), hw = spr.w * px / 2;
+    // 武器の大型化（前方＝右へ伸びる砲身。武装種で色、グレードで長さ/太さ）
+    var bl = (3 + wg * 2.2) * dpr, th = (1.4 + wg * 0.7) * dpr, wcol = WK_COLOR[st.weapon.kind] || '#eaf6ff';
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = wcol; ctx.fillRect(x + hw - 1 * dpr, midBodyY - th / 2, bl, th);
+    ctx.beginPath(); ctx.arc(x + hw - 1 * dpr + bl, midBodyY, th * 0.9, 0, 7); ctx.fill();
+    ctx.restore();
+    if (gr >= 2) { // 肩当て（追加装甲）
+      ctx.fillStyle = col;
+      ctx.fillRect(Math.floor(x - hw - px), Math.floor(midBodyY - px), Math.ceil(px * 2), Math.ceil(px * 1.6));
+      ctx.fillRect(Math.floor(x + hw - px), Math.floor(midBodyY - px), Math.ceil(px * 2), Math.ceil(px * 1.6));
+    }
+    if (gr >= 4) { // クレスト（頭頂の意匠）
+      ctx.fillStyle = col;
+      ctx.fillRect(Math.floor(x - px / 2), Math.floor(topY - px * 1.4), Math.ceil(px), Math.ceil(px * 1.4));
+    }
+    // 階級章（シェブロン）: グレード-1個
+    var n = Math.min(gr - 1, 5);
+    for (var i = 0; i < n; i++) {
+      var cxk = x - (n - 1) * 2.4 * dpr + i * 4.8 * dpr, cyk = topY - px * 2.2;
+      ctx.strokeStyle = col; ctx.lineWidth = 1.4 * dpr;
+      ctx.beginPath(); ctx.moveTo(cxk - 2 * dpr, cyk + 2 * dpr); ctx.lineTo(cxk, cyk); ctx.lineTo(cxk + 2 * dpr, cyk + 2 * dpr); ctx.stroke();
+    }
+  }
+  function drawAura(x, cy, rad, col) {
+    var rg = ctx.createRadialGradient(x, cy, 2, x, cy, rad);
+    rg.addColorStop(0, col); rg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = rg;
+    ctx.fillRect(x - rad, cy - rad, rad * 2, rad * 2); ctx.restore();
+  }
+
   function drawUnit(ent, st, g) {
     ensurePhase(ent);
     var dpr = g.dpr, air = st.domain === 'air', x = ent.x * g.sx;
     var moving = Math.abs(ent.x - ent._px) > 0.01; ent._px = ent.x;
-    var spr = G.SPRITES[st.body] || G.SPRITES.infantry, px = 2.0 * dpr;
+    var spr = G.SPRITES[st.body] || G.SPRITES.infantry, px = 2.0 * dpr, gr = st.grade || 1;
     if (air) {
       var cy = yLevel(true, g) + Math.sin(T * 3 + ent._ph) * 4 * dpr;
+      var topY = cy - (spr.h * px) / 2;
+      if (gr >= 3) drawAura(x, cy, spr.w * px * (0.55 + 0.06 * gr), 'rgba(255,210,90,' + (0.05 * (gr - 1)) + ')');
       // 推進炎（後方＝左）
       var fl = 0.45 + 0.4 * Math.abs(Math.sin(T * 26 + ent._ph));
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -587,12 +668,15 @@
       ctx.beginPath(); ctx.ellipse(x - (spr.w * px) / 2 - 1 * dpr, cy + 1 * dpr, 5 * dpr * fl, 1.8 * dpr, 0, 0, 7); ctx.fill();
       ctx.restore();
       drawSprite(spr, x, cy + (spr.h * px) / 2, px, false, null);
-      hpBar(ent, x, cy - (spr.h * px) / 2 - 4 * dpr, 10 * dpr, dpr, false);
+      drawGradeDecor(st, x, topY, cy, px, dpr, spr);
+      hpBar(ent, x, topY - 4 * dpr, 10 * dpr, dpr, false);
     } else {
       var bob = moving ? Math.abs(Math.sin(T * 9 + ent._ph)) * 1.1 * dpr : Math.sin(T * 2 + ent._ph) * 0.5 * dpr;
-      var footY = g.midY + 3 * dpr - bob;
+      var footY = g.midY + 3 * dpr - bob, topY = footY - spr.h * px, midBodyY = footY - spr.h * px * 0.5;
+      if (gr >= 3) drawAura(x, midBodyY, spr.w * px * (0.5 + 0.05 * gr), 'rgba(255,210,90,' + (0.05 * (gr - 1)) + ')');
       drawSprite(spr, x, footY, px, false, moving ? (T * 9 + ent._ph) : null);
-      hpBar(ent, x, footY - spr.h * px - 3 * dpr, 10 * dpr, dpr, false);
+      drawGradeDecor(st, x, topY, midBodyY, px, dpr, spr);
+      hpBar(ent, x, topY - 3 * dpr, 10 * dpr, dpr, false);
     }
   }
   function drawEnemy(ent, spec, g) {
@@ -657,10 +741,19 @@
     }
   }
   function drawParticles() {
+    var i, p, a;
+    // 破片（ドット）は不透明の四角で描く
+    for (i = 0; i < particles.length; i++) {
+      p = particles[i]; if (!p.debris) continue;
+      a = Math.max(0, p.life / p.max); ctx.globalAlpha = Math.min(1, a * 1.4);
+      ctx.fillStyle = p.color; ctx.fillRect(Math.floor(p.x), Math.floor(p.y), Math.ceil(p.size), Math.ceil(p.size));
+    }
+    ctx.globalAlpha = 1;
+    // 発光系は加算合成
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    for (var i = 0; i < particles.length; i++) {
-      var p = particles[i], a = Math.max(0, p.life / p.max);
-      ctx.globalAlpha = a;
+    for (i = 0; i < particles.length; i++) {
+      p = particles[i]; if (p.debris) continue;
+      a = Math.max(0, p.life / p.max); ctx.globalAlpha = a;
       if (p.flash) { var rg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size); rg.addColorStop(0, 'rgba(255,255,255,' + a + ')'); rg.addColorStop(1, 'rgba(255,200,120,0)'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill(); }
       else { ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * a + 0.4, 0, 7); ctx.fill(); }
     }

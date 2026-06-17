@@ -244,3 +244,34 @@ body{
 @keyframes ciSweep{0%{transform:translateX(-120%)}45%{transform:translateX(120%)}100%{transform:translateX(120%)}}
 @keyframes ciBlink{0%{opacity:1}50%{opacity:.5}}
 @media(max-width:720px){ .ci-jp{font-size:20px} .ci-inner{padding:7px 26px} }
+
+/* ---- 章開始 フルスクリーン・カットイン（立ち絵風） ---- */
+#chapter-cut{position:fixed; inset:0; z-index:40; display:none; overflow:hidden; gap:24px;
+  align-items:center; justify-content:center;
+  background:radial-gradient(120% 120% at 72% 50%, #1b0e16 0%, #06080e 72%)}
+#chapter-cut.show{display:flex; animation:ccFade .4s ease}
+.cc-stripes{position:absolute; inset:-20%; opacity:.16; pointer-events:none;
+  background:repeating-linear-gradient(115deg, transparent 0 38px, rgba(120,160,210,.10) 38px 40px);
+  animation:ccStripes 6s linear infinite}
+.cc-glow{position:absolute; width:62vmax; height:62vmax; right:2%; border-radius:50%; pointer-events:none;
+  background:radial-gradient(circle, rgba(255,80,80,.22), transparent 60%); filter:blur(8px)}
+.cc-text{position:relative; z-index:3; order:1; max-width:46%;
+  transform:translateX(-50px); opacity:0; animation:ccText .7s .25s cubic-bezier(.2,.8,.2,1) forwards}
+.cc-portrait{position:relative; z-index:2; order:2; width:240px; height:240px; image-rendering:pixelated;
+  filter:drop-shadow(0 0 26px rgba(255,90,90,.5));
+  transform:translateX(80px) scale(.96); opacity:0; animation:ccPortrait .8s .12s cubic-bezier(.2,.8,.2,1) forwards}
+.cc-num{font-size:18px; font-weight:800; letter-spacing:6px; color:var(--accent)}
+.cc-num span{display:block; font-size:11px; letter-spacing:8px; color:var(--dim); margin-top:3px}
+.cc-title{margin-top:8px; font-size:46px; font-weight:900; color:#fff; letter-spacing:3px; line-height:1.05;
+  text-shadow:0 0 22px rgba(120,200,255,.5),0 3px 0 #04121c}
+.cc-sub{margin-top:14px; font-size:16px; color:#ffbcbc; letter-spacing:2px;
+  border-left:3px solid #ff5a5a; padding-left:11px}
+.cc-skip{position:absolute; right:18px; bottom:16px; z-index:4; font-size:11px; color:var(--dim);
+  letter-spacing:1px; animation:ccBlinkSoft 1.2s ease-in-out infinite}
+@keyframes ccFade{from{opacity:0}to{opacity:1}}
+@keyframes ccStripes{to{transform:translateX(40px)}}
+@keyframes ccPortrait{to{transform:translateX(0) scale(1); opacity:1}}
+@keyframes ccText{to{transform:translateX(0); opacity:1}}
+@keyframes ccBlinkSoft{0%,100%{opacity:.4}50%{opacity:.9}}
+@media(max-width:720px){ .cc-title{font-size:28px} .cc-portrait{width:150px;height:150px} .cc-text{max-width:54%} }
+@media(prefers-reduced-motion:reduce){ .cc-portrait,.cc-text{opacity:1 !important; transform:none !important} }

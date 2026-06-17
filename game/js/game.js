@@ -165,7 +165,7 @@
     return {
       body: bp.body, domain: b.domain, antiAir: b.antiAir, cap: b.cap,
       hp: hp * hpMult, dmg: dmg * dmgMult, def: def, speed: speed * speedMult,
-      range: range, rate: rate * rateMult,
+      range: range, rate: rate * rateMult, grade: t.body, wgrade: t.weapon,
       weapon: { kind: w.kind, aoe: wc.aoe || 0, chain: wc.chain || 0 },
     };
   }
@@ -348,14 +348,14 @@
     // 死亡処理
     for (i = state.units.length - 1; i >= 0; i--) if (state.units[i].hp <= 0) {
       var du = state.units[i];
-      vfx({ k: 'boom', x: du.x, col: '#9fd8ff', a: du.stats.domain === 'air', ally: true });
+      vfx({ k: 'boom', x: du.x, col: '#9fd8ff', a: du.stats.domain === 'air', ally: true, spr: du.stats.body });
       state.stats.lost++; state.units.splice(i, 1);
     }
     for (i = state.enemies.length - 1; i >= 0; i--) if (state.enemies[i].hp <= 0) {
       var de = state.enemies[i], ds = G.ENEMIES[de.type];
       state.ore = Math.min(oreCap(), state.ore + ds.bounty);
       state.stats.kills++;
-      vfx({ k: 'boom', x: de.x, col: ds.color, a: ds.domain === 'air', big: !!ds.boss });
+      vfx({ k: 'boom', x: de.x, col: ds.color, a: ds.domain === 'air', big: !!ds.boss, spr: 'e_' + de.type });
       state.enemies.splice(i, 1);
     }
   }
