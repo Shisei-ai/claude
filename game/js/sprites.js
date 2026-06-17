@@ -1,9 +1,9 @@
 /* =========================================================================
- * 鋼鉄戦線 (Steel Front) - ドット絵スプライト定義
- *   外部画像を使わず、文字グリッドのピクセルアートとして各キャラを定義する。
- *   '.' = 透明。1文字 = 1ドット。各スプライトは独自パレット(pal)を持つ。
- *   プレイヤー機は右向き、敵(群体)は左向き（＝進行方向）にデザイン。
- *   行の長さは不揃いでよい（読み込み時に右側を透明で自動パディング）。
+ * 鋼鉄戦線 (Steel Front) - ドット絵スプライト定義（高頭身・ディテール版）
+ *   味方：頭身高めのスマートな人型メカ兵。grade ごとに専用フレーム（別シルエット）。
+ *   敵　：禍々しいクリーチャー。
+ *   k輪郭 d影 m基色 l明 h光 v=バイザー/目 a=アクセント b=アクセント影
+ *   g=金属/銃 e=エネルギー光 c=布/ケープ w=翼/膜  '.'=透明（短い行は自動パディング）
  * ========================================================================= */
 (function (G) {
   'use strict';
@@ -14,159 +14,395 @@
     return { w: w, h: rows.length, pal: pal, rows: rows };
   }
 
-  // ---- プレイヤー機（兵科＝キャラクター） --------------------------------
-  // 歩兵：青の量産トルーパー。丸いバイザー、肩、ブラスター。
-  var inf = S({ O: '#163f63', M: '#2f8fd6', L: '#74ccff', V: '#dff7ff', A: '#ffd24a', G: '#aeb9c4', S: '#0e2942' },
-    ['...OOOO...',
-     '..OLLLLO..',
-     '..OLVVLO..',
-     '..OVVVVO..',
-     '..OOMMOO..',
-     '.OLMMMMLO.',
-     '.OMAMMAMO.',
-     '.OMMMMMMOGG',
-     'SOMMMMMMOS',
-     '.OMMMMMMO.',
-     '..OMOOMO..',
-     '..OO..OO..']);
+  /* ============ 味方ユニット（高頭身・人型／グレード別シルエット） ============ */
 
-  // 突撃兵：橙の高速強襲機。前傾シルエット、双刃、バイザー。
-  var asl = S({ O: '#7a3010', M: '#ff7a2f', L: '#ffb866', V: '#fff0c8', A: '#ffe28a', G: '#aeb9c4', S: '#511c08' },
-    ['....OOOO..',
-     '...OLLLLO.',
-     '...OLVVLO.',
-     '...OVVVVO.',
-     '..OOMMMOO.',
-     '.OLMMMMMOGG',
-     '.OMAAMAMO.',
-     'SOMMMMMMO.',
-     '.OLMMMMMO.',
-     '..OMMMMO..',
-     '..OM..MO..',
-     '..O....O..']);
+  // ── 歩兵 infantry（青のトルーパー：ライフル） ──
+  var INF = { k:'#0c1f33', d:'#235f8c', m:'#3a97d8', l:'#79ccff', h:'#cdeeff', v:'#aef0ff', a:'#ffd24a', b:'#c8860a', g:'#9aa7b3', e:'#eaffff' };
+  var inf1 = S(INF, [
+    '....kkk....',
+    '...khhhk...',
+    '...klllk...',
+    '...kvvkk...',
+    '....kk.....',
+    '..kkmmkk...',
+    '.khmmmmhk..',
+    '.kmaaammk..',
+    '.kmmmmmgk..',
+    '.kdmmmgggG.',
+    '.kmmmmmgk..',
+    '.kdmmmmdk..',
+    '..kmmmmk...',
+    '..kmmmmk...',
+    '..kmk kmk..',
+    '..kmk kmk..',
+    '..kdk kdk..',
+    '..kmk kmk..',
+    '.kkk. .kkk.',
+  ]);
+  var inf2 = S(INF, [
+    '....kak....',
+    '....kkk....',
+    '...khhhk...',
+    '...klllk...',
+    '...kvvkk...',
+    '...kkkk....',
+    '.klkmmklk..',
+    'klhmmmmhlk.',
+    'klmaaammgk.',
+    'klmmmmmgggG',
+    'klmmmmmgk..',
+    '.kdmmmmdk..',
+    '..kmmmmk...',
+    '..kmmmmk...',
+    '..kmkkkmk..',
+    '..kmk kmk..',
+    '..kdk kdk..',
+    '..kmk kmk..',
+    '.kkkk kkkk.',
+  ]);
+  var inf3 = S(INF, [
+    '...keaek...',
+    '...kkkk....',
+    '..khhhhk...',
+    '..klvvlk...',
+    '..klkklk...',
+    '.kkkkkkk...',
+    'klkmmmmklk.',
+    'klhmmmmhlGk',
+    'klmaaammgGk',
+    'klmmaammgGG',
+    'klmmmmmggGk',
+    'klhmmmmhlk.',
+    '.kdmmmmdk..',
+    '..kmmmmk...',
+    '..kmmkmmk..',
+    '.kkmk kmkk.',
+    '.kdmk kmdk.',
+    '.kmk.. kmk.',
+    '.kkk.  .kkk',
+  ]);
 
-  // 重装兵：紫の重機。大きな肩、装甲、重カノン。
-  var hvy = S({ O: '#2c2168', M: '#7d6cf0', L: '#b9adff', V: '#e9e4ff', A: '#ff7eb6', G: '#b6afe6', S: '#1a1248' },
-    ['.OO....OO.',
-     '.OLO..OLO.',
-     'OOLLOOLLOO',
-     'OLLMMMMLLO',
-     'OLMVVVVMLO',
-     'OMMMMMMMMO',
-     'OMAAMMAAMO',
-     'OMMMMMMMMOGGG',
-     'OMMMMMMMMO',
-     'OLMMMMMMLO',
-     '.OMMOOMMO.',
-     '.OOO..OOO.']);
+  // ── 突撃兵 assault（橙の高速戦士：エネルギーブレード＋スカーフ） ──
+  var ASL = { k:'#3a1404', d:'#ad4d1b', m:'#ff7a2f', l:'#ffb866', h:'#ffe6c8', v:'#fff0c8', a:'#ffe066', b:'#c98a12', g:'#9aa7b3', e:'#aef0ff', c:'#e8473a' };
+  var asl1 = S(ASL, [
+    '....kkk....',
+    '...khhhk...',
+    '...klvlk...',
+    '...kvlkk...',
+    '....kk.....',
+    'c.kkmmkk...',
+    'cckhmmmmhk.',
+    '.ckmaaammk.',
+    '..kmmmmmek.',
+    '..kdmmmeek.',
+    '..kmmmmemk.',
+    '..kdmmmmdk.',
+    '...kmmmmk..',
+    '..kmk kmk..',
+    '..kmk kmk..',
+    '.kmk. kmk..',
+    '.kdk. kdk..',
+    'kkk.. .kkk.',
+  ]);
+  var asl2 = S(ASL, [
+    '....kkk...e',
+    '...khhhk.ee',
+    '...klvlkee.',
+    '...kvlkke..',
+    'c...kk.e...',
+    'cc.kkmmkk..',
+    'ccckhmmmmhk',
+    '.cckmaaammk',
+    '..kmmmmmeek',
+    '..kdmmmeeek',
+    '..kmmmmeemk',
+    '..kdmmmmdk.',
+    '...kmmmmk..',
+    '..kmkkkmk..',
+    '..kmk kmk..',
+    '.kmk. kmk..',
+    '.kdk. kdk..',
+    'kkkk. .kkk.',
+  ]);
+  var asl3 = S(ASL, [
+    '...kkk...ee',
+    '..khhhk.eee',
+    '..klvlkeee.',
+    '..kvlkkee..',
+    'cc.kk.ee...',
+    'ccckkmmkk..',
+    'cccklmmmmhk',
+    '.cckmaaammhk',
+    '.ckmmmmmeeek',
+    '..kdmmmeeeek',
+    '..kmmaameemk',
+    '..klmmmmhlk',
+    '..kdmmmmdk.',
+    '..kmmkkmmk.',
+    '.kmk.  kmk.',
+    '.kmk.  kmk.',
+    '.kdk.  kdk.',
+    'kkkk.  .kkk',
+  ]);
 
-  // 射撃兵：緑の狙撃機。片目スコープ、長いライフル。
-  var sht = S({ O: '#13502f', M: '#33c47b', L: '#8af0b4', V: '#e9fff2', A: '#ffe06b', G: '#aeb9c4', S: '#0c3520' },
-    ['...OOOO...',
-     '..OLLLLO..',
-     '..OVVVLO..',
-     '..OAVMLO..',
-     '..OOMMOO..',
-     '.OLMMMMLOGGGGGG',
-     '.OMMMMMMO.',
-     'SOMAAMMMO.',
-     '.OMMMMMMO.',
-     '..OMMMMO..',
-     '..OMOOMO..',
-     '..OO..OO..']);
+  // ── 重装兵 heavy（紫の重装：大カノン。広めだが人型） ──
+  var HVY = { k:'#160f36', d:'#463aa0', m:'#7d6cf0', l:'#b9adff', h:'#e6e0ff', v:'#d6ccff', a:'#ff7eb6', b:'#a8326e', g:'#aab0d0', e:'#ffd24a' };
+  var hvy1 = S(HVY, [
+    '...kkkk....',
+    '..khvvhk...',
+    '..klkklk...',
+    '...kkk.....',
+    '.kkkmmkkk..',
+    'khmmmmmmhk.',
+    'kmmmaammgk.',
+    'kmmmmmmggG.',
+    'kdmmmmmmgk.',
+    'kmmmmmmmmk.',
+    'khmmmmmmhk.',
+    '.kmmmmmmk..',
+    '.kmmkkmmk..',
+    '.kmk. kmk..',
+    '.kdk. kdk..',
+    'kkkk. .kkkk',
+  ]);
+  var hvy2 = S(HVY, [
+    '...kkkk..ee',
+    '..khvvhk.e.',
+    '..klkklk ee',
+    '..kkkkk....',
+    'kkkkmmkkkk.',
+    'khmmmmmmhgk',
+    'kmmmaammggG',
+    'kmmmmmmmggG',
+    'kdmmmmmmggk',
+    'kmmmmmmmmgk',
+    'khmmmmmmhlk',
+    'klmmmmmmlk.',
+    '.kmmkkmmk..',
+    '.kmk. kmk..',
+    '.kdk. kdk..',
+    'kkkk. .kkkk',
+  ]);
+  var hvy3 = S(HVY, [
+    '..kkkk..eGG',
+    '.kahvvhak.G',
+    '.kalkklak eG',
+    'kkakkkkak..',
+    'kkkkmmkkkkk',
+    'khmmmmmmhgGk',
+    'kmmmaammggGk',
+    'kmmmaammggGG',
+    'kdmmmmmmggGk',
+    'kmmmmmmmmgGk',
+    'khmmmmmmhlk',
+    'klmmmmmmlk.',
+    'klmmkkmmlk.',
+    '.kmmk kmmk.',
+    '.kdmk kmdk.',
+    'kkkkk kkkkk',
+  ]);
 
-  // 飛行兵：金の航空機。コックピットのバイザー、翼。脚なし（空中）。
-  var fly = S({ O: '#6e5212', M: '#f5c23a', L: '#ffe88a', V: '#fff7d0', A: '#5ec6ff', S: '#4a3608' },
-    ['.....OO.....',
-     '....OLLO....',
-     '...OLVVLO...',
-     '..OLLVVLLO..',
-     '.OOLLLLLLOO.',
-     'OLLMMMMMMLLO',
-     'OAOMMMMMMOAO',
-     '.OOMMMMMMOO.',
-     '...OMAAMO...',
-     '....OMMO....',
-     '.....OO.....']);
+  // ── 射撃兵 shooter（緑の狙撃手：長身・長銃・フード） ──
+  var SHT = { k:'#0a2c1c', d:'#1d7a4e', m:'#33c47b', l:'#8af0b4', h:'#d6ffe8', v:'#eafff2', a:'#ffe06b', b:'#c9a01a', g:'#8b97a3', e:'#aef0ff', c:'#176b46' };
+  var sht1 = S(SHT, [
+    '...kkk.....',
+    '..kcchk....',
+    '..kcvlk....',
+    '..kcvlk....',
+    '...kkk.....',
+    '..kkmmk....',
+    '.kcmmmmk...',
+    '.kmmmmmk gg',
+    '.kmaammggggG',
+    '.kmmmmmk gg',
+    '.kdmmmdk...',
+    '..kmmmk....',
+    '..kmmmk....',
+    '..kmk kk...',
+    '..kmk km...',
+    '..kdk kd...',
+    '.kkk. kk...',
+  ]);
+  var sht2 = S(SHT, [
+    '...kkk.....',
+    '..kcchk....',
+    '..kcvlk....',
+    '.ckcvlk....',
+    '.ckkkk.....',
+    '.cckmmk....',
+    'kccmmmmk...',
+    'kcmmmmmk ggg',
+    'kcmaammgggggG',
+    'kcmmmmmk ggg',
+    '.kdmmmdk...',
+    '.ckmmmk....',
+    '.ckmmmk....',
+    '..kmkkk....',
+    '..kmk km...',
+    '..kdk kd...',
+    '.kkk. kk...',
+  ]);
+  var sht3 = S(SHT, [
+    '..kkk...eee',
+    '.kcchk.....',
+    '.kcvvlk....',
+    'ckcvllk....',
+    'ckkkkk.....',
+    'cckmmmk....',
+    'kccmmmmlk..',
+    'kcmmmmmlkgggg',
+    'kcmaaammgggggGe',
+    'kcmmmmmlkgggg',
+    'kcdmmmdlk..',
+    'cckmmmmk...',
+    '.ckmmmmk...',
+    '..kmmkkk...',
+    '..kmk km...',
+    '..kdk kd...',
+    '.kkk. kk...',
+  ]);
 
-  // ---- 敵（群体） --------------------------------------------------------
-  // 小型：ピンクの小蟲。牙(左)、複眼。
-  var e_sw = S({ O: '#54101e', M: '#e0405f', L: '#ff8aa2', V: '#fff2f5', R: '#ff2a4a', S: '#3a0a14' },
-    ['......OOO..',
-     '....OOMMMO.',
-     '..OOMLLLMO.',
-     '.OMLRVVRLMO',
-     'OMLLLLLLLMO',
-     'OMLLMMMLLMO',
-     '.OMMMMMMMO.',
-     '..OOMMMOO..',
-     '..O.OO.O...']);
+  // ── 飛行兵 flyer（金の翼持ち：脚なし・浮遊・大翼） ──
+  var FLY = { k:'#3a2a06', d:'#b8902a', m:'#f5c23a', l:'#ffe88a', h:'#fff7d0', v:'#fff7d0', a:'#5ec6ff', b:'#2f86c9', g:'#cfd9e3', e:'#aef0ff', w:'#bfe6ff' };
+  var fly1 = S(FLY, [
+    '.....kkk....',
+    '....khhhk...',
+    '....klvlk...',
+    '....kvlk....',
+    'w...kkk.....',
+    'ww.kkmmkk...',
+    '.wwkhmmmhk gg',
+    '..wkmaammggG',
+    '..wkmmmmmgk.',
+    '..wkdmmmdk..',
+    '...wkmmmk...',
+    '...wkeek....',
+    '....wee.....',
+  ]);
+  var fly2 = S(FLY, [
+    '.....kkk....',
+    '....khhhk...',
+    '....klvlk...',
+    '....kvlk....',
+    'ww..kkk.....',
+    'www.kkmmkk gg',
+    'wwwwkhmmmhgggG',
+    '.wwwkmaammgG..',
+    '..wwkmmmmmgk..',
+    '..wwkdmmmdk...',
+    '.wwwwkmmmk....',
+    'www..keeek....',
+    '.w...weeew....',
+    '......ee......',
+  ]);
+  var fly3 = S(FLY, [
+    'w....kkk...e',
+    'ww..khhhk.ee',
+    'www.klvlkee.',
+    'wwwwkvlkek..',
+    'wwwwkkk.k gg',
+    'wwwwkkmmkgggG',
+    '.wwwkhmmmhggGe',
+    '..wwkmaammgGe.',
+    '..wwkmmmmmgk..',
+    '.wwwwkdmmmdk..',
+    'wwww.kmmmk....',
+    'www..keeek....',
+    'ww...eeeee.w..',
+    '.w...eeeee.ww.',
+    '......eee...w.',
+  ]);
 
-  // 装甲：磁紫の重蟲。前面プレート(左)、角。
-  var e_ar = S({ O: '#3a0f28', M: '#b03070', L: '#e68ab8', V: '#fff0f6', P: '#ff9ed0', R: '#ff2a6a', S: '#260a1a' },
-    ['.O......OO.',
-     'OPO...OOMLO',
-     'OPPOOOMLLLO',
-     'OPPMRRVMMLO',
-     'OPPMMMMMMLO',
-     'OPPMMMMMMMO',
-     '.OPMMMMMMO.',
-     '..OOMMMOO..',
-     '..O.OO.O...']);
+  G.UNIT_FRAMES = {
+    infantry: [inf1, inf2, inf3], assault: [asl1, asl2, asl3], heavy: [hvy1, hvy2, hvy3],
+    shooter: [sht1, sht2, sht3], flyer: [fly1, fly2, fly3],
+  };
+  G.unitFrame = function (body, grade) {
+    var f = G.UNIT_FRAMES[body]; if (!f) return G.SPRITES[body];
+    var i = grade >= 3 ? 2 : grade >= 2 ? 1 : 0;
+    return f[Math.min(i, f.length - 1)];
+  };
 
-  // 砲塔：紫の砲蟲。砲口(左)、単眼。
-  var e_sp = S({ O: '#3a0f3a', M: '#b94fb0', L: '#e8a6e0', V: '#ffe0fb', G: '#d36fd0', A: '#ff9ed0', R: '#ff45d0' },
-    ['......OOOO.',
-     '.....OLLLLO',
-     'GGG.OLVVVLO',
-     'GGGOMLRRLMO',
-     'GGG.OMMMMMO',
-     '....OMAAMMO',
-     '.....OMMMMO',
-     '.....OOOOO.',
-     '....O.OO.O.']);
-
-  // 飛翔：ホットピンクの飛蟲。翼、空中。
-  var e_wy = S({ O: '#5a1040', M: '#e54fb0', L: '#ff9ed8', V: '#fff0fa', W: '#ffc6ec', R: '#ff2a9a' },
-    ['..W.....W..',
-     '.WWO...OWW.',
-     'WWOLO.OLOWW',
-     '.WOLVOVLOW.',
-     '..OMLLLLMO.',
-     '..OMRMMRMO.',
-     '...OMMMMO..',
-     '....OMMO...',
-     '.....OO....']);
-
-  // 巨核（ボス）：赤い大型核。発光コア、多眼、装甲。
-  var e_ti = S({ O: '#3a0808', M: '#c0202a', L: '#ff8a7a', V: '#fff3c0', C: '#ff5a3a', W: '#fff7d0', P: '#7a1410', R: '#ff2a2a' },
-    ['..O........O..',
-     '.OLO......OLO.',
-     'OOLLO....OLLOO',
-     'OLLMMOOOOMMLLO',
-     'OLMMMLLLLMMMLO',
-     'OMMRVMMMMVRMMO',
-     'OMMMMCCCCMMMMO',
-     'OMMMCCWWCCMMMO',
-     'OMMMMCCCCMMMMO',
-     'OMMLLLLLLLLMMO',
-     'OMPPPPPPPPPPMO',
-     '.OMMOOOOOOMMO.',
-     '..OOO....OOO..',
-     '..O.O....O.O..']);
+  /* ==================== 敵：禍々しいクリーチャー ==================== */
+  // 小型・群体：かぎ爪の小鬼／蟲（左向き）。
+  var e_sw = S({ k:'#2a0810', d:'#8a1e34', m:'#e0405f', l:'#ff8aa2', h:'#ffd0da', v:'#fff2f5', a:'#ff2a4a', t:'#5a1020' },
+    ['....k...k...',
+     '.k..kk.kk...',
+     '.kk.kdkdk...',
+     'kakdmmmmk...',
+     'kakmlvvlmk..',
+     '.kmlmmmmlmk.',
+     '.kkmmmmmmk..',
+     '..kdmmmmdk..',
+     '.tkmmkkmmkt.',
+     'tk.t...t.kt.']);
+  // 装甲・群体：甲殻の獣（左向き）。背の棘・角・重い前肢。
+  var e_ar = S({ k:'#1e0a16', d:'#7a2a52', m:'#b03070', l:'#e68ab8', h:'#ffd0e8', v:'#fff0f6', a:'#ff2a6a', p:'#ff9ed0' },
+    ['....p....p..',
+     '..kpkp..pkp.',
+     '.kakpkkpkk..',
+     'kaakdmllmdk.',
+     'kakmlvmmvlmk',
+     'kkmllmmmmllk',
+     '.kdmmmmmmdk.',
+     '.kmmmaammmk.',
+     '.kdmmmmmmdk.',
+     '.kmmkkpkkmk.',
+     'kk.k...k.kk.']);
+  // 砲塔・群体：肥大した砲口の蟲（左に砲口）。単眼・触手。
+  var e_sp = S({ k:'#220a22', d:'#7d2e78', m:'#b94fb0', l:'#e8a6e0', h:'#ffd6f6', v:'#ffe0fb', a:'#ff45d0', e:'#ff9ef0', g:'#9c5a98' },
+    ['......kkkk..',
+     '....kkmmmmk.',
+     '...klvvvvlk.',
+     'gggkdvmmmvk.',
+     'geekmlmmmlmk',
+     'gggkdlmmmlk.',
+     '...kmmaammk.',
+     '...kdmmmmdk.',
+     '....kmmmmk..',
+     '..t.kkkk.t..',
+     '.t........t.']);
+  // 飛翔・群体：膜翼の飛蟲／竜（左向き・空）。
+  var e_wy = S({ k:'#2a0820', d:'#9a2e76', m:'#e54fb0', l:'#ff9ed8', h:'#ffd6ef', v:'#fff0fa', w:'#ffb0e2', a:'#ff2a9a' },
+    ['.w.........w',
+     'wwwk....kwww',
+     '.wwdmk.kmdww',
+     '..kmllmllmk.',
+     '..kmlvmvlmk.',
+     '..kkmmmmmkk.',
+     '...kdmmmdk..',
+     '...kmaamk.a.',
+     '...kdmmdk.a.',
+     '....kmmk.aa.',
+     '....kkk.a...']);
+  // 巨核（ボス）：多眼の巨大コア。装甲殻・棘冠・発光核。
+  var e_ti = S({ k:'#220404', d:'#8a1414', m:'#c0202a', l:'#ff8a7a', h:'#ffd6c0', v:'#fff3c0', c:'#ff5a3a', w:'#fff7d0', p:'#5a0e0e', a:'#ff2a2a' },
+    ['..k..p....p..k..',
+     '.kak.kpkkpk.kak.',
+     'kaakdkllllkdkaak',
+     'kakmllmmmmllmkak',
+     '.kmlvmmmmmmvlmk.',
+     'kkmlmmmccmmmlmkk',
+     'kpmmmmcwwcmmmmpk',
+     'kpmmmmcwwcmmmmpk',
+     'kkmlmmmccmmmlmkk',
+     '.kmlmmmmmmmmlmk.',
+     '.kdmllmmmmllmdk.',
+     '.kpmmkkppkkmmpk.',
+     'kk.kk..pp..kk.kk',
+     '.k..k......k..k.']);
 
   G.SPRITES = {
-    infantry: inf, assault: asl, heavy: hvy, shooter: sht, flyer: fly,
+    infantry: inf1, assault: asl1, heavy: hvy1, shooter: sht1, flyer: fly1,
     e_swarmling: e_sw, e_armored: e_ar, e_spitter: e_sp, e_wyrm: e_wy, e_titan: e_ti,
   };
 
-  // 静的レンダラ（立ち絵・スプライトシート用）。x0,y0=左上, px=1ドットの大きさ。
   G.renderSprite = function (ctx, spr, x0, y0, px, flip) {
     var w = spr.w, h = spr.h, sz = Math.ceil(px) + 1;
     for (var r = 0; r < h; r++) {
       var row = spr.rows[r];
       for (var c = 0; c < w; c++) {
-        var ch = row.charAt(c); if (ch === '.') continue;
+        var ch = row.charAt(c); if (ch === '.' || ch === ' ') continue;
         var col = spr.pal[ch]; if (!col) continue;
         var gc = flip ? (w - 1 - c) : c;
         ctx.fillStyle = col;

@@ -348,7 +348,7 @@
     // 死亡処理
     for (i = state.units.length - 1; i >= 0; i--) if (state.units[i].hp <= 0) {
       var du = state.units[i];
-      vfx({ k: 'boom', x: du.x, col: '#9fd8ff', a: du.stats.domain === 'air', ally: true, spr: du.stats.body });
+      vfx({ k: 'boom', x: du.x, col: '#9fd8ff', a: du.stats.domain === 'air', ally: true, spr: du.stats.body, grade: du.stats.grade });
       state.stats.lost++; state.units.splice(i, 1);
     }
     for (i = state.enemies.length - 1; i >= 0; i--) if (state.enemies[i].hp <= 0) {

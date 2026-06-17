@@ -424,7 +424,8 @@
         rings.push({ x: ex, y: ey, r: 4 * g.dpr, r1: (big ? 70 : ev.ally ? 22 : 30) * g.dpr, life: big ? 0.5 : 0.32, max: 0.5, color: ev.ally ? '#bfe6ff' : '#ffd0a0', w: big ? 4 : 2 });
         burst(ex, ey, ev.col || '#ff8a6a', big ? 18 : ev.ally ? 5 : 8, (big ? 280 : 180) * g.dpr, { sizeMul: big ? 1.6 : 1, glow: true });
         spawnParticle({ x: ex, y: ey, vx: 0, vy: -10 * g.dpr, g: -20, life: big ? 0.6 : 0.35, max: 0.6, size: (big ? 26 : 13) * g.dpr, color: 'rgba(255,255,255,0.9)', flash: true });
-        if (ev.spr && G.SPRITES[ev.spr]) shatter(G.SPRITES[ev.spr], ex, ey, g, big ? 2.5 : ev.ally ? 2.0 : 1.95);
+        var sspr = ev.spr ? (ev.ally ? G.unitFrame(ev.spr, ev.grade || 1) : G.SPRITES[ev.spr]) : null;
+        if (sspr) shatter(sspr, ex, ey, g, big ? 2.4 : ev.ally ? 1.7 : 1.9);
         if (big) addShake(9 * g.dpr, 0.4); else if (!ev.ally) addShake(2.2 * g.dpr, 0.12);
       } else if (ev.k === 'hqhit') {
         hqFlash = 1; addShake(7 * g.dpr, 0.3);
@@ -586,8 +587,8 @@
     if (Math.sin(T * 4) > 0) { ctx.fillStyle = '#ff6b6b'; ctx.beginPath(); ctx.arc(bx + bw / 2, by - 13 * dpr, 2.2 * dpr, 0, 7); ctx.fill(); }
   }
 
-  function spriteOf(ent) { return ent.side === 'e' ? G.SPRITES['e_' + ent.type] : G.SPRITES[ent.stats.body]; }
-  function pxOf(ent, spec, dpr) { return (spec.boss ? 2.5 : ent.side === 'e' ? 1.95 : 2.0) * dpr; }
+  function spriteOf(ent) { return ent.side === 'e' ? G.SPRITES['e_' + ent.type] : G.unitFrame(ent.stats.body, ent.stats.grade); }
+  function pxOf(ent, spec, dpr) { return (spec.boss ? 2.4 : ent.side === 'e' ? 1.9 : 1.7) * dpr; }
 
   function drawShadow(ent, spec, g) {
     var spr = spriteOf(ent); if (!spr) return;
@@ -619,29 +620,21 @@
   var WK_COLOR = { single: '#eaf6ff', aoe: '#ffd24a', chain: '#7fe0ff' };
   function gradeColor(gr) { return gr >= 5 ? '#9af0ff' : gr >= 3 ? '#ffd24a' : '#d7e2ee'; }
 
-  // グレード昇格による外見変化：オーラ・追加装甲(肩当て/クレスト)・武器大型化・階級章
+  // 追加装甲・武器形状は専用フレームに内包。ここでは武装種の発光チップと階級章のみ。
   function drawGradeDecor(st, x, topY, midBodyY, px, dpr, spr) {
-    var gr = st.grade || 1, wg = st.wgrade || 1, col = gradeColor(gr), hw = spr.w * px / 2;
-    // 武器の大型化（前方＝右へ伸びる砲身。武装種で色、グレードで長さ/太さ）
-    var bl = (3 + wg * 2.2) * dpr, th = (1.4 + wg * 0.7) * dpr, wcol = WK_COLOR[st.weapon.kind] || '#eaf6ff';
+    var gr = st.grade || 1, wg = st.wgrade || 1, hw = spr.w * px / 2;
+    // 武装種を示すマズル発光（前方）。グレードで強さが増す。
+    var wcol = WK_COLOR[st.weapon.kind] || '#eaf6ff';
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = wcol; ctx.fillRect(x + hw - 1 * dpr, midBodyY - th / 2, bl, th);
-    ctx.beginPath(); ctx.arc(x + hw - 1 * dpr + bl, midBodyY, th * 0.9, 0, 7); ctx.fill();
-    ctx.restore();
-    if (gr >= 2) { // 肩当て（追加装甲）
-      ctx.fillStyle = col;
-      ctx.fillRect(Math.floor(x - hw - px), Math.floor(midBodyY - px), Math.ceil(px * 2), Math.ceil(px * 1.6));
-      ctx.fillRect(Math.floor(x + hw - px), Math.floor(midBodyY - px), Math.ceil(px * 2), Math.ceil(px * 1.6));
-    }
-    if (gr >= 4) { // クレスト（頭頂の意匠）
-      ctx.fillStyle = col;
-      ctx.fillRect(Math.floor(x - px / 2), Math.floor(topY - px * 1.4), Math.ceil(px), Math.ceil(px * 1.4));
-    }
+    ctx.globalAlpha = 0.55 + 0.1 * wg;
+    ctx.fillStyle = wcol;
+    ctx.beginPath(); ctx.arc(x + hw + 2 * dpr, midBodyY, (1.4 + wg * 0.5) * dpr, 0, 7); ctx.fill();
+    ctx.restore(); ctx.globalAlpha = 1;
     // 階級章（シェブロン）: グレード-1個
     var n = Math.min(gr - 1, 5);
     for (var i = 0; i < n; i++) {
-      var cxk = x - (n - 1) * 2.4 * dpr + i * 4.8 * dpr, cyk = topY - px * 2.2;
-      ctx.strokeStyle = col; ctx.lineWidth = 1.4 * dpr;
+      var cxk = x - (n - 1) * 2.4 * dpr + i * 4.8 * dpr, cyk = topY - px * 1.4;
+      ctx.strokeStyle = gradeColor(gr); ctx.lineWidth = 1.4 * dpr;
       ctx.beginPath(); ctx.moveTo(cxk - 2 * dpr, cyk + 2 * dpr); ctx.lineTo(cxk, cyk); ctx.lineTo(cxk + 2 * dpr, cyk + 2 * dpr); ctx.stroke();
     }
   }
@@ -656,7 +649,7 @@
     ensurePhase(ent);
     var dpr = g.dpr, air = st.domain === 'air', x = ent.x * g.sx;
     var moving = Math.abs(ent.x - ent._px) > 0.01; ent._px = ent.x;
-    var spr = G.SPRITES[st.body] || G.SPRITES.infantry, px = 2.0 * dpr, gr = st.grade || 1;
+    var spr = G.unitFrame(st.body, st.grade) || G.SPRITES.infantry, px = 1.7 * dpr, gr = st.grade || 1;
     if (air) {
       var cy = yLevel(true, g) + Math.sin(T * 3 + ent._ph) * 4 * dpr;
       var topY = cy - (spr.h * px) / 2;
@@ -684,7 +677,7 @@
     var dpr = g.dpr, air = spec.domain === 'air', x = ent.x * g.sx;
     var spr = G.SPRITES['e_' + ent.type] || G.SPRITES.e_swarmling;
     var pulse = 1 + Math.sin(T * 6 + ent._ph) * 0.06;
-    var px = (spec.boss ? 2.5 : 1.95) * dpr * pulse;
+    var px = (spec.boss ? 2.4 : 1.9) * dpr * pulse;
     if (spec.boss) {
       var gy = g.midY - spr.h * px * 0.5;
       var rg = ctx.createRadialGradient(x, gy, 2, x, gy, spr.w * px * 0.8);
