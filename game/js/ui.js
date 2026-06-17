@@ -599,22 +599,31 @@
   function ensurePhase(ent) { if (ent._ph === undefined) { ent._ph = rand(0, 6.28); ent._px = ent.x; } }
 
   // ドット絵スプライト描画。cx=中心X / footY=下端Y / px=1ドット / flip=左右反転
-  // legPhase!=null のとき最下段2行を歩行モーション（脚の振り）でずらす
-  function drawSprite(spr, cx, footY, px, flip, legPhase) {
+  // legPhase!=null で歩行モーション（脚の振り）/ tint で全ピクセルを単色化（被弾フラッシュ）
+  function drawSprite(spr, cx, footY, px, flip, legPhase, tint) {
     var w = spr.w, h = spr.h, x0 = cx - (w * px) / 2, sz = Math.ceil(px) + 1;
+    if (tint) ctx.fillStyle = tint;
     for (var r = 0; r < h; r++) {
       var row = spr.rows[r], legs = (legPhase != null && r >= h - 2);
       var sw = legs ? Math.sin(legPhase) * px * 0.7 : 0;
       var py = Math.floor(footY - (h - r) * px);
       for (var c = 0; c < w; c++) {
-        var ch = row.charAt(c); if (ch === '.') continue;
+        var ch = row.charAt(c); if (ch === '.' || ch === ' ') continue;
         var col = spr.pal[ch]; if (!col) continue;
         var gc = flip ? (w - 1 - c) : c;
         var sh = legs ? (gc < w / 2 ? sw : -sw) : 0;
-        ctx.fillStyle = col;
+        if (!tint) ctx.fillStyle = col;
         ctx.fillRect(Math.floor(x0 + gc * px + sh), py, sz, sz);
       }
     }
+  }
+  // 兵科ごとの待機モーション特性 [周波数, 振幅]
+  var IDLE = { infantry: [2.2, 0.5], assault: [3.4, 0.9], heavy: [1.4, 0.35], shooter: [1.8, 0.4], flyer: [3, 1] };
+  var FIRE_DUR = 0.17, HIT_DUR = 0.13;
+  function fireOffset(st, ent, dpr) {
+    if (!ent.fireT || ent.fireT <= 0) return 0;
+    var p = 1 - ent.fireT / FIRE_DUR, melee = st.range < 70;
+    return (melee ? 1 : -1) * Math.sin(p * Math.PI) * (melee ? 5 : 3) * dpr; // melee=前へ踏込/ranged=反動
   }
 
   var WK_COLOR = { single: '#eaf6ff', aoe: '#ffd24a', chain: '#7fe0ff' };
@@ -645,31 +654,52 @@
     ctx.fillRect(x - rad, cy - rad, rad * 2, rad * 2); ctx.restore();
   }
 
+  // グレードⅢ専用：残像＋立ち上るオーラ粒子（精鋭演出）
+  function eliteFx(ent, st, gr, spr, drawX, footY, px, dpr, air, legPhase, moving) {
+    if (gr < 3) return;
+    if (moving) { // 残像（後方＝左へ尾を引く）
+      ctx.save();
+      ctx.globalAlpha = 0.20; drawSprite(spr, drawX - 4 * dpr, footY, px, false, legPhase);
+      ctx.globalAlpha = 0.10; drawSprite(spr, drawX - 8 * dpr, footY, px, false, legPhase);
+      ctx.restore();
+    }
+    if (Math.random() < 0.22) { // オーラ粒子
+      var hw = spr.w * px / 2;
+      spawnParticle({ x: drawX + rand(-hw, hw), y: footY - rand(0, spr.h * px), vx: rand(-6, 6) * dpr, vy: -rand(18, 42) * dpr,
+        g: -8, life: rand(0.4, 0.85), max: 0.85, size: rand(1, 2.2) * dpr, color: gradeColor(gr), glow: true });
+    }
+  }
+
   function drawUnit(ent, st, g) {
     ensurePhase(ent);
-    var dpr = g.dpr, air = st.domain === 'air', x = ent.x * g.sx;
+    var dpr = g.dpr, air = st.domain === 'air';
     var moving = Math.abs(ent.x - ent._px) > 0.01; ent._px = ent.x;
     var spr = G.unitFrame(st.body, st.grade) || G.SPRITES.infantry, px = 1.7 * dpr, gr = st.grade || 1;
+    var drawX = ent.x * g.sx + fireOffset(st, ent, dpr);
+    var idle = IDLE[st.body] || [2, 0.5];
+    var flash = ent.hitT > 0 ? (ent.hitT / HIT_DUR) * 0.55 : 0;
     if (air) {
-      var cy = yLevel(true, g) + Math.sin(T * 3 + ent._ph) * 4 * dpr;
-      var topY = cy - (spr.h * px) / 2;
-      if (gr >= 3) drawAura(x, cy, spr.w * px * (0.55 + 0.06 * gr), 'rgba(255,210,90,' + (0.05 * (gr - 1)) + ')');
-      // 推進炎（後方＝左）
+      var cy = yLevel(true, g) + Math.sin(T * idle[0] + ent._ph) * (2 + idle[1] * 2) * dpr;
+      var topY = cy - (spr.h * px) / 2, footYa = cy + (spr.h * px) / 2;
+      if (gr >= 3) drawAura(drawX, cy, spr.w * px * (0.55 + 0.06 * gr), 'rgba(255,210,90,' + (0.05 * (gr - 1)) + ')');
+      eliteFx(ent, st, gr, spr, drawX, footYa, px, dpr, true, null, moving);
       var fl = 0.45 + 0.4 * Math.abs(Math.sin(T * 26 + ent._ph));
-      ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = 'rgba(120,205,255,' + fl + ')';
-      ctx.beginPath(); ctx.ellipse(x - (spr.w * px) / 2 - 1 * dpr, cy + 1 * dpr, 5 * dpr * fl, 1.8 * dpr, 0, 0, 7); ctx.fill();
-      ctx.restore();
-      drawSprite(spr, x, cy + (spr.h * px) / 2, px, false, null);
-      drawGradeDecor(st, x, topY, cy, px, dpr, spr);
-      hpBar(ent, x, topY - 4 * dpr, 10 * dpr, dpr, false);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(120,205,255,' + fl + ')';
+      ctx.beginPath(); ctx.ellipse(drawX - (spr.w * px) / 2 - 1 * dpr, cy + 1 * dpr, 5 * dpr * fl, 1.8 * dpr, 0, 0, 7); ctx.fill(); ctx.restore();
+      drawSprite(spr, drawX, footYa, px, false, null);
+      if (flash) { ctx.save(); ctx.globalAlpha = flash; drawSprite(spr, drawX, footYa, px, false, null, '#ffffff'); ctx.restore(); }
+      drawGradeDecor(st, drawX, topY, cy, px, dpr, spr);
+      hpBar(ent, ent.x * g.sx, topY - 4 * dpr, 10 * dpr, dpr, false);
     } else {
-      var bob = moving ? Math.abs(Math.sin(T * 9 + ent._ph)) * 1.1 * dpr : Math.sin(T * 2 + ent._ph) * 0.5 * dpr;
+      var bob = moving ? Math.abs(Math.sin(T * 9 + ent._ph)) * 1.1 * dpr : Math.sin(T * idle[0] + ent._ph) * idle[1] * dpr;
       var footY = g.midY + 3 * dpr - bob, topY = footY - spr.h * px, midBodyY = footY - spr.h * px * 0.5;
-      if (gr >= 3) drawAura(x, midBodyY, spr.w * px * (0.5 + 0.05 * gr), 'rgba(255,210,90,' + (0.05 * (gr - 1)) + ')');
-      drawSprite(spr, x, footY, px, false, moving ? (T * 9 + ent._ph) : null);
-      drawGradeDecor(st, x, topY, midBodyY, px, dpr, spr);
-      hpBar(ent, x, topY - 3 * dpr, 10 * dpr, dpr, false);
+      var legPhase = moving ? (T * 9 + ent._ph) : null;
+      if (gr >= 3) drawAura(drawX, midBodyY, spr.w * px * (0.5 + 0.05 * gr), 'rgba(255,210,90,' + (0.05 * (gr - 1)) + ')');
+      eliteFx(ent, st, gr, spr, drawX, footY, px, dpr, false, legPhase, moving);
+      drawSprite(spr, drawX, footY, px, false, legPhase);
+      if (flash) { ctx.save(); ctx.globalAlpha = flash; drawSprite(spr, drawX, footY, px, false, legPhase, '#ffffff'); ctx.restore(); }
+      drawGradeDecor(st, drawX, topY, midBodyY, px, dpr, spr);
+      hpBar(ent, ent.x * g.sx, topY - 3 * dpr, 10 * dpr, dpr, false);
     }
   }
   function drawEnemy(ent, spec, g) {
@@ -678,22 +708,21 @@
     var spr = G.SPRITES['e_' + ent.type] || G.SPRITES.e_swarmling;
     var pulse = 1 + Math.sin(T * 6 + ent._ph) * 0.06;
     var px = (spec.boss ? 2.4 : 1.9) * dpr * pulse;
+    // 被弾ひるみ：のけ反り（後方＝右へ）＋ 一瞬の白フラッシュ
+    var hp = ent.hitT > 0 ? ent.hitT / HIT_DUR : 0;
+    var kb = hp > 0 ? Math.sin(hp * Math.PI) * (spec.boss ? 2 : 3.5) * dpr : 0;
+    var drawX = x + kb, flash = hp * (spec.boss ? 0.45 : 0.6);
     if (spec.boss) {
       var gy = g.midY - spr.h * px * 0.5;
-      var rg = ctx.createRadialGradient(x, gy, 2, x, gy, spr.w * px * 0.8);
+      var rg = ctx.createRadialGradient(drawX, gy, 2, drawX, gy, spr.w * px * 0.8);
       rg.addColorStop(0, 'rgba(255,90,50,0.40)'); rg.addColorStop(1, 'rgba(255,40,40,0)');
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = rg;
-      ctx.fillRect(x - spr.w * px, gy - spr.h * px, spr.w * px * 2, spr.h * px * 2); ctx.restore();
+      ctx.fillRect(drawX - spr.w * px, gy - spr.h * px, spr.w * px * 2, spr.h * px * 2); ctx.restore();
     }
-    if (air) {
-      var cy = yLevel(true, g) + Math.sin(T * 3 + ent._ph) * 4 * dpr;
-      drawSprite(spr, x, cy + (spr.h * px) / 2, px, false, null);
-      hpBar(ent, x, cy - (spr.h * px) / 2 - 4 * dpr, 10 * dpr, dpr, true);
-    } else {
-      var footY = g.midY + 3 * dpr;
-      drawSprite(spr, x, footY, px, false, null);
-      hpBar(ent, x, footY - spr.h * px - 3 * dpr, (spec.boss ? 20 : 10) * dpr, dpr, true);
-    }
+    var footY = air ? (yLevel(true, g) + Math.sin(T * 3 + ent._ph) * 4 * dpr) + (spr.h * px) / 2 : g.midY + 3 * dpr;
+    drawSprite(spr, drawX, footY, px, false, null);
+    if (flash) { ctx.save(); ctx.globalAlpha = flash; drawSprite(spr, drawX, footY, px, false, null, '#ffffff'); ctx.restore(); }
+    hpBar(ent, x, footY - spr.h * px - 3 * dpr, (spec.boss ? 20 : 10) * dpr, dpr, true);
   }
   function hpBar(ent, x, y, r, dpr, enemy) {
     var hp = Math.max(0, ent.hp) / ent.maxHp; if (hp >= 1) return;

@@ -256,13 +256,14 @@
       var d = Math.abs(list[i].x - from.x); if (d < bd) { bd = d; best = list[i]; } }
     return best;
   }
-  function dealDamage(target, raw) { target.hp -= Math.max(G.MIN_DMG, raw - defOf(target)); }
+  function dealDamage(target, raw) { target.hp -= Math.max(G.MIN_DMG, raw - defOf(target)); target.hitT = 0.13; }
   // 視覚イベント（純粋に演出用。ui.js が消費する。ロジックには影響しない）
   function vfx(o) { if (state.vfx.length < 500) state.vfx.push(o); }
 
   // ウェポン挙動を含む自軍の攻撃解決
   function playerAttack(u, target) {
     var s = u.stats, raw = s.dmg, w = s.weapon;
+    u.fireT = 0.17;
     var token = ++state._atkToken;
     vfx({ k: 'shot', side: 'p', body: s.body, x1: u.x, a1: s.domain === 'air',
           x2: target.x, a2: G.ENEMIES[target.type].domain === 'air', kind: w.kind });
@@ -299,6 +300,7 @@
     // 自軍
     for (i = 0; i < state.units.length; i++) {
       u = state.units[i]; s = u.stats; u.cd -= dt;
+      if (u.fireT > 0) u.fireT -= dt; if (u.hitT > 0) u.hitT -= dt;
       target = nearestHittable(state.enemies, u, s);
       if (s.domain === 'air') {
         u.x = Math.min(LANE - 60, u.x + s.speed * dt);
@@ -314,11 +316,13 @@
     // 敵
     for (i = 0; i < state.enemies.length; i++) {
       e = state.enemies[i]; spec = G.ENEMIES[e.type]; e.cd -= dt;
+      if (e.fireT > 0) e.fireT -= dt; if (e.hitT > 0) e.hitT -= dt;
       target = nearestHittable(state.units, e, spec);
       var inRange = target && Math.abs(target.x - e.x) <= spec.range;
       if (spec.domain === 'air' || !inRange) e.x = Math.max(HQ_X, e.x - spec.speed * dt);
       if (e.cd <= 0) {
         if (inRange) {
+          e.fireT = 0.17;
           vfx({ k: 'shot', side: 'e', col: spec.color, x1: e.x, a1: spec.domain === 'air', x2: target.x, a2: target.stats.domain === 'air' });
           dealDamage(target, spec.dmg); e.cd = 1 / spec.rate;
         } else if (e.x <= HQ_X + spec.range) {
