@@ -5,8 +5,7 @@
 (function (G) {
   'use strict';
 
-  var LANE = G.LANE, WALL_X = G.WALL_X;
-  var HQ_X = 8;
+  var DOME = G.ARENA.domeR, SPAWN = G.ARENA.spawnR, TURRET_R = G.ARENA.turretR;
   var state = null;
 
   // ---- 状態 ---------------------------------------------------------------
@@ -182,8 +181,16 @@
     };
   }
 
-  function spawnUnit(stats) { state.units.push({ stats: stats, side: 'p', x: 4, hp: stats.hp, maxHp: stats.hp, cd: 0 }); state.stats.built++; vfx({ k: 'spawn', x: 6, body: stats.body, a: stats.domain === 'air' }); }
-  function spawnEnemy(id) { var e = G.ENEMIES[id]; state.enemies.push({ type: id, side: 'e', x: LANE, hp: e.hp, maxHp: e.hp, cd: 0 }); if (e.boss) vfx({ k: 'boss' }); }
+  function spawnUnit(stats) {
+    var a = Math.random() * 6.2832, r = DOME + 8 + Math.random() * 10;
+    state.units.push({ stats: stats, side: 'p', x: Math.cos(a) * r, y: Math.sin(a) * r, hp: stats.hp, maxHp: stats.hp, cd: 0 });
+    state.stats.built++; vfx({ k: 'spawn', x: Math.cos(a) * r, y: Math.sin(a) * r, body: stats.body, a: stats.domain === 'air' });
+  }
+  function spawnEnemy(id) {
+    var e = G.ENEMIES[id], a = Math.random() * 6.2832;
+    state.enemies.push({ type: id, side: 'e', x: Math.cos(a) * SPAWN, y: Math.sin(a) * SPAWN, hp: e.hp, maxHp: e.hp, cd: 0 });
+    if (e.boss) vfx({ k: 'boss' });
+  }
 
   // ---- 工業シミュレーション ----------------------------------------------
   function fabSpeed() { return state.mod.buildSpeed * powerEfficiency(); }
@@ -324,99 +331,101 @@
   function domainOf(ent) { return ent.side === 'p' ? ent.stats.domain : G.ENEMIES[ent.type].domain; }
   function defOf(ent) { return ent.side === 'p' ? ent.stats.def : G.ENEMIES[ent.type].def; }
   function canHit(aSpec, ent) { return domainOf(ent) !== 'air' || aSpec.antiAir === true; }
+  function d2(a, b) { var dx = a.x - b.x, dy = a.y - b.y; return Math.sqrt(dx * dx + dy * dy); }
+  function distC(e) { return Math.sqrt(e.x * e.x + e.y * e.y); }
   function nearestHittable(list, from, aSpec) {
-    var best = null, bd = 1e9;
+    var best = null, bd = 1e18;
     for (var i = 0; i < list.length; i++) { if (!canHit(aSpec, list[i])) continue;
-      var d = Math.abs(list[i].x - from.x); if (d < bd) { bd = d; best = list[i]; } }
+      var dx = list[i].x - from.x, dy = list[i].y - from.y, d = dx * dx + dy * dy; if (d < bd) { bd = d; best = list[i]; } }
     return best;
   }
   function dealDamage(target, raw) { target.hp -= Math.max(G.MIN_DMG, raw - defOf(target)); target.hitT = 0.13; }
   // 視覚イベント（純粋に演出用。ui.js が消費する。ロジックには影響しない）
-  function vfx(o) { if (state.vfx.length < 500) state.vfx.push(o); }
+  function vfx(o) { if (state.vfx.length < 600) state.vfx.push(o); }
 
-  // ウェポン挙動を含む自軍の攻撃解決
+  // ウェポン挙動を含む自軍の攻撃解決（2Dアリーナ）
   function playerAttack(u, target) {
     var s = u.stats, raw = s.dmg, w = s.weapon;
     u.fireT = 0.17;
     var token = ++state._atkToken;
-    vfx({ k: 'shot', side: 'p', body: s.body, x1: u.x, a1: s.domain === 'air',
-          x2: target.x, a2: G.ENEMIES[target.type].domain === 'air', kind: w.kind });
+    vfx({ k: 'shot', side: 'p', body: s.body, x1: u.x, y1: u.y, x2: target.x, y2: target.y, kind: w.kind });
     target._t = token; dealDamage(target, raw);
     if (w.aoe > 0) {
       for (var i = 0; i < state.enemies.length; i++) {
         var e = state.enemies[i];
         if (e._t === token) continue;
-        if (Math.abs(e.x - target.x) <= w.aoe) { e._t = token; dealDamage(e, raw * 0.6); }
+        if (d2(e, target) <= w.aoe) { e._t = token; dealDamage(e, raw * 0.6); }
       }
-      vfx({ k: 'blast', x: target.x, r: w.aoe, a: G.ENEMIES[target.type].domain === 'air' });
+      vfx({ k: 'blast', x: target.x, y: target.y, r: w.aoe });
     }
     if (w.chain > 0) {
       var cur = target, mult = 1;
       for (var c = 0; c < w.chain; c++) {
         mult *= G.CHAIN_FALLOFF;
-        var nx = null, nd = 1e9;
+        var nx = null, nd = 1e18;
         for (var j = 0; j < state.enemies.length; j++) {
           var en = state.enemies[j];
           if (en._t === token) continue;
-          var d = Math.abs(en.x - cur.x);
-          if (d <= G.CHAIN_RANGE && d < nd) { nd = d; nx = en; }
+          var dd = d2(en, cur);
+          if (dd <= G.CHAIN_RANGE && dd < nd) { nd = dd; nx = en; }
         }
         if (!nx) break;
-        vfx({ k: 'arc', x1: cur.x, a1: G.ENEMIES[cur.type].domain === 'air', x2: nx.x, a2: G.ENEMIES[nx.type].domain === 'air' });
+        vfx({ k: 'arc', x1: cur.x, y1: cur.y, x2: nx.x, y2: nx.y });
         nx._t = token; dealDamage(nx, raw * mult); cur = nx;
       }
     }
+  }
+  function moveToward(ent, tx, ty, sp, dt) {
+    var dx = tx - ent.x, dy = ty - ent.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
+    ent.x += (dx / d) * sp * dt; ent.y += (dy / d) * sp * dt;
   }
 
   function combatStep(dt) {
     var i, u, e, target, spec, s;
 
-    // 自軍
+    // 自軍：最寄りの敵へ向かい、射程内なら攻撃（360度どこへでも）
     for (i = 0; i < state.units.length; i++) {
       u = state.units[i]; s = u.stats; u.cd -= dt;
       if (u.fireT > 0) u.fireT -= dt; if (u.hitT > 0) u.hitT -= dt;
       target = nearestHittable(state.enemies, u, s);
-      if (s.domain === 'air') {
-        u.x = Math.min(LANE - 60, u.x + s.speed * dt);
-        if (target && Math.abs(target.x - u.x) <= s.range && u.cd <= 0) { playerAttack(u, target); u.cd = 1 / s.rate; }
-        continue;
-      }
-      if (!target) { if (u.x < WALL_X - 30) u.x += s.speed * dt; continue; }
-      var d = Math.abs(target.x - u.x);
-      if (d > s.range) u.x += s.speed * dt;
+      if (!target) continue;                                  // 敵がいなければ待機
+      var d = d2(u, target);
+      if (d > s.range) moveToward(u, target.x, target.y, s.speed, dt);
       else if (u.cd <= 0) { playerAttack(u, target); u.cd = 1 / s.rate; }
     }
 
-    // 敵
+    // 敵：中央のドームへ殺到。射程内の味方がいれば足を止めて攻撃、ドーム到達で自陣を攻撃
     for (i = 0; i < state.enemies.length; i++) {
       e = state.enemies[i]; spec = G.ENEMIES[e.type]; e.cd -= dt;
       if (e.fireT > 0) e.fireT -= dt; if (e.hitT > 0) e.hitT -= dt;
       target = nearestHittable(state.units, e, spec);
-      var inRange = target && Math.abs(target.x - e.x) <= spec.range;
-      if (spec.domain === 'air' || !inRange) e.x = Math.max(HQ_X, e.x - spec.speed * dt);
+      var inRange = target && d2(e, target) <= spec.range;
+      var dc = distC(e);
+      if (!inRange && dc > DOME + spec.range) moveToward(e, 0, 0, spec.speed, dt);
       if (e.cd <= 0) {
         if (inRange) {
           e.fireT = 0.17;
-          vfx({ k: 'shot', side: 'e', col: spec.color, x1: e.x, a1: spec.domain === 'air', x2: target.x, a2: target.stats.domain === 'air' });
+          vfx({ k: 'shot', side: 'e', col: spec.color, x1: e.x, y1: e.y, x2: target.x, y2: target.y });
           dealDamage(target, spec.dmg); e.cd = 1 / spec.rate;
-        } else if (e.x <= HQ_X + spec.range) {
+        } else if (dc <= DOME + spec.range) {
           state.hqHp -= spec.dmg; e.cd = 1 / spec.rate;
-          vfx({ k: 'hqhit', x: HQ_X, col: spec.color });
+          var n = dc || 1; vfx({ k: 'hqhit', x: e.x / n * DOME, y: e.y / n * DOME, col: spec.color });
         }
       }
     }
 
-    // 防衛砲台（対空可）
+    // 防衛砲台（ドーム周囲・全方位・対空可）
     var turrets = state.buildings.turret || 0;
     if (turrets > 0 && state.enemies.length) {
       state._turretTick += dt;
       if (state._turretTick >= 0.5) {
         state._turretTick = 0;
         for (var sgun = 0; sgun < turrets && state.enemies.length; sgun++) {
-          var near = null, nd = 1e9;
-          for (i = 0; i < state.enemies.length; i++) { var dx = Math.abs(state.enemies[i].x - WALL_X); if (dx <= 190 && dx < nd) { nd = dx; near = state.enemies[i]; } }
+          var near = null, nd = 1e18;
+          for (i = 0; i < state.enemies.length; i++) { var dcc = distC(state.enemies[i]); if (dcc <= TURRET_R && dcc < nd) { nd = dcc; near = state.enemies[i]; } }
           if (near) {
-            vfx({ k: 'beam', x1: WALL_X, x2: near.x, a2: G.ENEMIES[near.type].domain === 'air' });
+            var nn = nd || 1;
+            vfx({ k: 'beam', x1: near.x / nn * DOME, y1: near.y / nn * DOME, x2: near.x, y2: near.y });
             dealDamage(near, 30);
           }
         }
@@ -426,14 +435,14 @@
     // 死亡処理
     for (i = state.units.length - 1; i >= 0; i--) if (state.units[i].hp <= 0) {
       var du = state.units[i];
-      vfx({ k: 'boom', x: du.x, col: '#9fd8ff', a: du.stats.domain === 'air', ally: true, spr: du.stats.body, grade: du.stats.grade });
+      vfx({ k: 'boom', x: du.x, y: du.y, col: '#9fd8ff', a: du.stats.domain === 'air', ally: true, spr: du.stats.body, grade: du.stats.grade });
       state.stats.lost++; state.units.splice(i, 1);
     }
     for (i = state.enemies.length - 1; i >= 0; i--) if (state.enemies[i].hp <= 0) {
       var de = state.enemies[i], ds = G.ENEMIES[de.type];
       addMat('iron', ds.bounty);   // 撃破報酬は鉄
       state.stats.kills++;
-      vfx({ k: 'boom', x: de.x, col: ds.color, a: ds.domain === 'air', big: !!ds.boss, spr: 'e_' + de.type });
+      vfx({ k: 'boom', x: de.x, y: de.y, col: ds.color, a: ds.domain === 'air', big: !!ds.boss, spr: 'e_' + de.type });
       state.enemies.splice(i, 1);
     }
   }
@@ -476,7 +485,7 @@
     canResearch: canResearch, doResearch: doResearch,
     startBattle: startBattle, afterIntro: afterIntro, afterOutro: afterOutro, applyChoice: applyChoice,
     currentChapter: currentChapter, currentWave: currentWave,
-    constants: { LANE: LANE, WALL_X: WALL_X, HQ_X: HQ_X },
+    constants: { domeR: DOME, spawnR: SPAWN, viewR: G.ARENA.viewR, turretR: TURRET_R },
     get state() { return state; },
   };
 

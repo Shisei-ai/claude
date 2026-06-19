@@ -414,7 +414,7 @@
   var T = 0;                 // 演出用の経過時間
   var particles = [], tracers = [], rings = [];
   var shakeMag = 0, shakeT = 0, hqFlash = 0;
-  var stars = [], ridgeFar = [], ridgeNear = [];
+  var stars = [];
 
   function dprNow() { return Math.min(2, devicePixelRatio || 1); }
   function resize() {
@@ -425,15 +425,16 @@
   function rand(a, b) { return a + Math.random() * (b - a); }
   function buildBackdrop() {
     stars = [];
-    for (var i = 0; i < 70; i++) stars.push({ x: Math.random(), y: Math.random() * 0.55, r: rand(0.4, 1.4), ph: rand(0, 6.28), sp: rand(0.004, 0.02) });
-    ridgeFar = []; ridgeNear = [];
-    for (var k = 0; k <= 24; k++) { ridgeFar.push(rand(0.3, 0.7)); ridgeNear.push(rand(0.0, 1.0)); }
+    for (var i = 0; i < 130; i++) stars.push({ x: Math.random(), y: Math.random(), r: rand(0.4, 1.5), ph: rand(0, 6.28) });
   }
+  // 中央(0,0)＝ドーム自陣のワールド座標 → 画面座標
   function geo() {
-    var dpr = dprNow();
-    return { W: canvas.width, H: canvas.height, dpr: dpr, sx: canvas.width / Game.constants.LANE, midY: canvas.height * 0.64 };
+    var dpr = dprNow(), W = canvas.width, H = canvas.height;
+    var scale = Math.min(W, H) * 0.46 / Game.constants.viewR;
+    return { W: W, H: H, dpr: dpr, cx: W / 2, cy: H / 2, scale: scale };
   }
-  function yLevel(air, g) { return g.midY - 9 * g.dpr - (air ? 46 * g.dpr : 0); }
+  function W2S(x, y, g) { return { x: g.cx + x * g.scale, y: g.cy + y * g.scale }; }
+  var AIR_LIFT = 30;   // 空中ユニットの画面上の浮き（px、要×dpr）
   function addShake(m, d) { shakeMag = Math.max(shakeMag, m); shakeT = Math.max(shakeT, d); }
 
   function spawnParticle(p) { if (particles.length > 620) particles.shift(); particles.push(p); }
@@ -465,44 +466,46 @@
     }
   }
 
-  // 視覚イベントを消費して演出を生成
+  // 視覚イベントを消費して演出を生成（ワールド座標→画面座標に変換）
   function consumeVfx(g) {
     var list = Game.state.vfx; if (!list || !list.length) return;
+    var dpr = g.dpr, lift = AIR_LIFT * dpr;
     for (var i = 0; i < list.length; i++) {
       var ev = list[i];
       if (ev.k === 'shot') {
         var col = ev.side === 'p' ? (UNIT_COLOR[ev.body] || '#6bd0ff') : ev.col;
-        var x1 = ev.x1 * g.sx, y1 = yLevel(ev.a1, g), x2 = ev.x2 * g.sx, y2 = yLevel(ev.a2, g);
-        var face = ev.side === 'p' ? 1 : -1;
-        burst(x1 + face * 6 * g.dpr, y1, col, 3, 90 * g.dpr, { g: 0, lifeMul: 0.4, glow: true });
-        tracers.push({ x1: x1, y1: y1, x2: x2, y2: y2, t: 0, dur: Math.max(0.05, Math.min(0.16, Math.abs(x2 - x1) / (1500 * g.dpr))), color: col, w: ev.kind === 'single' ? 2.2 : 1.8, hit: true });
+        var p1 = W2S(ev.x1, ev.y1, g), p2 = W2S(ev.x2, ev.y2, g);
+        burst(p1.x, p1.y, col, 3, 90 * dpr, { g: 0, lifeMul: 0.4, glow: true });
+        var dd = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        tracers.push({ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, t: 0, dur: Math.max(0.05, Math.min(0.16, dd / (900 * dpr))), color: col, w: ev.kind === 'single' ? 2.2 : 1.8, hit: true });
       } else if (ev.k === 'beam') {
-        var bx2 = ev.x2 * g.sx, by2 = yLevel(ev.a2, g), bx1 = ev.x1 * g.sx, by1 = g.midY - 18 * g.dpr;
-        tracers.push({ x1: bx1, y1: by1, x2: bx2, y2: by2, t: 0, dur: 0.16, color: '#8fe0ff', beam: true, w: 2.4, hit: true, hitcol: '#8fe0ff' });
+        var b1 = W2S(ev.x1, ev.y1, g), b2 = W2S(ev.x2, ev.y2, g);
+        tracers.push({ x1: b1.x, y1: b1.y, x2: b2.x, y2: b2.y, t: 0, dur: 0.16, color: '#8fe0ff', beam: true, w: 2.4, hit: true, hitcol: '#8fe0ff' });
       } else if (ev.k === 'arc') {
-        tracers.push({ x1: ev.x1 * g.sx, y1: yLevel(ev.a1, g), x2: ev.x2 * g.sx, y2: yLevel(ev.a2, g), t: 0, dur: 0.2, color: '#9af0ff', arc: true, w: 2 });
+        var a1 = W2S(ev.x1, ev.y1, g), a2 = W2S(ev.x2, ev.y2, g);
+        tracers.push({ x1: a1.x, y1: a1.y, x2: a2.x, y2: a2.y, t: 0, dur: 0.2, color: '#9af0ff', arc: true, w: 2 });
       } else if (ev.k === 'blast') {
-        var px = ev.x * g.sx, py = yLevel(ev.a, g);
-        rings.push({ x: px, y: py, r: 5 * g.dpr, r1: ev.r * g.sx, life: 0.34, max: 0.34, color: '#ffd24a', w: 2.5 });
-        burst(px, py, '#ffcf6b', 10, 150 * g.dpr, { glow: true, sizeMul: 1.1 });
+        var bp = W2S(ev.x, ev.y, g);
+        rings.push({ x: bp.x, y: bp.y, r: 5 * dpr, r1: ev.r * g.scale, life: 0.34, max: 0.34, color: '#ffd24a', w: 2.5 });
+        burst(bp.x, bp.y, '#ffcf6b', 10, 150 * dpr, { glow: true, sizeMul: 1.1 });
       } else if (ev.k === 'boom') {
-        var ex = ev.x * g.sx, ey = yLevel(ev.a, g), big = ev.big;
-        rings.push({ x: ex, y: ey, r: 4 * g.dpr, r1: (big ? 70 : ev.ally ? 22 : 30) * g.dpr, life: big ? 0.5 : 0.32, max: 0.5, color: ev.ally ? '#bfe6ff' : '#ffd0a0', w: big ? 4 : 2 });
-        burst(ex, ey, ev.col || '#ff8a6a', big ? 18 : ev.ally ? 5 : 8, (big ? 280 : 180) * g.dpr, { sizeMul: big ? 1.6 : 1, glow: true });
-        spawnParticle({ x: ex, y: ey, vx: 0, vy: -10 * g.dpr, g: -20, life: big ? 0.6 : 0.35, max: 0.6, size: (big ? 26 : 13) * g.dpr, color: 'rgba(255,255,255,0.9)', flash: true });
+        var ep = W2S(ev.x, ev.y, g), ey = ep.y - (ev.a ? lift : 0), big = ev.big;
+        rings.push({ x: ep.x, y: ey, r: 4 * dpr, r1: (big ? 70 : ev.ally ? 22 : 30) * dpr, life: big ? 0.5 : 0.32, max: 0.5, color: ev.ally ? '#bfe6ff' : '#ffd0a0', w: big ? 4 : 2 });
+        burst(ep.x, ey, ev.col || '#ff8a6a', big ? 18 : ev.ally ? 5 : 8, (big ? 280 : 180) * dpr, { sizeMul: big ? 1.6 : 1, glow: true });
+        spawnParticle({ x: ep.x, y: ey, vx: 0, vy: -10 * dpr, g: -20, life: big ? 0.6 : 0.35, max: 0.6, size: (big ? 26 : 13) * dpr, color: 'rgba(255,255,255,0.9)', flash: true });
         var sspr = ev.spr ? (ev.ally ? G.unitFrame(ev.spr, ev.grade || 1) : G.SPRITES[ev.spr]) : null;
-        if (sspr) shatter(sspr, ex, ey, g, big ? 2.4 : ev.ally ? 1.7 : 1.9);
-        if (big) addShake(9 * g.dpr, 0.4); else if (!ev.ally) addShake(2.2 * g.dpr, 0.12);
+        if (sspr) shatter(sspr, ep.x, ey, g, big ? 2.4 : ev.ally ? 1.7 : 1.9);
+        if (big) addShake(9 * dpr, 0.4); else if (!ev.ally) addShake(2.2 * dpr, 0.12);
       } else if (ev.k === 'hqhit') {
-        hqFlash = 1; addShake(7 * g.dpr, 0.3);
-        rings.push({ x: ev.x * g.sx + 16 * g.dpr, y: g.midY - 14 * g.dpr, r: 4 * g.dpr, r1: 40 * g.dpr, life: 0.3, max: 0.3, color: '#ff5a5a', w: 3 });
+        var hpx = W2S(ev.x, ev.y, g); hqFlash = 1; addShake(6 * dpr, 0.28);
+        rings.push({ x: hpx.x, y: hpx.y, r: 4 * dpr, r1: 34 * dpr, life: 0.3, max: 0.3, color: '#ff5a5a', w: 3 });
       } else if (ev.k === 'spawn') {
-        var spx = ev.x * g.sx, spy = yLevel(ev.a, g);
-        rings.push({ x: spx, y: spy, r: 2 * g.dpr, r1: 16 * g.dpr, life: 0.3, max: 0.3, color: UNIT_COLOR[ev.body] || '#8fd', w: 1.6 });
-        burst(spx, spy, UNIT_COLOR[ev.body] || '#8fd', 6, 70 * g.dpr, { up: 40 * g.dpr, g: 120, glow: true });
+        var sp2 = W2S(ev.x, ev.y, g), sy = sp2.y - (ev.a ? lift : 0);
+        rings.push({ x: sp2.x, y: sy, r: 2 * dpr, r1: 16 * dpr, life: 0.3, max: 0.3, color: UNIT_COLOR[ev.body] || '#8fd', w: 1.6 });
+        burst(sp2.x, sy, UNIT_COLOR[ev.body] || '#8fd', 6, 70 * dpr, { up: 40 * dpr, g: 120, glow: true });
       } else if (ev.k === 'boss') {
         showCutin('警告　巨核接近', 'WARNING : TITAN', 'boss', 2800);
-        addShake(6 * g.dpr, 0.5);
+        addShake(6 * dpr, 0.5);
       }
     }
     list.length = 0;
@@ -526,131 +529,82 @@
     if (hqFlash > 0) hqFlash = Math.max(0, hqFlash - dt * 3.5);
   }
 
-  // ---- 描画本体 ----
+  // ---- 描画本体（トップダウン・アリーナ） ----
   function draw() {
-    var s = Game.state, g = geo(), W = g.W, H = g.H, dpr = g.dpr, sx = g.sx, midY = g.midY;
+    var s = Game.state, g = geo(), W = g.W, H = g.H, dpr = g.dpr;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, W, H);
     ctx.save();
     if (shakeMag > 0) ctx.translate(rand(-shakeMag, shakeMag), rand(-shakeMag, shakeMag));
 
-    drawBackground(g, s);
-    drawWall(g, s);
-    var turrets = s.buildings.turret || 0;
-    for (var t = 0; t < turrets; t++) drawTurret(Game.constants.WALL_X * sx, midY - 16 * dpr - t * 15 * dpr, dpr, s.enemies.length > 0);
+    drawArena(g, s);
     drawHQ(g, s);
+    var turrets = s.buildings.turret || 0;
+    for (var t = 0; t < turrets; t++) drawTurret(g, (t / Math.max(turrets, 1)) * 6.2832 + T * 0.2);
 
-    // 影 → 本体（敵→自軍の順で自軍を手前に）
+    // 影（全体）→ 本体（画面Y＝奥行きでソート、手前を後描き）
     s.enemies.forEach(function (e) { drawShadow(e, G.ENEMIES[e.type], g); });
     s.units.forEach(function (u) { drawShadow(u, u.stats, g); });
-    s.enemies.forEach(function (e) { drawEnemy(e, G.ENEMIES[e.type], g); });
-    s.units.forEach(function (u) { drawUnit(u, u.stats, g); });
+    var ents = s.enemies.concat(s.units);
+    ents.sort(function (a, b) { return a.y - b.y; });
+    ents.forEach(function (ent) { if (ent.side === 'e') drawEnemy(ent, G.ENEMIES[ent.type], g); else drawUnit(ent, ent.stats, g); });
 
-    drawTracers(dpr);
-    drawRings();
-    drawParticles();
+    drawTracers(dpr); drawRings(); drawParticles();
 
-    // 前景：HQ被弾フラッシュ・ビネット・準備表示
     if (hqFlash > 0) { ctx.fillStyle = 'rgba(255,40,40,' + (hqFlash * 0.28) + ')'; ctx.fillRect(0, 0, W, H); }
     drawVignette(g);
     if (s.phase === 'prep') {
       ctx.fillStyle = 'rgba(150,180,210,' + (0.35 + 0.12 * Math.sin(T * 2)) + ')';
       ctx.font = '700 ' + (13 * dpr) + 'px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('◇ 準備フェーズ — 部品を備蓄し設計を整えよ ◇', W / 2, H * 0.16);
+      ctx.fillText('◇ 準備フェーズ — 生産ラインを構築せよ ◇', W / 2, 22 * dpr);
     }
     ctx.restore();
   }
 
-  function drawBackground(g, s) {
-    var W = g.W, H = g.H, dpr = g.dpr, midY = g.midY;
-    // 空グラデーション
-    var sky = ctx.createLinearGradient(0, 0, 0, midY);
-    sky.addColorStop(0, '#0a0e18'); sky.addColorStop(1, '#141021');
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, midY);
-    // 敵側の赤いグロー
-    var glow = ctx.createRadialGradient(W, midY, 10, W, midY, W * 0.7);
-    glow.addColorStop(0, 'rgba(120,30,50,0.30)'); glow.addColorStop(1, 'rgba(120,30,50,0)');
-    ctx.fillStyle = glow; ctx.fillRect(0, 0, W, midY + 20 * dpr);
-    // 星（緩くドリフト＋またたき）
-    for (var i = 0; i < stars.length; i++) {
-      var st = stars[i]; var sxp = ((st.x - T * st.sp) % 1 + 1) % 1;
-      var a = 0.35 + 0.4 * Math.sin(T * 1.5 + st.ph);
-      ctx.fillStyle = 'rgba(200,220,255,' + Math.max(0, a) + ')';
-      ctx.fillRect(sxp * W, st.y * H, st.r * dpr, st.r * dpr);
-    }
-    // 遠景の稜線（赤）／近景（暗）
-    drawRidge(g, ridgeFar, midY - 4 * dpr, 26 * dpr, 'rgba(70,28,40,0.85)');
-    drawRidge(g, ridgeNear, midY + 2 * dpr, 16 * dpr, 'rgba(20,16,28,0.95)');
-    // 地面
-    var grd = ctx.createLinearGradient(0, midY, 0, H);
-    grd.addColorStop(0, '#161a22'); grd.addColorStop(1, '#0c0d12');
-    ctx.fillStyle = grd; ctx.fillRect(0, midY, W, H - midY);
-    // 地面の遠近グリッド（手前へスクロール）
-    ctx.strokeStyle = 'rgba(90,120,150,0.10)'; ctx.lineWidth = 1 * dpr;
-    var off = (T * 40 * dpr) % (40 * dpr);
-    for (var gx = -off; gx < W; gx += 40 * dpr) { ctx.beginPath(); ctx.moveTo(gx, midY); ctx.lineTo(gx - 30 * dpr, H); ctx.stroke(); }
-    ctx.strokeStyle = 'rgba(90,120,150,0.13)';
-    ctx.beginPath(); ctx.moveTo(0, midY); ctx.lineTo(W, midY); ctx.stroke();
-    // 基地側シルエット（左）
-    drawBaseSilhouette(g);
-  }
-  function drawRidge(g, pts, baseY, amp, color) {
-    var W = g.W; ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(0, baseY);
-    for (var i = 0; i < pts.length; i++) { var x = (i / (pts.length - 1)) * W; ctx.lineTo(x, baseY - pts[i] * amp); }
-    ctx.lineTo(W, baseY + 60 * g.dpr); ctx.lineTo(0, baseY + 60 * g.dpr); ctx.closePath(); ctx.fill();
-  }
-  function drawBaseSilhouette(g) {
-    var dpr = g.dpr, midY = g.midY;
-    ctx.fillStyle = 'rgba(18,30,42,0.9)';
-    var towers = [[18, 30], [40, 48], [70, 24]];
-    for (var i = 0; i < towers.length; i++) {
-      var tx = towers[i][0] * dpr, th = towers[i][1] * dpr;
-      ctx.fillRect(tx, midY - th, 12 * dpr, th);
-      var blink = (Math.sin(T * 2 + i) > 0.6);
-      ctx.fillStyle = blink ? 'rgba(120,200,255,0.9)' : 'rgba(40,80,110,0.6)';
-      ctx.fillRect(tx + 4 * dpr, midY - th - 3 * dpr, 3 * dpr, 3 * dpr);
-      ctx.fillStyle = 'rgba(18,30,42,0.9)';
-    }
-  }
-  function drawWall(g, s) {
-    var dpr = g.dpr, midY = g.midY, wallX = Game.constants.WALL_X * g.sx;
-    var pulse = 0.25 + 0.18 * Math.sin(T * 3);
-    var grad = ctx.createLinearGradient(wallX - 4 * dpr, 0, wallX + 4 * dpr, 0);
-    grad.addColorStop(0, 'rgba(80,200,255,0)'); grad.addColorStop(0.5, 'rgba(110,220,255,' + pulse + ')'); grad.addColorStop(1, 'rgba(80,200,255,0)');
-    ctx.fillStyle = grad; ctx.fillRect(wallX - 4 * dpr, midY - 74 * dpr, 8 * dpr, 92 * dpr);
-    ctx.strokeStyle = 'rgba(120,225,255,' + (0.45 + 0.2 * Math.sin(T * 3)) + ')'; ctx.lineWidth = 1.4 * dpr;
-    ctx.setLineDash([5 * dpr, 6 * dpr]); ctx.lineDashOffset = -(T * 30 * dpr);
-    ctx.beginPath(); ctx.moveTo(wallX, midY - 72 * dpr); ctx.lineTo(wallX, midY + 16 * dpr); ctx.stroke();
-    ctx.setLineDash([]); ctx.lineDashOffset = 0;
-  }
-  function drawTurret(x, y, dpr, active) {
-    ctx.save();
-    ctx.fillStyle = '#243f56'; ctx.strokeStyle = '#7fd1ff'; ctx.lineWidth = 1.5 * dpr;
-    ctx.beginPath(); ctx.arc(x, y, 6 * dpr, 0, 7); ctx.fill(); ctx.stroke();
-    // 砲身（敵がいれば右へ向く）
-    var ang = active ? Math.sin(T * 6) * 0.15 : -0.3;
-    ctx.strokeStyle = '#bfeaff'; ctx.lineWidth = 2.4 * dpr;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(ang) * 11 * dpr, y + Math.sin(ang) * 11 * dpr); ctx.stroke();
+  function drawArena(g, s) {
+    var W = g.W, H = g.H, dpr = g.dpr, cx = g.cx, cy = g.cy;
+    var bg = ctx.createRadialGradient(cx, cy, 10, cx, cy, Math.max(W, H) * 0.6);
+    bg.addColorStop(0, '#10141f'); bg.addColorStop(1, '#06080e'); ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    // 宙の星
+    for (var i = 0; i < stars.length; i++) { var st = stars[i], a = 0.25 + 0.4 * Math.sin(T * 1.3 + st.ph); ctx.fillStyle = 'rgba(200,220,255,' + Math.max(0, a) + ')'; ctx.fillRect(st.x * W, st.y * H, st.r * dpr, st.r * dpr); }
+    var R = Game.constants.viewR * g.scale;
+    // アリーナ床
+    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.clip();
+    var fg = ctx.createRadialGradient(cx, cy, 10, cx, cy, R); fg.addColorStop(0, '#1a2230'); fg.addColorStop(1, '#0e1119'); ctx.fillStyle = fg; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+    ctx.strokeStyle = 'rgba(90,120,150,0.12)'; ctx.lineWidth = 1 * dpr;
+    for (var rr = 1; rr <= 4; rr++) { ctx.beginPath(); ctx.arc(cx, cy, R * rr / 4, 0, 7); ctx.stroke(); }
+    for (var k = 0; k < 12; k++) { var aa = k / 12 * 6.2832; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(aa) * R, cy + Math.sin(aa) * R); ctx.stroke(); }
     ctx.restore();
+    // 敵出現リング（危険帯・脈動）
+    var SR = Game.constants.spawnR * g.scale;
+    ctx.strokeStyle = 'rgba(255,70,70,' + (0.3 + 0.18 * Math.sin(T * 2.5)) + ')'; ctx.lineWidth = 2 * dpr;
+    ctx.setLineDash([6 * dpr, 8 * dpr]); ctx.lineDashOffset = -(T * 20 * dpr);
+    ctx.beginPath(); ctx.arc(cx, cy, SR, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    // アリーナ外縁
+    ctx.strokeStyle = 'rgba(80,120,160,0.4)'; ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
+  }
+  function drawTurret(g, ang) {
+    var dpr = g.dpr, dr = Game.constants.domeR * g.scale;
+    var x = g.cx + Math.cos(ang) * (dr + 6 * dpr), y = g.cy + Math.sin(ang) * (dr + 6 * dpr);
+    ctx.fillStyle = '#243f56'; ctx.strokeStyle = '#7fd1ff'; ctx.lineWidth = 1.5 * dpr;
+    ctx.beginPath(); ctx.arc(x, y, 5 * dpr, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#bfeaff'; ctx.lineWidth = 2.2 * dpr;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(ang) * 9 * dpr, y + Math.sin(ang) * 9 * dpr); ctx.stroke();
   }
   function drawHQ(g, s) {
-    var dpr = g.dpr, midY = g.midY, hp = Math.max(0, s.hqHp) / s.hqHpMax;
-    var bx = 8 * dpr, by = midY - 44 * dpr, bw = 30 * dpr, bh = 62 * dpr;
+    var dpr = g.dpr, cx = g.cx, cy = g.cy, dr = Game.constants.domeR * g.scale, hp = Math.max(0, s.hqHp) / s.hqHpMax;
     var edge = hp > 0.5 ? '#3fa9ff' : hp > 0.25 ? '#ffcf5a' : '#ff5d5d';
-    var grd = ctx.createLinearGradient(bx, by, bx, by + bh);
-    grd.addColorStop(0, '#1c3c54'); grd.addColorStop(1, '#0e2031');
-    ctx.fillStyle = grd; ctx.fillRect(bx, by, bw, bh);
-    ctx.strokeStyle = edge; ctx.lineWidth = 2 * dpr; ctx.strokeRect(bx, by, bw, bh);
-    // パネルの灯り
-    for (var r = 0; r < 3; r++) for (var c = 0; c < 2; c++) {
-      var on = Math.sin(T * 3 + r * 1.7 + c) > 0;
-      ctx.fillStyle = on ? 'rgba(120,200,255,0.8)' : 'rgba(40,70,95,0.6)';
-      ctx.fillRect(bx + 6 * dpr + c * 12 * dpr, by + 8 * dpr + r * 14 * dpr, 8 * dpr, 7 * dpr);
-    }
-    // アンテナ＋点滅灯
-    ctx.strokeStyle = edge; ctx.lineWidth = 1.5 * dpr;
-    ctx.beginPath(); ctx.moveTo(bx + bw / 2, by); ctx.lineTo(bx + bw / 2, by - 12 * dpr); ctx.stroke();
-    if (Math.sin(T * 4) > 0) { ctx.fillStyle = '#ff6b6b'; ctx.beginPath(); ctx.arc(bx + bw / 2, by - 13 * dpr, 2.2 * dpr, 0, 7); ctx.fill(); }
+    var gl = ctx.createRadialGradient(cx, cy, 2, cx, cy, dr * 1.6); gl.addColorStop(0, 'rgba(60,170,255,0.22)'); gl.addColorStop(1, 'rgba(60,170,255,0)');
+    ctx.fillStyle = gl; ctx.fillRect(cx - dr * 1.6, cy - dr * 1.6, dr * 3.2, dr * 3.2);
+    var dg = ctx.createRadialGradient(cx - dr * 0.3, cy - dr * 0.35, 2, cx, cy, dr); dg.addColorStop(0, '#2f6088'); dg.addColorStop(1, '#0e2233');
+    ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(cx, cy, dr, 0, 7); ctx.fill();
+    ctx.strokeStyle = edge; ctx.lineWidth = 2.5 * dpr; ctx.stroke();
+    ctx.strokeStyle = 'rgba(150,205,255,0.28)'; ctx.lineWidth = 1 * dpr;
+    ctx.beginPath(); ctx.arc(cx, cy, dr * 0.6, 0, 7); ctx.moveTo(cx - dr, cy); ctx.lineTo(cx + dr, cy); ctx.moveTo(cx, cy - dr); ctx.lineTo(cx, cy + dr); ctx.stroke();
+    ctx.fillStyle = 'rgba(130,205,255,' + (0.5 + 0.3 * Math.sin(T * 3)) + ')'; ctx.beginPath(); ctx.arc(cx, cy, dr * 0.2, 0, 7); ctx.fill();
+    // HPリング
+    ctx.strokeStyle = edge; ctx.lineWidth = 3 * dpr;
+    ctx.beginPath(); ctx.arc(cx, cy, dr + 4 * dpr, -Math.PI / 2, -Math.PI / 2 + hp * 6.2832); ctx.stroke();
   }
 
   function spriteOf(ent) { return ent.side === 'e' ? G.SPRITES['e_' + ent.type] : G.unitFrame(ent.stats.body, ent.stats.grade); }
@@ -658,11 +612,11 @@
 
   function drawShadow(ent, spec, g) {
     var spr = spriteOf(ent); if (!spr) return;
-    var px = pxOf(ent, spec, g.dpr), hw = spr.w * px * 0.38;
+    var sp = W2S(ent.x, ent.y, g), px = pxOf(ent, spec, g.dpr), hw = spr.w * px * 0.34;
     ctx.fillStyle = 'rgba(0,0,0,0.30)';
-    ctx.beginPath(); ctx.ellipse(ent.x * g.sx, g.midY + 5 * g.dpr, hw, hw * 0.32, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(sp.x, sp.y + 2 * g.dpr, hw, hw * 0.4, 0, 0, 7); ctx.fill();
   }
-  function ensurePhase(ent) { if (ent._ph === undefined) { ent._ph = rand(0, 6.28); ent._px = ent.x; } }
+  function ensurePhase(ent) { if (ent._ph === undefined) { ent._ph = rand(0, 6.28); ent._px = ent.x; ent._py = ent.y; ent._flip = false; } }
 
   // ドット絵スプライト描画。cx=中心X / footY=下端Y / px=1ドット / flip=左右反転
   // legPhase!=null で歩行モーション（脚の振り）/ tint で全ピクセルを単色化（被弾フラッシュ）
@@ -696,14 +650,14 @@
   function gradeColor(gr) { return gr >= 5 ? '#9af0ff' : gr >= 3 ? '#ffd24a' : '#d7e2ee'; }
 
   // 追加装甲・武器形状は専用フレームに内包。ここでは武装種の発光チップと階級章のみ。
-  function drawGradeDecor(st, x, topY, midBodyY, px, dpr, spr) {
+  function drawGradeDecor(st, x, topY, midBodyY, px, dpr, spr, flip) {
     var gr = st.grade || 1, wg = st.wgrade || 1, hw = spr.w * px / 2;
-    // 武装種を示すマズル発光（前方）。グレードで強さが増す。
+    // 武装種を示すマズル発光（向いている側）。グレードで強さが増す。
     var wcol = WK_COLOR[st.weapon.kind] || '#eaf6ff';
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.55 + 0.1 * wg;
     ctx.fillStyle = wcol;
-    ctx.beginPath(); ctx.arc(x + hw + 2 * dpr, midBodyY, (1.4 + wg * 0.5) * dpr, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + (flip ? -1 : 1) * (hw + 2 * dpr), midBodyY, (1.4 + wg * 0.5) * dpr, 0, 7); ctx.fill();
     ctx.restore(); ctx.globalAlpha = 1;
     // 階級章（シェブロン）: グレード-1個
     var n = Math.min(gr - 1, 5);
@@ -739,56 +693,56 @@
   function drawUnit(ent, st, g) {
     ensurePhase(ent);
     var dpr = g.dpr, air = st.domain === 'air';
-    var moving = Math.abs(ent.x - ent._px) > 0.01; ent._px = ent.x;
-    var spr = G.unitFrame(st.body, st.grade) || G.SPRITES.infantry, px = 1.7 * dpr, gr = st.grade || 1;
-    var drawX = ent.x * g.sx + fireOffset(st, ent, dpr);
-    var idle = IDLE[st.body] || [2, 0.5];
+    var dx = ent.x - ent._px, dy = ent.y - ent._py, moving = (dx * dx + dy * dy) > 0.0004;
+    if (moving && Math.abs(dx) > 0.02) ent._flip = dx < 0;   // 進行方向へ向く（自軍は基本右向き）
+    ent._px = ent.x; ent._py = ent.y;
+    var spr = G.unitFrame(st.body, st.grade) || G.SPRITES.infantry, px = 1.7 * dpr, gr = st.grade || 1, flip = ent._flip;
+    var sp = W2S(ent.x, ent.y, g), idle = IDLE[st.body] || [2, 0.5];
+    var bob = moving ? Math.abs(Math.sin(T * 9 + ent._ph)) * 1.1 * dpr : Math.sin(T * idle[0] + ent._ph) * idle[1] * dpr;
+    var footY = sp.y - (air ? AIR_LIFT * dpr : 0) - bob;
+    var drawX = sp.x + fireOffset(st, ent, dpr) * (flip ? -1 : 1);
+    var topY = footY - spr.h * px, midBodyY = footY - spr.h * px * 0.5;
+    var legPhase = (!air && moving) ? (T * 9 + ent._ph) : null;
     var flash = ent.hitT > 0 ? (ent.hitT / HIT_DUR) * 0.55 : 0;
     if (air) {
-      var cy = yLevel(true, g) + Math.sin(T * idle[0] + ent._ph) * (2 + idle[1] * 2) * dpr;
-      var topY = cy - (spr.h * px) / 2, footYa = cy + (spr.h * px) / 2;
-      if (gr >= 3) drawAura(drawX, cy, spr.w * px * (0.55 + 0.06 * gr), 'rgba(255,210,90,' + (0.05 * (gr - 1)) + ')');
-      eliteFx(ent, st, gr, spr, drawX, footYa, px, dpr, true, null, moving);
+      ctx.strokeStyle = 'rgba(150,180,210,0.18)'; ctx.lineWidth = 1 * dpr;
+      ctx.beginPath(); ctx.moveTo(sp.x, footY + spr.h * px * 0.5); ctx.lineTo(sp.x, sp.y); ctx.stroke();
       var fl = 0.45 + 0.4 * Math.abs(Math.sin(T * 26 + ent._ph));
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(120,205,255,' + fl + ')';
-      ctx.beginPath(); ctx.ellipse(drawX - (spr.w * px) / 2 - 1 * dpr, cy + 1 * dpr, 5 * dpr * fl, 1.8 * dpr, 0, 0, 7); ctx.fill(); ctx.restore();
-      drawSprite(spr, drawX, footYa, px, false, null);
-      if (flash) { ctx.save(); ctx.globalAlpha = flash; drawSprite(spr, drawX, footYa, px, false, null, '#ffffff'); ctx.restore(); }
-      drawGradeDecor(st, drawX, topY, cy, px, dpr, spr);
-      hpBar(ent, ent.x * g.sx, topY - 4 * dpr, 10 * dpr, dpr, false);
-    } else {
-      var bob = moving ? Math.abs(Math.sin(T * 9 + ent._ph)) * 1.1 * dpr : Math.sin(T * idle[0] + ent._ph) * idle[1] * dpr;
-      var footY = g.midY + 3 * dpr - bob, topY = footY - spr.h * px, midBodyY = footY - spr.h * px * 0.5;
-      var legPhase = moving ? (T * 9 + ent._ph) : null;
-      if (gr >= 3) drawAura(drawX, midBodyY, spr.w * px * (0.5 + 0.05 * gr), 'rgba(255,210,90,' + (0.05 * (gr - 1)) + ')');
-      eliteFx(ent, st, gr, spr, drawX, footY, px, dpr, false, legPhase, moving);
-      drawSprite(spr, drawX, footY, px, false, legPhase);
-      if (flash) { ctx.save(); ctx.globalAlpha = flash; drawSprite(spr, drawX, footY, px, false, legPhase, '#ffffff'); ctx.restore(); }
-      drawGradeDecor(st, drawX, topY, midBodyY, px, dpr, spr);
-      hpBar(ent, ent.x * g.sx, topY - 3 * dpr, 10 * dpr, dpr, false);
+      ctx.beginPath(); ctx.ellipse(sp.x, footY + 2 * dpr, 4 * dpr * fl, 1.6 * dpr, 0, 0, 7); ctx.fill(); ctx.restore();
     }
+    if (gr >= 3) drawAura(drawX, midBodyY, spr.w * px * (0.5 + 0.05 * gr), 'rgba(255,210,90,' + (0.05 * (gr - 1)) + ')');
+    eliteFx(ent, st, gr, spr, drawX, footY, px, dpr, air, legPhase, moving);
+    drawSprite(spr, drawX, footY, px, flip, legPhase);
+    if (flash) { ctx.save(); ctx.globalAlpha = flash; drawSprite(spr, drawX, footY, px, flip, legPhase, '#ffffff'); ctx.restore(); }
+    drawGradeDecor(st, drawX, topY, midBodyY, px, dpr, spr, flip);
+    hpBar(ent, sp.x, topY - 3 * dpr, 10 * dpr, dpr, false);
   }
   function drawEnemy(ent, spec, g) {
     ensurePhase(ent);
-    var dpr = g.dpr, air = spec.domain === 'air', x = ent.x * g.sx;
-    var spr = G.SPRITES['e_' + ent.type] || G.SPRITES.e_swarmling;
-    var pulse = 1 + Math.sin(T * 6 + ent._ph) * 0.06;
-    var px = (spec.boss ? 2.4 : 1.9) * dpr * pulse;
-    // 被弾ひるみ：のけ反り（後方＝右へ）＋ 一瞬の白フラッシュ
-    var hp = ent.hitT > 0 ? ent.hitT / HIT_DUR : 0;
-    var kb = hp > 0 ? Math.sin(hp * Math.PI) * (spec.boss ? 2 : 3.5) * dpr : 0;
-    var drawX = x + kb, flash = hp * (spec.boss ? 0.45 : 0.6);
+    var dpr = g.dpr, air = spec.domain === 'air';
+    var dx = ent.x - ent._px, dy = ent.y - ent._py, moving = (dx * dx + dy * dy) > 0.0004;
+    if (moving && Math.abs(dx) > 0.02) ent._flip = dx > 0;   // 敵スプライトは基本左向き
+    ent._px = ent.x; ent._py = ent.y;
+    var spr = G.SPRITES['e_' + ent.type] || G.SPRITES.e_swarmling, flip = ent._flip;
+    var pulse = 1 + Math.sin(T * 6 + ent._ph) * 0.06, px = (spec.boss ? 2.4 : 1.9) * dpr * pulse;
+    var sp = W2S(ent.x, ent.y, g);
+    var hpf = ent.hitT > 0 ? ent.hitT / HIT_DUR : 0;
+    var kb = hpf > 0 ? Math.sin(hpf * Math.PI) * (spec.boss ? 2 : 3.5) * dpr : 0;
+    var bob = Math.sin(T * 4 + ent._ph) * (air ? 2.5 : 0.6) * dpr;
+    var footY = sp.y - (air ? AIR_LIFT * dpr : 0) - bob;
+    var drawX = sp.x + kb * (flip ? -1 : 1), flash = hpf * (spec.boss ? 0.45 : 0.6);
+    if (air) { ctx.strokeStyle = 'rgba(255,150,190,0.16)'; ctx.lineWidth = 1 * dpr; ctx.beginPath(); ctx.moveTo(sp.x, footY + spr.h * px * 0.5); ctx.lineTo(sp.x, sp.y); ctx.stroke(); }
     if (spec.boss) {
-      var gy = g.midY - spr.h * px * 0.5;
+      var gy = footY - spr.h * px * 0.5;
       var rg = ctx.createRadialGradient(drawX, gy, 2, drawX, gy, spr.w * px * 0.8);
       rg.addColorStop(0, 'rgba(255,90,50,0.40)'); rg.addColorStop(1, 'rgba(255,40,40,0)');
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = rg;
       ctx.fillRect(drawX - spr.w * px, gy - spr.h * px, spr.w * px * 2, spr.h * px * 2); ctx.restore();
     }
-    var footY = air ? (yLevel(true, g) + Math.sin(T * 3 + ent._ph) * 4 * dpr) + (spr.h * px) / 2 : g.midY + 3 * dpr;
-    drawSprite(spr, drawX, footY, px, false, null);
-    if (flash) { ctx.save(); ctx.globalAlpha = flash; drawSprite(spr, drawX, footY, px, false, null, '#ffffff'); ctx.restore(); }
-    hpBar(ent, x, footY - spr.h * px - 3 * dpr, (spec.boss ? 20 : 10) * dpr, dpr, true);
+    drawSprite(spr, drawX, footY, px, flip, null);
+    if (flash) { ctx.save(); ctx.globalAlpha = flash; drawSprite(spr, drawX, footY, px, flip, null, '#ffffff'); ctx.restore(); }
+    hpBar(ent, sp.x, footY - spr.h * px - 3 * dpr, (spec.boss ? 20 : 10) * dpr, dpr, true);
   }
   function hpBar(ent, x, y, r, dpr, enemy) {
     var hp = Math.max(0, ent.hp) / ent.maxHp; if (hp >= 1) return;

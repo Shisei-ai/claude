@@ -278,8 +278,8 @@
     },
   ];
 
-  G.LANE = 1000;
-  G.WALL_X = 235;
-  G.HQ_HP = 1000;
+  // 2Dアリーナ：中央のドーム自陣に360度全方位から敵が殺到する
+  G.ARENA = { domeR: 52, spawnR: 470, viewR: 500, turretR: 230 };
+  G.HQ_HP = 1100;
 
 })(window.G = window.G || {});
