@@ -47,6 +47,66 @@
     cutinTimer = setTimeout(function () { el.className = ''; }, dur || 2200);
   }
 
+  // ---- VN会話劇エンジン --------------------------------------------------
+  var vnBeats = null, vnIdx = 0, vnDone = null, vnStage = { left: null, right: null };
+  var vnExpr = {}, vnTyping = null, vnFull = '', vnFxTimer = null;
+  function preloadPortraits() {
+    if (typeof Image === 'undefined') return;
+    for (var id in G.CHARACTERS) { var im = G.CHARACTERS[id].img || {}; for (var e in im) { var x = new Image(); x.src = im[e]; } }
+  }
+  function normalizeScene(content) {
+    if (Array.isArray(content)) return content;
+    return String(content || '').split(/\n\s*\n/).map(function (p) { return { who: 'narration', text: p.trim() }; });
+  }
+  function portraitHTML(who, expr) {
+    var ch = G.CHARACTERS[who] || G.CHARACTERS.narration;
+    var ph = '<div class="vn-ph" style="border-color:' + ch.color + '"><span>' + (ch.icon || '◆') + '</span><b style="color:' + ch.color + '">' + (ch.name || '') + '</b></div>';
+    var src = ch.img && (ch.img[expr] || ch.img.neutral);
+    if (src) return '<img src="' + src + '" alt="" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'">' + ph.replace('vn-ph', 'vn-ph hidden');
+    return ph;
+  }
+  function renderPortraits(active) {
+    ['left', 'right'].forEach(function (side) {
+      var slot = $('vn').querySelector('.vn-portrait.' + side), who = vnStage[side];
+      if (!who) { slot.innerHTML = ''; slot.className = 'vn-portrait ' + side; return; }
+      slot.innerHTML = portraitHTML(who, vnExpr[who] || 'neutral');
+      slot.className = 'vn-portrait ' + side + (who === active ? ' on' : ' off');
+    });
+  }
+  function vnShake() { var el = $('vn'); el.classList.remove('vn-shake'); void el.offsetWidth; el.classList.add('vn-shake'); }
+  function vnFlash(col) { var f = $('vn').querySelector('.vn-flash'); f.style.background = col || 'rgba(255,255,255,0.6)'; f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
+  function startType(text) {
+    vnFull = text || ''; var el = $('vn-text'); el.textContent = ''; var i = 0;
+    clearInterval(vnTyping); $('vn-next').classList.remove('ready');
+    if (!vnFull) { return; }
+    vnTyping = setInterval(function () { i++; el.textContent = vnFull.slice(0, i); if (i >= vnFull.length) { clearInterval(vnTyping); vnTyping = null; $('vn-next').classList.add('ready'); } }, 18);
+  }
+  function playStory(content, done) {
+    vnBeats = normalizeScene(content); vnIdx = 0; vnDone = done; vnStage = { left: null, right: null }; vnExpr = {};
+    $('vn').classList.add('show'); showBeat();
+  }
+  function showBeat() {
+    if (!vnBeats || vnIdx >= vnBeats.length) { endStory(); return; }
+    var b = vnBeats[vnIdx], who = b.who || 'narration', ch = G.CHARACTERS[who] || G.CHARACTERS.narration;
+    if (b.expr) vnExpr[who] = b.expr;
+    if (b.bg) $('vn-bg').style.background = b.bg;
+    if (b.cutin) showCutin(b.cutin.jp, b.cutin.en, b.cutin.cls || 'wave', b.cutin.dur || 2000);
+    if (b.fx === 'shake') vnShake(); else if (b.fx === 'flash') vnFlash(b.flashColor);
+    if (who !== 'narration') { var side = b.pos || ch.side || 'right'; if (side !== 'center') vnStage[side] = who; }
+    renderPortraits(who);
+    $('vn-box').classList.toggle('narration', who === 'narration');
+    $('vn-name').textContent = ch.name || ''; $('vn-name').style.color = ch.color || '#fff';
+    startType(b.text || '');
+    if (!b.text) { clearTimeout(vnFxTimer); vnFxTimer = setTimeout(function () { if (vnBeats && vnBeats[vnIdx] === b) { vnIdx++; showBeat(); } }, 360); }
+  }
+  function vnAdvance() {
+    if (!$('vn').classList.contains('show')) return;
+    if (vnTyping) { clearInterval(vnTyping); vnTyping = null; $('vn-text').textContent = vnFull; $('vn-next').classList.add('ready'); return; }
+    var b = vnBeats && vnBeats[vnIdx]; if (b && !b.text) return; // 演出ビートは自動送り
+    vnIdx++; showBeat();
+  }
+  function endStory() { clearInterval(vnTyping); vnTyping = null; clearTimeout(vnFxTimer); $('vn').classList.remove('show'); var d = vnDone; vnDone = null; vnBeats = null; if (d) d(); }
+
   // ---- 章開始のフルスクリーン・カットイン（立ち絵風） --------------------
   var CHAPTER_FEATURE = ['e_swarmling', 'e_armored', 'e_wyrm', 'e_titan'];
   var CHAPTER_SUB = ['群体、辺境に来襲', '装甲の群れが押し寄せる', '空を制する飛翔体', '中枢炉、ついに開く'];
@@ -77,8 +137,8 @@
     var s = Game.state; if (s.phase === lastPhase) return; var prev = lastPhase; lastPhase = s.phase;
     if (s.phase === 'battle') showCutin('第' + (s.wave + 1) + '波　接近', 'WAVE ' + (s.wave + 1), 'wave', 2200);
     else if (s.phase === 'prep' && prev === 'battle') showCutin('波　殲滅', 'WAVE CLEAR', 'clear', 1900);
-    if (s.phase === 'intro') showChapterCutin(s.chapter, function () { showModal(Game.currentChapter().title, s.pendingStory, null, '防衛を開始 ▶', function () { Game.afterIntro(); }, ''); });
-    else if (s.phase === 'story') showModal('― 戦域記録 ―', s.pendingStory, null, '次へ ▶', function () { Game.afterOutro(); }, '');
+    if (s.phase === 'intro') showChapterCutin(s.chapter, function () { playStory(s.pendingStory, function () { Game.afterIntro(); }); });
+    else if (s.phase === 'story') playStory(s.pendingStory, function () { Game.afterOutro(); });
     else if (s.phase === 'choice') { var c = s.pendingChoice; showModal('決断', c.prompt, c.options, null, function (idx) { Game.applyChoice(c.options[idx]); log('方針決定：' + c.options[idx].label); }, ''); }
     else if (s.phase === 'won') showModal('防衛成功', '全ての群体を退けた。基地カストルは陥落しなかった。\n\n――だが、戦線はまだ終わらない。', null, 'もう一度 ↻', function () { restart(); }, 'win');
     else if (s.phase === 'lost') showModal('司令部 陥落', '防衛線は突破され、司令部は沈黙した。\n群体は基地を呑み込んでいく……', null, '再起動 ↻', function () { restart(); }, 'lose');
@@ -817,6 +877,9 @@
       };
     });
     $('wave-btn').onclick = function () { Game.startBattle(); };
+    // VN会話劇：本文クリックで送り、スキップで即終了
+    var vn = $('vn');
+    vn.onclick = function (e) { if (e.target.classList.contains('vn-skip')) { endStory(); return; } vnAdvance(); };
   }
 
   // ---- メインループ ------------------------------------------------------
@@ -837,7 +900,7 @@
   function init() {
     canvas = $('lane'); ctx = canvas.getContext('2d');
     window.addEventListener('resize', resize);
-    Game.newGame(); resize(); bindTabs(); rebuildAll();
+    Game.newGame(); resize(); bindTabs(); rebuildAll(); preloadPortraits();
     log('指揮AI 起動。工業ラインを構築し、量産で群体を迎え撃て。');
     requestAnimationFrame(loop);
   }

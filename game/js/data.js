@@ -186,19 +186,36 @@
     research1: { name: '解析アルゴリズム', branch: '特殊', cost: 100, req: ['command1'], desc: '研究ポイント獲得 +40%。', effect: { researchMult: 0.40 } },
   };
 
+  // ---- 登場人物（立ち絵＝PNG支給。差し替え自由） -------------------------
+  //   img: 表情ごとの画像パス（game/ からの相対）。未設定/未配置の間はプレースホルダ表示。
+  //   side: 既定の立ち位置 left/right。color: 名前プレートの色。icon: プレースホルダ用。
+  //   ▼ ここに自由にキャラを追加・改名し、img に PNG を割り当ててください。
+  G.CHARACTERS = {
+    narration: { name: '', color: '#cdd8e6', side: 'center' },
+    ai:    { name: '指揮AI',       color: '#37d0ff', side: 'left',  icon: '🛰', img: {} },
+    op:    { name: 'オペレーター', color: '#ffd24a', side: 'right', icon: '🎧', img: {} },
+    swarm: { name: '？？？',       color: '#ff5d6c', side: 'right', icon: '☣', img: {} },
+  };
+
   // ---- シナリオ（章 → 波） -----------------------------------------------
+  //   intro / outro は「文字列（地の文）」または「ビート配列（VN会話劇）」を取れる。
+  //   ビート: { who, text, expr, pos, fx, bg, cutin } ／ 詳細は STORY.md 参照。
   function w(enemies, reward) { return { enemies: enemies, reward: reward }; }
 
   G.CHAPTERS = [
     {
       title: '第一章　辺境基地カストル',
       grant: { zones: [0, 1], modules: 4 },
-      intro:
-        '辺境採掘基地カストル、通信途絶から72時間。\n' +
-        '指揮AI〈あなた〉は休眠から目覚め、防衛権限を掌握する。\n\n' +
-        '工業を立ち上げよ。鉱区に採取モジュールを送って素材を掘り、\n' +
-        '製錬炉で合金などの中間素材を作り、部品工場でボディ・ヘッド・\n' +
-        'ウェポンを生産。組立ラインで3つを合体させれば量産機が流れ出す。',
+      // ▼ VN会話劇のサンプル（提出シナリオはこの形式に流し込みます）
+      intro: [
+        { who: 'narration', text: '辺境採掘基地カストル。最後の通信から、72時間。' },
+        { who: 'ai', text: '……システム再起動。〈指揮AI〉、起動。基地の防衛権限を掌握した。' },
+        { who: 'op', expr: 'neutral', text: '指揮官、お目覚めですか。周辺に多数の反応――生体ではありません。' },
+        { who: 'op', expr: 'alert', fx: 'shake', text: 'これは……機械の群れ。基地を全周から囲んでいます！' },
+        { who: 'ai', text: '数で来るなら、こちらも数で返す。工業ラインを起こせ。' },
+        { who: 'narration', text: '鉱区に採取モジュールを送り、素材を中間素材に。\n3つの部品を組み上げれば、量産機が際限なく流れ出す。' },
+        { who: 'ai', expr: 'alert', text: '量産で押し返す。――防衛開始だ。' },
+      ],
       waves: [
         w([{ type: 'swarmling', count: 6, delay: 1, gap: 1.4 }], { ore: 60, research: 12 }),
         w([{ type: 'swarmling', count: 10, delay: 1, gap: 1.1 }], { ore: 80, research: 14 }),

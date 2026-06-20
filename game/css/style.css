@@ -276,6 +276,77 @@ body{
 @media(max-width:720px){ .cc-title{font-size:28px} .cc-portrait{width:150px;height:150px} .cc-text{max-width:54%} }
 @media(prefers-reduced-motion:reduce){ .cc-portrait,.cc-text{opacity:1 !important; transform:none !important} }
 
+/* ---- VN会話劇（立ち絵＋台詞） ---- */
+#vn{position:fixed; inset:0; z-index:45; display:none; overflow:hidden; cursor:pointer;
+  user-select:none; -webkit-tap-highlight-color:transparent}
+#vn.show{display:block; animation:vnFade .35s ease}
+#vn-bg{position:absolute; inset:0;
+  background:radial-gradient(130% 120% at 50% 30%, #14202e 0%, #070a10 78%)}
+#vn::after{content:""; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(transparent 60%, rgba(0,0,0,.55) 100%)}
+#vn .vn-flash{position:absolute; inset:0; z-index:6; opacity:0; pointer-events:none;
+  background:rgba(255,255,255,.6)}
+#vn .vn-flash.go{animation:vnFlash .5s ease-out}
+/* 立ち絵ステージ */
+.vn-stage{position:absolute; left:0; right:0; bottom:0; top:0; z-index:2; pointer-events:none}
+.vn-portrait{position:absolute; bottom:0; width:46%; max-width:560px; height:88%;
+  display:flex; align-items:flex-end; justify-content:center;
+  transition:opacity .35s ease, transform .35s ease, filter .35s ease}
+.vn-portrait.left{left:1%; transform:translateX(-26px)}
+.vn-portrait.right{right:1%; transform:translateX(26px)}
+.vn-portrait.on{opacity:1; transform:translateX(0); filter:none; z-index:3}
+.vn-portrait.off{opacity:.66; filter:brightness(.5) saturate(.6)}
+.vn-portrait img{max-width:100%; max-height:100%; object-fit:contain;
+  image-rendering:auto; filter:drop-shadow(0 6px 22px rgba(0,0,0,.6))}
+.vn-portrait.left img{transform:scaleX(1)}
+/* 立ち絵プレースホルダ（画像未支給時） */
+.vn-ph{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  width:74%; max-width:300px; aspect-ratio:3/4; align-self:flex-end; margin-bottom:6%;
+  background:linear-gradient(160deg, rgba(30,44,60,.9), rgba(16,24,34,.92));
+  border:2px solid #888; border-radius:14px; box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.vn-ph span{font-size:64px; line-height:1; filter:drop-shadow(0 0 12px currentColor)}
+.vn-ph b{font-size:18px; letter-spacing:2px}
+.vn-ph.hidden{display:none}
+/* 台詞ボックス */
+#vn-box{position:absolute; left:50%; bottom:4.5%; transform:translateX(-50%); z-index:5;
+  width:min(900px, 92%); min-height:128px; padding:20px 26px 22px;
+  background:linear-gradient(180deg, rgba(13,21,31,.92), rgba(9,14,21,.96));
+  border:1px solid var(--line); border-top:2px solid var(--accent);
+  border-radius:14px; box-shadow:0 10px 40px rgba(0,0,0,.55), inset 0 0 30px rgba(40,120,170,.08);
+  backdrop-filter:blur(2px)}
+#vn-box.narration{border-top-color:#5b6b7d; text-align:center}
+#vn-box.narration #vn-name{display:none}
+#vn-box.narration #vn-text{color:#d7e3f0; font-style:italic; padding-top:6px}
+#vn-name{display:inline-block; font-size:18px; font-weight:800; letter-spacing:2px;
+  margin-bottom:8px; padding:2px 14px 4px 0;
+  text-shadow:0 0 14px rgba(55,208,255,.4), 0 2px 0 #04121c}
+#vn-text{font-size:17px; line-height:1.65; color:#eaf2fb; white-space:pre-wrap;
+  min-height:1.65em; letter-spacing:.5px}
+#vn-next{position:absolute; right:18px; bottom:12px; font-size:14px; color:var(--accent);
+  opacity:0; transition:opacity .2s}
+#vn-next.ready{opacity:1; animation:vnBlink 1s ease-in-out infinite}
+.vn-skip{position:absolute; right:18px; top:16px; z-index:7; font-size:12px; color:var(--dim);
+  letter-spacing:1px; padding:6px 12px; border:1px solid var(--line); border-radius:20px;
+  background:rgba(10,16,24,.6); cursor:pointer; transition:color .2s, border-color .2s}
+.vn-skip:hover{color:#fff; border-color:var(--accent)}
+#vn.vn-shake{animation:vnShake .4s cubic-bezier(.36,.07,.19,.97)}
+@keyframes vnFade{from{opacity:0}to{opacity:1}}
+@keyframes vnBlink{0%,100%{opacity:1; transform:translateY(0)}50%{opacity:.4; transform:translateY(2px)}}
+@keyframes vnFlash{0%{opacity:.85}100%{opacity:0}}
+@keyframes vnShake{10%,90%{transform:translate(-2px,0)}20%,80%{transform:translate(4px,0)}
+  30%,50%,70%{transform:translate(-7px,0)}40%,60%{transform:translate(7px,0)}}
+@media(max-width:720px){
+  .vn-portrait{width:58%; height:74%}
+  #vn-box{width:94%; padding:14px 18px 18px; min-height:104px}
+  #vn-text{font-size:15px} #vn-name{font-size:16px}
+  .vn-ph span{font-size:46px} .vn-ph b{font-size:15px}
+}
+@media(prefers-reduced-motion:reduce){
+  #vn.vn-shake{animation:none}
+  .vn-portrait{transition:opacity .2s ease}
+  #vn-next.ready{animation:none}
+}
+
 /* ---- 鉱区パネル ---- */
 .sgap{display:inline-block; width:10px}
 #zone-list{display:flex; flex-direction:column; gap:7px}
