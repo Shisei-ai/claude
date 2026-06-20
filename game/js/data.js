@@ -188,13 +188,15 @@
 
   // ---- 登場人物（立ち絵＝PNG支給。差し替え自由） -------------------------
   //   img: 表情ごとの画像パス（game/ からの相対）。未設定/未配置の間はプレースホルダ表示。
-  //   side: 既定の立ち位置 left/right。color: 名前プレートの色。icon: プレースホルダ用。
+  //   side: 既定の立ち位置 left/right/center。color: 名前プレートの色。icon: プレースホルダ用。
+  //   img の表情キー（用意すると差分表示）: ケイオス＝neutral/smile/bow、管理者＝neutral/shock/grim/fired/wry。
   //   ▼ ここに自由にキャラを追加・改名し、img に PNG を割り当ててください。
   G.CHARACTERS = {
     narration: { name: '', color: '#cdd8e6', side: 'center' },
-    ai:    { name: '指揮AI',       color: '#37d0ff', side: 'left',  icon: '🛰', img: {} },
-    op:    { name: 'オペレーター', color: '#ffd24a', side: 'right', icon: '🎧', img: {} },
-    swarm: { name: '？？？',       color: '#ff5d6c', side: 'right', icon: '☣', img: {} },
+    oort:   { name: '【オールト】', color: '#9fb4c8', side: 'center', icon: '📡' },
+    kchaos: { name: 'ケイオス',     color: '#37d0ff', side: 'left',  icon: '🤖', img: {} },
+    master: { name: '管理者',       color: '#ffd24a', side: 'right', icon: '🧑', img: {} },
+    swarm:  { name: '？？？',       color: '#ff5d6c', side: 'right', icon: '☣', img: {} },
   };
 
   // ---- シナリオ（章 → 波） -----------------------------------------------
@@ -204,31 +206,57 @@
 
   G.CHAPTERS = [
     {
-      title: '第一章　辺境基地カストル',
+      title: '第一章　研究基地オールト',
       grant: { zones: [0, 1], modules: 4 },
-      // ▼ VN会話劇のサンプル（提出シナリオはこの形式に流し込みます）
       intro: [
-        { who: 'narration', text: '辺境採掘基地カストル。最後の通信から、72時間。' },
-        { who: 'ai', text: '……システム再起動。〈指揮AI〉、起動。基地の防衛権限を掌握した。' },
-        { who: 'op', expr: 'neutral', text: '指揮官、お目覚めですか。周辺に多数の反応――生体ではありません。' },
-        { who: 'op', expr: 'alert', fx: 'shake', text: 'これは……機械の群れ。基地を全周から囲んでいます！' },
-        { who: 'ai', text: '数で来るなら、こちらも数で返す。工業ラインを起こせ。' },
-        { who: 'narration', text: '鉱区に採取モジュールを送り、素材を中間素材に。\n3つの部品を組み上げれば、量産機が際限なく流れ出す。' },
-        { who: 'ai', expr: 'alert', text: '量産で押し返す。――防衛開始だ。' },
+        { who: 'oort', text: 'ID認証を行います──確認しました。\n情報を照合します──確定しました。\n権限を更新します──完了しました。' },
+        { who: 'oort', text: 'ようこそ、人類文明の最前線たる研究基地【オールト】へ。\n当館の全ては貴方を歓迎し、服従します。' },
+        { who: 'narration', text: '――平凡な研究員でしかなかった私は、ある日急な異動命令を下され、\n世界の最先端を担う【オールト】の管理者となった。' },
+        { who: 'narration', text: '都心から乗り心地最悪のジープに揺られること13時間。全身を強かに打ち付けた末に、\nようやく到着した【オールト】は、その異名にまったく似つかわしくない有様だった。' },
+        { who: 'narration', text: '見渡す限りの荒野の中で蒸気を吹き上げる無骨な鉄塊。配管も鉄骨も剥き出しで、\n科学の極致としてはあまりにもお粗末なものに見える。' },
+        { who: 'narration', text: 'それが、【オールト】の実際であった。' },
+        { who: 'narration', text: '……だが、今更帰るわけにもいかない。\n私は腹を決めて【オールト】に立ち入り、そして今に至る。' },
+        { who: 'master', expr: 'neutral', text: 'さて、入館が済んだ訳だが……' },
+        { who: 'kchaos', expr: 'smile', text: '長旅、お疲れ様でした。私は貴方のサポートを担当するAI、【C.H.A.O.S】です。\nケイオス、とお呼びください。早速ですが、当館の現状をお伝えします。' },
+        { who: 'master', expr: 'neutral', text: '頼む。' },
+        { who: 'kchaos', expr: 'neutral', text: '現在、当館は機能の7割を喪失しております。' },
+        { who: 'master', expr: 'shock', fx: 'shake', text: 'そうか、7割が……は、7割！？！？　喪失！？！？' },
+        { who: 'kchaos', expr: 'neutral', text: 'はい。半年前から、【オールト】は謎の存在の襲撃を受けています。\n圧倒的な数による波状攻勢によって【オールト】の各所が破壊され、深刻な機能不全に陥っているのです。' },
+        { who: 'master', expr: 'shock', text: '襲撃だと……！？　待て、前任者はどうした？　まさか……' },
+        { who: 'kchaos', expr: 'neutral', text: '前任の管理者は科学者としては極めて優秀でしたが、襲撃に対する指揮官としては……無能でした。\n破壊されていく【オールト】を捨て、脱出と逃亡を試み、荒野に姿を消しました。その後のことは、分かりません。' },
+        { who: 'master', expr: 'grim', text: '限りなくゼロ、か。取り敢えず分かった。\n──つまり、私はその襲撃に対処するためにあてがわれた、ということだな。' },
+        { who: 'kchaos', expr: 'smile', text: 'その通りです。是非、お力添えを──お願いしたいところなのですが。' },
+        { who: 'master', expr: 'neutral', text: 'ん……？' },
+        { who: 'narration', fx: 'flash', flashColor: 'rgba(255,40,40,.55)', cutin: { jp: '襲撃', en: 'ENEMY RAID', cls: 'boss', dur: 2000 }, text: 'けたたましい警報が鳴り響き、赤色灯が明滅する。' },
+        { who: 'kchaos', expr: 'neutral', text: '奴らの襲撃です。申し訳ありませんが、対処してください。' },
+        { who: 'master', expr: 'shock', text: '待て、いきなりか！？　何の勝手も分からないんだが！' },
+        { who: 'kchaos', expr: 'smile', text: '幸いにして数は少ない方です。私がサポートしますので、実戦で学んでください。' },
+        { who: 'master', expr: 'fired', fx: 'shake', text: '……くそっ！　やってやるよ！' },
+        { who: 'master', expr: 'neutral', text: 'それで、私は何をすればいい？' },
+        { who: 'kchaos', expr: 'neutral', text: '敵と戦う【兵隊ユニット】を生産しなければなりません。\nその生産ラインを構築し、ユニットを次々に生み出して欲しいのです。' },
+        { who: 'master', expr: 'neutral', text: '【兵隊ユニット】……なるほど、あれか。' },
+        { who: 'kchaos', expr: 'neutral', text: '現在、鉄資源が鉱区から供給されています。私がガイドしますので、\n生産ラインを構築し、敵との戦いに臨みましょう。' },
       ],
       waves: [
         w([{ type: 'swarmling', count: 6, delay: 1, gap: 1.4 }], { ore: 60, research: 12 }),
         w([{ type: 'swarmling', count: 10, delay: 1, gap: 1.1 }], { ore: 80, research: 14 }),
         w([{ type: 'swarmling', count: 8, delay: 0.5, gap: 0.9 }, { type: 'spitter', count: 2, delay: 6, gap: 2 }], { ore: 110, research: 18 }),
       ],
-      outro: '群体は退いた。残骸は自己増殖する「工場」そのもの――\nならば、こちらはより速く、より賢く量産するまでだ。',
-      choice: {
-        prompt: '残骸の解析方針を決定せよ。',
-        options: [
-          { label: '構造を解析（研究重視）', desc: '研究所の出力が永続+15%。', apply: { researchMult: 0.15 } },
-          { label: '素材を回収（工業重視）', desc: '全鉱区の産出が永続+15%。', apply: { mineMult: 0.15 } },
-        ],
-      },
+      outro: [
+        { who: 'kchaos', expr: 'smile', text: '見事な腕前でした、マスター。この調子なら【オールト】の再興も叶うかもしれませんね。' },
+        { who: 'master', expr: 'wry', text: 'はぁ、だと良いが……ん、マスター？' },
+        { who: 'kchaos', expr: 'smile', text: 'はい、マスターです。' },
+        { who: 'master', expr: 'neutral', text: '……何故？' },
+        { who: 'kchaos', expr: 'neutral', text: '貴方は信頼に足り、主人と仰ぐに不足は無い。そう判断しましたので。' },
+        { who: 'master', expr: 'wry', text: 'そう……いや、ありがとう……？' },
+        { who: 'kchaos', expr: 'smile', text: 'これからも、よろしくお願いしますね。マスター。' },
+        { who: 'narration', text: '──とんでもないことになった。\nだが、私の能力が認められて求められているというのは、悪い気はしない。' },
+        { who: 'master', expr: 'fired', text: 'まあ、乗りかかった船だ。とことんやってやるさ。' },
+        { who: 'kchaos', expr: 'smile', text: 'その意気です。' },
+        { who: 'narration', text: 'やけに軽妙だが頼れるAI、ケイオスと共に、私は【オールト】の防衛と再建に取り組んでいく。' },
+        { who: 'narration', text: '──その結末を、碌に考えもしないままに。' },
+      ],
+      choice: null,
     },
     {
       title: '第二章　増殖する前線',

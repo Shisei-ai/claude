@@ -16,10 +16,10 @@
 ```
 【第一章 開幕】
 
-ナレーション：辺境採掘基地カストル。最後の通信から、72時間。
-指揮AI：……システム再起動。防衛権限を掌握した。
-オペレーター（驚き）：指揮官、周辺に多数の反応――生体ではありません！  ＜画面を揺らす＞
-指揮AI：数で来るなら、数で返す。防衛開始だ。
+ナレーション：それが、【オールト】の実際であった。
+管理者：さて、入館が済んだ訳だが……
+ケイオス（笑み）：長旅、お疲れ様でした。私はサポートAI、ケイオスです。
+管理者（驚愕）：は、7割！？！？　喪失！？！？  ＜画面を揺らす＞
 ```
 
 - 「キャラ名：台詞」の形式で行を並べるだけでOK。
@@ -36,9 +36,10 @@
 ```js
 G.CHARACTERS = {
   narration: { name: '', color: '#cdd8e6', side: 'center' },        // 地の文（消さないで）
-  ai:    { name: '指揮AI',       color: '#37d0ff', side: 'left',  icon: '🛰', img: {} },
-  op:    { name: 'オペレーター', color: '#ffd24a', side: 'right', icon: '🎧', img: {} },
-  swarm: { name: '？？？',       color: '#ff5d6c', side: 'right', icon: '☣', img: {} },
+  oort:   { name: '【オールト】', color: '#9fb4c8', side: 'center', icon: '📡' },          // 基地の自動音声
+  kchaos: { name: 'ケイオス',     color: '#37d0ff', side: 'left',  icon: '🤖', img: {} },  // サポートAI
+  master: { name: '管理者',       color: '#ffd24a', side: 'right', icon: '🧑', img: {} },  // 主人公（私／マスター）
+  swarm:  { name: '？？？',       color: '#ff5d6c', side: 'right', icon: '☣', img: {} },   // 謎の襲撃者
 };
 ```
 
@@ -54,9 +55,9 @@ G.CHARACTERS = {
 画像は `portraits/` に置き、`img` に表情名→パスでマッピングします（仕様は `portraits/README.md`）。
 
 ```js
-ai: {
-  name: '指揮AI', color: '#37d0ff', side: 'left', icon: '🛰',
-  img: { neutral: 'portraits/ai.png', alert: 'portraits/ai_alert.png' },
+kchaos: {
+  name: 'ケイオス', color: '#37d0ff', side: 'left', icon: '🤖',
+  img: { neutral: 'portraits/chaos.png', smile: 'portraits/chaos_smile.png' },
 },
 ```
 
@@ -74,14 +75,14 @@ PNG未配置の間は自動でプレースホルダ表示になるので、**台
 ビート1個＝台詞1行のオブジェクト：
 
 ```js
-{ who: 'op', expr: 'alert', pos: 'right', fx: 'shake', text: '基地を全周から囲んでいます！' }
+{ who: 'master', expr: 'shock', pos: 'right', fx: 'shake', text: 'は、7割！？！？　喪失！？！？' }
 ```
 
 | キー | 必須 | 説明 |
 |------|------|------|
 | `who`  | 〇 | 話者のキャラID（`G.CHARACTERS` のキー）。`narration` で地の文 |
 | `text` | △ | 台詞。省略すると「演出だけのビート」になり自動で次へ進む |
-| `expr` |   | 表情名（`img` のキー。例 `neutral` / `alert`）。立ち絵を差し替える |
+| `expr` |   | 表情名（`img` のキー。例 `neutral` / `smile` / `shock`）。立ち絵を差し替える |
 | `pos`  |   | この台詞での立ち位置 `left` / `right`（省略時はキャラの `side`） |
 | `fx`   |   | 画面演出：`shake`（揺れ）/ `flash`（発光）|
 | `flashColor` | | `fx:'flash'` の色（例 `'rgba(255,40,40,.6)'`）|
@@ -101,15 +102,18 @@ PNG未配置の間は自動でプレースホルダ表示になるので、**台
 
 ## 4. 完成サンプル（第一章 開幕）
 
+実際に第一章 `intro` で使っている抜粋（全文は `js/data.js` 参照）：
+
 ```js
 intro: [
-  { who: 'narration', text: '辺境採掘基地カストル。最後の通信から、72時間。' },
-  { who: 'ai', text: '……システム再起動。〈指揮AI〉、起動。基地の防衛権限を掌握した。' },
-  { who: 'op', expr: 'neutral', text: '指揮官、お目覚めですか。周辺に多数の反応――生体ではありません。' },
-  { who: 'op', expr: 'alert', fx: 'shake', text: 'これは……機械の群れ。基地を全周から囲んでいます！' },
-  { who: 'ai', text: '数で来るなら、こちらも数で返す。工業ラインを起こせ。' },
-  { who: 'narration', text: '鉱区に採取モジュールを送り、素材を中間素材に。\n3つの部品を組み上げれば、量産機が際限なく流れ出す。' },
-  { who: 'ai', expr: 'alert', text: '量産で押し返す。――防衛開始だ。' },
+  { who: 'oort', text: 'ようこそ、人類文明の最前線たる研究基地【オールト】へ。\n当館の全ては貴方を歓迎し、服従します。' },
+  { who: 'narration', text: 'それが、【オールト】の実際であった。' },
+  { who: 'master', expr: 'neutral', text: 'さて、入館が済んだ訳だが……' },
+  { who: 'kchaos', expr: 'smile', text: '長旅、お疲れ様でした。私はサポートAI、【C.H.A.O.S】です。ケイオス、とお呼びください。' },
+  { who: 'master', expr: 'shock', fx: 'shake', text: 'そうか、7割が……は、7割！？！？　喪失！？！？' },
+  { who: 'narration', fx: 'flash', flashColor: 'rgba(255,40,40,.55)',
+    cutin: { jp: '襲撃', en: 'ENEMY RAID', cls: 'boss' }, text: 'けたたましい警報が鳴り響き、赤色灯が明滅する。' },
+  { who: 'master', expr: 'fired', fx: 'shake', text: '……くそっ！　やってやるよ！' },
 ],
 ```
 

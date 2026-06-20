@@ -109,7 +109,7 @@
 
   // ---- 章開始のフルスクリーン・カットイン（立ち絵風） --------------------
   var CHAPTER_FEATURE = ['e_swarmling', 'e_armored', 'e_wyrm', 'e_titan'];
-  var CHAPTER_SUB = ['群体、辺境に来襲', '装甲の群れが押し寄せる', '空を制する飛翔体', '中枢炉、ついに開く'];
+  var CHAPTER_SUB = ['謎の襲撃、最前線に至る', '装甲の群れが押し寄せる', '空を制する飛翔体', '中枢炉、ついに開く'];
   var chapTimer = null;
   function showChapterCutin(chIdx, done) {
     var el = $('chapter-cut'); if (!el) { if (done) done(); return; }
@@ -140,8 +140,8 @@
     if (s.phase === 'intro') showChapterCutin(s.chapter, function () { playStory(s.pendingStory, function () { Game.afterIntro(); }); });
     else if (s.phase === 'story') playStory(s.pendingStory, function () { Game.afterOutro(); });
     else if (s.phase === 'choice') { var c = s.pendingChoice; showModal('決断', c.prompt, c.options, null, function (idx) { Game.applyChoice(c.options[idx]); log('方針決定：' + c.options[idx].label); }, ''); }
-    else if (s.phase === 'won') showModal('防衛成功', '全ての群体を退けた。基地カストルは陥落しなかった。\n\n――だが、戦線はまだ終わらない。', null, 'もう一度 ↻', function () { restart(); }, 'win');
-    else if (s.phase === 'lost') showModal('司令部 陥落', '防衛線は突破され、司令部は沈黙した。\n群体は基地を呑み込んでいく……', null, '再起動 ↻', function () { restart(); }, 'lose');
+    else if (s.phase === 'won') showModal('防衛成功', '襲撃を退けた。研究基地オールトは、まだ陥落していない。\n\n――だが、戦いはまだ終わらない。', null, 'もう一度 ↻', function () { restart(); }, 'win');
+    else if (s.phase === 'lost') showModal('オールト 陥落', '防衛線は突破され、オールトの中枢は沈黙した。\n襲撃者が基地を呑み込んでいく……', null, '再起動 ↻', function () { restart(); }, 'lose');
     else if (s.phase === 'prep') log('準備フェーズ：在庫を備蓄し設計を整え、「次の波を呼ぶ」で出撃。');
     else if (s.phase === 'battle') log('交戦開始！　第' + (s.wave + 1) + '波　組立ラインが稼働を始める。');
   }
@@ -462,7 +462,7 @@
     var hp = Math.max(0, s.hqHp) / s.hqHpMax, bar = $('hq-bar');
     bar.style.width = (hp * 100) + '%';
     bar.style.background = hp > 0.5 ? 'linear-gradient(90deg,#2ee08a,#7fffb0)' : hp > 0.25 ? 'linear-gradient(90deg,#e0b62e,#ffd86b)' : 'linear-gradient(90deg,#e02e3e,#ff7b7b)';
-    $('hq-label').textContent = '司令部 HP ' + Math.max(0, Math.ceil(s.hqHp)) + '/' + s.hqHpMax;
+    $('hq-label').textContent = 'オールト HP ' + Math.max(0, Math.ceil(s.hqHp)) + '/' + s.hqHpMax;
     var wb = $('wave-btn'); wb.disabled = s.phase !== 'prep';
     $('phase-hint').textContent = s.phase === 'prep' ? '部品を備蓄し、設計を整えて出撃せよ' : s.phase === 'battle' ? '組立ラインが在庫を消費して増援を生産中' : '';
   }
@@ -901,7 +901,7 @@
     canvas = $('lane'); ctx = canvas.getContext('2d');
     window.addEventListener('resize', resize);
     Game.newGame(); resize(); bindTabs(); rebuildAll(); preloadPortraits();
-    log('指揮AI 起動。工業ラインを構築し、量産で群体を迎え撃て。');
+    log('ケイオス、起動。生産ラインを構築し、押し寄せる襲撃を迎え撃て。');
     requestAnimationFrame(loop);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
