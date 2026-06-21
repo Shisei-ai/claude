@@ -38,6 +38,7 @@
       spawns: [], battleTime: 0,
       stats: { kills: 0, lost: 0, built: 0 },
       pendingStory: null, pendingChoice: null, storyReturn: null,
+      battleMode: 'story', defenseStage: 0, defenseResult: null, _savedHp: 0,
       mod: null, _atkToken: 0, _turretTick: 0,
     };
   }
@@ -292,13 +293,45 @@
   // ---- 波・シナリオ -------------------------------------------------------
   function currentChapter() { return G.CHAPTERS[state.chapter]; }
   function currentWave() { return currentChapter().waves[state.wave]; }
-  function startBattle() {
-    if (state.phase !== 'prep') return;
-    var wave = currentWave(); state.spawns = [];
-    for (var g = 0; g < wave.enemies.length; g++) { var grp = wave.enemies[g];
+  function buildSpawns(groups) {
+    state.spawns = [];
+    for (var g = 0; g < groups.length; g++) { var grp = groups[g];
       for (var i = 0; i < grp.count; i++) state.spawns.push({ type: grp.type, t: grp.delay + i * grp.gap }); }
     state.spawns.sort(function (a, b) { return a.t - b.t; });
-    state.battleTime = 0; state.phase = 'battle';
+    state.battleTime = 0;
+  }
+  function startBattle() {
+    if (state.phase !== 'prep') return;
+    state.battleMode = 'story';
+    buildSpawns(currentWave().enemies);
+    state.phase = 'battle';
+  }
+  // 暫時防衛（周回コンテンツ）。解放数 = クリア済みの章数。
+  function defenseAvailable() { return Math.min(state.chapter, G.DEFENSE.length); }
+  function startDefense(idx) {
+    if (state.phase !== 'prep') return false;
+    if (idx < 0 || idx >= defenseAvailable()) return false;
+    state.battleMode = 'defense'; state.defenseStage = idx; state.defenseResult = null;
+    state._savedHp = state.hqHp;          // 周回戦は本陣HPを後で復元（campaignを終わらせない）
+    buildSpawns(G.DEFENSE[idx].enemies);
+    state.phase = 'battle';
+    return true;
+  }
+  function onDefenseCleared() {
+    var st = G.DEFENSE[state.defenseStage];
+    var drops = st.mods, n = drops[(Math.random() * drops.length) | 0] || 0;
+    if (n > 0) { state.modules += n; state.grantedModules += n; recomputeMod(); }
+    state.hqHp = state._savedHp;           // 本陣HPを戦闘前に復元
+    state.battleMode = 'story';
+    state.defenseResult = { gained: n, stage: state.defenseStage };
+    state.phase = 'prep';
+  }
+  function failDefense() {
+    state.enemies = []; state.spawns = [];
+    state.hqHp = state._savedHp;
+    state.battleMode = 'story';
+    state.defenseResult = { fail: true, stage: state.defenseStage };
+    state.phase = 'prep';
   }
   // 戦闘勝利での解放（鉱区・モジュール）。波単位で即時適用。
   function applyWaveGrant(gr) {
@@ -470,8 +503,13 @@
       state.battleTime += dt;
       while (state.spawns.length && state.spawns[0].t <= state.battleTime) spawnEnemy(state.spawns.shift().type);
       combatStep(dt);
-      if (state.hqHp <= 0) { state.hqHp = 0; state.phase = 'lost'; return; }
-      if (state.spawns.length === 0 && state.enemies.length === 0) onWaveCleared();
+      if (state.hqHp <= 0) {
+        if (state.battleMode === 'defense') { failDefense(); return; }
+        state.hqHp = 0; state.phase = 'lost'; return;
+      }
+      if (state.spawns.length === 0 && state.enemies.length === 0) {
+        if (state.battleMode === 'defense') onDefenseCleared(); else onWaveCleared();
+      }
     }
   }
 
@@ -497,6 +535,7 @@
     computeStats: computeStats,
     canResearch: canResearch, doResearch: doResearch,
     startBattle: startBattle, afterIntro: afterIntro, afterInterlude: afterInterlude, afterOutro: afterOutro, applyChoice: applyChoice,
+    defenseAvailable: defenseAvailable, startDefense: startDefense,
     currentChapter: currentChapter, currentWave: currentWave,
     constants: { domeR: DOME, spawnR: SPAWN, viewR: G.ARENA.viewR, turretR: TURRET_R },
     get state() { return state; },

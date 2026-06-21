@@ -135,8 +135,16 @@
   var lastPhase = null;
   function handlePhase() {
     var s = Game.state; if (s.phase === lastPhase) return; var prev = lastPhase; lastPhase = s.phase;
-    if (s.phase === 'battle') showCutin('第' + (s.wave + 1) + '波　接近', 'WAVE ' + (s.wave + 1), 'wave', 2200);
-    else if (s.phase === 'prep' && prev === 'battle') showCutin('波　殲滅', 'WAVE CLEAR', 'clear', 1900);
+    if (s.phase === 'battle') {
+      if (s.battleMode === 'defense') { var st = G.DEFENSE[s.defenseStage]; showCutin('暫時防衛・' + st.name, 'INTERIM DEFENSE ' + (s.defenseStage + 1), 'wave', 2200); }
+      else showCutin('第' + (s.wave + 1) + '波　接近', 'WAVE ' + (s.wave + 1), 'wave', 2200);
+    } else if (s.phase === 'prep' && prev === 'battle') {
+      if (s.defenseResult) {
+        var dr = s.defenseResult; s.defenseResult = null;
+        if (dr.fail) { showCutin('暫時防衛　失敗', 'DEFENSE FAILED', 'boss', 2000); log('暫時防衛に失敗。供給モジュールは得られなかった。'); }
+        else { showCutin('暫時防衛　完了', 'DEFENSE CLEAR', 'clear', 2000); log(dr.gained > 0 ? ('暫時防衛 成功：資源供給モジュール ×' + dr.gained + ' を獲得！') : '暫時防衛 成功：今回は供給モジュールを獲得できなかった。'); }
+      } else showCutin('波　殲滅', 'WAVE CLEAR', 'clear', 1900);
+    }
     if (s.phase === 'intro') showChapterCutin(s.chapter, function () { playStory(s.pendingStory, function () { Game.afterIntro(); }); });
     else if (s.phase === 'story') playStory(s.pendingStory, function () { if (Game.state.storyReturn === 'interlude') Game.afterInterlude(); else Game.afterOutro(); });
     else if (s.phase === 'choice') { var c = s.pendingChoice; showModal('決断', c.prompt, c.options, null, function (idx) { Game.applyChoice(c.options[idx]); log('方針決定：' + c.options[idx].label); }, ''); }
@@ -146,6 +154,22 @@
     else if (s.phase === 'battle') log('交戦開始！　第' + (s.wave + 1) + '波　組立ラインが稼働を始める。');
   }
   function restart() { Game.newGame(); lastPhase = null; lastSig = ''; rebuildAll(); }
+
+  // 暫時防衛：出撃ステージ選択
+  function openDefenseMenu() {
+    var s = Game.state; if (s.phase !== 'prep') return;
+    var n = Game.defenseAvailable(); if (n <= 0) return;
+    var opts = [];
+    for (var i = 0; i < n; i++) {
+      var st = G.DEFENSE[i], lo = Math.min.apply(null, st.mods), hi = Math.max.apply(null, st.mods);
+      opts.push({ label: 'ステージ' + (i + 1) + '　' + st.name, desc: st.sub + '／報酬：供給モジュール ' + lo + '〜' + hi + '（確率）' });
+    }
+    opts.push({ label: 'やめる', desc: '出撃しない', _cancel: true });
+    showModal('暫時防衛', '出撃するステージを選べ。勝利すると確率で資源供給モジュールを獲得する。\n（本陣HPは戦闘後に回復するが、失った機体は戻らない）', opts, null, function (idx) {
+      if (opts[idx] && opts[idx]._cancel) return;
+      if (Game.startDefense(idx)) log('暫時防衛・' + G.DEFENSE[idx].name + ' に出撃。');
+    }, '');
+  }
 
   // ---- 共通パーツ --------------------------------------------------------
   function ironCost(n) { return '<span class="cost-ore">⛓' + n + '</span>'; }
@@ -464,7 +488,13 @@
     bar.style.background = hp > 0.5 ? 'linear-gradient(90deg,#2ee08a,#7fffb0)' : hp > 0.25 ? 'linear-gradient(90deg,#e0b62e,#ffd86b)' : 'linear-gradient(90deg,#e02e3e,#ff7b7b)';
     $('hq-label').textContent = 'オールト HP ' + Math.max(0, Math.ceil(s.hqHp)) + '/' + s.hqHpMax;
     var wb = $('wave-btn'); wb.disabled = s.phase !== 'prep';
-    $('phase-hint').textContent = s.phase === 'prep' ? '部品を備蓄し、設計を整えて出撃せよ' : s.phase === 'battle' ? '組立ラインが在庫を消費して増援を生産中' : '';
+    var db = $('defense-btn'), navail = Game.defenseAvailable();
+    db.style.display = (s.phase === 'prep' && navail > 0) ? '' : 'none';
+    db.disabled = s.phase !== 'prep';
+    $('phase-hint').textContent =
+      (s.phase === 'battle' && s.battleMode === 'defense') ? '暫時防衛 交戦中　勝利で供給モジュールを獲得' :
+      s.phase === 'prep' ? '部品を備蓄し、設計を整えて出撃せよ' :
+      s.phase === 'battle' ? '組立ラインが在庫を消費して増援を生産中' : '';
   }
 
   // =======================================================================
@@ -877,6 +907,7 @@
       };
     });
     $('wave-btn').onclick = function () { Game.startBattle(); };
+    $('defense-btn').onclick = openDefenseMenu;
     // VN会話劇：本文クリックで送り、スキップで即終了
     var vn = $('vn');
     vn.onclick = function (e) { if (e.target.classList.contains('vn-skip')) { endStory(); return; } vnAdvance(); };

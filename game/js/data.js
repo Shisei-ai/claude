@@ -386,6 +386,25 @@
     },
   ];
 
+  // ---- 暫時防衛（周回コンテンツ） ----------------------------------------
+  //   章をクリアするごとに上位ステージが解放され、いつでも出撃できる。
+  //   勝利すると mods から1つ抽選し、その数だけ「資源供給モジュール」を獲得（0＝獲得失敗）。
+  //   解放数 = クリア済みの章数（第N章クリアで ステージN が解放）。
+  G.DEFENSE = [
+    { name: '哨戒線', sub: '小型の散発的な襲撃',
+      enemies: [{ type: 'swarmling', count: 10, delay: 0.8, gap: 0.9 }, { type: 'spitter', count: 2, delay: 6, gap: 1.8 }],
+      mods: [0, 1, 1, 1, 2] },
+    { name: '前哨包囲', sub: '重装個体を含む波状攻撃',
+      enemies: [{ type: 'swarmling', count: 12, delay: 0.6, gap: 0.7 }, { type: 'armored', count: 3, delay: 4, gap: 2 }, { type: 'spitter', count: 3, delay: 8, gap: 1.5 }],
+      mods: [1, 1, 2, 2, 3] },
+    { name: '制空圏', sub: '飛翔体が制空を握る',
+      enemies: [{ type: 'spitter', count: 4, delay: 0.6, gap: 1.1 }, { type: 'wyrm', count: 4, delay: 4, gap: 1.4 }, { type: 'armored', count: 4, delay: 8, gap: 1.6 }],
+      mods: [1, 2, 2, 3, 3] },
+    { name: '殲滅戦', sub: '巨蟲を擁する総力戦',
+      enemies: [{ type: 'swarmling', count: 16, delay: 0.4, gap: 0.55 }, { type: 'armored', count: 6, delay: 5, gap: 1.4 }, { type: 'wyrm', count: 4, delay: 9, gap: 1.2 }, { type: 'herald', count: 1, delay: 14, gap: 1 }],
+      mods: [2, 3, 3, 4] },
+  ];
+
   // 2Dアリーナ：中央のドーム自陣に360度全方位から敵が殺到する
   G.ARENA = { domeR: 52, spawnR: 470, viewR: 500, turretR: 230 };
   G.HQ_HP = 1100;
