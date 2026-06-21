@@ -97,12 +97,20 @@
   // ---- ヘッドCPU（拡張スキル） --------------------------------------------
   //   研究で解放し、組立ラインのヘッドスロット(=ヘッドグレード数)に装着する。
   G.CPUS = {
+    // 基本ステータス強化
     cpu_armor:   { name: '装甲CPU', icon: '🛡', effect: { def: 3 }, desc: '防御力 +3' },
     cpu_plate:   { name: '増装CPU', icon: '❤', effect: { hpMult: 0.30 }, desc: '最大HP +30%' },
     cpu_servo:   { name: '加速CPU', icon: '💨', effect: { speedMult: 0.30 }, desc: '移動速度 +30%' },
     cpu_scope:   { name: '照準CPU', icon: '🔭', effect: { range: 55 }, desc: '射程 +55' },
     cpu_trigger: { name: '連射CPU', icon: '🔁', effect: { rateMult: 0.35 }, desc: '攻撃速度 +35%' },
     cpu_power:   { name: '出力CPU', icon: '🔥', effect: { dmgMult: 0.28 }, desc: '攻撃力 +28%' },
+    // 特殊効果（戦術CPU）
+    cpu_aa:      { name: '対空CPU', icon: '📡', effect: { antiAir: true }, desc: '空中目標を攻撃可能になる' },
+    cpu_pierce:  { name: '貫通CPU', icon: '🜂', effect: { pierce: 6 }, desc: '敵の防御力を 6 無視' },
+    cpu_crit:    { name: '暴撃CPU', icon: '✱', effect: { crit: 0.25, critMult: 2.0 }, desc: '25% の確率でダメージ2倍' },
+    cpu_drain:   { name: '吸命CPU', icon: '🩸', effect: { lifesteal: 0.30 }, desc: '与ダメージの30%だけ自己回復' },
+    cpu_regen:   { name: '修復CPU', icon: '✚', effect: { regen: 0.05 }, desc: '毎秒 最大HPの5%を回復' },
+    cpu_guard:   { name: '反応装甲CPU', icon: '🧱', effect: { def: 2, hpMult: 0.12 }, desc: '防御力 +2／最大HP +12%' },
   };
 
   // ---- ウェポン（武器性能・ライン毎に選択） -------------------------------
@@ -181,6 +189,13 @@
     cpu_plate:   { name: 'CPU:増装', branch: 'CPU', cost: 70, req: ['headTier2'], desc: '増装CPUを解放。', effect: { unlockCpu: 'cpu_plate' } },
     cpu_trigger: { name: 'CPU:連射', branch: 'CPU', cost: 80, req: ['headTier2'], desc: '連射CPUを解放。', effect: { unlockCpu: 'cpu_trigger' } },
     headTier3:   { name: 'ヘッド規格Ⅲ', branch: 'CPU', cost: 150, req: ['cpu_servo'], desc: 'ヘッドのCPUスロットを3に。', effect: { headTier: 3 } },
+    // 戦術CPU（特殊効果）
+    cpu_guard:   { name: 'CPU:反応装甲', branch: 'CPU', cost: 70, req: ['cpu_armor'], desc: '反応装甲CPU（防御+2／HP+12%）を解放。', effect: { unlockCpu: 'cpu_guard' } },
+    cpu_aa:      { name: 'CPU:対空', branch: 'CPU', cost: 80, req: ['headTier2'], desc: '対空CPU（空中目標を攻撃可）を解放。', effect: { unlockCpu: 'cpu_aa' } },
+    cpu_pierce:  { name: 'CPU:貫通', branch: 'CPU', cost: 90, req: ['cpu_power'], desc: '貫通CPU（防御無視）を解放。', effect: { unlockCpu: 'cpu_pierce' } },
+    cpu_crit:    { name: 'CPU:暴撃', branch: 'CPU', cost: 100, req: ['cpu_power'], desc: '暴撃CPU（確率2倍）を解放。', effect: { unlockCpu: 'cpu_crit' } },
+    cpu_drain:   { name: 'CPU:吸命', branch: 'CPU', cost: 110, req: ['headTier2'], desc: '吸命CPU（与ダメで回復）を解放。', effect: { unlockCpu: 'cpu_drain' } },
+    cpu_regen:   { name: 'CPU:修復', branch: 'CPU', cost: 90, req: ['cpu_plate'], desc: '修復CPU（毎秒HP回復）を解放。', effect: { unlockCpu: 'cpu_regen' } },
 
     // 特殊
     command1:  { name: '指揮系統拡張', branch: '特殊', cost: 70, req: [], desc: '指揮容量 +12。', effect: { capacity: 12 } },

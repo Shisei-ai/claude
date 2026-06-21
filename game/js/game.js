@@ -166,18 +166,26 @@
     var hp = b.hp * gm, dmg = b.dmg * gm, def = b.def + gdef;
     var speed = b.speed, range = b.range, rate = b.rate;
     var hpMult = 1, dmgMult = 1, speedMult = 1, rateMult = 1;
+    var antiAir = b.antiAir, lifesteal = 0, crit = 0, critMult = 1, pierce = 0, regen = 0;
     (bp.cpus || []).forEach(function (id) {
       var e = G.CPUS[id] && G.CPUS[id].effect; if (!e) return;
       if (e.def) def += e.def; if (e.range) range += e.range;
       if (e.hpMult) hpMult += e.hpMult; if (e.dmgMult) dmgMult += e.dmgMult;
       if (e.speedMult) speedMult += e.speedMult; if (e.rateMult) rateMult += e.rateMult;
+      if (e.antiAir) antiAir = true;
+      if (e.lifesteal) lifesteal += e.lifesteal;
+      if (e.crit) crit += e.crit;
+      if (e.critMult) critMult = Math.max(critMult, e.critMult);
+      if (e.pierce) pierce += e.pierce;
+      if (e.regen) regen += e.regen;
     });
     var w = G.WEAPONS[bp.weapon], wc = w.compute(t.weapon);
     dmgMult *= wc.dmgMult;
     return {
-      body: bp.body, domain: b.domain, antiAir: b.antiAir, cap: b.cap,
+      body: bp.body, domain: b.domain, antiAir: antiAir, cap: b.cap,
       hp: hp * hpMult, dmg: dmg * dmgMult, def: def, speed: speed * speedMult,
       range: range, rate: rate * rateMult, grade: t.body, wgrade: t.weapon,
+      lifesteal: lifesteal, crit: crit, critMult: critMult, pierce: pierce, regen: regen,
       weapon: { kind: w.kind, aoe: wc.aoe || 0, chain: wc.chain || 0 },
     };
   }
@@ -385,22 +393,28 @@
       var dx = list[i].x - from.x, dy = list[i].y - from.y, d = dx * dx + dy * dy; if (d < bd) { bd = d; best = list[i]; } }
     return best;
   }
-  function dealDamage(target, raw) { target.hp -= Math.max(G.MIN_DMG, raw - defOf(target)); target.hitT = 0.13; }
+  function dealDamage(target, raw, pierce) {
+    var def = defOf(target) - (pierce || 0); if (def < 0) def = 0;
+    var dmg = Math.max(G.MIN_DMG, raw - def);
+    target.hp -= dmg; target.hitT = 0.13; return dmg;
+  }
   // 視覚イベント（純粋に演出用。ui.js が消費する。ロジックには影響しない）
   function vfx(o) { if (state.vfx.length < 600) state.vfx.push(o); }
 
   // ウェポン挙動を含む自軍の攻撃解決（2Dアリーナ）
   function playerAttack(u, target) {
-    var s = u.stats, raw = s.dmg, w = s.weapon;
+    var s = u.stats, raw = s.dmg, w = s.weapon, pen = s.pierce || 0;
+    var isCrit = s.crit && Math.random() < s.crit;
+    if (isCrit) raw *= s.critMult;                       // 暴撃CPU
     u.fireT = 0.17;
-    var token = ++state._atkToken;
-    vfx({ k: 'shot', side: 'p', body: s.body, x1: u.x, y1: u.y, x2: target.x, y2: target.y, kind: w.kind });
-    target._t = token; dealDamage(target, raw);
+    var token = ++state._atkToken, dealt = 0;
+    vfx({ k: 'shot', side: 'p', body: s.body, x1: u.x, y1: u.y, x2: target.x, y2: target.y, kind: w.kind, crit: isCrit });
+    target._t = token; dealt += dealDamage(target, raw, pen);
     if (w.aoe > 0) {
       for (var i = 0; i < state.enemies.length; i++) {
         var e = state.enemies[i];
         if (e._t === token) continue;
-        if (d2(e, target) <= w.aoe) { e._t = token; dealDamage(e, raw * 0.6); }
+        if (d2(e, target) <= w.aoe) { e._t = token; dealt += dealDamage(e, raw * 0.6, pen); }
       }
       vfx({ k: 'blast', x: target.x, y: target.y, r: w.aoe });
     }
@@ -417,8 +431,12 @@
         }
         if (!nx) break;
         vfx({ k: 'arc', x1: cur.x, y1: cur.y, x2: nx.x, y2: nx.y });
-        nx._t = token; dealDamage(nx, raw * mult); cur = nx;
+        nx._t = token; dealt += dealDamage(nx, raw * mult, pen); cur = nx;
       }
+    }
+    if (s.lifesteal && u.hp < u.maxHp) {                 // 吸命CPU
+      u.hp = Math.min(u.maxHp, u.hp + dealt * s.lifesteal);
+      if (Math.random() < 0.4) vfx({ k: 'heal', x: u.x, y: u.y });
     }
   }
   function moveToward(ent, tx, ty, sp, dt) {
@@ -433,6 +451,7 @@
     for (i = 0; i < state.units.length; i++) {
       u = state.units[i]; s = u.stats; u.cd -= dt;
       if (u.fireT > 0) u.fireT -= dt; if (u.hitT > 0) u.hitT -= dt;
+      if (s.regen && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + u.maxHp * s.regen * dt);  // 修復CPU
       target = nearestHittable(state.enemies, u, s);
       if (!target) continue;                                  // 敵がいなければ待機
       var d = d2(u, target);

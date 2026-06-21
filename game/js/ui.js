@@ -379,6 +379,12 @@
     });
     if (!cpuChips) cpuChips = '<span class="cpu-empty">（CPU未研究）</span>';
     var wk = st.weapon.kind === 'aoe' ? '範囲' + st.weapon.aoe : st.weapon.kind === 'chain' ? '連鎖' + st.weapon.chain : '単体';
+    var sp = [];
+    if (st.crit) sp.push('暴' + Math.round(st.crit * 100) + '%');
+    if (st.pierce) sp.push('貫' + st.pierce);
+    if (st.lifesteal) sp.push('吸' + Math.round(st.lifesteal * 100) + '%');
+    if (st.regen) sp.push('再' + Math.round(st.regen * 100) + '%/s');
+    var spStr = sp.length ? '・<span class="asm-sp">' + sp.join('/') + '</span>' : '';
 
     // 部品供給チェック：このラインのボディ/ウェポンを生産している工場があるか
     var bodyFed = s.bodyFabs.some(function (f) { return f.assign === a.body; });
@@ -397,7 +403,7 @@
       '<button class="xbtn" data-asmdel="' + i + '">×</button></div>' +
       '<div class="asm-stats">HP' + Math.round(st.hp) + '・攻' + Math.round(st.dmg) + '・防' + st.def +
       '・速' + Math.round(st.speed) + '・射' + Math.round(st.range) + '・' + (st.domain === 'air' ? '空' : '地') +
-      (st.antiAir ? '/対空' : '') + '・武装:' + wk + '</div>' + warn +
+      (st.antiAir ? '/対空' : '') + '・武装:' + wk + spStr + '</div>' + warn +
       '<div class="asm-cpu"><span class="slotlbl">CPUスロット ' + used + '/' + slots + '</span>' + cpuChips + '</div>';
 
     box.querySelector('[data-asmbody]').onchange = function (e) { Game.setAssemblyBody(i, e.target.value); markDirty(); };
@@ -593,10 +599,11 @@
       var ev = list[i];
       if (ev.k === 'shot') {
         var col = ev.side === 'p' ? (UNIT_COLOR[ev.body] || '#6bd0ff') : ev.col;
+        if (ev.crit) col = '#ffe06a';
         var p1 = W2S(ev.x1, ev.y1, g), p2 = W2S(ev.x2, ev.y2, g);
-        burst(p1.x, p1.y, col, 3, 90 * dpr, { g: 0, lifeMul: 0.4, glow: true });
+        burst(p1.x, p1.y, col, ev.crit ? 7 : 3, (ev.crit ? 150 : 90) * dpr, { g: 0, lifeMul: 0.4, glow: true, sizeMul: ev.crit ? 1.4 : 1 });
         var dd = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-        tracers.push({ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, t: 0, dur: Math.max(0.05, Math.min(0.16, dd / (900 * dpr))), color: col, w: ev.kind === 'single' ? 2.2 : 1.8, hit: true });
+        tracers.push({ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, t: 0, dur: Math.max(0.05, Math.min(0.16, dd / (900 * dpr))), color: col, w: ev.crit ? 3 : ev.kind === 'single' ? 2.2 : 1.8, hit: true });
       } else if (ev.k === 'beam') {
         var b1 = W2S(ev.x1, ev.y1, g), b2 = W2S(ev.x2, ev.y2, g);
         tracers.push({ x1: b1.x, y1: b1.y, x2: b2.x, y2: b2.y, t: 0, dur: 0.16, color: '#8fe0ff', beam: true, w: 2.4, hit: true, hitcol: '#8fe0ff' });
@@ -622,6 +629,9 @@
         var sp2 = W2S(ev.x, ev.y, g), sy = sp2.y - (ev.a ? lift : 0);
         rings.push({ x: sp2.x, y: sy, r: 2 * dpr, r1: 16 * dpr, life: 0.3, max: 0.3, color: UNIT_COLOR[ev.body] || '#8fd', w: 1.6 });
         burst(sp2.x, sy, UNIT_COLOR[ev.body] || '#8fd', 6, 70 * dpr, { up: 40 * dpr, g: 120, glow: true });
+      } else if (ev.k === 'heal') {
+        var hl = W2S(ev.x, ev.y, g);
+        for (var hh = 0; hh < 4; hh++) spawnParticle({ x: hl.x + rand(-6, 6) * dpr, y: hl.y - rand(0, 8) * dpr, vx: rand(-7, 7) * dpr, vy: -rand(28, 58) * dpr, g: -30, life: rand(0.4, 0.7), max: 0.7, size: rand(1.4, 2.4) * dpr, color: '#6bff9e', glow: true });
       } else if (ev.k === 'boss') {
         showCutin(ev.jp || '警告　巨核接近', ev.en || 'WARNING : TITAN', 'boss', 2800);
         addShake(6 * dpr, 0.5);
