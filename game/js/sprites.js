@@ -393,9 +393,25 @@
      'kk.kk..pp..kk.kk',
      '.k..k......k..k.']);
 
+  // 巨蟲（ミニボス）：通信を発する大型の機生兵。装甲殻＋発光する青い伝達核。
+  var e_he = S({ k:'#1e0a16', d:'#6a2348', m:'#a82e6a', l:'#e07ab0', h:'#ffc8e4', v:'#fff0f8', a:'#ff2a6a', e:'#6fd2ff', w:'#eaffff', p:'#ff9ed0' },
+    ['....k....k....',
+     '...kak..kak...',
+     '..kakd..dkak..',
+     '..kdmllllmdk..',
+     '.kmlah..halmk.',
+     'kmlmeewweemlmk',
+     'kpmmeewwweempk',
+     'kpmmeewwweempk',
+     'kmlmeewweemlmk',
+     'kmlmmmmmmmmlmk',
+     '.kdmllmmllmdk.',
+     '.kpmmk..kmmpk.',
+     'kk.kk....kk.kk']);
+
   G.SPRITES = {
     infantry: inf1, assault: asl1, heavy: hvy1, shooter: sht1, flyer: fly1,
-    e_swarmling: e_sw, e_armored: e_ar, e_spitter: e_sp, e_wyrm: e_wy, e_titan: e_ti,
+    e_swarmling: e_sw, e_armored: e_ar, e_spitter: e_sp, e_wyrm: e_wy, e_titan: e_ti, e_herald: e_he,
   };
 
   G.renderSprite = function (ctx, spr, x0, y0, px, flip) {

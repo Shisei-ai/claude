@@ -130,7 +130,8 @@
     armored:   { name: '重装・イーヴィル', icon: '◆', hp: 185, dmg: 14, def: 7, speed: 20, range: 26, rate: 1.1, bounty: 7, domain: 'ground', antiAir: false, color: '#c23b78' },
     spitter:   { name: '砲塔・イーヴィル', icon: '✶', hp: 55, dmg: 19, def: 1, speed: 24, range: 145, rate: 1.1, bounty: 6, domain: 'ground', antiAir: false, color: '#d65fa0' },
     wyrm:      { name: '飛翔・イーヴィル', icon: '✦', hp: 78, dmg: 16, def: 2, speed: 36, range: 110, rate: 1.0, bounty: 9, domain: 'air', antiAir: true, color: '#ff7ad0' },
-    titan:     { name: '巨核・イーヴィル', icon: '✪', hp: 1500, dmg: 60, def: 10, speed: 14, range: 34, rate: 1.5, bounty: 60, domain: 'ground', antiAir: true, color: '#ff3b3b', boss: true },
+    herald:    { name: '巨蟲・イーヴィル', icon: '❖', hp: 760, dmg: 30, def: 12, speed: 16, range: 30, rate: 1.4, bounty: 30, domain: 'ground', antiAir: false, color: '#c23b78', boss: true, warnJp: '警告　巨蟲接近', warnEn: 'WARNING : BROOD' },
+    titan:     { name: '巨核・イーヴィル', icon: '✪', hp: 1500, dmg: 60, def: 10, speed: 14, range: 34, rate: 1.5, bounty: 60, domain: 'ground', antiAir: true, color: '#ff3b3b', boss: true, warnJp: '警告　巨核接近', warnEn: 'WARNING : TITAN' },
   };
 
   // ---- 研究ツリー ---------------------------------------------------------
@@ -261,7 +262,13 @@
         { who: 'narration', text: 'やけに軽妙だが頼れるAI、ケイオスと共に、私は【オールト】の防衛と再建に取り組んでいく。' },
         { who: 'narration', text: '──その結末を、碌に考えもしないままに。' },
       ],
-      choice: null,
+      choice: {
+        prompt: 'オールト再建、まずどこに手を入れる？',
+        options: [
+          { label: '生産設備を優先（工業）', desc: '全工場の生産速度が永続+12%。', apply: { buildSpeed: 0.12 } },
+          { label: '採掘設備を優先（採取）', desc: '全鉱区の産出が永続+12%。', apply: { mineMult: 0.12 } },
+        ],
+      },
     },
     {
       title: '第二章　旧文明の負債',
@@ -300,10 +307,10 @@
           ] }),
         // ② 新種・重装甲の襲撃
         w([{ type: 'swarmling', count: 12, delay: 0.5, gap: 0.8 }, { type: 'armored', count: 4, delay: 4, gap: 2.2 }], { ore: 150, research: 26 }),
-        w([{ type: 'swarmling', count: 16, delay: 0.4, gap: 0.6 }, { type: 'armored', count: 5, delay: 6, gap: 1.8 }, { type: 'spitter', count: 4, delay: 10, gap: 1.5 }], { ore: 200, research: 34 }),
+        w([{ type: 'swarmling', count: 16, delay: 0.4, gap: 0.6 }, { type: 'armored', count: 5, delay: 6, gap: 1.8 }, { type: 'spitter', count: 4, delay: 10, gap: 1.5 }, { type: 'herald', count: 1, delay: 15, gap: 1 }], { ore: 240, research: 42 }),
       ],
       outro: [
-        { who: 'master', expr: 'wry', text: '切り抜けたか……。厄介な新種だったな。' },
+        { who: 'master', expr: 'wry', text: '切り抜けたか……。あの一際大きな個体、厄介な新種だったな。' },
         { who: 'kchaos', expr: 'smile', text: '流石マスターです。的確な指示でしたね。' },
         { who: 'master', expr: 'wry', text: '世辞まで言うか、このAIめ。' },
         { who: 'kchaos', expr: 'smile', text: '一つ、良い報告が。' },
@@ -326,7 +333,13 @@
         { who: 'master', expr: 'neutral', text: 'ああ、頼んだ。' },
         { who: 'kchaos', expr: 'smile', text: 'ひとまず、お疲れ様でした、マスター。' },
       ],
-      choice: null,
+      choice: {
+        prompt: 'イーヴィルの解析データ、どう活かす？',
+        options: [
+          { label: '通信解析に注力（研究）', desc: '研究ポイント獲得が永続+20%。', apply: { researchMult: 0.20 } },
+          { label: '防衛網に注力（指揮）', desc: '指揮容量が永続+10。', apply: { capacity: 10 } },
+        ],
+      },
     },
     {
       title: '第三章　暴走する遺産',

@@ -189,7 +189,7 @@
   function spawnEnemy(id) {
     var e = G.ENEMIES[id], a = Math.random() * 6.2832;
     state.enemies.push({ type: id, side: 'e', x: Math.cos(a) * SPAWN, y: Math.sin(a) * SPAWN, hp: e.hp, maxHp: e.hp, cd: 0 });
-    if (e.boss) vfx({ k: 'boss' });
+    if (e.boss) vfx({ k: 'boss', jp: e.warnJp, en: e.warnEn });
   }
 
   // ---- 工業シミュレーション ----------------------------------------------

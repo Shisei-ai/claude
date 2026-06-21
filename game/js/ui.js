@@ -564,7 +564,7 @@
         rings.push({ x: sp2.x, y: sy, r: 2 * dpr, r1: 16 * dpr, life: 0.3, max: 0.3, color: UNIT_COLOR[ev.body] || '#8fd', w: 1.6 });
         burst(sp2.x, sy, UNIT_COLOR[ev.body] || '#8fd', 6, 70 * dpr, { up: 40 * dpr, g: 120, glow: true });
       } else if (ev.k === 'boss') {
-        showCutin('警告　巨核接近', 'WARNING : TITAN', 'boss', 2800);
+        showCutin(ev.jp || '警告　巨核接近', ev.en || 'WARNING : TITAN', 'boss', 2800);
         addShake(6 * dpr, 0.5);
       }
     }
