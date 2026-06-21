@@ -305,7 +305,7 @@ body{
   image-rendering:auto; filter:drop-shadow(0 6px 22px rgba(0,0,0,.6))}
 .vn-portrait.left img{transform:scaleX(1)}
 /* HUD型立ち絵（AIコンソール等）：上寄せで台詞ボックスに被らない浮遊パネル */
-.vn-portrait.hud{top:6%; bottom:auto; height:60%; width:52%; max-width:660px; align-items:flex-start}
+.vn-portrait.hud{top:17%; bottom:auto; height:46%; width:44%; max-width:540px; align-items:flex-start}
 .vn-portrait.hud img{filter:drop-shadow(0 0 22px rgba(55,160,220,.45))}
 /* 立ち絵プレースホルダ（画像未支給時） */
 .vn-ph{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
