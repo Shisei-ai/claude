@@ -152,8 +152,10 @@
     else if (s.phase === 'lost') showModal('オールト 陥落', '防衛線は突破され、オールトの中枢は沈黙した。\n襲撃者が基地を呑み込んでいく……', null, '再起動 ↻', function () { restart(); }, 'lose');
     else if (s.phase === 'prep') log('準備フェーズ：在庫を備蓄し設計を整え、「次の波を呼ぶ」で出撃。');
     else if (s.phase === 'battle') log('交戦開始！　第' + (s.wave + 1) + '波　組立ラインが稼働を始める。');
+    // 冒頭の導入が終わったら執務室（ホーム）へ
+    if (s.phase === 'prep' && prev === 'intro' && !homeIntroShown) { homeIntroShown = true; openHome(); }
   }
-  function restart() { Game.newGame(); lastPhase = null; lastSig = ''; rebuildAll(); }
+  function restart() { Game.newGame(); lastPhase = null; lastSig = ''; homeIntroShown = false; closeHome(); rebuildAll(); }
 
   // 暫時防衛：出撃ステージ選択
   function openDefenseMenu() {
@@ -169,6 +171,31 @@
       if (opts[idx] && opts[idx]._cancel) return;
       if (Game.startDefense(idx)) log('暫時防衛・' + G.DEFENSE[idx].name + ' に出撃。');
     }, '');
+  }
+
+  // ---- ホーム画面（執務室ハブ） ------------------------------------------
+  var homeIntroShown = false;
+  function refreshHome() {
+    var s = Game.state, ch = Game.currentChapter();
+    $('home-chap').textContent = (s.phase === 'won') ? '防衛完了' : (ch ? ch.title : '―');
+    $('home-iron').textContent = Math.floor(s.mat.iron);
+    $('home-res').textContent = Math.floor(s.research);
+    $('home-mod').textContent = Math.floor(Game.freeModules()) + '/' + Game.moduleCap();
+    var navail = Game.defenseAvailable(), db = $('home').querySelector('[data-home="defense"]');
+    if (db) db.disabled = navail <= 0;
+    $('home-def-sub').textContent = navail > 0 ? ('解放ステージ：' + navail + ' ／ 周回で供給モジュール獲得') : '章クリアで解放';
+  }
+  function openHome() { if (Game.state.phase !== 'prep') return; refreshHome(); $('home').classList.add('show'); }
+  function closeHome() { $('home').classList.remove('show'); }
+  function bindHome() {
+    $('home').querySelectorAll('[data-home]').forEach(function (b) {
+      b.onclick = function () {
+        var act = b.dataset.home;
+        if (act === 'defense') { if (Game.defenseAvailable() <= 0) return; closeHome(); openDefenseMenu(); return; }
+        closeHome();
+        if (act !== 'story') activateTab(act);   // story = 前線（戦場）へそのまま戻る
+      };
+    });
   }
 
   // ---- 共通パーツ --------------------------------------------------------
@@ -479,7 +506,7 @@
     $('pow-val').textContent = sup + '/' + dem;
     var eff = Game.powerEfficiency(), pe = $('pow-eff');
     if (eff < 0.999) { pe.textContent = '効率' + Math.round(eff * 100) + '%'; pe.className = 'warn'; } else { pe.textContent = ''; pe.className = ''; }
-    $('mod-val').textContent = Game.freeModules() + '/' + Game.moduleCap();
+    $('mod-val').textContent = Math.floor(Game.freeModules()) + '/' + Game.moduleCap();
     $('cap-val').textContent = Game.capacityUsed() + '/' + Game.capacityMax();
     var ch = Game.currentChapter();
     if (ch && s.phase !== 'won') { $('chap-title').textContent = ch.title; $('wave-info').textContent = '第' + Math.min(s.wave + 1, ch.waves.length) + '波 / ' + ch.waves.length + (s.phase === 'battle' ? '　⚔交戦中' : '　待機'); }
@@ -488,6 +515,7 @@
     bar.style.background = hp > 0.5 ? 'linear-gradient(90deg,#2ee08a,#7fffb0)' : hp > 0.25 ? 'linear-gradient(90deg,#e0b62e,#ffd86b)' : 'linear-gradient(90deg,#e02e3e,#ff7b7b)';
     $('hq-label').textContent = 'オールト HP ' + Math.max(0, Math.ceil(s.hqHp)) + '/' + s.hqHpMax;
     var wb = $('wave-btn'); wb.disabled = s.phase !== 'prep';
+    var hb = $('home-btn'); hb.style.display = s.phase === 'prep' ? '' : 'none';
     var db = $('defense-btn'), navail = Game.defenseAvailable();
     db.style.display = (s.phase === 'prep' && navail > 0) ? '' : 'none';
     db.disabled = s.phase !== 'prep';
@@ -898,16 +926,17 @@
   }
 
   // ---- 入力・タブ --------------------------------------------------------
+  function activateTab(name) {
+    $('tabs').querySelectorAll('button').forEach(function (x) { x.classList.toggle('active', x.dataset.tab === name); });
+    document.querySelectorAll('.tab-body').forEach(function (x) { x.classList.remove('active'); });
+    var body = $('tab-' + name); if (body) body.classList.add('active');
+  }
   function bindTabs() {
-    $('tabs').querySelectorAll('button').forEach(function (b) {
-      b.onclick = function () {
-        $('tabs').querySelectorAll('button').forEach(function (x) { x.classList.remove('active'); });
-        document.querySelectorAll('.tab-body').forEach(function (x) { x.classList.remove('active'); });
-        b.classList.add('active'); $('tab-' + b.dataset.tab).classList.add('active');
-      };
-    });
+    $('tabs').querySelectorAll('button').forEach(function (b) { b.onclick = function () { activateTab(b.dataset.tab); }; });
     $('wave-btn').onclick = function () { Game.startBattle(); };
     $('defense-btn').onclick = openDefenseMenu;
+    $('home-btn').onclick = openHome;
+    bindHome();
     // VN会話劇：本文クリックで送り、スキップで即終了
     var vn = $('vn');
     vn.onclick = function (e) { if (e.target.classList.contains('vn-skip')) { endStory(); return; } vnAdvance(); };

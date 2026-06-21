@@ -39,6 +39,7 @@
     <canvas id="lane"></canvas>
     <div id="cutin"><div class="ci-inner"><div class="ci-jp"></div><div class="ci-en"></div></div></div>
     <div id="battle-control">
+      <button id="home-btn">🏠 執務室</button>
       <button id="wave-btn">▶ 次の波を呼ぶ</button>
       <button id="defense-btn" style="display:none">🛡 暫時防衛</button>
       <span id="phase-hint"></span>
@@ -75,6 +76,39 @@
       <div class="cc-sub"></div>
     </div>
     <div class="cc-skip">クリックでスキップ ▶</div>
+  </div>
+
+  <!-- ホーム画面（執務室ハブ） -->
+  <div id="home">
+    <div class="home-bg"></div>
+    <div class="home-window"><span class="hw-dome"></span></div>
+    <div class="home-pipes"></div>
+    <div class="home-inner">
+      <div class="home-head">
+        <div class="home-title">管理執務室<span>OORT COMMAND OFFICE</span></div>
+        <div class="home-status">
+          <span id="home-chap">―</span>
+          <i class="hs-sep"></i>
+          <span class="hs-r" title="鉄">⛓ <b id="home-iron">0</b></span>
+          <span class="hs-r" title="研究">🔬 <b id="home-res">0</b></span>
+          <span class="hs-r" title="採取モジュール">📦 <b id="home-mod">0/0</b></span>
+        </div>
+      </div>
+      <div class="home-kchaos"><span class="hk-orb">🤖</span><span id="home-greet">本日も業務、よろしくお願いしますね、マスター。</span></div>
+      <div class="home-menu">
+        <button class="home-btn primary" data-home="story">
+          <span class="hb-ic">📖</span><span class="hb-tx"><b>メインストーリー</b><i>前線へ出て、防衛と物語を進める</i></span>
+        </button>
+        <div class="home-grid">
+          <button class="home-btn" data-home="zone"><span class="hb-ic">⛏</span><span class="hb-tx"><b>鉱区</b><i>採取モジュールの配置</i></span></button>
+          <button class="home-btn" data-home="fac"><span class="hb-ic">🏗</span><span class="hb-tx"><b>設備</b><i>製錬・発電などの建設</i></span></button>
+          <button class="home-btn" data-home="fab"><span class="hb-ic">🏭</span><span class="hb-tx"><b>部品工場</b><i>ボディ・ヘッド・ウェポン生産</i></span></button>
+          <button class="home-btn" data-home="asm"><span class="hb-ic">⚙</span><span class="hb-tx"><b>組立</b><i>機体設計と量産ライン</i></span></button>
+          <button class="home-btn" data-home="tech"><span class="hb-ic">🔬</span><span class="hb-tx"><b>研究</b><i>兵科・規格・特殊の解放</i></span></button>
+          <button class="home-btn" data-home="defense"><span class="hb-ic">🛡</span><span class="hb-tx"><b>暫時防衛</b><i id="home-def-sub">章クリアで解放</i></span></button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- VN会話劇（立ち絵＋名前＋台詞） -->
