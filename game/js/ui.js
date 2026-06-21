@@ -69,8 +69,9 @@
     ['left', 'right'].forEach(function (side) {
       var slot = $('vn').querySelector('.vn-portrait.' + side), who = vnStage[side];
       if (!who) { slot.innerHTML = ''; slot.className = 'vn-portrait ' + side; return; }
+      var ch = G.CHARACTERS[who] || {};
       slot.innerHTML = portraitHTML(who, vnExpr[who] || 'neutral');
-      slot.className = 'vn-portrait ' + side + (who === active ? ' on' : ' off');
+      slot.className = 'vn-portrait ' + side + (who === active ? ' on' : ' off') + (ch.hud ? ' hud' : '');
     });
   }
   function vnShake() { var el = $('vn'); el.classList.remove('vn-shake'); void el.offsetWidth; el.classList.add('vn-shake'); }
