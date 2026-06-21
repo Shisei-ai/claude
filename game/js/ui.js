@@ -384,6 +384,11 @@
     if (st.pierce) sp.push('貫' + st.pierce);
     if (st.lifesteal) sp.push('吸' + Math.round(st.lifesteal * 100) + '%');
     if (st.regen) sp.push('再' + Math.round(st.regen * 100) + '%/s');
+    if (st.slow) sp.push('鈍' + Math.round((1 - st.slow) * 100) + '%');
+    if (st.stunChance) sp.push('麻' + Math.round(st.stunChance * 100) + '%');
+    if (st.shield) sp.push('盾' + Math.round(st.shield * 100) + '%');
+    if (st.thorns) sp.push('反' + Math.round(st.thorns * 100) + '%');
+    if (st.multishot) sp.push('多' + st.multishot);
     var spStr = sp.length ? '・<span class="asm-sp">' + sp.join('/') + '</span>' : '';
 
     // 部品供給チェック：このラインのボディ/ウェポンを生産している工場があるか
@@ -632,6 +637,9 @@
       } else if (ev.k === 'heal') {
         var hl = W2S(ev.x, ev.y, g);
         for (var hh = 0; hh < 4; hh++) spawnParticle({ x: hl.x + rand(-6, 6) * dpr, y: hl.y - rand(0, 8) * dpr, vx: rand(-7, 7) * dpr, vy: -rand(28, 58) * dpr, g: -30, life: rand(0.4, 0.7), max: 0.7, size: rand(1.4, 2.4) * dpr, color: '#6bff9e', glow: true });
+      } else if (ev.k === 'stun') {
+        var su = W2S(ev.x, ev.y, g);
+        for (var kk = 0; kk < 5; kk++) { var sa = rand(0, 6.28); spawnParticle({ x: su.x, y: su.y - 10 * dpr, vx: Math.cos(sa) * 45 * dpr, vy: Math.sin(sa) * 45 * dpr - 20 * dpr, g: 80, life: rand(0.3, 0.5), max: 0.5, size: rand(1.2, 2.2) * dpr, color: '#ffe06a', glow: true }); }
       } else if (ev.k === 'boss') {
         showCutin(ev.jp || '警告　巨核接近', ev.en || 'WARNING : TITAN', 'boss', 2800);
         addShake(6 * dpr, 0.5);
@@ -869,8 +877,15 @@
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = rg;
       ctx.fillRect(drawX - spr.w * px, gy - spr.h * px, spr.w * px * 2, spr.h * px * 2); ctx.restore();
     }
+    if (ent.slowT > 0 && !(ent.stunT > 0)) drawAura(drawX, footY - spr.h * px * 0.5, spr.w * px * 0.75, 'rgba(90,170,255,0.30)');  // 鈍化
     drawSprite(spr, drawX, footY, px, flip, null);
     if (flash) { ctx.save(); ctx.globalAlpha = flash; drawSprite(spr, drawX, footY, px, flip, null, '#ffffff'); ctx.restore(); }
+    if (ent.stunT > 0) {   // 麻痺：頭上で回る星
+      var sy2 = footY - spr.h * px - 6 * dpr;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = '#ffe06a';
+      for (var st2 = 0; st2 < 3; st2++) { var ang2 = T * 9 + st2 * 2.094; ctx.beginPath(); ctx.arc(drawX + Math.cos(ang2) * 6 * dpr, sy2 + Math.sin(ang2) * 2 * dpr, 1.6 * dpr, 0, 7); ctx.fill(); }
+      ctx.restore();
+    }
     hpBar(ent, sp.x, footY - spr.h * px - 3 * dpr, (spec.boss ? 20 : 10) * dpr, dpr, true);
   }
   function hpBar(ent, x, y, r, dpr, enemy) {

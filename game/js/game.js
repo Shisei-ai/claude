@@ -167,6 +167,7 @@
     var speed = b.speed, range = b.range, rate = b.rate;
     var hpMult = 1, dmgMult = 1, speedMult = 1, rateMult = 1;
     var antiAir = b.antiAir, lifesteal = 0, crit = 0, critMult = 1, pierce = 0, regen = 0;
+    var slow = 0, slowDur = 0, shield = 0, thorns = 0, multishot = 0, stunChance = 0, stunDur = 0;
     (bp.cpus || []).forEach(function (id) {
       var e = G.CPUS[id] && G.CPUS[id].effect; if (!e) return;
       if (e.def) def += e.def; if (e.range) range += e.range;
@@ -178,6 +179,11 @@
       if (e.critMult) critMult = Math.max(critMult, e.critMult);
       if (e.pierce) pierce += e.pierce;
       if (e.regen) regen += e.regen;
+      if (e.slow) { slow = slow ? Math.min(slow, e.slow) : e.slow; slowDur = Math.max(slowDur, e.slowDur || 1); }
+      if (e.shield) shield += e.shield;
+      if (e.thorns) thorns += e.thorns;
+      if (e.multishot) multishot += e.multishot;
+      if (e.stunChance) { stunChance += e.stunChance; stunDur = Math.max(stunDur, e.stunDur || 0.6); }
     });
     var w = G.WEAPONS[bp.weapon], wc = w.compute(t.weapon);
     dmgMult *= wc.dmgMult;
@@ -186,13 +192,16 @@
       hp: hp * hpMult, dmg: dmg * dmgMult, def: def, speed: speed * speedMult,
       range: range, rate: rate * rateMult, grade: t.body, wgrade: t.weapon,
       lifesteal: lifesteal, crit: crit, critMult: critMult, pierce: pierce, regen: regen,
+      slow: slow, slowDur: slowDur, shield: shield, thorns: thorns, multishot: multishot, stunChance: stunChance, stunDur: stunDur,
       weapon: { kind: w.kind, aoe: wc.aoe || 0, chain: wc.chain || 0 },
     };
   }
 
   function spawnUnit(stats) {
     var a = Math.random() * 6.2832, r = DOME + 8 + Math.random() * 10;
-    state.units.push({ stats: stats, side: 'p', x: Math.cos(a) * r, y: Math.sin(a) * r, hp: stats.hp, maxHp: stats.hp, cd: 0 });
+    var u = { stats: stats, side: 'p', x: Math.cos(a) * r, y: Math.sin(a) * r, hp: stats.hp, maxHp: stats.hp, cd: 0 };
+    if (stats.shield > 0) { u.shieldMax = stats.shield * stats.hp; u.shield = u.shieldMax; }
+    state.units.push(u);
     state.stats.built++; vfx({ k: 'spawn', x: Math.cos(a) * r, y: Math.sin(a) * r, body: stats.body, a: stats.domain === 'air' });
   }
   function spawnEnemy(id) {
@@ -396,6 +405,9 @@
   function dealDamage(target, raw, pierce) {
     var def = defOf(target) - (pierce || 0); if (def < 0) def = 0;
     var dmg = Math.max(G.MIN_DMG, raw - def);
+    if (target.side === 'p' && target.shield > 0) {          // 遮蔽CPU：シールドで吸収
+      var ab = Math.min(target.shield, dmg); target.shield -= ab; dmg -= ab; target._shdCd = 1.4;
+    }
     target.hp -= dmg; target.hitT = 0.13; return dmg;
   }
   // 視覚イベント（純粋に演出用。ui.js が消費する。ロジックには影響しない）
@@ -409,7 +421,7 @@
     u.fireT = 0.17;
     var token = ++state._atkToken, dealt = 0;
     vfx({ k: 'shot', side: 'p', body: s.body, x1: u.x, y1: u.y, x2: target.x, y2: target.y, kind: w.kind, crit: isCrit });
-    target._t = token; dealt += dealDamage(target, raw, pen);
+    target._t = token; dealt += dealDamage(target, raw, pen); applyCC(target, s);
     if (w.aoe > 0) {
       for (var i = 0; i < state.enemies.length; i++) {
         var e = state.enemies[i];
@@ -434,9 +446,27 @@
         nx._t = token; dealt += dealDamage(nx, raw * mult, pen); cur = nx;
       }
     }
+    if (s.multishot > 0) {                                // 多重CPU：近くの敵を追撃
+      var hitn = 0;
+      for (var m = 0; m < state.enemies.length && hitn < s.multishot; m++) {
+        var em = state.enemies[m];
+        if (em._t === token || !canHit(s, em)) continue;
+        if (d2(em, u) <= s.range + 30) {
+          em._t = token; dealt += dealDamage(em, raw * 0.6, pen);
+          vfx({ k: 'shot', side: 'p', body: s.body, x1: u.x, y1: u.y, x2: em.x, y2: em.y, kind: 'single' });
+          hitn++;
+        }
+      }
+    }
     if (s.lifesteal && u.hp < u.maxHp) {                 // 吸命CPU
       u.hp = Math.min(u.maxHp, u.hp + dealt * s.lifesteal);
       if (Math.random() < 0.4) vfx({ k: 'heal', x: u.x, y: u.y });
+    }
+  }
+  function applyCC(en, s) {
+    if (s.slow) { en.slowT = Math.max(en.slowT || 0, s.slowDur); en.slowM = s.slow; }      // 鈍化CPU
+    if (s.stunChance && Math.random() < s.stunChance) {                                      // 麻痺CPU
+      en.stunT = Math.max(en.stunT || 0, s.stunDur); vfx({ k: 'stun', x: en.x, y: en.y });
     }
   }
   function moveToward(ent, tx, ty, sp, dt) {
@@ -452,6 +482,10 @@
       u = state.units[i]; s = u.stats; u.cd -= dt;
       if (u.fireT > 0) u.fireT -= dt; if (u.hitT > 0) u.hitT -= dt;
       if (s.regen && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + u.maxHp * s.regen * dt);  // 修復CPU
+      if (u.shieldMax > 0) {                                                                    // 遮蔽CPU：被弾が止むと再生
+        if (u._shdCd > 0) u._shdCd -= dt;
+        else if (u.shield < u.shieldMax) u.shield = Math.min(u.shieldMax, u.shield + u.shieldMax * 0.25 * dt);
+      }
       target = nearestHittable(state.enemies, u, s);
       if (!target) continue;                                  // 敵がいなければ待機
       var d = d2(u, target);
@@ -463,15 +497,19 @@
     for (i = 0; i < state.enemies.length; i++) {
       e = state.enemies[i]; spec = G.ENEMIES[e.type]; e.cd -= dt;
       if (e.fireT > 0) e.fireT -= dt; if (e.hitT > 0) e.hitT -= dt;
+      if (e.slowT > 0) e.slowT -= dt;
+      if (e.stunT > 0) { e.stunT -= dt; continue; }            // 麻痺：行動不能
+      var espeed = spec.speed * (e.slowT > 0 ? (e.slowM || 1) : 1);   // 鈍化
       target = nearestHittable(state.units, e, spec);
       var inRange = target && d2(e, target) <= spec.range;
       var dc = distC(e);
-      if (!inRange && dc > DOME + spec.range) moveToward(e, 0, 0, spec.speed, dt);
+      if (!inRange && dc > DOME + spec.range) moveToward(e, 0, 0, espeed, dt);
       if (e.cd <= 0) {
         if (inRange) {
           e.fireT = 0.17;
           vfx({ k: 'shot', side: 'e', col: spec.color, x1: e.x, y1: e.y, x2: target.x, y2: target.y });
-          dealDamage(target, spec.dmg); e.cd = 1 / spec.rate;
+          var tdmg = dealDamage(target, spec.dmg); e.cd = 1 / spec.rate;
+          if (target.stats && target.stats.thorns) { e.hp -= tdmg * target.stats.thorns; e.hitT = 0.13; }  // 反射CPU
         } else if (dc <= DOME + spec.range) {
           state.hqHp -= spec.dmg; e.cd = 1 / spec.rate;
           var n = dc || 1; vfx({ k: 'hqhit', x: e.x / n * DOME, y: e.y / n * DOME, col: spec.color });

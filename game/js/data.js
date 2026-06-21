@@ -111,6 +111,12 @@
     cpu_drain:   { name: '吸命CPU', icon: '🩸', effect: { lifesteal: 0.30 }, desc: '与ダメージの30%だけ自己回復' },
     cpu_regen:   { name: '修復CPU', icon: '✚', effect: { regen: 0.05 }, desc: '毎秒 最大HPの5%を回復' },
     cpu_guard:   { name: '反応装甲CPU', icon: '🧱', effect: { def: 2, hpMult: 0.12 }, desc: '防御力 +2／最大HP +12%' },
+    // 状態異常・特殊挙動
+    cpu_slow:    { name: '鈍化CPU', icon: '❄', effect: { slow: 0.55, slowDur: 1.6 }, desc: '命中した敵の移動速度を45%低下（1.6秒）' },
+    cpu_stun:    { name: '麻痺CPU', icon: '✦', effect: { stunChance: 0.15, stunDur: 0.8 }, desc: '15%の確率で敵を0.8秒 行動不能に' },
+    cpu_shield:  { name: '遮蔽CPU', icon: '◈', effect: { shield: 0.40 }, desc: '最大HPの40%のシールド（被弾が止むと再生）' },
+    cpu_thorns:  { name: '反射CPU', icon: '⟐', effect: { thorns: 0.30 }, desc: '被弾時、受けたダメージの30%を反射' },
+    cpu_multi:   { name: '多重CPU', icon: '⁂', effect: { multishot: 2 }, desc: '攻撃時、近くの敵 最大2体を追撃（威力60%）' },
   };
 
   // ---- ウェポン（武器性能・ライン毎に選択） -------------------------------
@@ -196,6 +202,11 @@
     cpu_crit:    { name: 'CPU:暴撃', branch: 'CPU', cost: 100, req: ['cpu_power'], desc: '暴撃CPU（確率2倍）を解放。', effect: { unlockCpu: 'cpu_crit' } },
     cpu_drain:   { name: 'CPU:吸命', branch: 'CPU', cost: 110, req: ['headTier2'], desc: '吸命CPU（与ダメで回復）を解放。', effect: { unlockCpu: 'cpu_drain' } },
     cpu_regen:   { name: 'CPU:修復', branch: 'CPU', cost: 90, req: ['cpu_plate'], desc: '修復CPU（毎秒HP回復）を解放。', effect: { unlockCpu: 'cpu_regen' } },
+    cpu_slow:    { name: 'CPU:鈍化', branch: 'CPU', cost: 90, req: ['cpu_scope'], desc: '鈍化CPU（敵を減速）を解放。', effect: { unlockCpu: 'cpu_slow' } },
+    cpu_stun:    { name: 'CPU:麻痺', branch: 'CPU', cost: 130, req: ['cpu_slow'], desc: '麻痺CPU（確率で行動不能）を解放。', effect: { unlockCpu: 'cpu_stun' } },
+    cpu_shield:  { name: 'CPU:遮蔽', branch: 'CPU', cost: 110, req: ['cpu_plate'], desc: '遮蔽CPU（再生シールド）を解放。', effect: { unlockCpu: 'cpu_shield' } },
+    cpu_thorns:  { name: 'CPU:反射', branch: 'CPU', cost: 90, req: ['cpu_guard'], desc: '反射CPU（被弾を反射）を解放。', effect: { unlockCpu: 'cpu_thorns' } },
+    cpu_multi:   { name: 'CPU:多重', branch: 'CPU', cost: 120, req: ['cpu_crit'], desc: '多重CPU（近接敵を追撃）を解放。', effect: { unlockCpu: 'cpu_multi' } },
 
     // 特殊
     command1:  { name: '指揮系統拡張', branch: '特殊', cost: 70, req: [], desc: '指揮容量 +12。', effect: { capacity: 12 } },
