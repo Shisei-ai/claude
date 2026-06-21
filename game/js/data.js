@@ -196,7 +196,7 @@
     narration: { name: '', color: '#cdd8e6', side: 'center' },
     oort:   { name: '【オールト】', color: '#9fb4c8', side: 'center', icon: '📡' },
     kchaos: { name: 'ケイオス',     color: '#37d0ff', side: 'left',  icon: '🤖', img: {} },
-    master: { name: '管理者',       color: '#ffd24a', side: 'right', icon: '🧑', img: {} },
+    master: { name: '管理者',       color: '#ffd24a', side: 'right', icon: '🧑', img: { neutral: 'portraits/master.png' } },
     swarm:  { name: '？？？',       color: '#ff5d6c', side: 'right', icon: '☣', img: {} },
   };
 
