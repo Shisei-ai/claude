@@ -37,7 +37,7 @@
       chapter: 0, wave: 0, phase: 'intro',
       spawns: [], battleTime: 0,
       stats: { kills: 0, lost: 0, built: 0 },
-      pendingStory: null, pendingChoice: null,
+      pendingStory: null, pendingChoice: null, storyReturn: null,
       mod: null, _atkToken: 0, _turretTick: 0,
     };
   }
@@ -300,14 +300,27 @@
     state.spawns.sort(function (a, b) { return a.t - b.t; });
     state.battleTime = 0; state.phase = 'battle';
   }
+  // 戦闘勝利での解放（鉱区・モジュール）。波単位で即時適用。
+  function applyWaveGrant(gr) {
+    if (!gr) return;
+    if (gr.zones) for (var j = 0; j < gr.zones.length; j++) { var zi = gr.zones[j]; if (state.zones[zi]) state.zones[zi].unlocked = true; }
+    if (gr.modules) { state.modules += gr.modules; state.grantedModules += gr.modules; }
+    recomputeMod();
+  }
   function onWaveCleared() {
     var wave = currentWave();
     addMat('iron', wave.reward.ore);   // 報酬は鉄として受け取る
     state.research += wave.reward.research;
+    if (wave.grant) applyWaveGrant(wave.grant);          // 戦闘勝利での鉱区解放など
     state.wave++;
-    if (state.wave < currentChapter().waves.length) state.phase = 'prep';
-    else { state.pendingStory = currentChapter().outro; state.pendingChoice = currentChapter().choice; state.phase = 'story'; }
+    if (state.wave < currentChapter().waves.length) {
+      if (wave.interlude) { state.pendingStory = wave.interlude; state.storyReturn = 'interlude'; state.phase = 'story'; }
+      else state.phase = 'prep';
+    } else {
+      state.pendingStory = currentChapter().outro; state.pendingChoice = currentChapter().choice; state.storyReturn = 'outro'; state.phase = 'story';
+    }
   }
+  function afterInterlude() { state.phase = 'prep'; }
   // 章の解放（鉱区・モジュール）。章開始時に一度だけ適用。
   function applyGrant() {
     if (state.grantsApplied[state.chapter]) return;
@@ -483,7 +496,7 @@
     setFabAssign: setFabAssign, setAssemblyBody: setAssemblyBody, setAssemblyWeapon: setAssemblyWeapon, toggleCpu: toggleCpu,
     computeStats: computeStats,
     canResearch: canResearch, doResearch: doResearch,
-    startBattle: startBattle, afterIntro: afterIntro, afterOutro: afterOutro, applyChoice: applyChoice,
+    startBattle: startBattle, afterIntro: afterIntro, afterInterlude: afterInterlude, afterOutro: afterOutro, applyChoice: applyChoice,
     currentChapter: currentChapter, currentWave: currentWave,
     constants: { domeR: DOME, spawnR: SPAWN, viewR: G.ARENA.viewR, turretR: TURRET_R },
     get state() { return state; },

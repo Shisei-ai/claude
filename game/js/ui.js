@@ -138,7 +138,7 @@
     if (s.phase === 'battle') showCutin('第' + (s.wave + 1) + '波　接近', 'WAVE ' + (s.wave + 1), 'wave', 2200);
     else if (s.phase === 'prep' && prev === 'battle') showCutin('波　殲滅', 'WAVE CLEAR', 'clear', 1900);
     if (s.phase === 'intro') showChapterCutin(s.chapter, function () { playStory(s.pendingStory, function () { Game.afterIntro(); }); });
-    else if (s.phase === 'story') playStory(s.pendingStory, function () { Game.afterOutro(); });
+    else if (s.phase === 'story') playStory(s.pendingStory, function () { if (Game.state.storyReturn === 'interlude') Game.afterInterlude(); else Game.afterOutro(); });
     else if (s.phase === 'choice') { var c = s.pendingChoice; showModal('決断', c.prompt, c.options, null, function (idx) { Game.applyChoice(c.options[idx]); log('方針決定：' + c.options[idx].label); }, ''); }
     else if (s.phase === 'won') showModal('防衛成功', '襲撃を退けた。研究基地オールトは、まだ陥落していない。\n\n――だが、戦いはまだ終わらない。', null, 'もう一度 ↻', function () { restart(); }, 'win');
     else if (s.phase === 'lost') showModal('オールト 陥落', '防衛線は突破され、オールトの中枢は沈黙した。\n襲撃者が基地を呑み込んでいく……', null, '再起動 ↻', function () { restart(); }, 'lose');

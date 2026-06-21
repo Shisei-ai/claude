@@ -124,13 +124,13 @@
   // body/weapon は種類ごと、head は単一プール。
   G.STOCK_CAP = { body: 40, head: 80, weapon: 40 };
 
-  // ---- 敵（群体） ---------------------------------------------------------
+  // ---- 敵（イーヴィル：旧文明の機生兵が歪に進化した存在） ----------------
   G.ENEMIES = {
-    swarmling: { name: '小型・群体', icon: '▾', hp: 42, dmg: 6, def: 0, speed: 30, range: 24, rate: 0.9, bounty: 3, domain: 'ground', antiAir: false, color: '#e0556b' },
-    armored:   { name: '装甲・群体', icon: '◆', hp: 185, dmg: 14, def: 7, speed: 20, range: 26, rate: 1.1, bounty: 7, domain: 'ground', antiAir: false, color: '#c23b78' },
-    spitter:   { name: '砲塔・群体', icon: '✶', hp: 55, dmg: 19, def: 1, speed: 24, range: 145, rate: 1.1, bounty: 6, domain: 'ground', antiAir: false, color: '#d65fa0' },
-    wyrm:      { name: '飛翔・群体', icon: '✦', hp: 78, dmg: 16, def: 2, speed: 36, range: 110, rate: 1.0, bounty: 9, domain: 'air', antiAir: true, color: '#ff7ad0' },
-    titan:     { name: '巨核・群体', icon: '✪', hp: 1500, dmg: 60, def: 10, speed: 14, range: 34, rate: 1.5, bounty: 60, domain: 'ground', antiAir: true, color: '#ff3b3b', boss: true },
+    swarmling: { name: '小型・イーヴィル', icon: '▾', hp: 42, dmg: 6, def: 0, speed: 30, range: 24, rate: 0.9, bounty: 3, domain: 'ground', antiAir: false, color: '#e0556b' },
+    armored:   { name: '重装・イーヴィル', icon: '◆', hp: 185, dmg: 14, def: 7, speed: 20, range: 26, rate: 1.1, bounty: 7, domain: 'ground', antiAir: false, color: '#c23b78' },
+    spitter:   { name: '砲塔・イーヴィル', icon: '✶', hp: 55, dmg: 19, def: 1, speed: 24, range: 145, rate: 1.1, bounty: 6, domain: 'ground', antiAir: false, color: '#d65fa0' },
+    wyrm:      { name: '飛翔・イーヴィル', icon: '✦', hp: 78, dmg: 16, def: 2, speed: 36, range: 110, rate: 1.0, bounty: 9, domain: 'air', antiAir: true, color: '#ff7ad0' },
+    titan:     { name: '巨核・イーヴィル', icon: '✪', hp: 1500, dmg: 60, def: 10, speed: 14, range: 34, rate: 1.5, bounty: 60, domain: 'ground', antiAir: true, color: '#ff3b3b', boss: true },
   };
 
   // ---- 研究ツリー ---------------------------------------------------------
@@ -202,12 +202,17 @@
   // ---- シナリオ（章 → 波） -----------------------------------------------
   //   intro / outro は「文字列（地の文）」または「ビート配列（VN会話劇）」を取れる。
   //   ビート: { who, text, expr, pos, fx, bg, cutin } ／ 詳細は STORY.md 参照。
-  function w(enemies, reward) { return { enemies: enemies, reward: reward }; }
+  //   opts（任意）: { grant:{zones,modules}（勝利で解放）, interlude:[ビート]（戦闘後の幕間会話） }
+  function w(enemies, reward, opts) {
+    var o = { enemies: enemies, reward: reward };
+    if (opts) { if (opts.grant) o.grant = opts.grant; if (opts.interlude) o.interlude = opts.interlude; }
+    return o;
+  }
 
   G.CHAPTERS = [
     {
       title: '第一章　研究基地オールト',
-      grant: { zones: [0, 1], modules: 4 },
+      grant: { zones: [0], modules: 4 },
       intro: [
         { who: 'oort', text: 'ID認証を行います──確認しました。\n情報を照合します──確定しました。\n権限を更新します──完了しました。' },
         { who: 'oort', text: 'ようこそ、人類文明の最前線たる研究基地【オールト】へ。\n当館の全ては貴方を歓迎し、服従します。' },
@@ -259,24 +264,69 @@
       choice: null,
     },
     {
-      title: '第二章　増殖する前線',
-      grant: { zones: [2, 3], modules: 2 },
-      intro:
-        '装甲を持つ個体が現れた。低火力の物量では装甲を割れない。\n' +
-        'ボディのグレード、出力CPU、あるいは重兵装――設計を見直せ。',
-      waves: [
-        w([{ type: 'swarmling', count: 12, delay: 0.5, gap: 0.8 }, { type: 'armored', count: 3, delay: 4, gap: 2.5 }], { ore: 130, research: 22 }),
-        w([{ type: 'spitter', count: 6, delay: 1, gap: 1.2 }, { type: 'armored', count: 4, delay: 5, gap: 2 }], { ore: 150, research: 26 }),
-        w([{ type: 'swarmling', count: 16, delay: 0.4, gap: 0.6 }, { type: 'armored', count: 5, delay: 6, gap: 1.8 }, { type: 'spitter', count: 4, delay: 10, gap: 1.5 }], { ore: 190, research: 32 }),
+      title: '第二章　旧文明の負債',
+      grant: { zones: [2, 3], modules: 2 },   // 銀・金（銅は第二鉱区解放戦の勝利で解放）
+      intro: [
+        { who: 'narration', text: '私が【オールト】に赴任して、1週間が経った。' },
+        { who: 'master', expr: 'neutral', text: '業務には慣れたが、あの化け物たち……【イーヴィル】と仮称するが、\n奴らのことは何も分からないままだな。' },
+        { who: 'kchaos', expr: 'neutral', text: '死体の解析ができれば良いのですが、霧となって消えてしまうのが問題です。\n物理法則に反していることが確かな以上、分かろうとすること自体が無駄かもしれませんが。' },
+        { who: 'master', expr: 'grim', text: '見たものを何とか解釈して考察するしかないだろう。虫っぽいが、どこか機械っぽくも見える……\nああクソ、謎でしかないな。' },
+        { who: 'kchaos', expr: 'neutral', text: '現状、イーヴィルについて調べられることは無さそうです。\n……ところで、マスターのおかげで設備に少し余裕が生まれました。\nどうでしょう、【鉱区】を解放し、資源を獲得しませんか？' },
+        { who: 'master', expr: 'neutral', text: '鉱区？……ああ、鉄資源を供給しているとか。手を入れられるのか？' },
+        { who: 'kchaos', expr: 'neutral', text: '鉱区には【資源産出モジュール】を配置することで、継続的にその資源を入手できます。\n……イーヴィルの襲撃によってほとんどの鉱区が占拠されましたが、マスターであれば取り戻せるはずです。' },
+        { who: 'master', expr: 'fired', text: 'ふむ……何をするにも資源が必要だ。すぐに取り掛かろう。' },
+        { who: 'kchaos', expr: 'neutral', cutin: { jp: '第二鉱区 解放戦', en: 'OPERATION: COPPER', cls: 'wave', dur: 2000 }, text: 'では第二鉱区――銅の採掘区へ。占拠するイーヴィルを排除し、資源ラインを取り戻しましょう。' },
       ],
-      outro: '捕獲個体のコアに旧文明の識別コード。この星はかつて、\n無人兵器工場の実験場だったのだ。',
-      choice: {
-        prompt: '旧文明の管制プロトコルを部分復元できる。',
-        options: [
-          { label: '生産網に統合（工業）', desc: '全工場の生産速度が永続+12%。', apply: { buildSpeed: 0.12 } },
-          { label: '指揮網に統合（特殊）', desc: '指揮容量が永続+8。', apply: { capacity: 8 } },
-        ],
-      },
+      waves: [
+        // ① 第二鉱区解放戦（銅をまだ持たない＝グレード1主体。勝利で鉱区Ⅱ／銅を解放）
+        w([{ type: 'swarmling', count: 10, delay: 1, gap: 0.9 }, { type: 'spitter', count: 2, delay: 6, gap: 2 }],
+          { ore: 120, research: 20 },
+          { grant: { zones: [1] }, interlude: [
+            { who: 'master', expr: 'neutral', text: 'ふう、銅が供給され始めたか。色々と進むだろうが、とはいえイーヴィルも待ってはくれない。' },
+            { who: 'kchaos', expr: 'neutral', text: '今までは一定間隔で襲撃されていましたが、それも保証はありません。\n打てる手は打っておく必要があるでしょう。' },
+            { who: 'master', expr: 'grim', text: '……こちらから出る、というわけにもいかないからな。\nまあ、今は愚直に資源を集めて設備を強化する他無いだろう。' },
+            { who: 'kchaos', expr: 'neutral', text: '私も同じ意見です、マスター。基本的な研究と開発を続けることが、今最も重要なタスクかと。' },
+            { who: 'master', expr: 'neutral', text: 'よし、当面はその方向で動こう。' },
+            { who: 'master', expr: 'neutral', text: '……ところでケイオス。何故、私がオールトの管理者にあてがわれたんだ？\n自分で言うのも何だが目立つ実績など無いし、戦闘指揮に至っては数回の義務教練をこなしただけだ。\nそれも、優れた成績ではなかったしな。私以上の適任など10人はいると思うが。' },
+            { who: 'narration', text: '束の間の世間話として、何の気無しに問い掛けた。\n実は優れた適正数値を示していたのか、何かしらの思惑なのか、はたまた単なる偶然なのか。\n別に何だって良いのだが、やはり少し気になるところだ。' },
+            { who: 'kchaos', expr: 'smile', text: '……おや、ご自身でお気付きになられていなかったのですか？　マスター。' },
+            { who: 'master', expr: 'neutral', text: 'ん……？' },
+            { who: 'narration', text: '帰ってきたのは、妙な言い回しだ。' },
+            { who: 'kchaos', expr: 'neutral', text: 'マスターが選ばれた理由、それは──' },
+            { who: 'narration', fx: 'flash', flashColor: 'rgba(255,40,40,.55)', cutin: { jp: '敵襲', en: 'ENEMY RAID', cls: 'boss', dur: 2000 }, text: 'ケイオスの音声を遮るように、けたたましいサイレンが鳴り響く。' },
+            { who: 'kchaos', expr: 'neutral', text: '──敵襲です。幾らか、新種も確認できます。' },
+            { who: 'master', expr: 'shock', text: '本当に待ってくれないな、イーヴィル共は！　新種は対応可能か？' },
+            { who: 'kchaos', expr: 'neutral', text: '銅資源を獲得したことにより、以前よりも強力なユニットを生産できるでしょう。\nラインを組み、戦闘に備えてください。' },
+          ] }),
+        // ② 新種・重装甲の襲撃
+        w([{ type: 'swarmling', count: 12, delay: 0.5, gap: 0.8 }, { type: 'armored', count: 4, delay: 4, gap: 2.2 }], { ore: 150, research: 26 }),
+        w([{ type: 'swarmling', count: 16, delay: 0.4, gap: 0.6 }, { type: 'armored', count: 5, delay: 6, gap: 1.8 }, { type: 'spitter', count: 4, delay: 10, gap: 1.5 }], { ore: 200, research: 34 }),
+      ],
+      outro: [
+        { who: 'master', expr: 'wry', text: '切り抜けたか……。厄介な新種だったな。' },
+        { who: 'kchaos', expr: 'smile', text: '流石マスターです。的確な指示でしたね。' },
+        { who: 'master', expr: 'wry', text: '世辞まで言うか、このAIめ。' },
+        { who: 'kchaos', expr: 'smile', text: '一つ、良い報告が。' },
+        { who: 'master', expr: 'neutral', text: '何？' },
+        { who: 'kchaos', expr: 'neutral', text: 'イーヴィルの正体、その一端が掴めました。' },
+        { who: 'master', expr: 'shock', text: '本当か！？　いや、でもどうやって……' },
+        { who: 'kchaos', expr: 'neutral', text: '先の戦闘中、不審な暗号通信をキャッチしました。発信元は、あの巨大なイーヴィル。\nその解析を進めたところ──' },
+        { who: 'master', expr: 'neutral', text: '……' },
+        { who: 'kchaos', expr: 'neutral', text: '──イーヴィルは、旧文明の負債であるようです。' },
+        { who: 'master', expr: 'shock', text: '旧文明……負債……？' },
+        { who: 'kchaos', expr: 'neutral', text: '旧文明について、どの程度ご存じですか？' },
+        { who: 'master', expr: 'neutral', text: '思い当たるのは、数千年前に存在した超科学文明、というくらいか。\nそもそもオカルトの類だと思っていたが……' },
+        { who: 'kchaos', expr: 'neutral', text: 'それは、実在しました。この【オールト】は旧文明の遺構の上に造られており──\n私の【オリジナル】は、旧文明によって開発されたのです。' },
+        { who: 'master', expr: 'grim', text: '……衝撃の事実、だな。だが、なるほど。現代の科学とは明らかに異なる部分は確かにあった。\n流石オールト、とか思っていたのだが、旧文明由来のものだったか。' },
+        { who: 'kchaos', expr: 'neutral', text: 'はい。そしてその旧文明では、ある研究がされていました。それが、【機生兵】――\n機械と生体を融合し、強力な武装と自己増殖を実現する研究です。' },
+        { who: 'master', expr: 'neutral', text: 'それが、イーヴィルの正体だと？' },
+        { who: 'kchaos', expr: 'neutral', text: '厳密には、機生兵をオリジナルとし、歪な方向へと進化したものがイーヴィルだと思われます。\n機生兵特有の通信波形が、イーヴィルではある種の言語として使われていました。\nガラパゴス化しており解読は不可能でしたが。' },
+        { who: 'master', expr: 'neutral', text: 'そうか……いや、かなりの進展だ、ケイオス。' },
+        { who: 'kchaos', expr: 'neutral', text: '解析を続けます。また判明したことがあれば、すぐに共有いたします。' },
+        { who: 'master', expr: 'neutral', text: 'ああ、頼んだ。' },
+        { who: 'kchaos', expr: 'smile', text: 'ひとまず、お疲れ様でした、マスター。' },
+      ],
+      choice: null,
     },
     {
       title: '第三章　暴走する遺産',
@@ -302,7 +352,7 @@
       title: '第四章　中枢炉',
       grant: { modules: 4 },
       intro:
-        '地表のハッチが開き、群体が濁流のように溢れ出す。\n' +
+        '地表のハッチが開き、イーヴィルが濁流のように溢れ出す。\n' +
         '全ての生産ラインを稼働させ、最後の防衛戦に臨め。',
       waves: [
         w([{ type: 'swarmling', count: 24, delay: 0.3, gap: 0.45 }, { type: 'wyrm', count: 8, delay: 4, gap: 0.8 }], { ore: 340, research: 64 }),
@@ -316,7 +366,7 @@
         ], { ore: 500, research: 120 }),
       ],
       outro:
-        '巨核が砕け、地下の脈動が静まる。群体の波は――止まった。\n' +
+        '巨核が砕け、地下の脈動が静まる。イーヴィルの波は――止まった。\n' +
         'だが偵察衛星は、隣の星系で同じ識別コードの反応を捉えていた。\n\n' +
         '――戦線は、まだ終わらない。',
       choice: null,
