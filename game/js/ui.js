@@ -5,7 +5,7 @@
   'use strict';
   var Game = G.Game;
   var $ = function (id) { return document.getElementById(id); };
-  var canvas, ctx, lastTime = 0, lastHudT = 0, lastSig = '';
+  var canvas, ctx, lastTime = 0, lastHudT = 0, lastSig = '', lastLaySig = '';
   var modalCallback = null;
 
   // ---- ログ --------------------------------------------------------------
@@ -537,6 +537,11 @@
     bar.style.background = hp > 0.5 ? 'linear-gradient(90deg,#2ee08a,#7fffb0)' : hp > 0.25 ? 'linear-gradient(90deg,#e0b62e,#ffd86b)' : 'linear-gradient(90deg,#e02e3e,#ff7b7b)';
     $('hq-label').textContent = 'オールト HP ' + Math.max(0, Math.ceil(s.hqHp)) + '/' + s.hqHpMax;
     var wb = $('wave-btn'); wb.disabled = s.phase !== 'prep';
+    var battle = s.phase === 'battle';
+    $('app').classList.toggle('battling', battle);                                  // 戦闘中はアリーナを主役に
+    $('app').classList.toggle('facmode', !battle && $('tab-prod').classList.contains('active'));
+    var laySig = (battle ? 'b' : '') + ($('app').classList.contains('facmode') ? 'f' : '');
+    if (laySig !== lastLaySig) { lastLaySig = laySig; resize(); }                   // レイアウト変化時にアリーナ解像度を更新
     var hb = $('home-btn'); hb.style.display = s.phase === 'prep' ? '' : 'none';
     var db = $('defense-btn'), navail = Game.defenseAvailable();
     db.style.display = (s.phase === 'prep' && navail > 0) ? '' : 'none';
