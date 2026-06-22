@@ -50,15 +50,11 @@
   <section id="panels">
     <nav id="tabs">
       <button data-tab="zone" class="active">⛏ 鉱区</button>
-      <button data-tab="fac">🏗 設備</button>
-      <button data-tab="fab">🏭 部品工場</button>
-      <button data-tab="asm">⚙ 組立</button>
+      <button data-tab="prod">🏭 生産ライン</button>
       <button data-tab="tech">🔬 研究</button>
     </nav>
     <div id="tab-zone" class="tab-body active"></div>
-    <div id="tab-fac" class="tab-body"></div>
-    <div id="tab-fab" class="tab-body"></div>
-    <div id="tab-asm" class="tab-body"></div>
+    <div id="tab-prod" class="tab-body"></div>
     <div id="tab-tech" class="tab-body"></div>
   </section>
 
@@ -101,9 +97,7 @@
         </button>
         <div class="home-grid">
           <button class="home-btn" data-home="zone"><span class="hb-ic">⛏</span><span class="hb-tx"><b>鉱区</b><i>採取モジュールの配置</i></span></button>
-          <button class="home-btn" data-home="fac"><span class="hb-ic">🏗</span><span class="hb-tx"><b>設備</b><i>製錬・発電などの建設</i></span></button>
-          <button class="home-btn" data-home="fab"><span class="hb-ic">🏭</span><span class="hb-tx"><b>部品工場</b><i>ボディ・ヘッド・ウェポン生産</i></span></button>
-          <button class="home-btn" data-home="asm"><span class="hb-ic">⚙</span><span class="hb-tx"><b>組立</b><i>機体設計と量産ライン</i></span></button>
+          <button class="home-btn" data-home="prod"><span class="hb-ic">🏭</span><span class="hb-tx"><b>生産ライン</b><i>設備配置とコンベア接続</i></span></button>
           <button class="home-btn" data-home="tech"><span class="hb-ic">🔬</span><span class="hb-tx"><b>研究</b><i>兵科・規格・特殊の解放</i></span></button>
           <button class="home-btn" data-home="defense"><span class="hb-ic">🛡</span><span class="hb-tx"><b>暫時防衛</b><i id="home-def-sub">章クリアで解放</i></span></button>
         </div>
@@ -141,6 +135,7 @@
 
 <script src="js/data.js"></script>
 <script src="js/sprites.js"></script>
+<script src="js/factory.js"></script>
 <script src="js/game.js"></script>
 <script src="js/ui.js"></script>
 </body>

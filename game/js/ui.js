@@ -242,181 +242,202 @@
   }
 
   // =======================================================================
-  //  設備タブ（鉄で建設。電力/ユーティリティ/製錬/基盤）
+  //  生産タブ（グリッド・ファクトリー：配置＋コンベア）
   // =======================================================================
-  function buildFacPanel() {
-    var wrap = $('tab-fac');
-    wrap.innerHTML =
-      '<div class="hint">設備の建設コストは<b>鉄</b>。電力で稼働し、製錬系が 基本素材＋水/燃料 から' +
-      '<b>中間素材</b>（合金・回路・動力核）を生産する。</div>' +
-      '<div id="util-box"></div><div class="cards" id="fac-cards"></div>';
-    renderUtilBox();
-    var grid = $('fac-cards');
-    ['power', 'util', 'smelt', 'base'].forEach(function (cat) {
-      Object.keys(G.FACILITIES).forEach(function (id) {
-        var b = G.FACILITIES[id]; if (b.cat !== cat) return;
-        var extra = [];
-        if (b.power > 0) extra.push('+' + b.power + '電力'); else if (b.power < 0) extra.push(b.power + '電力');
-        if (b.water) extra.push('+' + b.water + '水/s'); if (b.fuel) extra.push('+' + b.fuel + '燃料/s');
-        if (b.module) extra.push('+モジュール'); if (b.research) extra.push('+' + b.research + '研究/s');
-        if (b.cap) extra.push('貯蔵+' + b.cap); if (b.capacity) extra.push('指揮+' + b.capacity);
-        var card = document.createElement('div'); card.className = 'card'; card.dataset.bid = id;
-        card.innerHTML =
-          '<div class="h"><span class="ci">' + b.icon + '</span><span class="nm">' + b.name + '</span><span class="ct" data-count></span></div>' +
-          '<div class="ds">' + b.desc + '</div>' +
-          '<div class="meta">' + extra.map(function (e) { return '<span>' + e + '</span>'; }).join('') + '</div>' +
-          '<button data-buy>建設 <span data-cost></span></button>';
-        card.querySelector('[data-buy]').onclick = function () { if (Game.buyFacility(id)) log(b.name + 'を建設。'); };
-        grid.appendChild(card);
-      });
-    });
-  }
-  function renderUtilBox() {
-    var s = Game.state, h = ['<div class="stock-title">ユーティリティ／中間素材 在庫</div><div class="stock-row">'];
-    h.push('<span class="schip" title="水">💧<b id="util-water">' + Math.floor(s.water) + '</b></span>');
-    h.push('<span class="schip" title="燃料">🛢<b id="util-fuel">' + Math.floor(s.fuel) + '</b></span><span class="sgap"></span>');
-    Object.keys(G.INTERMEDIATES).forEach(function (k) { var im = G.INTERMEDIATES[k]; h.push('<span class="schip" title="' + im.name + '">' + im.icon + '<b id="inter-' + k + '">' + Math.floor(s.inter[k]) + '</b></span>'); });
-    h.push('</div>'); $('util-box').innerHTML = h.join('');
-  }
+  var facTool = 'select', facSel = null, facCanvas = null, facCtx = null;
+  var FAC_CELL = 32, facDown = false, facLastKey = '';
+  var ITEM_COL = { alloy: '#cdd6e0', body: '#8fd0ff', head: '#c79bff', weapon: '#ffd24a' };
+  function itemColor(t) { return ITEM_COL[t] || (G.MAT_INFO[t] ? G.MAT_INFO[t].color : '#9fb4c8'); }
 
-  // =======================================================================
-  //  部品工場タブ
-  // =======================================================================
-  function buildFabPanel() {
-    var s = Game.state, wrap = $('tab-fab');
-    wrap.innerHTML =
-      '<div class="hint">部品工場は<b>準備中も稼働</b>し、ボディ/ヘッド/ウェポンを在庫に備蓄する。' +
-      '組立ラインがこの在庫を消費してユニットを生産する。</div>' +
-      '<div id="stock-box"></div>' +
-      '<div class="fab-cols">' +
-      '<div class="fab-col" id="fabcol-body"></div>' +
-      '<div class="fab-col" id="fabcol-head"></div>' +
-      '<div class="fab-col" id="fabcol-weapon"></div>' +
-      '</div>';
-    renderStockBox();
-    renderFabColumn('body', '🦿 ボディ工場（兵科）', $('fabcol-body'));
-    renderFabColumn('head', '🧠 ヘッド工場', $('fabcol-head'));
-    renderFabColumn('weapon', '🔫 ウェポン工場', $('fabcol-weapon'));
-  }
-
-  function renderStockBox() {
-    var s = Game.state, box = $('stock-box');
-    var parts = ['<div class="stock-title">部品在庫</div><div class="stock-rows">'];
-    parts.push('<div class="stock-row"><span class="sl">ボディ</span>');
-    BODY_KEYS.forEach(function (k) { if (s.unlockedBodies[k]) parts.push('<span class="schip">' + G.BODIES[k].icon + '<b id="stk-body-' + k + '">' + s.stock.body[k] + '</b></span>'); });
-    parts.push('</div>');
-    parts.push('<div class="stock-row"><span class="sl">ヘッド</span><span class="schip">🧠<b id="stk-head">' + s.stock.head + '</b></span></div>');
-    parts.push('<div class="stock-row"><span class="sl">ウェポン</span>');
-    WEAPON_KEYS.forEach(function (k) { if (s.unlockedWeapons[k]) parts.push('<span class="schip">' + G.WEAPONS[k].icon + '<b id="stk-weapon-' + k + '">' + s.stock.weapon[k] + '</b></span>'); });
-    parts.push('</div></div>');
-    box.innerHTML = parts.join('');
-  }
-
-  function renderFabColumn(kind, title, col) {
-    var s = Game.state, list = Game.industryList(kind);
-    var html = ['<div class="fab-head">' + title + ' <span class="fabn">×' + list.length + '</span></div>'];
-    list.forEach(function (f, i) {
-      html.push('<div class="fab-item">');
-      if (kind === 'head') {
-        html.push('<span class="fab-assign">ヘッド部品を生産</span>');
-      } else {
-        var keys = kind === 'body' ? BODY_KEYS : WEAPON_KEYS;
-        var src = kind === 'body' ? G.BODIES : G.WEAPONS;
-        var unlocked = kind === 'body' ? s.unlockedBodies : s.unlockedWeapons;
-        var sel = '<select data-fabsel="' + kind + '" data-idx="' + i + '">';
-        keys.forEach(function (k) { if (unlocked[k]) sel += '<option value="' + k + '"' + (f.assign === k ? ' selected' : '') + '>' + src[k].icon + ' ' + src[k].name + '</option>'; });
-        sel += '</select>';
-        html.push(sel);
-      }
-      html.push('<button class="xbtn" data-fabdel="' + kind + '" data-idx="' + i + '">×</button>');
-      html.push('</div>');
-    });
-    html.push('<button class="addbtn" data-fabadd="' + kind + '">＋ 追加 <span data-cost></span></button>');
-    col.innerHTML = html.join('');
-    // 配線
-    col.querySelectorAll('[data-fabsel]').forEach(function (selEl) {
-      selEl.onchange = function () { Game.setFabAssign(kind, +selEl.dataset.idx, selEl.value); markDirty(); };
-    });
-    col.querySelectorAll('[data-fabdel]').forEach(function (b) {
-      b.onclick = function () { Game.removeIndustry(kind, +b.dataset.idx); markDirty(); };
-    });
-    col.querySelector('[data-fabadd]').onclick = function () { if (Game.buyIndustry(kind)) { log(G.INDUSTRY[kind === 'body' ? 'bodyFab' : kind === 'head' ? 'headFab' : 'weaponFab'].name + 'を増設。'); markDirty(); } };
-  }
-
-  // =======================================================================
-  //  組立ラインタブ
-  // =======================================================================
-  function buildAsmPanel() {
-    var s = Game.state, wrap = $('tab-asm');
-    wrap.innerHTML =
-      '<div class="hint">組立ラインに設計（ボディ＋ウェポン＋ヘッドCPU）を組む。' +
-      '戦闘中に在庫を消費して連続生産する。スロット数＝ヘッド規格。</div>' +
-      '<div id="asm-list"></div>' +
-      '<button class="addbtn" data-asmadd>＋ 組立ライン追加 <span data-cost></span></button>';
-    var listEl = $('asm-list');
-    s.assemblies.forEach(function (a, i) { listEl.appendChild(renderAssembly(a, i)); });
-    wrap.querySelector('[data-asmadd]').onclick = function () { if (Game.buyIndustry('assembly')) { log('組立ラインを増設。'); markDirty(); } };
-  }
-
-  function renderAssembly(a, i) {
-    var s = Game.state, st = Game.computeStats(a);
-    var box = document.createElement('div'); box.className = 'asm';
-    // ボディ選択
-    var bsel = '<select data-asmbody="' + i + '">';
-    BODY_KEYS.forEach(function (k) { if (s.unlockedBodies[k]) bsel += '<option value="' + k + '"' + (a.body === k ? ' selected' : '') + '>' + G.BODIES[k].icon + ' ' + G.BODIES[k].name + '</option>'; });
-    bsel += '</select>';
-    // ウェポン選択
-    var wsel = '<select data-asmweapon="' + i + '">';
-    WEAPON_KEYS.forEach(function (k) { if (s.unlockedWeapons[k]) wsel += '<option value="' + k + '"' + (a.weapon === k ? ' selected' : '') + '>' + G.WEAPONS[k].icon + ' ' + G.WEAPONS[k].name + '</option>'; });
-    wsel += '</select>';
-    // CPUスロット
-    var slots = s.tiers.head, used = a.cpus.length;
-    var cpuChips = '';
-    Object.keys(G.CPUS).forEach(function (cid) {
-      if (!s.unlockedCpus[cid]) return;
-      var on = a.cpus.indexOf(cid) >= 0;
-      cpuChips += '<span class="cpuchip' + (on ? ' on' : '') + '" data-cpu="' + cid + '" data-idx="' + i + '" title="' + G.CPUS[cid].desc + '">' + G.CPUS[cid].icon + G.CPUS[cid].name.replace('CPU', '') + '</span>';
-    });
-    if (!cpuChips) cpuChips = '<span class="cpu-empty">（CPU未研究）</span>';
-    var wk = st.weapon.kind === 'aoe' ? '範囲' + st.weapon.aoe : st.weapon.kind === 'chain' ? '連鎖' + st.weapon.chain : '単体';
-    var sp = [];
-    if (st.crit) sp.push('暴' + Math.round(st.crit * 100) + '%');
-    if (st.pierce) sp.push('貫' + st.pierce);
-    if (st.lifesteal) sp.push('吸' + Math.round(st.lifesteal * 100) + '%');
-    if (st.regen) sp.push('再' + Math.round(st.regen * 100) + '%/s');
-    if (st.slow) sp.push('鈍' + Math.round((1 - st.slow) * 100) + '%');
-    if (st.stunChance) sp.push('麻' + Math.round(st.stunChance * 100) + '%');
-    if (st.shield) sp.push('盾' + Math.round(st.shield * 100) + '%');
-    if (st.thorns) sp.push('反' + Math.round(st.thorns * 100) + '%');
-    if (st.multishot) sp.push('多' + st.multishot);
-    var spStr = sp.length ? '・<span class="asm-sp">' + sp.join('/') + '</span>' : '';
-
-    // 部品供給チェック：このラインのボディ/ウェポンを生産している工場があるか
-    var bodyFed = s.bodyFabs.some(function (f) { return f.assign === a.body; });
-    var wpFed = s.weaponFabs.some(function (f) { return f.assign === a.weapon; });
-    var warn = '';
-    if (!bodyFed || !wpFed || s.headFabs.length === 0) {
-      var miss = [];
-      if (!bodyFed) miss.push(G.BODIES[a.body].name + 'ボディ');
-      if (!wpFed) miss.push(G.WEAPONS[a.weapon].name);
-      if (s.headFabs.length === 0) miss.push('ヘッド');
-      warn = '<div class="asm-warn">⚠ 未供給: ' + miss.join('・') + '（対応する工場が必要）</div>';
+  function buildProdPanel() {
+    var wrap = $('tab-prod');
+    if (!wrap.dataset.init) {
+      wrap.innerHTML =
+        '<div class="hint">設備をタイルに置き、<b>コンベア(⇢)</b>で繋いで生産を流す：' +
+        '<b>資源入力→製錬炉→部品工場→組立機</b>。電力が不足すると稼働が遅くなる。</div>' +
+        '<div id="fac-bar"></div>' +
+        '<div id="fac-wrap"><canvas id="fac-canvas"></canvas></div>' +
+        '<div id="fac-config"></div>';
+      wrap.dataset.init = '1';
+      facCanvas = $('fac-canvas'); facCtx = facCanvas.getContext('2d');
+      bindFactory();
+      buildFacBar();
     }
-
-    box.innerHTML =
-      '<div class="asm-row1"><span class="asm-ci">' + G.BODIES[a.body].icon + '</span>' + bsel + wsel +
-      '<button class="xbtn" data-asmdel="' + i + '">×</button></div>' +
-      '<div class="asm-stats">HP' + Math.round(st.hp) + '・攻' + Math.round(st.dmg) + '・防' + st.def +
-      '・速' + Math.round(st.speed) + '・射' + Math.round(st.range) + '・' + (st.domain === 'air' ? '空' : '地') +
-      (st.antiAir ? '/対空' : '') + '・武装:' + wk + spStr + '</div>' + warn +
-      '<div class="asm-cpu"><span class="slotlbl">CPUスロット ' + used + '/' + slots + '</span>' + cpuChips + '</div>';
-
-    box.querySelector('[data-asmbody]').onchange = function (e) { Game.setAssemblyBody(i, e.target.value); markDirty(); };
-    box.querySelector('[data-asmweapon]').onchange = function (e) { Game.setAssemblyWeapon(i, e.target.value); markDirty(); };
-    box.querySelector('[data-asmdel]').onclick = function () { Game.removeIndustry('assembly', i); markDirty(); };
-    box.querySelectorAll('[data-cpu]').forEach(function (chip) { chip.onclick = function () { Game.toggleCpu(i, chip.dataset.cpu); markDirty(); }; });
-    return box;
+    renderFacConfig();
   }
+  function buildFacBar() {
+    var bar = $('fac-bar'), h = [];
+    h.push('<div class="fac-tools">');
+    h.push('<button class="ftool" data-tool="select">⊹ 選択</button>');
+    h.push('<button class="ftool" data-tool="erase">🗑 撤去</button>');
+    h.push('<button class="ftool" id="fac-rot">⟳ 回転</button>');
+    G.MACH_ORDER.forEach(function (t) { var d = G.MACH[t];
+      h.push('<button class="ftool fmach" data-tool="' + t + '">' + d.icon + ' ' + d.name + '<i class="fcost" data-fcost="' + t + '"></i></button>');
+    });
+    h.push('</div>');
+    h.push('<div class="fac-readout"><span title="鉄">⛓ <b id="fac-iron">0</b></span>' +
+      '<span title="電力 供給/消費">⚡ <b id="fac-pow">0/0</b><em id="fac-eff"></em></span>' +
+      '<span class="fac-tip">配置=クリック／コンベアはドラッグで方向、回転で向き変更</span></div>');
+    bar.innerHTML = h.join('');
+    bar.querySelectorAll('[data-tool]').forEach(function (b) { if (b.id === 'fac-rot') return; b.onclick = function () { setTool(b.dataset.tool); }; });
+    $('fac-rot').onclick = function () { Game.facSetDir(facDirGet() + 1); if (facSel) { Game.facRotate(facSel.x, facSel.y); } };
+    setTool('select');
+  }
+  var _facDir = 0;
+  function facDirGet() { return _facDir; }
+  function setTool(t) {
+    facTool = t; _facDir = 0; Game.facSetDir(0);
+    $('fac-bar').querySelectorAll('[data-tool]').forEach(function (b) { b.classList.toggle('on', b.dataset.tool === t); });
+  }
+  function facCellAt(e) {
+    var r = facCanvas.getBoundingClientRect();
+    var x = Math.floor((e.clientX - r.left) / r.width * Game.state.factory.w);
+    var y = Math.floor((e.clientY - r.top) / r.height * Game.state.factory.h);
+    return { x: x, y: y };
+  }
+  function facApply(cx, cy, prev) {
+    var f = Game.state.factory; if (!G.Factory.inb(f, cx, cy)) return;
+    if (facTool === 'erase') { Game.facRemove(cx, cy); if (facSel && facSel.x === cx && facSel.y === cy) { facSel = null; renderFacConfig(); } markDirty(); return; }
+    if (facTool === 'select') { var c = G.Factory.cell(f, cx, cy); facSel = c ? { x: cx, y: cy } : null; renderFacConfig(); return; }
+    // 機械/ベルト配置
+    var dir = _facDir;
+    if (facTool === 'belt' && prev) { var ddx = cx - prev.x, ddy = cy - prev.y;   // ドラッグ方向＝流れ
+      if (ddx === 1) dir = 0; else if (ddy === 1) dir = 1; else if (ddx === -1) dir = 2; else if (ddy === -1) dir = 3;
+      var pc = G.Factory.cell(f, prev.x, prev.y); if (pc && pc.t === 'belt') pc.dir = dir;   // 直前ベルトも向き調整
+    }
+    if (!f.cells[cy * f.w + cx]) { if (Game.facBuild(cx, cy, facTool, dir)) markDirty(); }
+  }
+  function bindFactory() {
+    facCanvas.addEventListener('mousedown', function (e) {
+      facDown = true; var c = facCellAt(e); facLastKey = c.x + ',' + c.y; facApply(c.x, c.y, null);
+    });
+    facCanvas.addEventListener('mousemove', function (e) {
+      if (!facDown || facTool === 'select') return;
+      var c = facCellAt(e), key = c.x + ',' + c.y; if (key === facLastKey) return;
+      var pk = facLastKey.split(','), prev = { x: +pk[0], y: +pk[1] };
+      facLastKey = key; facApply(c.x, c.y, prev);
+    });
+    window.addEventListener('mouseup', function () { facDown = false; });
+  }
+
+  function renderFacConfig() {
+    var box = $('fac-config'); if (!box) return;
+    var f = Game.state.factory, s = Game.state;
+    if (!facSel) { box.innerHTML = '<div class="fac-cfg-empty">「選択」ツールで設備をクリックすると、ここで設定できます。</div>'; return; }
+    var c = G.Factory.cell(f, facSel.x, facSel.y);
+    if (!c) { box.innerHTML = ''; facSel = null; return; }
+    var d = G.MACH[c.t], h = ['<div class="fac-cfg-h"><b>' + d.icon + ' ' + d.name + '</b>' +
+      '<button class="xbtn" id="fac-del">撤去 ×</button></div>'];
+    if (c.t === 'intake') {
+      h.push('<label>採取する素材：<select id="cfg-mat">');
+      G.MATERIALS.forEach(function (m, i) { if (s.zones[i] && s.zones[i].unlocked) h.push('<option value="' + m + '"' + (c.mat === m ? ' selected' : '') + '>' + G.MAT_INFO[m].icon + ' ' + G.MAT_INFO[m].name + '</option>'); });
+      h.push('</select></label>');
+    } else if (c.t === 'fab') {
+      h.push('<label>生産部品：<select id="cfg-part">' +
+        ['body', 'head', 'weapon'].map(function (p) { var nm = p === 'body' ? 'ボディ' : p === 'head' ? 'ヘッド' : 'ウェポン'; return '<option value="' + p + '"' + (c.part === p ? ' selected' : '') + '>' + nm + '</option>'; }).join('') + '</select></label>');
+    } else if (c.t === 'smelter') {
+      h.push('<div class="fac-cfg-note">素材2つ → 合金。上流の資源入力を繋げてください。</div>');
+    } else if (c.t === 'assembler') {
+      h.push(renderAsmConfig(c));
+    } else {
+      h.push('<div class="fac-cfg-note">' + (d.gen ? '電力 +' + d.gen : d.research ? '研究 +' + d.research + '/s' : d.capacity ? '指揮容量 +' + d.capacity : d.module ? '採取モジュールを製造' : d.turret ? 'ドーム周囲の固定砲（対空可）' : '') + '</div>');
+    }
+    box.innerHTML = h.join('');
+    var del = $('fac-del'); if (del) del.onclick = function () { Game.facRemove(facSel.x, facSel.y); facSel = null; renderFacConfig(); markDirty(); };
+    var mat = $('cfg-mat'); if (mat) mat.onchange = function () { Game.facSetCfg(facSel.x, facSel.y, 'mat', mat.value); };
+    var part = $('cfg-part'); if (part) part.onchange = function () { Game.facSetCfg(facSel.x, facSel.y, 'part', part.value); markDirty(); };
+    wireAsmConfig(c);
+  }
+  function renderAsmConfig(c) {
+    var s = Game.state, st = Game.computeStats({ body: c.body, weapon: c.weapon, cpus: c.cpus });
+    var bsel = '<select id="cfg-body">';
+    BODY_KEYS.forEach(function (k) { if (s.unlockedBodies[k]) bsel += '<option value="' + k + '"' + (c.body === k ? ' selected' : '') + '>' + G.BODIES[k].icon + ' ' + G.BODIES[k].name + '</option>'; });
+    bsel += '</select>';
+    var wsel = '<select id="cfg-weapon">';
+    WEAPON_KEYS.forEach(function (k) { if (s.unlockedWeapons[k]) wsel += '<option value="' + k + '"' + (c.weapon === k ? ' selected' : '') + '>' + G.WEAPONS[k].icon + ' ' + G.WEAPONS[k].name + '</option>'; });
+    wsel += '</select>';
+    var slots = s.tiers.head, chips = '';
+    Object.keys(G.CPUS).forEach(function (cid) { if (!s.unlockedCpus[cid]) return;
+      var on = c.cpus.indexOf(cid) >= 0;
+      chips += '<span class="cpuchip' + (on ? ' on' : '') + '" data-acpu="' + cid + '" title="' + G.CPUS[cid].desc + '">' + G.CPUS[cid].icon + G.CPUS[cid].name.replace('CPU', '') + '</span>';
+    });
+    if (!chips) chips = '<span class="cpu-empty">（CPU未研究）</span>';
+    var sp = [];
+    if (st.crit) sp.push('暴' + Math.round(st.crit * 100) + '%'); if (st.pierce) sp.push('貫' + st.pierce);
+    if (st.lifesteal) sp.push('吸' + Math.round(st.lifesteal * 100) + '%'); if (st.regen) sp.push('再' + Math.round(st.regen * 100) + '%/s');
+    if (st.slow) sp.push('鈍' + Math.round((1 - st.slow) * 100) + '%'); if (st.stunChance) sp.push('麻' + Math.round(st.stunChance * 100) + '%');
+    if (st.shield) sp.push('盾' + Math.round(st.shield * 100) + '%'); if (st.thorns) sp.push('反' + Math.round(st.thorns * 100) + '%'); if (st.multishot) sp.push('多' + st.multishot);
+    var spStr = sp.length ? '・<span class="asm-sp">' + sp.join('/') + '</span>' : '';
+    var wk = st.weapon.kind === 'aoe' ? '範囲' + st.weapon.aoe : st.weapon.kind === 'chain' ? '連鎖' + st.weapon.chain : '単体';
+    return '<div class="asm-row1">' + bsel + wsel + '</div>' +
+      '<div class="asm-stats">HP' + Math.round(st.hp) + '・攻' + Math.round(st.dmg) + '・防' + st.def + '・速' + Math.round(st.speed) +
+      '・射' + Math.round(st.range) + '・' + (st.domain === 'air' ? '空' : '地') + (st.antiAir ? '/対空' : '') + '・武装:' + wk + spStr + '</div>' +
+      '<div class="asm-cpu"><span class="slotlbl">CPUスロット ' + c.cpus.length + '/' + slots + '</span>' + chips + '</div>';
+  }
+  function wireAsmConfig(c) {
+    if (!c || c.t !== 'assembler') return;
+    var b = $('cfg-body'); if (b) b.onchange = function () { Game.facSetCfg(facSel.x, facSel.y, 'body', b.value); renderFacConfig(); };
+    var w = $('cfg-weapon'); if (w) w.onchange = function () { Game.facSetCfg(facSel.x, facSel.y, 'weapon', w.value); renderFacConfig(); };
+    $('fac-config').querySelectorAll('[data-acpu]').forEach(function (chip) { chip.onclick = function () { Game.facToggleCpu(facSel.x, facSel.y, chip.dataset.acpu); renderFacConfig(); }; });
+  }
+
+  // ---- ファクトリー描画（メインループから毎フレーム） --------------------
+  function drawFactory() {
+    if (!facCtx || !$('tab-prod').classList.contains('active')) return;
+    var f = Game.state.factory, dpr = Math.min(2, window.devicePixelRatio || 1), cell = FAC_CELL;
+    var W = f.w * cell, H = f.h * cell;
+    if (facCanvas.width !== W * dpr) { facCanvas.width = W * dpr; facCanvas.height = H * dpr; facCanvas.style.width = W + 'px'; facCanvas.style.height = H + 'px'; }
+    var x = facCtx; x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    x.clearRect(0, 0, W, H);
+    x.fillStyle = '#0c131c'; x.fillRect(0, 0, W, H);
+    // グリッド線
+    x.strokeStyle = 'rgba(120,160,200,0.08)'; x.lineWidth = 1;
+    for (var gx = 0; gx <= f.w; gx++) { x.beginPath(); x.moveTo(gx * cell, 0); x.lineTo(gx * cell, H); x.stroke(); }
+    for (var gy = 0; gy <= f.h; gy++) { x.beginPath(); x.moveTo(0, gy * cell); x.lineTo(W, gy * cell); x.stroke(); }
+    var DX = G.FAC_DIR.DX, DY = G.FAC_DIR.DY;
+    for (var cy = 0; cy < f.h; cy++) for (var cx = 0; cx < f.w; cx++) {
+      var c = f.cells[cy * f.w + cx]; if (!c) continue;
+      var px = cx * cell, py = cy * cell, mid = cell / 2;
+      if (c.t === 'belt') {
+        x.fillStyle = '#16202b'; x.fillRect(px + 2, py + 2, cell - 4, cell - 4);
+        // 流れ方向のシェブロン（アニメ）
+        x.strokeStyle = 'rgba(120,200,255,0.5)'; x.lineWidth = 2;
+        var off = (T * 14) % 8, a = c.dir * Math.PI / 2;
+        x.save(); x.translate(px + mid, py + mid); x.rotate(a);
+        for (var ci = -1; ci <= 1; ci++) { var o = (ci * 10 + off) - 4; x.beginPath(); x.moveTo(-5, o - 4); x.lineTo(3, o); x.lineTo(-5, o + 4); x.stroke(); }
+        x.restore();
+        if (c.item) {   // 流れるアイテム
+          var ix = px + mid + (DX[c.dir]) * (c.p - 0.5) * cell, iy = py + mid + (DY[c.dir]) * (c.p - 0.5) * cell;
+          x.fillStyle = itemColor(c.item); x.beginPath(); x.arc(ix, iy, 5, 0, 7); x.fill();
+          x.strokeStyle = 'rgba(0,0,0,0.4)'; x.lineWidth = 1; x.stroke();
+        }
+      } else {
+        var d = G.MACH[c.t];
+        var bg = c.t === 'gen' ? '#3a2a12' : c.t === 'lab' ? '#10322f' : d.cat === 'util' ? '#1a2436' : '#1d2c3c';
+        x.fillStyle = bg; roundRect(x, px + 2, py + 2, cell - 4, cell - 4, 6); x.fill();
+        x.strokeStyle = (facSel && facSel.x === cx && facSel.y === cy) ? '#ffd24a' : '#33506a'; x.lineWidth = (facSel && facSel.x === cx && facSel.y === cy) ? 2.5 : 1.2; x.stroke();
+        // アイコン
+        x.font = (cell * 0.5) + 'px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+        x.fillText(d.icon, px + mid, py + mid + 1);
+        // 出力方向の矢印（フロー機械）
+        if (d.cat === 'flow' && c.t !== 'intake' || c.t === 'intake' || c.t === 'smelter' || c.t === 'fab' || c.t === 'assembler') {
+          x.fillStyle = 'rgba(150,210,255,0.8)';
+          var ax = px + mid + DX[c.dir] * (mid - 5), ay = py + mid + DY[c.dir] * (mid - 5);
+          x.beginPath(); x.arc(ax, ay, 2.4, 0, 7); x.fill();
+        }
+        // 進捗バー
+        if (d.ct) { var p = Math.min(1, (c.prog || 0) / d.ct); x.fillStyle = 'rgba(110,255,160,0.7)'; x.fillRect(px + 4, py + cell - 6, (cell - 8) * p, 3); }
+        // 入力バッファのピップ
+        var bufN = 0; if (c.inbuf) for (var bk in c.inbuf) bufN += c.inbuf[bk];
+        if (bufN > 0) { x.fillStyle = '#cdd6e0'; x.font = '9px sans-serif'; x.textAlign = 'right'; x.fillText(Math.min(99, bufN), px + cell - 4, py + 9); }
+        // ラベル（小）
+        x.fillStyle = 'rgba(160,190,215,0.6)'; x.font = '8px sans-serif'; x.textAlign = 'center';
+        var lbl = c.t === 'intake' ? (G.MAT_INFO[c.mat] ? G.MAT_INFO[c.mat].name : '') : c.t === 'fab' ? (c.part === 'body' ? 'ボディ' : c.part === 'head' ? 'ヘッド' : 'ウェポン') : c.t === 'assembler' ? (G.BODIES[c.body] ? G.BODIES[c.body].name : '') : '';
+        if (lbl) x.fillText(lbl, px + mid, py + cell - 9);
+      }
+    }
+  }
+  function roundRect(x, X, Y, w, h, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + w, Y, X + w, Y + h, r); x.arcTo(X + w, Y + h, X, Y + h, r); x.arcTo(X, Y + h, X, Y, r); x.arcTo(X, Y, X + w, Y, r); x.closePath(); }
 
   // =======================================================================
   //  研究タブ
@@ -450,21 +471,13 @@
   // =======================================================================
   function refreshNumbers() {
     var s = Game.state, iron = s.mat.iron;
-    // 設備
-    $('tab-fac').querySelectorAll('.card').forEach(function (card) {
-      var id = card.dataset.bid, cost = Game.facilityCost(id);
-      card.querySelector('[data-count]').textContent = '×' + (s.buildings[id] || 0);
-      card.querySelector('[data-cost]').innerHTML = ironCost(cost);
-      card.querySelector('[data-buy]').disabled = iron < cost;
-    });
-    // 工場の追加コスト
-    document.querySelectorAll('[data-fabadd]').forEach(function (b) {
-      var kind = b.dataset.fabadd, cost = Game.industryCost(kind);
-      var cs = b.querySelector('[data-cost]'); if (cs) cs.innerHTML = ironCost(cost);
-      b.disabled = iron < cost;
-    });
-    var asmAdd = document.querySelector('[data-asmadd]');
-    if (asmAdd) { var ac = Game.industryCost('assembly'); asmAdd.querySelector('[data-cost]').innerHTML = ironCost(ac); asmAdd.disabled = iron < ac; }
+    // 生産タブ：建設コスト・鉄・電力
+    if ($('tab-prod').classList.contains('active')) {
+      document.querySelectorAll('[data-fcost]').forEach(function (el) { var c = Game.facCost(el.dataset.fcost); el.innerHTML = '⛓' + c; el.classList.toggle('nocash', iron < c); });
+      var fi = $('fac-iron'); if (fi) fi.textContent = Math.floor(iron);
+      var pw = Game.facPower(), fp = $('fac-pow'); if (fp) fp.textContent = pw.supply + '/' + Math.round(pw.demand);
+      var fe = $('fac-eff'); if (fe) { fe.textContent = pw.eff < 0.999 ? ' 効率' + Math.round(pw.eff * 100) + '%' : ''; fe.className = pw.eff < 0.999 ? 'warn' : ''; }
+    }
     // 鉱区：素材在庫・モジュール数・産出レート
     G.MATERIALS.forEach(function (k) { var el = $('mat-' + k); if (el) el.textContent = Math.floor(s.mat[k]); });
     var free = Game.freeModules();
@@ -475,14 +488,6 @@
       var pl = document.querySelector('[data-zplus="' + i + '"]'); if (pl) pl.disabled = free <= 0;
       var mn = document.querySelector('[data-zminus="' + i + '"]'); if (mn) mn.disabled = zs.modules <= 0;
     });
-    // ユーティリティ／中間素材
-    var w = $('util-water'); if (w) w.textContent = Math.floor(s.water);
-    var fu = $('util-fuel'); if (fu) fu.textContent = Math.floor(s.fuel);
-    for (var ik in G.INTERMEDIATES) { var ie = $('inter-' + ik); if (ie) ie.textContent = Math.floor(s.inter[ik]); }
-    // 部品在庫
-    BODY_KEYS.forEach(function (k) { var el = $('stk-body-' + k); if (el) el.textContent = s.stock.body[k]; });
-    var hd = $('stk-head'); if (hd) hd.textContent = s.stock.head;
-    WEAPON_KEYS.forEach(function (k) { var el = $('stk-weapon-' + k); if (el) el.textContent = s.stock.weapon[k]; });
     // 研究
     $('tab-tech').querySelectorAll('.card').forEach(function (card) {
       var id = card.dataset.tid, done = !!s.researched[id], btn = card.querySelector('[data-tech]');
@@ -494,18 +499,13 @@
 
   // 構造シグネチャ（変化時のみパネル再構築）
   function structureSig() {
-    var s = Game.state, b = s.buildings;
-    return s.bodyFabs.length + ',' + s.headFabs.length + ',' + s.weaponFabs.length + ',' + s.assemblies.length +
-      '|' + Object.keys(s.researched).length + '|' + s.tiers.head + s.tiers.body + s.tiers.weapon +
-      '|' + Object.keys(b).map(function (k) { return b[k]; }).join('.') +
-      '|' + s.zones.map(function (z) { return (z.unlocked ? 'u' : '') + z.modules; }).join('.') +
-      '|' + s.bodyFabs.map(function (f) { return f.assign; }).join('') +
-      '|' + s.weaponFabs.map(function (f) { return f.assign; }).join('') +
-      '|' + s.assemblies.map(function (a) { return a.body + a.weapon + a.cpus.join(''); }).join('_');
+    var s = Game.state;
+    return Object.keys(s.researched).length + '|' + s.tiers.head + s.tiers.body + s.tiers.weapon +
+      '|' + s.zones.map(function (z) { return (z.unlocked ? 'u' : '') + z.modules; }).join('.');
   }
   var dirty = false;
   function markDirty() { dirty = true; }
-  function rebuildAll() { buildZonePanel(); buildFacPanel(); buildFabPanel(); buildAsmPanel(); buildTechPanel(); refreshNumbers(); lastSig = structureSig(); }
+  function rebuildAll() { buildZonePanel(); buildProdPanel(); buildTechPanel(); refreshNumbers(); lastSig = structureSig(); }
 
   // =======================================================================
   //  HUD
@@ -676,7 +676,7 @@
 
     drawArena(g, s);
     drawHQ(g, s);
-    var turrets = s.buildings.turret || 0;
+    var turrets = G.Factory.count(s.factory, 'turret');
     for (var t = 0; t < turrets; t++) drawTurret(g, (t / Math.max(turrets, 1)) * 6.2832 + T * 0.2);
 
     // 影（全体）→ 本体（画面Y＝奥行きでソート、手前を後描き）
@@ -956,6 +956,7 @@
     $('tabs').querySelectorAll('button').forEach(function (x) { x.classList.toggle('active', x.dataset.tab === name); });
     document.querySelectorAll('.tab-body').forEach(function (x) { x.classList.remove('active'); });
     var body = $('tab-' + name); if (body) body.classList.add('active');
+    $('app').classList.toggle('facmode', name === 'prod');   // 生産ラインは広く表示（戦場を縮小）
   }
   function bindTabs() {
     $('tabs').querySelectorAll('button').forEach(function (b) { b.onclick = function () { activateTab(b.dataset.tab); }; });
@@ -973,7 +974,7 @@
     var dt = lastTime ? (ts - lastTime) / 1000 : 0; lastTime = ts;
     if (dt > 0.1) dt = 0.1;
     Game.update(dt); handlePhase();
-    stepFX(dt, geo()); draw();
+    stepFX(dt, geo()); draw(); drawFactory();
     if (ts - lastHudT > 100) {
       lastHudT = ts; refreshHUD();
       var sig = structureSig();

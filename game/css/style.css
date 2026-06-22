@@ -449,3 +449,33 @@ body{
   border-radius:6px; cursor:pointer; font-weight:800; font-size:15px; line-height:1}
 .modbtn:hover{background:#2b5377}
 .modbtn:disabled{background:#1a2430; color:#566; border-color:#283544; cursor:default}
+
+/* ---- 生産ライン（グリッド・ファクトリー） ---- */
+#fac-bar{margin-bottom:8px}
+.fac-tools{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px}
+.ftool{display:inline-flex; align-items:center; gap:4px; background:#16202c; color:#cfe0ef;
+  border:1px solid #27384a; border-radius:7px; padding:5px 9px; cursor:pointer; font-size:12px; line-height:1}
+.ftool:hover{border-color:var(--accent)}
+.ftool.on{background:#1d3a4d; border-color:var(--accent); color:#dff4ff; box-shadow:0 0 0 1px rgba(55,208,255,.3)}
+.ftool .fcost{font-style:normal; color:var(--ore); font-size:11px; margin-left:2px}
+.ftool .fcost.nocash{color:var(--bad)}
+.fac-readout{display:flex; align-items:center; gap:14px; font-size:12px; color:var(--txt); flex-wrap:wrap}
+.fac-readout b{color:#fff}
+.fac-readout em{font-style:normal; color:var(--dim)}
+.fac-readout em.warn{color:var(--bad)}
+.fac-readout .fac-tip{color:var(--dim); font-size:11px}
+#fac-wrap{overflow:auto; border:1px solid var(--line); border-radius:8px; background:#0a0f16; padding:6px; max-width:100%}
+#fac-canvas{display:block; image-rendering:auto; cursor:crosshair; touch-action:none; user-select:none}
+#fac-config{margin-top:8px; min-height:34px; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:9px 11px}
+.fac-cfg-empty{color:var(--dim); font-size:12px}
+.fac-cfg-h{display:flex; align-items:center; gap:10px; margin-bottom:7px}
+.fac-cfg-h b{color:#fff; font-size:14px}
+.fac-cfg-h .xbtn{margin-left:auto; width:auto; padding:3px 10px; border-radius:6px}
+.fac-cfg-note{color:var(--dim); font-size:12px}
+#fac-config label{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--txt); margin-right:10px}
+#fac-config select{background:#16202c; color:#dff; border:1px solid var(--line); border-radius:6px; padding:3px 6px}
+
+/* 生産ラインタブは戦場を縮小して広い編集領域を確保 */
+#app.facmode #battlefield{flex:0 0 116px; min-height:116px}
+#app.facmode #panels{flex:1 1 auto; height:auto}
+#fac-wrap{max-height:none}
