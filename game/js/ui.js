@@ -153,8 +153,8 @@
     else if (s.phase === 'lost') showModal('オールト 陥落', '防衛線は突破され、オールトの中枢は沈黙した。\n襲撃者が基地を呑み込んでいく……', null, '再起動 ↻', function () { restart(); }, 'lose');
     else if (s.phase === 'prep') log('準備フェーズ：在庫を備蓄し設計を整え、「次の波を呼ぶ」で出撃。');
     else if (s.phase === 'battle') log('交戦開始！　第' + (s.wave + 1) + '波　組立ラインが稼働を始める。');
-    // 冒頭の導入が終わったら執務室（ホーム）へ
-    if (s.phase === 'prep' && prev === 'intro' && !homeIntroShown) { homeIntroShown = true; openHome(); }
+    // 各章の導入が終わったら執務室（ホーム）へ戻る
+    if (s.phase === 'prep' && prev === 'intro') { homeIntroShown = true; openHome(); }
   }
   function restart() { Game.newGame(); lastPhase = null; lastSig = ''; homeIntroShown = false; closeHome(); rebuildAll(); }
 
