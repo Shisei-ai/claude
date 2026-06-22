@@ -27,7 +27,7 @@
       chapter: 0, wave: 0, phase: 'intro',
       spawns: [], battleTime: 0,
       stats: { kills: 0, lost: 0, built: 0 },
-      pendingStory: null, pendingChoice: null, storyReturn: null,
+      pendingStory: null, pendingChoice: null, storyReturn: null, pendingIntro: false,
       battleMode: 'story', defenseStage: 0, defenseResult: null, _savedHp: 0,
       mod: null, _atkToken: 0, _turretTick: 0,
     };
@@ -289,8 +289,20 @@
   function applyChoice(opt) { var ap = opt.apply; for (var k in ap) state.perm[k] = (state.perm[k] || 0) + ap[k]; state.pendingChoice = null; recomputeMod(); advanceChapter(); }
   function advanceChapter() {
     state.chapter++; state.wave = 0;
-    if (state.chapter >= G.CHAPTERS.length) state.phase = 'won';
-    else { applyGrant(); state.pendingStory = currentChapter().intro; state.phase = 'intro'; }
+    if (state.chapter >= G.CHAPTERS.length) { state.phase = 'won'; return; }
+    applyGrant();
+    // 章のシナリオ（アウトロ）が終わった時点でいったん執務室へ戻る。
+    // 次章の導入は執務室から「メインストーリー」を選んだときに再生する。
+    state.pendingStory = currentChapter().intro;
+    state.pendingIntro = true;
+    state.phase = 'prep';
+  }
+  // 執務室から次章へ進む：保留していた導入カットイン／物語を再生する。
+  function beginChapterIntro() {
+    if (!state.pendingIntro) return false;
+    state.pendingIntro = false;
+    state.phase = 'intro';   // pendingStory は advanceChapter で設定済み
+    return true;
   }
   function afterIntro() { state.phase = 'prep'; }
 
@@ -494,7 +506,7 @@
     facUnlocked: facUnlocked, recipeAvailable: recipeAvailable,
     computeStats: computeStats,
     canResearch: canResearch, doResearch: doResearch,
-    startBattle: startBattle, afterIntro: afterIntro, afterInterlude: afterInterlude, afterOutro: afterOutro, applyChoice: applyChoice,
+    startBattle: startBattle, afterIntro: afterIntro, afterInterlude: afterInterlude, afterOutro: afterOutro, applyChoice: applyChoice, beginChapterIntro: beginChapterIntro,
     defenseAvailable: defenseAvailable, startDefense: startDefense,
     currentChapter: currentChapter, currentWave: currentWave,
     constants: { domeR: DOME, spawnR: SPAWN, viewR: G.ARENA.viewR, turretR: TURRET_R },
