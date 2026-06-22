@@ -39,10 +39,12 @@
     var bodies = { infantry: true, assault: true };
     var weapons = { standard: true };
     var cpus = {};
+    var mach = { belt: true, intake: true, smelter: true, fab: true, assembler: true, gen: true, lab: true };
     var tier = { body: 1, weapon: 1, head: 1 };
 
     function applyEffect(e) {
       if (!e) return;
+      if (e.unlockMach) mach[e.unlockMach] = true;
       if (e.mineMult) m.mineMult += e.mineMult;
       if (e.researchMult) m.researchMult += e.researchMult;
       if (e.buildSpeed) m.buildSpeed += e.buildSpeed;
@@ -67,6 +69,7 @@
     state.unlockedBodies = bodies;
     state.unlockedWeapons = weapons;
     state.unlockedCpus = cpus;
+    state.unlockedMach = mach;
     state.tiers = tier;
   }
 
@@ -90,9 +93,17 @@
   // ---- 生産ライン（ファクトリー）編集API（建設は鉄を消費） ---------------
   var facDir = 0;   // 直近に選んだ向き（UIから設定）
   function facSetDir(d) { facDir = ((d % 4) + 4) % 4; }
+  // 製錬レシピが使えるか（必要な素材の鉱区がすべて解放済み）
+  function recipeAvailable(rk) {
+    var r = G.RECIPES[rk]; if (!r) return false;
+    for (var m in r.in) { var zi = G.MATERIALS.indexOf(m); if (!(state.zones[zi] && state.zones[zi].unlocked)) return false; }
+    return true;
+  }
   function facCost(type) { var d = G.MACH[type]; return Math.round(d.build * Math.pow(1.14, G.Factory.count(state.factory, type))); }
+  function facUnlocked(type) { return !!(state.unlockedMach && state.unlockedMach[type]); }
   function facBuild(x, y, type, dir) {
     var f = state.factory; if (!G.Factory.inb(f, x, y) || f.cells[y * f.w + x]) return false;
+    if (!facUnlocked(type)) return false;
     var c = facCost(type); if (state.mat.iron < c) return false;
     state.mat.iron -= c; G.Factory.place(f, x, y, type, dir == null ? facDir : dir); return true;
   }
@@ -101,6 +112,7 @@
   function facSetCfg(x, y, key, val) {
     var c = G.Factory.cell(state.factory, x, y); if (!c) return;
     if (c.t === 'intake' && key === 'mat') { var zi = G.MATERIALS.indexOf(val); if (state.zones[zi] && state.zones[zi].unlocked) c.mat = val; }
+    if (c.t === 'smelter' && key === 'recipe' && G.RECIPES[val] && recipeAvailable(val)) c.recipe = val;
     if (c.t === 'fab' && key === 'part' && (val === 'body' || val === 'head' || val === 'weapon')) c.part = val;
     if (c.t === 'assembler' && key === 'body' && state.unlockedBodies[val]) c.body = val;
     if (c.t === 'assembler' && key === 'weapon' && state.unlockedWeapons[val]) c.weapon = val;
@@ -190,6 +202,8 @@
     // ③ 生産ライン（資源入力→製錬→部品→組立）。組立は容量内で常時ユニット生成
     G.Factory.tick(state.factory, dt, {
       eff: eff * state.mod.buildSpeed,
+      bodyInt: G.gradeInt(state.tiers.body),       // ボディ/ヘッド部品が要求する中間素材
+      weaponInt: G.gradeInt(state.tiers.weapon),    // ウェポン部品が要求する中間素材
       takeMat: function (k, n) { if ((state.mat[k] || 0) >= n) { state.mat[k] -= n; return true; } return false; },
       canSpawn: function () { return capacityUsed() < capacityMax(); },
       spawnUnit: function (cfg) { spawnUnit(computeStats(cfg)); },
@@ -476,6 +490,7 @@
     assignModule: assignModule, unassignModule: unassignModule,
     facCost: facCost, facBuild: facBuild, facRemove: facRemove, facRotate: facRotate,
     facSetDir: facSetDir, facSetCfg: facSetCfg, facToggleCpu: facToggleCpu, facPower: facPower,
+    facUnlocked: facUnlocked, recipeAvailable: recipeAvailable,
     computeStats: computeStats,
     canResearch: canResearch, doResearch: doResearch,
     startBattle: startBattle, afterIntro: afterIntro, afterInterlude: afterInterlude, afterOutro: afterOutro, applyChoice: applyChoice,

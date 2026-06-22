@@ -246,8 +246,9 @@
   // =======================================================================
   var facTool = 'select', facSel = null, facCanvas = null, facCtx = null;
   var FAC_CELL = 32, facDown = false, facLastKey = '';
-  var ITEM_COL = { alloy: '#cdd6e0', body: '#8fd0ff', head: '#c79bff', weapon: '#ffd24a' };
-  function itemColor(t) { return ITEM_COL[t] || (G.MAT_INFO[t] ? G.MAT_INFO[t].color : '#9fb4c8'); }
+  var ITEM_COL = { body: '#8fd0ff', head: '#c79bff', weapon: '#ffd24a' };
+  function itemColor(t) { return ITEM_COL[t] || (G.RECIPES[t] ? G.RECIPES[t].color : G.MAT_INFO[t] ? G.MAT_INFO[t].color : '#9fb4c8'); }
+  function recipeInStr(r) { return Object.keys(r.in).map(function (m) { var n = r.in[m]; return G.MAT_INFO[m].icon + G.MAT_INFO[m].name + (n > 1 ? '×' + n : ''); }).join('＋'); }
 
   function buildProdPanel() {
     var wrap = $('tab-prod');
@@ -261,8 +262,8 @@
       wrap.dataset.init = '1';
       facCanvas = $('fac-canvas'); facCtx = facCanvas.getContext('2d');
       bindFactory();
-      buildFacBar();
     }
+    buildFacBar();        // 解放状況を反映して毎回作り直す
     renderFacConfig();
   }
   function buildFacBar() {
@@ -271,8 +272,8 @@
     h.push('<button class="ftool" data-tool="select">⊹ 選択</button>');
     h.push('<button class="ftool" data-tool="erase">🗑 撤去</button>');
     h.push('<button class="ftool" id="fac-rot">⟳ 回転</button>');
-    G.MACH_ORDER.forEach(function (t) { var d = G.MACH[t];
-      h.push('<button class="ftool fmach" data-tool="' + t + '">' + d.icon + ' ' + d.name + '<i class="fcost" data-fcost="' + t + '"></i></button>');
+    G.MACH_ORDER.forEach(function (t) { var d = G.MACH[t], lk = !Game.facUnlocked(t);
+      h.push('<button class="ftool fmach' + (lk ? ' locked' : '') + '" data-tool="' + t + '"' + (lk ? ' disabled title="研究で解放"' : '') + '>' + d.icon + ' ' + d.name + (lk ? ' 🔒' : '<i class="fcost" data-fcost="' + t + '"></i>') + '</button>');
     });
     h.push('</div>');
     h.push('<div class="fac-readout"><span title="鉄">⛓ <b id="fac-iron">0</b></span>' +
@@ -280,8 +281,8 @@
       '<span class="fac-tip">配置=クリック／コンベアはドラッグで方向、回転で向き変更</span></div>');
     bar.innerHTML = h.join('');
     bar.querySelectorAll('[data-tool]').forEach(function (b) { if (b.id === 'fac-rot') return; b.onclick = function () { setTool(b.dataset.tool); }; });
-    $('fac-rot').onclick = function () { Game.facSetDir(facDirGet() + 1); if (facSel) { Game.facRotate(facSel.x, facSel.y); } };
-    setTool('select');
+    $('fac-rot').onclick = function () { _facDir = (_facDir + 1) % 4; Game.facSetDir(_facDir); if (facSel) Game.facRotate(facSel.x, facSel.y); };
+    bar.querySelectorAll('[data-tool]').forEach(function (b) { b.classList.toggle('on', b.dataset.tool === facTool); });  // 現在のツールを維持
   }
   var _facDir = 0;
   function facDirGet() { return _facDir; }
@@ -297,7 +298,7 @@
   }
   function facApply(cx, cy, prev) {
     var f = Game.state.factory; if (!G.Factory.inb(f, cx, cy)) return;
-    if (facTool === 'erase') { Game.facRemove(cx, cy); if (facSel && facSel.x === cx && facSel.y === cy) { facSel = null; renderFacConfig(); } markDirty(); return; }
+    if (facTool === 'erase') { Game.facRemove(cx, cy); if (facSel && facSel.x === cx && facSel.y === cy) { facSel = null; renderFacConfig(); } return; }
     if (facTool === 'select') { var c = G.Factory.cell(f, cx, cy); facSel = c ? { x: cx, y: cy } : null; renderFacConfig(); return; }
     // 機械/ベルト配置
     var dir = _facDir;
@@ -305,7 +306,7 @@
       if (ddx === 1) dir = 0; else if (ddy === 1) dir = 1; else if (ddx === -1) dir = 2; else if (ddy === -1) dir = 3;
       var pc = G.Factory.cell(f, prev.x, prev.y); if (pc && pc.t === 'belt') pc.dir = dir;   // 直前ベルトも向き調整
     }
-    if (!f.cells[cy * f.w + cx]) { if (Game.facBuild(cx, cy, facTool, dir)) markDirty(); }
+    if (!f.cells[cy * f.w + cx]) Game.facBuild(cx, cy, facTool, dir);
   }
   function bindFactory() {
     facCanvas.addEventListener('mousedown', function (e) {
@@ -335,8 +336,16 @@
     } else if (c.t === 'fab') {
       h.push('<label>生産部品：<select id="cfg-part">' +
         ['body', 'head', 'weapon'].map(function (p) { var nm = p === 'body' ? 'ボディ' : p === 'head' ? 'ヘッド' : 'ウェポン'; return '<option value="' + p + '"' + (c.part === p ? ' selected' : '') + '>' + nm + '</option>'; }).join('') + '</select></label>');
+      var need = G.RECIPES[c.part === 'weapon' ? G.gradeInt(s.tiers.weapon) : G.gradeInt(s.tiers.body)];
+      h.push('<div class="fac-cfg-note">現在の規格では <b style="color:' + need.color + '">' + need.icon + need.name + '</b> 1つ → ' + (c.part === 'weapon' ? 'ウェポン' : c.part === 'head' ? 'ヘッド' : 'ボディ') + '。製錬炉でこの中間素材を作り、繋げてください。</div>');
     } else if (c.t === 'smelter') {
-      h.push('<div class="fac-cfg-note">素材2つ → 合金。上流の資源入力を繋げてください。</div>');
+      h.push('<label>レシピ：<select id="cfg-recipe">');
+      G.RECIPE_ORDER.forEach(function (rk) { var r = G.RECIPES[rk], av = Game.recipeAvailable(rk);
+        h.push('<option value="' + rk + '"' + (c.recipe === rk ? ' selected' : '') + (av ? '' : ' disabled') + '>' + r.icon + r.name + '（' + recipeInStr(r) + '）' + (av ? '' : ' 🔒') + '</option>');
+      });
+      h.push('</select></label>');
+      var rr = G.RECIPES[c.recipe];
+      h.push('<div class="fac-cfg-note">' + recipeInStr(rr) + ' → <b style="color:' + rr.color + '">' + rr.icon + rr.name + '</b>。必要素材の資源入力を繋げてください。</div>');
     } else if (c.t === 'assembler') {
       h.push(renderAsmConfig(c));
     } else {
@@ -345,7 +354,8 @@
     box.innerHTML = h.join('');
     var del = $('fac-del'); if (del) del.onclick = function () { Game.facRemove(facSel.x, facSel.y); facSel = null; renderFacConfig(); markDirty(); };
     var mat = $('cfg-mat'); if (mat) mat.onchange = function () { Game.facSetCfg(facSel.x, facSel.y, 'mat', mat.value); };
-    var part = $('cfg-part'); if (part) part.onchange = function () { Game.facSetCfg(facSel.x, facSel.y, 'part', part.value); markDirty(); };
+    var part = $('cfg-part'); if (part) part.onchange = function () { Game.facSetCfg(facSel.x, facSel.y, 'part', part.value); renderFacConfig(); };
+    var rec = $('cfg-recipe'); if (rec) rec.onchange = function () { Game.facSetCfg(facSel.x, facSel.y, 'recipe', rec.value); renderFacConfig(); };
     wireAsmConfig(c);
   }
   function renderAsmConfig(c) {

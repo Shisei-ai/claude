@@ -33,7 +33,22 @@
     { name: '鉱区Ⅵ', mat: 'diamond',  rate: 0.24 },
   ];
 
-  // ===== ユーティリティ（設備を駆動する。電気=フロー、水/燃料=ストック） =====
+  // ===== 製錬レシピ（製錬炉が素材ペア→中間素材。グレード帯に対応） =====
+  //   グレードを上げると、部品工場が要求する中間素材が上位へ移り、新しい素材が要る。
+  //   grade1 鋼材(鉄) → 2 合金(鉄+銅) → 3 銀回路(銅+銀) → 4 金回路(銀+金) → 5 輝素核(金+白金) → 6 動力核(白金+ダイヤ)
+  G.RECIPES = {
+    steel:    { name: '鋼材',   icon: '▭', color: '#9fb0bd', grade: 1, time: 1.3, in: { iron: 2 } },
+    alloy:    { name: '合金',   icon: '🔩', color: '#cdd6e0', grade: 2, time: 1.4, in: { iron: 1, copper: 1 } },
+    scircuit: { name: '銀回路', icon: '🧩', color: '#bfe0c8', grade: 3, time: 1.6, in: { copper: 1, silver: 1 } },
+    gcircuit: { name: '金回路', icon: '📟', color: '#ffe6a0', grade: 4, time: 1.8, in: { silver: 1, gold: 1 } },
+    pcore:    { name: '輝素核', icon: '🔆', color: '#dff0ff', grade: 5, time: 2.0, in: { gold: 1, platinum: 1 } },
+    core:     { name: '動力核', icon: '🔋', color: '#ff9e6b', grade: 6, time: 2.2, in: { platinum: 1, diamond: 1 } },
+  };
+  G.RECIPE_ORDER = ['steel', 'alloy', 'scircuit', 'gcircuit', 'pcore', 'core'];
+  G.GRADE_INT = ['steel', 'alloy', 'scircuit', 'gcircuit', 'pcore', 'core'];  // グレード1〜6 が要求する中間素材
+  G.gradeInt = function (grade) { return G.GRADE_INT[Math.max(0, Math.min(5, (grade || 1) - 1))]; };
+
+  // ===== ユーティリティ（旧データ。未使用） =====
   G.UTIL = { water: { name: '水', icon: '💧', color: '#5ec6ff' }, fuel: { name: '燃料', icon: '🛢', color: '#ffb13b' } };
 
   // ===== 中間素材（設備が 基本素材＋水/燃料 から生産。グレード帯に対応） =====
@@ -160,8 +175,8 @@
     fab1:      { name: '部品増産',   branch: '工業', cost: 80, req: ['smelt1'], desc: '部品工場の生産速度 +30%。', effect: { buildSpeed: 0.30 } },
     mining2:   { name: '深層採掘',   branch: '工業', cost: 140, req: ['fab1'], desc: '全鉱区の産出 さらに +40%。', effect: { mineMult: 0.40 } },
 
-    // 採取（モジュール保有上限）
-    module1:   { name: '採取拡張Ⅰ', branch: '採取', cost: 50, req: [], desc: '採取モジュール保有上限 +3。', effect: { moduleCap: 3 } },
+    // 採取（モジュール工房の解放＋保有上限）
+    module1:   { name: '採取拡張Ⅰ', branch: '採取', cost: 50, req: [], desc: 'モジュール工房を解放／採取モジュール保有上限 +3。', effect: { moduleCap: 3, unlockMach: 'modfab' } },
     module2:   { name: '採取拡張Ⅱ', branch: '採取', cost: 110, req: ['module1'], desc: '採取モジュール保有上限 +4。', effect: { moduleCap: 4 } },
     module3:   { name: '採取拡張Ⅲ', branch: '採取', cost: 180, req: ['module2'], desc: '採取モジュール保有上限 +5。', effect: { moduleCap: 5 } },
 
@@ -209,8 +224,9 @@
     cpu_multi:   { name: 'CPU:多重', branch: 'CPU', cost: 120, req: ['cpu_crit'], desc: '多重CPU（近接敵を追撃）を解放。', effect: { unlockCpu: 'cpu_multi' } },
 
     // 特殊
-    command1:  { name: '指揮系統拡張', branch: '特殊', cost: 70, req: [], desc: '指揮容量 +12。', effect: { capacity: 12 } },
-    research1: { name: '解析アルゴリズム', branch: '特殊', cost: 100, req: ['command1'], desc: '研究ポイント獲得 +40%。', effect: { researchMult: 0.40 } },
+    command1:  { name: '指揮系統拡張', branch: '特殊', cost: 70, req: [], desc: '通信中継塔を解放／指揮容量 +6。', effect: { capacity: 6, unlockMach: 'relay' } },
+    turret1:   { name: '防衛砲台 開発', branch: '特殊', cost: 90, req: [], desc: '防衛砲台（盤面に配置する固定砲・対空可）を解放。', effect: { unlockMach: 'turret' } },
+    research1: { name: '解析アルゴリズム', branch: '特殊', cost: 120, req: ['command1'], desc: '研究ポイント獲得 +40%。', effect: { researchMult: 0.40 } },
   };
 
   // ---- 登場人物（立ち絵＝PNG支給。差し替え自由） -------------------------

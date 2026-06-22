@@ -48,7 +48,7 @@
     if (type === 'belt') { c.item = null; c.p = 0; }
     else { c.inbuf = {}; c.prog = 0; c.out = null; }
     if (type === 'intake') c.mat = 'iron';
-    if (type === 'smelter') c.recipe = 'alloy';
+    if (type === 'smelter') c.recipe = 'steel';
     if (type === 'fab') c.part = 'body';
     if (type === 'assembler') { c.body = 'infantry'; c.weapon = 'standard'; c.cpus = []; }
     return c;
@@ -107,22 +107,22 @@
     var n = 0; for (var i = 0; i < g.cells.length; i++) { var c = g.cells[i]; if (c && c.t === type) n++; } return n;
   };
 
+  // 部品工場が要求する中間素材（グレード帯。tick中は g._bInt/_wInt にキャッシュ）
+  function fabReq(g, c) { return c.part === 'weapon' ? g._wInt : g._bInt; }
+  function recipeReady(c, r) { for (var k in r.in) if ((c.inbuf[k] || 0) < r.in[k]) return false; return true; }
   // セルが item を受け取れるか（belt=空 / machine=入力バッファに空き）
-  function accepts(c, type) {
+  function accepts(g, c, type) {
     if (!c) return false;
     if (c.t === 'belt') return c.item == null;
     var d = G.MACH[c.t], cap = d.inCap || 0;
-    if (c.t === 'smelter') return isMat(type) && (c.inbuf.ore || 0) < cap;
-    if (c.t === 'fab') return type === 'alloy' && (c.inbuf.alloy || 0) < cap;
+    if (c.t === 'smelter') { var r = G.RECIPES[c.recipe]; return r && r.in[type] != null && (c.inbuf[type] || 0) < cap; }
+    if (c.t === 'fab') return type === fabReq(g, c) && (c.inbuf[type] || 0) < cap;
     if (c.t === 'assembler') return (type === 'body' || type === 'head' || type === 'weapon') && (c.inbuf[type] || 0) < cap;
     return false;
   }
   function deliver(c, type) {
     if (c.t === 'belt') { c.item = type; c.p = 0; return true; }
-    if (c.t === 'smelter') { c.inbuf.ore = (c.inbuf.ore || 0) + 1; return true; }
-    if (c.t === 'fab') { c.inbuf.alloy = (c.inbuf.alloy || 0) + 1; return true; }
-    if (c.t === 'assembler') { c.inbuf[type] = (c.inbuf[type] || 0) + 1; return true; }
-    return false;
+    c.inbuf[type] = (c.inbuf[type] || 0) + 1; return true;
   }
   F.nextCell = function (g, x, y, dir) { var nx = x + DX[dir], ny = y + DY[dir]; return F.inb(g, nx, ny) ? { c: g.cells[F.idx(g, nx, ny)], x: nx, y: ny } : null; };
 
@@ -130,6 +130,7 @@
   //   api = { eff, mat(k), takeMat(k,n), canSpawn(), spawnUnit(cfg) }
   F.tick = function (g, dt, api) {
     var eff = api.eff, w = g.w, h = g.h, cells = g.cells;
+    g._bInt = api.bodyInt; g._wInt = api.weaponInt;   // 部品工場が要求する中間素材
 
     // 1) 機械の生産（入力が揃えば craft。完成品は out に保持し、出力先へ押し出す）
     for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
@@ -146,11 +147,13 @@
         continue;
       }
       if (c.t === 'smelter') {
-        if (!c.out && (c.inbuf.ore || 0) >= 2) { c.prog += dt * eff; if (c.prog >= d.ct) { c.prog = 0; c.inbuf.ore -= 2; c.out = 'alloy'; } }
+        var r = G.RECIPES[c.recipe]; if (!r) continue;
+        if (!c.out && recipeReady(c, r)) { c.prog += dt * eff; if (c.prog >= (r.time || d.ct)) { c.prog = 0; for (var mk in r.in) c.inbuf[mk] -= r.in[mk]; c.out = c.recipe; } }
         continue;
       }
       if (c.t === 'fab') {
-        if (!c.out && (c.inbuf.alloy || 0) >= 1) { c.prog += dt * eff; if (c.prog >= d.ct) { c.prog = 0; c.inbuf.alloy -= 1; c.out = c.part; } }
+        var need = fabReq(g, c);
+        if (!c.out && (c.inbuf[need] || 0) >= 1) { c.prog += dt * eff; if (c.prog >= d.ct) { c.prog = 0; c.inbuf[need] -= 1; c.out = c.part; } }
         continue;
       }
       if (c.t === 'assembler') {
@@ -174,7 +177,7 @@
       var nx = xx + DX[b.dir], ny = yy + DY[b.dir];
       if (!F.inb(g, nx, ny)) { b.p = 1; continue; }
       var nc = cells[ny * w + nx];
-      if (accepts(nc, b.item)) {
+      if (accepts(g, nc, b.item)) {
         var t = b.item; deliver(nc, t); b.item = null; b.p = 0;
         if (nc.t === 'belt') got[ny * w + nx] = 1;
       } else b.p = 1;                                // 詰まり
@@ -186,7 +189,7 @@
     var nx = x + G.FAC_DIR.DX[c.dir], ny = y + G.FAC_DIR.DY[c.dir];
     if (!F.inb(g, nx, ny)) return;
     var nc = g.cells[F.idx(g, nx, ny)];
-    if (accepts(nc, c.out)) { deliver(nc, c.out); c.out = null; }
+    if (accepts(g, nc, c.out)) { deliver(nc, c.out); c.out = null; }
   }
 
   G.Factory = F;
