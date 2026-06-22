@@ -245,7 +245,8 @@
   //  生産タブ（グリッド・ファクトリー：配置＋コンベア）
   // =======================================================================
   var facTool = 'select', facSel = null, facCanvas = null, facCtx = null;
-  var FAC_CELL = 32, facDown = false, facLastKey = '';
+  var FAC_CELL = 40, facDown = false, facLastKey = '';
+  var MACH_ACCENT = { intake: '#e0a85a', smelter: '#9fd0ff', fab: '#7fe0a8', assembler: '#ffb13b', gen: '#ffcf5a', lab: '#5be0c0', relay: '#c79bff', modfab: '#9fd0ff', turret: '#ff8a8a' };
   var ITEM_COL = { body: '#8fd0ff', head: '#c79bff', weapon: '#ffd24a' };
   function itemColor(t) { return ITEM_COL[t] || (G.RECIPES[t] ? G.RECIPES[t].color : G.MAT_INFO[t] ? G.MAT_INFO[t].color : '#9fb4c8'); }
   function recipeInStr(r) { return Object.keys(r.in).map(function (m) { var n = r.in[m]; return G.MAT_INFO[m].icon + G.MAT_INFO[m].name + (n > 1 ? '×' + n : ''); }).join('＋'); }
@@ -399,51 +400,60 @@
     if (facCanvas.width !== W * dpr) { facCanvas.width = W * dpr; facCanvas.height = H * dpr; facCanvas.style.width = W + 'px'; facCanvas.style.height = H + 'px'; }
     var x = facCtx; x.setTransform(dpr, 0, 0, dpr, 0, 0);
     x.clearRect(0, 0, W, H);
-    x.fillStyle = '#0c131c'; x.fillRect(0, 0, W, H);
+    x.fillStyle = '#0b1119'; x.fillRect(0, 0, W, H);
     // グリッド線
-    x.strokeStyle = 'rgba(120,160,200,0.08)'; x.lineWidth = 1;
-    for (var gx = 0; gx <= f.w; gx++) { x.beginPath(); x.moveTo(gx * cell, 0); x.lineTo(gx * cell, H); x.stroke(); }
-    for (var gy = 0; gy <= f.h; gy++) { x.beginPath(); x.moveTo(0, gy * cell); x.lineTo(W, gy * cell); x.stroke(); }
+    x.strokeStyle = 'rgba(120,165,205,0.10)'; x.lineWidth = 1;
+    for (var gx = 0; gx <= f.w; gx++) { x.beginPath(); x.moveTo(gx * cell + .5, 0); x.lineTo(gx * cell + .5, H); x.stroke(); }
+    for (var gy = 0; gy <= f.h; gy++) { x.beginPath(); x.moveTo(0, gy * cell + .5); x.lineTo(W, gy * cell + .5); x.stroke(); }
     var DX = G.FAC_DIR.DX, DY = G.FAC_DIR.DY;
     for (var cy = 0; cy < f.h; cy++) for (var cx = 0; cx < f.w; cx++) {
       var c = f.cells[cy * f.w + cx]; if (!c) continue;
-      var px = cx * cell, py = cy * cell, mid = cell / 2;
+      var px = cx * cell, py = cy * cell, mid = cell / 2, sel = (facSel && facSel.x === cx && facSel.y === cy);
       if (c.t === 'belt') {
-        x.fillStyle = '#16202b'; x.fillRect(px + 2, py + 2, cell - 4, cell - 4);
+        // レーン
+        x.fillStyle = '#15212e'; roundRect(x, px + 3, py + 3, cell - 6, cell - 6, 4); x.fill();
+        x.fillStyle = 'rgba(120,170,210,0.07)';
+        if (c.dir === 0 || c.dir === 2) x.fillRect(px + 3, py + mid - 4, cell - 6, 8); else x.fillRect(px + mid - 4, py + 3, 8, cell - 6);
         // 流れ方向のシェブロン（アニメ）
-        x.strokeStyle = 'rgba(120,200,255,0.5)'; x.lineWidth = 2;
-        var off = (T * 14) % 8, a = c.dir * Math.PI / 2;
+        x.strokeStyle = 'rgba(130,210,255,0.65)'; x.lineWidth = 2.4; x.lineCap = 'round';
+        var off = (T * 16) % 9, a = c.dir * Math.PI / 2;
         x.save(); x.translate(px + mid, py + mid); x.rotate(a);
-        for (var ci = -1; ci <= 1; ci++) { var o = (ci * 10 + off) - 4; x.beginPath(); x.moveTo(-5, o - 4); x.lineTo(3, o); x.lineTo(-5, o + 4); x.stroke(); }
-        x.restore();
-        if (c.item) {   // 流れるアイテム
-          var ix = px + mid + (DX[c.dir]) * (c.p - 0.5) * cell, iy = py + mid + (DY[c.dir]) * (c.p - 0.5) * cell;
-          x.fillStyle = itemColor(c.item); x.beginPath(); x.arc(ix, iy, 5, 0, 7); x.fill();
-          x.strokeStyle = 'rgba(0,0,0,0.4)'; x.lineWidth = 1; x.stroke();
+        for (var ci = -1; ci <= 1; ci++) { var o = (ci * 9 + off) - 4.5; x.beginPath(); x.moveTo(-5, o - 4); x.lineTo(4, o); x.lineTo(-5, o + 4); x.stroke(); }
+        x.restore(); x.lineCap = 'butt';
+        if (c.item) {   // 流れるアイテム（発光＋縁取り）
+          var ix = px + mid + DX[c.dir] * (c.p - 0.5) * cell, iy = py + mid + DY[c.dir] * (c.p - 0.5) * cell, col = itemColor(c.item);
+          x.save(); x.shadowColor = col; x.shadowBlur = 6; x.fillStyle = col; x.beginPath(); x.arc(ix, iy, 6, 0, 7); x.fill(); x.restore();
+          x.strokeStyle = 'rgba(8,12,18,0.7)'; x.lineWidth = 1.4; x.beginPath(); x.arc(ix, iy, 6, 0, 7); x.stroke();
         }
+        if (sel) { x.strokeStyle = '#ffd24a'; x.lineWidth = 2; roundRect(x, px + 2.5, py + 2.5, cell - 5, cell - 5, 5); x.stroke(); }
       } else {
-        var d = G.MACH[c.t];
-        var bg = c.t === 'gen' ? '#3a2a12' : c.t === 'lab' ? '#10322f' : d.cat === 'util' ? '#1a2436' : '#1d2c3c';
-        x.fillStyle = bg; roundRect(x, px + 2, py + 2, cell - 4, cell - 4, 6); x.fill();
-        x.strokeStyle = (facSel && facSel.x === cx && facSel.y === cy) ? '#ffd24a' : '#33506a'; x.lineWidth = (facSel && facSel.x === cx && facSel.y === cy) ? 2.5 : 1.2; x.stroke();
+        var d = G.MACH[c.t], acc = MACH_ACCENT[c.t] || '#8fb0c8';
+        // タイル
+        x.fillStyle = d.cat === 'util' ? '#1a2230' : '#172533';
+        roundRect(x, px + 3, py + 3, cell - 6, cell - 6, 7); x.fill();
+        // 上辺アクセント
+        x.fillStyle = acc; x.globalAlpha = 0.85; roundRect(x, px + 5, py + 4, cell - 10, 3, 1.5); x.fill(); x.globalAlpha = 1;
+        // 枠
+        x.strokeStyle = sel ? '#ffd24a' : 'rgba(120,160,200,0.35)'; x.lineWidth = sel ? 2.5 : 1.2;
+        roundRect(x, px + 3, py + 3, cell - 6, cell - 6, 7); x.stroke();
         // アイコン
-        x.font = (cell * 0.5) + 'px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-        x.fillText(d.icon, px + mid, py + mid + 1);
-        // 出力方向の矢印（フロー機械）
-        if (d.cat === 'flow' && c.t !== 'intake' || c.t === 'intake' || c.t === 'smelter' || c.t === 'fab' || c.t === 'assembler') {
-          x.fillStyle = 'rgba(150,210,255,0.8)';
-          var ax = px + mid + DX[c.dir] * (mid - 5), ay = py + mid + DY[c.dir] * (mid - 5);
-          x.beginPath(); x.arc(ax, ay, 2.4, 0, 7); x.fill();
+        x.font = (cell * 0.46) + 'px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+        x.fillText(d.icon, px + mid, py + mid - 1);
+        // 出力方向の三角（フロー機械）
+        if (d.cat === 'flow') {
+          var ex = px + mid + DX[c.dir] * (mid - 3), ey = py + mid + DY[c.dir] * (mid - 3), pa = c.dir * Math.PI / 2;
+          x.save(); x.translate(ex, ey); x.rotate(pa); x.fillStyle = acc;
+          x.beginPath(); x.moveTo(3, 0); x.lineTo(-3, -3.4); x.lineTo(-3, 3.4); x.closePath(); x.fill(); x.restore();
         }
         // 進捗バー
-        if (d.ct) { var p = Math.min(1, (c.prog || 0) / d.ct); x.fillStyle = 'rgba(110,255,160,0.7)'; x.fillRect(px + 4, py + cell - 6, (cell - 8) * p, 3); }
-        // 入力バッファのピップ
+        if (d.ct) { var p = Math.min(1, (c.prog || 0) / d.ct); if (p > 0) { x.fillStyle = 'rgba(40,60,80,0.8)'; x.fillRect(px + 5, py + cell - 7, cell - 10, 3); x.fillStyle = '#6bffa0'; x.fillRect(px + 5, py + cell - 7, (cell - 10) * p, 3); } }
+        // 入力バッファ数
         var bufN = 0; if (c.inbuf) for (var bk in c.inbuf) bufN += c.inbuf[bk];
-        if (bufN > 0) { x.fillStyle = '#cdd6e0'; x.font = '9px sans-serif'; x.textAlign = 'right'; x.fillText(Math.min(99, bufN), px + cell - 4, py + 9); }
-        // ラベル（小）
-        x.fillStyle = 'rgba(160,190,215,0.6)'; x.font = '8px sans-serif'; x.textAlign = 'center';
-        var lbl = c.t === 'intake' ? (G.MAT_INFO[c.mat] ? G.MAT_INFO[c.mat].name : '') : c.t === 'fab' ? (c.part === 'body' ? 'ボディ' : c.part === 'head' ? 'ヘッド' : 'ウェポン') : c.t === 'assembler' ? (G.BODIES[c.body] ? G.BODIES[c.body].name : '') : '';
-        if (lbl) x.fillText(lbl, px + mid, py + cell - 9);
+        if (bufN > 0) { x.fillStyle = 'rgba(8,12,18,0.7)'; x.beginPath(); x.arc(px + cell - 8, py + 9, 7, 0, 7); x.fill(); x.fillStyle = '#dfeaf5'; x.font = 'bold 9px sans-serif'; x.textAlign = 'center'; x.fillText(Math.min(99, bufN), px + cell - 8, py + 10); }
+        // ラベル（下）
+        x.fillStyle = 'rgba(180,205,228,0.7)'; x.font = '8px sans-serif'; x.textAlign = 'center';
+        var lbl = c.t === 'intake' ? (G.MAT_INFO[c.mat] ? G.MAT_INFO[c.mat].name : '') : c.t === 'fab' ? (c.part === 'body' ? 'ボディ' : c.part === 'head' ? 'ヘッド' : 'ウェポン') : c.t === 'smelter' ? (G.RECIPES[c.recipe] ? G.RECIPES[c.recipe].name : '') : c.t === 'assembler' ? (G.BODIES[c.body] ? G.BODIES[c.body].name : '') : '';
+        if (lbl) x.fillText(lbl, px + mid, py + cell - 10);
       }
     }
   }
@@ -542,6 +552,17 @@
     $('app').classList.toggle('facmode', !battle && $('tab-prod').classList.contains('active'));
     var laySig = (battle ? 'b' : '') + ($('app').classList.contains('facmode') ? 'f' : '');
     if (laySig !== lastLaySig) { lastLaySig = laySig; resize(); }                   // レイアウト変化時にアリーナ解像度を更新
+    // 戦闘中の簡易ステータス（アリーナへ重ねて表示）
+    var bs = $('battle-stat');
+    if (battle) {
+      var eff = Game.powerEfficiency(), foes = s.enemies.length + s.spawns.length;
+      bs.style.display = 'flex';
+      bs.innerHTML =
+        '<span class="' + (eff < 0.999 ? 'bs-warn' : '') + '" title="電力効率">⚡ ' + Math.round(eff * 100) + '%</span>' +
+        '<span title="指揮容量（展開中/上限）">📡 ' + Game.capacityUsed() + '/' + Game.capacityMax() + '</span>' +
+        '<span title="展開中の味方ユニット">🤖 ' + s.units.length + '</span>' +
+        '<span class="bs-foe" title="残りの敵（出現待ち含む）">☣ ' + foes + '</span>';
+    } else bs.style.display = 'none';
     var hb = $('home-btn'); hb.style.display = s.phase === 'prep' ? '' : 'none';
     var db = $('defense-btn'), navail = Game.defenseAvailable();
     db.style.display = (s.phase === 'prep' && navail > 0) ? '' : 'none';

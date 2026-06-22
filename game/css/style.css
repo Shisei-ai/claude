@@ -486,3 +486,14 @@ body{
 #app.battling #battlefield{flex:1 1 auto; min-height:0}
 #app.battling #logbar{height:42px}
 #fac-wrap{max-height:none}
+
+/* 戦闘中の簡易ステータス（アリーナ左上に重ねる） */
+#battle-stat{position:absolute; left:14px; top:42px; z-index:8; display:none; gap:8px;
+  align-items:center; pointer-events:none}
+#battle-stat span{display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:700;
+  color:#dbe8f5; background:rgba(8,13,20,.62); border:1px solid rgba(120,170,210,.28);
+  border-radius:14px; padding:4px 10px; backdrop-filter:blur(2px);
+  text-shadow:0 1px 2px rgba(0,0,0,.6)}
+#battle-stat .bs-warn{color:#ffd86b; border-color:rgba(255,180,60,.5)}
+#battle-stat .bs-foe{color:#ff9aa6; border-color:rgba(255,90,110,.4)}
+@media(max-width:720px){ #battle-stat{left:8px; top:34px; gap:5px} #battle-stat span{font-size:11px; padding:3px 7px} }
