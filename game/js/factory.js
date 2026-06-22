@@ -157,7 +157,8 @@
         continue;
       }
       if (c.t === 'assembler') {
-        if ((c.inbuf.body || 0) >= 1 && (c.inbuf.head || 0) >= 1 && (c.inbuf.weapon || 0) >= 1) {
+        // 組立機は戦闘中のみユニットを射出（保管せずリアルタイムに戦場へ）。準備中は部品を貯めて待機。
+        if (api.inBattle && (c.inbuf.body || 0) >= 1 && (c.inbuf.head || 0) >= 1 && (c.inbuf.weapon || 0) >= 1) {
           c.prog += dt * eff;
           if (c.prog >= d.ct) {
             if (api.canSpawn()) { c.prog = 0; c.inbuf.body--; c.inbuf.head--; c.inbuf.weapon--; api.spawnUnit({ body: c.body, weapon: c.weapon, cpus: c.cpus }); }

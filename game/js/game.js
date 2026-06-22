@@ -202,6 +202,7 @@
     // ③ 生産ライン（資源入力→製錬→部品→組立）。組立は容量内で常時ユニット生成
     G.Factory.tick(state.factory, dt, {
       eff: eff * state.mod.buildSpeed,
+      inBattle: inBattle,                           // 組立機は戦闘中のみユニットを射出
       bodyInt: G.gradeInt(state.tiers.body),       // ボディ/ヘッド部品が要求する中間素材
       weaponInt: G.gradeInt(state.tiers.weapon),    // ウェポン部品が要求する中間素材
       takeMat: function (k, n) { if ((state.mat[k] || 0) >= n) { state.mat[k] -= n; return true; } return false; },
