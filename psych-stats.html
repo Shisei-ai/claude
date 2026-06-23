@@ -2123,6 +2123,11 @@
             if (maxSign < 0) {
                 for (let i = 0; i < p; i++) finalLoadings[i][j] = -finalLoadings[i][j];
                 if (structureMatrix) for (let i = 0; i < p; i++) structureMatrix[i][j] = -structureMatrix[i][j];
+                // 因子符号を反転したら因子間相関 Φ の対応する行・列も反転する必要がある
+                if (phiMatrix) {
+                    for (let k = 0; k < m; k++) { phiMatrix[j][k] = -phiMatrix[j][k]; phiMatrix[k][j] = -phiMatrix[k][j]; }
+                    phiMatrix[j][j] = 1; // 対角は2回反転で符号が戻る — 明示的に1へ
+                }
             }
         }
 
