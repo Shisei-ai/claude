@@ -2126,6 +2126,17 @@
             }
         }
 
+        // ===== 因子をSS Loadings降順に並べ替え (HAD/SPSS互換) =====
+        {
+            const ssLoads = Array.from({length:m}, (_,j) => finalLoadings.reduce((s,row) => s+row[j]*row[j], 0));
+            const order = ssLoads.map((_,j)=>j).sort((a,b) => ssLoads[b]-ssLoads[a]);
+            finalLoadings = finalLoadings.map(row => order.map(j => row[j]));
+            if (structureMatrix) structureMatrix = structureMatrix.map(row => order.map(j => row[j]));
+            if (phiMatrix) {
+                phiMatrix = order.map(i => order.map(j => phiMatrix[i][j]));
+            }
+        }
+
         const rotLabel = rotation === 'varimax' ? 'バリマックス回転後 (パターン行列)' :
                          rotation === 'promax'  ? 'プロマックス回転後 (パターン行列)' : '回転なし';
 
