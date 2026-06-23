@@ -207,9 +207,22 @@
                 </select>
             </div>
         </div>
-        <span class="label" style="margin-bottom:4px;">因子数 (空欄でカイザー基準自動決定)</span>
-        <input type="number" id="faNumFactors" min="1" max="20" placeholder="例: 3 (空欄=自動)">
-        <p style="font-size:0.72rem; color:#64748b; margin:4px 0 0 0;">変数は「変数の指定」欄 X に入力。ALLで全変数を使用。</p>
+        <div style="display:flex; gap:12px; margin-bottom:8px;">
+            <div style="flex:1;">
+                <span class="label" style="margin-bottom:4px;">因子数 (空欄=自動決定)</span>
+                <input type="number" id="faNumFactors" min="1" max="20" placeholder="例: 3 (空欄=自動)" style="margin-top:0;">
+            </div>
+            <div style="flex:1;">
+                <span class="label" style="margin-bottom:4px;">Promax κ (べき乗)</span>
+                <select id="faKappa" style="margin-top:0;">
+                    <option value="4">κ = 4 (HAD/SPSS/R 既定)</option>
+                    <option value="3">κ = 3 (SAS 既定)</option>
+                    <option value="2">κ = 2</option>
+                    <option value="6">κ = 6</option>
+                </select>
+            </div>
+        </div>
+        <p style="font-size:0.72rem; color:#64748b; margin:4px 0 0 0;">変数は「変数の指定」欄 X に入力。ALLで全変数を使用。HAD 既定は「最尤法＋プロマックス(κ=4)」。</p>
     </div>
 
     <div class="nav-section">
@@ -1753,11 +1766,12 @@
     }
 
     // プロマックス回転 (斜交回転) — R の promax() と同一アルゴリズム (Hendrickson & White, 1964)
-    function promaxRotation(L, power=3) {
+    // kappa: ターゲット行列のべき乗。HAD/SPSS/R 既定 = 4、SAS 既定 = 3
+    function promaxRotation(L, kappa=4) {
         const p = L.length, m = L[0].length;
         const Lv = varimaxRotation(L.map(r=>[...r]));
-        // ターゲット行列 (符号保持でべき乗)
-        const P = Lv.map(row => row.map(x => Math.sign(x)*Math.pow(Math.abs(x), power)));
+        // ターゲット行列: P = sign(Lv) * |Lv|^kappa  (R: x * |x|^(kappa-1) と同値)
+        const P = Lv.map(row => row.map(x => Math.sign(x)*Math.pow(Math.abs(x), kappa)));
         // T = (Lv'Lv)⁻¹ Lv' P  (m×m 回帰係数行列)
         const LvT = StatsLib.transpose(Lv);
         const LvTLvInv = StatsLib.invertMatrix(StatsLib.multiply(LvT, Lv));
@@ -1996,6 +2010,8 @@
         const extraction = document.getElementById('faExtraction').value;
         const rotation   = document.getElementById('faRotation').value;
         const nFactorInput = parseInt(document.getElementById('faNumFactors').value);
+        const kappaEl = document.getElementById('faKappa');
+        const promaxKappa = kappaEl ? parseInt(kappaEl.value) || 4 : 4;
 
         const valid = rawData.filter(row => keys.every(k => !isNaN(parseFloat(row[k]))));
         const n = valid.length, p = keys.length;
@@ -2087,7 +2103,7 @@
         if (rotation === 'varimax') {
             finalLoadings = varimaxRotation(rawLoadings.map(r => [...r]));
         } else if (rotation === 'promax') {
-            const res = promaxRotation(rawLoadings.map(r => [...r]));
+            const res = promaxRotation(rawLoadings.map(r => [...r]), promaxKappa);
             finalLoadings = res.pattern;
             phiMatrix = res.phi;
             structureMatrix = res.structure;
@@ -2374,7 +2390,8 @@
             ${extraction === 'uls' ? '• <b>最小二乗法 (ULS/MINRES)</b>: 非対角残差の平方和を最小化。正規性仮定が不要で頑健（Harman &amp; Jones, 1966）。<br>' : ''}
             • <b>バリマックス</b>: 因子間無相関を仮定。<b>プロマックス</b>: 因子間相関を許容（心理尺度に多い）。<br>
             • <b>PAF vs PCA</b>: 共通因子モデルにはPAFが理論的に適切（Fabrigar et al., 1999）。<br>
-            • <b>削除候補の基準</b>: |負荷量| &lt; .40、共通性 h² &lt; .30、交差負荷（差 &lt; .15）、ハイウッドケース（h² ≥ .95）。
+            • <b>削除候補の基準</b>: |負荷量| &lt; .40、共通性 h² &lt; .30、交差負荷（差 &lt; .15）、ハイウッドケース（h² ≥ .95）。<br>
+            • <b>HAD・SPSS との一致</b>: バリマックスは Kaiser 正規化、プロマックスは κ=4（HAD/SPSS/R 既定）を使用。${rotation==='promax'?`現在 κ=${promaxKappa}。`:''}HAD 標準の「最尤法＋プロマックス(κ=4)」で結果が概ね一致します。
         </div>
         ${(()=>{
             const rotLabel2 = rotation==='varimax'?'バリマックス回転（直交）':rotation==='promax'?'プロマックス回転（斜交）':'回転なし';
