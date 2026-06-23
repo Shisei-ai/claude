@@ -156,6 +156,7 @@
             <option value="mwu">マン・ホイットニーのU検定 (ノンパラ対応なし)</option>
             <option value="wilcoxon">ウィルコクソンの符号付順位検定 (ノンパラ対応あり)</option>
             <option value="factor">因子分析 (PCA/PAF + バリマックス/プロマックス回転)</option>
+            <option value="scalescores">尺度得点の算出 (下位尺度ごとの合計・平均・α係数)</option>
         </select>
         <div id="methodDesc"></div>
     </div>
@@ -223,6 +224,20 @@
             </div>
         </div>
         <p style="font-size:0.72rem; color:#64748b; margin:4px 0 0 0;">変数は「変数の指定」欄 X に入力。ALLで全変数を使用。HAD 既定は「最尤法＋プロマックス(κ=4)」。</p>
+    </div>
+
+    <div id="scaleScoreOptions" class="nav-section" style="display:none;">
+        <span class="label">尺度得点 オプション</span>
+        <div class="flex-row" style="margin-bottom:8px;">
+            <div style="flex:1;"><span class="label">尺度最小値</span><input type="number" id="ssScaleMin" value="1" style="margin-top:0;"></div>
+            <div style="flex:1;"><span class="label">尺度最大値</span><input type="number" id="ssScaleMax" value="5" style="margin-top:0;"></div>
+        </div>
+        <span class="label">下位尺度の定義 (1行1尺度)</span>
+        <textarea id="ssDefinitions" rows="6" placeholder="形式: 尺度名: 項目1, 項目2, ~逆転項目3&#10;例:&#10;抑うつ: Q1, Q2, Q3, ~Q4&#10;不安: Q5, Q6, Q7, ~Q8&#10;（~ は逆転項目）" style="font-size:0.8rem; line-height:1.6;"></textarea>
+        <label style="font-size:0.8rem; color:#cbd5e1; display:flex; align-items:center; gap:5px; margin-top:8px; cursor:pointer;">
+            <input type="checkbox" id="ssAddToData" checked style="width:auto; margin:0;"> 算出した得点をデータに追加する
+        </label>
+        <p style="font-size:0.72rem; color:#64748b; margin:6px 0 0 0; line-height:1.7;">「変数の指定」欄は使用しません。逆転処理には上の最小値・最大値を使用します（例: 5件法 → 最小1・最大5）。</p>
     </div>
 
     <div class="nav-section">
@@ -314,7 +329,8 @@
         chisq: "2つのカテゴリ変数間の関連性を検証します。クロス集計表とカイ二乗値を出力します。",
         mwu: "正規分布が仮定できない場合に行う、対応のない2群の順位和検定です。",
         wilcoxon: "正規分布が仮定できない場合に行う、対応のある2変数の順位検定です。",
-        factor: "【主成分法/主因子法 × バリマックス/プロマックス】因子負荷量・共通性・スクリープロット・因子間相関を出力します。変数指定欄に対象変数をカンマ区切りで入力（ALLで全変数）。"
+        factor: "【主成分法/主因子法 × バリマックス/プロマックス】因子負荷量・共通性・スクリープロット・因子間相関を出力します。変数指定欄に対象変数をカンマ区切りで入力（ALLで全変数）。",
+        scalescores: "下位尺度ごとに合計得点・平均得点・Cronbachのα係数・記述統計を算出します。逆転項目は「~」を前置（例: ~Q4）。算出した得点をデータに追加するオプションあり。変数指定欄は不要です。"
     };
 
     function updateDesc() {
@@ -322,6 +338,7 @@
         document.getElementById('methodDesc').textContent = descriptions[method];
         document.getElementById('regOptions').style.display = method === 'reg' ? 'block' : 'none';
         document.getElementById('factorOptions').style.display = method === 'factor' ? 'block' : 'none';
+        document.getElementById('scaleScoreOptions').style.display = method === 'scalescores' ? 'block' : 'none';
     }
     updateDesc();
 
@@ -614,6 +631,7 @@
                 if (y && !faKeys.includes(y)) faKeys = [y, ...faKeys];
                 runFactorAnalysis(faKeys, out);
             }
+            else if (method === 'scalescores') runScaleScores(out);
         } catch (e) {
             out.innerHTML += `<p style="color:var(--sig); font-weight:bold; background:#fee2e2; padding:15px; border-radius:8px;">エラー: ${escapeHtml(e.message)}</p>`;
         }
@@ -2466,6 +2484,213 @@
                 }
             }
         });
+    }
+
+    // --- 尺度得点の算出 ---
+    function runScaleScores(out) {
+        const ssMin = parseFloat(document.getElementById('ssScaleMin').value);
+        const ssMax = parseFloat(document.getElementById('ssScaleMax').value);
+        const addToData = document.getElementById('ssAddToData').checked;
+        const defsRaw = document.getElementById('ssDefinitions').value.trim();
+
+        if (!defsRaw) throw new Error("下位尺度の定義を入力してください。形式: 尺度名: 項目1, 項目2, ~逆転項目3");
+
+        // Parse subscale definitions (one per line: "Name: item1, item2, ~item3")
+        const subscales = [];
+        defsRaw.split('\n').forEach(line => {
+            line = line.trim();
+            if (!line) return;
+            const colonIdx = line.indexOf(':');
+            if (colonIdx < 0) throw new Error(`定義の形式が不正です（コロン区切りが必要）: "${line}"`);
+            const name = line.substring(0, colonIdx).trim();
+            const itemDefs = line.substring(colonIdx + 1).split(',').map(s => s.trim()).filter(s => s);
+            if (!itemDefs.length) throw new Error(`下位尺度「${name}」に項目が指定されていません。`);
+            const items = [];
+            const reverseItems = new Set();
+            itemDefs.forEach(def => {
+                if (def.startsWith('~')) {
+                    const itemName = def.substring(1).trim();
+                    items.push(itemName);
+                    reverseItems.add(itemName);
+                } else {
+                    items.push(def);
+                }
+            });
+            subscales.push({ name, items, reverseItems });
+        });
+
+        if (!subscales.length) throw new Error("有効な下位尺度の定義がありません。");
+
+        const allVarNames = Object.keys(rawData[0]);
+
+        const computeAlpha = (rows, calcKeys) => {
+            if (calcKeys.length < 2) return NaN;
+            let itemVars = 0;
+            calcKeys.forEach(k => { itemVars += ss.sampleVariance(rows.map(r => r[k])); });
+            const totals = rows.map(row => ss.sum(calcKeys.map(k => row[k])));
+            const tVar = ss.sampleVariance(totals);
+            if (tVar < 1e-10) return NaN;
+            return (calcKeys.length / (calcKeys.length - 1)) * (1 - itemVars / tVar);
+        };
+
+        let summaryRows = '';
+        let apaSentences = [];
+        let cardHtml = '';
+
+        subscales.forEach(sub => {
+            // Validate
+            const missing = sub.items.filter(it => !allVarNames.includes(it));
+            if (missing.length) throw new Error(`下位尺度「${sub.name}」: 変数が見つかりません: ${missing.join(', ')}`);
+
+            const hasReverse = sub.reverseItems.size > 0;
+            if (hasReverse && (isNaN(ssMin) || isNaN(ssMax))) {
+                throw new Error("逆転項目を指定する場合は尺度最小値・最大値を入力してください。");
+            }
+
+            // Build per-row value arrays (with reversal applied)
+            const getVal = (row, itemName) => {
+                const v = parseFloat(row[itemName]);
+                if (isNaN(v)) return NaN;
+                return sub.reverseItems.has(itemName) ? (ssMin + ssMax - v) : v;
+            };
+
+            // Filter valid rows
+            const validRows = rawData.filter(row => sub.items.every(it => !isNaN(getVal(row, it))));
+            if (!validRows.length) throw new Error(`下位尺度「${sub.name}」: 有効なデータがありません。`);
+            const n = validRows.length;
+
+            // Compute scores
+            const calcData = validRows.map(row => {
+                const vals = {};
+                sub.items.forEach(it => { vals[it] = getVal(row, it); });
+                return vals;
+            });
+
+            const sumScores = calcData.map(vals => ss.sum(Object.values(vals)));
+            const k = sub.items.length;
+            const meanScores = sumScores.map(s => s / k);
+
+            const sumMean = ss.mean(sumScores);
+            const sumSD = n > 1 ? ss.sampleStandardDeviation(sumScores) : 0;
+            const meanMean = ss.mean(meanScores);
+            const meanSD = n > 1 ? ss.sampleStandardDeviation(meanScores) : 0;
+            const minSum = Math.min(...sumScores);
+            const maxSum = Math.max(...sumScores);
+
+            // α coefficient using calc-keyed data
+            const alpha = computeAlpha(calcData, sub.items);
+            const alphaLabel = isNaN(alpha) ? '算出不可' : apaAlphaLabel(alpha);
+
+            // Item stats table
+            let itemRowsHtml = '';
+            sub.items.forEach((it, idx) => {
+                const vals = calcData.map(d => d[it]);
+                const m = ss.mean(vals);
+                const sd = n > 1 ? ss.sampleStandardDeviation(vals) : 0;
+                const isRev = sub.reverseItems.has(it);
+                itemRowsHtml += `<tr>
+                    <td>${escapeHtml(it)}${isRev ? ' <span style="color:#ef4444;font-size:0.75rem;font-weight:bold;">(R)</span>' : ''}</td>
+                    <td style="text-align:center;">${idx + 1}</td>
+                    <td style="text-align:right;">${m.toFixed(2)}</td>
+                    <td style="text-align:right;">${sd.toFixed(2)}</td>
+                </tr>`;
+            });
+
+            // Add to rawData if requested
+            if (addToData) {
+                const sumName = `${sub.name}_Sum`;
+                const meanName = `${sub.name}_Mean`;
+                rawData = rawData.map(row => {
+                    if (sub.items.every(it => !isNaN(getVal(row, it)))) {
+                        const vals = sub.items.map(it => getVal(row, it));
+                        row[sumName] = ss.sum(vals);
+                        row[meanName] = ss.mean(vals);
+                    }
+                    return row;
+                });
+            }
+
+            const revNote = sub.reverseItems.size > 0
+                ? `逆転項目: ${[...sub.reverseItems].map(escapeHtml).join(', ')}`
+                : '逆転項目なし';
+
+            cardHtml += `
+            <div class="report-card">
+                <h2 style="color:var(--primary); border-bottom:2px solid #cbd5e1; padding-bottom:5px;">
+                    尺度得点の算出: ${escapeHtml(sub.name)}
+                </h2>
+                <table class="stats-table">
+                    <tr><td class="metric-label">項目数 (k)</td><td>${k}</td></tr>
+                    <tr><td class="metric-label">有効 N</td><td>${n}</td></tr>
+                    <tr><td class="metric-label">${revNote}</td><td>${sub.reverseItems.size > 0 ? `最小値 = ${ssMin}，最大値 = ${ssMax}` : '—'}</td></tr>
+                    <tr><td class="metric-label">Cronbach の α</td><td><b>${isNaN(alpha) ? '算出不可 (k < 2)' : alpha.toFixed(3)}</b>　<span style="color:#64748b;font-size:0.85rem;">${isNaN(alpha) ? '' : `(${apaAlphaLabel(alpha)}内的一貫性)`}</span></td></tr>
+                    <tr><td class="metric-label">合計得点 <i>M</i> (<i>SD</i>)</td><td>${sumMean.toFixed(2)} (${sumSD.toFixed(2)})</td></tr>
+                    <tr><td class="metric-label">合計得点の範囲</td><td>${minSum.toFixed(1)} ～ ${maxSum.toFixed(1)}</td></tr>
+                    <tr><td class="metric-label">平均得点 <i>M</i> (<i>SD</i>)</td><td>${meanMean.toFixed(2)} (${meanSD.toFixed(2)})</td></tr>
+                </table>
+                <h3 style="margin-top:20px; color:#1e293b; font-size:1rem;">構成項目の記述統計</h3>
+                <table class="stats-table">
+                    <tr>
+                        <th>項目</th>
+                        <th style="text-align:center;">番号</th>
+                        <th style="text-align:right;"><i>M</i></th>
+                        <th style="text-align:right;"><i>SD</i></th>
+                    </tr>
+                    ${itemRowsHtml}
+                </table>
+                ${addToData ? `<p style="font-size:0.82rem; color:#059669; margin-top:12px; font-weight:600;">✅「${escapeHtml(sub.name)}_Sum」「${escapeHtml(sub.name)}_Mean」をデータに追加しました。</p>` : ''}
+                ${apaBox(
+                    `${escapeHtml(sub.name)}尺度（${k}項目${sub.reverseItems.size > 0 ? `；${[...sub.reverseItems].map(escapeHtml).join('・')} を逆転処理` : ''}）の得点を算出した（<i>N</i> = ${n}）。`
+                    + `合計得点の平均は <i>M</i> = ${apaFmt(sumMean,2)}（<i>SD</i> = ${apaFmt(sumSD,2)}），得点範囲は ${minSum.toFixed(1)} ～ ${maxSum.toFixed(1)} であった。`
+                    + (k >= 2 && !isNaN(alpha)
+                        ? `内的一貫性を検討するために Cronbach の α 係数を算出したところ，α = ${apaFmt(alpha,3,true)} であり，${apaAlphaLabel(alpha)}内的一貫性が確認された（Nunnally, 1978）。`
+                        + (alpha < .70 ? '今後の項目精査または追加が望まれる。' : '')
+                        : '')
+                )}
+            </div>`;
+
+            summaryRows += `<tr>
+                <td>${escapeHtml(sub.name)}</td>
+                <td style="text-align:center;">${k}</td>
+                <td style="text-align:center;">${n}</td>
+                <td style="text-align:right;">${sumMean.toFixed(2)}</td>
+                <td style="text-align:right;">${sumSD.toFixed(2)}</td>
+                <td style="text-align:right;">${meanMean.toFixed(2)}</td>
+                <td style="text-align:right;">${meanSD.toFixed(2)}</td>
+                <td style="text-align:right;">${isNaN(alpha) ? '—' : alpha.toFixed(3)}</td>
+            </tr>`;
+
+            apaSentences.push(
+                `${escapeHtml(sub.name)}（α = ${isNaN(alpha) ? '—' : apaFmt(alpha,3,true)}，<i>M</i> = ${apaFmt(meanMean,2)}，<i>SD</i> = ${apaFmt(meanSD,2)}）`
+            );
+        });
+
+        // Summary table (multiple subscales)
+        if (subscales.length > 1) {
+            const summaryApa = `各下位尺度の得点を算出した（${apaSentences.join('；')}）。`;
+            out.innerHTML += `
+            <div class="report-card">
+                <h2 style="color:var(--primary); border-bottom:2px solid #cbd5e1; padding-bottom:5px;">尺度得点の算出 — 総括</h2>
+                <table class="stats-table">
+                    <tr>
+                        <th>下位尺度</th>
+                        <th style="text-align:center;"><i>k</i></th>
+                        <th style="text-align:center;"><i>N</i></th>
+                        <th style="text-align:right;">合計 <i>M</i></th>
+                        <th style="text-align:right;">合計 <i>SD</i></th>
+                        <th style="text-align:right;">平均 <i>M</i></th>
+                        <th style="text-align:right;">平均 <i>SD</i></th>
+                        <th style="text-align:right;">α</th>
+                    </tr>
+                    ${summaryRows}
+                </table>
+                ${apaBox(summaryApa)}
+            </div>`;
+        }
+
+        out.innerHTML += cardHtml;
+
+        if (addToData) renderTags();
     }
 
     // --- ウィルコクソン符号付順位検定 ---
