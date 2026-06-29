@@ -228,12 +228,9 @@
     var navail = Game.defenseAvailable(), db = $('home').querySelector('[data-home="defense"]');
     if (db) db.disabled = navail <= 0;
     $('home-def-sub').textContent = navail > 0 ? ('解放ステージ：' + navail + ' ／ 周回で供給モジュール獲得') : '章クリアで解放';
-    // 立ち絵をストーリー進行に合わせて切替（ボディ起動前＝HUD型／起動後＝全身）
+    // ケイオスの立ち絵はボディ起動後（第三章の第三鉱区解放戦に勝利して以降）のみ右側に表示。
     var embodied = chaosEmbodied();
-    var img = $('home-fig-img');
-    if (img) { var src = embodied ? 'portraits/chaos_body.png' : 'portraits/chaos.png';
-      if (img.getAttribute('src') !== src) { img.style.visibility = ''; img.setAttribute('src', src); } }
-    var orb = $('home-orb'); if (orb) orb.textContent = embodied ? '👩' : '🤖';
+    $('home').classList.toggle('embodied', embodied);
     var bub = $('home-fig-bubble'); if (bub) bub.classList.remove('show');
   }
   function openHome() { if (Game.state.phase !== 'prep') return; refreshHome(); $('home').classList.add('show'); }
