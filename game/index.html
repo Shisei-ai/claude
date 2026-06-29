@@ -11,21 +11,23 @@
 
   <!-- ヘッダー：資源 -->
   <header id="hud">
-    <div class="logo">鋼鉄戦線<span>STEEL FRONT</span></div>
-    <div class="res" id="res-ore" title="鉄（建設・部品の主資源）">
-      <span class="ic">⛓</span><b id="ore-val">0</b><i id="ore-cap">/0</i>
-    </div>
-    <div class="res" id="res-research" title="研究ポイント（テック解放）">
-      <span class="ic">🔬</span><b id="res-val">0</b><em id="res-rate">+0/s</em>
-    </div>
-    <div class="res" id="res-power" title="電力（供給／消費）。消費が供給を超えると生産効率が低下">
-      <span class="ic">⚡</span><b id="pow-val">0/0</b><em id="pow-eff"></em>
-    </div>
-    <div class="res" id="res-mod" title="採取モジュール（空き／保有上限）。鉱区へ投入して素材を採取">
-      <span class="ic">📦</span><b id="mod-val">0/0</b>
-    </div>
-    <div class="res" id="res-cap" title="指揮容量（展開できるユニット総量）">
-      <span class="ic">📡</span><b id="cap-val">0/0</b>
+    <div class="logo"><span class="logo-mark">◆</span><span class="logo-tx">鋼鉄戦線<span>STEEL FRONT</span></span></div>
+    <div class="res-rail">
+      <div class="res" id="res-ore" title="鉄（建設・部品の主資源）">
+        <span class="ic">⛓</span><span class="rbody"><span class="rlabel">鉄 / ORE</span><span class="rnum"><b id="ore-val">0</b><i id="ore-cap">/0</i></span></span>
+      </div>
+      <div class="res" id="res-research" title="研究ポイント（テック解放）">
+        <span class="ic">🔬</span><span class="rbody"><span class="rlabel">研究 / RP</span><span class="rnum"><b id="res-val">0</b><em id="res-rate">+0/s</em></span></span>
+      </div>
+      <div class="res" id="res-power" title="電力（供給／消費）。消費が供給を超えると生産効率が低下">
+        <span class="ic">⚡</span><span class="rbody"><span class="rlabel">電力 / PWR</span><span class="rnum"><b id="pow-val">0/0</b><em id="pow-eff"></em></span></span>
+      </div>
+      <div class="res" id="res-mod" title="採取モジュール（空き／保有上限）。鉱区へ投入して素材を採取">
+        <span class="ic">📦</span><span class="rbody"><span class="rlabel">採取 / MOD</span><span class="rnum"><b id="mod-val">0/0</b></span></span>
+      </div>
+      <div class="res" id="res-cap" title="指揮容量（展開できるユニット総量）">
+        <span class="ic">📡</span><span class="rbody"><span class="rlabel">指揮 / CMD</span><span class="rnum"><b id="cap-val">0/0</b></span></span>
+      </div>
     </div>
     <div class="chapter-info">
       <div id="chap-title">―</div>
