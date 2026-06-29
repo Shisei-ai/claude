@@ -509,4 +509,9 @@
   G.ARENA = { domeR: 52, spawnR: 470, viewR: 500, turretR: 230 };
   G.HQ_HP = 1100;
 
+  // 戦闘スケール調整
+  G.ENEMY_MULT = 6;   // 各波の敵数の倍率
+  G.PROD_MULT  = 6;   // ユニット生産（生産ライン）速度の倍率
+  G.UNIT_CAP_LIMIT = false;  // false＝指揮容量に関係なく生産ユニットを即出撃させる
+
 })(window.G = window.G || {});

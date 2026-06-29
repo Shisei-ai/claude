@@ -199,14 +199,16 @@
     if (mf > 0 && state.modules < moduleCap())
       state.modules = Math.min(moduleCap(), state.modules + mf * G.MACH.modfab.module * eff * dt);
 
-    // ③ 生産ライン（資源入力→製錬→部品→組立）。組立は容量内で常時ユニット生成
-    G.Factory.tick(state.factory, dt, {
+    // ③ 生産ライン（資源入力→製錬→部品→組立）。生産速度は PROD_MULT 倍（dtを倍化して
+    //    製錬・部品・組立・コンベアを一括で加速。採掘/研究/電力は別系統なので影響しない）
+    G.Factory.tick(state.factory, dt * (G.PROD_MULT || 1), {
       eff: eff * state.mod.buildSpeed,
       inBattle: inBattle,                           // 組立機は戦闘中のみユニットを射出
       bodyInt: G.gradeInt(state.tiers.body),       // ボディ/ヘッド部品が要求する中間素材
       weaponInt: G.gradeInt(state.tiers.weapon),    // ウェポン部品が要求する中間素材
       takeMat: function (k, n) { if ((state.mat[k] || 0) >= n) { state.mat[k] -= n; return true; } return false; },
-      canSpawn: function () { return capacityUsed() < capacityMax(); },
+      // 指揮容量の制限を撤廃：作られたユニットは即座に戦場へ射出される
+      canSpawn: function () { return G.UNIT_CAP_LIMIT ? (capacityUsed() < capacityMax()) : true; },
       spawnUnit: function (cfg) { spawnUnit(computeStats(cfg)); },
     });
   }
@@ -216,8 +218,10 @@
   function currentWave() { return currentChapter().waves[state.wave]; }
   function buildSpawns(groups) {
     state.spawns = [];
+    var mult = G.ENEMY_MULT || 1;
     for (var g = 0; g < groups.length; g++) { var grp = groups[g];
-      for (var i = 0; i < grp.count; i++) state.spawns.push({ type: grp.type, t: grp.delay + i * grp.gap }); }
+      var n = Math.round(grp.count * mult);
+      for (var i = 0; i < n; i++) state.spawns.push({ type: grp.type, t: grp.delay + i * grp.gap }); }
     state.spawns.sort(function (a, b) { return a.t - b.t; });
     state.battleTime = 0;
   }

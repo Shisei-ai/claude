@@ -591,7 +591,7 @@
     var eff = Game.powerEfficiency(), pe = $('pow-eff');
     if (eff < 0.999) { pe.textContent = '効率' + Math.round(eff * 100) + '%'; pe.className = 'warn'; } else { pe.textContent = ''; pe.className = ''; }
     $('mod-val').textContent = Math.floor(Game.freeModules()) + '/' + Game.moduleCap();
-    $('cap-val').textContent = Game.capacityUsed() + '/' + Game.capacityMax();
+    $('cap-val').textContent = G.UNIT_CAP_LIMIT ? (Game.capacityUsed() + '/' + Game.capacityMax()) : (Game.capacityUsed() + '/∞');
     var ch = Game.currentChapter();
     if (ch && s.phase !== 'won') { $('chap-title').textContent = ch.title; $('wave-info').textContent = '第' + Math.min(s.wave + 1, ch.waves.length) + '波 / ' + ch.waves.length + (s.phase === 'battle' ? '　⚔交戦中' : '　待機'); }
     var hp = Math.max(0, s.hqHp) / s.hqHpMax, bar = $('hq-bar');
@@ -611,7 +611,7 @@
       bs.style.display = 'flex';
       bs.innerHTML =
         '<span class="' + (eff < 0.999 ? 'bs-warn' : '') + '" title="電力効率">⚡ ' + Math.round(eff * 100) + '%</span>' +
-        '<span title="指揮容量（展開中/上限）">📡 ' + Game.capacityUsed() + '/' + Game.capacityMax() + '</span>' +
+        '<span title="指揮容量（展開中／上限）">📡 ' + Game.capacityUsed() + (G.UNIT_CAP_LIMIT ? '/' + Game.capacityMax() : '/∞') + '</span>' +
         '<span title="展開中の味方ユニット">🤖 ' + s.units.length + '</span>' +
         '<span class="bs-foe" title="残りの敵（出現待ち含む）">☣ ' + foes + '</span>';
     } else bs.style.display = 'none';
