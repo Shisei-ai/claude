@@ -296,7 +296,7 @@
   // =======================================================================
   //  生産タブ（グリッド・ファクトリー：配置＋コンベア）
   // =======================================================================
-  var facTool = 'select', facSel = null, facCanvas = null, facCtx = null;
+  var facTool = 'select', facSel = null, facCanvas = null, facCtx = null, facMoveSrc = null;
   var FAC_CELL = 40, facDown = false, facLastKey = '';
   var MACH_ACCENT = { intake: '#e0a85a', smelter: '#9fd0ff', fab: '#7fe0a8', assembler: '#ffb13b', gen: '#ffcf5a', lab: '#5be0c0', relay: '#c79bff', modfab: '#9fd0ff', turret: '#ff8a8a' };
   var ITEM_COL = { body: '#8fd0ff', head: '#c79bff', weapon: '#ffd24a' };
@@ -323,6 +323,7 @@
     var bar = $('fac-bar'), h = [];
     h.push('<div class="fac-tools">');
     h.push('<button class="ftool" data-tool="select">⊹ 選択</button>');
+    h.push('<button class="ftool" data-tool="move">✥ 移動</button>');
     h.push('<button class="ftool" data-tool="erase">🗑 撤去</button>');
     h.push('<button class="ftool" id="fac-rot">⟳ 回転</button>');
     G.MACH_ORDER.forEach(function (t) { var d = G.MACH[t], lk = !Game.facUnlocked(t);
@@ -331,7 +332,7 @@
     h.push('</div>');
     h.push('<div class="fac-readout"><span title="鉄">⛓ <b id="fac-iron">0</b></span>' +
       '<span title="電力 供給/消費">⚡ <b id="fac-pow">0/0</b><em id="fac-eff"></em></span>' +
-      '<span class="fac-tip">配置=クリック／コンベアはドラッグで方向、回転で向き変更</span></div>');
+      '<span class="fac-tip">配置=クリック／コンベアはドラッグで方向／移動=設備→空きマスの順にクリック</span></div>');
     bar.innerHTML = h.join('');
     bar.querySelectorAll('[data-tool]').forEach(function (b) { if (b.id === 'fac-rot') return; b.onclick = function () { setTool(b.dataset.tool); }; });
     $('fac-rot').onclick = function () { _facDir = (_facDir + 1) % 4; Game.facSetDir(_facDir); if (facSel) Game.facRotate(facSel.x, facSel.y); };
@@ -340,8 +341,9 @@
   var _facDir = 0;
   function facDirGet() { return _facDir; }
   function setTool(t) {
-    facTool = t; _facDir = 0; Game.facSetDir(0);
+    facTool = t; _facDir = 0; Game.facSetDir(0); facMoveSrc = null;   // ツール切替で移動の保留を解除
     $('fac-bar').querySelectorAll('[data-tool]').forEach(function (b) { b.classList.toggle('on', b.dataset.tool === t); });
+    renderFacConfig();
   }
   function facCellAt(e) {
     var r = facCanvas.getBoundingClientRect();
@@ -353,6 +355,17 @@
     var f = Game.state.factory; if (!G.Factory.inb(f, cx, cy)) return;
     if (facTool === 'erase') { Game.facRemove(cx, cy); if (facSel && facSel.x === cx && facSel.y === cy) { facSel = null; renderFacConfig(); } return; }
     if (facTool === 'select') { var c = G.Factory.cell(f, cx, cy); facSel = c ? { x: cx, y: cy } : null; renderFacConfig(); return; }
+    if (facTool === 'move') {                                    // 1回目＝つかむ／2回目＝空きマスへ置く
+      var mc = G.Factory.cell(f, cx, cy);
+      if (!facMoveSrc) { if (mc) facMoveSrc = { x: cx, y: cy }; }
+      else if (cx === facMoveSrc.x && cy === facMoveSrc.y) { facMoveSrc = null; }        // 同じマス＝キャンセル
+      else if (mc) { facMoveSrc = { x: cx, y: cy }; }                                    // 別の設備＝つかみ直し
+      else if (Game.facMove(facMoveSrc.x, facMoveSrc.y, cx, cy)) {                       // 空きマス＝移動
+        if (facSel && facSel.x === facMoveSrc.x && facSel.y === facMoveSrc.y) facSel = { x: cx, y: cy };
+        facMoveSrc = null; renderFacConfig(); markDirty();
+      }
+      return;
+    }
     // 機械/ベルト配置
     var dir = _facDir;
     if (facTool === 'belt' && prev) { var ddx = cx - prev.x, ddy = cy - prev.y;   // ドラッグ方向＝流れ
@@ -366,7 +379,7 @@
       facDown = true; var c = facCellAt(e); facLastKey = c.x + ',' + c.y; facApply(c.x, c.y, null);
     });
     facCanvas.addEventListener('mousemove', function (e) {
-      if (!facDown || facTool === 'select') return;
+      if (!facDown || facTool === 'select' || facTool === 'move') return;
       var c = facCellAt(e), key = c.x + ',' + c.y; if (key === facLastKey) return;
       var pk = facLastKey.split(','), prev = { x: +pk[0], y: +pk[1] };
       facLastKey = key; facApply(c.x, c.y, prev);
@@ -461,6 +474,7 @@
     for (var cy = 0; cy < f.h; cy++) for (var cx = 0; cx < f.w; cx++) {
       var c = f.cells[cy * f.w + cx]; if (!c) continue;
       var px = cx * cell, py = cy * cell, mid = cell / 2, sel = (facSel && facSel.x === cx && facSel.y === cy);
+      var moving = (facMoveSrc && facMoveSrc.x === cx && facMoveSrc.y === cy);
       if (c.t === 'belt') {
         // レーン
         x.fillStyle = '#15212e'; roundRect(x, px + 3, py + 3, cell - 6, cell - 6, 4); x.fill();
@@ -506,6 +520,11 @@
         x.fillStyle = 'rgba(180,205,228,0.7)'; x.font = '8px sans-serif'; x.textAlign = 'center';
         var lbl = c.t === 'intake' ? (G.MAT_INFO[c.mat] ? G.MAT_INFO[c.mat].name : '') : c.t === 'fab' ? (c.part === 'body' ? 'ボディ' : c.part === 'head' ? 'ヘッド' : 'ウェポン') : c.t === 'smelter' ? (G.RECIPES[c.recipe] ? G.RECIPES[c.recipe].name : '') : c.t === 'assembler' ? (G.BODIES[c.body] ? G.BODIES[c.body].name : '') : '';
         if (lbl) x.fillText(lbl, px + mid, py + cell - 10);
+      }
+      if (moving) {   // 移動でつかんでいる設備：点滅する破線枠
+        x.save(); x.strokeStyle = '#37d0ff'; x.lineWidth = 2.5; x.setLineDash([5, 4]);
+        x.lineDashOffset = -(T * 14) % 18; x.globalAlpha = 0.6 + 0.4 * Math.sin(T * 6);
+        roundRect(x, px + 2, py + 2, cell - 4, cell - 4, 6); x.stroke(); x.restore();
       }
     }
   }

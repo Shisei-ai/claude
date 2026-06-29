@@ -108,6 +108,18 @@
     state.mat.iron -= c; G.Factory.place(f, x, y, type, dir == null ? facDir : dir); return true;
   }
   function facRemove(x, y) { return G.Factory.remove(state.factory, x, y); }
+  // 設置済み設備を空きマスへ移動（設定はそのまま保持）。移動先が空でなければ失敗。
+  function facMove(sx, sy, dx, dy) {
+    var f = state.factory;
+    if (!G.Factory.inb(f, sx, sy) || !G.Factory.inb(f, dx, dy)) return false;
+    var si = sy * f.w + sx, di = dy * f.w + dx;
+    if (si === di) return false;
+    var c = f.cells[si]; if (!c) return false;
+    if (f.cells[di]) return false;
+    f.cells[di] = c; f.cells[si] = null;
+    if (c.t === 'belt') { c.item = null; c.p = 0; }   // ベルトは搬送状態をリセット
+    return true;
+  }
   function facRotate(x, y) { var c = G.Factory.cell(state.factory, x, y); if (c) { c.dir = (c.dir + 1) % 4; if (c.t === 'belt') { c.item = null; c.p = 0; } } }
   function facSetCfg(x, y, key, val) {
     var c = G.Factory.cell(state.factory, x, y); if (!c) return;
@@ -505,7 +517,7 @@
     capacityUsed: capacityUsed, capacityMax: capacityMax,
     moduleCap: moduleCap, freeModules: freeModules,
     assignModule: assignModule, unassignModule: unassignModule,
-    facCost: facCost, facBuild: facBuild, facRemove: facRemove, facRotate: facRotate,
+    facCost: facCost, facBuild: facBuild, facRemove: facRemove, facRotate: facRotate, facMove: facMove,
     facSetDir: facSetDir, facSetCfg: facSetCfg, facToggleCpu: facToggleCpu, facPower: facPower,
     facUnlocked: facUnlocked, recipeAvailable: recipeAvailable,
     computeStats: computeStats,
