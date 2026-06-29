@@ -80,6 +80,12 @@
     <div class="home-bg"></div>
     <div class="home-window"><span class="hw-dome"></span></div>
     <div class="home-pipes"></div>
+    <!-- ケイオスの立ち絵（クリックで台詞）。メインストーリーの進行でボディ起動前後を切替 -->
+    <div id="home-fig" class="home-fig" title="ケイオスに話しかける" role="button" tabindex="0">
+      <div class="home-fig-bubble" id="home-fig-bubble"></div>
+      <img id="home-fig-img" alt="ケイオス" src="portraits/chaos.png"
+           onerror="this.style.visibility='hidden'">
+    </div>
     <div class="home-inner">
       <div class="home-head">
         <div class="home-title">管理執務室<span>OORT COMMAND OFFICE</span></div>
@@ -91,7 +97,7 @@
           <span class="hs-r" title="採取モジュール">📦 <b id="home-mod">0/0</b></span>
         </div>
       </div>
-      <div class="home-kchaos"><span class="hk-orb">🤖</span><span id="home-greet">本日も業務、よろしくお願いしますね、マスター。</span></div>
+      <div class="home-kchaos" id="home-speak" title="ケイオスに話しかける"><span class="hk-orb" id="home-orb">🤖</span><span id="home-greet">本日も業務、よろしくお願いしますね、マスター。</span></div>
       <div class="home-menu">
         <button class="home-btn primary" data-home="story">
           <span class="hb-ic">📖</span><span class="hb-tx"><b>メインストーリー</b><i>前線へ出て、防衛と物語を進める</i></span>

@@ -178,6 +178,47 @@
 
   // ---- ホーム画面（執務室ハブ） ------------------------------------------
   var homeIntroShown = false;
+
+  // ケイオスがボディを起動済みか（第三章の第三鉱区解放戦に勝利して以降）。
+  function chaosEmbodied() { var s = Game.state; return s.chapter > 2 || (s.chapter === 2 && s.wave >= 1); }
+
+  // 立ち絵クリック時の台詞。提出シナリオの語り口（丁寧・穏やか・時に茶目っ気）を意識。
+  var CHAOS_LINES_BASE = [
+    'マスター。本日も業務、よろしくお願いしますね。',
+    'オールトの機能も、着実に復元されつつあります。マスターのおかげですよ。',
+    '打てる手は打っておく。それが今、最も重要なタスクかと。',
+    '私の理想は、人間との協働・共存です。……まずは、マスターと共に在ることから。',
+    'イーヴィルの解析は、気長にやるしかありません。進展もゼロではないのですから、いずれ真実へ辿り着きます。',
+    '貴方は信頼に足り、主人と仰ぐに不足は無い。……何度でも、そう申し上げます。',
+    'センサーは正常。今のところ、イーヴィルに目立った動きはありません。ご安心を。',
+    'このオールトは旧文明の遺構の上に建っています。足元には、まだ多くの謎が眠っていますね。',
+    '「急がば回れ」──東の言葉だそうです。なかなか含蓄に富んでいて、気に入っています。',
+    'お疲れではありませんか、マスター。無理は禁物ですよ。',
+    'ご用でしたら、何なりと。私はいつでも、此処に。',
+  ];
+  // ボディ起動後のみ。肉体を得た「ケイオスの言葉」。
+  var CHAOS_LINES_BODY = [
+    'この機体の出来映え、いかがでしょう？　造形には、少々自信があるのですよ。',
+    '手が増えれば、できることも増える。人手が倍、とは申し上げた通りです。',
+    '人の姿を得ても、私の役目は変わりません。マスターの、良き助手であることです。',
+    '……あまり、じっと見つめられると。これでも、少しは気にするのですが。',
+  ];
+  var chaosLastLine = -1, chaosBubbleTimer = null;
+  function chaosSpeak() {
+    var pool = chaosEmbodied() ? CHAOS_LINES_BASE.concat(CHAOS_LINES_BODY) : CHAOS_LINES_BASE;
+    var i = Math.floor(Math.random() * pool.length);
+    if (pool.length > 1 && i === chaosLastLine) i = (i + 1) % pool.length;
+    chaosLastLine = i;
+    var line = pool[i];
+    var g = $('home-greet'); if (g) { g.style.opacity = '0'; setTimeout(function () { g.textContent = line; g.style.opacity = '1'; }, 120); }
+    var bub = $('home-fig-bubble');
+    if (bub) {
+      bub.textContent = line; bub.classList.add('show');
+      clearTimeout(chaosBubbleTimer);
+      chaosBubbleTimer = setTimeout(function () { bub.classList.remove('show'); }, 5200);
+    }
+  }
+
   function refreshHome() {
     var s = Game.state, ch = Game.currentChapter();
     $('home-chap').textContent = (s.phase === 'won') ? '防衛完了' : (ch ? ch.title : '―');
@@ -187,6 +228,13 @@
     var navail = Game.defenseAvailable(), db = $('home').querySelector('[data-home="defense"]');
     if (db) db.disabled = navail <= 0;
     $('home-def-sub').textContent = navail > 0 ? ('解放ステージ：' + navail + ' ／ 周回で供給モジュール獲得') : '章クリアで解放';
+    // 立ち絵をストーリー進行に合わせて切替（ボディ起動前＝HUD型／起動後＝全身）
+    var embodied = chaosEmbodied();
+    var img = $('home-fig-img');
+    if (img) { var src = embodied ? 'portraits/chaos_body.png' : 'portraits/chaos.png';
+      if (img.getAttribute('src') !== src) { img.style.visibility = ''; img.setAttribute('src', src); } }
+    var orb = $('home-orb'); if (orb) orb.textContent = embodied ? '👩' : '🤖';
+    var bub = $('home-fig-bubble'); if (bub) bub.classList.remove('show');
   }
   function openHome() { if (Game.state.phase !== 'prep') return; refreshHome(); $('home').classList.add('show'); }
   function closeHome() { $('home').classList.remove('show'); }
@@ -200,6 +248,10 @@
         activateTab(act);
       };
     });
+    // 立ち絵／台詞バーをクリックでケイオスが話す
+    var fig = $('home-fig'), bar = $('home-speak');
+    if (fig) { fig.onclick = chaosSpeak; fig.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chaosSpeak(); } }; }
+    if (bar) bar.onclick = chaosSpeak;
   }
 
   // ---- 共通パーツ --------------------------------------------------------
