@@ -240,6 +240,7 @@
   function startBattle() {
     if (state.phase !== 'prep') return;
     state.battleMode = 'story';
+    state.units = [];                       // 戦闘ごとに味方ユニットはリセット（波の進行は持ち越し）
     buildSpawns(currentWave().enemies);
     state.phase = 'battle';
   }
@@ -249,6 +250,7 @@
     if (state.phase !== 'prep') return false;
     if (idx < 0 || idx >= defenseAvailable()) return false;
     state.battleMode = 'defense'; state.defenseStage = idx; state.defenseResult = null;
+    state.units = [];                     // 戦闘ごとに味方ユニットはリセット
     state._savedHp = state.hqHp;          // 周回戦は本陣HPを後で復元（campaignを終わらせない）
     buildSpawns(G.DEFENSE[idx].enemies);
     state.phase = 'battle';
