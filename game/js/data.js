@@ -238,6 +238,9 @@
     narration: { name: '', color: '#cdd8e6', side: 'center' },
     oort:   { name: '【オールト】', color: '#9fb4c8', side: 'center', icon: '📡' },
     kchaos: { name: 'ケイオス',     color: '#37d0ff', side: 'left',  icon: '🤖', hud: true, img: { neutral: 'portraits/chaos.png' } },
+    // 第三章でボディを起動したケイオス。以降は基本的にこの立ち絵（HUD表示ではなく全身）。
+    // 立ち絵PNG（portraits/chaos_body*.png）を用意すると差分表示。未配置の間はプレースホルダ表示。
+    kchaosb: { name: 'ケイオス',     color: '#37d0ff', side: 'left',  icon: '👩', img: { neutral: 'portraits/chaos_body.png', smile: 'portraits/chaos_body_smile.png' } },
     master: { name: '管理者',       color: '#ffd24a', side: 'right', icon: '🧑', img: { neutral: 'portraits/master.png' } },
     swarm:  { name: '？？？',       color: '#ff5d6c', side: 'right', icon: '☣', img: {} },
   };
@@ -314,7 +317,7 @@
     },
     {
       title: '第二章　旧文明の負債',
-      grant: { zones: [2, 3], modules: 2 },   // 銀・金（銅は第二鉱区解放戦の勝利で解放）
+      grant: { modules: 2 },   // 銅は第二鉱区解放戦の勝利で解放。銀以降は第三章で順次解放。
       intro: [
         { who: 'narration', text: '私が【オールト】に赴任して、1週間が経った。' },
         { who: 'master', expr: 'neutral', text: '業務には慣れたが、あの化け物たち……【イーヴィル】と仮称するが、\n奴らのことは何も分からないままだな。' },
@@ -385,18 +388,73 @@
     },
     {
       title: '第三章　暴走する遺産',
-      grant: { zones: [4, 5], modules: 3 },
-      intro:
-        '空に飛翔する影。地上を無視して基地へ迫る。\n' +
-        '対空（射撃兵・飛行兵・防衛砲台）が無ければ空から喰い破られる。',
-      waves: [
-        w([{ type: 'spitter', count: 8, delay: 0.5, gap: 0.9 }, { type: 'wyrm', count: 3, delay: 4, gap: 1.6 }], { ore: 210, research: 38 }),
-        w([{ type: 'armored', count: 8, delay: 1, gap: 1.6 }, { type: 'wyrm', count: 5, delay: 5, gap: 1.2 }, { type: 'spitter', count: 4, delay: 9, gap: 1.2 }], { ore: 240, research: 44 }),
-        w([{ type: 'swarmling', count: 20, delay: 0.3, gap: 0.5 }, { type: 'armored', count: 8, delay: 5, gap: 1.4 }, { type: 'wyrm', count: 6, delay: 8, gap: 1 }, { type: 'spitter', count: 6, delay: 12, gap: 1 }], { ore: 300, research: 54 }),
+      grant: { zones: [3, 4, 5], modules: 3 },   // 金・プラチナ・ダイヤ。銀は第三鉱区解放戦の勝利で解放。
+      intro: [
+        { who: 'narration', text: 'イーヴィルの調査は難航していた。' },
+        { who: 'narration', text: '旧文明のものと分かったところで、そもそも旧文明の情報が足りていない。\nケイオスが幾らか知っているようだが、それでも核心部分には届かないのが現実だ。' },
+        { who: 'narration', text: '……ケイオスの【オリジナル】。\nそれに接触・接続できれば話は早いのだが――' },
+        { who: 'kchaos', expr: 'neutral', text: 'オリジナルは旧文明の遺構と共に埋もれている上、私自身が分離独立して久しく規格も変わった。\nもはや別存在であり、接続は難しいでしょう。' },
+        { who: 'narration', text: '残念だが、気長にやるしかない。進展もゼロではないのだから、いずれ真実に辿り着く。' },
+        { who: 'narration', text: '――そうやって開き直る日々を、私は過ごしていた。' },
+        { who: 'kchaos', expr: 'smile', text: 'マスターのおかげで、オールトの機能も復元されつつあります。' },
+        { who: 'master', expr: 'neutral', text: '劇的に変わるものではないが、それでも確かな変化と言えるな。' },
+        { who: 'kchaos', expr: 'neutral', text: 'はい。──そろそろ、私のボディが起動できそうです。' },
+        { who: 'master', expr: 'wry', text: 'ほう、君のボディときたか。' },
+        { who: 'kchaos', expr: 'neutral', text: '物理的なサポートが可能になると、単純に人手が倍になります。\n様々な面で効率化が加速するため、起動の許可をいただきたいのですが。' },
+        { who: 'master', expr: 'neutral', text: '拒否する理由も無いよ。是非そうしてくれ。' },
+        { who: 'kchaos', expr: 'neutral', text: 'ありがとうございます。ただ、一つ問題があります。' },
+        { who: 'master', expr: 'neutral', text: '何だ？' },
+        { who: 'kchaos', expr: 'neutral', text: 'ボディの損傷を修復するため、銀が必要になるのです。\n現在銀のストックが無く、鉱区を解放して供給を再開させなければなりません。' },
+        { who: 'master', expr: 'fired', text: 'ああ、そうだな。銀があれば設備強化にも回せるだろうし、すぐに動こう。' },
+        { who: 'kchaos', expr: 'neutral', cutin: { jp: '第三鉱区 解放戦', en: 'OPERATION: SILVER', cls: 'wave', dur: 2000 }, text: 'では第三鉱区――銀の採掘区へ。占拠するイーヴィルを排除し、銀の供給を取り戻しましょう。' },
       ],
-      outro: '発信源は基地の地下深く――旧文明の中枢炉が脈動している。\nそれを止めぬ限り、攻勢は永遠に続く。',
+      waves: [
+        // ① 第三鉱区解放戦（銀をまだ持たない＝グレード1-2主体。勝利で鉱区Ⅲ／銀を解放）
+        w([{ type: 'swarmling', count: 12, delay: 0.6, gap: 0.8 }, { type: 'armored', count: 5, delay: 5, gap: 1.8 }, { type: 'spitter', count: 3, delay: 9, gap: 1.6 }],
+          { ore: 200, research: 36 },
+          { grant: { zones: [2] }, interlude: [
+            { who: 'narration', text: '銀資源が解放されたことで、できることが増えた。\nその分考慮しなければならないことも増え、データと向き合っては眉間に皺を寄せていた。' },
+            { who: 'narration', text: 'すると、執務室のドアが開き、コツコツと近づいて来る音があった。\n顔を上げると──' },
+            { who: 'kchaosb', expr: 'smile', text: 'お待たせしました。そして、ようやくお会いできました。\nマスターのAI、ケイオスです。' },
+            { who: 'narration', text: '――一見して美しい女性にしか見えないボディを得たケイオスが、心なしか自慢げな表情をしていた。' },
+            { who: 'kchaosb', expr: 'smile', text: 'どうでしょうか、私がデザインした機体の出来映えは？' },
+            { who: 'master', expr: 'shock', text: '驚いた。関節の球状部分を除けば、ほぼ人間に見える。というか……' },
+            { who: 'narration', text: 'そう言って、私はケイオスの頬部分を撫でた。' },
+            { who: 'kchaosb', expr: 'neutral', text: '……あの？' },
+            { who: 'master', expr: 'neutral', text: 'やっぱり、手触りや質感すら人間のそれだ。素晴らしいよ、ケイオス。' },
+            { who: 'kchaosb', expr: 'neutral', text: '……もちろん、造形にあたって手は抜いていません。そこには自信があります。' },
+            { who: 'master', expr: 'wry', text: '流石だな。君ほどのAIが一般化されたなら、\nもはや人は遍く労働から解放されるかもしれないね。' },
+            { who: 'kchaosb', expr: 'neutral', text: '称賛として受け取ります。私の理想は人間との協働・共存なので、\nマスターの言う可能性を模索することはありませんが。' },
+            { who: 'narration', text: 'ケイオスはそう言って、サラ、と髪を靡かせる。\nその動作までもが「人間」で、私は不覚にも見惚れてしまった。' },
+            { who: 'narration', text: '――美しいと、思ってしまった。' },
+            { who: 'kchaosb', expr: 'neutral', text: '私のボディはさておき、オールトの機能も復元されています。\n特にセンサー系は知覚範囲、精度共に大きく向上し、より早期かつ詳細にイーヴィルの接近を把握できるようになりました。' },
+            { who: 'master', expr: 'fired', text: 'ほう、それは心強い！' },
+            { who: 'narration', text: 'ケイオスが一台のタブレットを手渡してきた。\nその画面にはオールトを中心に据えた周辺マップが大きく映し出され、環境情報や生体反応などがリアルタイムで反映されていた。' },
+            { who: 'kchaosb', expr: 'neutral', text: '各種計器が捉えたイーヴィルの行動を予測し、表示します。\n例えば、今の画面では……はい、ちょうど大規模な襲撃のようですね。' },
+            { who: 'narration', text: 'タブレットの画面上に、大量の細かな点がワラッと表示されている。\nそれらはオールトを包囲しながら確実に距離を詰めており、明らかにイーヴィルの侵攻だった。' },
+            { who: 'master', expr: 'wry', text: '間が良いのか悪いのか……' },
+            { who: 'kchaosb', expr: 'neutral', fx: 'flash', flashColor: 'rgba(255,40,40,.45)', cutin: { jp: '大規模襲撃　接近', en: 'MASS RAID INBOUND', cls: 'boss', dur: 2200 }, text: 'しかし、まだ余裕はあります。飛行型などの新種が確認されますが、\n対応するユニットの生産ラインは充分に検討できるでしょう。……マスター。今回も、よろしくお願いします。' },
+          ] }),
+        // ② 早期警戒で迎え撃つ大規模襲撃（飛行型＝飛翔・イーヴィルを含む新種）
+        w([{ type: 'spitter', count: 8, delay: 0.5, gap: 0.9 }, { type: 'wyrm', count: 4, delay: 4, gap: 1.5 }, { type: 'armored', count: 4, delay: 7, gap: 1.6 }], { ore: 240, research: 44 }),
+        w([{ type: 'swarmling', count: 20, delay: 0.3, gap: 0.5 }, { type: 'armored', count: 8, delay: 5, gap: 1.4 }, { type: 'wyrm', count: 6, delay: 8, gap: 1 }, { type: 'spitter', count: 6, delay: 12, gap: 1 }], { ore: 320, research: 58 }),
+      ],
+      outro: [
+        { who: 'master', expr: 'wry', text: '航空戦力とは、やはり厄介なものだな。\nだが確かに、余裕を持って対策できるのはかなり大きい。' },
+        { who: 'narration', text: '焦りが無くなるだけでパフォーマンスは上がる。\n東の方には「急がば回れ」という言葉があるらしく、なかなか含蓄に富んでいて気に入っている。' },
+        { who: 'master', expr: 'neutral', text: 'さて……どうだ、ケイオス。何か進んだものはあったか？' },
+        { who: 'narration', text: '未だに見慣れない姿の助手へと問う。\nその問いはどこかルーティンのようで、実際に進んでいようがいまいがどちらでもよかった。\n言うなれば、世間話とかアイスブレイクとかの類だ。' },
+        { who: 'narration', text: 'AI相手に世間話とは、冗談のように聞こえるだろう。\nしかしオールトで過ごすうちに、私はケイオスのことを1人の人間として捉えるようになっていた。' },
+        { who: 'narration', text: 'ケイオスの言葉は信頼でき、ケイオスの能力は頼りになる。\n語り口調にも人間味があり、ついに人の姿形も得た。' },
+        { who: 'narration', text: '厳密な定義の話はどうでもよい。\nケイオスは良き助手であり、良き友人だ。それだけで良かった。' },
+        { who: 'narration', text: 'だから、私は何気無く問い掛けた。\nそうするのが我々の日常で、そうやって今まで積み重ねてきた。' },
+        { who: 'master', expr: 'neutral', text: '……ケイオス？' },
+        { who: 'narration', text: 'だが、いつもの軽快で明快な答えは無い。\nしばらくの沈黙の後に返ってきたのは──' },
+        { who: 'kchaosb', expr: 'grim', fx: 'flash', flashColor: 'rgba(255,40,40,.55)', cutin: { jp: '【パンドラ】　覚醒', en: 'PANDORA AWAKENS', cls: 'boss', dur: 2400 }, text: '有り得ては、ならないことなのですが。\n……地中深くに眠る旧文明の遺構、そのメインシステムが復活した可能性があります。\nかつて技術を極めた文明を滅ぼした災厄の箱──【パンドラ】が。' },
+        { who: 'narration', text: '――「彼女」らしからぬ、恐怖の声音だった。' },
+      ],
       choice: {
-        prompt: '中枢へ向けた最終攻勢の準備。',
+        prompt: '【パンドラ】への対抗策を講じる。最終決戦に向け、どこを強化する？',
         options: [
           { label: '火力を増強（武装）', desc: '全ウェポンのグレード+1相当（永続）。', apply: { weaponTierBonus: 1 } },
           { label: '装甲を増強（機体）', desc: '全ボディのグレード+1相当（永続）。', apply: { bodyTierBonus: 1 } },

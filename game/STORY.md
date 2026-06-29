@@ -37,7 +37,8 @@
 G.CHARACTERS = {
   narration: { name: '', color: '#cdd8e6', side: 'center' },        // 地の文（消さないで）
   oort:   { name: '【オールト】', color: '#9fb4c8', side: 'center', icon: '📡' },          // 基地の自動音声
-  kchaos: { name: 'ケイオス',     color: '#37d0ff', side: 'left',  icon: '🤖', img: {} },  // サポートAI
+  kchaos: { name: 'ケイオス',     color: '#37d0ff', side: 'left',  icon: '🤖', hud: true, img: {} }, // サポートAI（ボディ起動前。HUD表示）
+  kchaosb:{ name: 'ケイオス',     color: '#37d0ff', side: 'left',  icon: '👩', img: {} },  // ボディを得たケイオス（第三章〜。全身立ち絵）
   master: { name: '管理者',       color: '#ffd24a', side: 'right', icon: '🧑', img: {} },  // 主人公（私／マスター）
   swarm:  { name: '？？？',       color: '#ff5d6c', side: 'right', icon: '☣', img: {} },   // 謎の襲撃者
 };
@@ -49,6 +50,7 @@ G.CHARACTERS = {
 | `color` | 名前の色（テーマカラー） |
 | `side`  | 既定の立ち位置 `left` / `right` / `center`（center=立ち絵なし） |
 | `icon`  | 立ち絵PNG未配置時のプレースホルダ用の絵文字 |
+| `hud`   | `true` で立ち絵を小さなHUD風（画面上方）に。肉体を持たないAIなどに（任意） |
 | `img`   | 表情ごとの立ち絵PNGパス（`portraits/` に置く。下記参照） |
 
 ### 立ち絵PNGの割り当て
