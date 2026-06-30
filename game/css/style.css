@@ -319,15 +319,22 @@ body::before{content:""; position:fixed; inset:0; z-index:0; pointer-events:none
 .asm{background:var(--surface-2); border:1px solid var(--line); border-radius:var(--r); padding:10px}
 .asm-row1{display:flex; align-items:center; gap:7px; margin-bottom:7px}
 .asm-ci{font-size:18px}
+.asm-field{display:flex; align-items:center; gap:9px; margin-bottom:7px}
+.asm-field .asm-lbl{flex:0 0 86px}
+.asm-field select{flex:1}
+.asm-lbl{font-family:var(--mono); font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--accent); font-weight:700}
+.asm-cpu-head{display:flex; align-items:center; gap:10px; margin:9px 0 6px; padding-top:8px; border-top:1px solid var(--line)}
 .asm-stats{font-family:var(--mono); font-size:11px; color:var(--accent); margin-bottom:7px; line-height:1.4}
 .asm-sp{color:var(--cap); font-weight:700}
 .asm-cpu{display:flex; align-items:center; gap:6px; flex-wrap:wrap}
-.slotlbl{font-size:11px; color:var(--cap); margin-right:2px}
+.slotlbl{font-size:11px; color:var(--cap); margin-right:2px; font-family:var(--mono)}
 .cpuchip{background:var(--surface-1); border:1px solid var(--line); border-radius:var(--r-pill); padding:3px 11px;
   font-size:11px; cursor:pointer; color:var(--dim); transition:border-color .12s, background .12s}
 .cpuchip:hover{border-color:var(--accent)}
 .cpuchip.on{background:#1d3a4d; border-color:var(--accent); color:#dff4ff; animation:chipOn .3s ease}
-.cpu-empty{font-size:11px; color:var(--mute)}
+.cpuchip.full{opacity:.4; cursor:default}
+.cpuchip.full:hover{border-color:var(--line)}
+.cpu-empty{font-size:11px; color:var(--mute); line-height:1.5}
 .asm-warn{font-size:11px; color:var(--accent2); background:#2a2210; border:1px solid #5a4a1e; border-radius:var(--r-sm);
   padding:4px 9px; margin-bottom:7px}
 

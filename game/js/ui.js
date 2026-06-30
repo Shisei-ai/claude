@@ -308,7 +308,8 @@
     if (!wrap.dataset.init) {
       wrap.innerHTML =
         '<div class="hint">設備をタイルに置き、<b>コンベア(⇢)</b>で繋いで生産を流す：' +
-        '<b>資源入力→製錬炉→部品工場→組立機</b>。電力が不足すると稼働が遅くなる。</div>' +
+        '<b>資源入力→製錬炉→部品工場→組立機</b>。電力が不足すると稼働が遅くなる。' +
+        '<br>★<b>組立機</b>を「⊹ 選択」でクリックすると、<b>兵科（ボディ）・ウェポン・ヘッドCPU</b>を設定できます（CPUは研究で解放）。</div>' +
         '<div id="fac-bar"></div>' +
         '<div id="fac-wrap"><canvas id="fac-canvas"></canvas></div>' +
         '<div id="fac-config"></div>';
@@ -445,7 +446,7 @@
   function renderFacConfig() {
     var box = $('fac-config'); if (!box) return;
     var f = Game.state.factory, s = Game.state;
-    if (!facSel) { box.innerHTML = '<div class="fac-cfg-empty">「選択」ツールで設備をクリックすると、ここで設定できます。</div>'; return; }
+    if (!facSel) { box.innerHTML = '<div class="fac-cfg-empty">「<b>⊹ 選択</b>」ツールで設備をクリックすると、ここで設定できます。<br>とくに<b>組立機</b>を選ぶと、ユニットの<b>兵科（ボディ）</b>・<b>ウェポン</b>・<b>ヘッドCPU</b>を設定できます。</div>'; return; }
     var c = G.Factory.cell(f, facSel.x, facSel.y);
     if (!c) { box.innerHTML = ''; facSel = null; return; }
     var d = G.MACH[c.t], h = ['<div class="fac-cfg-h"><b>' + d.icon + ' ' + d.name + '</b>' +
@@ -487,12 +488,12 @@
     var wsel = '<select id="cfg-weapon">';
     WEAPON_KEYS.forEach(function (k) { if (s.unlockedWeapons[k]) wsel += '<option value="' + k + '"' + (c.weapon === k ? ' selected' : '') + '>' + G.WEAPONS[k].icon + ' ' + G.WEAPONS[k].name + '</option>'; });
     wsel += '</select>';
-    var slots = s.tiers.head, chips = '';
-    Object.keys(G.CPUS).forEach(function (cid) { if (!s.unlockedCpus[cid]) return;
-      var on = c.cpus.indexOf(cid) >= 0;
-      chips += '<span class="cpuchip' + (on ? ' on' : '') + '" data-acpu="' + cid + '" title="' + G.CPUS[cid].desc + '">' + G.CPUS[cid].icon + G.CPUS[cid].name.replace('CPU', '') + '</span>';
+    var slots = s.tiers.head, chips = '', anyCpu = false;
+    Object.keys(G.CPUS).forEach(function (cid) { if (!s.unlockedCpus[cid]) return; anyCpu = true;
+      var on = c.cpus.indexOf(cid) >= 0, full = !on && c.cpus.length >= slots;
+      chips += '<span class="cpuchip' + (on ? ' on' : '') + (full ? ' full' : '') + '" data-acpu="' + cid + '" title="' + G.CPUS[cid].desc + '">' + G.CPUS[cid].icon + G.CPUS[cid].name.replace('CPU', '') + '</span>';
     });
-    if (!chips) chips = '<span class="cpu-empty">（CPU未研究）</span>';
+    if (!anyCpu) chips = '<span class="cpu-empty">研究タブで「ヘッドCPU」を解放すると、ここで装着できます。</span>';
     var sp = [];
     if (st.crit) sp.push('暴' + Math.round(st.crit * 100) + '%'); if (st.pierce) sp.push('貫' + st.pierce);
     if (st.lifesteal) sp.push('吸' + Math.round(st.lifesteal * 100) + '%'); if (st.regen) sp.push('再' + Math.round(st.regen * 100) + '%/s');
@@ -500,10 +501,12 @@
     if (st.shield) sp.push('盾' + Math.round(st.shield * 100) + '%'); if (st.thorns) sp.push('反' + Math.round(st.thorns * 100) + '%'); if (st.multishot) sp.push('多' + st.multishot);
     var spStr = sp.length ? '・<span class="asm-sp">' + sp.join('/') + '</span>' : '';
     var wk = st.weapon.kind === 'aoe' ? '範囲' + st.weapon.aoe : st.weapon.kind === 'chain' ? '連鎖' + st.weapon.chain : '単体';
-    return '<div class="asm-row1">' + bsel + wsel + '</div>' +
+    return '<div class="asm-field"><span class="asm-lbl">兵科 / ボディ</span>' + bsel + '</div>' +
+      '<div class="asm-field"><span class="asm-lbl">ウェポン</span>' + wsel + '</div>' +
       '<div class="asm-stats">HP' + Math.round(st.hp) + '・攻' + Math.round(st.dmg) + '・防' + st.def + '・速' + Math.round(st.speed) +
       '・射' + Math.round(st.range) + '・' + (st.domain === 'air' ? '空' : '地') + (st.antiAir ? '/対空' : '') + '・武装:' + wk + spStr + '</div>' +
-      '<div class="asm-cpu"><span class="slotlbl">CPUスロット ' + c.cpus.length + '/' + slots + '</span>' + chips + '</div>';
+      '<div class="asm-cpu-head"><span class="asm-lbl">ヘッドCPU</span><span class="slotlbl">装着 ' + c.cpus.length + ' / ' + slots + '</span></div>' +
+      '<div class="asm-cpu">' + chips + '</div>';
   }
   function wireAsmConfig(c) {
     if (!c || c.t !== 'assembler') return;
