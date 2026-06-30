@@ -375,6 +375,40 @@ body::before{content:""; position:fixed; inset:0; z-index:0; pointer-events:none
 #modal-ok:active{transform:translateY(3px); box-shadow:0 1px 0 var(--accent-deep)}
 .win h2{color:var(--ok); text-shadow:0 0 18px rgba(84,224,142,.4)} .lose h2{color:var(--bad); text-shadow:0 0 18px rgba(255,90,90,.4)}
 
+/* 生産レシピ早見表 */
+#modal.recipe{max-width:680px}
+#modal.recipe #modal-body{max-height:64vh; overflow:auto; margin-bottom:16px; padding-right:6px}
+.rcp-flow{display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:8px; margin-bottom:18px;
+  padding:11px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--r-sm)}
+.rcp-flow span{font-size:12px; color:var(--txt); font-weight:700}
+.rcp-flow b{color:var(--accent); font-size:13px}
+.rcp-sec{margin-bottom:16px}
+.rcp-h{display:flex; align-items:baseline; gap:9px; font-size:14px; font-weight:800; color:#fff; letter-spacing:1px;
+  padding-bottom:7px; margin-bottom:9px; border-bottom:1px solid var(--line)}
+.rcp-h em{font-family:var(--mono); font-size:10px; letter-spacing:1.5px; color:var(--accent); font-style:normal; text-transform:uppercase}
+.rcp-line{display:flex; flex-wrap:wrap; gap:7px}
+.rcp-row{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:7px 10px; margin-bottom:6px;
+  background:var(--surface-1); border:1px solid var(--line); border-radius:var(--r-sm)}
+.rcp-out{display:inline-flex; align-items:center; gap:6px; min-width:128px}
+.rcp-out b{color:#fff; font-size:13px; font-weight:800}
+.rcp-g{font-family:var(--mono); font-size:9px; letter-spacing:1px; color:var(--accent2-ink); background:var(--accent2);
+  border-radius:var(--r-pill); padding:1px 7px; font-style:normal}
+.rcp-arr{color:var(--mute); font-size:14px}
+.rcp-ins{display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap; flex:1}
+.rcp-chip{display:inline-flex; align-items:center; gap:3px; font-size:12px; color:var(--txt);
+  background:var(--surface-2); border:1px solid var(--line); border-radius:var(--r-sm); padding:3px 9px}
+.rcp-chip i{font-family:var(--mono); color:var(--dim); font-style:normal; font-size:11px}
+.rcp-plus{color:var(--mute); font-size:11px}
+.rcp-time{margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--power)}
+.rcp-note{font-size:11px; line-height:1.6; color:var(--dim); margin-top:8px; padding:8px 11px;
+  background:rgba(55,208,255,.06); border-left:3px solid var(--accent); border-radius:0 var(--r-sm) var(--r-sm) 0}
+.rcp-note b{color:var(--accent)}
+.rcp-macs{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:7px}
+.rcp-mac{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--txt);
+  background:var(--surface-1); border:1px solid var(--line); border-radius:var(--r-sm); padding:6px 10px}
+.rcp-mac i{margin-left:auto; font-family:var(--mono); font-size:11px}
+.rcp-mac em{font-family:var(--mono); font-size:10px; color:var(--dim); font-style:normal}
+
 /* =====================================================================
    演出（カットイン・帯）
    ===================================================================== */

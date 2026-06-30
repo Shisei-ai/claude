@@ -326,6 +326,7 @@
     h.push('<button class="ftool" data-tool="move">✥ 移動</button>');
     h.push('<button class="ftool" data-tool="erase">🗑 撤去</button>');
     h.push('<button class="ftool" id="fac-rot">⟳ 回転</button>');
+    h.push('<button class="ftool" id="fac-recipe" title="生産物のレシピを確認">📋 レシピ</button>');
     G.MACH_ORDER.forEach(function (t) { var d = G.MACH[t], lk = !Game.facUnlocked(t);
       h.push('<button class="ftool fmach' + (lk ? ' locked' : '') + '" data-tool="' + t + '"' + (lk ? ' disabled title="研究で解放"' : '') + '>' + d.icon + ' ' + d.name + (lk ? ' 🔒' : '<i class="fcost" data-fcost="' + t + '"></i>') + '</button>');
     });
@@ -336,10 +337,64 @@
     bar.innerHTML = h.join('');
     bar.querySelectorAll('[data-tool]').forEach(function (b) { if (b.id === 'fac-rot') return; b.onclick = function () { setTool(b.dataset.tool); }; });
     $('fac-rot').onclick = function () { _facDir = (_facDir + 1) % 4; Game.facSetDir(_facDir); if (facSel) Game.facRotate(facSel.x, facSel.y); };
+    $('fac-recipe').onclick = openRecipeBook;
     bar.querySelectorAll('[data-tool]').forEach(function (b) { b.classList.toggle('on', b.dataset.tool === facTool); });  // 現在のツールを維持
   }
   var _facDir = 0;
   function facDirGet() { return _facDir; }
+
+  // ---- 生産レシピ早見表（生産物の必要資源・必要設備） --------------------
+  function rcpChip(k, n) {
+    var mi = G.MAT_INFO[k] || G.RECIPES[k]; if (!mi) return '';
+    return '<span class="rcp-chip">' + mi.icon + ' ' + mi.name + (n > 1 ? '<i>×' + n + '</i>' : '') + '</span>';
+  }
+  function buildRecipeHTML() {
+    var H = [];
+    H.push('<div class="rcp-flow"><span>⛏ 基本素材</span><b>▸</b><span>🔩 製錬炉</span><b>▸</b><span>🔧 部品工場</span><b>▸</b><span>⚙ 組立機</span><b>▸</b><span>🤖 ユニット</span></div>');
+
+    H.push('<div class="rcp-sec"><div class="rcp-h">⛏ 基本素材 <em>鉱区で採取</em></div><div class="rcp-line">' +
+      G.MATERIALS.map(function (k) { var mi = G.MAT_INFO[k]; return '<span class="rcp-chip">' + mi.icon + ' ' + mi.name + '<i>G' + mi.grade + '</i></span>'; }).join('') +
+      '</div></div>');
+
+    H.push('<div class="rcp-sec"><div class="rcp-h">🔩 中間素材 <em>製錬炉</em></div>');
+    G.RECIPE_ORDER.forEach(function (rid) { var r = G.RECIPES[rid];
+      var ins = Object.keys(r.in).map(function (k) { return rcpChip(k, r.in[k]); }).join('<span class="rcp-plus">＋</span>');
+      H.push('<div class="rcp-row"><span class="rcp-out"><b>' + r.icon + ' ' + r.name + '</b><i class="rcp-g">G' + r.grade + '</i></span>' +
+        '<span class="rcp-arr">⟵</span><span class="rcp-ins">' + ins + '</span><span class="rcp-time">⏱' + r.time + 's</span></div>');
+    });
+    H.push('</div>');
+
+    var gmap = G.GRADE_INT.map(function (rid, i) { var r = G.RECIPES[rid]; return 'G' + (i + 1) + ' ' + r.icon + r.name; }).join(' ／ ');
+    H.push('<div class="rcp-sec"><div class="rcp-h">🔧 部品 <em>部品工場</em></div>');
+    [['🦾 ボディ'], ['🧠 ヘッド'], ['⚔ ウェポン']].forEach(function (p) {
+      H.push('<div class="rcp-row"><span class="rcp-out"><b>' + p[0] + '</b></span><span class="rcp-arr">⟵</span>' +
+        '<span class="rcp-ins"><span class="rcp-chip">中間素材<i>×1</i></span></span></div>');
+    });
+    H.push('<div class="rcp-note">必要な中間素材は<b>規格（グレード）</b>で変化：' + gmap + '。<br>ボディ／ヘッドは「ボディ規格」、ウェポンは「ウェポン規格」のグレードに対応します。</div></div>');
+
+    H.push('<div class="rcp-sec"><div class="rcp-h">⚙ ユニット <em>組立機</em></div>' +
+      '<div class="rcp-row"><span class="rcp-out"><b>🤖 ユニット</b></span><span class="rcp-arr">⟵</span><span class="rcp-ins">' +
+      '<span class="rcp-chip">🦾 ボディ<i>×1</i></span><span class="rcp-plus">＋</span>' +
+      '<span class="rcp-chip">🧠 ヘッド<i>×1</i></span><span class="rcp-plus">＋</span>' +
+      '<span class="rcp-chip">⚔ ウェポン<i>×1</i></span></span></div></div>');
+
+    H.push('<div class="rcp-sec"><div class="rcp-h">🏭 設備 <em>建設コスト・電力</em></div><div class="rcp-macs">');
+    G.MACH_ORDER.forEach(function (t) { var d = G.MACH[t];
+      var pw = d.gen ? ('+' + d.gen) : (d.use ? ('-' + d.use) : '0');
+      H.push('<span class="rcp-mac">' + d.icon + ' ' + d.name + '<i class="cost-ore">⛓' + d.build + '</i><em>⚡' + pw + '</em></span>');
+    });
+    H.push('</div></div>');
+    return H.join('');
+  }
+  function openRecipeBook() {
+    $('modal-title').textContent = '生産レシピ早見表';
+    $('modal').className = 'recipe';
+    $('modal-choices').innerHTML = '';
+    var ok = $('modal-ok'); ok.style.display = ''; ok.textContent = '閉じる'; modalCallback = null;
+    $('modal-body').innerHTML = buildRecipeHTML();
+    $('overlay').classList.remove('hidden');
+  }
+
   function setTool(t) {
     facTool = t; _facDir = 0; Game.facSetDir(0); facMoveSrc = null;   // ツール切替で移動の保留を解除
     $('fac-bar').querySelectorAll('[data-tool]').forEach(function (b) { b.classList.toggle('on', b.dataset.tool === t); });
