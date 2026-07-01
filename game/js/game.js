@@ -230,10 +230,10 @@
   function currentWave() { return currentChapter().waves[state.wave]; }
   function buildSpawns(groups) {
     state.spawns = [];
-    var mult = G.ENEMY_MULT || 1;
+    var mult = G.ENEMY_MULT || 1, gapMult = G.SPAWN_GAP_MULT || 1;
     for (var g = 0; g < groups.length; g++) { var grp = groups[g];
       var n = Math.round(grp.count * mult);
-      for (var i = 0; i < n; i++) state.spawns.push({ type: grp.type, t: grp.delay + i * grp.gap }); }
+      for (var i = 0; i < n; i++) state.spawns.push({ type: grp.type, t: grp.delay + i * grp.gap * gapMult }); }
     state.spawns.sort(function (a, b) { return a.t - b.t; });
     state.battleTime = 0;
   }
