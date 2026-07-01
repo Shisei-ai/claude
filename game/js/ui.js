@@ -297,7 +297,7 @@
   //  生産タブ（グリッド・ファクトリー：配置＋コンベア）
   // =======================================================================
   var facTool = 'select', facSel = null, facCanvas = null, facCtx = null, facMoveSrc = null;
-  var FAC_CELL = 40, facDown = false, facLastKey = '';
+  var FAC_CELL = 28, facDown = false, facLastKey = '';
   var MACH_ACCENT = { intake: '#e0a85a', smelter: '#9fd0ff', fab: '#7fe0a8', assembler: '#ffb13b', gen: '#ffcf5a', lab: '#5be0c0', relay: '#c79bff', modfab: '#9fd0ff', turret: '#ff8a8a' };
   var ITEM_COL = { body: '#8fd0ff', head: '#c79bff', weapon: '#ffd24a' };
   function itemColor(t) { return ITEM_COL[t] || (G.RECIPES[t] ? G.RECIPES[t].color : G.MAT_INFO[t] ? G.MAT_INFO[t].color : '#9fb4c8'); }

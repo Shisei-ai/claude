@@ -68,7 +68,7 @@
   // ---- 既定レイアウト（鉄だけで1ユニットが流れる稼働ライン） --------------
   //   見やすい横並び: 入力→製錬→部品(3)→組立。発電機・研究所も配置。
   F.defaultLayout = function () {
-    var g = F.newGrid(16, 9);
+    var g = F.newGrid(30, 17);   // 広い盤面（マスを増やして配置数を拡大）
     function put(x, y, t, dir, cfg) { var c = mk(t, dir); if (cfg) for (var k in cfg) c[k] = cfg[k]; g.cells[F.idx(g, x, y)] = c; }
     function belts(x, y, dir, n) { for (var i = 0; i < n; i++) put(x + DX[dir] * i, y + DY[dir] * i, 'belt', dir); }
     // 3本のライン（ヘッド=y2 / ボディ=y4 / ウェポン=y6）：入力→製錬→部品→組立
