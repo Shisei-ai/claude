@@ -410,7 +410,9 @@
   function facApply(cx, cy, prev) {
     var f = Game.state.factory; if (!G.Factory.inb(f, cx, cy)) return;
     if (facTool === 'erase') { Game.facRemove(cx, cy); if (facSel && facSel.x === cx && facSel.y === cy) { facSel = null; renderFacConfig(); } return; }
-    if (facTool === 'select') { var c = G.Factory.cell(f, cx, cy); facSel = c ? { x: cx, y: cy } : null; renderFacConfig(); return; }
+    if (facTool === 'select') { var c = G.Factory.cell(f, cx, cy); facSel = c ? { x: cx, y: cy } : null; renderFacConfig();
+      if (facSel) { var cbx = $('fac-config'); if (cbx && cbx.scrollIntoView) cbx.scrollIntoView({ block: 'nearest' }); }   // 設定パネルを画面内へ
+      return; }
     if (facTool === 'move') {                                    // 1回目＝つかむ／2回目＝空きマスへ置く
       var mc = G.Factory.cell(f, cx, cy);
       if (!facMoveSrc) { if (mc) facMoveSrc = { x: cx, y: cy }; }

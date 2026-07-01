@@ -181,7 +181,7 @@ body::before{content:""; position:fixed; inset:0; z-index:0; pointer-events:none
 #tabs button.active{color:#fff; border-bottom-color:var(--accent)}
 #tabs button.active::after{content:""; position:absolute; left:18%; right:18%; bottom:-2px; height:2px;
   background:var(--accent); filter:blur(5px); opacity:.9}
-.tab-body{display:none; padding:13px; overflow-y:auto; flex:1; font-size:13px}
+.tab-body{display:none; padding:13px; overflow-y:auto; flex:1; min-height:0; font-size:13px}
 .tab-body.active{display:block; animation:fadeUp .28s ease}
 
 /* スクロールバー */
@@ -286,7 +286,7 @@ body::before{content:""; position:fixed; inset:0; z-index:0; pointer-events:none
 .fac-readout em.warn{color:var(--bad)}
 .fac-readout .fac-tip{margin-left:auto; color:var(--mute); font-size:11px}
 #fac-wrap{overflow:auto; border:1px solid var(--line); border-radius:var(--r-sm); background:#080d14;
-  padding:8px; max-width:100%; box-shadow:inset 0 0 40px rgba(0,0,0,.5)}
+  padding:8px; max-width:100%; max-height:min(58vh,470px); box-shadow:inset 0 0 40px rgba(0,0,0,.5)}
 #fac-canvas{display:block; image-rendering:auto; cursor:crosshair; touch-action:none; user-select:none}
 #fac-config{margin-top:9px; min-height:34px; background:var(--surface-2); border:1px solid var(--line);
   border-radius:var(--r-sm); padding:10px 13px; box-shadow:var(--sheen)}
@@ -340,7 +340,7 @@ body::before{content:""; position:fixed; inset:0; z-index:0; pointer-events:none
 
 /* 生産ライン：戦場を縮小して編集領域を拡大 */
 #app.facmode #battlefield{flex:0 0 120px; min-height:120px}
-#app.facmode #panels{flex:1 1 auto; height:auto}
+#app.facmode #panels{flex:1 1 auto; height:auto; min-height:0}
 /* 戦闘中：アリーナを主役に */
 #app.battling #panels{display:none}
 #app.battling #battlefield{flex:1 1 auto; min-height:0}
