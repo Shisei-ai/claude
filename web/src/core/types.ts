@@ -10,7 +10,15 @@ export type StatusEffectType =
   | 'Poison' | 'Bleed' | 'Burn' | 'Freeze' | 'Paralysis' | 'Sleep'
   | 'Blind' | 'Silence'
   | 'AtkUp' | 'AtkDown' | 'DefUp' | 'DefDown' | 'SpdUp' | 'SpdDown'
-  | 'Regen' | 'ActionSeal' | 'MatkUp' | 'MatkDown';
+  | 'Regen' | 'ActionSeal' | 'MatkUp' | 'MatkDown'
+  // ── Web版拡張 (Unity版ではトレイト/専用フィールドで表現されていたもの) ──
+  | 'CritUp'        // 会心率+% (魔力加速・鷹の目)
+  | 'AccDown'       // 命中-% (スモーク)
+  | 'Fear'          // 恐怖: 物理攻撃不可 (恐怖の叫び)
+  | 'Afterimage'    // 残影: 単体攻撃回避+反撃
+  | 'RegenFlat'     // 固定値リジェネ (再生の光: MagATK×0.35/ターン)
+  | 'Barrier'       // 次の被ダメ1回を50%軽減 (奇跡の祝福)
+  | 'DeathSentence';// 死の宣告: カウント0で即死(ボスはMaxHP%ダメージ)
 
 export const STATUS_DISPLAY_NAME: Record<StatusEffectType, string> = {
   Poison: '毒', Bleed: '出血', Burn: '炎上', Freeze: '凍結',
@@ -20,6 +28,9 @@ export const STATUS_DISPLAY_NAME: Record<StatusEffectType, string> = {
   DefUp: '防御UP', DefDown: '防御DOWN',
   SpdUp: '速度UP', SpdDown: '速度DOWN',
   Regen: '再生', ActionSeal: '行動封じ',
+  CritUp: '会心UP', AccDown: '命中DOWN', Fear: '恐怖',
+  Afterimage: '残影', RegenFlat: '再生', Barrier: '祝福の障壁',
+  DeathSentence: '死の宣告',
 };
 
 export interface CharacterStats {
@@ -94,13 +105,46 @@ export interface SkillDef {
   appliedStatus?: StatusEffect;
   statusChance?: number;    // 0-1
   isHeal: boolean;
-  healPower: number;        // <1: MaxHP比 / >=1: 固定値 (Unity版準拠)
+  healPower: number;        // <1: MaxHP比 / >=1: 固定値+MagATK補正 (Unity版準拠)
   buff?: { type: StatusEffectType; value: number; duration: number; toAllAllies?: boolean; toSelf?: boolean }[];
   debuff?: { type: StatusEffectType; value: number; duration: number }[];
   critBonus?: number;       // このスキル使用時の会心率ボーナス
   isPassive?: boolean;      // パッシブ(コマンドとして出さない)
+  isFieldSkill?: boolean;   // フィールドスキル(鍵師の手など。バトル外で効果)
   shieldRestore?: number;   // 敵専用: シールド回復
   healAmountFlat?: number;  // 敵専用: 固定回復
+
+  // ── キャラ固有メカニクス ──────────────────────────────────────────
+  undeadMult?: number;          // アンデッド特効倍率 (聖光弾・神罰・聖光閃)
+  chainCount?: number;          // 連鎖対象数 (連鎖雷撃: 2体目以降にも同威力)
+  ignoreDefPct?: number;        // 防御無視率 (魔力爆発)
+  mpScaling?: { min: number; max: number }; // MP残量で威力スケール (魔力爆発)
+  isConverge?: boolean;         // 元素収束 (直前属性と反応)
+  neverMiss?: boolean;          // 必中 (暗黒波)
+  executeChance?: number;       // 即死確率 (必殺狙撃)
+  executeThreshold?: number;    // 即死判定HP閾値 (0.35 = 35%以下)
+  grantsShadowState?: boolean;  // 使用後Shadow State付与 (罠設置・スモーク)
+  shadowPowerBonus?: number;    // Shadow State中の威力加算 (影矢+0.40)
+  shadowExtraHits?: number;     // Shadow State中の追加ヒット (二連射+1)
+  randomTargets?: boolean;      // ランダム対象連打 (死の踊り)
+  critExtraHit?: boolean;       // 会心時に追加1ヒット、最大2倍 (死の踊り)
+  cleanse?: 'target' | 'allAllies'; // 状態異常解除 (清浄・聖域)
+  regenFlat?: { duration: number; matkMult: number; toAllAllies: boolean }; // 再生の光
+  barrier?: boolean;            // 奇跡の祝福バリア
+  revive?: { pct: number; all: boolean }; // 蘇生 (対象: 戦闘不能の味方)
+  fullHeal?: boolean;           // 完全回復 (奇跡の祝福)
+  trap?: { power: number; stunChance: number; poison?: boolean }; // 罠設置
+  causalChain?: { pct: number; duration: number; all: boolean };  // 因果の鎖
+  deathSentence?: { delay: number; bossDmgPct: number };          // 死の宣告
+  absorb?: {                    // 吸収 (グリモワール)
+    baseChance: number;         // 基本確率
+    maxBonus: number;           // HP0%時の最大ボーナス
+    hpCostPct: number;          // 術者MaxHP消費率
+    eliteMult?: number;         // エリートへの確率倍率 (0=不可)
+    instantNormal?: boolean;    // 冥界の扉: 通常敵100%
+  };
+  extendDebuffs?: number;       // 冥界の扉: 全デバフ持続+Nターン
+  randomDebuff?: { count: number; amount: number; statusChance: number; duration: number }; // 呪詛の霧
 }
 
 // ── Enemy ───────────────────────────────────────────────────────────────

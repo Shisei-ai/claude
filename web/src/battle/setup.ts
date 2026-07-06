@@ -6,7 +6,7 @@ import type { RunState } from '../core/run';
 import { buildBattleStats } from '../core/run';
 import { getCharacter } from '../data/characters';
 import { getDifficulty } from '../data/difficulty';
-import { FLOORS, type EncounterGroup } from '../data/enemies';
+import { FLOORS, findEnemySkillById, type EncounterGroup } from '../data/enemies';
 import { getActiveSkills, getPassiveIds } from '../core/level';
 import { Rng } from '../core/rng';
 
@@ -39,11 +39,22 @@ export function pickEncounter(
 export function buildHero(run: RunState): Combatant {
   const char = getCharacter(run.characterId);
   const stats = buildBattleStats(run);
+
+  // ゼノ: グリモワールに刻んだ敵スキルをコマンドに追加
+  const skills = [...getActiveSkills(run)];
+  for (const id of run.absorbedSkillIds) {
+    const sk = findEnemySkillById(id);
+    if (sk && !skills.some((s) => s.id === sk.id)) {
+      skills.push({ ...sk, mpCost: Math.max(4, sk.mpCost || 8) });
+    }
+  }
+
   return new Combatant({
     isPlayer: true,
     name: char.name,
+    characterId: run.characterId,
     stats,
-    skills: getActiveSkills(run),
+    skills,
     passives: getPassiveIds(run),
     initialHP: Math.min(run.currentHP, stats.maxHP),
   });

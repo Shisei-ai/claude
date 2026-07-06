@@ -172,6 +172,16 @@ export class BattleScene extends Phaser.Scene {
         return 60;
       case 'shieldHit':
         return 160;
+      case 'shadow': {
+        if (e.target.isPlayer) {
+          this.heroSprite.setAlpha(e.active ? 0.55 : 1);
+          if (e.active) this.msgText.setText(`${e.target.name} は影に溶けた…`);
+        }
+        return e.active ? 420 : 100;
+      }
+      case 'absorb':
+        this.msgText.setText(`「${e.skillName}」をグリモワールに刻んだ！`);
+        return 700;
       case 'break': {
         this.msgText.setText(`⚡ ${e.target.name} を Break！`);
         this.cameras.main.shake(200, 0.008);
@@ -293,24 +303,29 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  // ── コマンドメニュー ────────────────────────────────────────────────
+  // ── コマンドメニュー (2列 / 多スキル対応) ──────────────────────────
   private showCommandMenu(): void {
     this.hideCommandMenu();
     const { width, height } = this.scale;
     const h = this.hero;
     const items: Phaser.GameObjects.GameObject[] = [];
 
-    const bg = this.add.rectangle(0, 0, 460, 250, 0x0e0a18, 0.96)
+    const entries = h.skills.filter((s) => !s.isPassive);
+    const rows = Math.max(3, Math.ceil((entries.length + 1) / 2));
+    const panelH = 76 + rows * 30 + 16;
+    const panelW = 620;
+
+    const bg = this.add.rectangle(0, 0, panelW, panelH, 0x0e0a18, 0.96)
       .setStrokeStyle(1, COLORS.borderBright);
     items.push(bg);
+    const topY = -panelH / 2 + 18;
 
     // ブースト選択
-    const boostLabel = this.add.text(-210, -108, `ブースト: ${this.boostLevel} (BP ${h.bp})`,
-      textStyle(14, COLORS.textGold));
-    items.push(boostLabel);
+    items.push(this.add.text(-panelW / 2 + 20, topY, `ブースト (BP ${h.bp})`,
+      textStyle(14, COLORS.textGold)));
     for (let lv = 0; lv <= 3; lv++) {
       const canUse = lv <= Math.min(h.bp, 3);
-      const btn = this.add.text(-40 + lv * 56, -108, `×${lv}`, textStyle(15,
+      const btn = this.add.text(-40 + lv * 56, topY + 8, `×${lv}`, textStyle(15,
         lv === this.boostLevel ? COLORS.textGold : canUse ? COLORS.text : '#443d55'))
         .setOrigin(0.5);
       if (canUse) {
@@ -323,46 +338,76 @@ export class BattleScene extends Phaser.Scene {
       items.push(btn);
     }
 
-    // 通常攻撃
-    const atkBtn = this.add.text(-210, -70, '⚔ 攻撃', textStyle(17))
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.selectTarget((idx) => {
-        this.submitCommandWithBoost({ type: 'attack', targetIndex: idx, boostLevel: this.boostLevel });
-      }));
-    items.push(atkBtn);
+    // コマンド一覧: 通常攻撃 + スキル (2列)
+    const colX = [-panelW / 2 + 20, 16];
+    const listTop = topY + 36;
 
-    // スキル
-    h.skills.forEach((skill, i) => {
-      const affordable = h.mp >= skill.mpCost && !h.isSilenced;
-      const label = `${skill.name}  (MP${skill.mpCost})`;
-      const y = -34 + i * 30;
-      const btn = this.add.text(-210, y, label, textStyle(15,
-        affordable ? COLORS.text : '#554d66'));
-      if (affordable) {
+    const addCommand = (
+      index: number, label: string, color: string, enabled: boolean,
+      skill: SkillDef | null, onPick: () => void,
+    ) => {
+      const col = index % 2;
+      const row = Math.floor(index / 2);
+      const btn = this.add.text(colX[col], listTop + row * 30, label,
+        textStyle(14, enabled ? color : '#554d66'));
+      if (enabled) {
         btn.setInteractive({ useHandCursor: true })
           .on('pointerover', () => {
-            this.msgText.setText(skill.description);
+            if (skill) this.msgText.setText(skill.description);
             btn.setColor(COLORS.textGold);
           })
-          .on('pointerout', () => btn.setColor(COLORS.text))
-          .on('pointerdown', () => {
-            if (skill.basePower > 0 && !skill.hitsAllEnemies && !skill.isHeal) {
-              this.selectTarget((idx) => {
-                this.submitCommandWithBoost({ type: 'skill', skill, targetIndex: idx, boostLevel: this.boostLevel });
-              });
-            } else {
-              this.submitCommandWithBoost({ type: 'skill', skill, targetIndex: 0, boostLevel: this.boostLevel });
-            }
-          });
+          .on('pointerout', () => btn.setColor(color))
+          .on('pointerdown', onPick);
       }
       items.push(btn);
+    };
+
+    addCommand(0, '⚔ 攻撃', COLORS.text, true, null, () => {
+      this.selectTarget((idx) => {
+        this.submitCommandWithBoost({ type: 'attack', targetIndex: idx, boostLevel: this.boostLevel });
+      });
+    });
+
+    const livingEnemies = this.engine.enemies.filter((e) => e.isAlive).length;
+    entries.forEach((skill, i) => {
+      let enabled = h.mp >= skill.mpCost && !h.isSilenced;
+      let note = '';
+      // 蘇生: 戦闘不能の味方がいなければ使用不可
+      if (skill.revive && !this.engine.heroes.some((x) => !x.isAlive)) {
+        enabled = false;
+        note = ' (対象なし)';
+      }
+      // 因果の鎖(2体版): 敵が2体未満なら不可
+      if (skill.causalChain && !skill.causalChain.all && livingEnemies < 2) {
+        enabled = false;
+        note = ' (対象不足)';
+      }
+      const label = `${skill.name} ${skill.mpCost > 0 ? `MP${skill.mpCost}` : ''}${note}`;
+      addCommand(i + 1, label, COLORS.text, enabled, skill, () => {
+        if (this.skillNeedsEnemyTarget(skill)) {
+          this.selectTarget((idx) => {
+            this.submitCommandWithBoost({ type: 'skill', skill, targetIndex: idx, boostLevel: this.boostLevel });
+          });
+        } else {
+          this.submitCommandWithBoost({ type: 'skill', skill, targetIndex: 0, boostLevel: this.boostLevel });
+        }
+      });
     });
 
     if (h.isSilenced) {
-      items.push(this.add.text(-210, 96, '【沈黙】スキル使用不可', textStyle(12, COLORS.textRed)));
+      items.push(this.add.text(-panelW / 2 + 20, panelH / 2 - 24,
+        '【沈黙】スキル使用不可', textStyle(12, COLORS.textRed)));
     }
 
-    this.commandContainer = this.add.container(width / 2, height - 148, items).setDepth(60);
+    this.commandContainer = this.add.container(width / 2, height - 20 - panelH / 2, items).setDepth(60);
+  }
+
+  private skillNeedsEnemyTarget(skill: SkillDef): boolean {
+    if (skill.hitsAllEnemies || skill.isHeal || skill.fullHeal) return false;
+    if (skill.revive || skill.cleanse || skill.regenFlat || skill.barrier) return false;
+    return skill.basePower > 0 || !!skill.appliedStatus || !!skill.debuff
+      || !!skill.absorb || !!skill.deathSentence
+      || (!!skill.causalChain && !skill.causalChain.all);
   }
 
   private submitCommandWithBoost(cmd: PlayerCommand): void {
@@ -422,6 +467,11 @@ export class BattleScene extends Phaser.Scene {
     run.battlesWon++;
     run.totalRoomsCleared++;
     run.enemiesKilled += this.enemyDefs.length;
+
+    // ゼノ: このバトルで吸収したスキルをランに永続化
+    for (const id of this.engine.absorbedThisBattle) {
+      if (!run.absorbedSkillIds.includes(id)) run.absorbedSkillIds.push(id);
+    }
 
     const rewards = computeRewards(this.enemyDefs);
     run.gold += rewards.gold;

@@ -447,3 +447,19 @@ export const VALGOTT: EnemyDef = {
 };
 
 FLOORS[3] = { ...FLOORS[3], bossPool: [[VALGOTT]] };
+
+// ── 敵スキルレジストリ (ゼノの吸収スキル永続化用) ────────────────────────
+export const ALL_ENEMIES: EnemyDef[] = [
+  GOBLIN, ROTTING_ZOMBIE, SKELETON_ARCHER, UNDEAD_MAGE,
+  GARM, RUINED_SORCERER, CHAIN_SOLDIER, RAMBARD,
+  F0_BOSS_GARM_LORD, VALGOTT,
+];
+
+export function findEnemySkillById(id: string): SkillDef | undefined {
+  for (const e of ALL_ENEMIES) {
+    for (const a of e.actions) {
+      if (a.skill.id === id) return a.skill;
+    }
+  }
+  return undefined;
+}

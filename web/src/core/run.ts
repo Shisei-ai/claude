@@ -33,6 +33,7 @@ export interface RunState {
   totalExpGained: number;
   totalJPGained: number;
   unlockedSkillIds: string[];
+  absorbedSkillIds: string[];   // ゼノ: グリモワールに刻んだ敵スキル
 
   // Statistics
   damageDealt: number;
@@ -98,6 +99,7 @@ export function createRun(
     totalExpGained: 0,
     totalJPGained: 0,
     unlockedSkillIds: [],
+    absorbedSkillIds: [],
 
     damageDealt: 0,
     damageTaken: 0,

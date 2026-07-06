@@ -2,11 +2,14 @@
 //
 // ダメージ式:   RAW  = ATK × power × critMult × elemMult × var(0.9-1.1)
 //               DEALT = max(1, RAW − DEF)   / True は防御無視 / Break中 ×1.5
-// 会心倍率:     物理 2.0 / 魔法 1.5
+// 会心倍率:     物理 2.0 / 魔法 1.5 (会心強化: 2.5 / 魔法の極意: 2.5)
 // ターン順:     ターンゲージ (速度で加算、100で行動)
 // BP:           敵の手番終了ごとに味方全員 +1 (最大5)。1行動で最大3ブースト。
 // Break:        弱点属性ヒットでシールド-1 (CanBreakスキルは指定数)。
 //               0でBreak → 2ターン気絶 + 被ダメ1.5倍 → シールド全回復
+//
+// キャラ固有: Shadow State(アッシュ) / グリモワール吸収(ゼノ) / 因果の鎖 /
+//             死の宣告 / 罠設置 / 元素収束(ラヴィニア) / 自動慈愛(リリア)
 import type {
   CharacterStats, DamageType, ElementType, EnemyDef, SkillDef,
   StatusEffect, StatusEffectType,
@@ -16,6 +19,12 @@ import { battleRandom as rnd } from '../core/rng';
 
 const BREAK_STUN_TURNS = 2;
 const MAX_BP = 5;
+
+// バフ系 (cleanseで消さない)
+const BUFF_TYPES: StatusEffectType[] = [
+  'AtkUp', 'MatkUp', 'DefUp', 'SpdUp', 'Regen', 'RegenFlat',
+  'CritUp', 'Afterimage', 'Barrier',
+];
 
 // ── 戦闘中の1体 ─────────────────────────────────────────────────────────
 
@@ -27,6 +36,7 @@ export interface ActiveStatus {
 
 export class Combatant {
   isPlayer: boolean;
+  characterId?: string;
   name: string;
   base: CharacterStats;
   enemyDef?: EnemyDef;
@@ -45,16 +55,20 @@ export class Combatant {
   statuses: ActiveStatus[] = [];
   turnGauge = 0;
 
-  // パッシブ用の戦闘内状態
-  battleHardenedStacks = 0;   // 歴戦の鎧
-  indomitableUsed = false;    // 不撓不屈
+  // キャラ固有の戦闘内状態
+  battleHardenedStacks = 0;    // 歴戦の鎧 (ベルンハルト)
+  indomitableUsed = false;     // 不撓不屈 (ベルンハルト)
+  shadowState = false;         // Shadow State (アッシュ)
+  critStacks = 0;              // 会心強化スタック (アッシュ, 最大3)
+  lastElement: ElementType = 'None'; // 元素収束用 (ラヴィニア)
 
   constructor(opts: {
     isPlayer: boolean; name: string; stats: CharacterStats;
     enemyDef?: EnemyDef; skills?: SkillDef[]; passives?: Set<string>;
-    initialHP?: number; shields?: number;
+    initialHP?: number; shields?: number; characterId?: string;
   }) {
     this.isPlayer = opts.isPlayer;
+    this.characterId = opts.characterId;
     this.name = opts.name;
     this.base = { ...opts.stats };
     this.enemyDef = opts.enemyDef;
@@ -72,6 +86,7 @@ export class Combatant {
   get isBroken(): boolean { return !this.isPlayer && this.maxShields > 0 && this.currentShields <= 0; }
   get isSilenced(): boolean { return this.hasStatus('Silence'); }
   get hpRatio(): number { return this.hp / this.base.maxHP; }
+  get mpRatio(): number { return this.base.maxMP > 0 ? this.mp / this.base.maxMP : 0; }
 
   private statusStatBonus(base: number, up: StatusEffectType, down: StatusEffectType): number {
     let pct = 0;
@@ -83,30 +98,77 @@ export class Combatant {
   }
 
   get patk(): number { return Math.max(1, this.base.physicalAttack + this.statusStatBonus(this.base.physicalAttack, 'AtkUp', 'AtkDown')); }
-  get matk(): number { return Math.max(1, this.base.magicAttack + this.statusStatBonus(this.base.magicAttack, 'MatkUp', 'MatkDown')); }
+
+  get matk(): number {
+    let m = this.base.magicAttack + this.statusStatBonus(this.base.magicAttack, 'MatkUp', 'MatkDown');
+    // 過負荷詠唱: MP40%以下で魔法攻撃力+25%
+    if (this.passives.has('SKL_L_Passive_Overloaded') && this.mpRatio <= 0.40) {
+      m = Math.round(m * 1.25);
+    }
+    return Math.max(1, m);
+  }
+
   get pdef(): number {
     let d = this.base.physicalDefense + this.statusStatBonus(this.base.physicalDefense, 'DefUp', 'DefDown');
     // 歴戦の鎧: 被弾ごとに物理防御+3% (最大5スタック)
     d += Math.round(this.base.physicalDefense * 0.03 * this.battleHardenedStacks);
     return Math.max(0, d);
   }
+
   get mdef(): number { return Math.max(0, this.base.magicDefense + this.statusStatBonus(this.base.magicDefense, 'DefUp', 'DefDown')); }
-  get speed(): number { return Math.max(1, this.base.speed + this.statusStatBonus(this.base.speed, 'SpdUp', 'SpdDown')); }
-  get crit(): number { return Math.max(0, Math.min(100, this.base.criticalRate)); }
-  get accuracy(): number { return Math.max(0, Math.min(100, this.base.accuracyRate)); }
+
+  get speed(): number {
+    let s = this.base.speed + this.statusStatBonus(this.base.speed, 'SpdUp', 'SpdDown');
+    // 過負荷詠唱: MP60%以上で速度+10%
+    if (this.passives.has('SKL_L_Passive_Overloaded') && this.mpRatio >= 0.60) {
+      s = Math.round(s * 1.10);
+    }
+    return Math.max(1, s);
+  }
+
+  get crit(): number {
+    let c = this.base.criticalRate;
+    for (const s of this.statuses) if (s.type === 'CritUp') c += s.value;
+    c += this.critStacks * 10;   // 会心強化スタック
+    return Math.max(0, Math.min(100, c));
+  }
+
+  get accuracy(): number {
+    let a = this.base.accuracyRate;
+    for (const s of this.statuses) if (s.type === 'AccDown') a -= Math.round(s.value * 100);
+    return Math.max(0, Math.min(100, a));
+  }
+
+  /** 回避率 (プレイヤーのみ) — 流麗回避 + 残影 */
+  get dodgeBonus(): number {
+    let d = 0;
+    if (this.passives.has('SKL_A_Passive_FluidEvasion')) d += 0.15;
+    return d;
+  }
 
   hasStatus(type: StatusEffectType): boolean {
     return this.statuses.some((s) => s.type === type);
   }
 
+  getStatus(type: StatusEffectType): ActiveStatus | undefined {
+    return this.statuses.find((s) => s.type === type);
+  }
+
   applyStatus(effect: StatusEffect, chance: number): boolean {
     if (rnd.value() > chance) return false;
+    // 暗視術: 盲目無効
+    if (effect.type === 'Blind' && this.passives.has('SKL_A_DarkVision')) return false;
     this.statuses = this.statuses.filter((s) => s.type !== effect.type);
     this.statuses.push({ type: effect.type, value: effect.value, remainingTurns: effect.duration });
     return true;
   }
 
-  /** DoT/HoT を処理して [dot, hot] を返す */
+  /** 状態異常(デバフ)のみ解除 */
+  cleanse(): void {
+    this.statuses = this.statuses.filter((s) => BUFF_TYPES.includes(s.type));
+  }
+
+  /** DoT/HoT を処理して [dot, hot] を返す (DeathSentenceは engine 側で先に処理) */
   tickStatuses(): [number, number] {
     let dot = 0;
     let hot = 0;
@@ -126,8 +188,12 @@ export class Combatant {
         case 'Regen':
           hot += Math.max(1, Math.round(this.base.maxHP * s.value));
           break;
+        case 'RegenFlat':
+          hot += Math.max(1, Math.round(s.value));
+          break;
       }
-      s.remainingTurns--;
+      // 死の宣告のカウントは engine.advance() 側で管理する (二重減算防止)
+      if (s.type !== 'DeathSentence') s.remainingTurns--;
     }
     this.statuses = this.statuses.filter((s) => s.remainingTurns > 0);
     this.hp = Math.max(0, this.hp - dot);
@@ -137,6 +203,12 @@ export class Combatant {
 
   takeDamage(raw: number, type: DamageType, ignoreDefPct = 0): number {
     if (!this.isAlive) return 0;
+    // 祝福の障壁: 次の被ダメ1回を50%軽減
+    const barrier = this.getStatus('Barrier');
+    if (barrier) {
+      raw = Math.round(raw * 0.5);
+      this.statuses = this.statuses.filter((s) => s.type !== 'Barrier');
+    }
     const defense = type === 'Physical' ? this.pdef : this.mdef;
     const effectiveDef = type === 'True' ? 0 : Math.round(defense * (1 - Math.min(1, ignoreDefPct)));
     let damage = Math.max(1, raw - effectiveDef);
@@ -161,7 +233,6 @@ export class Combatant {
     return true;
   }
 
-  /** 弱点属性ヒット → シールド削り。Breakした瞬間 true */
   hitShield(shieldDamage = 1): boolean {
     if (this.isPlayer || this.maxShields <= 0 || this.isBroken) return false;
     this.currentShields = Math.max(0, this.currentShields - shieldDamage);
@@ -196,14 +267,31 @@ export type BattleEvent =
   | { kind: 'defeat'; target: Combatant }
   | { kind: 'skillUse'; user: Combatant; skillName: string }
   | { kind: 'dot'; target: Combatant; amount: number }
+  | { kind: 'absorb'; skillId: string; skillName: string }
+  | { kind: 'shadow'; target: Combatant; active: boolean }
   | { kind: 'victory' }
   | { kind: 'defeat_party' };
 
 export interface PlayerCommand {
   type: 'attack' | 'skill';
   skill?: SkillDef;
-  targetIndex: number;   // 敵index / 味方対象は無視(単独パーティ)
-  boostLevel: number;    // 0-3
+  targetIndex: number;
+  boostLevel: number;   // 0-3
+}
+
+interface HeroTrap {
+  power: number;
+  stunChance: number;
+  attackerPatk: number;
+  owner: Combatant;
+}
+
+interface ChainLink {
+  a: Combatant | null;   // null = 全体連鎖
+  b: Combatant | null;
+  pct: number;
+  remainingTurns: number;
+  all: boolean;
 }
 
 // ── エンジン本体 ────────────────────────────────────────────────────────
@@ -215,6 +303,11 @@ export class BattleEngine {
   over: 'victory' | 'defeat' | null = null;
   activeCombatant: Combatant | null = null;
 
+  private heroTrap: HeroTrap | null = null;
+  private chainLinks: ChainLink[] = [];
+  /** このバトルで吸収したスキルID (ラン永続化用) */
+  absorbedThisBattle: string[] = [];
+
   constructor(heroes: Combatant[], enemies: Combatant[], startBP = 0) {
     this.heroes = heroes;
     this.enemies = enemies;
@@ -225,20 +318,14 @@ export class BattleEngine {
 
   private emit(e: BattleEvent): void { this.events.push(e); }
 
-  /** イベントを取り出してクリア */
   drainEvents(): BattleEvent[] {
     const out = this.events;
     this.events = [];
     return out;
   }
 
-  /**
-   * 次にプレイヤー入力が必要になるまで進める。
-   * 戻り値: 'awaitInput' = プレイヤーの手番 / 'over' = 決着
-   */
   advance(): 'awaitInput' | 'over' {
     while (!this.over) {
-      // ターンゲージを最速到達まで一括加算
       while (!this.all.some((c) => c.isAlive && c.turnGauge >= 100)) {
         for (const c of this.all) {
           if (c.isAlive) c.turnGauge += c.speed;
@@ -250,6 +337,31 @@ export class BattleEngine {
         .sort((a, b) => b.turnGauge - a.turnGauge || b.speed - a.speed)[0];
       actor.turnGauge -= 100;
       this.activeCombatant = actor;
+
+      // 死の宣告カウント (自身の手番開始時に進む)
+      const sentence = actor.getStatus('DeathSentence');
+      if (sentence && sentence.remainingTurns <= 1) {
+        actor.statuses = actor.statuses.filter((s) => s.type !== 'DeathSentence');
+        const isBoss = actor.enemyDef?.rank === 'Boss' || actor.enemyDef?.rank === 'TrueFinalBoss';
+        if (isBoss) {
+          const dmg = Math.round(actor.base.maxHP * sentence.value);
+          actor.hp = Math.max(1, actor.hp - dmg);
+          this.emit({ kind: 'message', text: `死の宣告が発動！ ${actor.name} に${dmg}ダメージ！` });
+          this.emit({ kind: 'damage', target: actor, amount: dmg, isCrit: false, isWeak: false });
+        } else {
+          actor.hp = 0;
+          this.emit({ kind: 'message', text: `死の宣告が発動！ ${actor.name} は塵と化した！` });
+        }
+      } else if (sentence) {
+        sentence.remainingTurns--;
+        this.emit({ kind: 'message', text: `${actor.name} の死の刻印… 残り${sentence.remainingTurns}` });
+      }
+
+      if (!actor.isAlive) {
+        this.handleDefeat(actor);
+        if (this.checkEnd()) return 'over';
+        continue;
+      }
 
       // DoT/HoT
       const [dot, hot] = actor.tickStatuses();
@@ -263,6 +375,33 @@ export class BattleEngine {
       }
 
       actor.tickBreak();
+
+      // 因果の鎖の持続を進める (術者側ヒーローの手番で減少)
+      if (actor.isPlayer) {
+        for (const link of this.chainLinks) link.remainingTurns--;
+        this.chainLinks = this.chainLinks.filter((l) => l.remainingTurns > 0);
+      }
+
+      // 罠発動 (敵の手番開始時)
+      if (!actor.isPlayer && this.heroTrap) {
+        const trap = this.heroTrap;
+        this.heroTrap = null;
+        this.emit({ kind: 'message', text: `罠が炸裂した！` });
+        const raw = Math.max(1, Math.round(trap.attackerPatk * trap.power * rnd.float(0.9, 1.1)));
+        const dealt = actor.takeDamage(raw, 'Physical');
+        this.emit({ kind: 'damage', target: actor, amount: dealt, isCrit: false, isWeak: false });
+        this.propagateChain(actor, dealt);
+        if (actor.isAlive && rnd.value() < trap.stunChance) {
+          actor.applyStatus({ type: 'Paralysis', duration: 1, value: 0 }, 1);
+          this.emit({ kind: 'status', target: actor, status: 'Paralysis', applied: true });
+        }
+        if (!actor.isAlive) {
+          this.handleDefeat(actor);
+          this.afterAction(actor);
+          if (this.checkEnd()) return 'over';
+          continue;
+        }
+      }
 
       const stunned =
         actor.hasStatus('Sleep') || actor.hasStatus('Paralysis') ||
@@ -290,7 +429,6 @@ export class BattleEngine {
     return 'over';
   }
 
-  /** プレイヤーコマンド実行後、次の入力待ちまで進める */
   executePlayerCommand(cmd: PlayerCommand): 'awaitInput' | 'over' {
     const hero = this.activeCombatant;
     if (!hero || !hero.isPlayer) return this.over ? 'over' : 'awaitInput';
@@ -310,9 +448,23 @@ export class BattleEngine {
   }
 
   private afterAction(actor: Combatant): void {
-    // 敵の手番終了 → 味方全員 BP+1 (BattleManager MainFlow)
+    // 敵の手番終了 → 味方全員 BP+1
     if (!actor.isPlayer) {
       for (const h of this.heroes) if (h.isAlive) h.addBP(1);
+    }
+
+    // 自動慈愛 (リリア): 毎アクション後、最もHP%が低い味方を回復
+    const compassion = this.heroes.find(
+      (h) => h.isAlive && h.passives.has('SKL_L2_Passive_AutoCompassion'));
+    if (compassion) {
+      const injured = this.heroes
+        .filter((h) => h.isAlive && h.hp < h.base.maxHP)
+        .sort((a, b) => a.hpRatio - b.hpRatio)[0];
+      if (injured) {
+        const amount = Math.max(1, Math.round(compassion.matk * 0.30));
+        const healed = injured.heal(amount);
+        if (healed > 0) this.emit({ kind: 'heal', target: injured, amount: healed });
+      }
     }
   }
 
@@ -344,37 +496,120 @@ export class BattleEngine {
       this.dealHit(attacker, target, 1.0, 'Physical', 'Physical', 0, 0);
       this.tryBreakShield(attacker, target, 'Physical', 1);
     }
+    this.consumeShadowState(attacker);
   }
 
   // ── スキル実行 ─────────────────────────────────────────────────────
   private executeSkill(user: Combatant, skill: SkillDef, targetIndex: number, boostLevel: number): void {
+    // MPコスト (過負荷詠唱: MP60%以上でコスト-2)
     if (user.isPlayer && skill.mpCost > 0) {
-      if (user.mp < skill.mpCost) return;
-      user.mp -= skill.mpCost;
+      let cost = skill.mpCost;
+      if (user.passives.has('SKL_L_Passive_Overloaded') && user.mpRatio >= 0.60) {
+        cost = Math.max(0, cost - 2);
+      }
+      if (user.mp < cost) return;
+      var mpRatioBefore = user.mpRatio;   // 魔力爆発のスケーリングは支払い前
+      user.mp -= cost;
+    } else {
+      var mpRatioBefore = user.mpRatio;
     }
 
-    // ブースト強化 (BoostSkillResolver.Default: 威力 ×(1+0.5×level))
-    // ※ スキル個別のブーストテーブルはフェーズ2で移植
     const boostPowerMult = 1 + boostLevel * 0.5;
-
     this.emit({ kind: 'skillUse', user, skillName: skill.name });
 
-    // 回復
-    if (skill.isHeal) {
-      const targets = skill.hitsAllAllies
-        ? (user.isPlayer ? this.heroes : this.enemies).filter((c) => c.isAlive)
-        : [user.isPlayer ? this.heroes[0] : user];
+    // ── 吸収 (グリモワール) ──
+    if (skill.absorb) {
+      this.executeAbsorb(user, skill, targetIndex);
+      if (skill.extendDebuffs) this.extendEnemyDebuffs(skill.extendDebuffs);
+      return;
+    }
+
+    // ── 罠設置 ──
+    if (skill.trap) {
+      this.heroTrap = {
+        power: skill.trap.power, stunChance: skill.trap.stunChance,
+        attackerPatk: user.patk, owner: user,
+      };
+      this.emit({ kind: 'message', text: `${user.name} は罠を仕掛けた…` });
+    }
+
+    // ── Shadow State付与 ──
+    if (skill.grantsShadowState && !user.shadowState) {
+      user.shadowState = true;
+      this.emit({ kind: 'shadow', target: user, active: true });
+      this.emit({ kind: 'message', text: `${user.name} は影に溶けた…` });
+    }
+
+    // ── 蘇生 ──
+    if (skill.revive) {
+      const deadAllies = (user.isPlayer ? this.heroes : this.enemies).filter((c) => !c.isAlive);
+      const targets = skill.revive.all ? deadAllies : deadAllies.slice(0, 1);
       for (const t of targets) {
-        // HealPower <1 は MaxHP比 / >=1 は固定値+魔攻スケール (Unity版準拠)
-        const amount = skill.healPower < 1
-          ? Math.round(t.base.maxHP * skill.healPower * boostPowerMult)
-          : Math.round((skill.healPower + user.matk * 0.5) * boostPowerMult);
+        t.hp = Math.max(1, Math.round(t.base.maxHP * skill.revive.pct));
+        this.emit({ kind: 'message', text: `${t.name} が蘇った！` });
+        this.emit({ kind: 'heal', target: t, amount: t.hp });
+      }
+    }
+
+    // ── 回復 ──
+    if (skill.isHeal || skill.fullHeal) {
+      const allies = user.isPlayer ? this.heroes : this.enemies;
+      const targets = skill.hitsAllAllies
+        ? allies.filter((c) => c.isAlive)
+        : [allies.find((c) => c.isAlive) ?? user];
+      for (const t of targets) {
+        let amount: number;
+        if (skill.fullHeal) {
+          amount = t.base.maxHP - t.hp;
+        } else if (skill.healPower < 1) {
+          amount = Math.round(t.base.maxHP * skill.healPower * boostPowerMult);
+        } else {
+          amount = Math.round((skill.healPower + user.matk * 0.5) * boostPowerMult);
+        }
+        // 癒しの心得: 回復量+25%
+        if (user.passives.has('SKL_L2_Passive_HealingMastery')) {
+          amount = Math.round(amount * 1.25);
+        }
         const healed = t.heal(amount);
         if (healed > 0) this.emit({ kind: 'heal', target: t, amount: healed });
       }
     }
 
-    // バフ
+    // ── 状態異常解除 ──
+    if (skill.cleanse) {
+      const allies = user.isPlayer ? this.heroes : this.enemies;
+      const targets = skill.cleanse === 'allAllies'
+        ? allies.filter((c) => c.isAlive)
+        : [allies.find((c) => c.isAlive) ?? user];
+      for (const t of targets) {
+        t.cleanse();
+      }
+      this.emit({ kind: 'message', text: `状態異常が浄化された` });
+    }
+
+    // ── 固定値リジェネ ──
+    if (skill.regenFlat) {
+      const allies = user.isPlayer ? this.heroes : this.enemies;
+      const targets = skill.regenFlat.toAllAllies
+        ? allies.filter((c) => c.isAlive)
+        : [allies.find((c) => c.isAlive) ?? user];
+      const perTurn = Math.max(1, Math.round(user.matk * skill.regenFlat.matkMult));
+      for (const t of targets) {
+        t.applyStatus({ type: 'RegenFlat', duration: skill.regenFlat.duration, value: perTurn }, 1);
+        this.emit({ kind: 'status', target: t, status: 'RegenFlat', applied: true });
+      }
+    }
+
+    // ── バリア ──
+    if (skill.barrier) {
+      const allies = user.isPlayer ? this.heroes : this.enemies;
+      for (const t of allies.filter((c) => c.isAlive)) {
+        t.applyStatus({ type: 'Barrier', duration: 9, value: 0.5 }, 1);
+        this.emit({ kind: 'status', target: t, status: 'Barrier', applied: true });
+      }
+    }
+
+    // ── バフ ──
     if (skill.buff) {
       for (const b of skill.buff) {
         const targets = b.toAllAllies
@@ -387,17 +622,44 @@ export class BattleEngine {
       }
     }
 
-    // 清浄 (リリア): 状態異常全解除
-    if (skill.id === 'SKL_L2_Purify') {
-      const t = user.isPlayer ? this.heroes[0] : user;
-      t.statuses = t.statuses.filter((s) =>
-        ['AtkUp', 'MatkUp', 'DefUp', 'SpdUp', 'Regen'].includes(s.type));
-      this.emit({ kind: 'message', text: `${t.name} の状態異常が浄化された` });
+    // ── 因果の鎖 ──
+    if (skill.causalChain) {
+      const living = this.enemies.filter((e) => e.isAlive);
+      if (skill.causalChain.all || living.length >= 2) {
+        if (skill.causalChain.all) {
+          this.chainLinks.push({
+            a: null, b: null, pct: skill.causalChain.pct,
+            remainingTurns: skill.causalChain.duration + 1, all: true,
+          });
+          this.emit({ kind: 'message', text: `全ての敵が因果の鎖で繋がれた！` });
+        } else {
+          let primary = living[Math.min(targetIndex, living.length - 1)];
+          const other = living.find((e) => e !== primary)!;
+          this.chainLinks.push({
+            a: primary, b: other, pct: skill.causalChain.pct,
+            remainingTurns: skill.causalChain.duration + 1, all: false,
+          });
+          this.emit({ kind: 'message', text: `${primary.name} と ${other.name} が鎖で繋がれた！` });
+        }
+      } else {
+        this.emit({ kind: 'message', text: `繋ぐ相手がいない…` });
+      }
     }
 
-    // 攻撃
-    if (skill.basePower > 0 || skill.appliedStatus || skill.debuff) {
+    // ── 攻撃 / デバフ / 状態異常 ──
+    const isOffensive = skill.basePower > 0 || skill.appliedStatus || skill.debuff
+      || skill.deathSentence || skill.randomDebuff;
+    if (isOffensive) {
       const foes = user.isPlayer ? this.enemies : this.heroes;
+
+      // 死の踊り: ランダム対象連打
+      if (skill.randomTargets) {
+        this.executeRandomBarrage(user, skill, boostPowerMult);
+        this.consumeShadowState(user);
+        if (user.isPlayer && skill.element !== 'None') user.lastElement = skill.element;
+        return;
+      }
+
       const targets = skill.hitsAllEnemies
         ? foes.filter((f) => f.isAlive)
         : (() => {
@@ -406,75 +668,312 @@ export class BattleEngine {
             return t ? [t] : [];
           })();
 
+      // 元素収束: 直前属性から反応属性を決定
+      let element = skill.element;
+      let convergeMult = 1;
+      if (skill.isConverge) {
+        const reaction: Partial<Record<ElementType, ElementType>> = {
+          Fire: 'Ice', Ice: 'Lightning', Lightning: 'Fire',
+        };
+        const reacted = reaction[user.lastElement];
+        if (reacted) {
+          element = reacted;
+          convergeMult = 1.5 * 1.5;   // 共鳴1.5倍 × 反応ボーナス+50%
+          this.emit({ kind: 'message', text: `元素が共鳴した！ (${user.lastElement}→${element})` });
+        } else if (user.lastElement !== 'None') {
+          element = user.lastElement;
+          convergeMult = 1.5;
+        }
+      }
+
+      // 魔力爆発: MP残量スケーリング
+      let mpMult = 1;
+      if (skill.mpScaling) {
+        mpMult = skill.mpScaling.min + (skill.mpScaling.max - skill.mpScaling.min) * mpRatioBefore;
+      }
+
+      // Shadow State威力加算
+      let shadowBonus = 0;
+      let extraHits = 0;
+      if (user.shadowState) {
+        shadowBonus = skill.shadowPowerBonus ?? 0;
+        extraHits = skill.shadowExtraHits ?? 0;
+      }
+
       for (const target of targets) {
         if (!target.isAlive) continue;
 
         if (skill.basePower > 0) {
-          for (let hit = 0; hit < skill.hitCount; hit++) {
+          const hits = skill.hitCount + extraHits;
+          for (let hit = 0; hit < hits; hit++) {
             if (!target.isAlive) break;
             this.dealHit(
               user, target,
-              skill.basePower * boostPowerMult,
-              skill.damageType, skill.element,
+              (skill.basePower + shadowBonus) * boostPowerMult * convergeMult * mpMult,
+              skill.damageType, element,
               skill.critBonus ?? 0,
-              0,
+              skill.ignoreDefPct ?? 0,
               skill,
             );
-            // Break判定: CanBreakスキルは指定削り数 / それ以外は弱点属性で1
             if (skill.canBreak) {
-              this.tryBreakShield(user, target, skill.element, skill.shieldDamage ?? 1, true);
+              this.tryBreakShield(user, target, element, skill.shieldDamage ?? 1, true);
             } else {
-              this.tryBreakShield(user, target, skill.element, 1);
+              this.tryBreakShield(user, target, element, 1);
+            }
+          }
+
+          // 連鎖雷撃: 追加対象へ同威力
+          if (skill.chainCount && skill.chainCount > 1) {
+            const others = this.enemies.filter((e) => e.isAlive && e !== target)
+              .slice(0, skill.chainCount - 1);
+            for (const o of others) {
+              this.emit({ kind: 'message', text: `雷が${o.name}へ連鎖！` });
+              this.dealHit(user, o,
+                (skill.basePower + shadowBonus) * boostPowerMult,
+                skill.damageType, element, skill.critBonus ?? 0, 0, skill);
+              this.tryBreakShield(user, o, element, 1);
+            }
+          }
+
+          // 即死判定 (必殺狙撃)
+          if (target.isAlive && skill.executeChance && skill.executeThreshold) {
+            const isBoss = target.enemyDef?.rank === 'Boss' || target.enemyDef?.rank === 'TrueFinalBoss';
+            if (!isBoss && target.hpRatio <= skill.executeThreshold && rnd.value() < skill.executeChance) {
+              target.hp = 0;
+              this.emit({ kind: 'message', text: `急所を射抜いた！ ${target.name} は絶命した！` });
+              this.handleDefeat(target);
             }
           }
         }
 
+        // 状態異常付与
         if (target.isAlive && skill.appliedStatus && skill.statusChance) {
-          const applied = target.applyStatus(skill.appliedStatus, skill.statusChance + boostLevel * 0.1);
-          this.emit({ kind: 'status', target, status: skill.appliedStatus.type, applied });
+          let chance = skill.statusChance + boostLevel * 0.1;
+          let status = { ...skill.appliedStatus };
+          // 呪術の心得: 確率+20%、持続+1
+          if (user.passives.has('SKL_Z_Passive_CurseMastery')) {
+            chance += 0.20;
+            status.duration += 1;
+          }
+          const applied = target.applyStatus(status, chance);
+          this.emit({ kind: 'status', target, status: status.type, applied });
         }
 
+        // デバフ
         if (target.isAlive && skill.debuff) {
           for (const d of skill.debuff) {
-            target.applyStatus({ type: d.type, duration: d.duration, value: d.value }, 1);
+            let dur = d.duration;
+            if (user.passives.has('SKL_Z_Passive_CurseMastery')) dur += 1;
+            target.applyStatus({ type: d.type, duration: dur, value: d.value }, 1);
             this.emit({ kind: 'status', target, status: d.type, applied: true });
           }
         }
+
+        // ランダムデバフ (呪詛の霧 / 混沌の呪い)
+        if (target.isAlive && skill.randomDebuff) {
+          const rd = skill.randomDebuff;
+          if (rd.count > 0) {
+            const pool: StatusEffectType[] = ['AtkDown', 'DefDown', 'SpdDown', 'AccDown'];
+            for (let i = 0; i < rd.count; i++) {
+              const type = pool[rnd.range(0, pool.length)];
+              target.applyStatus({ type, duration: rd.duration, value: rd.amount }, 1);
+              this.emit({ kind: 'status', target, status: type, applied: true });
+            }
+          }
+          if (rd.statusChance > 0) {
+            const stPool: { type: StatusEffectType; value: number }[] = [
+              { type: 'Poison', value: 0.05 }, { type: 'Bleed', value: 0.05 },
+              { type: 'Burn', value: 0.06 }, { type: 'Blind', value: 0 },
+            ];
+            const st = stPool[rnd.range(0, stPool.length)];
+            let chance = rd.statusChance;
+            let dur = rd.duration;
+            if (user.passives.has('SKL_Z_Passive_CurseMastery')) { chance += 0.20; dur += 1; }
+            const applied = target.applyStatus({ type: st.type, duration: dur, value: st.value }, chance);
+            this.emit({ kind: 'status', target, status: st.type, applied });
+          }
+        }
+
+        // 死の宣告
+        if (target.isAlive && skill.deathSentence) {
+          target.applyStatus({
+            type: 'DeathSentence',
+            duration: skill.deathSentence.delay + 1,
+            value: skill.deathSentence.bossDmgPct,
+          }, 1);
+          this.emit({ kind: 'status', target, status: 'DeathSentence', applied: true });
+          this.emit({ kind: 'message', text: `${target.name} に死の刻印が刻まれた…` });
+        }
       }
+
+      this.consumeShadowState(user);
+    }
+
+    // 元素記録 (ラヴィニアの元素収束用)
+    if (user.isPlayer && skill.element !== 'None' && skill.basePower > 0) {
+      user.lastElement = skill.element;
     }
   }
 
-  // ── 1ヒットのダメージ処理 (ComputeRawDamage + ApplyDamageToTarget) ──
+  /** Shadow State消費 (攻撃行動後) */
+  private consumeShadowState(user: Combatant): void {
+    if (user.shadowState) {
+      user.shadowState = false;
+      this.emit({ kind: 'shadow', target: user, active: false });
+    }
+  }
+
+  // ── 死の踊り: ランダム対象連打 (会心で追加ヒット) ─────────────────
+  private executeRandomBarrage(user: Combatant, skill: SkillDef, boostMult: number): void {
+    const maxHits = skill.hitCount * 2;
+    let hits = skill.hitCount;
+    let executed = 0;
+    while (executed < hits && executed < maxHits) {
+      const living = this.enemies.filter((e) => e.isAlive);
+      if (living.length === 0) break;
+      const target = living[rnd.range(0, living.length)];
+      const wasCrit = this.dealHit(
+        user, target, skill.basePower * boostMult,
+        skill.damageType, skill.element, skill.critBonus ?? 0, 0, skill);
+      this.tryBreakShield(user, target, skill.element, 1);
+      if (wasCrit && skill.critExtraHit && hits < maxHits) hits++;
+      executed++;
+    }
+  }
+
+  // ── 吸収 (ゼノ・グリモワール) ─────────────────────────────────────
+  private executeAbsorb(user: Combatant, skill: SkillDef, targetIndex: number): void {
+    const living = this.enemies.filter((e) => e.isAlive);
+    let target = this.enemies[targetIndex];
+    if (!target?.isAlive) target = living[0];
+    if (!target) return;
+
+    const rank = target.enemyDef?.rank ?? 'Normal';
+    const ab = skill.absorb!;
+
+    // HP消費 (吸収の代価: 半減)
+    let hpCost = Math.round(user.base.maxHP * ab.hpCostPct);
+    if (user.passives.has('SKL_Z_Passive_PriceOfAbsorption')) hpCost = Math.round(hpCost * 0.5);
+    if (hpCost > 0) {
+      user.hp = Math.max(1, user.hp - hpCost);
+      this.emit({ kind: 'damage', target: user, amount: hpCost, isCrit: false, isWeak: false });
+    }
+
+    if (rank === 'Boss' || rank === 'TrueFinalBoss') {
+      this.emit({ kind: 'message', text: `${target.name} の魂は強大すぎる… 吸収できない！` });
+      return;
+    }
+    if (rank === 'Elite' && (!ab.eliteMult || ab.eliteMult <= 0)) {
+      this.emit({ kind: 'message', text: `${target.name} の魂は強い… 吸収できない！` });
+      return;
+    }
+
+    let chance = ab.baseChance + ab.maxBonus * (1 - target.hpRatio);
+    if (rank === 'Elite') chance *= ab.eliteMult ?? 1;
+    if (rank === 'Normal' && ab.instantNormal) chance = 1;
+
+    if (rnd.value() < chance) {
+      // 吸収成功: 敵の技を1つ獲得して敵は消滅
+      const actions = target.enemyDef?.actions.filter((a) => a.skill.basePower > 0 || a.skill.appliedStatus) ?? [];
+      const pick = actions.length > 0 ? actions[rnd.range(0, actions.length)] : null;
+      target.hp = 0;
+      this.emit({ kind: 'message', text: `${target.name} の魂を喰らった！` });
+      if (pick && !user.skills.some((s) => s.id === pick.skill.id)) {
+        user.skills = [...user.skills, { ...pick.skill, mpCost: Math.max(4, pick.skill.mpCost || 8) }];
+        this.absorbedThisBattle.push(pick.skill.id);
+        this.emit({ kind: 'absorb', skillId: pick.skill.id, skillName: pick.skill.name });
+        this.emit({ kind: 'message', text: `「${pick.skill.name}」をグリモワールに刻んだ！` });
+      }
+      this.handleDefeat(target);
+    } else {
+      this.emit({ kind: 'message', text: `吸収に失敗した… (成功率${Math.round(chance * 100)}%)` });
+    }
+  }
+
+  /** 冥界の扉: 全敵デバフ持続+N */
+  private extendEnemyDebuffs(turns: number): void {
+    for (const e of this.enemies) {
+      if (!e.isAlive) continue;
+      for (const s of e.statuses) {
+        if (!BUFF_TYPES.includes(s.type)) s.remainingTurns += turns;
+      }
+    }
+    this.emit({ kind: 'message', text: `呪いの刻が引き延ばされた…` });
+  }
+
+  // ── 1ヒットのダメージ処理。戻り値: 会心だったか ─────────────────────
   private dealHit(
     attacker: Combatant, target: Combatant,
     power: number, dmgType: DamageType, element: ElementType,
     critBonus: number, ignoreDefPct: number,
     skill?: SkillDef,
-  ): void {
+  ): boolean {
     // 命中判定 (プレイヤーのみ回避可 — Unity版の非対称設計)
-    if (target.isPlayer) {
+    if (target.isPlayer && !skill?.neverMiss) {
       let hitChance = attacker.accuracy / 100;
       if (attacker.hasStatus('Blind')) hitChance -= 0.25;
-      if (rnd.value() > Math.max(0, Math.min(1, hitChance))) {
+      let dodge = target.dodgeBonus;
+      const isSingleTarget = !skill?.hitsAllEnemies;
+      const afterimage = target.getStatus('Afterimage');
+      if (afterimage && isSingleTarget) dodge += afterimage.value;
+      if (target.hasStatus('Blind')) dodge -= 0.15;
+
+      if (rnd.value() > Math.max(0, Math.min(1, hitChance - dodge))) {
         this.emit({ kind: 'message', text: `${target.name} は攻撃を回避した！` });
-        return;
+        // 流麗回避: 回避でBP+1
+        if (target.passives.has('SKL_A_Passive_FluidEvasion')) target.addBP(1);
+        // アッシュ: 回避成功でShadow State
+        if (target.characterId === 'ash' && !target.shadowState) {
+          target.shadowState = true;
+          this.emit({ kind: 'shadow', target, active: true });
+        }
+        // 残影: 反撃
+        if (afterimage && isSingleTarget && attacker.isAlive) {
+          const counterRaw = Math.max(1, Math.round(target.patk * 0.50 * rnd.float(0.9, 1.1)));
+          const dealt = attacker.takeDamage(counterRaw, 'Physical');
+          this.emit({ kind: 'message', text: `${target.name} の反撃！` });
+          this.emit({ kind: 'damage', target: attacker, amount: dealt, isCrit: false, isWeak: false });
+          if (!attacker.isAlive) this.handleDefeat(attacker);
+        }
+        return false;
       }
     }
 
-    const critRate = Math.min(100, attacker.crit + critBonus);
-    const isCrit = rnd.range(0, 100) < critRate;
-    const critMult = isCrit ? (dmgType === 'Magical' ? 1.5 : 2.0) : 1;
+    // 会心率 (魔法の極意: MagATK/5 加算)
+    let critRate = attacker.crit + critBonus;
+    if (dmgType === 'Magical' && attacker.passives.has('SKL_L_Passive_ArcaneMastery')) {
+      critRate += Math.floor(attacker.matk / 5);
+    }
+    const isCrit = rnd.range(0, 100) < Math.min(100, critRate);
+
+    // 会心倍率 (物理2.0 / 魔法1.5、会心強化2.5 / 魔法の極意2.5)
+    let critMult = 1;
+    if (isCrit) {
+      if (dmgType === 'Magical') {
+        critMult = attacker.passives.has('SKL_L_Passive_ArcaneMastery') ? 2.5 : 1.5;
+      } else {
+        critMult = attacker.passives.has('SKL_A_Passive_CritEnhance') ? 2.5 : 2.0;
+      }
+      // 会心強化: スタック加算
+      if (attacker.passives.has('SKL_A_Passive_CritEnhance')) {
+        attacker.critStacks = Math.min(3, attacker.critStacks + 1);
+      }
+    }
 
     const isWeak = this.isElementWeak(target, element);
     const elemMult = isWeak ? 1.5 : 1;
 
-    // 聖光弾: アンデッド×2.0 (リリア)
+    // アンデッド特効
     let extraMult = 1;
-    if (skill?.id === 'SKL_L2_HolyBolt' && target.enemyDef?.isUndead) extraMult = 2.0;
+    if (skill?.undeadMult && target.enemyDef?.isUndead) extraMult = skill.undeadMult;
+
+    // Shadow State: 攻撃全般+30% (Trait_ShadowDance)
+    let shadowMult = 1;
+    if (attacker.shadowState && attacker.characterId === 'ash') shadowMult = 1.30;
 
     const atk = dmgType === 'Physical' ? attacker.patk : attacker.matk;
     const raw = Math.max(1, Math.round(
-      atk * power * critMult * elemMult * extraMult * rnd.float(0.9, 1.1),
+      atk * power * critMult * elemMult * extraMult * shadowMult * rnd.float(0.9, 1.1),
     ));
 
     const dealt = target.takeDamage(raw, dmgType, ignoreDefPct);
@@ -491,11 +990,38 @@ export class BattleEngine {
       target.hp = 1;
       this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak });
       this.emit({ kind: 'message', text: `${target.name} は踏みとどまった！` });
-      return;
+      return isCrit;
     }
 
     this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak });
+
+    // 因果の鎖伝播
+    this.propagateChain(target, dealt);
+
     if (!target.isAlive) this.handleDefeat(target);
+    return isCrit;
+  }
+
+  /** 因果の鎖: ダメージ伝播 (Trueダメージ・再帰なし) */
+  private propagateChain(source: Combatant, dealt: number): void {
+    if (source.isPlayer || dealt <= 0) return;
+    for (const link of this.chainLinks) {
+      let targets: Combatant[] = [];
+      if (link.all) {
+        targets = this.enemies.filter((e) => e.isAlive && e !== source);
+      } else if (link.a === source && link.b?.isAlive) {
+        targets = [link.b];
+      } else if (link.b === source && link.a?.isAlive) {
+        targets = [link.a];
+      }
+      for (const t of targets) {
+        const chainDmg = Math.max(1, Math.round(dealt * link.pct));
+        const chainDealt = t.takeDamage(chainDmg, 'True');
+        this.emit({ kind: 'message', text: `因果連鎖！` });
+        this.emit({ kind: 'damage', target: t, amount: chainDealt, isCrit: false, isWeak: false });
+        if (!t.isAlive) this.handleDefeat(t);
+      }
+    }
   }
 
   private isElementWeak(target: Combatant, element: ElementType): boolean {
@@ -530,15 +1056,38 @@ export class BattleEngine {
     for (let i = 0; i < actionsToTake; i++) {
       if (!enemy.isAlive) return;
 
-      const valid = def.actions
+      let candidates = def.actions;
+      // 恐怖: 物理攻撃不可
+      if (enemy.hasStatus('Fear')) {
+        candidates = candidates.filter(
+          (a) => !(a.skill.damageType === 'Physical' && a.skill.basePower > 0));
+        if (candidates.length === 0) {
+          this.emit({ kind: 'message', text: `${enemy.name} は恐怖で動けない！` });
+          continue;
+        }
+      }
+
+      const valid = candidates
         .filter((a) =>
           a.useChance >= rnd.value() &&
           (a.healthThreshold === 0 || enemy.hpRatio * 100 <= a.healthThreshold))
         .sort((a, b) => b.priority - a.priority);
 
-      const chosen = valid.length > 0 ? valid[0] : def.actions[0];
+      const chosen = valid.length > 0 ? valid[0] : candidates[0];
       if (!chosen) continue;
       const skill = chosen.skill;
+
+      // 沈黙: 技を使えず通常攻撃に切り替え
+      // (Unity版は敵スキルのMPCostが全て0のため実質無効だったが、設計意図に沿い修正)
+      if (enemy.isSilenced) {
+        const livingHeroes0 = this.heroes.filter((h) => h.isAlive);
+        if (livingHeroes0.length === 0) return;
+        this.emit({ kind: 'message', text: `${enemy.name} は沈黙中！通常攻撃に切り替え` });
+        const t = livingHeroes0[rnd.range(0, livingHeroes0.length)];
+        this.emit({ kind: 'skillUse', user: enemy, skillName: '攻撃' });
+        this.dealHit(enemy, t, 1.0, 'Physical', 'Physical', 0, 0);
+        continue;
+      }
 
       // シールド回復系
       if (skill.shieldRestore && skill.shieldRestore > 0) {
@@ -580,7 +1129,7 @@ export class BattleEngine {
         if (skill.basePower > 0) {
           for (let hit = 0; hit < skill.hitCount; hit++) {
             if (!target.isAlive) break;
-            this.dealHit(enemy, target, skill.basePower, skill.damageType, skill.element, 0, 0);
+            this.dealHit(enemy, target, skill.basePower, skill.damageType, skill.element, 0, 0, skill);
           }
         }
         if (target.isAlive && skill.appliedStatus && skill.statusChance) {

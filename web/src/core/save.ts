@@ -47,6 +47,7 @@ export function loadRun(): RunState | null {
     if (!raw) return null;
     const run = JSON.parse(raw) as RunState;
     if (!run.isRunActive) return null;
+    run.absorbedSkillIds ??= [];   // 旧セーブ互換
     return run;
   } catch {
     return null;

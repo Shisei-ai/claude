@@ -146,10 +146,19 @@ export class NodeEventScene extends Phaser.Scene {
     this.add.text(width / 2, height / 2 - 60, '▣', textStyle(72, COLORS.textGold)).setOrigin(0.5);
 
     const floor = FLOORS[Math.min(this.run.currentFloor, FLOORS.length - 1)];
-    const gold = floor.baseGoldReward + this.rng.range(10, 41);
+    let gold = floor.baseGoldReward + this.rng.range(10, 41);
+    let message = `${gold} G を手に入れた！`;
+
+    // 鍵師の手 (アッシュ): 秘密の宝箱を追加発見
+    if (this.run.unlockedSkillIds.includes('SKL_A_Lockpicking')) {
+      const secret = 30 + this.rng.range(0, 31);
+      gold += secret;
+      message += `\n【鍵師の手】隠し宝箱を発見！ 追加で ${secret} G`;
+    }
+
     earnGold(this.run, gold);
     saveRun(this.run);
-    this.resultAndLeave(`${gold} G を手に入れた！`, COLORS.textGold);
+    this.resultAndLeave(message, COLORS.textGold);
   }
 
   // ── 呪われた間 ──────────────────────────────────────────────────────
@@ -159,8 +168,16 @@ export class NodeEventScene extends Phaser.Scene {
     this.add.text(width / 2, height / 2 - 60, '✖', textStyle(72, COLORS.textRed)).setOrigin(0.5);
 
     const maxHP = getEffectiveMaxHP(this.run);
-    const damage = Math.round(maxHP * 0.10);
+    // 罠師の知識 (アッシュ): トラップダメージ50%軽減
+    const hasTrapMastery = this.run.unlockedSkillIds.includes('SKL_A_TrapMastery');
+    const damage = Math.round(maxHP * 0.10 * (hasTrapMastery ? 0.5 : 1));
     const gold = 60 + this.rng.range(0, 41);
+
+    if (hasTrapMastery) {
+      this.add.text(width / 2, height / 2 + 10,
+        '【罠師の知識】トラップの仕掛けが見える。ダメージを半減できる。',
+        textStyle(13, COLORS.textGreen)).setOrigin(0.5);
+    }
 
     this.statusLine();
     makeButton(this, width / 2 - 170, height - 64, `祭壇に触れる (HP-${damage} / +${gold}G)`, () => {
