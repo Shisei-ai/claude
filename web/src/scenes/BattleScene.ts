@@ -1,0 +1,490 @@
+// バトルシーン — Unity版 UI/BattleUI.cs 相当の簡易UI + BattleEngine 駆動
+import Phaser from 'phaser';
+import { COLORS, makeButton, textStyle, drawBar } from '../ui/theme';
+import { BattleEngine, Combatant, type BattleEvent, type PlayerCommand } from '../battle/engine';
+import { pickEncounter, buildHero, buildEnemies, computeRewards } from '../battle/setup';
+import { loadRun, saveRun, clearRun } from '../core/save';
+import type { RunState } from '../core/run';
+import { getEffectiveMaxHP } from '../core/run';
+import { addExp, addJP } from '../core/level';
+import { recordRunEnd } from '../core/meta';
+import type { EnemyDef, NodeType, SkillDef } from '../core/types';
+import { STATUS_DISPLAY_NAME } from '../core/types';
+import { FLOORS } from '../data/enemies';
+import { getAvailableNodes } from '../core/mapgen';
+
+interface BattleInit { nodeType: NodeType; contentSeed: number }
+
+export class BattleScene extends Phaser.Scene {
+  private run!: RunState;
+  private engine!: BattleEngine;
+  private enemyDefs!: EnemyDef[];
+  private nodeType!: NodeType;
+
+  private hero!: Combatant;
+  private heroSprite!: Phaser.GameObjects.Rectangle;
+  private enemySprites: Phaser.GameObjects.Container[] = [];
+  private msgText!: Phaser.GameObjects.Text;
+  private hudG!: Phaser.GameObjects.Graphics;
+  private hudTexts: Phaser.GameObjects.Text[] = [];
+  private commandContainer: Phaser.GameObjects.Container | null = null;
+  private boostLevel = 0;
+  private processing = false;
+
+  constructor() { super('Battle'); }
+
+  init(data: BattleInit): void {
+    this.nodeType = data.nodeType;
+    const run = loadRun();
+    if (!run) { this.scene.start('MainMenu'); return; }
+    this.run = run;
+    this.enemyDefs = pickEncounter(run, data.nodeType, data.contentSeed);
+  }
+
+  create(): void {
+    const { width, height } = this.scale;
+    this.enemySprites = [];
+    this.hudTexts = [];
+    this.commandContainer = null;
+    this.boostLevel = 0;
+    this.processing = false;
+
+    // 背景 (フロアごとに色味を変える)
+    const floorTints = [0x0d0a16, 0x08120a, 0x160810, 0x14100a];
+    this.add.rectangle(width / 2, height / 2, width, height,
+      floorTints[Math.min(this.run.currentFloor, 3)]);
+    this.add.rectangle(width / 2, height - 170, width, 2, 0x3a3050);  // 地面線
+
+    // エンジン構築
+    this.hero = buildHero(this.run);
+    const isFirstCombat = this.run.battlesWon === 0;
+    const enemies = buildEnemies(this.run, this.enemyDefs, this.nodeType, isFirstCombat);
+    if (isFirstCombat && this.run.blessingFirstCombatShieldReduction) {
+      this.run.blessingFirstCombatShieldReduction = false;
+    }
+    this.engine = new BattleEngine([this.hero], enemies, this.run.metaStartBP);
+
+    // ヒーロー描画 (左側)
+    const char = this.hero;
+    this.heroSprite = this.add.rectangle(220, height - 260, 72, 110, 0xb81c1c, 0.95)
+      .setStrokeStyle(2, 0xd8d0e8);
+    this.add.text(220, height - 190, char.name.split('・')[0], textStyle(14)).setOrigin(0.5);
+
+    // 敵描画 (右側)
+    enemies.forEach((e, i) => {
+      const x = width - 200 - i * 180;
+      const y = height - 270;
+      const size = e.enemyDef!.rank === 'Boss' ? 130 : e.enemyDef!.rank === 'Elite' ? 100 : 76;
+      const rect = this.add.rectangle(0, 0, size * 0.7, size, e.enemyDef!.tint, 0.95)
+        .setStrokeStyle(2, 0x000000);
+      const nameText = this.add.text(0, size / 2 + 14, e.name, textStyle(12)).setOrigin(0.5);
+      const hpText = this.add.text(0, size / 2 + 32, '', textStyle(11, COLORS.textDim)).setOrigin(0.5);
+      const shieldText = this.add.text(0, -size / 2 - 16, '', textStyle(13, '#8fc2ee')).setOrigin(0.5);
+      const container = this.add.container(x, y, [rect, nameText, hpText, shieldText]);
+      container.setData({ combatant: e, rect, hpText, shieldText });
+      this.enemySprites.push(container);
+    });
+
+    // メッセージ帯
+    this.add.rectangle(width / 2, 60, width - 60, 44, 0x000000, 0.6)
+      .setStrokeStyle(1, COLORS.border);
+    this.msgText = this.add.text(width / 2, 60, `${this.enemyDefs.map((d) => d.name).join('、')} が現れた！`,
+      textStyle(17)).setOrigin(0.5);
+
+    // HUD領域
+    this.hudG = this.add.graphics();
+    this.refreshDisplay();
+
+    // 開始
+    this.time.delayedCall(700, () => this.progress());
+  }
+
+  // ── エンジン進行 → イベント再生 → 入力待ち/決着 ──────────────────────
+  private progress(): void {
+    if (this.processing) return;
+    this.processing = true;
+    const result = this.engine.advance();
+    const events = this.engine.drainEvents();
+    this.playEvents(events, () => {
+      this.processing = false;
+      if (result === 'over') {
+        this.onBattleEnd();
+      } else {
+        this.showCommandMenu();
+      }
+    });
+  }
+
+  private submitCommand(cmd: PlayerCommand): void {
+    if (this.processing) return;
+    this.hideCommandMenu();
+    this.processing = true;
+    const result = this.engine.executePlayerCommand(cmd);
+    const events = this.engine.drainEvents();
+    this.playEvents(events, () => {
+      this.processing = false;
+      if (result === 'over') {
+        this.onBattleEnd();
+      } else {
+        this.showCommandMenu();
+      }
+    });
+  }
+
+  // ── イベント逐次再生 ──────────────────────────────────────────────
+  private playEvents(events: BattleEvent[], onDone: () => void): void {
+    let i = 0;
+    const step = () => {
+      if (i >= events.length) { this.refreshDisplay(); onDone(); return; }
+      const e = events[i++];
+      const delay = this.renderEvent(e);
+      this.refreshDisplay();
+      this.time.delayedCall(delay, step);
+    };
+    step();
+  }
+
+  private renderEvent(e: BattleEvent): number {
+    switch (e.kind) {
+      case 'message':
+        this.msgText.setText(e.text);
+        return 550;
+      case 'skillUse':
+        this.msgText.setText(`${e.user.name} の ${e.skillName}！`);
+        return 420;
+      case 'damage': {
+        this.spawnDamageNumber(e.target, e.amount,
+          e.isCrit ? '#ffd24a' : '#ffffff', e.isCrit, e.isWeak);
+        this.flashCombatant(e.target);
+        return e.isCrit ? 480 : 320;
+      }
+      case 'dot':
+        this.spawnDamageNumber(e.target, e.amount, '#b070e0', false, false);
+        return 350;
+      case 'heal':
+        this.spawnDamageNumber(e.target, e.amount, '#6ade8a', false, false, '+');
+        return 350;
+      case 'status':
+        if (e.applied) {
+          this.msgText.setText(`${e.target.name} に ${STATUS_DISPLAY_NAME[e.status]}`);
+          return 380;
+        }
+        return 60;
+      case 'shieldHit':
+        return 160;
+      case 'break': {
+        this.msgText.setText(`⚡ ${e.target.name} を Break！`);
+        this.cameras.main.shake(200, 0.008);
+        return 600;
+      }
+      case 'defeat': {
+        const sprite = this.findEnemySprite(e.target);
+        if (sprite) {
+          this.tweens.add({ targets: sprite, alpha: 0, duration: 400 });
+        }
+        if (e.target.isPlayer) this.heroSprite.setAlpha(0.25);
+        this.msgText.setText(`${e.target.name} を倒した！`);
+        return 500;
+      }
+      case 'victory':
+        this.msgText.setText('勝利！');
+        return 600;
+      case 'defeat_party':
+        this.msgText.setText(`${this.hero.name} は倒れた…`);
+        return 900;
+    }
+  }
+
+  private findEnemySprite(c: Combatant): Phaser.GameObjects.Container | undefined {
+    return this.enemySprites.find((s) => s.getData('combatant') === c);
+  }
+
+  private spawnDamageNumber(
+    target: Combatant, amount: number, color: string,
+    isCrit: boolean, isWeak: boolean, prefix = '',
+  ): void {
+    let x: number, y: number;
+    if (target.isPlayer) {
+      x = this.heroSprite.x; y = this.heroSprite.y - 60;
+    } else {
+      const s = this.findEnemySprite(target);
+      if (!s) return;
+      x = s.x; y = s.y - 70;
+    }
+    const label = `${prefix}${amount}${isWeak ? ' 弱点!' : ''}`;
+    const txt = this.add.text(x, y, label, textStyle(isCrit ? 30 : 22, color, {
+      fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 4,
+    })).setOrigin(0.5).setDepth(50);
+    this.tweens.add({
+      targets: txt, y: y - 46, alpha: 0, duration: 850,
+      ease: 'Cubic.easeOut',
+      onComplete: () => txt.destroy(),
+    });
+  }
+
+  private flashCombatant(target: Combatant): void {
+    const obj = target.isPlayer ? this.heroSprite : this.findEnemySprite(target)?.getData('rect');
+    if (!obj) return;
+    this.tweens.add({
+      targets: obj, alpha: { from: 1, to: 0.3 }, duration: 80, yoyo: true, repeat: 1,
+    });
+  }
+
+  // ── HUD更新 ────────────────────────────────────────────────────────
+  private refreshDisplay(): void {
+    const { width, height } = this.scale;
+    this.hudG.clear();
+    this.hudTexts.forEach((t) => t.destroy());
+    this.hudTexts = [];
+
+    // ヒーローパネル (左下)
+    const px = 40, py = height - 150;
+    this.hudG.fillStyle(0x0e0a18, 0.92).fillRect(px, py, 360, 120);
+    this.hudG.lineStyle(1, COLORS.border).strokeRect(px, py, 360, 120);
+    const h = this.hero;
+
+    this.hudTexts.push(this.add.text(px + 14, py + 8,
+      `${h.name}`, textStyle(15)));
+    drawBar(this.hudG, px + 14, py + 34, 240, 14, h.hp / h.base.maxHP,
+      h.hp / h.base.maxHP > 0.3 ? COLORS.hpBar : COLORS.hpBarLow);
+    this.hudTexts.push(this.add.text(px + 260, py + 32,
+      `${h.hp}/${h.base.maxHP}`, textStyle(12)));
+    drawBar(this.hudG, px + 14, py + 56, 240, 10, h.mp / Math.max(1, h.base.maxMP), COLORS.mpBar);
+    this.hudTexts.push(this.add.text(px + 260, py + 52,
+      `MP ${h.mp}/${h.base.maxMP}`, textStyle(11, COLORS.textBlue)));
+
+    // BP
+    for (let i = 0; i < 5; i++) {
+      const filled = i < h.bp;
+      this.hudG.fillStyle(filled ? COLORS.bpBar : 0x201a2c, 1)
+        .fillCircle(px + 24 + i * 26, py + 86, 9);
+      this.hudG.lineStyle(1, 0x000000).strokeCircle(px + 24 + i * 26, py + 86, 9);
+    }
+    this.hudTexts.push(this.add.text(px + 160, py + 78, `BP`, textStyle(12, COLORS.textGold)));
+
+    // ステータスアイコン
+    const statusStr = h.statuses.map((s) => STATUS_DISPLAY_NAME[s.type]).join(' ');
+    if (statusStr) {
+      this.hudTexts.push(this.add.text(px + 200, py + 78, statusStr, textStyle(11, COLORS.textRed)));
+    }
+
+    // 敵HP・シールド更新
+    for (const sprite of this.enemySprites) {
+      const c = sprite.getData('combatant') as Combatant;
+      const hpText = sprite.getData('hpText') as Phaser.GameObjects.Text;
+      const shieldText = sprite.getData('shieldText') as Phaser.GameObjects.Text;
+      hpText.setText(c.isAlive ? `HP ${c.hp}/${c.base.maxHP}` : '');
+      if (c.maxShields > 0 && c.isAlive) {
+        shieldText.setText(c.isBroken ? 'BREAK!' : '🛡'.repeat(c.currentShields));
+        shieldText.setColor(c.isBroken ? '#ffd24a' : '#8fc2ee');
+      } else {
+        shieldText.setText('');
+      }
+      const statusLine = c.statuses.map((s) => STATUS_DISPLAY_NAME[s.type]).join(' ');
+      let st = sprite.getData('statusText') as Phaser.GameObjects.Text | undefined;
+      if (!st) {
+        st = this.add.text(0, -((sprite.getData('rect') as Phaser.GameObjects.Rectangle).height / 2) - 34,
+          '', textStyle(10, COLORS.textRed)).setOrigin(0.5);
+        sprite.add(st);
+        sprite.setData('statusText', st);
+      }
+      st.setText(statusLine);
+    }
+  }
+
+  // ── コマンドメニュー ────────────────────────────────────────────────
+  private showCommandMenu(): void {
+    this.hideCommandMenu();
+    const { width, height } = this.scale;
+    const h = this.hero;
+    const items: Phaser.GameObjects.GameObject[] = [];
+
+    const bg = this.add.rectangle(0, 0, 460, 250, 0x0e0a18, 0.96)
+      .setStrokeStyle(1, COLORS.borderBright);
+    items.push(bg);
+
+    // ブースト選択
+    const boostLabel = this.add.text(-210, -108, `ブースト: ${this.boostLevel} (BP ${h.bp})`,
+      textStyle(14, COLORS.textGold));
+    items.push(boostLabel);
+    for (let lv = 0; lv <= 3; lv++) {
+      const canUse = lv <= Math.min(h.bp, 3);
+      const btn = this.add.text(-40 + lv * 56, -108, `×${lv}`, textStyle(15,
+        lv === this.boostLevel ? COLORS.textGold : canUse ? COLORS.text : '#443d55'))
+        .setOrigin(0.5);
+      if (canUse) {
+        btn.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
+          this.boostLevel = lv;
+          this.hideCommandMenu();
+          this.showCommandMenu();
+        });
+      }
+      items.push(btn);
+    }
+
+    // 通常攻撃
+    const atkBtn = this.add.text(-210, -70, '⚔ 攻撃', textStyle(17))
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => this.selectTarget((idx) => {
+        this.submitCommandWithBoost({ type: 'attack', targetIndex: idx, boostLevel: this.boostLevel });
+      }));
+    items.push(atkBtn);
+
+    // スキル
+    h.skills.forEach((skill, i) => {
+      const affordable = h.mp >= skill.mpCost && !h.isSilenced;
+      const label = `${skill.name}  (MP${skill.mpCost})`;
+      const y = -34 + i * 30;
+      const btn = this.add.text(-210, y, label, textStyle(15,
+        affordable ? COLORS.text : '#554d66'));
+      if (affordable) {
+        btn.setInteractive({ useHandCursor: true })
+          .on('pointerover', () => {
+            this.msgText.setText(skill.description);
+            btn.setColor(COLORS.textGold);
+          })
+          .on('pointerout', () => btn.setColor(COLORS.text))
+          .on('pointerdown', () => {
+            if (skill.basePower > 0 && !skill.hitsAllEnemies && !skill.isHeal) {
+              this.selectTarget((idx) => {
+                this.submitCommandWithBoost({ type: 'skill', skill, targetIndex: idx, boostLevel: this.boostLevel });
+              });
+            } else {
+              this.submitCommandWithBoost({ type: 'skill', skill, targetIndex: 0, boostLevel: this.boostLevel });
+            }
+          });
+      }
+      items.push(btn);
+    });
+
+    if (h.isSilenced) {
+      items.push(this.add.text(-210, 96, '【沈黙】スキル使用不可', textStyle(12, COLORS.textRed)));
+    }
+
+    this.commandContainer = this.add.container(width / 2, height - 148, items).setDepth(60);
+  }
+
+  private submitCommandWithBoost(cmd: PlayerCommand): void {
+    this.boostLevel = 0;
+    this.submitCommand(cmd);
+  }
+
+  private hideCommandMenu(): void {
+    this.commandContainer?.destroy();
+    this.commandContainer = null;
+    this.clearTargetSelectors();
+  }
+
+  private targetSelectors: Phaser.GameObjects.GameObject[] = [];
+
+  private selectTarget(onPick: (index: number) => void): void {
+    this.clearTargetSelectors();
+    const living = this.engine.enemies
+      .map((e, i) => ({ e, i }))
+      .filter(({ e }) => e.isAlive);
+
+    if (living.length === 1) { onPick(living[0].i); return; }
+
+    for (const { e, i } of living) {
+      const sprite = this.findEnemySprite(e);
+      if (!sprite) continue;
+      const marker = this.add.text(sprite.x, sprite.y - 100, '▼', textStyle(26, COLORS.textGold))
+        .setOrigin(0.5).setDepth(70)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => { this.clearTargetSelectors(); onPick(i); });
+      this.tweens.add({ targets: marker, y: marker.y - 8, duration: 400, yoyo: true, repeat: -1 });
+      const hit = this.add.rectangle(sprite.x, sprite.y, 140, 160, 0xffffff, 0.001)
+        .setDepth(69)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => { this.clearTargetSelectors(); onPick(i); });
+      this.targetSelectors.push(marker, hit);
+    }
+  }
+
+  private clearTargetSelectors(): void {
+    this.targetSelectors.forEach((t) => t.destroy());
+    this.targetSelectors = [];
+  }
+
+  // ── 決着処理 ────────────────────────────────────────────────────────
+  private onBattleEnd(): void {
+    if (this.engine.over === 'victory') {
+      this.onVictory();
+    } else {
+      this.onDefeat();
+    }
+  }
+
+  private onVictory(): void {
+    const run = this.run;
+    run.currentHP = this.hero.hp;
+    run.battlesWon++;
+    run.totalRoomsCleared++;
+    run.enemiesKilled += this.enemyDefs.length;
+
+    const rewards = computeRewards(this.enemyDefs);
+    run.gold += rewards.gold;
+    run.goldEarned += rewards.gold;
+    const levelResult = addExp(run, rewards.exp);
+    const newSkills = addJP(run, rewards.jp);
+
+    const isBoss = this.nodeType === 'Boss';
+    saveRun(run);
+
+    // 報酬パネル
+    const { width, height } = this.scale;
+    const lines = [
+      `◈ ${rewards.gold} G　　EXP +${rewards.exp}　　JP +${rewards.jp}`,
+    ];
+    if (levelResult.levelsGained.length > 0) {
+      lines.push(`レベルアップ！ → Lv.${run.characterLevel}（最大HP +${levelResult.hpGained}）`);
+    }
+    if (newSkills.length > 0) {
+      lines.push(`新スキル習得: ${newSkills.map((s: SkillDef) => s.name).join('、')}`);
+    }
+
+    this.add.rectangle(width / 2, height / 2, 560, 240, 0x0e0a18, 0.97)
+      .setStrokeStyle(2, COLORS.borderBright).setDepth(80);
+    this.add.text(width / 2, height / 2 - 84, '― 勝利 ―', textStyle(28, COLORS.textGold))
+      .setOrigin(0.5).setDepth(81);
+    this.add.text(width / 2, height / 2 - 20, lines.join('\n'),
+      textStyle(16, COLORS.text, { align: 'center', lineSpacing: 10 }))
+      .setOrigin(0.5).setDepth(81);
+
+    makeButton(this, width / 2, height / 2 + 76, isBoss ? '先へ進む' : 'マップへ戻る', () => {
+      if (isBoss) {
+        this.onFloorClear();
+      } else {
+        this.scene.start('Map');
+      }
+    }, { width: 260 }).setDepth(82);
+  }
+
+  private onFloorClear(): void {
+    const run = this.run;
+    const isLastFloor = run.currentFloor >= FLOORS.length - 1;
+
+    if (isLastFloor) {
+      // 全フロア踏破 = ラン勝利
+      this.scene.start('Result', { won: true });
+      return;
+    }
+
+    // 次フロアへ (フロアクリア回復: 基本30% + メタ「回復の章」で+5%)
+    let healPct = 0.30;
+    if (run.metaFloorClearExtraHeal) healPct += 0.05;
+    const maxHP = getEffectiveMaxHP(run);
+    run.currentHP = Math.min(maxHP, run.currentHP + Math.round(maxHP * healPct));
+    run.currentFloor++;
+    run.currentNodeId = -1;
+    run.map = null;   // 次フロアのマップは MapScene で生成
+    saveRun(run);
+    this.scene.start('Map');
+  }
+
+  private onDefeat(): void {
+    this.run.currentHP = 0;
+    this.scene.start('Result', { won: false });
+  }
+}
