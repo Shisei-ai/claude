@@ -4,6 +4,7 @@ import type { BlessingType, CharacterStats, MapData } from './types';
 import { getCharacter } from '../data/characters';
 import { getDifficulty } from '../data/difficulty';
 import { applyMetaBonuses } from './meta';
+import { grantRandomCommonRelic, randomCurse, hasEffect, sumEffect } from './relics';
 
 export interface RunState {
   // Identity
@@ -34,6 +35,12 @@ export interface RunState {
   totalJPGained: number;
   unlockedSkillIds: string[];
   absorbedSkillIds: string[];   // ゼノ: グリモワールに刻んだ敵スキル
+
+  // Relics / Curses
+  relics: string[];             // RelicDef.id (重複所持あり = 強欲の合わせ鏡)
+  curses: string[];             // CurseType
+  soulSiphonCount: number;      // 魂の吊灯籠: 撃破カウント
+  shieldBarrier: number;        // 巡礼者の礎石: フロア跨ぎバリア蓄積
 
   // Statistics
   damageDealt: number;
@@ -101,6 +108,11 @@ export function createRun(
     unlockedSkillIds: [],
     absorbedSkillIds: [],
 
+    relics: [],
+    curses: [],
+    soulSiphonCount: 0,
+    shieldBarrier: 0,
+
     damageDealt: 0,
     damageTaken: 0,
     enemiesKilled: 0,
@@ -124,6 +136,7 @@ export function createRun(
   // メタ強化 → 加護 の順に適用 (Unity版 MainFlow と同順)
   applyMetaBonuses(run);
   run.gold += run.metaExtraStartGold;
+  let pendingCommonRelics = 0;
 
   switch (blessing) {
     case 'VitalGuard':
@@ -133,7 +146,7 @@ export function createRun(
       run.gold += 150;
       break;
     case 'IronWill':
-      run.relicsFound += 1;   // レリック実装(フェーズ2)まで暫定: 統計のみ加算
+      pendingCommonRelics++;
       break;
     case 'AncientKnowledge':
       run.blessingFirstCombatSkillBonus = 1;
@@ -143,12 +156,21 @@ export function createRun(
       break;
   }
 
+  // メタ「運命の寵児」: コモンレリック1つ所持で開始
+  if (run.metaStartWithCommonRelic) pendingCommonRelics++;
+
+  // 深淵難易度: 呪いを1つ背負って開始 (DifficultyTier.StartWithCurse)
+  if (diff.startWithCurse) run.curses.push(randomCurse());
+
   // 初期スキル解放 (LevelSystem.InitStartingSkills)
   for (const entry of char.learnableSkills) {
     if (entry.jobLevel <= 1 && !run.unlockedSkillIds.includes(entry.skill.id)) {
       run.unlockedSkillIds.push(entry.skill.id);
     }
   }
+
+  // 開始レリック付与 (加護「鉄の意志」/ メタ「運命の寵児」)
+  for (let i = 0; i < pendingCommonRelics; i++) grantRandomCommonRelic(run);
 
   run.currentHP = getEffectiveMaxHP(run);
   return run;
@@ -159,21 +181,34 @@ export function getEffectiveMaxHP(run: RunState): number {
   return Math.round(run.maxHPBase * run.metaMaxHPMult);
 }
 
-/** レベル・メタ補正込みの戦闘用ステータスを構築 */
+/** レベル・メタ・レリック補正込みの戦闘用ステータスを構築
+ *  (RelicManager.GetGoldToHPBonus / GetAncientCurseStatMultiplier /
+ *   GetMirrorCurseHPPenalty / BerserkerRage 防御-50% 相当) */
 export function buildBattleStats(run: RunState): CharacterStats {
   const char = getCharacter(run.characterId);
   const g = char.growthRates;
   const levels = run.characterLevel - 1;
+
+  // レリック由来のステータス補正
+  const ancientCurse = hasEffect(run, 'AncientCurse') ? 0.30 : 0;      // 全ステ+30%
+  const mirrorPenalty = hasEffect(run, 'MirrorCurse') ? run.curses.length * 0.10 : 0; // 最大HP-10%/呪い
+  const goldToHP = hasEffect(run, 'GoldToHP') ? Math.floor(run.gold / 50) : 0;
+  const berserkDef = hasEffect(run, 'BerserkerRage') ? 0.5 : 1;        // 防御-50%
+  const statMult = 1 + ancientCurse;
+
+  let maxHP = Math.round(getEffectiveMaxHP(run) * statMult * (1 - Math.min(0.9, mirrorPenalty))) + goldToHP;
+  maxHP = Math.max(1, maxHP);
+
   return {
-    maxHP: getEffectiveMaxHP(run),
+    maxHP,
     maxMP: Math.round(char.baseStats.maxMP + g.maxMP * levels) + run.metaMaxMPBonus,
-    physicalAttack: Math.round((char.baseStats.physicalAttack + g.physicalAttack * levels) * run.metaPhysAtkMult),
-    magicAttack: Math.round((char.baseStats.magicAttack + g.magicAttack * levels) * run.metaMagAtkMult),
-    physicalDefense: Math.round((char.baseStats.physicalDefense + g.physicalDefense * levels) * run.metaPhysDefMult),
-    magicDefense: Math.round((char.baseStats.magicDefense + g.magicDefense * levels) * run.metaMagDefMult),
+    physicalAttack: Math.round((char.baseStats.physicalAttack + g.physicalAttack * levels) * run.metaPhysAtkMult * statMult),
+    magicAttack: Math.round((char.baseStats.magicAttack + g.magicAttack * levels) * run.metaMagAtkMult * statMult),
+    physicalDefense: Math.round((char.baseStats.physicalDefense + g.physicalDefense * levels) * run.metaPhysDefMult * statMult * berserkDef),
+    magicDefense: Math.round((char.baseStats.magicDefense + g.magicDefense * levels) * run.metaMagDefMult * statMult * berserkDef),
     speed: char.baseStats.speed + g.speed * levels,
-    luck: char.baseStats.luck + g.luck * levels,
-    criticalRate: Math.min(100, char.baseStats.criticalRate + run.metaCritRateBonus),
+    luck: char.baseStats.luck + g.luck * levels + Math.round(sumEffect(run, 'LuckUp')),
+    criticalRate: Math.min(100, char.baseStats.criticalRate + run.metaCritRateBonus + Math.round(sumEffect(run, 'CritRateUp'))),
     accuracyRate: char.baseStats.accuracyRate,
   };
 }

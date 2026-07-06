@@ -47,7 +47,12 @@ export function loadRun(): RunState | null {
     if (!raw) return null;
     const run = JSON.parse(raw) as RunState;
     if (!run.isRunActive) return null;
-    run.absorbedSkillIds ??= [];   // 旧セーブ互換
+    // 旧セーブ互換
+    run.absorbedSkillIds ??= [];
+    run.relics ??= [];
+    run.curses ??= [];
+    run.soulSiphonCount ??= 0;
+    run.shieldBarrier ??= 0;
     return run;
   } catch {
     return null;

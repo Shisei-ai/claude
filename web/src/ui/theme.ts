@@ -29,6 +29,10 @@ export function textStyle(
   color: string = COLORS.text,
   extra: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {},
 ): Phaser.Types.GameObjects.Text.TextStyle {
+  // 日本語はスペース区切りがないため、wordWrap指定時は常に文字単位折り返しにする
+  if (extra.wordWrap?.width && extra.wordWrap.useAdvancedWrap === undefined) {
+    extra = { ...extra, wordWrap: { ...extra.wordWrap, useAdvancedWrap: true } };
+  }
   return {
     fontFamily: FONT,
     fontSize: `${size}px`,

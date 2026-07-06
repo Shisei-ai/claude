@@ -10,6 +10,11 @@ import { getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity } from '../c
 import type { NodeType } from '../core/types';
 import { Rng } from '../core/rng';
 import { FLOORS } from '../data/enemies';
+import {
+  modifyHealAmount, modifyShopPrice, modifyEventGold, eventMasterBonus,
+  riskRewardMultiplier, hasEffect, drawRelic, rollRelicRarity, addRelicToRun,
+} from '../core/relics';
+import { RARITY_LABEL, RARITY_COLOR, type RelicRarity } from '../data/relics';
 
 interface NodeEventInit { nodeType: NodeType; contentSeed: number }
 
@@ -79,7 +84,8 @@ export class NodeEventScene extends Phaser.Scene {
     this.tweens.add({ targets: fire, scale: { from: 1, to: 1.15 }, duration: 600, yoyo: true, repeat: -1 });
 
     const maxHP = getEffectiveMaxHP(this.run);
-    const healAmount = Math.round(maxHP * 0.30);
+    // 羽毛の毛布/聖者の遺骨/涸れの呪い: 回復量補正 (RelicManager.ModifyHealAmount)
+    const healAmount = modifyHealAmount(this.run, Math.round(maxHP * 0.30));
 
     this.statusLine();
     makeButton(this, width / 2 - 150, height - 64, `休息する (+${healAmount} HP)`, () => {
@@ -99,40 +105,76 @@ export class NodeEventScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.header('流浪の商人', '「よく来たね、旅人さん。掘り出し物があるよ」');
 
-    const discount = 1 - this.run.metaShopDiscount;
     const maxHP = getEffectiveMaxHP(this.run);
+    const price = (base: number) => modifyShopPrice(this.run, base);
 
-    const items = [
+    interface ShopItem {
+      name: string; desc: string; price: number; rarityTag?: string; rarityColor?: string;
+      canBuy: () => boolean; buy: () => void;
+    }
+
+    const items: ShopItem[] = [
       {
-        name: '癒しの秘薬', desc: `HPを30%回復する`, price: Math.round(50 * discount),
+        name: '癒しの秘薬', desc: `HPを30%回復する`, price: price(50),
         canBuy: () => this.run.currentHP < maxHP,
         buy: () => healRun(this.run, Math.round(maxHP * 0.30)),
       },
       {
-        name: '生命の霊薬', desc: `最大HP+15 (このランの間)`, price: Math.round(120 * discount),
+        name: '生命の霊薬', desc: `最大HP+15 (このランの間)`, price: price(120),
         canBuy: () => true,
         buy: () => { this.run.maxHPBase += 15; healRun(this.run, 15); },
       },
       {
-        name: '聖なる護符', desc: `正気度+1`, price: Math.round(40 * discount),
+        name: '聖なる護符', desc: `正気度+1`, price: price(40),
         canBuy: () => this.run.sanity < 3,
         buy: () => addSanity(this.run, 1),
       },
     ];
 
+    // レリック売り場: 通常1枠 + 密売人の割符で呪われた1枠
+    const relicRarity: RelicRarity = this.rng.next() < 0.25 ? 'Uncommon' : 'Common';
+    const shopRelic = drawRelic(this.run, relicRarity);
+    if (shopRelic) {
+      items.push({
+        name: shopRelic.name, desc: shopRelic.description,
+        price: price(shopRelic.rarity === 'Uncommon' ? 220 : 150),
+        rarityTag: `【${RARITY_LABEL[shopRelic.rarity]}】`,
+        rarityColor: RARITY_COLOR[shopRelic.rarity],
+        canBuy: () => true,
+        buy: () => { addRelicToRun(this.run, shopRelic); },
+      });
+    }
+    if (hasEffect(this.run, 'BlackMarket')) {
+      const cursedRelic = drawRelic(this.run, 'Cursed');
+      if (cursedRelic) {
+        items.push({
+          name: cursedRelic.name, desc: cursedRelic.description,
+          price: price(180),
+          rarityTag: `【${RARITY_LABEL.Cursed}】`,
+          rarityColor: RARITY_COLOR.Cursed,
+          canBuy: () => true,
+          buy: () => { addRelicToRun(this.run, cursedRelic); },
+        });
+      }
+    }
+
     items.forEach((item, i) => {
-      const y = 240 + i * 96;
+      const y = 200 + i * 82;
       const affordable = this.run.gold >= item.price && item.canBuy();
-      this.add.rectangle(width / 2, y, 640, 80, 0x171226, 0.95).setStrokeStyle(1, COLORS.border);
-      this.add.text(width / 2 - 290, y - 18, item.name, textStyle(18, COLORS.textGold));
-      this.add.text(width / 2 - 290, y + 10, item.desc, textStyle(13, COLORS.textDim));
-      makeButton(this, width / 2 + 220, y, `${item.price} G`, () => {
+      this.add.rectangle(width / 2, y, 720, 70, 0x171226, 0.95).setStrokeStyle(1, COLORS.border);
+      const nameLabel = (item.rarityTag ?? '') + item.name;
+      this.add.text(width / 2 - 330, y - 18, nameLabel,
+        textStyle(16, item.rarityColor ?? COLORS.textGold));
+      this.add.text(width / 2 - 330, y + 8, item.desc, textStyle(12, COLORS.textDim, {
+        wordWrap: { width: 480 },
+      }));
+      makeButton(this, width / 2 + 270, y, `${item.price} G`, () => {
         if (this.run.gold < item.price || !item.canBuy()) return;
         this.run.gold -= item.price;
         item.buy();
         saveRun(this.run);
         this.scene.restart({ nodeType: this.nodeType, contentSeed: this.rng.int(0x7fffffff) });
-      }, { width: 140, height: 44, fontSize: 16, disabled: !affordable });
+      }, { width: 130, height: 42, fontSize: 15, disabled: !affordable });
     });
 
     this.statusLine();
@@ -156,6 +198,18 @@ export class NodeEventScene extends Phaser.Scene {
       message += `\n【鍵師の手】隠し宝箱を発見！ 追加で ${secret} G`;
     }
 
+    // レリック入手 (財宝羅針盤: レアリティ1段階UP)
+    let rarity = rollRelicRarity(this.run.sanity, false);
+    if (hasEffect(this.run, 'TreasureNose')) {
+      const bump: Record<string, RelicRarity> = { Common: 'Uncommon', Uncommon: 'Rare', Rare: 'Rare', Cursed: 'Rare' };
+      rarity = bump[rarity] ?? rarity;
+    }
+    const relic = drawRelic(this.run, rarity);
+    if (relic) {
+      addRelicToRun(this.run, relic);
+      message += `\n【${RARITY_LABEL[relic.rarity]}】「${relic.name}」を見つけた！\n${relic.description}`;
+    }
+
     earnGold(this.run, gold);
     saveRun(this.run);
     this.resultAndLeave(message, COLORS.textGold);
@@ -171,7 +225,8 @@ export class NodeEventScene extends Phaser.Scene {
     // 罠師の知識 (アッシュ): トラップダメージ50%軽減
     const hasTrapMastery = this.run.unlockedSkillIds.includes('SKL_A_TrapMastery');
     const damage = Math.round(maxHP * 0.10 * (hasTrapMastery ? 0.5 : 1));
-    const gold = 60 + this.rng.range(0, 41);
+    // 悪魔の帳簿: 呪われた間の報酬2倍
+    const gold = Math.round((60 + this.rng.range(0, 41)) * riskRewardMultiplier(this.run));
 
     if (hasTrapMastery) {
       this.add.text(width / 2, height / 2 + 10,
@@ -217,7 +272,8 @@ export class NodeEventScene extends Phaser.Scene {
         title: '行き倒れの行商人',
         text: '倒れた行商人の荷袋が落ちている。\n持ち主はもう、この世のものではない。',
         apply: () => {
-          const gold = 45 + this.rng.range(0, 31);
+          // ミダスの親指: イベントゴールド1.5倍
+          const gold = modifyEventGold(this.run, 45 + this.rng.range(0, 31));
           earnGold(this.run, gold);
           addSanity(this.run, -1);
           return `${gold} G を拾った / 正気度 -1`;
@@ -228,7 +284,7 @@ export class NodeEventScene extends Phaser.Scene {
         text: '壁の影が言葉にならない声で囁く。\n聞いてはいけないと分かっていても、耳が離せない。',
         apply: () => {
           addSanity(this.run, -1);
-          const gold = 80 + this.rng.range(0, 41);
+          const gold = modifyEventGold(this.run, 80 + this.rng.range(0, 41));
           earnGold(this.run, gold);
           return `禁忌の知識の対価に ${gold} G / 正気度 -1`;
         },
@@ -249,7 +305,15 @@ export class NodeEventScene extends Phaser.Scene {
     this.add.text(width / 2, height / 2 - 80, ev.text,
       textStyle(17, COLORS.text, { align: 'center', lineSpacing: 10 })).setOrigin(0.5);
 
-    const result = ev.apply();
+    let result = ev.apply();
+
+    // 放浪者の日記: イベント終了後に+20G
+    const diaryBonus = eventMasterBonus(this.run);
+    if (diaryBonus > 0) {
+      earnGold(this.run, diaryBonus);
+      result += `\n【放浪者の日記】+${diaryBonus} G`;
+    }
+
     saveRun(this.run);
     this.resultAndLeave(result, COLORS.textGold);
   }

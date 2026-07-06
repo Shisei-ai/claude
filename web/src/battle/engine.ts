@@ -16,9 +16,9 @@ import type {
 } from '../core/types';
 import { STATUS_DISPLAY_NAME } from '../core/types';
 import { battleRandom as rnd } from '../core/rng';
+import type { RelicBattleState } from './relicHooks';
 
 const BREAK_STUN_TURNS = 2;
-const MAX_BP = 5;
 
 // バフ系 (cleanseで消さない)
 const BUFF_TYPES: StatusEffectType[] = [
@@ -46,6 +46,7 @@ export class Combatant {
   hp: number;
   mp: number;
   bp = 0;
+  maxBP = 5;
   currentBoost = 0;
 
   maxShields = 0;
@@ -224,7 +225,7 @@ export class Combatant {
     return healed;
   }
 
-  addBP(amount = 1): void { this.bp = Math.min(MAX_BP, this.bp + amount); }
+  addBP(amount = 1): void { this.bp = Math.min(this.maxBP, this.bp + amount); }
 
   useBoost(boosts: number): boolean {
     if (this.bp < boosts || this.currentBoost + boosts > 3) return false;
@@ -307,10 +308,21 @@ export class BattleEngine {
   private chainLinks: ChainLink[] = [];
   /** このバトルで吸収したスキルID (ラン永続化用) */
   absorbedThisBattle: string[] = [];
+  /** 魂の吊灯籠: このバトルでレリック獲得権が発生したか */
+  soulSiphonRewards = 0;
+  relics: RelicBattleState | null;
 
-  constructor(heroes: Combatant[], enemies: Combatant[], startBP = 0) {
+  constructor(heroes: Combatant[], enemies: Combatant[], startBP = 0, relics: RelicBattleState | null = null) {
     this.heroes = heroes;
     this.enemies = enemies;
+    this.relics = relics;
+    if (relics) {
+      const maxBPBonus = relics.maxBPBonus();
+      for (const h of heroes) h.maxBP += maxBPBonus;
+      for (const msg of relics.onBattleStart(heroes, enemies)) {
+        this.emit({ kind: 'message', text: msg });
+      }
+    }
     for (const h of heroes) h.addBP(startBP);
   }
 
@@ -419,6 +431,19 @@ export class BattleEngine {
       }
 
       if (actor.isPlayer) {
+        // レリック: ターン開始効果 (リジェネ・MP回復・自傷・吸命など)
+        if (this.relics) {
+          const { heal, selfDamage } = this.relics.onHeroTurnStart(actor, this.enemies);
+          if (heal > 0) this.emit({ kind: 'heal', target: actor, amount: heal });
+          if (selfDamage > 0) this.emit({ kind: 'dot', target: actor, amount: selfDamage });
+          // LifeDrainで敵が死んでいる可能性
+          for (const e of this.enemies) {
+            if (!e.isAlive && !this.events.some((ev) => ev.kind === 'defeat' && ev.target === e)) {
+              this.handleDefeat(e);
+            }
+          }
+          if (this.checkEnd()) return 'over';
+        }
         return 'awaitInput';
       }
 
@@ -433,12 +458,31 @@ export class BattleEngine {
     const hero = this.activeCombatant;
     if (!hero || !hero.isPlayer) return this.over ? 'over' : 'awaitInput';
 
-    if (cmd.boostLevel > 0) hero.useBoost(cmd.boostLevel);
+    if (cmd.boostLevel > 0) {
+      // 倹約家の指輪/賭博師の骰子: BP消費軽減
+      const cost = this.relics ? this.relics.boostBPCost(cmd.boostLevel) : cmd.boostLevel;
+      if (hero.bp >= cost) {
+        hero.bp -= cost;
+        hero.currentBoost = cmd.boostLevel;
+        this.relics?.notifyBoostUsed(cmd.boostLevel);
+      } else {
+        cmd = { ...cmd, boostLevel: 0 };
+      }
+    }
 
     if (cmd.type === 'attack') {
       this.executeBasicAttack(hero, cmd.targetIndex, cmd.boostLevel);
     } else if (cmd.skill) {
       this.executeSkill(hero, cmd.skill, cmd.targetIndex, cmd.boostLevel);
+      // 残響水晶/双詠の護符: 1戦闘1回スキル再発動
+      if (this.relics && !this.over) {
+        const { repeat, selfDamage } = this.relics.onSkillUsed(cmd.skill.id, hero);
+        if (selfDamage > 0) this.emit({ kind: 'dot', target: hero, amount: selfDamage });
+        if (repeat && this.enemies.some((e) => e.isAlive)) {
+          this.emit({ kind: 'message', text: `スキルが残響する！` });
+          this.executeSkill(hero, cmd.skill, cmd.targetIndex, 0, true);
+        }
+      }
     }
 
     hero.currentBoost = 0;
@@ -448,9 +492,10 @@ export class BattleEngine {
   }
 
   private afterAction(actor: Combatant): void {
-    // 敵の手番終了 → 味方全員 BP+1
+    // 敵の手番終了 → 味方全員 BP+1 (闘気の導線: +BPGainUp)
     if (!actor.isPlayer) {
-      for (const h of this.heroes) if (h.isAlive) h.addBP(1);
+      const gain = 1 + (this.relics?.bpGainBonus() ?? 0);
+      for (const h of this.heroes) if (h.isAlive) h.addBP(gain);
     }
 
     // 自動慈愛 (リリア): 毎アクション後、最もHP%が低い味方を回復
@@ -500,13 +545,14 @@ export class BattleEngine {
   }
 
   // ── スキル実行 ─────────────────────────────────────────────────────
-  private executeSkill(user: Combatant, skill: SkillDef, targetIndex: number, boostLevel: number): void {
-    // MPコスト (過負荷詠唱: MP60%以上でコスト-2)
-    if (user.isPlayer && skill.mpCost > 0) {
+  private executeSkill(user: Combatant, skill: SkillDef, targetIndex: number, boostLevel: number, isEcho = false): void {
+    // MPコスト (過負荷詠唱: MP60%以上でコスト-2 / レリック補正 / エコーは無料)
+    if (user.isPlayer && skill.mpCost > 0 && !isEcho) {
       let cost = skill.mpCost;
       if (user.passives.has('SKL_L_Passive_Overloaded') && user.mpRatio >= 0.60) {
         cost = Math.max(0, cost - 2);
       }
+      if (this.relics) cost = this.relics.modifySkillMPCost(cost);
       if (user.mp < cost) return;
       var mpRatioBefore = user.mpRatio;   // 魔力爆発のスケーリングは支払い前
       user.mp -= cost;
@@ -907,12 +953,14 @@ export class BattleEngine {
     power: number, dmgType: DamageType, element: ElementType,
     critBonus: number, ignoreDefPct: number,
     skill?: SkillDef,
+    isRelicExtraHit = false,
   ): boolean {
     // 命中判定 (プレイヤーのみ回避可 — Unity版の非対称設計)
     if (target.isPlayer && !skill?.neverMiss) {
       let hitChance = attacker.accuracy / 100;
       if (attacker.hasStatus('Blind')) hitChance -= 0.25;
       let dodge = target.dodgeBonus;
+      if (this.relics) dodge += this.relics.evasionBonus();
       const isSingleTarget = !skill?.hitsAllEnemies;
       const afterimage = target.getStatus('Afterimage');
       if (afterimage && isSingleTarget) dodge += afterimage.value;
@@ -939,11 +987,12 @@ export class BattleEngine {
       }
     }
 
-    // 会心率 (魔法の極意: MagATK/5 加算)
+    // 会心率 (魔法の極意: MagATK/5 加算 / レリック: 連鎖の照準器)
     let critRate = attacker.crit + critBonus;
     if (dmgType === 'Magical' && attacker.passives.has('SKL_L_Passive_ArcaneMastery')) {
       critRate += Math.floor(attacker.matk / 5);
     }
+    if (attacker.isPlayer && this.relics) critRate += this.relics.critRateBonus();
     const isCrit = rnd.range(0, 100) < Math.min(100, critRate);
 
     // 会心倍率 (物理2.0 / 魔法1.5、会心強化2.5 / 魔法の極意2.5)
@@ -953,6 +1002,10 @@ export class BattleEngine {
         critMult = attacker.passives.has('SKL_L_Passive_ArcaneMastery') ? 2.5 : 1.5;
       } else {
         critMult = attacker.passives.has('SKL_A_Passive_CritEnhance') ? 2.5 : 2.0;
+      }
+      if (attacker.isPlayer && this.relics) {
+        critMult += this.relics.critDamageBonus();
+        this.relics.notifyCriticalHit();
       }
       // 会心強化: スタック加算
       if (attacker.passives.has('SKL_A_Passive_CritEnhance')) {
@@ -972,11 +1025,41 @@ export class BattleEngine {
     if (attacker.shadowState && attacker.characterId === 'ash') shadowMult = 1.30;
 
     const atk = dmgType === 'Physical' ? attacker.patk : attacker.matk;
-    const raw = Math.max(1, Math.round(
+    let raw = Math.max(1, Math.round(
       atk * power * critMult * elemMult * extraMult * shadowMult * rnd.float(0.9, 1.1),
     ));
 
+    // レリック: 与ダメ補正 (ヒーロー→敵) / 被ダメ補正 (敵→ヒーロー)
+    let counterDamage = 0;
+    if (this.relics) {
+      if (attacker.isPlayer && !target.isPlayer) {
+        raw = this.relics.modifyOutgoingDamage(
+          attacker, target, raw, element,
+          attacker.skills.filter((s) => !s.isPassive).length);
+      } else if (target.isPlayer && dmgType !== 'True') {
+        const result = this.relics.modifyIncomingDamage(target, raw);
+        raw = result.damage;
+        for (const m of result.messages) this.emit({ kind: 'message', text: m });
+        counterDamage = result.counterDamage;
+        if (raw <= 0) {
+          this.emit({ kind: 'damage', target, amount: 0, isCrit: false, isWeak: false });
+          return false;
+        }
+      }
+    }
+
     const dealt = target.takeDamage(raw, dmgType, ignoreDefPct);
+
+    // 怨霊の壺: 全敵へ反撃
+    if (counterDamage > 0) {
+      this.emit({ kind: 'message', text: `怨霊の壺が唸りを上げる！` });
+      for (const e of this.enemies) {
+        if (!e.isAlive) continue;
+        const cd = e.takeDamage(counterDamage, 'True');
+        this.emit({ kind: 'damage', target: e, amount: cd, isCrit: false, isWeak: false });
+        if (!e.isAlive) this.handleDefeat(e);
+      }
+    }
 
     // 歴戦の鎧スタック
     if (target.isPlayer && target.passives.has('SKL_Passive_BattleHardened')) {
@@ -993,7 +1076,38 @@ export class BattleEngine {
       return isCrit;
     }
 
+    // 不死鳥の綿羽: 1ランに1回HP1で復活
+    if (!target.isAlive && target.isPlayer && this.relics?.tryRevive(target)) {
+      this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak });
+      this.emit({ kind: 'message', text: `不死鳥の綿羽が燃え上がり、${target.name} は蘇った！` });
+      return isCrit;
+    }
+
     this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak });
+
+    // レリック: 与ダメ確定後の効果 (吸血・出血/麻痺付与)
+    if (this.relics && attacker.isPlayer && !target.isPlayer) {
+      const after = this.relics.onDamageDealt(attacker, target, dealt);
+      if (after.heal > 0) this.emit({ kind: 'heal', target: attacker, amount: after.heal });
+      for (const st of after.statuses) this.emit({ kind: 'status', target, status: st, applied: true });
+
+      // 即死系レリック
+      if (target.isAlive &&
+          (this.relics.tryExecuteLowHP(target) || this.relics.tryExecuteOnBreak(target))) {
+        const isBoss = target.enemyDef?.rank === 'Boss' || target.enemyDef?.rank === 'TrueFinalBoss';
+        if (!isBoss) {
+          target.hp = 0;
+          this.emit({ kind: 'message', text: `${target.name} は刈り取られた！` });
+        }
+      }
+
+      // 影の従者/双牙の首飾り: 追加ヒット (連鎖防止のためこのヒットが追加ヒットでない時のみ)
+      if (!isRelicExtraHit && target.isAlive &&
+          ((isCrit && this.relics.tryExtraHitOnCrit()) || this.relics.tryShadowStrike())) {
+        this.emit({ kind: 'message', text: `追撃！` });
+        this.dealHit(attacker, target, power * 0.5, dmgType, element, 0, ignoreDefPct, skill, true);
+      }
+    }
 
     // 因果の鎖伝播
     this.propagateChain(target, dealt);
@@ -1034,11 +1148,24 @@ export class BattleEngine {
     element: ElementType, shieldDamage: number, forceHit = false,
   ): void {
     if (target.isPlayer || !target.isAlive || target.isBroken) return;
-    if (!forceHit && !this.isElementWeak(target, element)) return;
+    // 薙ぎの鑿: 弱点でなくてもシールドを削れる
+    const aoeOverride = attacker.isPlayer && this.relics?.hasAoEShieldDamage();
+    if (!forceHit && !aoeOverride && !this.isElementWeak(target, element)) return;
     if (target.currentShields <= 0) return;
+
+    // 攻城鶴嘴/金剛の鑿: 削り数ボーナス
+    if (attacker.isPlayer && this.relics) shieldDamage += this.relics.breakShieldDamageBonus();
+
     const broke = target.hitShield(shieldDamage);
     this.emit({ kind: 'shieldHit', target });
     if (broke) {
+      // 苦悶の砂時計: Break延長
+      if (attacker.isPlayer && this.relics) {
+        target.brokenTurnsRemaining += this.relics.breakExtendTurns();
+        for (const m of this.relics.onEnemyBroken(this.heroes)) {
+          this.emit({ kind: 'message', text: m });
+        }
+      }
       this.emit({ kind: 'break', target });
       this.emit({ kind: 'message', text: `${target.name} をBreakした！` });
     }
@@ -1046,6 +1173,16 @@ export class BattleEngine {
 
   private handleDefeat(target: Combatant): void {
     this.emit({ kind: 'defeat', target });
+
+    // レリック: 撃破時効果 (喰屍鬼の歯・魂鳴りの角笛・魂の吊灯籠)
+    if (!target.isPlayer && this.relics) {
+      const { heal, soulReward } = this.relics.onEnemyKilled(this.heroes);
+      if (heal > 0) this.emit({ kind: 'heal', target: this.heroes[0], amount: heal });
+      if (soulReward) {
+        this.soulSiphonRewards++;
+        this.emit({ kind: 'message', text: '魂の吊灯籠が満ちた… 宝の在り処が視える！' });
+      }
+    }
   }
 
   // ── 敵ターン (BattleManager.EnemyTurn) ─────────────────────────────
@@ -1133,6 +1270,11 @@ export class BattleEngine {
           }
         }
         if (target.isAlive && skill.appliedStatus && skill.statusChance) {
+          // 解毒のロケット等: 状態異常無効レリック
+          if (this.relics?.isImmuneToStatus(skill.appliedStatus.type)) {
+            this.emit({ kind: 'message', text: `護符が${STATUS_DISPLAY_NAME[skill.appliedStatus.type]}を弾いた！` });
+            continue;
+          }
           const applied = target.applyStatus(skill.appliedStatus, skill.statusChance);
           this.emit({ kind: 'status', target, status: skill.appliedStatus.type, applied });
           if (applied) {

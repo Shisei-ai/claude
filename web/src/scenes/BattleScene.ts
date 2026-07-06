@@ -7,11 +7,15 @@ import { loadRun, saveRun, clearRun } from '../core/save';
 import type { RunState } from '../core/run';
 import { getEffectiveMaxHP } from '../core/run';
 import { addExp, addJP } from '../core/level';
-import { recordRunEnd } from '../core/meta';
 import type { EnemyDef, NodeType, SkillDef } from '../core/types';
 import { STATUS_DISPLAY_NAME } from '../core/types';
 import { FLOORS } from '../data/enemies';
-import { getAvailableNodes } from '../core/mapgen';
+import { RelicBattleState } from '../battle/relicHooks';
+import {
+  buildBattleLoot, addRelicToRun, modifyGoldDrop, hasEffect, sumEffect,
+  drawRelic, rollRelicRarity,
+} from '../core/relics';
+import { RARITY_LABEL, RARITY_COLOR, type RelicDef } from '../data/relics';
 
 interface BattleInit { nodeType: NodeType; contentSeed: number }
 
@@ -62,7 +66,8 @@ export class BattleScene extends Phaser.Scene {
     if (isFirstCombat && this.run.blessingFirstCombatShieldReduction) {
       this.run.blessingFirstCombatShieldReduction = false;
     }
-    this.engine = new BattleEngine([this.hero], enemies, this.run.metaStartBP);
+    const relicState = new RelicBattleState(this.run);
+    this.engine = new BattleEngine([this.hero], enemies, this.run.metaStartBP, relicState);
 
     // ヒーロー描画 (左側)
     const char = this.hero;
@@ -81,6 +86,11 @@ export class BattleScene extends Phaser.Scene {
       const hpText = this.add.text(0, size / 2 + 32, '', textStyle(11, COLORS.textDim)).setOrigin(0.5);
       const shieldText = this.add.text(0, -size / 2 - 16, '', textStyle(13, '#8fc2ee')).setOrigin(0.5);
       const container = this.add.container(x, y, [rect, nameText, hpText, shieldText]);
+      // 鑑定士の片眼鏡: 弱点を常時表示
+      if (hasEffect(this.run, 'WeaknessReveal')) {
+        const weakStr = '弱点: ' + e.enemyDef!.elementWeaknesses.join('/');
+        container.add(this.add.text(0, size / 2 + 48, weakStr, textStyle(10, COLORS.textGold)).setOrigin(0.5));
+      }
       container.setData({ combatant: e, rect, hpText, shieldText });
       this.enemySprites.push(container);
     });
@@ -473,20 +483,30 @@ export class BattleScene extends Phaser.Scene {
       if (!run.absorbedSkillIds.includes(id)) run.absorbedSkillIds.push(id);
     }
 
+    const isElite = this.nodeType === 'EliteBattle';
+    const isBoss = this.nodeType === 'Boss';
+
+    // ゴールド (レリック補正 + 賞金首の手配書: エリート2倍)
     const rewards = computeRewards(this.enemyDefs);
-    run.gold += rewards.gold;
-    run.goldEarned += rewards.gold;
+    let gold = modifyGoldDrop(run, rewards.gold);
+    if (isElite && hasEffect(run, 'EliteHunter')) gold *= 2;
+    run.gold += gold;
+    run.goldEarned += gold;
+
     const levelResult = addExp(run, rewards.exp);
     const newSkills = addJP(run, rewards.jp);
 
-    const isBoss = this.nodeType === 'Boss';
+    // レリック報酬抽選 (LootSystem.BuildChoices 準拠)
+    const lootChoices = buildBattleLoot(run, isElite, isBoss);
+    // 魂の吊灯籠: 10体撃破ごとにレリック1つ確定
+    for (let i = 0; i < this.engine.soulSiphonRewards; i++) {
+      const bonus = drawRelic(run, rollRelicRarity(run.sanity, false));
+      if (bonus) lootChoices.push(bonus);
+    }
+
     saveRun(run);
 
-    // 報酬パネル
-    const { width, height } = this.scale;
-    const lines = [
-      `◈ ${rewards.gold} G　　EXP +${rewards.exp}　　JP +${rewards.jp}`,
-    ];
+    const lines = [`◈ ${gold} G　　EXP +${rewards.exp}　　JP +${rewards.jp}`];
     if (levelResult.levelsGained.length > 0) {
       lines.push(`レベルアップ！ → Lv.${run.characterLevel}（最大HP +${levelResult.hpGained}）`);
     }
@@ -494,21 +514,68 @@ export class BattleScene extends Phaser.Scene {
       lines.push(`新スキル習得: ${newSkills.map((s: SkillDef) => s.name).join('、')}`);
     }
 
-    this.add.rectangle(width / 2, height / 2, 560, 240, 0x0e0a18, 0.97)
+    this.showVictoryPanel(lines, lootChoices, isBoss);
+  }
+
+  // ── 勝利パネル + レリック選択 (LootSystem.ShowChoicePanel 相当) ─────
+  private showVictoryPanel(lines: string[], loot: RelicDef[], isBoss: boolean): void {
+    const { width, height } = this.scale;
+    const hasLoot = loot.length > 0;
+    const panelH = hasLoot ? 420 : 240;
+    const cy = height / 2;
+
+    const done = () => {
+      saveRun(this.run);
+      if (isBoss) this.onFloorClear();
+      else this.scene.start('Map');
+    };
+
+    this.add.rectangle(width / 2, cy, Math.max(620, loot.length * 200 + 60), panelH, 0x0e0a18, 0.97)
       .setStrokeStyle(2, COLORS.borderBright).setDepth(80);
-    this.add.text(width / 2, height / 2 - 84, '― 勝利 ―', textStyle(28, COLORS.textGold))
+    this.add.text(width / 2, cy - panelH / 2 + 34, '― 勝利 ―', textStyle(28, COLORS.textGold))
       .setOrigin(0.5).setDepth(81);
-    this.add.text(width / 2, height / 2 - 20, lines.join('\n'),
-      textStyle(16, COLORS.text, { align: 'center', lineSpacing: 10 }))
+    this.add.text(width / 2, cy - panelH / 2 + 88, lines.join('\n'),
+      textStyle(15, COLORS.text, { align: 'center', lineSpacing: 8 }))
       .setOrigin(0.5).setDepth(81);
 
-    makeButton(this, width / 2, height / 2 + 76, isBoss ? '先へ進む' : 'マップへ戻る', () => {
-      if (isBoss) {
-        this.onFloorClear();
-      } else {
-        this.scene.start('Map');
-      }
-    }, { width: 260 }).setDepth(82);
+    if (!hasLoot) {
+      makeButton(this, width / 2, cy + panelH / 2 - 44, isBoss ? '先へ進む' : 'マップへ戻る',
+        done, { width: 260 }).setDepth(82);
+      return;
+    }
+
+    this.add.text(width / 2, cy - 44, '遺物を1つ選べ', textStyle(17, COLORS.textGold))
+      .setOrigin(0.5).setDepth(81);
+
+    const cardW = 190;
+    const startX = width / 2 - ((loot.length - 1) * (cardW + 12)) / 2;
+    loot.forEach((relic, i) => {
+      const x = startX + i * (cardW + 12);
+      const y = cy + 60;
+      const card = this.add.rectangle(x, y, cardW, 180, 0x171226, 0.98)
+        .setStrokeStyle(1, COLORS.border).setDepth(81)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerover', () => card.setStrokeStyle(2, COLORS.borderBright))
+        .on('pointerout', () => card.setStrokeStyle(1, COLORS.border))
+        .on('pointerdown', () => {
+          const gained = addRelicToRun(this.run, relic);
+          this.msgText.setText(gained.length > 1
+            ? `「${relic.name}」を得た！ 合わせ鏡が「${gained[1].name}」を複製した！`
+            : `「${relic.name}」を得た！`);
+          done();
+        });
+      this.add.text(x, y - 64, `【${RARITY_LABEL[relic.rarity]}】`,
+        textStyle(11, RARITY_COLOR[relic.rarity])).setOrigin(0.5).setDepth(82);
+      this.add.text(x, y - 40, relic.name, textStyle(15, COLORS.textGold, {
+        wordWrap: { width: cardW - 20 }, align: 'center',
+      })).setOrigin(0.5).setDepth(82);
+      this.add.text(x, y + 16, relic.description, textStyle(11, COLORS.text, {
+        wordWrap: { width: cardW - 20 }, align: 'center',
+      })).setOrigin(0.5).setDepth(82);
+    });
+
+    makeButton(this, width / 2, cy + panelH / 2 - 28, '受け取らない', done,
+      { width: 220, height: 40, fontSize: 14 }).setDepth(82);
   }
 
   private onFloorClear(): void {
@@ -521,11 +588,17 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
 
-    // 次フロアへ (フロアクリア回復: 基本30% + メタ「回復の章」で+5%)
+    // 次フロアへ (フロアクリア回復: 基本30% + メタ「回復の章」+5% + 安息の泉石)
     let healPct = 0.30;
     if (run.metaFloorClearExtraHeal) healPct += 0.05;
+    healPct += sumEffect(run, 'FloorClearHeal');
     const maxHP = getEffectiveMaxHP(run);
     run.currentHP = Math.min(maxHP, run.currentHP + Math.round(maxHP * healPct));
+
+    // 巡礼者の礎石: フロアクリアごとにバリア蓄積 (RelicManager.NotifyFloorCleared)
+    const shieldPct = sumEffect(run, 'ShieldPerFloor');
+    if (shieldPct > 0) run.shieldBarrier += Math.round(maxHP * shieldPct);
+
     run.currentFloor++;
     run.currentNodeId = -1;
     run.map = null;   // 次フロアのマップは MapScene で生成
