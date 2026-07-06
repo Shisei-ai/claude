@@ -1241,6 +1241,15 @@ export class BattleEngine {
         continue;
       }
 
+      // 自己浄化系 (封印解除/虚無の浄化 — ClearsOwnStatusEffects)
+      if (skill.clearsOwnStatus) {
+        if (enemy.statuses.length === 0) continue;   // 解除対象がなければ空振り
+        enemy.statuses = [];
+        this.emit({ kind: 'skillUse', user: enemy, skillName: skill.name });
+        this.emit({ kind: 'message', text: `${enemy.name} は状態異常を解除した！` });
+        continue;
+      }
+
       // 味方バフ系 (死霊鼓舞)
       if (skill.buff && skill.basePower === 0 && !skill.appliedStatus) {
         this.emit({ kind: 'skillUse', user: enemy, skillName: skill.name });

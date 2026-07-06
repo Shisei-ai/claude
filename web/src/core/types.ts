@@ -113,6 +113,7 @@ export interface SkillDef {
   isFieldSkill?: boolean;   // フィールドスキル(鍵師の手など。バトル外で効果)
   shieldRestore?: number;   // 敵専用: シールド回復
   healAmountFlat?: number;  // 敵専用: 固定回復
+  clearsOwnStatus?: boolean;// 敵専用: 自身の状態異常を全解除 (封印解除/虚無の浄化)
 
   // ── キャラ固有メカニクス ──────────────────────────────────────────
   undeadMult?: number;          // アンデッド特効倍率 (聖光弾・神罰・聖光閃)

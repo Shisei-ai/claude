@@ -2,6 +2,7 @@
 // フェーズ1: Floor 0「廃墟の回廊」通常4体 + エリート4体 + 暫定ボス
 // (Floor 0-2 の専用ボスは Unity 版でもアセット未定義のため、エリート強化版を暫定使用)
 import type { EnemyDef, SkillDef, ElementType } from '../core/types';
+import * as F1 from './enemies_floor123';
 
 function enemySkill(p: Partial<SkillDef> & Pick<SkillDef, 'id' | 'name' | 'description'>): SkillDef {
   return {
@@ -395,15 +396,69 @@ export const FLOOR_0: FloorDef = {
   baseGoldReward: 50,
 };
 
-// Floor 1-3: 専用敵データ移植までの暫定 (Floor0の敵をスケール)
-// FloorLibrary コメント準拠の名称:
-//   Floor 1: 暗黒の森 / Floor 2: 呪われた城 / Floor 3: 古代遺跡の回廊
-export const FLOORS: FloorDef[] = [
-  FLOOR_0,
-  { ...FLOOR_0, floorIndex: 1, floorName: '暗黒の森',       floorSubtitle: '黒く捻れた木々の迷宮',   interimScale: 1.9, baseGoldReward: 65 },
-  { ...FLOOR_0, floorIndex: 2, floorName: '呪われた城',     floorSubtitle: '深紅の月光が照らす玉座', interimScale: 3.2, baseGoldReward: 80 },
-  { ...FLOOR_0, floorIndex: 3, floorName: '古代遺跡の回廊', floorSubtitle: '封じられた巨像の眠る地', interimScale: 5.0, baseGoldReward: 100 },
-];
+// Floor 1-3: 専用敵データ (enemies_floor123.ts / Floor{1,2,3}{Normal,Elite}Design.cs)
+// エンカウンターグループ構成・重みは各デザインファイルのヘッダーコメント準拠。
+export const FLOOR_1: FloorDef = {
+  floorIndex: 1,
+  floorName: '暗黒の森',
+  floorSubtitle: '黒く捻れた木々の迷宮',
+  normalEncounters: [
+    { groupName: '森の追跡者', enemies: [F1.DARK_WOLF], weight: 1.2 },
+    { groupName: '狼の群れ',   enemies: [F1.DARK_WOLF, F1.DARK_WOLF], weight: 1.0 },
+    { groupName: '森の毒気',   enemies: [F1.TOXIC_SPORE_FUNGUS, F1.DARK_WOLF], weight: 0.9 },
+    { groupName: '妖精の悪戯', enemies: [F1.FOREST_SPRITE, F1.FOREST_SPRITE, F1.TOXIC_SPORE_FUNGUS], weight: 0.8 },
+    { groupName: '蠢く根',     enemies: [F1.ENTANGLING_VINE], weight: 0.7 },
+  ],
+  eliteEncounters: [
+    { groupName: '影の狂猟',   enemies: [F1.RAXEN], weight: 1.0 },
+    { groupName: '森の儀式',   enemies: [F1.DARK_FOREST_MEDIUM, F1.SHADOW_SPIRIT], weight: 1.0 },
+    { groupName: '千年の根霊', enemies: [F1.NAGUL], weight: 0.8 },
+  ],
+  bossPool: [[F1.F1_BOSS_RAXEN_ALPHA]],
+  baseGoldReward: 65,
+};
+
+export const FLOOR_2: FloorDef = {
+  floorIndex: 2,
+  floorName: '呪われた城',
+  floorSubtitle: '深紅の月光が照らす玉座',
+  normalEncounters: [
+    { groupName: '城の歩哨',     enemies: [F1.CURSED_GUARD], weight: 1.2 },
+    { groupName: '衛兵の巡回',   enemies: [F1.CURSED_GUARD, F1.CURSED_GUARD], weight: 1.0 },
+    { groupName: '血月の眷属',   enemies: [F1.CURSE_BLOOD_BAT, F1.CURSED_GUARD], weight: 0.9 },
+    { groupName: '彷徨う怨嗟',   enemies: [F1.CASTLE_WRAITH, F1.CASTLE_WRAITH, F1.CURSE_BLOOD_BAT], weight: 0.8 },
+    { groupName: '地下牢の番人', enemies: [F1.SHADOW_EXECUTIONER], weight: 0.7 },
+  ],
+  eliteEncounters: [
+    { groupName: '紅月の近衛',   enemies: [F1.GALEN], weight: 1.0 },
+    { groupName: '魔女と使い魔', enemies: [F1.FERNA, F1.CURSED_FAMILIAR], weight: 1.0 },
+    { groupName: '伯爵の怨霊',   enemies: [F1.VELMON], weight: 0.8 },
+  ],
+  bossPool: [[F1.F2_BOSS_VELMON_LORD]],
+  baseGoldReward: 80,
+};
+
+export const FLOOR_3: FloorDef = {
+  floorIndex: 3,
+  floorName: '古代遺跡の回廊',
+  floorSubtitle: '封じられた巨像の眠る地',
+  normalEncounters: [
+    { groupName: '遺跡の番兵',   enemies: [F1.RUIN_STONE_SOLDIER], weight: 1.2 },
+    { groupName: '石兵の隊列',   enemies: [F1.RUIN_STONE_SOLDIER, F1.RUIN_STONE_SOLDIER], weight: 1.0 },
+    { groupName: '砂中の待ち伏せ', enemies: [F1.POISON_SAND_SERPENT, F1.RUIN_STONE_SOLDIER], weight: 0.9 },
+    { groupName: '封印の残響',   enemies: [F1.SEALED_WRAITH, F1.SEALED_WRAITH, F1.POISON_SAND_SERPENT], weight: 0.8 },
+    { groupName: '眠れる巨像',   enemies: [F1.ANCIENT_GIANT_SOLDIER], weight: 0.7 },
+  ],
+  eliteEncounters: [
+    { groupName: '覚醒の石兵',   enemies: [F1.GROM], weight: 1.0 },
+    { groupName: '封印の儀式',   enemies: [F1.FARUN, F1.SEAL_GUARDIAN], weight: 1.0 },
+    { groupName: '深淵の先触れ', enemies: [F1.VORGA], weight: 0.8 },
+  ],
+  bossPool: [],   // VALGOTT はファイル後方で定義されるため下で代入
+  baseGoldReward: 100,
+};
+
+export const FLOORS: FloorDef[] = [FLOOR_0, FLOOR_1, FLOOR_2, FLOOR_3];
 
 // Floor 3 最終ボス: 千年の扉番 ヴァルゴット (ValgottDesign.cs)
 export const VALGOTT: EnemyDef = {
@@ -450,9 +505,22 @@ FLOORS[3] = { ...FLOORS[3], bossPool: [[VALGOTT]] };
 
 // ── 敵スキルレジストリ (ゼノの吸収スキル永続化用) ────────────────────────
 export const ALL_ENEMIES: EnemyDef[] = [
+  // Floor 0
   GOBLIN, ROTTING_ZOMBIE, SKELETON_ARCHER, UNDEAD_MAGE,
   GARM, RUINED_SORCERER, CHAIN_SOLDIER, RAMBARD,
-  F0_BOSS_GARM_LORD, VALGOTT,
+  F0_BOSS_GARM_LORD,
+  // Floor 1
+  F1.DARK_WOLF, F1.TOXIC_SPORE_FUNGUS, F1.FOREST_SPRITE, F1.ENTANGLING_VINE,
+  F1.RAXEN, F1.DARK_FOREST_MEDIUM, F1.SHADOW_SPIRIT, F1.NAGUL,
+  F1.F1_BOSS_RAXEN_ALPHA,
+  // Floor 2
+  F1.CURSED_GUARD, F1.CURSE_BLOOD_BAT, F1.CASTLE_WRAITH, F1.SHADOW_EXECUTIONER,
+  F1.GALEN, F1.FERNA, F1.CURSED_FAMILIAR, F1.VELMON,
+  F1.F2_BOSS_VELMON_LORD,
+  // Floor 3
+  F1.RUIN_STONE_SOLDIER, F1.POISON_SAND_SERPENT, F1.SEALED_WRAITH, F1.ANCIENT_GIANT_SOLDIER,
+  F1.GROM, F1.FARUN, F1.SEAL_GUARDIAN, F1.VORGA,
+  VALGOTT,
 ];
 
 export function findEnemySkillById(id: string): SkillDef | undefined {
