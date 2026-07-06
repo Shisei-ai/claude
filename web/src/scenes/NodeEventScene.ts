@@ -11,10 +11,13 @@ import type { NodeType } from '../core/types';
 import { Rng } from '../core/rng';
 import { FLOORS } from '../data/enemies';
 import {
-  modifyHealAmount, modifyShopPrice, modifyEventGold, eventMasterBonus,
-  riskRewardMultiplier, hasEffect, drawRelic, rollRelicRarity, addRelicToRun,
+  modifyHealAmount, modifyShopPrice, modifyEventGold, modifyGoldDrop,
+  eventMasterBonus, riskRewardMultiplier, hasEffect, drawRelic,
+  rollRelicRarity, addRelicToRun, randomCurse, CURSE_INFO,
 } from '../core/relics';
-import { RARITY_LABEL, RARITY_COLOR, type RelicRarity } from '../data/relics';
+import { RARITY_LABEL, RARITY_COLOR, getRelic, type RelicRarity } from '../data/relics';
+import { RANDOM_EVENTS, ENDING_RELIC_ID, type RandomEventDef, type EventChoiceDef, type EventResult } from '../data/events';
+import { addJP } from '../core/level';
 
 interface NodeEventInit { nodeType: NodeType; contentSeed: number }
 
@@ -252,69 +255,224 @@ export class NodeEventScene extends Phaser.Scene {
     }, { width: 240 });
   }
 
-  // ── 未知のイベント (簡易版 / EventFactory 40種の移植はフェーズ2) ────
+  // ── ランダムイベント (EventFactory.cs 全50種の移植) ────────────────
   private createRandomEvent(): void {
-    const { width, height } = this.scale;
-    this.run.eventsVisited++;
+    const run = this.run;
+    run.eventsVisited++;
 
-    const events = [
-      {
-        title: '朽ちた祠',
-        text: '道端に小さな祠が残されている。\n祈りを捧げると、微かな光が体を包んだ。',
-        apply: () => {
-          const heal = Math.round(getEffectiveMaxHP(this.run) * 0.15);
-          healRun(this.run, heal);
-          addSanity(this.run, 1);
-          return `HP +${heal} / 正気度 +1`;
-        },
-      },
-      {
-        title: '行き倒れの行商人',
-        text: '倒れた行商人の荷袋が落ちている。\n持ち主はもう、この世のものではない。',
-        apply: () => {
-          // ミダスの親指: イベントゴールド1.5倍
-          const gold = modifyEventGold(this.run, 45 + this.rng.range(0, 31));
-          earnGold(this.run, gold);
-          addSanity(this.run, -1);
-          return `${gold} G を拾った / 正気度 -1`;
-        },
-      },
-      {
-        title: '囁く影',
-        text: '壁の影が言葉にならない声で囁く。\n聞いてはいけないと分かっていても、耳が離せない。',
-        apply: () => {
-          addSanity(this.run, -1);
-          const gold = modifyEventGold(this.run, 80 + this.rng.range(0, 41));
-          earnGold(this.run, gold);
-          return `禁忌の知識の対価に ${gold} G / 正気度 -1`;
-        },
-      },
-      {
-        title: '澄んだ泉',
-        text: '廃墟には似つかわしくない、澄んだ泉が湧いている。\n一口飲むと、疲れが洗い流されていく。',
-        apply: () => {
-          const heal = Math.round(getEffectiveMaxHP(this.run) * 0.25);
-          healRun(this.run, heal);
-          return `HP +${heal}`;
-        },
-      },
-    ];
+    // 出現条件でフィルタ (RandomEventManager の選択条件を移植)
+    const pool = RANDOM_EVENTS.filter((ev) => {
+      if (run.currentFloor < ev.minFloor || run.currentFloor > ev.maxFloor) return false;
+      if (ev.oneTime && run.seenOneTimeEvents.includes(ev.id)) return false;
+      if (ev.requiredCharacter && ev.requiredCharacter !== run.characterId) return false;
+      if (ev.isEndingEvent && run.activeEnding) return false;
+      return true;
+    });
 
-    const ev = events[this.rng.int(events.length)];
-    this.header(ev.title, '― 未知との遭遇 ―');
-    this.add.text(width / 2, height / 2 - 80, ev.text,
-      textStyle(17, COLORS.text, { align: 'center', lineSpacing: 10 })).setOrigin(0.5);
-
-    let result = ev.apply();
-
-    // 放浪者の日記: イベント終了後に+20G
-    const diaryBonus = eventMasterBonus(this.run);
-    if (diaryBonus > 0) {
-      earnGold(this.run, diaryBonus);
-      result += `\n【放浪者の日記】+${diaryBonus} G`;
+    // Sanity補正付き重み抽選
+    const weights = pool.map((ev) => Math.max(0.1, 1 + (ev.sanityWeight ?? 0) * run.sanity));
+    const total = weights.reduce((a, b) => a + b, 0);
+    let roll = this.rng.next() * total;
+    let event = pool[pool.length - 1];
+    for (let i = 0; i < pool.length; i++) {
+      roll -= weights[i];
+      if (roll <= 0) { event = pool[i]; break; }
     }
 
-    saveRun(this.run);
-    this.resultAndLeave(result, COLORS.textGold);
+    if (event.oneTime) run.seenOneTimeEvents.push(event.id);
+    this.showEvent(event);
+  }
+
+  private showEvent(event: RandomEventDef): void {
+    const { width, height } = this.scale;
+
+    // 雰囲気の色板 (UITintColor)
+    this.add.rectangle(width / 2, height / 2, width, height, event.tint, 0.12);
+
+    this.header(event.title, '― 未知との遭遇 ―');
+    this.add.text(width / 2, 250, event.narrative,
+      textStyle(16, COLORS.text, { align: 'center', lineSpacing: 10, wordWrap: { width: width - 260 } }))
+      .setOrigin(0.5, 0);
+
+    this.statusLine();
+
+    // 選択肢 (RequiresGold: 所持金不足なら選択不可)
+    const btnY = height - 74;
+    const count = event.choices.length;
+    const btnW = Math.min(340, (width - 120) / count - 16);
+    const startX = width / 2 - ((count - 1) * (btnW + 16)) / 2;
+
+    event.choices.forEach((choice, i) => {
+      const affordable = !choice.goldCost || this.run.gold >= choice.goldCost;
+      const btn = makeButton(this, startX + i * (btnW + 16), btnY, choice.text, () => {
+        this.resolveChoice(choice);
+      }, { width: btnW, height: 52, fontSize: 14, disabled: !affordable });
+
+      if (choice.tooltip) {
+        const bg = btn.list[0] as Phaser.GameObjects.Rectangle;
+        bg.on('pointerover', () => this.showChoiceTooltip(startX + i * (btnW + 16), btnY - 40, choice.tooltip!));
+        bg.on('pointerout', () => { this.choiceTip?.destroy(); this.choiceTip = null; });
+      }
+    });
+  }
+
+  private choiceTip: Phaser.GameObjects.Container | null = null;
+
+  private showChoiceTooltip(x: number, y: number, text: string): void {
+    this.choiceTip?.destroy();
+    const label = this.add.text(0, 0, text, textStyle(12, COLORS.textDim, {
+      wordWrap: { width: 320 }, align: 'center',
+    })).setOrigin(0.5, 1);
+    const bg = this.add.rectangle(0, 6, label.width + 20, label.height + 14, 0x000000, 0.92)
+      .setStrokeStyle(1, COLORS.border).setOrigin(0.5, 1);
+    this.choiceTip = this.add.container(x, y, [bg, label]).setDepth(100);
+  }
+
+  // ── 選択結果の適用 (RandomEventManager.ApplyResult の移植) ──────────
+  private resolveChoice(choice: EventChoiceDef): void {
+    const run = this.run;
+    const r = choice.result;
+    const outcomes: string[] = [];
+
+    // コスト減算
+    if (choice.goldCost) run.gold = Math.max(0, run.gold - choice.goldCost);
+
+    // HP変化 (回復はレリック補正 / ダメージはそのまま)
+    if (r.fullHeal) {
+      run.currentHP = getEffectiveMaxHP(run);
+      outcomes.push('HPが完全に回復した');
+    } else if (r.hpPct) {
+      const delta = Math.round(getEffectiveMaxHP(run) * r.hpPct);
+      if (delta > 0) {
+        const healed = Math.min(modifyHealAmount(run, delta), getEffectiveMaxHP(run) - run.currentHP);
+        healRun(run, modifyHealAmount(run, delta));
+        outcomes.push(`HP +${Math.max(0, healed)}`);
+      } else {
+        damageRun(run, -delta);
+        outcomes.push(`HP ${delta}`);
+      }
+    }
+
+    // ゴールド (-9999 = 全財産)
+    if (r.gold) {
+      if (r.gold > 0) {
+        let earned = modifyGoldDrop(run, r.gold);
+        earned = modifyEventGold(run, earned);
+        earnGold(run, earned);
+        outcomes.push(`+${earned} G`);
+      } else {
+        const spend = r.gold === -9999 ? run.gold : -r.gold;
+        run.gold = Math.max(0, run.gold - spend);
+        outcomes.push(`-${spend} G`);
+      }
+    }
+
+    // 最大HP
+    if (r.maxHP) {
+      run.maxHPBase = Math.max(1, run.maxHPBase + r.maxHP);
+      run.currentHP = Math.min(run.currentHP, getEffectiveMaxHP(run));
+      outcomes.push(`最大HP ${r.maxHP > 0 ? '+' : ''}${r.maxHP}`);
+    }
+
+    // 正気度
+    if (r.sanity) {
+      addSanity(run, r.sanity);
+      outcomes.push(`正気度 ${r.sanity > 0 ? '+' : ''}${r.sanity}`);
+    }
+
+    // レリック獲得
+    if (r.relicPool) {
+      // Event レアリティのプールは証印専用のため Rare に読み替え
+      const rarity = r.relicPool === 'Event' ? 'Rare' : r.relicPool;
+      const relic = drawRelic(run, rarity);
+      if (relic) {
+        addRelicToRun(run, relic);
+        outcomes.push(`「${relic.name}」を得た (${relic.description})`);
+      }
+    }
+
+    // 呪い
+    if (r.curse) {
+      const curse = randomCurse();
+      run.curses.push(curse);
+      outcomes.push(`【${CURSE_INFO[curse].name}】を受けた…`);
+    }
+    if (r.removeCurse && run.curses.length > 0) {
+      const n = r.removeCurse >= 99 ? run.curses.length : Math.min(r.removeCurse, run.curses.length);
+      for (let i = 0; i < n; i++) run.curses.pop();
+      outcomes.push(`呪いが${n}つ解けた`);
+    }
+
+    // スキルドラフト → JP獲得 (Web版適応: デッキ構築が存在しないため)
+    if (r.skillDraft) {
+      const jp = r.skillDraft * 25;
+      const unlocked = addJP(run, jp);
+      outcomes.push(`修練が進んだ (JP +${jp})`);
+      if (unlocked.length > 0) {
+        outcomes.push(`新スキル習得: ${unlocked.map((s) => s.name).join('、')}`);
+      }
+    }
+    // スキル売却 → JP消費 (Web版適応)
+    if (r.removeSkill) {
+      run.currentJobJP = Math.max(0, run.currentJobJP - 50);
+    }
+
+    // エンディング分岐: 証印レリック + ActiveEnding
+    if (r.endingPath) {
+      run.activeEnding = r.endingPath;
+      const sealId = ENDING_RELIC_ID[r.endingPath];
+      if (sealId && !run.relics.includes(sealId)) {
+        run.relics.push(sealId);
+        run.relicsFound++;
+        const seal = getRelic(sealId);
+        if (seal) outcomes.push(`【証印】「${seal.name}」を得た。結末が変わる予感がする…`);
+      }
+    }
+
+    // 放浪者の日記: イベント終了後+20G
+    const diary = eventMasterBonus(run);
+    if (diary > 0) {
+      earnGold(run, diary);
+      outcomes.push(`【放浪者の日記】+${diary} G`);
+    }
+
+    saveRun(run);
+
+    // 死亡チェック
+    if (run.currentHP <= 0) {
+      this.scene.start('Result', { won: false });
+      return;
+    }
+
+    // 戦闘トリガー (結果表示後に開戦)
+    this.showEventResult(r, outcomes);
+  }
+
+  private showEventResult(r: EventResult, outcomes: string[]): void {
+    const { width, height } = this.scale;
+
+    // 画面を作り直して結果を表示
+    this.children.removeAll();
+    drawSceneBackground(this);
+    this.add.text(width / 2, height / 2 - 120, r.narrative,
+      textStyle(16, COLORS.text, { align: 'center', lineSpacing: 10, wordWrap: { width: width - 300 } }))
+      .setOrigin(0.5);
+    if (outcomes.length > 0) {
+      this.add.text(width / 2, height / 2 + 20, outcomes.join('\n'),
+        textStyle(15, COLORS.textGold, { align: 'center', lineSpacing: 8, wordWrap: { width: width - 300 } }))
+        .setOrigin(0.5);
+    }
+    this.statusLine();
+
+    if (r.battle) {
+      makeButton(this, width / 2, height - 64, '― 戦闘開始 ―', () => {
+        this.scene.start('Battle', {
+          nodeType: r.elite ? 'EliteBattle' : 'Battle',
+          contentSeed: this.rng.int(0x7fffffff),
+        });
+      }, { width: 300, color: COLORS.textRed });
+    } else {
+      this.leave();
+    }
   }
 }

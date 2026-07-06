@@ -42,6 +42,10 @@ export interface RunState {
   soulSiphonCount: number;      // 魂の吊灯籠: 撃破カウント
   shieldBarrier: number;        // 巡礼者の礎石: フロア跨ぎバリア蓄積
 
+  // Events / Ending
+  activeEnding: string | null;  // エンディング分岐 (DemonKing等 / 1ラン1つ)
+  seenOneTimeEvents: string[];  // OneTimeOnly イベントの既読ID
+
   // Statistics
   damageDealt: number;
   damageTaken: number;
@@ -112,6 +116,9 @@ export function createRun(
     curses: [],
     soulSiphonCount: 0,
     shieldBarrier: 0,
+
+    activeEnding: null,
+    seenOneTimeEvents: [],
 
     damageDealt: 0,
     damageTaken: 0,

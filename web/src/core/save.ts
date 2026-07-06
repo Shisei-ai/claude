@@ -53,6 +53,8 @@ export function loadRun(): RunState | null {
     run.curses ??= [];
     run.soulSiphonCount ??= 0;
     run.shieldBarrier ??= 0;
+    run.activeEnding ??= null;
+    run.seenOneTimeEvents ??= [];
     return run;
   } catch {
     return null;
