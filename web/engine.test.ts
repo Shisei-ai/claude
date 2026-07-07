@@ -2,7 +2,7 @@
 // 実行: npx esbuild engine.test.ts --bundle --format=esm --outfile=engine.test.mjs && node engine.test.mjs
 import { BattleEngine, Combatant } from './src/battle/engine';
 import { CHARACTERS } from './src/data/characters';
-import { GOBLIN, ROTTING_ZOMBIE, GARM, F0_BOSS_GARM_LORD } from './src/data/enemies';
+import { GOBLIN, ROTTING_ZOMBIE, GARM, F0_BOSS_MORVA } from './src/data/enemies';
 import type { EnemyDef } from './src/core/types';
 
 let failures = 0;
@@ -65,7 +65,7 @@ for (const char of CHARACTERS) {
     skills: actives, passives: new Set(),
   });
   hero.hp = 5000; hero.mp = 999;
-  const enemies = makeEnemies([F0_BOSS_GARM_LORD]);
+  const enemies = makeEnemies([F0_BOSS_MORVA]);
   const engine = new BattleEngine([hero], enemies, 3);
   engine.advance();
   const absorb = actives.find((s) => s.id === 'SKL_Z_Absorb')!;
@@ -156,7 +156,7 @@ import { BOOST_TABLE_KEYS, getBoostUpgrade } from './src/battle/boost';
       skills: actives, passives: new Set(),
     });
     hero.mp = 999;
-    const enemies = makeEnemies([F0_BOSS_GARM_LORD]);   // 高HPで倒れない
+    const enemies = makeEnemies([F0_BOSS_MORVA]);   // 高HPで倒れない
     const engine = new BattleEngine([hero], enemies, 3);
     engine.advance();
     engine.executePlayerCommand({ type: 'skill', skill: doubleSlash, targetIndex: 0, boostLevel: boost });
@@ -179,7 +179,7 @@ import { BOOST_TABLE_KEYS, getBoostUpgrade } from './src/battle/boost';
     skills: actives, passives: new Set(),
   });
   hero.mp = 999;
-  const enemies = makeEnemies([F0_BOSS_GARM_LORD]);
+  const enemies = makeEnemies([F0_BOSS_MORVA]);
   const engine = new BattleEngine([hero], enemies, 3);
   engine.advance();
   const before = hero.bp;
@@ -200,7 +200,7 @@ import { BOOST_TABLE_KEYS, getBoostUpgrade } from './src/battle/boost';
     skills: actives, passives: new Set(),
   });
   hero.mp = 999;
-  const enemies = makeEnemies([F0_BOSS_GARM_LORD]);   // ボス: 吸収は必ず失敗するがHP消費は先
+  const enemies = makeEnemies([F0_BOSS_MORVA]);   // ボス: 吸収は必ず失敗するがHP消費は先
   const engine = new BattleEngine([hero], enemies, 3);
   engine.advance();
   const hpBefore = hero.hp;
@@ -216,6 +216,59 @@ import { BOOST_TABLE_KEYS, getBoostUpgrade } from './src/battle/boost';
   const u = getBoostUpgrade(dummy, 2);
   if (u.powerMult === 2.0) console.log('✓ テーブル未定義スキルは汎用ブースト (×2.0)');
   else { console.error(`✗ 汎用フォールバック異常: powerMult=${u.powerMult}`); failures++; }
+}
+
+// ── Floor0〜2 専用ボス (⑩) ────────────────────────────────────────────
+import { F0_BOSS_MORVA as MORVA } from './src/data/enemies';
+import { F1_BOSS_GRISELDA, F2_BOSS_SANGUINA } from './src/data/enemies_floor123';
+
+for (const boss of [MORVA, F1_BOSS_GRISELDA, F2_BOSS_SANGUINA]) {
+  // 基本不変条件: Boss / 2行動 / フェーズ2アクション (healthThreshold>0) を持つ /
+  // 防御無視 True ダメージ技を持つ / MATK>0 (True は MATK スケール)
+  const phase2 = boss.actions.filter((a) => a.healthThreshold > 0);
+  const trueHit = boss.actions.find((a) => a.skill.damageType === 'True' && a.skill.basePower > 0);
+  const ok = boss.rank === 'Boss' && boss.actionsPerTurn === 2
+    && phase2.length >= 2 && !!trueHit && boss.stats.magicAttack > 0
+    && boss.elementWeaknesses.length >= 1;
+  if (!ok) { console.error(`✗ ${boss.name}: ボス設計の不変条件を満たさない`); failures++; continue; }
+
+  // 実戦: 低HPからフェーズ2アクションが発火し True ダメージが通るか
+  let phase2Fired = false, trueDamageDealt = false;
+  for (let trial = 0; trial < 40 && !(phase2Fired && trueDamageDealt); trial++) {
+    const hero = new Combatant({
+      isPlayer: true, name: '勇者', characterId: 'bernhard',
+      stats: { maxHP: 9000, maxMP: 999, physicalAttack: 30, magicAttack: 0,
+        physicalDefense: 200, magicDefense: 200, speed: 1, luck: 0,
+        criticalRate: 0, accuracyRate: 100 },
+      skills: [], passives: new Set(),
+    });
+    hero.hp = 9000; hero.mp = 999;
+    const enemies = makeEnemies([boss]);
+    enemies[0].hp = Math.round(boss.stats.maxHP * 0.30);   // フェーズ2圏内
+    const engine = new BattleEngine([hero], enemies, 3);
+    engine.advance();
+    for (let i = 0; i < 12 && !engine.over; i++) {
+      if (engine.activeCombatant?.isPlayer) {
+        engine.executePlayerCommand({ type: 'attack', targetIndex: 0, boostLevel: 0 });
+      }
+      const evs = engine.drainEvents();
+      const hpBefore = hero.hp;
+      for (const e of evs) {
+        if (e.kind === 'skillUse' && e.user === enemies[0]
+            && phase2.some((a) => a.skill.name === e.skillName)) phase2Fired = true;
+        if (e.kind === 'damage' && e.target === hero && e.amount > 0) {
+          // 防御200を貫通した大ダメージ = True ヒットの痕跡
+          if (e.amount > 100) trueDamageDealt = true;
+        }
+      }
+      void hpBefore;
+      if (!enemies[0].isAlive) break;
+    }
+  }
+  if (phase2Fired) console.log(`✓ ${boss.name}: フェーズ2アクション発火`);
+  else { console.error(`✗ ${boss.name}: フェーズ2アクションが発火しない`); failures++; }
+  if (trueDamageDealt) console.log(`✓ ${boss.name}: 防御無視Trueダメージが貫通`);
+  else { console.error(`✗ ${boss.name}: Trueダメージが確認できない`); failures++; }
 }
 
 console.log(failures === 0 ? '\nALL OK' : `\n${failures} FAILURES`);

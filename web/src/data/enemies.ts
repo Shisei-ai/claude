@@ -334,24 +334,88 @@ export const RAMBARD: EnemyDef = {
 };
 
 // ══════════════════════════════════════════════════════════════════════
-//  Floor 0 暫定ボス — 亡骸騎士ガルム強化版
-//  ※ Unity版でも Floor0 の BossPool アセットは未定義。専用ボス実装まで暫定。
+//  Floor 0 ボス — 屍呼びの司祭 モルヴァ
+//  ※ Unity版では Floor0 の BossPool アセットが未定義だったため、
+//     フロアのロア (廃墟の回廊 / かつての王国の残骸 / 死霊術で蘇る亡者) に
+//     沿って新規デザイン。廃墟の亡者すべてを甦らせた術の主。
+//     設計様式は Floor4BossDesign.cs 準拠 (常時+HP50%以下フェーズ2 / 2行動)。
 // ══════════════════════════════════════════════════════════════════════
 
-export const F0_BOSS_GARM_LORD: EnemyDef = {
-  ...GARM,
-  id: 'f0b_garm_lord',
-  name: '廃王の亡骸騎士 ガルム',
-  rank: 'Boss',
-  lore: '廃墟の最深部を守り続ける騎士団長の骸。王を守れなかった後悔だけが、朽ちた鎧を今も動かしている。',
+export const F0_BOSS_MORVA: EnemyDef = {
+  id: 'f0b_morva', name: '屍呼びの司祭 モルヴァ', rank: 'Boss',
+  lore: '滅んだ王国の墓所に巣食う不死の司祭。廃墟を彷徨う亡者はすべて、この者が死霊術で甦らせたもの。生者を憎むのではなく、ただ死者を増やすことだけを望んでいる。',
   stats: {
-    ...GARM.stats,
-    maxHP: 900, physicalAttack: 70, physicalDefense: 26, speed: 22,
+    maxHP: 1000, maxMP: 0, physicalAttack: 18, magicAttack: 46,
+    physicalDefense: 14, magicDefense: 24, speed: 26, luck: 0,
+    criticalRate: 6, accuracyRate: 92,
   },
-  shieldPoints: 5,
+  shieldPoints: 3, isUndead: true,
+  elementWeaknesses: ['Fire', 'Light'],
+  actions: [
+    // ── Phase 1 (常時) ──
+    {
+      skill: enemySkill({
+        id: 'f0b_necro_bolt', name: '死霊の礫',
+        description: '凝縮した死の魔力を一体に撃ち込む。闇属性魔法ダメージを与える。',
+        element: 'Dark', damageType: 'Magical', basePower: 1.5,
+      }),
+      priority: 3, useChance: 0.35, healthThreshold: 0,
+    },
+    {
+      skill: enemySkill({
+        id: 'f0b_decay_wave', name: '腐敗の波動',
+        description: '腐敗の魔力を波として全体に浴びせる。闇属性魔法全体ダメージを与える。',
+        element: 'Dark', damageType: 'Magical', basePower: 1.0, hitsAllEnemies: true,
+      }),
+      priority: 2, useChance: 0.25, healthThreshold: 0,
+    },
+    {
+      skill: enemySkill({
+        id: 'f0b_death_hex', name: '死の呪詛',
+        description: '死の呪いを全体に振りまく。30%の確率で全員に毒を付与する。',
+        element: 'None', damageType: 'Magical', hitsAllEnemies: true, statusChance: 0.30,
+        appliedStatus: { type: 'Poison', duration: 3, value: 0.05 },
+      }),
+      priority: 1, useChance: 0.25, healthThreshold: 0,
+    },
+    {
+      skill: enemySkill({
+        id: 'f0b_offering', name: '亡者の供物',
+        description: '周囲の亡骸を喰らい、自らの朽ちた体を繋ぎ直す。HPを120回復する。',
+        healAmountFlat: 120,
+      }),
+      priority: 0, useChance: 0.20, healthThreshold: 0,
+    },
+    // ── Phase 2 (HP50%以下) ──
+    {
+      skill: enemySkill({
+        id: 'f0b_dead_march', name: '死者の行進',
+        description: '無数の亡者の怨念を束ねて全体に叩きつける。闇属性魔法全体ダメージを与える。',
+        element: 'Dark', damageType: 'Magical', basePower: 1.8, hitsAllEnemies: true,
+      }),
+      priority: 3, useChance: 0.40, healthThreshold: 50,
+    },
+    {
+      skill: enemySkill({
+        id: 'f0b_soul_harvest', name: '魂の収奪',
+        description: '魂そのものを直接刈り取る。防御を無視した死の一撃を一体に与える。',
+        element: 'None', damageType: 'True', basePower: 3.9,
+      }),
+      priority: 2, useChance: 0.30, healthThreshold: 50,
+    },
+    {
+      skill: enemySkill({
+        id: 'f0b_nether_bind', name: '冥府の呪縛',
+        description: '冥府の鎖で全体を縛り上げる。25%の確率で全員に麻痺を付与する。',
+        element: 'None', damageType: 'Magical', hitsAllEnemies: true, statusChance: 0.25,
+        appliedStatus: { type: 'Paralysis', duration: 2, value: 0 },
+      }),
+      priority: 1, useChance: 0.30, healthThreshold: 50,
+    },
+  ],
   actionsPerTurn: 2,
-  expReward: 300, jpReward: 80, goldReward: 150,
-  tint: 0xaa4a4a,
+  expReward: 320, jpReward: 85, goldReward: 160,
+  tint: 0x6a4a8a,
 };
 
 // ══════════════════════════════════════════════════════════════════════
@@ -392,7 +456,7 @@ export const FLOOR_0: FloorDef = {
     { groupName: '廃術士と看守', enemies: [RUINED_SORCERER, CHAIN_SOLDIER], weight: 1.0 },
     { groupName: '石の守護像',   enemies: [RAMBARD], weight: 0.8 },
   ],
-  bossPool: [[F0_BOSS_GARM_LORD]],
+  bossPool: [[F0_BOSS_MORVA]],
   baseGoldReward: 50,
 };
 
@@ -414,7 +478,7 @@ export const FLOOR_1: FloorDef = {
     { groupName: '森の儀式',   enemies: [F1.DARK_FOREST_MEDIUM, F1.SHADOW_SPIRIT], weight: 1.0 },
     { groupName: '千年の根霊', enemies: [F1.NAGUL], weight: 0.8 },
   ],
-  bossPool: [[F1.F1_BOSS_RAXEN_ALPHA]],
+  bossPool: [[F1.F1_BOSS_GRISELDA]],
   baseGoldReward: 65,
 };
 
@@ -434,7 +498,7 @@ export const FLOOR_2: FloorDef = {
     { groupName: '魔女と使い魔', enemies: [F1.FERNA, F1.CURSED_FAMILIAR], weight: 1.0 },
     { groupName: '伯爵の怨霊',   enemies: [F1.VELMON], weight: 0.8 },
   ],
-  bossPool: [[F1.F2_BOSS_VELMON_LORD]],
+  bossPool: [[F1.F2_BOSS_SANGUINA]],
   baseGoldReward: 80,
 };
 
@@ -508,15 +572,15 @@ export const ALL_ENEMIES: EnemyDef[] = [
   // Floor 0
   GOBLIN, ROTTING_ZOMBIE, SKELETON_ARCHER, UNDEAD_MAGE,
   GARM, RUINED_SORCERER, CHAIN_SOLDIER, RAMBARD,
-  F0_BOSS_GARM_LORD,
+  F0_BOSS_MORVA,
   // Floor 1
   F1.DARK_WOLF, F1.TOXIC_SPORE_FUNGUS, F1.FOREST_SPRITE, F1.ENTANGLING_VINE,
   F1.RAXEN, F1.DARK_FOREST_MEDIUM, F1.SHADOW_SPIRIT, F1.NAGUL,
-  F1.F1_BOSS_RAXEN_ALPHA,
+  F1.F1_BOSS_GRISELDA,
   // Floor 2
   F1.CURSED_GUARD, F1.CURSE_BLOOD_BAT, F1.CASTLE_WRAITH, F1.SHADOW_EXECUTIONER,
   F1.GALEN, F1.FERNA, F1.CURSED_FAMILIAR, F1.VELMON,
-  F1.F2_BOSS_VELMON_LORD,
+  F1.F2_BOSS_SANGUINA,
   // Floor 3
   F1.RUIN_STONE_SOLDIER, F1.POISON_SAND_SERPENT, F1.SEALED_WRAITH, F1.ANCIENT_GIANT_SOLDIER,
   F1.GROM, F1.FARUN, F1.SEAL_GUARDIAN, F1.VORGA,

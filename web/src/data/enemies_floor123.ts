@@ -338,21 +338,89 @@ export const NAGUL: EnemyDef = {
   tint: 0x5a4a2a,
 };
 
-// Floor 1 暫定ボス: ラクセン強化版 (Unity版もFloor1のBossPoolアセット未定義)
-export const F1_BOSS_RAXEN_ALPHA: EnemyDef = {
-  ...RAXEN,
-  id: 'f1b_raxen_alpha',
-  name: '深影の主 ラクセン',
-  rank: 'Boss',
-  lore: '暗黒の森そのものと同化した影の獣の王。森のすべての影が、彼の爪であり牙である。',
+// ══════════════════════════════════════════════════════════════════════
+//  Floor 1 ボス — 森喰らいの魔女 グリゼルダ
+//  ※ Unity版では Floor1 の BossPool アセットが未定義だったため、
+//     フロアのロア (暗黒の森 / 捻れた黒い木々 / 妖精 / 死霊術の儀式) に
+//     沿って新規デザイン。森の精霊を喰らい森そのものを歪めた魔女。
+//     影の獣ラクセンも千年の根霊ナグルも、この魔女の呪いが生んだもの。
+// ══════════════════════════════════════════════════════════════════════
+export const F1_BOSS_GRISELDA: EnemyDef = {
+  id: 'f1b_griselda', name: '森喰らいの魔女 グリゼルダ', rank: 'Boss',
+  lore: '暗黒の森の中心に棲む古い魔女。かつて森を守っていた精霊を喰らい、その力で木々を捻じ曲げ、影と根を意のままに操る。森を彷徨う獣も亡霊も、彼女の呪いが生み出した眷属にすぎない。',
   stats: {
-    ...RAXEN.stats,
-    maxHP: 1100, physicalAttack: 85, magicAttack: 35, physicalDefense: 24, speed: 46,
+    maxHP: 1350, maxMP: 0, physicalAttack: 30, magicAttack: 58,
+    physicalDefense: 20, magicDefense: 24, speed: 36, luck: 0,
+    criticalRate: 8, accuracyRate: 92,
   },
-  shieldPoints: 4,
+  shieldPoints: 4, isUndead: false,
+  elementWeaknesses: ['Fire', 'Light'],
+  actions: [
+    // ── Phase 1 (常時) ──
+    {
+      skill: enemySkill({
+        id: 'f1b_curse_thorn', name: '呪詛の茨',
+        description: '呪いを帯びた茨で一体を貫く。闇属性魔法ダメージを与える。',
+        element: 'Dark', damageType: 'Magical', basePower: 1.6,
+      }),
+      priority: 3, useChance: 0.32, healthThreshold: 0,
+    },
+    {
+      skill: enemySkill({
+        id: 'f1b_poison_mist', name: '毒霧の吐息',
+        description: '森の毒気を全体に吹き散らす。35%の確率で全員に毒を付与する。',
+        element: 'None', damageType: 'Magical', hitsAllEnemies: true, statusChance: 0.35,
+        appliedStatus: { type: 'Poison', duration: 3, value: 0.05 },
+      }),
+      priority: 1, useChance: 0.28, healthThreshold: 0,
+    },
+    {
+      skill: enemySkill({
+        id: 'f1b_entangle_root', name: '絡みつく根',
+        description: '大地から根を伸ばし一体を締め上げる。40%の確率で麻痺を付与する。',
+        element: 'None', basePower: 1.2, statusChance: 0.40,
+        appliedStatus: { type: 'Paralysis', duration: 2, value: 0 },
+      }),
+      priority: 2, useChance: 0.22, healthThreshold: 0,
+    },
+    {
+      skill: enemySkill({
+        id: 'f1b_forest_boon', name: '森の恵み',
+        description: '森の生命力を吸い上げ、自らの傷を癒す。HPを150回復する。',
+        healAmountFlat: 150,
+      }),
+      priority: 0, useChance: 0.18, healthThreshold: 0,
+    },
+    // ── Phase 2 (HP50%以下) ──
+    {
+      skill: enemySkill({
+        id: 'f1b_evernight_storm', name: '常闇の嵐',
+        description: '森の影を嵐に変え全体を呑み込む。闇属性魔法全体ダメージを与える。',
+        element: 'Dark', damageType: 'Magical', basePower: 1.9, hitsAllEnemies: true,
+      }),
+      priority: 3, useChance: 0.40, healthThreshold: 50,
+    },
+    {
+      skill: enemySkill({
+        id: 'f1b_life_drain', name: '生命簒奪',
+        description: '生命そのものを直接引き抜く。防御を無視した一撃を一体に与える。',
+        element: 'None', damageType: 'True', basePower: 3.4,
+      }),
+      priority: 2, useChance: 0.30, healthThreshold: 50,
+    },
+    {
+      skill: enemySkill({
+        id: 'f1b_devour_frenzy', name: '森喰らいの狂乱',
+        description: '無数の根と牙が全体を襲う。30%の確率で全員に出血を付与する。',
+        element: 'None', basePower: 1.2, hitsAllEnemies: true, statusChance: 0.30,
+        appliedStatus: { type: 'Bleed', duration: 3, value: 0.05 },
+      }),
+      priority: 1, useChance: 0.30, healthThreshold: 50,
+    },
+  ],
   actionsPerTurn: 2,
-  expReward: 400, jpReward: 100, goldReward: 200,
-  tint: 0x101830,
+  expReward: 420, jpReward: 105, goldReward: 210,
+  tint: 0x2a3a1a,
 };
 
 // ══════════════════════════════════════════════════════════════════════
@@ -710,20 +778,89 @@ export const VELMON: EnemyDef = {
   tint: 0x5a2a4a,
 };
 
-// Floor 2 暫定ボス: ヴェルモン強化版 (Unity版もFloor2のBossPoolアセット未定義)
-export const F2_BOSS_VELMON_LORD: EnemyDef = {
-  ...VELMON,
-  id: 'f2b_velmon_lord',
-  name: '血月の王 ヴェルモン',
-  rank: 'Boss',
-  lore: '血月の呪いの中心で王を名乗り続ける伯爵の怨霊。城のすべての呪いが、彼の玉座に集まっていく。',
+// ══════════════════════════════════════════════════════════════════════
+//  Floor 2 ボス — 血月の女王 サングィナ
+//  ※ Unity版では Floor2 の BossPool アセットが未定義だったが、
+//     FloorData のロアに "the Cursed Monarch"（呪われた君主）が明記されて
+//     いるため、それを本デザインとして具現化。深紅の月光に照らされた玉座に
+//     君臨する吸血の女王 — 呪われた城の真の主。
+// ══════════════════════════════════════════════════════════════════════
+export const F2_BOSS_SANGUINA: EnemyDef = {
+  id: 'f2b_sanguina', name: '血月の女王 サングィナ', rank: 'Boss',
+  lore: '深紅の月光の下、呪われた城の玉座に君臨する吸血の女王。血月の呪いはこの女王が撒いたもの。衛兵も怨霊も、皆かつては彼女に血を捧げた者たちだった。訪れる者の血を啜り、永遠に若く、永遠に飢えている。',
   stats: {
-    ...VELMON.stats,
-    maxHP: 1600, magicAttack: 72, magicDefense: 34, speed: 30,
+    maxHP: 1750, maxMP: 0, physicalAttack: 55, magicAttack: 70,
+    physicalDefense: 24, magicDefense: 30, speed: 40, luck: 0,
+    criticalRate: 12, accuracyRate: 94,
   },
-  shieldPoints: 5,
+  shieldPoints: 5, isUndead: true,
+  elementWeaknesses: ['Fire', 'Light'],
+  actions: [
+    // ── Phase 1 (常時) ──
+    {
+      skill: enemySkill({
+        id: 'f2b_crimson_fang', name: '深紅の爪牙',
+        description: '鋭い爪と牙で一体を切り裂く。30%の確率で出血を付与する。',
+        basePower: 1.7, statusChance: 0.30,
+        appliedStatus: { type: 'Bleed', duration: 3, value: 0.05 },
+      }),
+      priority: 3, useChance: 0.30, healthThreshold: 0,
+    },
+    {
+      skill: enemySkill({
+        id: 'f2b_bloodmoon_curse', name: '血月の呪い',
+        description: '血月の光を全体に浴びせる。30%の確率で全員に暗闇を付与する。',
+        element: 'Dark', damageType: 'Magical', hitsAllEnemies: true, statusChance: 0.30,
+        appliedStatus: { type: 'Blind', duration: 3, value: 0 },
+      }),
+      priority: 1, useChance: 0.25, healthThreshold: 0,
+    },
+    {
+      skill: enemySkill({
+        id: 'f2b_vampiric_embrace', name: '吸血の抱擁',
+        description: '侵入者の血を啜り、自らの若さを保つ。HPを180回復する。',
+        healAmountFlat: 180,
+      }),
+      priority: 0, useChance: 0.20, healthThreshold: 0,
+    },
+    {
+      skill: enemySkill({
+        id: 'f2b_throne_guard', name: '玉座の守り',
+        description: '眷属の霧が女王を包み守護を固める。シールド+2。',
+        shieldRestore: 2,
+      }),
+      priority: 3, useChance: 0.20, healthThreshold: 0,
+    },
+    // ── Phase 2 (HP50%以下) ──
+    {
+      skill: enemySkill({
+        id: 'f2b_blood_carnage', name: '血の惨劇',
+        description: '解き放たれた血の刃が全体を襲う。35%の確率で全員に出血を付与する。',
+        element: 'None', basePower: 1.6, hitsAllEnemies: true, statusChance: 0.35,
+        appliedStatus: { type: 'Bleed', duration: 3, value: 0.05 },
+      }),
+      priority: 3, useChance: 0.38, healthThreshold: 50,
+    },
+    {
+      skill: enemySkill({
+        id: 'f2b_heart_render', name: '心臓抉り',
+        description: '心臓を直接抉り取る。防御を無視した致命の一撃を一体に与える。',
+        element: 'None', damageType: 'True', basePower: 3.5,
+      }),
+      priority: 2, useChance: 0.30, healthThreshold: 50,
+    },
+    {
+      skill: enemySkill({
+        id: 'f2b_crimson_mist', name: '深紅の霧',
+        description: '眠りを誘う血の霧で全体を包む。30%の確率で全員に睡眠を付与する。',
+        element: 'None', damageType: 'Magical', hitsAllEnemies: true, statusChance: 0.30,
+        appliedStatus: { type: 'Sleep', duration: 2, value: 0 },
+      }),
+      priority: 1, useChance: 0.28, healthThreshold: 50,
+    },
+  ],
   actionsPerTurn: 2,
-  expReward: 550, jpReward: 140, goldReward: 280,
+  expReward: 560, jpReward: 145, goldReward: 290,
   tint: 0x7a1a3a,
 };
 
