@@ -52,8 +52,8 @@
         .vif-warn { color: #b91c1c; font-weight: bold; }
         .vif-caution { color: #b45309; font-weight: bold; }
 
-        .chart-container { height: 320px; margin-top: 20px; display: flex; justify-content: center; }
-        .exportable-chart { max-width: 100%; max-height: 320px; border: 1px solid #e2e8f0; border-radius: 4px; }
+        .chart-container { position: relative; width: 100%; max-width: 620px; margin: 22px auto 8px; }
+        .exportable-chart { display: block; width: 100%; height: auto; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 6px; background: #ffffff; }
         .canvas-hidden { display: none; }
         .posthoc-sig { color: #b91c1c; font-weight: bold; }
         .posthoc-ns { color: #64748b; }
@@ -573,9 +573,53 @@
     }
 
     // animation: false のためrequestAnimationFrameで即座に画像変換可能
+    // ===== Chart.js 論文向け共通デザイン設定 =====
+    if (window.Chart) {
+        Chart.defaults.font.family = "'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif";
+        Chart.defaults.font.size = 12;
+        Chart.defaults.color = '#1e293b';
+        Chart.defaults.borderColor = '#e2e8f0';
+        Chart.defaults.plugins.legend.labels.boxWidth = 14;
+        Chart.defaults.plugins.legend.labels.boxHeight = 14;
+        Chart.defaults.plugins.legend.labels.font = { size: 11 };
+        Chart.defaults.plugins.title.color = '#0f172a';
+        Chart.defaults.plugins.title.font = { size: 13, weight: '600' };
+        Chart.defaults.plugins.title.padding = { top: 4, bottom: 12 };
+    }
+
+    // scales.x / scales.y に軸線・目盛の論文向け既定を補完する（呼び出し側の指定は保持）
+    function applyAxisDefaults(options) {
+        options.scales = options.scales || {};
+        ['x', 'y'].forEach(ax => {
+            const s = options.scales[ax] = options.scales[ax] || {};
+            if (s.grid === undefined) s.grid = {};
+            if (s.grid.color === undefined) s.grid.color = 'rgba(148,163,184,0.18)';
+            if (s.grid.drawBorder === undefined) s.grid.drawBorder = true;
+            if (s.border === undefined) s.border = {};
+            if (s.border.color === undefined) s.border.color = '#94a3b8';
+            if (s.ticks === undefined) s.ticks = {};
+            if (s.ticks.color === undefined) s.ticks.color = '#475569';
+            if (s.ticks.font === undefined) s.ticks.font = { size: 11 };
+            if (s.title) {
+                if (s.title.color === undefined) s.title.color = '#334155';
+                if (s.title.font === undefined) s.title.font = { size: 12, weight: '600' };
+            }
+        });
+    }
+
     function renderChartAsImage(canvasId, config) {
-        config.options = config.options || {};
-        config.options.animation = false;
+        const options = config.options = config.options || {};
+        // 論文向けに寸法を統一: 固定アスペクト比・高解像度・横はみ出し防止
+        options.animation = false;
+        options.responsive = true;
+        options.maintainAspectRatio = true;
+        options.aspectRatio = options.aspectRatio || 1.7;
+        options.devicePixelRatio = 2.5;
+        options.layout = options.layout || { padding: 10 };
+        if (options.plugins && options.plugins.legend && options.plugins.legend.position === undefined) {
+            options.plugins.legend.position = 'bottom';
+        }
+        applyAxisDefaults(options);
         const canvas = document.getElementById(canvasId);
         if (!canvas) return;
         const chart = new Chart(canvas, config);
@@ -583,7 +627,7 @@
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 const img = document.createElement('img');
-                img.src = chart.toBase64Image();
+                img.src = chart.toBase64Image('image/png', 1.0);
                 img.className = 'exportable-chart';
                 if (canvas.parentNode) {
                     canvas.parentNode.appendChild(img);
@@ -639,6 +683,10 @@
 
     // --- 記述統計 (Jarque-Bera正規性検定 + 平均の95%CI 追加) ---
     function runSummary(keys, out) {
+        // innerHTML の再代入でキャンバスが破棄されるのを避けるため、HTMLは文字列に集約し
+        // すべて挿入し終えてから一括でチャートを描画する
+        let summaryHtml = '';
+        const chartJobs = [];
         keys.forEach(k => {
             const data = rawData.map(d => parseFloat(d[k])).filter(n => !isNaN(n));
             if (!data.length) return;
@@ -664,7 +712,7 @@
             const jbLabel = StatsLib.getSigLabel(pJB);
 
             const cId = `sumC_${chartCounter++}`;
-            out.innerHTML += `
+            summaryHtml += `
             <div class="report-card">
                 <h2 style="color:var(--primary); border-bottom:2px solid #cbd5e1; padding-bottom:5px;">要約統計量 (記述統計): ${escapeHtml(k)}</h2>
                 <table class="stats-table">
@@ -689,11 +737,11 @@
                 ${apaBox(`変数「${escapeHtml(k)}」の記述統計量を算出した（<i>N</i> = ${n}）。平均値は <i>M</i> = ${apaFmt(m,2)}（<i>SD</i> = ${apaFmt(sd,2)}），95% CI [${apaFmt(ciLow,2)}, ${apaFmt(ciHigh,2)}] であった。分布の形状については，歪度 = ${apaFmt(skew,2)}，尖度 = ${apaFmt(kurt,2)} であった。Jarque-Bera 正規性検定の結果，${pJB >= .05 ? '正規性の仮定は棄却されなかった' : '正規性の仮定が有意に棄却された'}（<i>JB</i> = ${jb.toFixed(3)}，<i>p</i> ${apaPfmt(pJB)}）${pJB < .05 ? '。ノンパラメトリック検定の使用を検討されたい' : ''}。`)}
             </div>`;
 
-            renderChartAsImage(cId, {
+            chartJobs.push({ id: cId, config: {
                 type: 'bar',
                 data: { labels: ['Mean', 'Median'], datasets: [{ label: escapeHtml(k), data: [m, med], backgroundColor: ['#4f46e5', '#10b981'] }] },
-                options: { maintainAspectRatio: false }
-            });
+                options: {}
+            }});
         });
 
         // 相関係数行列 (2変数以上のとき)
@@ -702,7 +750,7 @@
             return col.length >= 3;
         });
         if (numericKeys.length >= 2) {
-            let h = `<div class="report-card">
+            let h = `<div class="report-card" style="margin-top:0;">
                 <h2 style="color:var(--primary);border-bottom:2px solid #cbd5e1;padding-bottom:5px;">相関係数行列</h2>
                 <p style="font-size:0.85rem;color:#64748b;margin-bottom:12px;">
                     対角より上: ピアソンの相関係数 r &nbsp;|&nbsp; 下段: p値 &amp; Fisher's z 95%CI
@@ -779,8 +827,12 @@
               h += apaBox(apaCorr);
             }
             h += `</div>`;
-            out.innerHTML += h;
+            summaryHtml += h;
         }
+
+        // すべてのHTMLを一度だけ挿入し、その後にチャートを描画する
+        out.innerHTML += summaryHtml;
+        chartJobs.forEach(job => renderChartAsImage(job.id, job.config));
     }
 
     // --- 信頼性分析 (修正済み項目-全体相関 + α-if-deleted 追加) ---
@@ -1593,7 +1645,7 @@
                 Y軸: ${escapeHtml(y)} の予測値 &nbsp;|&nbsp;
                 線の色: ${escapeHtml(moderator)} の水準 (青=低・緑=中・赤=高)
             </p>
-            <div class="chart-container" style="height:360px;"><canvas id="${chartId}"></canvas></div>
+            <div class="chart-container"><canvas id="${chartId}"></canvas></div>
         </div>`;
 
         renderChartAsImage(chartId, {
