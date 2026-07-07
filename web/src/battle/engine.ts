@@ -603,12 +603,12 @@ export class BattleEngine {
       }
     }
 
-    // ── 回復 ──
+    // ── 回復 (単体は最もHP割合の低い味方へ) ──
     if (skill.isHeal || skill.fullHeal) {
       const allies = user.isPlayer ? this.heroes : this.enemies;
       const targets = skill.hitsAllAllies
         ? allies.filter((c) => c.isAlive)
-        : [allies.find((c) => c.isAlive) ?? user];
+        : [this.lowestHpAlly(allies) ?? user];
       for (const t of targets) {
         let amount: number;
         if (skill.fullHeal) {
@@ -627,12 +627,13 @@ export class BattleEngine {
       }
     }
 
-    // ── 状態異常解除 ──
+    // ── 状態異常解除 (単体は最もデバフの多い味方へ) ──
     if (skill.cleanse) {
       const allies = user.isPlayer ? this.heroes : this.enemies;
+      const living = allies.filter((c) => c.isAlive);
       const targets = skill.cleanse === 'allAllies'
-        ? allies.filter((c) => c.isAlive)
-        : [allies.find((c) => c.isAlive) ?? user];
+        ? living
+        : [living.sort((a, b) => b.statuses.length - a.statuses.length)[0] ?? user];
       for (const t of targets) {
         t.cleanse();
       }
@@ -644,7 +645,7 @@ export class BattleEngine {
       const allies = user.isPlayer ? this.heroes : this.enemies;
       const targets = skill.regenFlat.toAllAllies
         ? allies.filter((c) => c.isAlive)
-        : [allies.find((c) => c.isAlive) ?? user];
+        : [this.lowestHpAlly(allies) ?? user];
       const perTurn = Math.max(1, Math.round(user.matk * skill.regenFlat.matkMult));
       for (const t of targets) {
         t.applyStatus({ type: 'RegenFlat', duration: skill.regenFlat.duration, value: perTurn }, 1);
@@ -865,6 +866,10 @@ export class BattleEngine {
     if (user.isPlayer && skill.element !== 'None' && skill.basePower > 0) {
       user.lastElement = skill.element;
     }
+  }
+
+  private lowestHpAlly(allies: Combatant[]): Combatant | undefined {
+    return allies.filter((c) => c.isAlive).sort((a, b) => a.hpRatio - b.hpRatio)[0];
   }
 
   /** Shadow State消費 (攻撃行動後) */

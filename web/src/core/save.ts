@@ -65,6 +65,8 @@ export function loadRun(): RunState | null {
     run.equippedArmor ??= null;
     run.equippedAccessory ??= null;
     run.equipmentInventory ??= [];
+    run.partyMembers ??= [];
+    run.phantomEventDone ??= false;
     return run;
   } catch {
     return null;

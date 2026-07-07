@@ -104,6 +104,15 @@ export class MapScene extends Phaser.Scene {
     if (run.curses.length > 0) {
       this.add.text(width - 180, 122, `呪い ×${run.curses.length}`, textStyle(11, COLORS.textRed));
     }
+
+    // 仲間表示
+    if (run.partyMembers.length > 0) {
+      const partyStr = run.partyMembers.map((m) => {
+        const name = getCharacter(m.characterId).name.split('・')[0];
+        return m.currentHP > 0 ? `${name} ${m.currentHP}/${m.maxHP}` : `${name} (戦闘不能)`;
+      }).join('　');
+      this.add.text(width - 560, 122, `仲間: ${partyStr}`, textStyle(11, COLORS.textBlue));
+    }
   }
 
   private showRelicTip(x: number, y: number, text: string): void {

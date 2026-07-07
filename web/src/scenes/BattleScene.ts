@@ -2,7 +2,7 @@
 import Phaser from 'phaser';
 import { COLORS, makeButton, textStyle, drawBar } from '../ui/theme';
 import { BattleEngine, Combatant, type BattleEvent, type PlayerCommand } from '../battle/engine';
-import { pickEncounter, buildHero, buildEnemies, computeRewards } from '../battle/setup';
+import { pickEncounter, buildHeroes, buildEnemies, computeRewards } from '../battle/setup';
 import { loadRun, saveRun, clearRun } from '../core/save';
 import type { RunState } from '../core/run';
 import { getEffectiveMaxHP } from '../core/run';
@@ -10,6 +10,7 @@ import { addExp, addJP } from '../core/level';
 import type { EnemyDef, NodeType, SkillDef } from '../core/types';
 import { STATUS_DISPLAY_NAME } from '../core/types';
 import { FLOORS } from '../data/enemies';
+import { getCharacter } from '../data/characters';
 import { RelicBattleState } from '../battle/relicHooks';
 import {
   buildBattleLoot, addRelicToRun, modifyGoldDrop, hasEffect, sumEffect,
@@ -25,8 +26,9 @@ export class BattleScene extends Phaser.Scene {
   private enemyDefs!: EnemyDef[];
   private nodeType!: NodeType;
 
-  private hero!: Combatant;
-  private heroSprite!: Phaser.GameObjects.Rectangle;
+  private hero!: Combatant;                 // 主人公 (heroes[0])
+  private heroes: Combatant[] = [];
+  private heroSprites: Phaser.GameObjects.Rectangle[] = [];
   private enemySprites: Phaser.GameObjects.Container[] = [];
   private msgText!: Phaser.GameObjects.Text;
   private hudG!: Phaser.GameObjects.Graphics;
@@ -59,21 +61,29 @@ export class BattleScene extends Phaser.Scene {
       floorTints[Math.min(this.run.currentFloor, 3)]);
     this.add.rectangle(width / 2, height - 170, width, 2, 0x3a3050);  // 地面線
 
-    // エンジン構築
-    this.hero = buildHero(this.run);
+    // エンジン構築 (主人公+幻影パーティ)
+    this.heroes = buildHeroes(this.run);
+    this.hero = this.heroes[0];
     const isFirstCombat = this.run.battlesWon === 0;
     const enemies = buildEnemies(this.run, this.enemyDefs, this.nodeType, isFirstCombat);
     if (isFirstCombat && this.run.blessingFirstCombatShieldReduction) {
       this.run.blessingFirstCombatShieldReduction = false;
     }
     const relicState = new RelicBattleState(this.run);
-    this.engine = new BattleEngine([this.hero], enemies, this.run.metaStartBP, relicState);
+    this.engine = new BattleEngine(this.heroes, enemies, this.run.metaStartBP, relicState);
 
-    // ヒーロー描画 (左側)
-    const char = this.hero;
-    this.heroSprite = this.add.rectangle(220, height - 260, 72, 110, 0xb81c1c, 0.95)
-      .setStrokeStyle(2, 0xd8d0e8);
-    this.add.text(220, height - 190, char.name.split('・')[0], textStyle(14)).setOrigin(0.5);
+    // ヒーロー描画 (左側・最大3人)
+    this.heroSprites = [];
+    this.heroes.forEach((h, i) => {
+      const x = 220 - i * 10 + (i > 0 ? (i === 1 ? -90 : 90) : 0);
+      const y = height - 260 - (i > 0 ? 60 : 0);
+      const color = getCharacter(h.characterId ?? this.run.characterId).themeColor;
+      const sprite = this.add.rectangle(x, y, i === 0 ? 72 : 58, i === 0 ? 110 : 88, color, 0.95)
+        .setStrokeStyle(2, 0xd8d0e8);
+      this.add.text(x, y + (i === 0 ? 70 : 58), h.name.split('・')[0], textStyle(i === 0 ? 14 : 12)).setOrigin(0.5);
+      if (!h.isAlive) sprite.setAlpha(0.25);
+      this.heroSprites.push(sprite);
+    });
 
     // 敵描画 (右側)
     enemies.forEach((e, i) => {
@@ -184,7 +194,7 @@ export class BattleScene extends Phaser.Scene {
         return 160;
       case 'shadow': {
         if (e.target.isPlayer) {
-          this.heroSprite.setAlpha(e.active ? 0.55 : 1);
+          this.heroSpriteOf(e.target)?.setAlpha(e.active ? 0.55 : 1);
           if (e.active) this.msgText.setText(`${e.target.name} は影に溶けた…`);
         }
         return e.active ? 420 : 100;
@@ -202,7 +212,11 @@ export class BattleScene extends Phaser.Scene {
         if (sprite) {
           this.tweens.add({ targets: sprite, alpha: 0, duration: 400 });
         }
-        if (e.target.isPlayer) this.heroSprite.setAlpha(0.25);
+        if (e.target.isPlayer) {
+          this.heroSpriteOf(e.target)?.setAlpha(0.25);
+          this.msgText.setText(`${e.target.name} は倒れた…`);
+          return 600;
+        }
         this.msgText.setText(`${e.target.name} を倒した！`);
         return 500;
       }
@@ -219,13 +233,20 @@ export class BattleScene extends Phaser.Scene {
     return this.enemySprites.find((s) => s.getData('combatant') === c);
   }
 
+  private heroSpriteOf(c: Combatant): Phaser.GameObjects.Rectangle | undefined {
+    const idx = this.heroes.indexOf(c);
+    return idx >= 0 ? this.heroSprites[idx] : undefined;
+  }
+
   private spawnDamageNumber(
     target: Combatant, amount: number, color: string,
     isCrit: boolean, isWeak: boolean, prefix = '',
   ): void {
     let x: number, y: number;
     if (target.isPlayer) {
-      x = this.heroSprite.x; y = this.heroSprite.y - 60;
+      const hs = this.heroSpriteOf(target);
+      if (!hs) return;
+      x = hs.x; y = hs.y - 60;
     } else {
       const s = this.findEnemySprite(target);
       if (!s) return;
@@ -244,7 +265,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private flashCombatant(target: Combatant): void {
-    const obj = target.isPlayer ? this.heroSprite : this.findEnemySprite(target)?.getData('rect');
+    const obj = target.isPlayer ? this.heroSpriteOf(target) : this.findEnemySprite(target)?.getData('rect');
     if (!obj) return;
     this.tweens.add({
       targets: obj, alpha: { from: 1, to: 0.3 }, duration: 80, yoyo: true, repeat: 1,
@@ -258,10 +279,11 @@ export class BattleScene extends Phaser.Scene {
     this.hudTexts.forEach((t) => t.destroy());
     this.hudTexts = [];
 
-    // ヒーローパネル (左下)
+    // ヒーローパネル (左下・パーティ全員)
+    const panelH = 120;
     const px = 40, py = height - 150;
-    this.hudG.fillStyle(0x0e0a18, 0.92).fillRect(px, py, 360, 120);
-    this.hudG.lineStyle(1, COLORS.border).strokeRect(px, py, 360, 120);
+    this.hudG.fillStyle(0x0e0a18, 0.92).fillRect(px, py, 360, panelH);
+    this.hudG.lineStyle(1, COLORS.border).strokeRect(px, py, 360, panelH);
     const h = this.hero;
 
     this.hudTexts.push(this.add.text(px + 14, py + 8,
@@ -289,6 +311,25 @@ export class BattleScene extends Phaser.Scene {
       this.hudTexts.push(this.add.text(px + 200, py + 78, statusStr, textStyle(11, COLORS.textRed)));
     }
 
+    // 仲間の小型パネル (右隣に縦積み)
+    this.heroes.slice(1).forEach((m, i) => {
+      const mx = px + 372;
+      const my = py + i * 62;
+      this.hudG.fillStyle(0x0e0a18, 0.92).fillRect(mx, my, 250, 56);
+      this.hudG.lineStyle(1, COLORS.border).strokeRect(mx, my, 250, 56);
+      this.hudTexts.push(this.add.text(mx + 10, my + 5,
+        m.isAlive ? m.name.split('・')[0] : `${m.name.split('・')[0]} (戦闘不能)`,
+        textStyle(12, m.isAlive ? COLORS.text : '#77445a')));
+      drawBar(this.hudG, mx + 10, my + 28, 160, 10, m.hp / m.base.maxHP,
+        m.hp / m.base.maxHP > 0.3 ? COLORS.hpBar : COLORS.hpBarLow);
+      this.hudTexts.push(this.add.text(mx + 178, my + 24,
+        `${m.hp}/${m.base.maxHP}`, textStyle(10)));
+      for (let b = 0; b < 5; b++) {
+        this.hudG.fillStyle(b < m.bp ? COLORS.bpBar : 0x201a2c, 1)
+          .fillCircle(mx + 16 + b * 16, my + 47, 5);
+      }
+    });
+
     // 敵HP・シールド更新
     for (const sprite of this.enemySprites) {
       const c = sprite.getData('combatant') as Combatant;
@@ -313,11 +354,11 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  // ── コマンドメニュー (2列 / 多スキル対応) ──────────────────────────
+  // ── コマンドメニュー (2列 / 多スキル対応 / 手番のヒーロー用) ────────
   private showCommandMenu(): void {
     this.hideCommandMenu();
     const { width, height } = this.scale;
-    const h = this.hero;
+    const h = this.engine.activeCombatant?.isPlayer ? this.engine.activeCombatant : this.hero;
     const items: Phaser.GameObjects.GameObject[] = [];
 
     const entries = h.skills.filter((s) => !s.isPassive);
@@ -330,12 +371,14 @@ export class BattleScene extends Phaser.Scene {
     items.push(bg);
     const topY = -panelH / 2 + 18;
 
-    // ブースト選択
-    items.push(this.add.text(-panelW / 2 + 20, topY, `ブースト (BP ${h.bp})`,
+    // 手番表示 + ブースト選択
+    items.push(this.add.text(-panelW / 2 + 20, topY - 2, `▶ ${h.name}`,
+      textStyle(15, COLORS.textGold)));
+    items.push(this.add.text(-panelW / 2 + 200, topY, `ブースト (BP ${h.bp})`,
       textStyle(14, COLORS.textGold)));
     for (let lv = 0; lv <= 3; lv++) {
       const canUse = lv <= Math.min(h.bp, 3);
-      const btn = this.add.text(-40 + lv * 56, topY + 8, `×${lv}`, textStyle(15,
+      const btn = this.add.text(80 + lv * 56, topY + 8, `×${lv}`, textStyle(15,
         lv === this.boostLevel ? COLORS.textGold : canUse ? COLORS.text : '#443d55'))
         .setOrigin(0.5);
       if (canUse) {
@@ -383,7 +426,7 @@ export class BattleScene extends Phaser.Scene {
       let enabled = h.mp >= skill.mpCost && !h.isSilenced;
       let note = '';
       // 蘇生: 戦闘不能の味方がいなければ使用不可
-      if (skill.revive && !this.engine.heroes.some((x) => !x.isAlive)) {
+      if (skill.revive && !this.engine.heroes.some((x: Combatant) => !x.isAlive)) {
         enabled = false;
         note = ' (対象なし)';
       }
@@ -473,7 +516,13 @@ export class BattleScene extends Phaser.Scene {
 
   private onVictory(): void {
     const run = this.run;
-    run.currentHP = this.hero.hp;
+    // 主人公が倒れていてもパーティ勝利ならHP1で生還
+    run.currentHP = Math.max(1, this.hero.hp);
+    // 仲間のHPを永続化 (戦闘不能は0のまま — 蘇生スキルでのみ復帰)
+    run.partyMembers.forEach((m, i) => {
+      const c = this.heroes[i + 1];
+      if (c) m.currentHP = c.hp;
+    });
     run.battlesWon++;
     run.totalRoomsCleared++;
     run.enemiesKilled += this.enemyDefs.length;
@@ -621,11 +670,18 @@ export class BattleScene extends Phaser.Scene {
     const shieldPct = sumEffect(run, 'ShieldPerFloor');
     if (shieldPct > 0) run.shieldBarrier += Math.round(maxHP * shieldPct);
 
+    const wasFloor0 = run.currentFloor === 0;
     run.currentFloor++;
     run.currentNodeId = -1;
     run.map = null;   // 次フロアのマップは MapScene で生成
     saveRun(run);
-    this.scene.start('Map');
+
+    // Floor 0 クリア時に一度だけ幻影加入イベント (RoguelikeManager.PhantomJoinEvent)
+    if (wasFloor0 && !run.phantomEventDone) {
+      this.scene.start('PhantomJoin');
+    } else {
+      this.scene.start('Map');
+    }
   }
 
   private onDefeat(): void {

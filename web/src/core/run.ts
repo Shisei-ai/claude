@@ -53,6 +53,10 @@ export interface RunState {
   equippedAccessory: string | null;
   equipmentInventory: string[];
 
+  // Party (RunData.PartyMembers — Floor0→1の幻影加入)
+  partyMembers: PartyMember[];
+  phantomEventDone: boolean;    // 幻影イベント消化済みか
+
   // Statistics
   damageDealt: number;
   damageTaken: number;
@@ -82,6 +86,13 @@ export interface RunState {
   metaFloorClearExtraHeal: boolean;
   metaStartWithCommonRelic: boolean;
   metaCurseHPReductionImmune: boolean;
+}
+
+export interface PartyMember {
+  characterId: string;
+  level: number;
+  currentHP: number;
+  maxHP: number;
 }
 
 /** ランスタート (RoguelikeManager.MainFlow 冒頭 + PendingRunConfig 消費に相当) */
@@ -131,6 +142,9 @@ export function createRun(
     equippedArmor: null,
     equippedAccessory: null,
     equipmentInventory: [],
+
+    partyMembers: [],
+    phantomEventDone: false,
 
     damageDealt: 0,
     damageTaken: 0,
@@ -274,6 +288,25 @@ export function equipItem(run: RunState, equipId: string): boolean {
   // 最大HP変化後のクランプ
   run.currentHP = Math.min(run.currentHP, buildBattleStats(run).maxHP);
   return true;
+}
+
+/** 仲間のステータス構築 (RoguelikeManager.BuildPartyMemberStats) */
+export function buildPartyMemberStats(characterId: string, level: number): CharacterStats {
+  const char = getCharacter(characterId);
+  const g = char.growthRates;
+  const levels = level - 1;
+  return {
+    maxHP: char.baseStats.maxHP + g.maxHP * levels,
+    maxMP: char.baseStats.maxMP + g.maxMP * levels,
+    physicalAttack: char.baseStats.physicalAttack + g.physicalAttack * levels,
+    magicAttack: char.baseStats.magicAttack + g.magicAttack * levels,
+    physicalDefense: char.baseStats.physicalDefense + g.physicalDefense * levels,
+    magicDefense: char.baseStats.magicDefense + g.magicDefense * levels,
+    speed: char.baseStats.speed + g.speed * levels,
+    luck: char.baseStats.luck + g.luck * levels,
+    criticalRate: char.baseStats.criticalRate,
+    accuracyRate: char.baseStats.accuracyRate,
+  };
 }
 
 export function unequipSlot(run: RunState, slot: 'Weapon' | 'Armor' | 'Accessory'): void {

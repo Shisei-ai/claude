@@ -3,7 +3,7 @@
 import { Combatant } from './engine';
 import type { EnemyDef, NodeType } from '../core/types';
 import type { RunState } from '../core/run';
-import { buildBattleStats } from '../core/run';
+import { buildBattleStats, buildPartyMemberStats } from '../core/run';
 import { getCharacter } from '../data/characters';
 import { getDifficulty } from '../data/difficulty';
 import { FLOORS, findEnemySkillById, type EncounterGroup } from '../data/enemies';
@@ -77,6 +77,26 @@ export function buildHero(run: RunState): Combatant {
   }
 
   return hero;
+}
+
+/** 主人公 + 仲間 (幻影) のパーティを構築
+ *  Unity版準拠: 仲間はスキルなし (通常攻撃+ブーストのみ)、レベル固定 */
+export function buildHeroes(run: RunState): Combatant[] {
+  const heroes = [buildHero(run)];
+  for (const member of run.partyMembers) {
+    const char = getCharacter(member.characterId);
+    const stats = buildPartyMemberStats(member.characterId, member.level);
+    heroes.push(new Combatant({
+      isPlayer: true,
+      name: char.name,
+      characterId: member.characterId,
+      stats,
+      skills: [],   // Unity版: heroSkillList.Add(new List<SkillData>())
+      passives: new Set(),
+      initialHP: Math.max(0, Math.min(member.currentHP, stats.maxHP)),
+    }));
+  }
+  return heroes;
 }
 
 export function buildEnemies(
