@@ -33,8 +33,8 @@ for (const char of CHARACTERS) {
       if (state !== 'awaitInput') throw new Error(`expected awaitInput, got ${state}`);
       engine.drainEvents();
 
-      // スキル実行 (ブーストあり/なし)
-      for (const boost of [0, 2]) {
+      // スキル実行 (全ブースト段階: テーブル定義の×1〜×3も通す)
+      for (const boost of [0, 1, 2, 3]) {
         if (engine.over) break;
         if (engine.activeCombatant?.isPlayer) {
           engine.executePlayerCommand({ type: 'skill', skill, targetIndex: 0, boostLevel: boost });
@@ -114,6 +114,108 @@ for (const char of CHARACTERS) {
   }
   if (absorbed) console.log('✓ 吸収成功でスキル獲得イベント発火');
   else { console.error('✗ 吸収が30回試行で一度も成功しない'); failures++; }
+}
+
+// ── ブーストテーブル (BoostSkillResolver) ────────────────────────────────
+import { BOOST_TABLE_KEYS, getBoostUpgrade } from './src/battle/boost';
+
+// 1. テーブルの全キーが実在スキル名と一致するか (タイポ検出)
+{
+  const allNames = new Set<string>();
+  for (const c of CHARACTERS) {
+    for (const e of c.learnableSkills) allNames.add(e.skill.name.replace(/＋$/, ''));
+  }
+  const orphans = BOOST_TABLE_KEYS.filter((k) => !allNames.has(k));
+  if (orphans.length > 0) {
+    console.error(`✗ テーブルキーがスキル名と不一致: ${orphans.join(', ')}`);
+    failures++;
+  } else {
+    console.log(`✓ ブーストテーブル ${BOOST_TABLE_KEYS.length} キー全てがスキル名と一致`);
+  }
+}
+
+// 2. 強化版スキル (○○＋) も基本名のテーブルを引けるか
+{
+  const bern = CHARACTERS.find((c) => c.id === 'bernhard')!;
+  const anySkill = bern.learnableSkills[0].skill;
+  const plus = { ...anySkill, name: '影矢＋' };
+  const u = getBoostUpgrade(plus, 3);
+  if (u.grantShadowState && u.guaranteedCrit) console.log('✓ 強化版スキル(＋)も基本名テーブルを参照');
+  else { console.error('✗ 影矢＋ が影矢テーブルを引けていない'); failures++; }
+}
+
+// 3. 二段斬り×3: ヒット数 1+3=4 (通常時1ヒット)
+{
+  const bern = CHARACTERS.find((c) => c.id === 'bernhard')!;
+  const actives = bern.learnableSkills.filter((e) => !e.skill.isPassive).map((e) => e.skill);
+  const doubleSlash = actives.find((s) => s.name === '二段斬り')!;
+  const countHits = (boost: number): number => {
+    const hero = new Combatant({
+      isPlayer: true, name: 'B', characterId: 'bernhard',
+      stats: { ...bern.baseStats, maxMP: 999, speed: 999, physicalAttack: 1 },
+      skills: actives, passives: new Set(),
+    });
+    hero.mp = 999;
+    const enemies = makeEnemies([F0_BOSS_GARM_LORD]);   // 高HPで倒れない
+    const engine = new BattleEngine([hero], enemies, 3);
+    engine.advance();
+    engine.executePlayerCommand({ type: 'skill', skill: doubleSlash, targetIndex: 0, boostLevel: boost });
+    return engine.drainEvents().filter((e) => e.kind === 'damage' && e.target === enemies[0]).length;
+  };
+  const h0 = countHits(0);
+  const h3 = countHits(3);
+  if (h3 === h0 + 3) console.log(`✓ 二段斬り×3でヒット数+3 (${h0}→${h3})`);
+  else { console.error(`✗ 二段斬りヒット数: boost0=${h0} boost3=${h3} (期待差+3)`); failures++; }
+}
+
+// 4. 雷迸り×2: BP+1 (消費2 - 回復1 = 差し引き-1)
+{
+  const bern = CHARACTERS.find((c) => c.id === 'bernhard')!;
+  const actives = bern.learnableSkills.filter((e) => !e.skill.isPassive).map((e) => e.skill);
+  const bolt = actives.find((s) => s.name === '雷迸り')!;
+  const hero = new Combatant({
+    isPlayer: true, name: 'B', characterId: 'bernhard',
+    stats: { ...bern.baseStats, maxMP: 999, speed: 999 },
+    skills: actives, passives: new Set(),
+  });
+  hero.mp = 999;
+  const enemies = makeEnemies([F0_BOSS_GARM_LORD]);
+  const engine = new BattleEngine([hero], enemies, 3);
+  engine.advance();
+  const before = hero.bp;
+  engine.executePlayerCommand({ type: 'skill', skill: bolt, targetIndex: 0, boostLevel: 2 });
+  engine.drainEvents();
+  if (hero.bp === before - 2 + 1) console.log(`✓ 雷迸り×2でBP+1回復 (${before}→${hero.bp})`);
+  else { console.error(`✗ 雷迸り×2 BP: ${before}→${hero.bp} (期待${before - 1})`); failures++; }
+}
+
+// 5. 吸収×3: HP消費なし (absorbHPCostMult=0)
+{
+  const zeno = CHARACTERS.find((c) => c.id === 'zeno')!;
+  const actives = zeno.learnableSkills.filter((e) => !e.skill.isPassive).map((e) => e.skill);
+  const absorb = actives.find((s) => s.id === 'SKL_Z_Absorb')!;
+  const hero = new Combatant({
+    isPlayer: true, name: 'Z', characterId: 'zeno',
+    stats: { ...zeno.baseStats, maxMP: 999, speed: 999 },
+    skills: actives, passives: new Set(),
+  });
+  hero.mp = 999;
+  const enemies = makeEnemies([F0_BOSS_GARM_LORD]);   // ボス: 吸収は必ず失敗するがHP消費は先
+  const engine = new BattleEngine([hero], enemies, 3);
+  engine.advance();
+  const hpBefore = hero.hp;
+  engine.executePlayerCommand({ type: 'skill', skill: absorb, targetIndex: 0, boostLevel: 3 });
+  engine.drainEvents();
+  if (hero.hp === hpBefore) console.log('✓ 吸収×3はHP消費なし');
+  else { console.error(`✗ 吸収×3でHPが減少: ${hpBefore}→${hero.hp}`); failures++; }
+}
+
+// 6. 未定義スキルは汎用フォールバック (×1.5/2.0/2.5)
+{
+  const dummy = { ...CHARACTERS[0].learnableSkills[0].skill, name: '存在しない技' };
+  const u = getBoostUpgrade(dummy, 2);
+  if (u.powerMult === 2.0) console.log('✓ テーブル未定義スキルは汎用ブースト (×2.0)');
+  else { console.error(`✗ 汎用フォールバック異常: powerMult=${u.powerMult}`); failures++; }
 }
 
 console.log(failures === 0 ? '\nALL OK' : `\n${failures} FAILURES`);

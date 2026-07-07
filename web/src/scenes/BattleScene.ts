@@ -12,6 +12,7 @@ import { STATUS_DISPLAY_NAME } from '../core/types';
 import { FLOORS } from '../data/enemies';
 import { getCharacter } from '../data/characters';
 import { RelicBattleState } from '../battle/relicHooks';
+import { getBoostPreview } from '../battle/boost';
 import {
   buildBattleLoot, addRelicToRun, modifyGoldDrop, hasEffect, sumEffect,
   drawRelic, rollRelicRarity,
@@ -406,7 +407,13 @@ export class BattleScene extends Phaser.Scene {
       if (enabled) {
         btn.setInteractive({ useHandCursor: true })
           .on('pointerover', () => {
-            if (skill) this.msgText.setText(skill.description);
+            if (skill) {
+              // ブースト選択中はスキル別の強化内容 (BoostSkillResolver) を表示
+              const preview = this.boostLevel > 0
+                ? `\n【ブースト×${this.boostLevel}】${getBoostPreview(skill, this.boostLevel)}`
+                : '';
+              this.msgText.setText(skill.description + preview);
+            }
             btn.setColor(COLORS.textGold);
           })
           .on('pointerout', () => btn.setColor(color))
