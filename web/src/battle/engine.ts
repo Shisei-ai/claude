@@ -63,6 +63,10 @@ export class Combatant {
   critStacks = 0;              // 会心強化スタック (アッシュ, 最大3)
   lastElement: ElementType = 'None'; // 元素収束用 (ラヴィニア)
 
+  // 装備由来
+  weaponElement: ElementType = 'None'; // 武器属性 (通常攻撃に乗る)
+  revivalAmuletAvailable = false;      // 蘇生の護符: 1戦闘1回の致死無効
+
   constructor(opts: {
     isPlayer: boolean; name: string; stats: CharacterStats;
     enemyDef?: EnemyDef; skills?: SkillDef[]; passives?: Set<string>;
@@ -535,11 +539,13 @@ export class BattleEngine {
     if (!target) return;
 
     this.emit({ kind: 'skillUse', user: attacker, skillName: '攻撃' });
+    // 武器属性があれば通常攻撃に乗る (EquipmentData.WeaponElement)
+    const element: ElementType = attacker.weaponElement !== 'None' ? attacker.weaponElement : 'Physical';
     const hitCount = 1 + boostLevel;
     for (let hit = 0; hit < hitCount; hit++) {
       if (!target.isAlive) break;
-      this.dealHit(attacker, target, 1.0, 'Physical', 'Physical', 0, 0);
-      this.tryBreakShield(attacker, target, 'Physical', 1);
+      this.dealHit(attacker, target, 1.0, 'Physical', element, 0, 0);
+      this.tryBreakShield(attacker, target, element, 1);
     }
     this.consumeShadowState(attacker);
   }
@@ -1073,6 +1079,15 @@ export class BattleEngine {
       target.hp = 1;
       this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak });
       this.emit({ kind: 'message', text: `${target.name} は踏みとどまった！` });
+      return isCrit;
+    }
+
+    // 蘇生の護符 (装備): 1戦闘に1回致死ダメージ無効
+    if (!target.isAlive && target.isPlayer && target.revivalAmuletAvailable) {
+      target.revivalAmuletAvailable = false;
+      target.hp = 1;
+      this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak });
+      this.emit({ kind: 'message', text: `蘇生の護符が砕け、${target.name} を死の淵から引き戻した！` });
       return isCrit;
     }
 

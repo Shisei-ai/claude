@@ -53,6 +53,10 @@ export class MapScene extends Phaser.Scene {
     makeButton(this, 100, height - 36, 'メニューへ', () => {
       this.scene.start('MainMenu');
     }, { width: 160, height: 40, fontSize: 15 });
+
+    makeButton(this, width - 100, height - 36, '装備', () => {
+      this.scene.start('Equip');
+    }, { width: 160, height: 40, fontSize: 15 });
   }
 
   private drawHUD(): void {

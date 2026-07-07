@@ -19,6 +19,7 @@ import { RARITY_LABEL, RARITY_COLOR, getRelic, type RelicRarity } from '../data/
 import { RANDOM_EVENTS, ENDING_RELIC_ID, type RandomEventDef, type EventChoiceDef, type EventResult } from '../data/events';
 import { getEnding } from '../data/endings';
 import { addJP } from '../core/level';
+import { drawEquipmentForFloor, EQUIP_RARITY_LABEL, EQUIP_RARITY_COLOR, SLOT_LABEL } from '../data/equipment';
 
 interface NodeEventInit { nodeType: NodeType; contentSeed: number }
 
@@ -135,6 +136,23 @@ export class NodeEventScene extends Phaser.Scene {
       },
     ];
 
+    // 装備売り場: フロア対応の装備1枠 (EquipmentFactory.DrawForFloor)
+    const shopEquip = drawEquipmentForFloor(this.run.currentFloor, this.rng);
+    if (shopEquip && !this.run.equipmentInventory.includes(shopEquip.id) &&
+        this.run.equippedWeapon !== shopEquip.id &&
+        this.run.equippedArmor !== shopEquip.id &&
+        this.run.equippedAccessory !== shopEquip.id) {
+      items.push({
+        name: `${shopEquip.name}【${SLOT_LABEL[shopEquip.slot]}】`,
+        desc: shopEquip.description,
+        price: price(shopEquip.value),
+        rarityTag: EQUIP_RARITY_LABEL[shopEquip.rarity],
+        rarityColor: EQUIP_RARITY_COLOR[shopEquip.rarity],
+        canBuy: () => true,
+        buy: () => { this.run.equipmentInventory.push(shopEquip.id); },
+      });
+    }
+
     // レリック売り場: 通常1枠 + 密売人の割符で呪われた1枠
     const relicRarity: RelicRarity = this.rng.next() < 0.25 ? 'Uncommon' : 'Common';
     const shopRelic = drawRelic(this.run, relicRarity);
@@ -200,6 +218,13 @@ export class NodeEventScene extends Phaser.Scene {
       const secret = 30 + this.rng.range(0, 31);
       gold += secret;
       message += `\n【鍵師の手】隠し宝箱を発見！ 追加で ${secret} G`;
+    }
+
+    // 装備品ドロップ (40%)
+    if (this.rng.next() < 0.40) {
+      const equip = drawEquipmentForFloor(this.run.currentFloor, this.rng);
+      this.run.equipmentInventory.push(equip.id);
+      message += `\n${EQUIP_RARITY_LABEL[equip.rarity]}「${equip.name}」を見つけた！ (装備画面で装備できる)`;
     }
 
     // レリック入手 (財宝羅針盤: レアリティ1段階UP)

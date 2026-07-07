@@ -176,6 +176,27 @@ export interface EnemyDef {
   tint: number;             // 暫定描画色 (スプライト未実装のため)
 }
 
+// ── Equipment (Data/CharacterData.cs Equip系) ───────────────────────────
+
+export type WeaponType = 'Sword' | 'Axe' | 'Bow' | 'Staff' | 'Dagger' | 'Spear' | 'Tome' | 'Fists';
+export type ArmorType = 'LightArmor' | 'HeavyArmor' | 'Robe' | 'Shield';
+export type EquipSlot = 'Weapon' | 'Armor' | 'Accessory';
+export type EquipmentRarity = 'Common' | 'Uncommon' | 'Rare';
+
+export interface EquipmentDef {
+  id: string;
+  name: string;
+  description: string;
+  slot: EquipSlot;
+  rarity: EquipmentRarity;
+  weaponCategory?: WeaponType;
+  armorCategory?: ArmorType;
+  weaponElement: ElementType;    // 武器属性 (通常攻撃の属性になる)
+  bonusStats: Partial<CharacterStats>;
+  value: number;                 // ショップ価格
+  passiveText?: string;
+}
+
 // ── Character (Job込み・Web版は1キャラ=1ジョブ固定) ─────────────────────
 
 export interface JobSkillEntry {
@@ -193,6 +214,8 @@ export interface CharacterDef {
   baseStats: CharacterStats;
   growthRates: CharacterStats;
   learnableSkills: JobSkillEntry[];
+  allowedWeapons: WeaponType[];
+  allowedArmors: ArmorType[];
 }
 
 // ── Map (Roguelike/RunData.cs NodeType) ────────────────────────────────

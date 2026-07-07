@@ -61,6 +61,10 @@ export function loadRun(): RunState | null {
     run.shieldBarrier ??= 0;
     run.activeEnding ??= null;
     run.seenOneTimeEvents ??= [];
+    run.equippedWeapon ??= null;
+    run.equippedArmor ??= null;
+    run.equippedAccessory ??= null;
+    run.equipmentInventory ??= [];
     return run;
   } catch {
     return null;

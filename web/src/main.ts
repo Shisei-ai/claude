@@ -7,6 +7,7 @@ import { NodeEventScene } from './scenes/NodeEventScene';
 import { ResultScene } from './scenes/ResultScene';
 import { MetaScene } from './scenes/MetaScene';
 import { FinaleScene } from './scenes/FinaleScene';
+import { EquipScene } from './scenes/EquipScene';
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -27,5 +28,6 @@ new Phaser.Game({
     ResultScene,
     MetaScene,
     FinaleScene,
+    EquipScene,
   ],
 });

@@ -1,6 +1,6 @@
 // 5人のプレイアブルキャラクター
 // Unity版 CharacterDesigns/*.cs + Editor/*SOGenerator.cs からの移植
-import type { CharacterDef } from '../core/types';
+import type { CharacterDef, WeaponType, ArmorType } from '../core/types';
 import {
   BERNHARD_SKILLS, LAVINIA_SKILLS, ASH_SKILLS, LILIA_SKILLS, ZENO_SKILLS,
 } from './skills';
@@ -42,6 +42,8 @@ export const CHARACTERS: CharacterDef[] = [
       { jobLevel: 10, skill: B.passiveIndomitableWill, jpCost: 300 },
       { jobLevel: 11, skill: B.earthBastion, jpCost: 280 },
     ],
+    allowedWeapons: ['Sword', 'Axe', 'Spear', 'Fists'],
+    allowedArmors: ['LightArmor', 'HeavyArmor', 'Shield'],
   },
   {
     id: 'lavinia',
@@ -77,6 +79,8 @@ export const CHARACTERS: CharacterDef[] = [
       { jobLevel: 11, skill: LAVINIA_SKILLS.arcaneBurst, jpCost: 320 },
       { jobLevel: 12, skill: LAVINIA_SKILLS.elementalConverge, jpCost: 380 },
     ],
+    allowedWeapons: ['Staff', 'Tome'],
+    allowedArmors: ['Robe'],
   },
   {
     id: 'ash',
@@ -115,6 +119,8 @@ export const CHARACTERS: CharacterDef[] = [
       { jobLevel: 10, skill: ASH_SKILLS.shadowStitch, jpCost: 240 },
       { jobLevel: 11, skill: ASH_SKILLS.danceOfDeath, jpCost: 340 },
     ],
+    allowedWeapons: ['Bow', 'Dagger'],
+    allowedArmors: ['LightArmor'],
   },
   {
     id: 'lilia',
@@ -155,6 +161,8 @@ export const CHARACTERS: CharacterDef[] = [
       { jobLevel: 10, skill: LILIA_SKILLS.holyCurePlus, jpCost: 280 },
       { jobLevel: 11, skill: LILIA_SKILLS.miracleBlessing, jpCost: 380 },
     ],
+    allowedWeapons: ['Staff', 'Tome'],
+    allowedArmors: ['Robe', 'Shield'],
   },
   {
     id: 'zeno',
@@ -195,6 +203,8 @@ export const CHARACTERS: CharacterDef[] = [
       { jobLevel: 10, skill: ZENO_SKILLS.deathSentencePlus, jpCost: 280 },
       { jobLevel: 11, skill: ZENO_SKILLS.gateOfUnderworld, jpCost: 360 },
     ],
+    allowedWeapons: ['Tome'],
+    allowedArmors: ['LightArmor', 'Robe'],
   },
 ];
 

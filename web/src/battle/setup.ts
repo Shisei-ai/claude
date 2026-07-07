@@ -8,6 +8,7 @@ import { getCharacter } from '../data/characters';
 import { getDifficulty } from '../data/difficulty';
 import { FLOORS, findEnemySkillById, type EncounterGroup } from '../data/enemies';
 import { getEnding } from '../data/endings';
+import { getEquipment as getEquipmentDefById } from '../data/equipment';
 import { getActiveSkills, getPassiveIds } from '../core/level';
 import { Rng } from '../core/rng';
 
@@ -56,7 +57,7 @@ export function buildHero(run: RunState): Combatant {
     }
   }
 
-  return new Combatant({
+  const hero = new Combatant({
     isPlayer: true,
     name: char.name,
     characterId: run.characterId,
@@ -65,6 +66,17 @@ export function buildHero(run: RunState): Combatant {
     passives: getPassiveIds(run),
     initialHP: Math.min(run.currentHP, stats.maxHP),
   });
+
+  // 装備効果: 武器属性 + 蘇生の護符
+  if (run.equippedWeapon) {
+    const weapon = getEquipmentDefById(run.equippedWeapon);
+    if (weapon) hero.weaponElement = weapon.weaponElement;
+  }
+  if (run.equippedAccessory === 'Equip_RevivalAmulet') {
+    hero.revivalAmuletAvailable = true;
+  }
+
+  return hero;
 }
 
 export function buildEnemies(

@@ -5,6 +5,7 @@ import { getCharacter } from '../data/characters';
 import { getDifficulty } from '../data/difficulty';
 import { applyMetaBonuses } from './meta';
 import { grantRandomCommonRelic, randomCurse, hasEffect, sumEffect } from './relics';
+import { getEquipment as getEquipmentDef } from '../data/equipment';
 
 export interface RunState {
   // Identity
@@ -45,6 +46,12 @@ export interface RunState {
   // Events / Ending
   activeEnding: string | null;  // エンディング分岐 (DemonKing等 / 1ラン1つ)
   seenOneTimeEvents: string[];  // OneTimeOnly イベントの既読ID
+
+  // Equipment (RunData.EquippedWeapon/Armor/Accessory + EquipmentInventory)
+  equippedWeapon: string | null;
+  equippedArmor: string | null;
+  equippedAccessory: string | null;
+  equipmentInventory: string[];
 
   // Statistics
   damageDealt: number;
@@ -119,6 +126,11 @@ export function createRun(
 
     activeEnding: null,
     seenOneTimeEvents: [],
+
+    equippedWeapon: null,
+    equippedArmor: null,
+    equippedAccessory: null,
+    equipmentInventory: [],
 
     damageDealt: 0,
     damageTaken: 0,
@@ -206,18 +218,72 @@ export function buildBattleStats(run: RunState): CharacterStats {
   let maxHP = Math.round(getEffectiveMaxHP(run) * statMult * (1 - Math.min(0.9, mirrorPenalty))) + goldToHP;
   maxHP = Math.max(1, maxHP);
 
+  // 装備ボーナス (RunData.EquipmentBonusStats)
+  const eq = equipmentBonusStats(run);
+
   return {
-    maxHP,
-    maxMP: Math.round(char.baseStats.maxMP + g.maxMP * levels) + run.metaMaxMPBonus,
-    physicalAttack: Math.round((char.baseStats.physicalAttack + g.physicalAttack * levels) * run.metaPhysAtkMult * statMult),
-    magicAttack: Math.round((char.baseStats.magicAttack + g.magicAttack * levels) * run.metaMagAtkMult * statMult),
-    physicalDefense: Math.round((char.baseStats.physicalDefense + g.physicalDefense * levels) * run.metaPhysDefMult * statMult * berserkDef),
-    magicDefense: Math.round((char.baseStats.magicDefense + g.magicDefense * levels) * run.metaMagDefMult * statMult * berserkDef),
-    speed: char.baseStats.speed + g.speed * levels,
-    luck: char.baseStats.luck + g.luck * levels + Math.round(sumEffect(run, 'LuckUp')),
-    criticalRate: Math.min(100, char.baseStats.criticalRate + run.metaCritRateBonus + Math.round(sumEffect(run, 'CritRateUp'))),
+    maxHP: Math.max(1, maxHP + (eq.maxHP ?? 0)),
+    maxMP: Math.round(char.baseStats.maxMP + g.maxMP * levels) + run.metaMaxMPBonus + (eq.maxMP ?? 0),
+    physicalAttack: Math.max(1, Math.round((char.baseStats.physicalAttack + g.physicalAttack * levels) * run.metaPhysAtkMult * statMult) + (eq.physicalAttack ?? 0)),
+    magicAttack: Math.max(1, Math.round((char.baseStats.magicAttack + g.magicAttack * levels) * run.metaMagAtkMult * statMult) + (eq.magicAttack ?? 0)),
+    physicalDefense: Math.max(0, Math.round((char.baseStats.physicalDefense + g.physicalDefense * levels) * run.metaPhysDefMult * statMult * berserkDef) + (eq.physicalDefense ?? 0)),
+    magicDefense: Math.max(0, Math.round((char.baseStats.magicDefense + g.magicDefense * levels) * run.metaMagDefMult * statMult * berserkDef) + (eq.magicDefense ?? 0)),
+    speed: char.baseStats.speed + g.speed * levels + (eq.speed ?? 0),
+    luck: char.baseStats.luck + g.luck * levels + Math.round(sumEffect(run, 'LuckUp')) + (eq.luck ?? 0),
+    criticalRate: Math.min(100, char.baseStats.criticalRate + run.metaCritRateBonus + Math.round(sumEffect(run, 'CritRateUp')) + (eq.criticalRate ?? 0)),
     accuracyRate: char.baseStats.accuracyRate,
   };
+}
+
+// ── 装備 (RunData.Equip/CanEquip/EquipmentBonusStats の移植) ────────────
+
+export function equipmentBonusStats(run: RunState): Partial<CharacterStats> {
+  const out: Partial<CharacterStats> = {};
+  for (const id of [run.equippedWeapon, run.equippedArmor, run.equippedAccessory]) {
+    if (!id) continue;
+    const eq = getEquipmentDef(id);
+    if (!eq) continue;
+    for (const [k, v] of Object.entries(eq.bonusStats)) {
+      out[k as keyof CharacterStats] = (out[k as keyof CharacterStats] ?? 0) + (v as number);
+    }
+  }
+  return out;
+}
+
+export function canEquip(run: RunState, equipId: string): boolean {
+  const eq = getEquipmentDef(equipId);
+  if (!eq) return false;
+  const char = getCharacter(run.characterId);
+  switch (eq.slot) {
+    case 'Weapon': return !!eq.weaponCategory && char.allowedWeapons.includes(eq.weaponCategory);
+    case 'Armor': return !!eq.armorCategory && char.allowedArmors.includes(eq.armorCategory);
+    case 'Accessory': return true;
+  }
+}
+
+export function equipItem(run: RunState, equipId: string): boolean {
+  const eq = getEquipmentDef(equipId);
+  if (!eq || !canEquip(run, equipId)) return false;
+  const slotKey = eq.slot === 'Weapon' ? 'equippedWeapon'
+    : eq.slot === 'Armor' ? 'equippedArmor' : 'equippedAccessory';
+  const old = run[slotKey];
+  if (old) run.equipmentInventory.push(old);
+  const idx = run.equipmentInventory.indexOf(equipId);
+  if (idx >= 0) run.equipmentInventory.splice(idx, 1);
+  run[slotKey] = equipId;
+  // 最大HP変化後のクランプ
+  run.currentHP = Math.min(run.currentHP, buildBattleStats(run).maxHP);
+  return true;
+}
+
+export function unequipSlot(run: RunState, slot: 'Weapon' | 'Armor' | 'Accessory'): void {
+  const slotKey = slot === 'Weapon' ? 'equippedWeapon'
+    : slot === 'Armor' ? 'equippedArmor' : 'equippedAccessory';
+  const cur = run[slotKey];
+  if (!cur) return;
+  run.equipmentInventory.push(cur);
+  run[slotKey] = null;
+  run.currentHP = Math.min(run.currentHP, buildBattleStats(run).maxHP);
 }
 
 export function healRun(run: RunState, amount: number): number {
