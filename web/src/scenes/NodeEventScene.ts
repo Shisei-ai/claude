@@ -1,12 +1,16 @@
 // 非戦闘ノード — 焚き火 / 商人 / 宝箱 / 未知 / 呪われた間
-// RestSiteController.cs (回復30%) を移植。
-// 商人・イベント・宝箱・呪いは Unity 版フル機能 (ShopController / EventFactory
-// 40種 / LootSystem) の移植まで簡易実装 (フェーズ2)。
+// RestSiteController.cs (回復30%)・ShopController.cs (在庫生成/価格式/売約管理)・
+// EventFactory.cs (全50種) を移植。
+// ショップのWeb版適応: デッキ構築が存在しないため、スキル枠(3-4)はJP+25の
+// 「修練の書」、サービス「スキル削除」は「呪い解除」、「スキル強化」はJP+50に
+// 読み替え。消耗品はインベントリが無いため即時使用型4種に適応 (価格は
+// Unity同様一律 ConsumablePrice=40)。価格式・枠数・BlackMarket・装備6回抽選は
+// ShopController.cs に忠実。
 import Phaser from 'phaser';
 import { COLORS, makeButton, textStyle, drawSceneBackground } from '../ui/theme';
 import { loadRun, saveRun } from '../core/save';
 import type { RunState } from '../core/run';
-import { getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity } from '../core/run';
+import { getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip } from '../core/run';
 import type { NodeType } from '../core/types';
 import { Rng } from '../core/rng';
 import { FLOORS } from '../data/enemies';
@@ -23,6 +27,15 @@ import { drawEquipmentForFloor, EQUIP_RARITY_LABEL, EQUIP_RARITY_COLOR, SLOT_LAB
 
 interface NodeEventInit { nodeType: NodeType; contentSeed: number }
 
+// ショップ在庫1枠 (ShopController.ShopItem 相当。buy は結果メッセージを返す)
+interface ShopEntry {
+  tag: string; tagColor: string;
+  name: string; desc: string;
+  price: number; sold: boolean;
+  canBuy: () => boolean;
+  buy: () => string;
+}
+
 export class NodeEventScene extends Phaser.Scene {
   private run!: RunState;
   private nodeType!: NodeType;
@@ -33,6 +46,8 @@ export class NodeEventScene extends Phaser.Scene {
   init(data: NodeEventInit): void {
     this.nodeType = data.nodeType;
     this.rng = new Rng(data.contentSeed);
+    this.shopStock = [];
+    this.shopMessage = '';
     const run = loadRun();
     if (!run) { this.scene.start('MainMenu'); return; }
     this.run = run;
@@ -105,98 +120,206 @@ export class NodeEventScene extends Phaser.Scene {
     }, { width: 260 });
   }
 
-  // ── 商人 (簡易版 / ShopController 移植はフェーズ2) ──────────────────
+  // ── 商人 (ShopController.cs 移植) ───────────────────────────────────
+  private shopStock: ShopEntry[] = [];
+  private shopMessage = '';
+
   private createShop(): void {
-    const { width, height } = this.scale;
-    this.header('流浪の商人', '「よく来たね、旅人さん。掘り出し物があるよ」');
+    if (this.shopStock.length === 0) this.generateShopStock();
+    this.renderShop();
+  }
 
-    const maxHP = getEffectiveMaxHP(this.run);
-    const price = (base: number) => modifyShopPrice(this.run, base);
+  // ShopController.GenerateStock の移植。在庫は入店時に1度だけ生成し、
+  // 購入した枠は「売約済」になる (Unity版の MarkSold 相当)。
+  private generateShopStock(): void {
+    const run = this.run;
+    const floor = run.currentFloor;
+    // ApplyMetaDiscount(RelicManager.ModifyShopPrice(...)) 相当
+    // (modifyShopPrice がレリック割引+メタ割引を合算・60%上限)
+    const price = (base: number) => modifyShopPrice(run, base);
+    const stock = this.shopStock;
 
-    interface ShopItem {
-      name: string; desc: string; price: number; rarityTag?: string; rarityColor?: string;
-      canBuy: () => boolean; buy: () => void;
+    // スキル枠 3-4 (SkillBasePrice=75 × (1+floor×0.3))
+    // Web版適応: デッキ構築が無いため、購入で JP+25 を得る「修練の書」
+    const skillCount = this.rng.range(3, 5);
+    const skillPrice = price(Math.round(75 * (1 + floor * 0.3)));
+    for (let i = 0; i < skillCount; i++) {
+      stock.push({
+        tag: '【修練】', tagColor: COLORS.textBlue,
+        name: '修練の書', desc: '読み解くと職業の理解が深まる (JP+25)',
+        price: skillPrice, sold: false,
+        canBuy: () => true,
+        buy: () => {
+          const unlocked = addJP(run, 25);
+          return unlocked.length > 0
+            ? `JP+25　新スキル習得: ${unlocked.map((s) => s.name).join('、')}`
+            : 'JP+25 を得た';
+        },
+      });
     }
 
-    const items: ShopItem[] = [
+    // レリック枠 2-3 (RollRelicRarity + RelicBasePrices × (1+floor×0.25))
+    const RELIC_BASE_PRICE: Partial<Record<RelicRarity, number>> = {
+      Common: 80, Uncommon: 150, Rare: 250, Cursed: 50,
+    };
+    const usedRelics = new Set<string>();
+    const addRelicSlot = (forceCursed: boolean) => {
+      const rarity = forceCursed ? 'Cursed' : rollRelicRarity(run.sanity, false);
+      const relic = drawRelic(run, rarity, usedRelics);
+      if (!relic) return;
+      stock.push({
+        tag: `【${RARITY_LABEL[relic.rarity]}】`, tagColor: RARITY_COLOR[relic.rarity],
+        name: relic.name, desc: relic.description,
+        price: price(Math.round((RELIC_BASE_PRICE[relic.rarity] ?? 100) * (1 + floor * 0.25))),
+        sold: false,
+        canBuy: () => !run.relics.includes(relic.id),
+        buy: () => {
+          const cursesBefore = run.curses.length;
+          const gained = addRelicToRun(run, relic);
+          let msg = `「${gained.map((r) => r.name).join('」「')}」を手に入れた`;
+          if (run.curses.length > cursesBefore) msg += '　…呪いも憑いてきた';
+          return msg;
+        },
+      });
+    };
+    const relicCount = this.rng.range(2, 4);
+    for (let i = 0; i < relicCount; i++) addRelicSlot(false);
+    // 密売人の割符 (BlackMarket): 呪われたレリックを必ず1枠追加
+    if (hasEffect(run, 'BlackMarket')) addRelicSlot(true);
+
+    // 消耗品枠 2 (ConsumablePrice=40 一律 / Web版適応: 即時使用型)
+    const consumablePool: Array<Omit<ShopEntry, 'price' | 'sold' | 'tag' | 'tagColor'>> = [
       {
-        name: '癒しの秘薬', desc: `HPを30%回復する`, price: price(50),
-        canBuy: () => this.run.currentHP < maxHP,
-        buy: () => healRun(this.run, Math.round(maxHP * 0.30)),
+        name: '回復薬', desc: 'HPを30%回復する',
+        canBuy: () => run.currentHP < getEffectiveMaxHP(run),
+        buy: () => {
+          const heal = modifyHealAmount(run, Math.round(getEffectiveMaxHP(run) * 0.30));
+          healRun(run, heal);
+          return `HPが ${heal} 回復した`;
+        },
       },
       {
-        name: '生命の霊薬', desc: `最大HP+15 (このランの間)`, price: price(120),
+        name: '大回復薬', desc: 'HPを60%回復する',
+        canBuy: () => run.currentHP < getEffectiveMaxHP(run),
+        buy: () => {
+          const heal = modifyHealAmount(run, Math.round(getEffectiveMaxHP(run) * 0.60));
+          healRun(run, heal);
+          return `HPが ${heal} 回復した`;
+        },
+      },
+      {
+        name: '聖なる護符', desc: '正気度+1',
+        canBuy: () => run.sanity < 3,
+        buy: () => { addSanity(run, 1); return '心が少し軽くなった (正気度+1)'; },
+      },
+      {
+        name: '生命の霊薬', desc: '最大HP+10 (このランの間)',
         canBuy: () => true,
-        buy: () => { this.run.maxHPBase += 15; healRun(this.run, 15); },
-      },
-      {
-        name: '聖なる護符', desc: `正気度+1`, price: price(40),
-        canBuy: () => this.run.sanity < 3,
-        buy: () => addSanity(this.run, 1),
+        buy: () => { run.maxHPBase += 10; healRun(run, 10); return '最大HPが 10 上がった'; },
       },
     ];
-
-    // 装備売り場: フロア対応の装備1枠 (EquipmentFactory.DrawForFloor)
-    const shopEquip = drawEquipmentForFloor(this.run.currentFloor, this.rng);
-    if (shopEquip && !this.run.equipmentInventory.includes(shopEquip.id) &&
-        this.run.equippedWeapon !== shopEquip.id &&
-        this.run.equippedArmor !== shopEquip.id &&
-        this.run.equippedAccessory !== shopEquip.id) {
-      items.push({
-        name: `${shopEquip.name}【${SLOT_LABEL[shopEquip.slot]}】`,
-        desc: shopEquip.description,
-        price: price(shopEquip.value),
-        rarityTag: EQUIP_RARITY_LABEL[shopEquip.rarity],
-        rarityColor: EQUIP_RARITY_COLOR[shopEquip.rarity],
-        canBuy: () => true,
-        buy: () => { this.run.equipmentInventory.push(shopEquip.id); },
+    const consumablePrice = price(40);
+    const poolIdx = [...consumablePool.keys()];
+    for (let i = 0; i < 2 && poolIdx.length > 0; i++) {
+      const pick = poolIdx.splice(this.rng.int(poolIdx.length), 1)[0];
+      stock.push({
+        tag: '【消耗品】', tagColor: COLORS.textGreen,
+        ...consumablePool[pick], price: consumablePrice, sold: false,
       });
     }
 
-    // レリック売り場: 通常1枠 + 密売人の割符で呪われた1枠
-    const relicRarity: RelicRarity = this.rng.next() < 0.25 ? 'Uncommon' : 'Common';
-    const shopRelic = drawRelic(this.run, relicRarity);
-    if (shopRelic) {
-      items.push({
-        name: shopRelic.name, desc: shopRelic.description,
-        price: price(shopRelic.rarity === 'Uncommon' ? 220 : 150),
-        rarityTag: `【${RARITY_LABEL[shopRelic.rarity]}】`,
-        rarityColor: RARITY_COLOR[shopRelic.rarity],
-        canBuy: () => true,
-        buy: () => { addRelicToRun(this.run, shopRelic); },
-      });
-    }
-    if (hasEffect(this.run, 'BlackMarket')) {
-      const cursedRelic = drawRelic(this.run, 'Cursed');
-      if (cursedRelic) {
-        items.push({
-          name: cursedRelic.name, desc: cursedRelic.description,
-          price: price(180),
-          rarityTag: `【${RARITY_LABEL.Cursed}】`,
-          rarityColor: RARITY_COLOR.Cursed,
-          canBuy: () => true,
-          buy: () => { addRelicToRun(this.run, cursedRelic); },
-        });
+    // 装備枠 1-2 (CanEquip を満たすまで最大6回抽選 / 価格 = equip.Value)
+    const equipCount = this.rng.range(1, 3);
+    const ownedOrStocked = new Set<string>([
+      ...run.equipmentInventory,
+      run.equippedWeapon ?? '', run.equippedArmor ?? '', run.equippedAccessory ?? '',
+    ]);
+    for (let i = 0; i < equipCount; i++) {
+      let equip = null as ReturnType<typeof drawEquipmentForFloor> | null;
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const cand = drawEquipmentForFloor(floor, this.rng);
+        if (canEquip(run, cand.id) && !ownedOrStocked.has(cand.id)) { equip = cand; break; }
       }
+      if (!equip) continue;
+      const chosen = equip;
+      ownedOrStocked.add(chosen.id);
+      stock.push({
+        tag: `${EQUIP_RARITY_LABEL[chosen.rarity]}`, tagColor: EQUIP_RARITY_COLOR[chosen.rarity],
+        name: `${chosen.name}〔${SLOT_LABEL[chosen.slot]}〕`, desc: chosen.description,
+        price: price(chosen.value), sold: false,
+        canBuy: () => true,
+        buy: () => {
+          run.equipmentInventory.push(chosen.id);
+          return `「${chosen.name}」を仕入れた (装備画面で装備できる)`;
+        },
+      });
     }
 
-    items.forEach((item, i) => {
-      const y = 200 + i * 82;
-      const affordable = this.run.gold >= item.price && item.canBuy();
-      this.add.rectangle(width / 2, y, 720, 70, 0x171226, 0.95).setStrokeStyle(1, COLORS.border);
-      const nameLabel = (item.rarityTag ?? '') + item.name;
-      this.add.text(width / 2 - 330, y - 18, nameLabel,
-        textStyle(16, item.rarityColor ?? COLORS.textGold));
-      this.add.text(width / 2 - 330, y + 8, item.desc, textStyle(12, COLORS.textDim, {
-        wordWrap: { width: 480 },
-      }));
-      makeButton(this, width / 2 + 270, y, `${item.price} G`, () => {
-        if (this.run.gold < item.price || !item.canBuy()) return;
-        this.run.gold -= item.price;
-        item.buy();
-        saveRun(this.run);
-        this.scene.restart({ nodeType: this.nodeType, contentSeed: this.rng.int(0x7fffffff) });
-      }, { width: 130, height: 42, fontSize: 15, disabled: !affordable });
+    // サービス (SkillPurgePrice=100 / SkillUpgradePrice=120)
+    // Web版適応: 「スキル削除」→「呪い解除」、「スキル強化」→ JP+50
+    const purgeFree = hasEffect(run, 'FreeRemove');
+    stock.push({
+      tag: '【サービス】', tagColor: COLORS.textGold,
+      name: '呪い解除', desc: '身に宿った呪いを1つ祓ってもらう',
+      price: purgeFree ? 0 : price(100), sold: false,
+      canBuy: () => run.curses.length > 0,
+      buy: () => {
+        const removed = run.curses.pop()! as keyof typeof CURSE_INFO;
+        return `【${CURSE_INFO[removed].name}】の呪いが解けた`;
+      },
+    });
+    stock.push({
+      tag: '【サービス】', tagColor: COLORS.textGold,
+      name: 'スキル強化', desc: '実戦の型を教わり、職業の理解が大きく深まる (JP+50)',
+      price: price(120), sold: false,
+      canBuy: () => true,
+      buy: () => {
+        const unlocked = addJP(run, 50);
+        return unlocked.length > 0
+          ? `JP+50　新スキル習得: ${unlocked.map((s) => s.name).join('、')}`
+          : 'JP+50 を得た';
+      },
+    });
+  }
+
+  private renderShop(): void {
+    const { width, height } = this.scale;
+    this.children.removeAll(true);
+    drawSceneBackground(this);
+    this.header('流浪の商人',
+      this.shopMessage || '「よく来たね、旅人さん。掘り出し物があるよ」');
+
+    // 2列レイアウト (最大 4+4+2+2+2 = 14枠)
+    const colX = [width / 2 - 315, width / 2 + 315];
+    const topY = 178;
+    const rowH = 54;
+    const perCol = Math.ceil(this.shopStock.length / 2);
+
+    this.shopStock.forEach((item, i) => {
+      const x = colX[Math.floor(i / perCol)];
+      const y = topY + (i % perCol) * rowH;
+      const affordable = !item.sold && this.run.gold >= item.price && item.canBuy();
+
+      this.add.rectangle(x, y, 600, 48, 0x171226, item.sold ? 0.5 : 0.95)
+        .setStrokeStyle(1, COLORS.border);
+      this.add.text(x - 285, y - 16, item.tag + item.name,
+        textStyle(13, item.sold ? COLORS.textDim : item.tagColor)).setAlpha(item.sold ? 0.5 : 1);
+      this.add.text(x - 285, y + 3, item.desc, textStyle(10, COLORS.textDim, {
+        wordWrap: { width: 400 },
+      })).setAlpha(item.sold ? 0.5 : 1);
+
+      if (item.sold) {
+        this.add.text(x + 235, y, '売約済', textStyle(13, COLORS.textDim)).setOrigin(0.5);
+      } else {
+        makeButton(this, x + 235, y, item.price > 0 ? `${item.price} G` : '無料', () => {
+          if (item.sold || this.run.gold < item.price || !item.canBuy()) return;
+          this.run.gold -= item.price;
+          this.shopMessage = `「${item.name}」— ${item.buy()}`;
+          item.sold = true;
+          saveRun(this.run);
+          this.renderShop();
+        }, { width: 110, height: 36, fontSize: 13, disabled: !affordable });
+      }
     });
 
     this.statusLine();
@@ -483,7 +606,7 @@ export class NodeEventScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     // 画面を作り直して結果を表示
-    this.children.removeAll();
+    this.children.removeAll(true);
     drawSceneBackground(this);
     this.add.text(width / 2, height / 2 - 120, r.narrative,
       textStyle(16, COLORS.text, { align: 'center', lineSpacing: 10, wordWrap: { width: width - 300 } }))
