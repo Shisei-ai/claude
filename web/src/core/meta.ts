@@ -168,6 +168,10 @@ export function recordRunEnd(run: RunState, won: boolean): number {
   meta.totalRuns += 1;
   if (won) meta.totalWins += 1;
   if (run.currentFloor > meta.maxFloor) meta.maxFloor = run.currentFloor;
+  // 到達エンディングの記録 (MetaProgression.RecordEndingCleared)
+  if (won && run.activeEnding && !meta.clearedEndings.includes(run.activeEnding)) {
+    meta.clearedEndings.push(run.activeEnding);
+  }
   const earned = calculateEpitaphsEarned(run, won);
   meta.totalEpitaphs += earned;
   saveMeta(meta);

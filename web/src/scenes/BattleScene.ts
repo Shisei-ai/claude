@@ -580,11 +580,33 @@ export class BattleScene extends Phaser.Scene {
 
   private onFloorClear(): void {
     const run = this.run;
-    const isLastFloor = run.currentFloor >= FLOORS.length - 1;
 
-    if (isLastFloor) {
-      // 全フロア踏破 = ラン勝利
-      this.scene.start('Result', { won: true });
+    // Floor 4 (最終層) ボス撃破 → エンディング
+    if (run.currentFloor >= 4) {
+      saveRun(run);
+      this.scene.start('Result', { won: true, finale: true });
+      return;
+    }
+
+    // Floor 3 (ヴァルゴット) 撃破
+    if (run.currentFloor >= FLOORS.length - 1) {
+      if (run.activeEnding) {
+        // 証印あり: 最終層へ (EndingSystem.CreateFloor4)
+        run.currentFloor = 4;
+        run.currentNodeId = -1;
+        run.map = null;
+        // フロアクリア回復はそのまま適用
+        let healPct0 = 0.30;
+        if (run.metaFloorClearExtraHeal) healPct0 += 0.05;
+        healPct0 += sumEffect(run, 'FloorClearHeal');
+        const max0 = getEffectiveMaxHP(run);
+        run.currentHP = Math.min(max0, run.currentHP + Math.round(max0 * healPct0));
+        saveRun(run);
+        this.scene.start('Finale');
+      } else {
+        // 証印なし: ヴァルゴットが最終ボス — デフォルトエンディング
+        this.scene.start('Result', { won: true, finale: true });
+      }
       return;
     }
 
@@ -608,6 +630,8 @@ export class BattleScene extends Phaser.Scene {
 
   private onDefeat(): void {
     this.run.currentHP = 0;
-    this.scene.start('Result', { won: false });
+    // 最終層ボスに敗れた場合は敗北エンディングの語りを表示
+    const finale = this.run.currentFloor >= 4;
+    this.scene.start('Result', { won: false, finale });
   }
 }

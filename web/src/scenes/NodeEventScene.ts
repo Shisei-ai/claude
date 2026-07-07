@@ -17,6 +17,7 @@ import {
 } from '../core/relics';
 import { RARITY_LABEL, RARITY_COLOR, getRelic, type RelicRarity } from '../data/relics';
 import { RANDOM_EVENTS, ENDING_RELIC_ID, type RandomEventDef, type EventChoiceDef, type EventResult } from '../data/events';
+import { getEnding } from '../data/endings';
 import { addJP } from '../core/level';
 
 interface NodeEventInit { nodeType: NodeType; contentSeed: number }
@@ -417,7 +418,7 @@ export class NodeEventScene extends Phaser.Scene {
       run.currentJobJP = Math.max(0, run.currentJobJP - 50);
     }
 
-    // エンディング分岐: 証印レリック + ActiveEnding
+    // エンディング分岐: 証印レリック + ActiveEnding + 予兆演出
     if (r.endingPath) {
       run.activeEnding = r.endingPath;
       const sealId = ENDING_RELIC_ID[r.endingPath];
@@ -425,7 +426,12 @@ export class NodeEventScene extends Phaser.Scene {
         run.relics.push(sealId);
         run.relicsFound++;
         const seal = getRelic(sealId);
-        if (seal) outcomes.push(`【証印】「${seal.name}」を得た。結末が変わる予感がする…`);
+        if (seal) outcomes.push(`【証印】「${seal.name}」を得た`);
+      }
+      const ending = getEnding(r.endingPath);
+      if (ending) {
+        outcomes.push(`\n${ending.premonitionTitle}`);
+        outcomes.push(ending.premonitionText);
       }
     }
 

@@ -10,6 +10,7 @@ export interface MetaSave {
   totalWins: number;
   maxFloor: number;
   unlockedNodes: string[];
+  clearedEndings: string[];   // 到達済みエンディング (EndingType)
 }
 
 const DEFAULT_META: MetaSave = {
@@ -18,6 +19,7 @@ const DEFAULT_META: MetaSave = {
   totalWins: 0,
   maxFloor: 0,
   unlockedNodes: [],
+  clearedEndings: [],
 };
 
 export function loadMeta(): MetaSave {
@@ -25,9 +27,13 @@ export function loadMeta(): MetaSave {
     const raw = localStorage.getItem(META_KEY);
     if (!raw) return { ...DEFAULT_META, unlockedNodes: [] };
     const parsed = JSON.parse(raw) as Partial<MetaSave>;
-    return { ...DEFAULT_META, ...parsed, unlockedNodes: parsed.unlockedNodes ?? [] };
+    return {
+      ...DEFAULT_META, ...parsed,
+      unlockedNodes: parsed.unlockedNodes ?? [],
+      clearedEndings: parsed.clearedEndings ?? [],
+    };
   } catch {
-    return { ...DEFAULT_META, unlockedNodes: [] };
+    return { ...DEFAULT_META, unlockedNodes: [], clearedEndings: [] };
   }
 }
 

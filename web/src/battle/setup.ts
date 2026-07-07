@@ -7,6 +7,7 @@ import { buildBattleStats } from '../core/run';
 import { getCharacter } from '../data/characters';
 import { getDifficulty } from '../data/difficulty';
 import { FLOORS, findEnemySkillById, type EncounterGroup } from '../data/enemies';
+import { getEnding } from '../data/endings';
 import { getActiveSkills, getPassiveIds } from '../core/level';
 import { Rng } from '../core/rng';
 
@@ -18,6 +19,12 @@ function adjustedWeight(g: EncounterGroup, sanity: number): number {
 export function pickEncounter(
   run: RunState, nodeType: NodeType, contentSeed: number,
 ): EnemyDef[] {
+  // Floor 4 (最終層): エンディング分岐ボス
+  if (run.currentFloor >= 4) {
+    const ending = getEnding(run.activeEnding);
+    if (ending) return [ending.boss];
+  }
+
   const floor = FLOORS[Math.min(run.currentFloor, FLOORS.length - 1)];
   const rng = new Rng(contentSeed);
 

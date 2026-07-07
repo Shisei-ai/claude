@@ -30,6 +30,8 @@ export class MapScene extends Phaser.Scene {
   create(): void {
     const run = loadRun();
     if (!run) { this.scene.start('MainMenu'); return; }
+    // 最終層 (Floor 4) にはマップがない — 直接最終戦へ
+    if (run.currentFloor >= 4) { this.scene.start('Finale'); return; }
     this.run = run;
     if (!this.run.map) {
       this.run.map = generateMap(this.run.seed, this.run.currentFloor);
