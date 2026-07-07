@@ -2291,24 +2291,45 @@
         const screeId = `faScree_${chartCounter++}`;
         h += `<div class="chart-container"><canvas id="${screeId}"></canvas></div>`;
 
+        // ===== 項目を主負荷因子ごとにまとめる表示順 (HAD/SPSS ソート済み負荷量) =====
+        // 各項目の主負荷因子 (|負荷量|最大) を求め、因子順→当該因子への負荷量(符号付き)降順で並べる
+        const rowOrder = keys.map((k, i) => {
+            let primary = 0, maxAbs = Math.abs(finalLoadings[i][0]);
+            for (let j = 1; j < m; j++) {
+                if (Math.abs(finalLoadings[i][j]) > maxAbs) { maxAbs = Math.abs(finalLoadings[i][j]); primary = j; }
+            }
+            return { i, primary, loadOnPrimary: finalLoadings[i][primary] };
+        }).sort((a, b) =>
+            a.primary !== b.primary ? a.primary - b.primary : b.loadOnPrimary - a.loadOnPrimary
+        ).map(o => o.i);
+
         // --- 因子負荷量行列 ---
         h += `<h3 style="margin-top:20px;color:#1e293b;font-size:1rem;">因子負荷量行列 (${escapeHtml(rotLabel)})</h3>
-            <p style="font-size:0.8rem;color:#64748b;margin-bottom:8px;">|負荷量| ≥ .40 を強調表示（Comrey &amp; Lee, 1992 基準）</p>
+            <p style="font-size:0.8rem;color:#64748b;margin-bottom:8px;">|負荷量| ≥ .40 を強調表示（Comrey &amp; Lee, 1992 基準）。項目は主負荷因子ごとにまとめて表示。</p>
             <table class="stats-table">
             <tr><th>変数</th>`;
         for (let j = 0; j < m; j++) h += `<th>F${j+1}</th>`;
         h += `<th>共通性 (h²)</th><th>独自性 (u²)</th></tr>`;
 
-        keys.forEach((k, i) => {
-            h += `<tr><td><b>${escapeHtml(k)}</b></td>`;
-            finalLoadings[i].forEach(loading => {
+        let prevPrimary = -1;
+        rowOrder.forEach(i => {
+            const k = keys[i];
+            // 主負荷因子が切り替わる境界に区切り線を挿入
+            let primary = 0, maxAbs = Math.abs(finalLoadings[i][0]);
+            for (let j = 1; j < m; j++) {
+                if (Math.abs(finalLoadings[i][j]) > maxAbs) { maxAbs = Math.abs(finalLoadings[i][j]); primary = j; }
+            }
+            const borderTop = (prevPrimary !== -1 && primary !== prevPrimary) ? 'border-top:2px solid #cbd5e1;' : '';
+            prevPrimary = primary;
+            h += `<tr><td style="${borderTop}"><b>${escapeHtml(k)}</b></td>`;
+            finalLoadings[i].forEach((loading, j) => {
                 const abs = Math.abs(loading);
                 const style = abs >= 0.6 ? 'font-weight:bold;color:#1e3a5f;background:#bfdbfe;' :
                               abs >= 0.4 ? 'font-weight:bold;color:#1e3a5f;background:#dbeafe;' : '';
-                h += `<td style="${style}">${loading.toFixed(3)}</td>`;
+                h += `<td style="${borderTop}${style}">${loading.toFixed(3)}</td>`;
             });
             const h2 = communalities[i], u2 = Math.max(0, 1 - h2);
-            h += `<td>${h2.toFixed(3)}</td><td>${u2.toFixed(3)}</td></tr>`;
+            h += `<td style="${borderTop}">${h2.toFixed(3)}</td><td style="${borderTop}">${u2.toFixed(3)}</td></tr>`;
         });
 
         // 因子寄与 (SS Loadings) + 因子寄与率 + 累積寄与率
@@ -2346,8 +2367,8 @@
                     <table class="stats-table"><tr><th>変数</th>`;
                 for (let j = 0; j < m; j++) h += `<th>F${j+1}</th>`;
                 h += '</tr>';
-                keys.forEach((k, i) => {
-                    h += `<tr><td><b>${escapeHtml(k)}</b></td>`;
+                rowOrder.forEach(i => {
+                    h += `<tr><td><b>${escapeHtml(keys[i])}</b></td>`;
                     structureMatrix[i].forEach(v => {
                         h += `<td style="${Math.abs(v)>=0.4?'font-weight:bold;':''}">${v.toFixed(3)}</td>`;
                     });
