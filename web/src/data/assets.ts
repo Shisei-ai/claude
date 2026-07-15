@@ -7,6 +7,17 @@
 // ● 配置パスは vite の public/ 起点。dev では '/assets/…'、build では
 //   dist/assets/… にそのままコピーされる (base:'./' 相対解決)。
 
+import type Phaser from 'phaser';
+
+// ── ロード失敗 (=未配置) の記録と存在チェック ─────────────────────────
+/** 読み込みに失敗した (ファイル未配置の) テクスチャキー。PreloadScene が登録。 */
+export const MISSING_ART = new Set<string>();
+
+/** そのキーの画像が使用可能か (ロード済み かつ 失敗記録なし) */
+export function hasArt(scene: Phaser.Scene, key: string): boolean {
+  return scene.textures.exists(key) && !MISSING_ART.has(key);
+}
+
 export interface CharArt {
   full?: string;      // 立ち絵 / バトルスプライト (縦長・全身)
   portrait?: string;  // 顔グラ (正方・バストアップ)
@@ -53,9 +64,29 @@ export const ENEMY_ART: Record<string, string> = Object.fromEntries(
   ENEMY_IDS.map((id) => [id, `assets/enemies/${id}.png`]),
 );
 
-/** 背景キー → パス。未宣言の背景は従来の単色板のまま。 */
-export const BG_ART: Record<string, string> = {
-  // 例: floor0: 'assets/bg/floor0.png',
+/** 背景キー (=ファイル名の語幹)。ファイルが無い背景は従来の単色板へ自動フォールバック。 */
+const BG_KEYS: string[] = [
+  // 戦闘背景 (フロアテーマ別・マップ探索にも流用)
+  'floor0', 'floor1', 'floor2', 'floor3',
+  // 最終層アリーナ (エンディング5分岐の戦闘背景)
+  'arena_demon_king', 'arena_abyss_god', 'arena_time_wraith', 'arena_cursed_king', 'arena_true_core',
+  // ノードイベント
+  'event_rest', 'event_shop', 'event_treasure', 'event_cursed', 'event_unknown',
+  // メニュー / システム
+  'title', 'charselect', 'meta', 'panel',
+  // エンディング一枚絵
+  'ending_demon_king', 'ending_abyss_god', 'ending_time_wraith', 'ending_cursed_king', 'ending_true_core',
+];
+
+/** 背景キー → パス。 */
+export const BG_ART: Record<string, string> = Object.fromEntries(
+  BG_KEYS.map((k) => [k, `assets/bg/${k}.png`]),
+);
+
+/** EndingType → アリーナ/一枚絵のファイル語幹 */
+export const ENDING_BG_STEM: Record<string, string> = {
+  DemonKing: 'demon_king', AbyssGod: 'abyss_god', TimeWraith: 'time_wraith',
+  CursedKing: 'cursed_king', TrueCore: 'true_core',
 };
 
 // ── テクスチャキー命名 (シーン側から参照) ──────────────────────────────

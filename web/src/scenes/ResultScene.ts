@@ -6,6 +6,8 @@ import { loadRun, clearRun } from '../core/save';
 import { recordRunEnd } from '../core/meta';
 import { getCharacter } from '../data/characters';
 import { getEnding, getCharacterEpilogue, DEFAULT_ENDING_TEXT } from '../data/endings';
+import { hasArt } from './PreloadScene';
+import { bgArtKey, ENDING_BG_STEM } from '../data/assets';
 
 interface ResultInit { won: boolean; finale?: boolean }
 
@@ -42,7 +44,16 @@ export class ResultScene extends Phaser.Scene {
         : DEFAULT_ENDING_TEXT;
       const epilogue = getCharacterEpilogue(run.characterId, this.won);
 
-      if (ending) this.add.rectangle(width / 2, height / 2, width, height, ending.tint, 0.25);
+      // エンディング一枚絵があれば全面表示、無ければ従来の色板
+      const endStem = run.activeEnding ? ENDING_BG_STEM[run.activeEnding] : undefined;
+      const endKey = endStem ? `ending_${endStem}` : undefined;
+      if (endKey && hasArt(this, bgArtKey(endKey))) {
+        const img = this.add.image(width / 2, height / 2, bgArtKey(endKey));
+        img.setScale(Math.max(width / img.width, height / img.height));
+        this.add.rectangle(width / 2, height / 2, width, height, 0x07050d, 0.45);
+      } else if (ending) {
+        this.add.rectangle(width / 2, height / 2, width, height, ending.tint, 0.25);
+      }
       this.add.text(width / 2, 74, title,
         textStyle(32, this.won ? COLORS.textGold : COLORS.textRed)).setOrigin(0.5);
       this.add.text(width / 2, 190, text,

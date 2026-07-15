@@ -19,7 +19,7 @@ export class EquipScene extends Phaser.Scene {
     this.run = run;
 
     const { width, height } = this.scale;
-    drawSceneBackground(this);
+    drawSceneBackground(this, undefined, 'panel');
 
     this.add.text(width / 2, 40, '装備', textStyle(30, COLORS.textGold)).setOrigin(0.5);
 

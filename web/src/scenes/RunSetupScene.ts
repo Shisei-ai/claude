@@ -25,7 +25,7 @@ export class RunSetupScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = this.scale;
-    drawSceneBackground(this);
+    drawSceneBackground(this, undefined, 'charselect');
     this.charMarks = [];
     this.blessMarks = [];
     this.diffMarks = [];

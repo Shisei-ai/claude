@@ -1,5 +1,6 @@
 // ダークファンタジーUIテーマ — Unity版 MainMenuSceneSetup の配色を踏襲
 import Phaser from 'phaser';
+import { hasArt, bgArtKey } from '../data/assets';
 
 export const COLORS = {
   bg: 0x07050d,             // 深い夜闇
@@ -95,9 +96,20 @@ export function drawBar(
   g.lineStyle(1, 0x000000, 0.6).strokeRect(x, y, w, h);
 }
 
-/** シーン背景 (グラデーション風の板 + ビネット) */
-export function drawSceneBackground(scene: Phaser.Scene, tint = 0x0a0716): void {
+/** シーン背景 (グラデーション風の板 + ビネット)。
+ *  bgKey を渡すと該当画像があれば全面表示、無ければ従来の単色板にフォールバック。 */
+export function drawSceneBackground(
+  scene: Phaser.Scene, tint = 0x0a0716, bgKey?: string,
+): void {
   const { width, height } = scene.scale;
+  if (bgKey && hasArt(scene, bgArtKey(bgKey))) {
+    const img = scene.add.image(width / 2, height / 2, bgArtKey(bgKey));
+    // 画面を覆うようにカバー配置 (縦横比維持で大きい方に合わせる)
+    img.setScale(Math.max(width / img.width, height / img.height));
+    // ダーク寄せの薄いオーバーレイ (文字可読性の確保)
+    scene.add.rectangle(width / 2, height / 2, width, height, 0x07050d, 0.30);
+    return;
+  }
   scene.add.rectangle(width / 2, height / 2, width, height, tint);
   const g = scene.add.graphics();
   // 簡易ビネット

@@ -14,7 +14,7 @@ import { getCharacter } from '../data/characters';
 import { RelicBattleState } from '../battle/relicHooks';
 import { getBoostPreview } from '../battle/boost';
 import { hasArt } from './PreloadScene';
-import { charFullKey, enemyArtKey } from '../data/assets';
+import { charFullKey, enemyArtKey, bgArtKey, ENDING_BG_STEM } from '../data/assets';
 import {
   buildBattleLoot, addRelicToRun, modifyGoldDrop, hasEffect, sumEffect,
   drawRelic, rollRelicRarity,
@@ -58,10 +58,20 @@ export class BattleScene extends Phaser.Scene {
     this.boostLevel = 0;
     this.processing = false;
 
-    // 背景 (フロアごとに色味を変える)
+    // 背景: 画像があれば全面表示、無ければフロアごとの色味
     const floorTints = [0x0d0a16, 0x08120a, 0x160810, 0x14100a];
-    this.add.rectangle(width / 2, height / 2, width, height,
-      floorTints[Math.min(this.run.currentFloor, 3)]);
+    // フロア4以降はエンディング分岐のアリーナ背景
+    const bgStem = this.run.currentFloor >= 4 && this.run.activeEnding
+      ? `arena_${ENDING_BG_STEM[this.run.activeEnding] ?? 'true_core'}`
+      : `floor${Math.min(this.run.currentFloor, 3)}`;
+    if (hasArt(this, bgArtKey(bgStem))) {
+      const bg = this.add.image(width / 2, height / 2, bgArtKey(bgStem));
+      bg.setScale(Math.max(width / bg.width, height / bg.height));
+      this.add.rectangle(width / 2, height / 2, width, height, 0x07050d, 0.28);
+    } else {
+      this.add.rectangle(width / 2, height / 2, width, height,
+        floorTints[Math.min(this.run.currentFloor, 3)]);
+    }
     this.add.rectangle(width / 2, height - 170, width, 2, 0x3a3050);  // 地面線
 
     // エンジン構築 (主人公+幻影パーティ)

@@ -53,8 +53,19 @@ export class NodeEventScene extends Phaser.Scene {
     this.run = run;
   }
 
+  /** ノード種別 → 背景キー */
+  private bgKey(): string {
+    switch (this.nodeType) {
+      case 'RestSite': return 'event_rest';
+      case 'Shop': return 'event_shop';
+      case 'Treasure': return 'event_treasure';
+      case 'CursedRoom': return 'event_cursed';
+      default: return 'event_unknown';
+    }
+  }
+
   create(): void {
-    drawSceneBackground(this);
+    drawSceneBackground(this, undefined, this.bgKey());
     switch (this.nodeType) {
       case 'RestSite': this.createRestSite(); break;
       case 'Shop': this.createShop(); break;
@@ -285,7 +296,7 @@ export class NodeEventScene extends Phaser.Scene {
   private renderShop(): void {
     const { width, height } = this.scale;
     this.children.removeAll(true);
-    drawSceneBackground(this);
+    drawSceneBackground(this, undefined, this.bgKey());
     this.header('流浪の商人',
       this.shopMessage || '「よく来たね、旅人さん。掘り出し物があるよ」');
 
@@ -607,7 +618,7 @@ export class NodeEventScene extends Phaser.Scene {
 
     // 画面を作り直して結果を表示
     this.children.removeAll(true);
-    drawSceneBackground(this);
+    drawSceneBackground(this, undefined, this.bgKey());
     this.add.text(width / 2, height / 2 - 120, r.narrative,
       textStyle(16, COLORS.text, { align: 'center', lineSpacing: 10, wordWrap: { width: width - 300 } }))
       .setOrigin(0.5);

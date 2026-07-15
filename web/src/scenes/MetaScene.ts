@@ -10,7 +10,7 @@ export class MetaScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = this.scale;
-    drawSceneBackground(this, 0x0a0812);
+    drawSceneBackground(this, 0x0a0812, 'meta');
 
     const meta = loadMeta();
 

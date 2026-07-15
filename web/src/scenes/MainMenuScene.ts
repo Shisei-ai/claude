@@ -9,7 +9,7 @@ export class MainMenuScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = this.scale;
-    drawSceneBackground(this);
+    drawSceneBackground(this, undefined, 'title');
 
     // タイトル
     this.add.text(width / 2, height * 0.20, 'Dark Chronicle', textStyle(64, COLORS.textGold, {

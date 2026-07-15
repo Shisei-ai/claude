@@ -39,7 +39,8 @@ export class MapScene extends Phaser.Scene {
     }
 
     const { width, height } = this.scale;
-    drawSceneBackground(this);
+    // 探索マップは戦闘と同じフロア背景を流用
+    drawSceneBackground(this, undefined, `floor${Math.min(this.run.currentFloor, 3)}`);
 
     const floor = FLOORS[Math.min(this.run.currentFloor, FLOORS.length - 1)];
     this.add.text(width / 2, 32,

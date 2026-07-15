@@ -4,17 +4,12 @@
 import Phaser from 'phaser';
 import { COLORS, textStyle, drawSceneBackground } from '../ui/theme';
 import {
-  CHARACTER_ART, ENEMY_ART, BG_ART,
+  CHARACTER_ART, ENEMY_ART, BG_ART, MISSING_ART,
   charFullKey, charPortraitKey, enemyArtKey, bgArtKey,
 } from '../data/assets';
 
-/** 読み込みに失敗した (=ファイル未配置の) テクスチャキー */
-export const MISSING_ART = new Set<string>();
-
-/** そのキーの画像が使用可能か (ロード済み かつ 失敗記録なし) */
-export function hasArt(scene: Phaser.Scene, key: string): boolean {
-  return scene.textures.exists(key) && !MISSING_ART.has(key);
-}
+// 既存の import 経路 (scenes → PreloadScene) を維持するため再エクスポート
+export { hasArt } from '../data/assets';
 
 export class PreloadScene extends Phaser.Scene {
   constructor() { super('Preload'); }
