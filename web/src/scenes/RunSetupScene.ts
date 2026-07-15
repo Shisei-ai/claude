@@ -9,6 +9,8 @@ import { createRun } from '../core/run';
 import { saveRun } from '../core/save';
 import { generateMap } from '../core/mapgen';
 import type { BlessingType } from '../core/types';
+import { hasArt } from './PreloadScene';
+import { charPortraitKey } from '../data/assets';
 
 export class RunSetupScene extends Phaser.Scene {
   private selectedChar = 0;
@@ -40,7 +42,16 @@ export class RunSetupScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => { this.selectedChar = i; this.refresh(); });
       this.charMarks.push(card);
-      this.add.rectangle(x, y - 26, 44, 44, c.themeColor, 0.9).setStrokeStyle(1, 0x000000);
+      // 顔グラがあれば表示、無ければテーマ色の四角
+      const pkey = charPortraitKey(c.id);
+      if (hasArt(this, pkey)) {
+        const pic = this.add.image(x, y - 22, pkey).setOrigin(0.5, 0.5);
+        pic.setScale(64 / pic.height);
+        pic.setInteractive({ useHandCursor: true })
+          .on('pointerdown', () => { this.selectedChar = i; this.refresh(); });
+      } else {
+        this.add.rectangle(x, y - 26, 44, 44, c.themeColor, 0.9).setStrokeStyle(1, 0x000000);
+      }
       this.add.text(x, y + 14, c.name, textStyle(14)).setOrigin(0.5);
       this.add.text(x, y + 38, c.jobName, textStyle(12, COLORS.textDim)).setOrigin(0.5);
     });

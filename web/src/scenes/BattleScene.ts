@@ -13,6 +13,8 @@ import { FLOORS } from '../data/enemies';
 import { getCharacter } from '../data/characters';
 import { RelicBattleState } from '../battle/relicHooks';
 import { getBoostPreview } from '../battle/boost';
+import { hasArt } from './PreloadScene';
+import { charFullKey, enemyArtKey } from '../data/assets';
 import {
   buildBattleLoot, addRelicToRun, modifyGoldDrop, hasEffect, sumEffect,
   drawRelic, rollRelicRarity,
@@ -29,7 +31,7 @@ export class BattleScene extends Phaser.Scene {
 
   private hero!: Combatant;                 // 主人公 (heroes[0])
   private heroes: Combatant[] = [];
-  private heroSprites: Phaser.GameObjects.Rectangle[] = [];
+  private heroSprites: (Phaser.GameObjects.Rectangle | Phaser.GameObjects.Image)[] = [];
   private enemySprites: Phaser.GameObjects.Container[] = [];
   private msgText!: Phaser.GameObjects.Text;
   private hudG!: Phaser.GameObjects.Graphics;
@@ -78,10 +80,23 @@ export class BattleScene extends Phaser.Scene {
     this.heroes.forEach((h, i) => {
       const x = 220 - i * 10 + (i > 0 ? (i === 1 ? -90 : 90) : 0);
       const y = height - 260 - (i > 0 ? 60 : 0);
-      const color = getCharacter(h.characterId ?? this.run.characterId).themeColor;
-      const sprite = this.add.rectangle(x, y, i === 0 ? 72 : 58, i === 0 ? 110 : 88, color, 0.95)
-        .setStrokeStyle(2, 0xd8d0e8);
-      this.add.text(x, y + (i === 0 ? 70 : 58), h.name.split('・')[0], textStyle(i === 0 ? 14 : 12)).setOrigin(0.5);
+      const id = h.characterId ?? this.run.characterId;
+      const color = getCharacter(id).themeColor;
+      const labelY = y + (i === 0 ? 70 : 58);
+
+      // 立ち絵があれば画像、無ければ従来の矩形 (アスペクト比維持で高さ合わせ)
+      let sprite: Phaser.GameObjects.Rectangle | Phaser.GameObjects.Image;
+      const key = charFullKey(id);
+      if (hasArt(this, key)) {
+        const img = this.add.image(x, y, key).setOrigin(0.5, 0.5);
+        const targetH = i === 0 ? 230 : 168;
+        img.setScale(targetH / img.height);
+        sprite = img;
+      } else {
+        sprite = this.add.rectangle(x, y, i === 0 ? 72 : 58, i === 0 ? 110 : 88, color, 0.95)
+          .setStrokeStyle(2, 0xd8d0e8);
+      }
+      this.add.text(x, labelY, h.name.split('・')[0], textStyle(i === 0 ? 14 : 12)).setOrigin(0.5);
       if (!h.isAlive) sprite.setAlpha(0.25);
       this.heroSprites.push(sprite);
     });
@@ -91,8 +106,16 @@ export class BattleScene extends Phaser.Scene {
       const x = width - 200 - i * 180;
       const y = height - 270;
       const size = e.enemyDef!.rank === 'Boss' ? 130 : e.enemyDef!.rank === 'Elite' ? 100 : 76;
-      const rect = this.add.rectangle(0, 0, size * 0.7, size, e.enemyDef!.tint, 0.95)
-        .setStrokeStyle(2, 0x000000);
+      const ekey = enemyArtKey(e.enemyDef!.id);
+      let rect: Phaser.GameObjects.Rectangle | Phaser.GameObjects.Image;
+      if (hasArt(this, ekey)) {
+        const img = this.add.image(0, 0, ekey).setOrigin(0.5, 0.5);
+        img.setScale((size * 1.4) / img.height);
+        rect = img;
+      } else {
+        rect = this.add.rectangle(0, 0, size * 0.7, size, e.enemyDef!.tint, 0.95)
+          .setStrokeStyle(2, 0x000000);
+      }
       const nameText = this.add.text(0, size / 2 + 14, e.name, textStyle(12)).setOrigin(0.5);
       const hpText = this.add.text(0, size / 2 + 32, '', textStyle(11, COLORS.textDim)).setOrigin(0.5);
       const shieldText = this.add.text(0, -size / 2 - 16, '', textStyle(13, '#8fc2ee')).setOrigin(0.5);
@@ -234,7 +257,7 @@ export class BattleScene extends Phaser.Scene {
     return this.enemySprites.find((s) => s.getData('combatant') === c);
   }
 
-  private heroSpriteOf(c: Combatant): Phaser.GameObjects.Rectangle | undefined {
+  private heroSpriteOf(c: Combatant): Phaser.GameObjects.Rectangle | Phaser.GameObjects.Image | undefined {
     const idx = this.heroes.indexOf(c);
     return idx >= 0 ? this.heroSprites[idx] : undefined;
   }

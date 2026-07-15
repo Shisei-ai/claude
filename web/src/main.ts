@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { PreloadScene } from './scenes/PreloadScene';
 import { MainMenuScene } from './scenes/MainMenuScene';
 import { RunSetupScene } from './scenes/RunSetupScene';
 import { MapScene } from './scenes/MapScene';
@@ -21,6 +22,7 @@ new Phaser.Game({
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   scene: [
+    PreloadScene,
     MainMenuScene,
     RunSetupScene,
     MapScene,
