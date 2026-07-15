@@ -1,0 +1,323 @@
+using System.Collections.Generic;
+using UnityEngine;
+using DarkChronicle.Character.Traits;
+
+namespace DarkChronicle.Data
+{
+    // ── Base Stats ─────────────────────────────────────────────────────────
+    [System.Serializable]
+    public class CharacterStats
+    {
+        public int MaxHP;
+        public int MaxMP;
+        public int PhysicalAttack;
+        public int MagicAttack;
+        public int PhysicalDefense;
+        public int MagicDefense;
+        public int Speed;
+        public int Luck;
+        public int CriticalRate;   // 0-100
+        public int AccuracyRate;   // base 85
+
+        public CharacterStats Clone() => (CharacterStats)MemberwiseClone();
+
+        public static CharacterStats operator +(CharacterStats a, CharacterStats b) => new CharacterStats
+        {
+            MaxHP           = a.MaxHP           + b.MaxHP,
+            MaxMP           = a.MaxMP           + b.MaxMP,
+            PhysicalAttack  = a.PhysicalAttack  + b.PhysicalAttack,
+            MagicAttack     = a.MagicAttack     + b.MagicAttack,
+            PhysicalDefense = a.PhysicalDefense + b.PhysicalDefense,
+            MagicDefense    = a.MagicDefense    + b.MagicDefense,
+            Speed           = a.Speed           + b.Speed,
+            Luck            = a.Luck            + b.Luck,
+            CriticalRate    = a.CriticalRate    + b.CriticalRate,
+            AccuracyRate    = a.AccuracyRate    + b.AccuracyRate,
+        };
+    }
+
+    // ── Element System ─────────────────────────────────────────────────────
+    public enum ElementType
+    {
+        None, Physical, Fire, Ice, Lightning, Wind, Dark, Light, Poison, Bleed
+    }
+
+    public enum DamageType { Physical, Magical, True }
+
+    // ── Skill Data ─────────────────────────────────────────────────────────
+    [CreateAssetMenu(fileName = "SkillData", menuName = "DarkChronicle/Skill")]
+    public class SkillData : ScriptableObject
+    {
+        [Header("Identity")]
+        public string        SkillName;
+        [TextArea] public string Description;
+        public Sprite        Icon;
+        public ElementType   Element;
+        public DamageType    DamageType;
+
+        [Header("Cost")]
+        public int  MPCost;
+        public int  BPCost;         // Boost Points: 0 = no boost variant
+
+        [Header("Power")]
+        public float BasePower;
+        public float CritMultiplier  = 1.5f;
+        public bool  HitsAllEnemies;
+        public bool  HitsAllAllies;
+        public int   HitCount        = 1;
+        public bool  CanBreak;       // contributes to Break
+
+        [Header("Status Effect")]
+        public StatusEffect AppliedStatus;
+        public float        StatusChance;   // 0-1
+
+        [Header("Healing")]
+        public bool  IsHeal;
+        public float HealPower;
+
+        [Header("Enemy Support")]
+        public int          ShieldRestore;
+        public bool         ClearsOwnStatusEffects;  // 使用時に自身の状態異常を全て解除する（ファルン・ヴォルガ等）
+        public bool         BuffsAlliedEnemies;       // 使用時に生存している味方敵全員にバフを付与する
+        public StatusEffect AlliedEnemyBuff;          // BuffsAlliedEnemies=trueの場合に付与するバフ
+
+        [Header("Revive")]
+        public bool  IsRevive;
+        public float ReviveHPPercent = 0.50f;
+        public bool  ReviveAllAllies = false;
+
+        [Header("Special Mechanics")]
+        public bool  IsAbsorb;                         // ゼノ「吸収」系スキル
+        public float AbsorbHPCostPercent  = 0.15f;     // 吸収使用時のHP消費割合
+        public bool  IsDeathSentence;                  // ゼノ「死の宣告」系スキル
+        public int   DeathSentenceDelayTurns  = 3;
+        public float DeathSentenceBossDmgPct  = 0.50f;
+        public bool  IsCausalChain;                    // ゼノ「因果の鎖」系スキル
+        public float CausalChainDamagePct = 0.50f;
+        public bool  ChainToAllEnemies    = false;     // Plus版: 全体連結
+        public bool  IsConverge;                       // ラヴィニア「元素収束」スキル
+
+        [Header("Animation")]
+        public string AnimationTrigger;
+        public GameObject VFXPrefab;
+        public AudioClip  SFX;
+    }
+
+    // ── Status Effects ─────────────────────────────────────────────────────
+    [System.Serializable]
+    public class StatusEffect
+    {
+        public StatusEffectType Type;
+        public int              Duration;   // turns
+        public float            Value;      // damage / heal per turn, or multiplier
+
+        public string DisplayName => Type switch
+        {
+            StatusEffectType.Poison      => "毒",
+            StatusEffectType.Bleed       => "出血",
+            StatusEffectType.Burn        => "炎上",
+            StatusEffectType.Freeze      => "凍結",
+            StatusEffectType.Paralysis   => "麻痺",
+            StatusEffectType.Sleep       => "睡眠",
+            StatusEffectType.Blind       => "暗闇",
+            StatusEffectType.Silence     => "沈黙",
+            StatusEffectType.AtkUp       => "物理攻撃UP",
+            StatusEffectType.AtkDown     => "物理攻撃DOWN",
+            StatusEffectType.MatkUp      => "魔法攻撃UP",
+            StatusEffectType.MatkDown    => "魔法攻撃DOWN",
+            StatusEffectType.DefUp       => "防御UP",
+            StatusEffectType.DefDown     => "防御DOWN",
+            StatusEffectType.ActionSeal  => "行動封じ",
+            _                            => Type.ToString()
+        };
+    }
+
+    public enum StatusEffectType
+    {
+        Poison, Bleed, Burn, Freeze, Paralysis, Sleep, Blind, Silence,
+        AtkUp, AtkDown, DefUp, DefDown, SpdUp, SpdDown, Regen,
+        ActionSeal,   // 行動封じ（Sleep代替。被弾で解除されない）
+        MatkUp, MatkDown,  // 魔法攻撃専用バフ/デバフ（AtkUp/AtkDownは物理専用に変更）
+    }
+
+    // ── Job / Class System ─────────────────────────────────────────────────
+    [CreateAssetMenu(fileName = "JobData", menuName = "DarkChronicle/Job")]
+    public class JobData : ScriptableObject
+    {
+        public string       JobName;
+        [TextArea] public string Description;
+        public Sprite       Icon;
+        public Color        ThemeColor = Color.white;
+
+        [Header("Stat Growth Rates (per level)")]
+        public CharacterStats GrowthRates;
+
+        [Header("Learnable Skills")]
+        public List<JobSkillEntry> LearnableSkills;
+
+        [Header("Equipment Proficiency")]
+        public List<WeaponType> AllowedWeapons;
+        public List<ArmorType>  AllowedArmors;
+    }
+
+    [System.Serializable]
+    public class JobSkillEntry
+    {
+        public int       JobLevel;
+        public SkillData Skill;
+        public int       JpCost;    // Job Points to learn
+    }
+
+    public enum WeaponType { Sword, Axe, Bow, Staff, Dagger, Spear, Tome, Fists }
+    public enum ArmorType  { LightArmor, HeavyArmor, Robe, Shield }
+
+    // ── Character Data ─────────────────────────────────────────────────────
+    [CreateAssetMenu(fileName = "CharacterData", menuName = "DarkChronicle/Character")]
+    public class CharacterData : ScriptableObject
+    {
+        [Header("Identity")]
+        public string        CharacterName;
+        [TextArea] public string Backstory;
+        public Sprite        Portrait;
+        public Sprite        BattleSprite;
+        public Sprite        FieldSprite;
+        public Color         ThemeColor = Color.white;
+        public string        VoicePrefix;  // e.g. "Leona" -> "Leona_Attack_01"
+
+        [Header("Base Stats at Level 1")]
+        public CharacterStats BaseStats;
+
+        [Header("Starting Job")]
+        public JobData       StarterJob;
+
+        [Header("Story Path")]
+        public int           ChapterCount = 4;
+        public string[]      ChapterTitles;
+
+        [Header("Character Traits")]
+        public CharacterTrait[] Traits;
+
+        [Header("Weapon Sprite Variants")]
+        public Sprite[]      WeaponSprites;
+    }
+
+    // ── Enemy Data ─────────────────────────────────────────────────────────
+    [CreateAssetMenu(fileName = "EnemyData", menuName = "DarkChronicle/Enemy")]
+    public class EnemyData : ScriptableObject
+    {
+        [Header("Identity")]
+        public string        EnemyName;
+        [TextArea] public string Lore;
+        public Sprite        BattleSprite;
+        public EnemyRank     Rank;
+
+        [Header("Stats")]
+        public CharacterStats Stats;
+        public int            ShieldPoints = 1;   // Octopath-style break shields
+
+        [Header("Weaknesses (Break)")]
+        public List<ElementType>  ElementWeaknesses;
+
+        [Header("Enemy Tags")]
+        public bool IsUndead;   // 聖属性特効・HolyGrace対象
+
+        [Header("Actions")]
+        public List<EnemyAction>  Actions;
+        public int                ActionsPerTurn = 1;
+
+        [Header("Rewards")]
+        public int   ExpReward;
+        public int   GoldReward;
+        public int   JPReward;
+        public List<DropItem> DropTable;
+    }
+
+    [System.Serializable]
+    public class EnemyAction
+    {
+        public string        ActionName;
+        public SkillData     Skill;
+        public int           Priority;            // higher = preferred
+        public float         UseChance = 1f;
+        public int           HealthThreshold = 0; // only use below this HP %
+        public bool          IsAbsorbable = true; // ゼノの「吸収」で獲得できるか(ボス技はfalse推奨)
+    }
+
+    [System.Serializable]
+    public class DropItem
+    {
+        public ItemData Item;
+        public float    DropRate;  // 0-1
+        public int      Quantity   = 1;
+    }
+
+    public enum EnemyRank { Normal, Elite, Boss, TrueFinalBoss }
+
+    // ── Item Data ──────────────────────────────────────────────────────────
+    [CreateAssetMenu(fileName = "ItemData", menuName = "DarkChronicle/Item")]
+    public class ItemData : ScriptableObject
+    {
+        public string        ItemName;
+        [TextArea] public string Description;
+        public Sprite        Icon;
+        public ItemType      Type;
+        public int           Value;       // shop price
+        public bool          IsKeyItem;
+
+        [Header("Effect")]
+        public int           HealHP;
+        public int           HealMP;
+        public bool          ReviveTarget;
+        public int           ReviveHPPercent = 50;
+        public StatusEffect  CureStatus;
+        public bool          CureAllStatus;
+        public StatusEffect  ApplyStatus;
+
+        public bool IsAllyTarget =>
+            HealHP > 0 || HealMP > 0 || ReviveTarget || CureStatus != null || CureAllStatus;
+    }
+
+    public enum ItemType { Consumable, Equipment, KeyItem, Material }
+
+    // ── Equipment Enums ────────────────────────────────────────────────────
+    public enum EquipSlot         { Weapon, Armor, Accessory }
+    public enum EquipmentRarity   { Common, Uncommon, Rare }
+
+    // ── Equipment Data ─────────────────────────────────────────────────────
+    [CreateAssetMenu(fileName = "EquipmentData", menuName = "DarkChronicle/Equipment")]
+    public class EquipmentData : ScriptableObject
+    {
+        [Header("Identity")]
+        public string           EquipName;
+        [TextArea] public string Description;
+        public Sprite           Icon;
+        public EquipSlot        Slot;
+        public EquipmentRarity  Rarity;
+        public int              Value;
+
+        [Header("Proficiency")]
+        public WeaponType   WeaponCategory;
+        public ArmorType    ArmorCategory;
+
+        [Header("Stat Bonus")]
+        public CharacterStats   BonusStats;
+
+        [Header("Special")]
+        public ElementType  WeaponElement;
+        public string       PassiveText;
+
+        public string RarityLabel => Rarity switch
+        {
+            EquipmentRarity.Rare     => "【希少】",
+            EquipmentRarity.Uncommon => "【珍しい】",
+            _                        => "【普通】",
+        };
+
+        public Color RarityColor => Rarity switch
+        {
+            EquipmentRarity.Rare     => new Color(1f,  0.82f, 0.1f),
+            EquipmentRarity.Uncommon => new Color(0.5f, 0.9f, 1f),
+            _                        => Color.white,
+        };
+    }
+}
