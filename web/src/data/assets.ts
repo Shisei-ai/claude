@@ -29,10 +29,29 @@ export const CHARACTER_ART: Record<string, CharArt> = {
   zeno: {},
 };
 
-/** 敵ID (EnemyDef.id) → 立ち絵パス。未宣言の敵は tint 矩形のまま。 */
-export const ENEMY_ART: Record<string, string> = {
-  // 例: f0n_goblin: 'assets/enemies/f0n_goblin.png',
-};
+/** 全41体の敵ID (EnemyDef.id)。各層 通常4+エリート4+ボス1 = 各9体 ×4層
+ *  + 最終層エンディングボス5体。ファイル名は <id>.png で揃える。 */
+const ENEMY_IDS: string[] = [
+  // 第1層 廃墟の回廊
+  'f0n_goblin', 'f0n_zombie', 'f0n_skel_archer', 'f0n_undead_mage',
+  'f0e_garm', 'f0e_sorcerer', 'f0e_chain_soldier', 'f0e_rambard', 'f0b_morva',
+  // 第2層 暗黒の森
+  'f1n_dark_wolf', 'f1n_spore_fungus', 'f1n_forest_sprite', 'f1n_entangling_vine',
+  'f1e_raxen', 'f1e_medium', 'f1e_shadow_spirit', 'f1e_nagul', 'f1b_griselda',
+  // 第3層 呪われた城
+  'f2n_cursed_guard', 'f2n_blood_bat', 'f2n_castle_wraith', 'f2n_executioner',
+  'f2e_galen', 'f2e_ferna', 'f2e_familiar', 'f2e_velmon', 'f2b_sanguina',
+  // 第4層 古代遺跡の回廊
+  'f3n_stone_soldier', 'f3n_sand_serpent', 'f3n_sealed_wraith', 'f3n_giant_soldier',
+  'f3e_grom', 'f3e_farun', 'f3e_seal_guardian', 'f3e_vorga', 'f3b_valgott',
+  // 最終層 エンディングボス (証印による分岐)
+  'f4b_demon_king', 'f4b_abyss_god', 'f4b_time_wraith', 'f4b_cursed_king', 'f4b_true_core',
+];
+
+/** 敵ID → 立ち絵パス。ファイルが無い敵は tint 矩形へ自動フォールバック。 */
+export const ENEMY_ART: Record<string, string> = Object.fromEntries(
+  ENEMY_IDS.map((id) => [id, `assets/enemies/${id}.png`]),
+);
 
 /** 背景キー → パス。未宣言の背景は従来の単色板のまま。 */
 export const BG_ART: Record<string, string> = {
