@@ -13,7 +13,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import type { Belt, Node } from '../../src/domain/types';
+import type { Belt, Node, Save } from '../../src/domain/types';
 
 export interface RefRoute {
   cells: { x: number; y: number }[];
@@ -45,6 +45,12 @@ export interface ReferenceApi {
   ): RefPlanResult;
   unitOf(st: RefSolveState, item: string, choice?: Record<string, string | undefined>): number | null;
   toFrac(x: number, maxD?: number): [number, number];
+  dump(): string;
+  recipesToText(data: Pick<Save, 'items' | 'facs' | 'recs'>): string;
+  parseRecipes(
+    data: Pick<Save, 'items' | 'facs' | 'recs'>,
+    text: string,
+  ): { log: { added: number; updated: number; newItems: string[]; errors: string[] }; items: unknown[]; recs: unknown[] };
   layoutWith(
     st: RefSolveState,
     item: string,
@@ -143,6 +149,16 @@ export function loadReference(): ReferenceApi {
   const planStart = js.indexOf('function toFrac(');
   const planEnd = js.indexOf('/* ── 盤面メトリクス', planStart);
   if (planStart < 0 || planEnd < 0) throw new Error('プランナーの切り出しに失敗しました');
+  // §12 の「まとめて入力」の読み書き
+  const bulkStart = js.indexOf('function recipesToText(');
+  const bulkEnd = js.indexOf('const REGION_PRESETS', bulkStart);
+  if (bulkStart < 0 || bulkEnd < 0) throw new Error('まとめて入力の切り出しに失敗しました');
+
+  // §8 の保存（dump）。「現行ファイル」を作るのに使う
+  const dumpStart = js.indexOf('const dump =');
+  const dumpEnd = js.indexOf('function repairBelts(', dumpStart);
+  if (dumpStart < 0 || dumpEnd < 0) throw new Error('dump の切り出しに失敗しました');
+
   /* 盤面メトリクス・自動配置・ブロック方式（§11 まで）。
      unitOf / LAY_VARIANTS / captureBlock / autoLayoutBlocks がこの範囲に入る */
   const layStart = planEnd;
@@ -158,7 +174,11 @@ export function loadReference(): ReferenceApi {
     '\n' +
     js.slice(planStart, planEnd) +
     '\n' +
-    js.slice(layStart, layEnd);
+    js.slice(layStart, layEnd) +
+    '\n' +
+    js.slice(dumpStart, dumpEnd) +
+    '\n' +
+    js.slice(bulkStart, bulkEnd);
 
   const src = `
     "use strict";
@@ -237,6 +257,20 @@ export function loadReference(): ReferenceApi {
         return unitOf(item, choice||{});
       },
       toFrac: function(x, maxD){ return toFrac(x, maxD); },
+      /* 現行アプリが書き出すのと同じ JSON 文字列 */
+      dump: function(){ return dump(); },
+      /* 「まとめて入力」の書き出しと読み込み */
+      recipesToText: function(data){
+        D.items = data.items; D.facs = data.facs; D.recs = data.recs;
+        reindex();
+        return recipesToText();
+      },
+      parseRecipes: function(data, text){
+        D.items = data.items; D.facs = data.facs; D.recs = data.recs;
+        reindex();
+        var log = parseRecipes(text);
+        return {log: log, items: D.items, recs: D.recs};
+      },
       /* 目標を立てて盤面へ配置し、そのままソルバーを回す。
          §7 の回帰ケースはこの一連の流れの結果を見るもの */
       layoutWith: function(st, item, rate, choice, useBlocks){
