@@ -45,6 +45,29 @@ export interface ReferenceApi {
   ): RefPlanResult;
   unitOf(st: RefSolveState, item: string, choice?: Record<string, string | undefined>): number | null;
   toFrac(x: number, maxD?: number): [number, number];
+  layoutWith(
+    st: RefSolveState,
+    item: string,
+    rate: number,
+    choice?: Record<string, string | undefined>,
+    useBlocks?: boolean,
+  ): RefLayoutResult;
+}
+
+export interface RefLayoutResult {
+  layout: { failed: number; made: number; overflow: boolean; mode: string; blocks: number; unit: number; gens: number };
+  nodes: Node[];
+  belts: Belt[];
+  gw: number;
+  gh: number;
+  gen: number;
+  cons: number;
+  pf: number;
+  ship: number;
+  core: Record<string, { ship: number; draw: number; net: number }>;
+  ratio: Record<string, number>;
+  diag: { lv: string; t: string }[];
+  metrics: { cells: number; facCells: number; beltCells: number; bbox: number; avgUtil: number; machines: number };
 }
 
 export interface RefPlanResult {
@@ -120,10 +143,11 @@ export function loadReference(): ReferenceApi {
   const planStart = js.indexOf('function toFrac(');
   const planEnd = js.indexOf('/* ── 盤面メトリクス', planStart);
   if (planStart < 0 || planEnd < 0) throw new Error('プランナーの切り出しに失敗しました');
-  // §11 のブロック方式から unitOf だけ
-  const unitStart = js.indexOf('function unitOf(');
-  const unitEnd = js.indexOf('const LAY_VARIANTS', unitStart);
-  if (unitStart < 0 || unitEnd < 0) throw new Error('unitOf の切り出しに失敗しました');
+  /* 盤面メトリクス・自動配置・ブロック方式（§11 まで）。
+     unitOf / LAY_VARIANTS / captureBlock / autoLayoutBlocks がこの範囲に入る */
+  const layStart = planEnd;
+  const layEnd = js.indexOf('/* ── 生産目標プランナー UI', layStart);
+  if (layEnd < 0) throw new Error('レイアウトの切り出しに失敗しました');
 
   const body =
     js.slice(start, end) +
@@ -134,7 +158,7 @@ export function loadReference(): ReferenceApi {
     '\n' +
     js.slice(planStart, planEnd) +
     '\n' +
-    js.slice(unitStart, unitEnd);
+    js.slice(layStart, layEnd);
 
   const src = `
     "use strict";
@@ -212,7 +236,45 @@ export function loadReference(): ReferenceApi {
         reindex();
         return unitOf(item, choice||{});
       },
-      toFrac: function(x, maxD){ return toFrac(x, maxD); }
+      toFrac: function(x, maxD){ return toFrac(x, maxD); },
+      /* 目標を立てて盤面へ配置し、そのままソルバーを回す。
+         §7 の回帰ケースはこの一連の流れの結果を見るもの */
+      layoutWith: function(st, item, rate, choice, useBlocks){
+        D.areas = st.areas; D.cur = st.cur|0;
+        D.nodes = []; D.belts = [];
+        D.field = st.field || (D.areas[st.cur|0] && D.areas[st.cur|0].field) || [];
+        D.meta.basePower = st.basePower;
+        D.meta.genRec = st.genRec || undefined;
+        D.meta.autoGrow = true;
+        setBoard(st.w || 80, st.h || 56);
+        uidSeq = 1;
+        reindex();
+        var plan = buildPlan(item, rate, choice||{}, {});
+        var r = null;
+        if(useBlocks !== false){
+          try{ r = autoLayoutBlocks(plan, choice||{}); }catch(e){ r = null; }
+          if(r && r.failed > 0){
+            var keep = {nodes:D.nodes, belts:D.belts, gw:GW, gh:GH, seq:uidSeq};
+            D.nodes=[]; D.belts=[];
+            var r2 = autoLayout(plan);
+            if(r2.failed < r.failed){ r = r2; }
+            else { D.nodes=keep.nodes; D.belts=keep.belts; setBoard(keep.gw,keep.gh); uidSeq=keep.seq; }
+          }
+        }
+        if(!r) r = autoLayout(plan);
+        var a = D.areas[D.cur];
+        if(a){ a.nodes = D.nodes; a.belts = D.belts; a.field = D.field; }
+        solve();
+        return {
+          layout: {failed:r.failed, made:r.made, overflow:!!r.overflow,
+                   mode:r.mode||'line', blocks:r.blocks||0, unit:r.unit||0, gens:r.gens||0},
+          nodes: D.nodes, belts: D.belts, gw: GW, gh: GH,
+          gen: RES.gen, cons: RES.cons, pf: RES.pf,
+          ship: (RES.core[item]||{}).ship || 0,
+          core: RES.core, ratio: RES.ratio, diag: RES.diag,
+          metrics: boardMetrics()
+        };
+      }
     };
   `;
 

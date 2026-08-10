@@ -131,6 +131,21 @@ export class Dataset {
     return this.item(itemId)?.color ?? '#888';
   }
 
+  /**
+   * 口の数（既定値を補ったもの）。
+   *
+   * 初期データには nIn / nOut を持たない設備がある（粉砕機・組立機・成形機など）。
+   * 参照実装は reindex() の中で facDefaults がそれらを書き込んでいたので、
+   * 以降のコードは常に値が入っている前提で書かれている。
+   * こちらは設備定義を書き換えないぶん、読むときに既定値を補う必要がある。
+   * ここを素の f.nIn で読むと、分流器・合流器の要否判定がずれる。
+   */
+  portCounts(facId: string | null | undefined): { nIn: number; nOut: number; inSide: Side; outSide: Side } {
+    const f = this.fac(facId);
+    if (!f) return { nIn: 0, nOut: 0, inSide: 3, outSide: 1 };
+    return defaultPortCounts(f);
+  }
+
   /** 設備のポート配置。設備定義は編集されるまで変わらないので都度キャッシュする */
   ports(facId: string): readonly Port[] {
     const hit = this.portCache.get(facId);
