@@ -1,0 +1,2345 @@
+{
+ "meta": {
+  "name": "四号谷地 プラン1",
+  "ver": 2,
+  "basePower": 240,
+  "autoGrow": true
+ },
+ "items": [
+  {
+   "id": "ore_gen",
+   "name": "源石鉱物",
+   "cat": "鉱物",
+   "color": "#8FA6B2",
+   "phase": "solid"
+  },
+  {
+   "id": "ore_blue",
+   "name": "青鉄鉱物",
+   "cat": "鉱物",
+   "color": "#6FA8C8",
+   "phase": "solid"
+  },
+  {
+   "id": "ore_pur",
+   "name": "紫晶鉱物",
+   "cat": "鉱物",
+   "color": "#B58BD6",
+   "phase": "solid"
+  },
+  {
+   "id": "ore_red",
+   "name": "赤銅鉱物",
+   "cat": "鉱物",
+   "color": "#C0674A",
+   "phase": "solid"
+  },
+  {
+   "id": "soba",
+   "name": "蕎花",
+   "cat": "植物",
+   "color": "#8FD08A",
+   "phase": "solid"
+  },
+  {
+   "id": "sand",
+   "name": "サンドリーフ",
+   "cat": "植物",
+   "color": "#D8C48A",
+   "phase": "solid"
+  },
+  {
+   "id": "kinso",
+   "name": "錦草",
+   "cat": "植物",
+   "color": "#C9D67A",
+   "phase": "solid"
+  },
+  {
+   "id": "mebari",
+   "name": "芽針",
+   "cat": "植物",
+   "color": "#7FBF9A",
+   "phase": "solid"
+  },
+  {
+   "id": "haimugi",
+   "name": "灰麦",
+   "cat": "植物",
+   "color": "#BFB89A",
+   "phase": "solid"
+  },
+  {
+   "id": "nigaha",
+   "name": "苦葉椒",
+   "cat": "植物",
+   "color": "#9ABF6A",
+   "phase": "solid"
+  },
+  {
+   "id": "citrome",
+   "name": "シトローム",
+   "cat": "植物",
+   "color": "#E0C060",
+   "phase": "solid"
+  },
+  {
+   "id": "aketon",
+   "name": "アケトン樹木",
+   "cat": "植物",
+   "color": "#A08050",
+   "phase": "solid"
+  },
+  {
+   "id": "gyokuyo",
+   "name": "玉葉人参",
+   "cat": "植物",
+   "color": "#D89A6A",
+   "phase": "solid"
+  },
+  {
+   "id": "kinseki",
+   "name": "金石稲",
+   "cat": "植物",
+   "color": "#D6C060",
+   "phase": "solid"
+  },
+  {
+   "id": "talos",
+   "name": "タロス茸",
+   "cat": "植物",
+   "color": "#C08FA0",
+   "phase": "solid"
+  },
+  {
+   "id": "akayari",
+   "name": "赤槍葉",
+   "cat": "植物",
+   "color": "#D07070",
+   "phase": "solid"
+  },
+  {
+   "id": "seed_soba",
+   "name": "蕎花の種",
+   "cat": "種",
+   "color": "#7FB07A",
+   "phase": "solid"
+  },
+  {
+   "id": "seed_sand",
+   "name": "サンドリーフの種",
+   "cat": "種",
+   "color": "#A8B87A",
+   "phase": "solid"
+  },
+  {
+   "id": "seed_kinso",
+   "name": "錦草の種",
+   "cat": "種",
+   "color": "#A9B65A",
+   "phase": "solid"
+  },
+  {
+   "id": "seed_mebari",
+   "name": "芽針の種",
+   "cat": "種",
+   "color": "#6F9F8A",
+   "phase": "solid"
+  },
+  {
+   "id": "pw_soba",
+   "name": "蕎花粉末",
+   "cat": "粉末",
+   "color": "#8FD0B0",
+   "phase": "solid"
+  },
+  {
+   "id": "pw_kinso",
+   "name": "錦草粉末",
+   "cat": "粉末",
+   "color": "#B9C77A",
+   "phase": "solid"
+  },
+  {
+   "id": "pw_coal",
+   "name": "炭塊粉末",
+   "cat": "粉末",
+   "color": "#6E6E6E",
+   "phase": "solid"
+  },
+  {
+   "id": "pw_ore",
+   "name": "鉱物粉末",
+   "conf": "guess",
+   "cat": "粉末",
+   "color": "#C7B9A0",
+   "phase": "solid"
+  },
+  {
+   "id": "pw_gen",
+   "name": "高密度源石粉末",
+   "cat": "粉末",
+   "color": "#A89A8C",
+   "phase": "solid"
+  },
+  {
+   "id": "pw_sand",
+   "name": "サンドリーフ粉末",
+   "cat": "粉末",
+   "color": "#D8CBA0",
+   "phase": "solid"
+  },
+  {
+   "id": "shell",
+   "name": "結晶外殻",
+   "cat": "加工材",
+   "color": "#7FD4E8",
+   "phase": "solid"
+  },
+  {
+   "id": "ingot",
+   "name": "精錬材",
+   "conf": "guess",
+   "cat": "加工材",
+   "color": "#9FB0B8",
+   "phase": "solid"
+  },
+  {
+   "id": "bot_pur",
+   "name": "紫晶製ボトル",
+   "cat": "加工材",
+   "color": "#C98BD6",
+   "phase": "solid"
+  },
+  {
+   "id": "bot_blue",
+   "name": "青鉄製ボトル",
+   "cat": "加工材",
+   "color": "#7FB8D8",
+   "phase": "solid"
+  },
+  {
+   "id": "part_fe",
+   "name": "鉄製部品",
+   "cat": "部品",
+   "color": "#A0A8AE",
+   "phase": "solid"
+  },
+  {
+   "id": "part_hi",
+   "name": "高晶部品",
+   "cat": "部品",
+   "color": "#8FD8E8",
+   "phase": "solid"
+  },
+  {
+   "id": "part_cu",
+   "name": "焔銅部品",
+   "cat": "部品",
+   "color": "#D08A5A",
+   "phase": "solid"
+  },
+  {
+   "id": "part_eq",
+   "name": "焔銅装備部品",
+   "cat": "部品",
+   "color": "#E0A070",
+   "phase": "solid"
+  },
+  {
+   "id": "core_sep",
+   "name": "分離コア",
+   "cat": "部品",
+   "color": "#9AA8E0",
+   "phase": "solid"
+  },
+  {
+   "id": "tank_cu",
+   "name": "赤銅圧力タンク",
+   "cat": "部品",
+   "color": "#C07050",
+   "phase": "solid"
+  },
+  {
+   "id": "stone_kn",
+   "name": "協約紋石",
+   "cat": "部品",
+   "color": "#D0C090",
+   "phase": "solid"
+  },
+  {
+   "id": "ingot_red",
+   "name": "赤銅塊",
+   "cat": "加工材",
+   "color": "#B86A4A",
+   "phase": "solid"
+  },
+  {
+   "id": "crystal",
+   "name": "壌晶",
+   "cat": "加工材",
+   "color": "#9C8FD0",
+   "phase": "solid"
+  },
+  {
+   "id": "part_red",
+   "name": "赤銅部品",
+   "cat": "部品",
+   "color": "#C07858",
+   "phase": "solid"
+  },
+  {
+   "id": "part_sca",
+   "name": "緋銅部品",
+   "cat": "部品",
+   "color": "#D05A4A",
+   "phase": "solid"
+  },
+  {
+   "id": "eq_red",
+   "name": "赤銅装備部品",
+   "cat": "部品",
+   "color": "#D08A6A",
+   "phase": "solid"
+  },
+  {
+   "id": "eq_sca",
+   "name": "緋銅装備部品",
+   "cat": "部品",
+   "color": "#E07060",
+   "phase": "solid"
+  },
+  {
+   "id": "eq_soku",
+   "name": "息壌装備部品",
+   "cat": "部品",
+   "color": "#B0A0D8",
+   "phase": "solid"
+  },
+  {
+   "id": "sokuj",
+   "name": "息壌",
+   "cat": "息壌",
+   "color": "#B0A0D0",
+   "phase": "solid"
+  },
+  {
+   "id": "sokuj_l",
+   "name": "液化息壌",
+   "cat": "息壌",
+   "color": "#9080C0",
+   "phase": "liquid"
+  },
+  {
+   "id": "sokuj_h",
+   "name": "重息壌",
+   "cat": "息壌",
+   "color": "#7A68B0",
+   "phase": "solid"
+  },
+  {
+   "id": "sokuj_hl",
+   "name": "液化重息壌",
+   "cat": "息壌",
+   "color": "#6A58A0",
+   "phase": "liquid"
+  },
+  {
+   "id": "cap1",
+   "name": "蕎花カプセルⅠ",
+   "cat": "製品",
+   "color": "#8FD0B0",
+   "phase": "solid"
+  },
+  {
+   "id": "cap2",
+   "name": "蕎花カプセルⅡ",
+   "cat": "製品",
+   "color": "#6FC0A0",
+   "phase": "solid"
+  },
+  {
+   "id": "batS",
+   "name": "小容量谷地バッテリー",
+   "cat": "バッテリー",
+   "color": "#F0A93C",
+   "phase": "solid"
+  },
+  {
+   "id": "batM",
+   "name": "中容量谷地バッテリー",
+   "cat": "バッテリー",
+   "color": "#F2B840",
+   "phase": "solid"
+  },
+  {
+   "id": "batL",
+   "name": "大容量谷地バッテリー",
+   "cat": "バッテリー",
+   "color": "#F2C14E",
+   "phase": "solid"
+  },
+  {
+   "id": "wbatS",
+   "name": "小容量武陵バッテリー",
+   "cat": "バッテリー",
+   "color": "#E08A4C",
+   "phase": "solid"
+  },
+  {
+   "id": "wbatM",
+   "name": "中容量武陵バッテリー",
+   "cat": "バッテリー",
+   "color": "#E89A50",
+   "phase": "solid"
+  },
+  {
+   "id": "inj1",
+   "name": "芽針注射剤Ⅰ",
+   "cat": "製品",
+   "color": "#7FBF9A",
+   "phase": "solid"
+  },
+  {
+   "id": "inj2",
+   "name": "芽針注射剤Ⅱ",
+   "cat": "製品",
+   "color": "#6FAF8A",
+   "phase": "solid"
+  },
+  {
+   "id": "soda1",
+   "name": "錦草ソーダⅠ",
+   "cat": "製品",
+   "color": "#B9C77A",
+   "phase": "solid"
+  },
+  {
+   "id": "soda2",
+   "name": "錦草ソーダⅡ",
+   "cat": "製品",
+   "color": "#A9B76A",
+   "phase": "solid"
+  },
+  {
+   "id": "cap3",
+   "name": "蕎花カプセルⅢ",
+   "cat": "製品",
+   "color": "#5FB090",
+   "phase": "solid"
+  },
+  {
+   "id": "water",
+   "name": "水",
+   "cat": "液体",
+   "color": "#5AA9E6",
+   "phase": "liquid"
+  },
+  {
+   "id": "waste",
+   "name": "汚水",
+   "cat": "液体",
+   "color": "#7A8B6A",
+   "phase": "liquid"
+  },
+  {
+   "id": "sludge",
+   "name": "不活性壌晶廃液",
+   "cat": "液体",
+   "color": "#8A9AB0",
+   "phase": "liquid"
+  },
+  {
+   "id": "sludge2",
+   "name": "壌晶廃液",
+   "cat": "液体",
+   "color": "#9AA8BE",
+   "phase": "liquid"
+  },
+  {
+   "id": "acid",
+   "name": "沈殿酸",
+   "cat": "液体",
+   "color": "#A8D05A",
+   "phase": "liquid"
+  },
+  {
+   "id": "gas_in",
+   "name": "不活性ガス",
+   "cat": "ガス",
+   "color": "#9AA6B8",
+   "phase": "gas"
+  },
+  {
+   "id": "gas_soku",
+   "name": "息壌ガス",
+   "cat": "ガス",
+   "color": "#C58BD6",
+   "phase": "gas"
+  },
+  {
+   "id": "gas_acid",
+   "name": "酸性ガス",
+   "cat": "ガス",
+   "color": "#B8D060",
+   "phase": "gas"
+  }
+ ],
+ "facs": [
+  {
+   "id": "miner0",
+   "name": "携帯式採鉱機",
+   "kind": "field",
+   "w": 1,
+   "h": 1,
+   "power": 0,
+   "gen": 0,
+   "field": true,
+   "takes": [
+    "ore_gen"
+   ]
+  },
+  {
+   "id": "miner1",
+   "name": "電動採鉱機",
+   "kind": "field",
+   "w": 2,
+   "h": 2,
+   "power": 0,
+   "gen": 0,
+   "field": true,
+   "takes": [
+    "ore_gen",
+    "ore_blue"
+   ]
+  },
+  {
+   "id": "miner2",
+   "name": "電動採鉱機Ⅱ",
+   "kind": "field",
+   "w": 2,
+   "h": 2,
+   "power": 0,
+   "gen": 0,
+   "field": true,
+   "takes": [
+    "ore_gen",
+    "ore_blue",
+    "ore_pur",
+    "ore_red"
+   ]
+  },
+  {
+   "id": "hydro",
+   "name": "水力採掘機",
+   "kind": "field",
+   "w": 3,
+   "h": 3,
+   "power": 0,
+   "gen": 0,
+   "field": true,
+   "takes": [
+    "ore_gen",
+    "ore_blue"
+   ]
+  },
+  {
+   "id": "pump",
+   "name": "液体ポンプ",
+   "kind": "field",
+   "w": 2,
+   "h": 2,
+   "power": 0,
+   "gen": 0,
+   "field": true,
+   "takes": [
+    "water"
+   ]
+  },
+  {
+   "id": "pump2",
+   "name": "耐酸性液体ポンプⅡ",
+   "kind": "field",
+   "w": 2,
+   "h": 2,
+   "power": 0,
+   "gen": 0,
+   "field": true,
+   "takes": [
+    "water"
+   ]
+  },
+  {
+   "id": "gaspump",
+   "name": "ガス収集ポンプ",
+   "kind": "field",
+   "w": 2,
+   "h": 2,
+   "power": 0,
+   "gen": 0,
+   "field": true,
+   "takes": [
+    "gas_in",
+    "gas_soku"
+   ]
+  },
+  {
+   "id": "minerW",
+   "name": "水式鉱物採掘機",
+   "kind": "field",
+   "w": 3,
+   "h": 3,
+   "power": 0,
+   "gen": 0,
+   "field": true,
+   "takes": [
+    "ore_red"
+   ]
+  },
+  {
+   "id": "wh_out",
+   "name": "倉庫搬出口",
+   "kind": "source",
+   "w": 1,
+   "h": 1,
+   "power": 0,
+   "gen": 0,
+   "tap": true,
+   "nIn": 0,
+   "nOut": 1
+  },
+  {
+   "id": "wh_in",
+   "name": "倉庫搬入口",
+   "kind": "sink",
+   "w": 1,
+   "h": 1,
+   "power": 0,
+   "gen": 0,
+   "nIn": 4,
+   "nOut": 0
+  },
+  {
+   "id": "box",
+   "name": "協約貯蔵箱",
+   "kind": "sink",
+   "w": 2,
+   "h": 2,
+   "power": 0,
+   "gen": 0,
+   "nIn": 4,
+   "nOut": 0
+  },
+  {
+   "id": "tank",
+   "name": "液体貯蔵タンク",
+   "kind": "sink",
+   "w": 2,
+   "h": 2,
+   "power": 0,
+   "gen": 0,
+   "nIn": 2,
+   "nOut": 0,
+   "phase": "liquid"
+  },
+  {
+   "id": "gastank",
+   "name": "ガス貯蔵タンク",
+   "kind": "sink",
+   "w": 2,
+   "h": 2,
+   "power": 0,
+   "gen": 0,
+   "nIn": 2,
+   "nOut": 0,
+   "phase": "gas"
+  },
+  {
+   "id": "smelt",
+   "name": "精錬炉",
+   "kind": "process",
+   "w": 2,
+   "h": 2,
+   "power": 24,
+   "gen": 0,
+   "nIn": 2,
+   "nOut": 2
+  },
+  {
+   "id": "crush",
+   "name": "粉砕機",
+   "kind": "process",
+   "w": 2,
+   "h": 2,
+   "power": 24,
+   "gen": 0
+  },
+  {
+   "id": "assy",
+   "name": "組立機",
+   "kind": "process",
+   "w": 2,
+   "h": 2,
+   "power": 24,
+   "gen": 0
+  },
+  {
+   "id": "mold",
+   "name": "成形機",
+   "kind": "process",
+   "w": 2,
+   "h": 2,
+   "power": 24,
+   "gen": 0
+  },
+  {
+   "id": "farm",
+   "name": "栽培機",
+   "kind": "process",
+   "w": 3,
+   "h": 3,
+   "power": 16,
+   "gen": 0
+  },
+  {
+   "id": "seeder",
+   "name": "採種機",
+   "kind": "process",
+   "w": 2,
+   "h": 2,
+   "power": 16,
+   "gen": 0
+  },
+  {
+   "id": "wtreat",
+   "name": "排水処理機",
+   "kind": "process",
+   "w": 3,
+   "h": 3,
+   "power": 30,
+   "gen": 0,
+   "nIn": 2,
+   "nOut": 2
+  },
+  {
+   "id": "equip",
+   "name": "装備部品加工機",
+   "kind": "process",
+   "w": 3,
+   "h": 3,
+   "power": 36,
+   "gen": 0
+  },
+  {
+   "id": "fill",
+   "name": "充填機",
+   "kind": "process",
+   "w": 2,
+   "h": 2,
+   "power": 24,
+   "gen": 0,
+   "nIn": 3,
+   "nOut": 1
+  },
+  {
+   "id": "pack",
+   "name": "包装機",
+   "kind": "process",
+   "w": 2,
+   "h": 2,
+   "power": 24,
+   "gen": 0,
+   "nIn": 3,
+   "nOut": 1
+  },
+  {
+   "id": "polish",
+   "name": "研磨機",
+   "kind": "process",
+   "w": 2,
+   "h": 2,
+   "power": 24,
+   "gen": 0
+  },
+  {
+   "id": "chem",
+   "name": "化学反応炉",
+   "kind": "process",
+   "w": 3,
+   "h": 3,
+   "power": 40,
+   "gen": 0,
+   "nIn": 3,
+   "nOut": 2
+  },
+  {
+   "id": "chemL",
+   "name": "大型化学反応炉",
+   "kind": "process",
+   "w": 4,
+   "h": 4,
+   "power": 72,
+   "gen": 0,
+   "nIn": 4,
+   "nOut": 2
+  },
+  {
+   "id": "tenyu",
+   "name": "天有洪炉",
+   "kind": "process",
+   "w": 4,
+   "h": 4,
+   "power": 80,
+   "gen": 0,
+   "max": 12,
+   "nIn": 3,
+   "nOut": 2
+  },
+  {
+   "id": "refine",
+   "name": "精製機",
+   "kind": "process",
+   "w": 3,
+   "h": 3,
+   "power": 40,
+   "gen": 0,
+   "nIn": 3,
+   "nOut": 3
+  },
+  {
+   "id": "dismant",
+   "name": "解体機",
+   "kind": "process",
+   "w": 2,
+   "h": 2,
+   "power": 24,
+   "gen": 0
+  },
+  {
+   "id": "g2l",
+   "name": "ガス液体転換機",
+   "kind": "process",
+   "w": 3,
+   "h": 3,
+   "power": 40,
+   "gen": 0,
+   "nIn": 3,
+   "nOut": 2
+  },
+  {
+   "id": "g2s",
+   "name": "ガス固体転換機",
+   "kind": "process",
+   "w": 3,
+   "h": 3,
+   "power": 40,
+   "gen": 0,
+   "nIn": 4,
+   "nOut": 2
+  },
+  {
+   "id": "gasrct",
+   "name": "ガス反応装置",
+   "kind": "process",
+   "w": 3,
+   "h": 3,
+   "power": 40,
+   "gen": 0,
+   "nIn": 3,
+   "nOut": 2
+  },
+  {
+   "id": "gasdif",
+   "name": "ガス散布機",
+   "kind": "process",
+   "w": 2,
+   "h": 2,
+   "power": 24,
+   "gen": 0,
+   "env": true
+  },
+  {
+   "id": "split",
+   "name": "分流器",
+   "kind": "logistics",
+   "w": 1,
+   "h": 1,
+   "power": 0,
+   "gen": 0,
+   "split": true,
+   "nIn": 1,
+   "nOut": 3
+  },
+  {
+   "id": "merge",
+   "name": "合流器",
+   "kind": "logistics",
+   "w": 1,
+   "h": 1,
+   "power": 0,
+   "gen": 0,
+   "nIn": 3,
+   "nOut": 1
+  },
+  {
+   "id": "psplit",
+   "name": "パイプ分流器",
+   "kind": "logistics",
+   "w": 1,
+   "h": 1,
+   "power": 0,
+   "gen": 0,
+   "split": true,
+   "nIn": 1,
+   "nOut": 3,
+   "phase": "fluid"
+  },
+  {
+   "id": "pmerge",
+   "name": "パイプ合流器",
+   "kind": "logistics",
+   "w": 1,
+   "h": 1,
+   "power": 0,
+   "gen": 0,
+   "nIn": 3,
+   "nOut": 1,
+   "phase": "fluid"
+  },
+  {
+   "id": "gen",
+   "name": "発電機",
+   "kind": "generator",
+   "w": 2,
+   "h": 2,
+   "power": 0,
+   "gen": 120,
+   "nIn": 1,
+   "nOut": 0
+  },
+  {
+   "id": "pole",
+   "name": "送電スタンド",
+   "kind": "power",
+   "w": 1,
+   "h": 1,
+   "power": 0,
+   "gen": 0,
+   "nIn": 0,
+   "nOut": 0
+  },
+  {
+   "id": "relay",
+   "name": "中継タワー",
+   "kind": "power",
+   "w": 1,
+   "h": 1,
+   "power": 0,
+   "gen": 0,
+   "nIn": 0,
+   "nOut": 0
+  }
+ ],
+ "recs": [
+  {
+   "id": "r_seed_sand",
+   "name": "採種：サンドリーフの種",
+   "conf": "ok",
+   "fac": "seeder",
+   "sec": 6,
+   "in": [
+    {
+     "item": "sand",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "seed_sand",
+     "qty": 2
+    }
+   ]
+  },
+  {
+   "id": "r_grow_sand",
+   "name": "栽培：サンドリーフ",
+   "conf": "ok",
+   "fac": "farm",
+   "sec": 6,
+   "in": [
+    {
+     "item": "seed_sand",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "sand",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_pw_coal",
+   "name": "精錬：炭塊粉末",
+   "conf": "ok",
+   "fac": "smelt",
+   "sec": 4,
+   "in": [
+    {
+     "item": "pw_kinso",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "pw_coal",
+     "qty": 2
+    }
+   ]
+  },
+  {
+   "id": "r_cap2",
+   "name": "充填：蕎花カプセルⅡ",
+   "conf": "part",
+   "fac": "fill",
+   "sec": 12,
+   "in": [
+    {
+     "item": "bot_blue",
+     "qty": 1
+    },
+    {
+     "item": "pw_soba",
+     "qty": 2
+    }
+   ],
+   "out": [
+    {
+     "item": "cap2",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_batL",
+   "name": "包装：大容量谷地バッテリー",
+   "conf": "part",
+   "fac": "pack",
+   "sec": 20,
+   "in": [
+    {
+     "item": "batM",
+     "qty": 2
+    },
+    {
+     "item": "sand",
+     "qty": 2
+    }
+   ],
+   "out": [
+    {
+     "item": "batL",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_bot_pur",
+   "name": "成形：紫晶製ボトル",
+   "conf": "part",
+   "fac": "mold",
+   "sec": 6,
+   "in": [
+    {
+     "item": "ore_pur",
+     "qty": 2
+    }
+   ],
+   "out": [
+    {
+     "item": "bot_pur",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_bot_blue",
+   "name": "成形：青鉄製ボトル",
+   "conf": "part",
+   "fac": "mold",
+   "sec": 6,
+   "in": [
+    {
+     "item": "ore_blue",
+     "qty": 2
+    }
+   ],
+   "out": [
+    {
+     "item": "bot_blue",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_cap1",
+   "name": "充填：蕎花カプセルⅠ",
+   "conf": "part",
+   "fac": "fill",
+   "sec": 12,
+   "in": [
+    {
+     "item": "bot_pur",
+     "qty": 1
+    },
+    {
+     "item": "pw_soba",
+     "qty": 2
+    }
+   ],
+   "out": [
+    {
+     "item": "cap1",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_seed_soba",
+   "name": "採種：蕎花の種",
+   "conf": "guess",
+   "fac": "seeder",
+   "sec": 6,
+   "in": [
+    {
+     "item": "soba",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "seed_soba",
+     "qty": 2
+    }
+   ]
+  },
+  {
+   "id": "r_grow_soba",
+   "name": "栽培：蕎花",
+   "conf": "guess",
+   "fac": "farm",
+   "sec": 6,
+   "in": [
+    {
+     "item": "seed_soba",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "soba",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_seed_kinso",
+   "name": "採種：錦草の種",
+   "conf": "guess",
+   "fac": "seeder",
+   "sec": 6,
+   "in": [
+    {
+     "item": "kinso",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "seed_kinso",
+     "qty": 2
+    }
+   ]
+  },
+  {
+   "id": "r_grow_kinso",
+   "name": "栽培：錦草",
+   "conf": "guess",
+   "fac": "farm",
+   "sec": 6,
+   "in": [
+    {
+     "item": "seed_kinso",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "kinso",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_pw_soba",
+   "name": "粉砕：蕎花粉末",
+   "conf": "guess",
+   "fac": "crush",
+   "sec": 4,
+   "in": [
+    {
+     "item": "soba",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "pw_soba",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_pw_kinso",
+   "name": "粉砕：錦草粉末",
+   "conf": "guess",
+   "fac": "crush",
+   "sec": 4,
+   "in": [
+    {
+     "item": "kinso",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "pw_kinso",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_pw_ore",
+   "name": "粉砕：鉱物粉末",
+   "conf": "guess",
+   "fac": "crush",
+   "sec": 4,
+   "in": [
+    {
+     "item": "ore_blue",
+     "qty": 2
+    }
+   ],
+   "out": [
+    {
+     "item": "pw_ore",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_shell",
+   "name": "精錬：結晶外殻",
+   "conf": "guess",
+   "fac": "smelt",
+   "sec": 6,
+   "in": [
+    {
+     "item": "ore_gen",
+     "qty": 3
+    }
+   ],
+   "out": [
+    {
+     "item": "shell",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_ingot",
+   "name": "精錬：精錬材",
+   "conf": "guess",
+   "fac": "smelt",
+   "sec": 4,
+   "in": [
+    {
+     "item": "ore_blue",
+     "qty": 2
+    }
+   ],
+   "out": [
+    {
+     "item": "ingot",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_part_fe",
+   "name": "組立：鉄製部品",
+   "conf": "guess",
+   "fac": "assy",
+   "sec": 6,
+   "in": [
+    {
+     "item": "ingot",
+     "qty": 2
+    }
+   ],
+   "out": [
+    {
+     "item": "part_fe",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_part_hi",
+   "name": "組立：高晶部品",
+   "conf": "guess",
+   "fac": "assy",
+   "sec": 8,
+   "in": [
+    {
+     "item": "shell",
+     "qty": 2
+    },
+    {
+     "item": "part_fe",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "part_hi",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_batS",
+   "name": "包装：小容量谷地バッテリー",
+   "conf": "guess",
+   "fac": "pack",
+   "sec": 10,
+   "in": [
+    {
+     "item": "pw_ore",
+     "qty": 2
+    }
+   ],
+   "out": [
+    {
+     "item": "batS",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_batM",
+   "name": "包装：中容量谷地バッテリー",
+   "conf": "guess",
+   "fac": "pack",
+   "sec": 16,
+   "in": [
+    {
+     "item": "batS",
+     "qty": 2
+    },
+    {
+     "item": "part_fe",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "batM",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_waste",
+   "name": "排水処理：水",
+   "conf": "guess",
+   "fac": "wtreat",
+   "sec": 6,
+   "in": [
+    {
+     "item": "waste",
+     "qty": 2
+    }
+   ],
+   "out": [
+    {
+     "item": "water",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_ingot_red",
+   "name": "精錬：赤銅塊",
+   "conf": "part",
+   "fac": "smelt",
+   "sec": 2,
+   "in": [
+    {
+     "item": "ore_red",
+     "qty": 1
+    },
+    {
+     "item": "water",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "ingot_red",
+     "qty": 1
+    },
+    {
+     "item": "waste",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_pw_gen",
+   "name": "粉砕：高密度源石粉末",
+   "conf": "part",
+   "fac": "crush",
+   "sec": 2,
+   "in": [
+    {
+     "item": "ore_gen",
+     "qty": 2
+    }
+   ],
+   "out": [
+    {
+     "item": "pw_gen",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_pw_sand",
+   "name": "粉砕：サンドリーフ粉末",
+   "conf": "part",
+   "fac": "crush",
+   "sec": 4,
+   "in": [
+    {
+     "item": "sand",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "pw_sand",
+     "qty": 3
+    }
+   ]
+  },
+  {
+   "id": "r_sokuj2",
+   "name": "天有洪炉：息壌",
+   "conf": "part",
+   "fac": "tenyu",
+   "sec": 2,
+   "in": [
+    {
+     "item": "water",
+     "qty": 2
+    },
+    {
+     "item": "pw_coal",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "sokuj",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_crystalA",
+   "name": "大型化学反応炉：壌晶",
+   "conf": "part",
+   "fac": "chemL",
+   "sec": 4,
+   "in": [
+    {
+     "item": "sokuj",
+     "qty": 2
+    },
+    {
+     "item": "ore_blue",
+     "qty": 1
+    },
+    {
+     "item": "water",
+     "qty": 2
+    },
+    {
+     "item": "waste",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "crystal",
+     "qty": 1
+    },
+    {
+     "item": "sludge",
+     "qty": 2
+    }
+   ]
+  },
+  {
+   "id": "r_crystalB",
+   "name": "精製：壌晶（廃液から）",
+   "conf": "part",
+   "fac": "refine",
+   "sec": 4,
+   "in": [
+    {
+     "item": "sludge",
+     "qty": 8
+    },
+    {
+     "item": "ore_blue",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "crystal",
+     "qty": 1
+    },
+    {
+     "item": "water",
+     "qty": 2
+    },
+    {
+     "item": "waste",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_wbatM",
+   "name": "包装：中容量武陵バッテリー",
+   "conf": "part",
+   "fac": "pack",
+   "sec": 10,
+   "in": [
+    {
+     "item": "crystal",
+     "qty": 5
+    },
+    {
+     "item": "pw_gen",
+     "qty": 20
+    },
+    {
+     "item": "pw_sand",
+     "qty": 5
+    }
+   ],
+   "out": [
+    {
+     "item": "wbatM",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_sokuj_l2",
+   "name": "ガス液体転換：液化息壌",
+   "conf": "part",
+   "fac": "g2l",
+   "sec": 2,
+   "in": [
+    {
+     "item": "sokuj",
+     "qty": 1
+    },
+    {
+     "item": "water",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "sokuj_l",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_gas_soku",
+   "name": "ガス反応：息壌ガス",
+   "conf": "part",
+   "fac": "gasrct",
+   "sec": 2.86,
+   "in": [
+    {
+     "item": "sokuj_l",
+     "qty": 1.286
+    }
+   ],
+   "out": [
+    {
+     "item": "gas_soku",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_gas_acid",
+   "name": "ガス反応：酸性ガス",
+   "conf": "part",
+   "fac": "gasrct",
+   "sec": 10,
+   "in": [
+    {
+     "item": "acid",
+     "qty": 5
+    },
+    {
+     "item": "sokuj_l",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "gas_acid",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_core_sep",
+   "name": "ガス固体転換：分離コア",
+   "conf": "part",
+   "fac": "g2s",
+   "sec": 2,
+   "in": [
+    {
+     "item": "ingot_red",
+     "qty": 1
+    },
+    {
+     "item": "sokuj",
+     "qty": 0.5
+    },
+    {
+     "item": "gas_in",
+     "qty": 0.5
+    }
+   ],
+   "out": [
+    {
+     "item": "core_sep",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_part_cu",
+   "name": "ガス固体転換：焔銅部品",
+   "conf": "part",
+   "fac": "g2s",
+   "sec": 30,
+   "in": [
+    {
+     "item": "ingot_red",
+     "qty": 20
+    },
+    {
+     "item": "core_sep",
+     "qty": 5
+    },
+    {
+     "item": "gas_soku",
+     "qty": 8
+    }
+   ],
+   "out": [
+    {
+     "item": "part_cu",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_part_sca",
+   "name": "ガス固体転換：緋銅部品",
+   "conf": "part",
+   "fac": "g2s",
+   "sec": 40,
+   "in": [
+    {
+     "item": "ingot_red",
+     "qty": 20
+    },
+    {
+     "item": "core_sep",
+     "qty": 5
+    },
+    {
+     "item": "gas_soku",
+     "qty": 4
+    }
+   ],
+   "out": [
+    {
+     "item": "part_sca",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_sokuj_h",
+   "name": "ガス固体転換：重息壌",
+   "conf": "part",
+   "fac": "g2s",
+   "sec": 16.7,
+   "in": [
+    {
+     "item": "sokuj",
+     "qty": 5
+    },
+    {
+     "item": "core_sep",
+     "qty": 2.5
+    },
+    {
+     "item": "gas_soku",
+     "qty": 1.67
+    }
+   ],
+   "out": [
+    {
+     "item": "sokuj_h",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_sokuj_hl",
+   "name": "ガス液体転換：液化重息壌",
+   "conf": "guess",
+   "fac": "g2l",
+   "sec": 4,
+   "in": [
+    {
+     "item": "sokuj_h",
+     "qty": 1
+    },
+    {
+     "item": "water",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "sokuj_hl",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_part_red",
+   "name": "組立：赤銅部品",
+   "conf": "guess",
+   "fac": "assy",
+   "sec": 8,
+   "in": [
+    {
+     "item": "ingot_red",
+     "qty": 4
+    }
+   ],
+   "out": [
+    {
+     "item": "part_red",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_eq_red",
+   "name": "装備部品加工：赤銅装備部品",
+   "conf": "guess",
+   "fac": "equip",
+   "sec": 15,
+   "in": [
+    {
+     "item": "part_red",
+     "qty": 3
+    }
+   ],
+   "out": [
+    {
+     "item": "eq_red",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_eq_cu",
+   "name": "装備部品加工：焔銅装備部品",
+   "conf": "guess",
+   "fac": "equip",
+   "sec": 15,
+   "in": [
+    {
+     "item": "part_cu",
+     "qty": 3
+    }
+   ],
+   "out": [
+    {
+     "item": "part_eq",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_eq_sca",
+   "name": "装備部品加工：緋銅装備部品",
+   "conf": "guess",
+   "fac": "equip",
+   "sec": 15,
+   "in": [
+    {
+     "item": "part_sca",
+     "qty": 3
+    }
+   ],
+   "out": [
+    {
+     "item": "eq_sca",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_eq_soku",
+   "name": "装備部品加工：息壌装備部品",
+   "conf": "guess",
+   "fac": "equip",
+   "sec": 15,
+   "in": [
+    {
+     "item": "sokuj_h",
+     "qty": 2
+    },
+    {
+     "item": "part_red",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "eq_soku",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_wbatS",
+   "name": "包装：小容量武陵バッテリー",
+   "conf": "guess",
+   "fac": "pack",
+   "sec": 10,
+   "in": [
+    {
+     "item": "sokuj",
+     "qty": 2
+    },
+    {
+     "item": "pw_gen",
+     "qty": 4
+    }
+   ],
+   "out": [
+    {
+     "item": "wbatS",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_inj1",
+   "name": "充填：芽針注射剤Ⅰ",
+   "conf": "part",
+   "fac": "fill",
+   "sec": 12,
+   "in": [
+    {
+     "item": "ore_blue",
+     "qty": 2
+    },
+    {
+     "item": "mebari",
+     "qty": 2
+    },
+    {
+     "item": "water",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "inj1",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_inj2",
+   "name": "充填：芽針注射剤Ⅱ",
+   "conf": "guess",
+   "fac": "fill",
+   "sec": 16,
+   "in": [
+    {
+     "item": "ore_red",
+     "qty": 2
+    },
+    {
+     "item": "mebari",
+     "qty": 2
+    },
+    {
+     "item": "water",
+     "qty": 1
+    }
+   ],
+   "out": [
+    {
+     "item": "inj2",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_soda1",
+   "name": "充填：錦草ソーダⅠ",
+   "conf": "part",
+   "fac": "fill",
+   "sec": 20,
+   "in": [
+    {
+     "item": "ore_blue",
+     "qty": 20
+    },
+    {
+     "item": "kinso",
+     "qty": 2
+    },
+    {
+     "item": "water",
+     "qty": 2
+    }
+   ],
+   "out": [
+    {
+     "item": "soda1",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_soda2",
+   "name": "充填：錦草ソーダⅡ",
+   "conf": "guess",
+   "fac": "fill",
+   "sec": 24,
+   "in": [
+    {
+     "item": "ore_red",
+     "qty": 20
+    },
+    {
+     "item": "kinso",
+     "qty": 2
+    },
+    {
+     "item": "water",
+     "qty": 2
+    }
+   ],
+   "out": [
+    {
+     "item": "soda2",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_cap3",
+   "name": "充填：蕎花カプセルⅢ",
+   "conf": "guess",
+   "fac": "fill",
+   "sec": 14,
+   "in": [
+    {
+     "item": "bot_blue",
+     "qty": 1
+    },
+    {
+     "item": "pw_soba",
+     "qty": 3
+    }
+   ],
+   "out": [
+    {
+     "item": "cap3",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "r_gen_w",
+   "name": "発電：小容量武陵バッテリー",
+   "conf": "guess",
+   "fac": "gen",
+   "sec": 40,
+   "in": [
+    {
+     "item": "wbatS",
+     "qty": 1
+    }
+   ],
+   "out": []
+  },
+  {
+   "id": "r_gen",
+   "name": "発電：小容量谷地バッテリー",
+   "conf": "ok",
+   "fac": "gen",
+   "sec": 40,
+   "in": [
+    {
+     "item": "batS",
+     "qty": 1
+    }
+   ],
+   "out": []
+  }
+ ],
+ "areas": [
+  {
+   "field": [
+    {
+     "fac": "miner2",
+     "item": "ore_gen",
+     "count": 4,
+     "rate": 15
+    },
+    {
+     "fac": "miner2",
+     "item": "ore_blue",
+     "count": 4,
+     "rate": 15
+    }
+   ],
+   "nodes": [],
+   "belts": [],
+   "net": {},
+   "w": 80,
+   "h": 56,
+   "id": "a_chusu",
+   "region": "四号谷地",
+   "name": "中枢エリア",
+   "cap": 200,
+   "zip": 20,
+   "combat": 10
+  },
+  {
+   "field": [],
+   "nodes": [],
+   "belts": [],
+   "net": {},
+   "w": 80,
+   "h": 56,
+   "id": "a_tsuro",
+   "region": "四号谷地",
+   "name": "谷地通路",
+   "cap": 100,
+   "zip": 10,
+   "combat": 10
+  },
+  {
+   "field": [],
+   "nodes": [],
+   "belts": [],
+   "net": {},
+   "w": 80,
+   "h": 56,
+   "id": "a_abree",
+   "region": "四号谷地",
+   "name": "アブリー採石場",
+   "cap": 100,
+   "zip": 10,
+   "combat": 10
+  },
+  {
+   "field": [],
+   "nodes": [],
+   "belts": [],
+   "net": {},
+   "w": 80,
+   "h": 56,
+   "id": "a_park",
+   "region": "四号谷地",
+   "name": "源石研究パーク",
+   "cap": 200,
+   "zip": 20,
+   "combat": 10
+  },
+  {
+   "field": [
+    {
+     "fac": "miner2",
+     "item": "ore_pur",
+     "count": 2,
+     "rate": 15
+    }
+   ],
+   "nodes": [],
+   "belts": [],
+   "net": {},
+   "w": 80,
+   "h": 56,
+   "id": "a_mine",
+   "region": "四号谷地",
+   "name": "鉱山エリア",
+   "cap": 220,
+   "zip": 25,
+   "combat": 10
+  },
+  {
+   "field": [],
+   "nodes": [],
+   "belts": [],
+   "net": {},
+   "w": 80,
+   "h": 56,
+   "id": "a_energy",
+   "region": "四号谷地",
+   "name": "エネルギー高地",
+   "cap": 200,
+   "zip": 20,
+   "combat": 10
+  },
+  {
+   "field": [
+    {
+     "fac": "miner2",
+     "item": "ore_gen",
+     "count": 1,
+     "rate": 540
+    },
+    {
+     "fac": "miner2",
+     "item": "ore_blue",
+     "count": 1,
+     "rate": 120
+    },
+    {
+     "fac": "minerW",
+     "item": "ore_red",
+     "count": 1,
+     "rate": 240
+    },
+    {
+     "fac": "pump",
+     "item": "water",
+     "count": 6,
+     "rate": 60
+    }
+   ],
+   "nodes": [],
+   "belts": [],
+   "net": {},
+   "w": 80,
+   "h": 56,
+   "id": "w_jo",
+   "region": "武陵",
+   "name": "武陵城",
+   "cap": 350,
+   "zip": 50,
+   "combat": 15
+  },
+  {
+   "field": [],
+   "nodes": [],
+   "belts": [],
+   "net": {},
+   "w": 80,
+   "h": 56,
+   "id": "w_keigyo",
+   "region": "武陵",
+   "name": "景玉谷",
+   "cap": 210,
+   "zip": 25,
+   "combat": 10
+  },
+  {
+   "field": [],
+   "nodes": [],
+   "belts": [],
+   "net": {},
+   "w": 80,
+   "h": 56,
+   "id": "w_seiha",
+   "region": "武陵",
+   "name": "清波砦",
+   "cap": 160,
+   "zip": 20,
+   "combat": 15
+  },
+  {
+   "field": [
+    {
+     "fac": "minerW",
+     "item": "ore_red",
+     "count": 1,
+     "rate": 120
+    },
+    {
+     "fac": "pump",
+     "item": "water",
+     "count": 2,
+     "rate": 60
+    }
+   ],
+   "nodes": [],
+   "belts": [],
+   "net": {},
+   "w": 80,
+   "h": 56,
+   "id": "w_shuso",
+   "region": "武陵",
+   "name": "首礎",
+   "cap": 180,
+   "zip": 20,
+   "combat": 15
+  },
+  {
+   "field": [],
+   "nodes": [],
+   "belts": [],
+   "net": {},
+   "w": 80,
+   "h": 56,
+   "id": "w_lab",
+   "region": "武陵",
+   "name": "実験区域",
+   "cap": 150,
+   "zip": 20,
+   "combat": 15
+  },
+  {
+   "field": [],
+   "nodes": [],
+   "belts": [],
+   "net": {},
+   "w": 80,
+   "h": 56,
+   "id": "w_zoken",
+   "region": "武陵",
+   "name": "蔵剣谷",
+   "cap": 0,
+   "zip": 0,
+   "combat": 0
+  },
+  {
+   "field": [
+    {
+     "fac": "pump",
+     "item": "water",
+     "count": 12,
+     "rate": 60
+    },
+    {
+     "fac": "farm",
+     "item": "kinso",
+     "count": 6,
+     "rate": 30
+    }
+   ],
+   "nodes": [],
+   "belts": [],
+   "net": {},
+   "w": 80,
+   "h": 56,
+   "id": "w_tenno",
+   "region": "武陵",
+   "name": "天王原",
+   "cap": 0,
+   "zip": 0,
+   "combat": 0
+  },
+  {
+   "field": [
+    {
+     "fac": "gaspump",
+     "item": "gas_in",
+     "count": 1,
+     "rate": 180
+    }
+   ],
+   "nodes": [],
+   "belts": [],
+   "net": {},
+   "w": 80,
+   "h": 56,
+   "id": "w_oryu",
+   "region": "武陵",
+   "name": "応龍関",
+   "cap": 0,
+   "zip": 0,
+   "combat": 0
+  },
+  {
+   "field": [
+    {
+     "fac": "gaspump",
+     "item": "gas_soku",
+     "count": 1,
+     "rate": 100
+    },
+    {
+     "fac": "gaspump",
+     "item": "gas_in",
+     "count": 1,
+     "rate": 40
+    }
+   ],
+   "nodes": [],
+   "belts": [],
+   "net": {},
+   "w": 80,
+   "h": 56,
+   "id": "w_north",
+   "region": "武陵",
+   "name": "北部封鎖区域",
+   "cap": 0,
+   "zip": 0,
+   "combat": 0
+  }
+ ],
+ "cur": 0
+}

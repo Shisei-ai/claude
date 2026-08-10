@@ -1,0 +1,3290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>集成工業プランナー — AIC Layout Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0B1216; --panel:#131E24; --panel2:#0F191F; --sunk:#081014;
+  --line:#23343D; --line-soft:#19262D;
+  --ink:#DCE8EC; --dim:#7B929C; --faint:#4E626B;
+  --mint:#4FD8C2; --amber:#F0A93C; --coral:#E96A5B; --sky:#5AA9E6; --violet:#9092DE; --steel:#93A3AA;
+  --mono:'Chakra Petch',ui-monospace,monospace;
+  --disp:'Chakra Petch','Zen Kaku Gothic New',system-ui,sans-serif;
+  --body:'Zen Kaku Gothic New','Hiragino Sans','Noto Sans JP',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);
+  font-size:13px;line-height:1.6;overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:500}
+
+/* ── shell ───────────────────────────── */
+#app{display:flex;flex-direction:column;height:100%}
+header{
+  display:flex;align-items:center;gap:14px;padding:0 14px;height:52px;flex:none;
+  background:linear-gradient(180deg,#16232A,#101A20);border-bottom:1px solid var(--line);
+}
+.brand{display:flex;align-items:baseline;gap:9px;margin-right:2px}
+.brand b{font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:.04em}
+.brand span{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.18em;text-transform:uppercase}
+.tools{display:flex;gap:4px;background:var(--sunk);padding:3px;border-radius:3px;border:1px solid var(--line-soft)}
+.tools button{
+  background:none;border:0;padding:5px 11px;border-radius:2px;cursor:pointer;color:var(--dim);
+  font-family:var(--disp);font-size:12px;letter-spacing:.02em;
+}
+.tools button:hover{color:var(--ink)}
+.tools button[aria-pressed=true]{background:#1F3038;color:var(--mint);box-shadow:inset 0 0 0 1px #2C4650}
+.spacer{flex:1}
+.hbtn{
+  background:var(--panel);border:1px solid var(--line);color:var(--dim);padding:6px 11px;border-radius:2px;
+  cursor:pointer;font-family:var(--disp);font-size:12px;white-space:nowrap
+}
+.hbtn:hover{border-color:#33505C;color:var(--ink)}
+
+/* power readout — the signature strip */
+#power{
+  display:flex;align-items:center;gap:10px;padding:5px 12px;background:var(--sunk);
+  border:1px solid var(--line-soft);border-radius:3px;min-width:212px
+}
+#power .lbl{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--faint)}
+#powerBarWrap{position:relative;height:6px;flex:1;background:#0D1A1F;border-radius:99px;overflow:hidden}
+#powerBar{position:absolute;inset:0 auto 0 0;width:0%;background:var(--mint);transition:width .25s,background .25s}
+#powerNum{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
+
+main{flex:1;display:flex;min-height:0}
+aside{width:196px;flex:none;background:var(--panel2);overflow-y:auto;overscroll-behavior:contain}
+#palette{border-right:1px solid var(--line)}
+#inspector{width:250px;border-left:1px solid var(--line)}
+.sec{padding:11px 12px;border-bottom:1px solid var(--line-soft)}
+.sec>h3{
+  margin:0 0 9px;font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.17em;
+  color:var(--faint);text-transform:uppercase
+}
+.fac{
+  display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:1px solid transparent;
+  padding:6px 7px;border-radius:2px;cursor:pointer;margin-bottom:1px
+}
+.fac:hover{background:#16242B;border-color:var(--line)}
+.fac[aria-pressed=true]{background:#1B2C34;border-color:#31505C}
+.swatch{width:15px;height:15px;border-radius:2px;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
+.fac .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
+.fac .mt{font-family:var(--mono);font-size:9.5px;color:var(--faint)}
+
+#stage{flex:1;position:relative;min-width:0;background:var(--sunk)}
+#cv{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+#stage[data-tool=select] #cv{cursor:default}
+#hint{
+  position:absolute;left:12px;bottom:12px;font-family:var(--mono);font-size:10.5px;color:var(--faint);
+  background:rgba(8,16,20,.86);padding:5px 9px;border:1px solid var(--line-soft);border-radius:2px;pointer-events:none;
+  max-width:calc(100% - 24px)
+}
+#blackout{
+  position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .4s;
+  box-shadow:inset 0 0 90px 12px rgba(233,106,91,.36);background:rgba(233,106,91,.05)
+}
+#blackout.on{opacity:1}
+#boLabel{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);font-family:var(--disp);font-weight:700;
+  font-size:12px;letter-spacing:.22em;color:var(--coral);background:rgba(8,16,20,.9);
+  border:1px solid rgba(233,106,91,.5);padding:5px 14px;border-radius:2px;opacity:0;transition:opacity .4s;pointer-events:none
+}
+#boLabel.on{opacity:1}
+#zoomWrap{position:absolute;right:12px;top:12px;display:flex;gap:4px}
+#zoomWrap button{width:28px;height:28px;background:rgba(19,30,36,.92);border:1px solid var(--line);color:var(--dim);border-radius:2px;cursor:pointer;font-family:var(--mono)}
+#zoomWrap button:hover{color:var(--ink)}
+
+footer{
+  flex:none;height:174px;display:flex;background:var(--panel2);border-top:1px solid var(--line);min-height:0
+}
+.fcol{flex:1;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--line-soft)}
+.fcol:last-child{border-right:0}
+.fcol>h3{
+  margin:0;padding:8px 12px 6px;font-family:var(--mono);font-size:9.5px;letter-spacing:.17em;color:var(--faint);
+  text-transform:uppercase;border-bottom:1px solid var(--line-soft);flex:none
+}
+.fbody{flex:1;overflow-y:auto;padding:6px 12px 10px}
+table.rt{width:100%;border-collapse:collapse}
+table.rt th{
+  font-family:var(--mono);font-size:9.5px;font-weight:500;color:var(--faint);text-align:right;padding:2px 0 4px;
+  letter-spacing:.06em;position:sticky;top:0;background:var(--panel2)
+}
+table.rt th:first-child{text-align:left}
+table.rt td{padding:2.5px 0;border-top:1px solid #14212700;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:11.5px}
+table.rt td:first-child{text-align:left;font-family:var(--body);font-size:12px}
+.dot{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:6px;vertical-align:1px}
+.pos{color:var(--mint)}.neg{color:var(--coral)}.zero{color:var(--faint)}
+.warn{display:flex;gap:7px;padding:4px 0;border-bottom:1px solid var(--line-soft);font-size:12px;align-items:baseline}
+.warn:last-child{border-bottom:0}
+.warn.jump{cursor:pointer}
+.warn.jump:hover{background:#16242B}
+.warn .tag{
+  font-family:var(--mono);font-size:9px;letter-spacing:.1em;padding:1px 5px;border-radius:2px;flex:none;margin-top:2px
+}
+.t-err{background:rgba(233,106,91,.16);color:var(--coral)}
+.t-wrn{background:rgba(240,169,60,.16);color:var(--amber)}
+.t-inf{background:rgba(79,216,194,.14);color:var(--mint)}
+.empty{color:var(--faint);font-size:12px;padding:6px 0}
+
+/* inspector bits */
+.row{display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:12px}
+.row .k{color:var(--dim)}
+.row .v{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+label.fl{display:block;margin:8px 0 3px;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--faint);text-transform:uppercase}
+select,input[type=text],input[type=number],textarea{
+  width:100%;background:var(--sunk);border:1px solid var(--line);color:var(--ink);padding:5px 7px;border-radius:2px
+}
+select:focus,input:focus,textarea:focus,button:focus-visible,.fac:focus-visible{outline:2px solid var(--mint);outline-offset:1px}
+.bar{height:5px;background:#0D1A1F;border-radius:99px;overflow:hidden;margin:5px 0 2px}
+.bar>i{display:block;height:100%;background:var(--mint)}
+.mini{width:100%;margin-top:9px;background:#1A2A31;border:1px solid var(--line);color:var(--dim);padding:6px;border-radius:2px;cursor:pointer;font-family:var(--disp)}
+.mini:hover{color:var(--ink);border-color:#3A5A66}
+.mini.danger:hover{color:var(--coral);border-color:rgba(233,106,91,.5)}
+
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(4,9,12,.74);display:none;align-items:center;justify-content:center;padding:20px;z-index:50}
+.modal.on{display:flex}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:4px;width:100%;max-width:920px;max-height:100%;display:flex;flex-direction:column}
+.sheet>header{height:46px;border-bottom:1px solid var(--line);background:none}
+.sheet>header b{font-family:var(--disp);font-size:14px;letter-spacing:.03em}
+.sheet .content{padding:14px 16px;overflow:auto}
+.tabs{display:flex;gap:3px;margin-bottom:12px;border-bottom:1px solid var(--line)}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:7px 13px;cursor:pointer;color:var(--dim);font-family:var(--disp)}
+.tabs button[aria-pressed=true]{color:var(--mint);border-bottom-color:var(--mint)}
+table.ed{width:100%;border-collapse:collapse;font-size:12px}
+table.ed th{text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;color:var(--faint);padding:5px 6px;border-bottom:1px solid var(--line);text-transform:uppercase}
+table.ed td{padding:3px 6px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+table.ed input,table.ed select{padding:4px 6px}
+.x{background:none;border:1px solid var(--line);color:var(--faint);width:24px;height:24px;border-radius:2px;cursor:pointer}
+.x:hover{color:var(--coral);border-color:rgba(233,106,91,.5)}
+.io-row{display:flex;gap:5px;align-items:center;margin-bottom:4px}
+.io-row select{flex:1}
+.io-row input{width:64px}
+.note{background:var(--sunk);border-left:2px solid var(--amber);padding:9px 11px;margin:0 0 14px;font-size:12px;color:var(--dim);border-radius:0 2px 2px 0}
+.note b{color:var(--ink)}
+h4.sub{font-family:var(--disp);font-size:13px;margin:18px 0 7px;letter-spacing:.02em}
+h4.sub:first-child{margin-top:0}
+.help p{margin:0 0 9px}
+.help ul{margin:0 0 12px;padding-left:19px}
+.help li{margin-bottom:4px}
+kbd{font-family:var(--mono);font-size:11px;background:var(--sunk);border:1px solid var(--line);border-bottom-width:2px;padding:1px 5px;border-radius:3px}
+.kv{color:var(--mint);font-family:var(--mono)}
+
+#areabar{display:flex;align-items:center;gap:12px;padding:6px 12px;flex:none;flex-wrap:wrap;
+  background:linear-gradient(180deg,#0F1A20,#0C161B);border-bottom:1px solid var(--line)}
+#areabar .tabs{border-bottom:0;gap:2px;flex-wrap:wrap}
+#areabar .rtabs button{font-size:12.5px;font-weight:600;padding:5px 14px;border-radius:3px;border-bottom:0}
+#areabar .rtabs button[aria-pressed=true]{background:#1B2C34;color:var(--mint);border-bottom:0}
+#areabar .atabs{border-left:1px solid var(--line);padding-left:10px}
+#areabar .atabs button{font-size:12px;padding:4px 10px;border-radius:3px;border-bottom:0;color:var(--faint)}
+#areabar .atabs button:hover{color:var(--ink)}
+#areabar .atabs button[aria-pressed=true]{background:#16242B;color:var(--ink);box-shadow:inset 0 0 0 1px #2C4650}
+#areabar .atabs button .cap{font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-left:5px}
+#areaInfo{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.prow{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:7px;margin:4px 0 14px}
+.card{background:var(--sunk);border:1px solid var(--line-soft);border-radius:3px;padding:8px 10px}
+.card.hot{border-color:rgba(240,169,60,.4)}
+.card.warnc{border-color:rgba(233,106,91,.4)}
+.card .cl{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--faint);text-transform:uppercase}
+.card .cv{display:block;font-family:var(--mono);font-size:19px;font-variant-numeric:tabular-nums;margin-top:2px}
+.card .cv i{font-style:normal;font-size:10px;color:var(--faint);margin-left:4px}
+.advice{background:rgba(79,216,194,.06);border-left:2px solid var(--mint);padding:9px 11px;margin:0 0 13px;font-size:12px;border-radius:0 2px 2px 0}
+.advice b{color:var(--ink)}
+.chip{background:#1B2F33;border:1px solid #2F5B57;color:var(--mint);padding:3px 10px;border-radius:99px;cursor:pointer;font-family:var(--disp);font-size:11.5px;margin:5px 5px 0 0}
+.chip:hover{background:#234046}
+table.ed td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+table.ed th[style*="right"]{text-align:right}
+@media(max-width:900px){
+  header{flex-wrap:wrap;height:auto;padding:8px 10px;gap:8px}
+  #power{order:9;min-width:100%}
+  main{flex-direction:column}
+  aside{width:100%;max-height:150px;border:0;border-bottom:1px solid var(--line)}
+  #inspector{width:100%;border-top:1px solid var(--line)}
+  #stage{min-height:280px}
+  footer{height:200px;flex-direction:column}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand"><b>集成工業プランナー</b><span>AIC Layout</span></div>
+    <div class="tools" id="tools" role="group" aria-label="ツール">
+      <button data-tool="select" aria-pressed="true">選択</button>
+      <button data-tool="place" aria-pressed="false">設備</button>
+      <button data-tool="belt" aria-pressed="false">ベルト</button>
+      <button data-tool="erase" aria-pressed="false">撤去</button>
+    </div>
+    <div id="power" title="発電量と消費電力">
+      <span class="lbl">POWER</span>
+      <div id="powerBarWrap"><div id="powerBar"></div></div>
+      <span id="powerNum" class="num">0 / 0</span>
+    </div>
+    <div class="spacer"></div>
+    <button class="hbtn" id="btnField">採取ゾーン</button>
+    <button class="hbtn" id="btnPlan" style="border-color:#3A6B62;color:var(--mint)">生産目標</button>
+    <button class="hbtn" id="btnData">データ編集</button>
+    <button class="hbtn" id="btnIO">保存 / 読込</button>
+    <button class="hbtn" id="btnHelp">使い方</button>
+  </header>
+
+  <div id="areabar">
+    <div class="tabs rtabs" id="regionTabs"></div>
+    <div class="tabs atabs" id="areaTabs"></div>
+    <span class="spacer"></span>
+    <span id="areaInfo"></span>
+  </div>
+
+  <main>
+    <aside id="palette"></aside>
+    <div id="stage" data-tool="select">
+      <canvas id="cv"></canvas>
+      <div id="blackout"></div>
+      <div id="boLabel">電力不足 — 全設備停止のおそれ</div>
+      <div id="zoomWrap">
+        <button id="zIn" title="拡大">＋</button>
+        <button id="zOut" title="縮小">－</button>
+        <button id="zFit" title="全体表示">⤢</button>
+      </div>
+      <div id="hint"></div>
+    </div>
+    <aside id="inspector"></aside>
+  </main>
+
+  <footer>
+    <div class="fcol">
+      <h3>品目バランス（毎分）</h3>
+      <div class="fbody" id="balance"></div>
+    </div>
+    <div class="fcol">
+      <h3>効率</h3>
+      <div class="fbody" id="metrics"></div>
+    </div>
+    <div class="fcol">
+      <h3>診断</h3>
+      <div class="fbody" id="diag"></div>
+    </div>
+  </footer>
+</div>
+
+<!-- ─── データ編集 ─── -->
+<div class="modal" id="mData"><div class="sheet">
+  <header style="display:flex;align-items:center;padding:0 16px;gap:12px">
+    <b>データ編集</b><span class="spacer"></span>
+    <button class="hbtn" data-close>閉じる</button>
+  </header>
+  <div class="content">
+    <p class="note"><b>初期データの数値は多くが仮の値です。</b>ゲーム内の「製造プロセス」やアイテム図鑑で実数を確認して、ここで上書きしてください。検証済みの固定値は、ベルト搬送量 30個/分（1個/2秒）・分流器 1→最大3分岐・発電機 バッテリー1個で40秒 の3つです。</p>
+    <div class="tabs" id="dTabs">
+      <button data-tab="items" aria-pressed="true">品目</button>
+      <button data-tab="facs" aria-pressed="false">設備</button>
+      <button data-tab="recs" aria-pressed="false">レシピ</button>
+      <button data-tab="bulk" aria-pressed="false">まとめて入力</button>
+      <button data-tab="cov" aria-pressed="false">網羅状況</button>
+    </div>
+    <div id="dPane"></div>
+  </div>
+</div></div>
+
+<!-- ─── 採取ゾーン ─── -->
+<div class="modal" id="mField"><div class="sheet" style="max-width:760px">
+  <header style="display:flex;align-items:center;padding:0 16px;gap:12px">
+    <b>採取ゾーン（フィールド）</b><span class="spacer"></span>
+    <button class="hbtn" data-close>閉じる</button>
+  </header>
+  <div class="content" id="fieldPane"></div>
+</div></div>
+
+<!-- ─── 生産目標プランナー ─── -->
+<div class="modal" id="mPlan"><div class="sheet">
+  <header style="display:flex;align-items:center;padding:0 16px;gap:12px">
+    <b>生産目標から最小構成を逆算</b><span class="spacer"></span>
+    <button class="hbtn" data-close>閉じる</button>
+  </header>
+  <div class="content" id="planPane"></div>
+</div></div>
+
+<!-- ─── 保存/読込 ─── -->
+<div class="modal" id="mIO"><div class="sheet" style="max-width:640px">
+  <header style="display:flex;align-items:center;padding:0 16px;gap:12px">
+    <b>保存 / 読込</b><span class="spacer"></span>
+    <button class="hbtn" data-close>閉じる</button>
+  </header>
+  <div class="content">
+    <p class="note">この設計図（品目・設備・レシピ・配置）はすべて1つのJSONに入ります。ファイルに書き出しておけば、別の端末でも続けられます。</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <button class="hbtn" id="ioDown">JSONファイルに書き出す</button>
+      <button class="hbtn" id="ioUpBtn">ファイルから読み込む</button>
+      <input type="file" id="ioUp" accept=".json,application/json" style="display:none">
+      <button class="hbtn" id="ioCopy">クリップボードにコピー</button>
+    </div>
+    <label class="fl">JSONを直接貼り付け</label>
+    <textarea id="ioText" rows="9" spellcheck="false" placeholder="ここにJSONを貼り付けて「貼り付けを反映」を押します"></textarea>
+    <button class="hbtn" id="ioPaste" style="margin-top:8px">貼り付けを反映</button>
+    <button class="hbtn" id="ioReset" style="margin-top:8px;float:right">初期状態に戻す</button>
+  </div>
+</div></div>
+
+<!-- ─── 使い方 ─── -->
+<div class="modal" id="mHelp"><div class="sheet" style="max-width:700px">
+  <header style="display:flex;align-items:center;padding:0 16px;gap:12px">
+    <b>使い方</b><span class="spacer"></span>
+    <button class="hbtn" data-close>閉じる</button>
+  </header>
+  <div class="content help">
+    <h4 class="sub">まず知っておくこと：採取と生産は別の場所</h4>
+    <ul>
+      <li><b>採鉱機・ポンプ類はフィールドの採取スポットに置く設備</b>で、工業エリアの盤面には置きません。産出は倉庫（協約核心）へ自動転送され、工業エリアからは<b>倉庫搬出口</b>で引き出して使います。</li>
+      <li>そのためこのアプリでは、採取設備は盤面ではなく上部の<b>「採取ゾーン」</b>に台数と産出量を登録します。1台あたりの産出量は地域建設レベル（鉱物純度）で変わるので、実測値を入れてください。</li>
+      <li>工業エリアの起点は必ず<b>倉庫搬出口</b>、終点は<b>倉庫搬入口</b>や協約貯蔵箱です。搬出口から引き出せる量は「採取ゾーンからの転送＋工業からの搬入」が上限で、それを超えると供給不足として警告します。</li>
+      <li>品目には<b>固体・液体・ガス</b>の別があり、固体はベルト、液体とガスはパイプで運びます。分流器・合流器もベルト用とパイプ用で別物です。取り違えると警告が出ます。</li>
+    </ul>
+    <h4 class="sub">最小構成を出す（いちばん速い使い方）</h4>
+    <ul>
+      <li>上部の<b>「生産目標」</b>に作りたいものと毎分の個数を入れると、必要な設備台数・面積・電力・発電機の数を逆算します。</li>
+      <li><b>「無駄なく組める目標値」</b>の提案が出たら、その数値で組み直すと全設備が整数台・100%稼働になります。端数の切り上げで生まれる遊びをゼロにできる目標値です。</li>
+      <li><b>「ブロックを並べて配置」</b>が基本です。全設備が整数台になる最小ユニットを1枚だけ丁寧に組み（置き方を27通り試し、ベルトが1本も落ちない配置を選びます）、それを敷き詰めます。1枚ごとに自己完結しているので、規模を上げても配線が破綻せず、増設も1枚単位です。</li>
+      <li>工程が絡み合っていて1枚にまとめたいときは<b>「1本のラインで配置」</b>を使います。</li>
+      <li>配置後は下部の<b>効率パネル</b>で、占有マス・外接範囲・面積効率（個/分/マス）・平均稼働率を確認できます。省スペース案どうしを比べるための数字です。</li>
+    </ul>
+    <h4 class="sub">手で組む場合の3ステップ</h4>
+    <ul>
+      <li><b>設備を置く</b> — 左の一覧から設備を選ぶと「設備」ツールになります。盤面をクリックで設置、<kbd>R</kbd> で向きを90°ずつ回します。口の位置も一緒に回ります。</li>
+      <li><b>ベルトでつなぐ</b> — 「ベルト」ツールにして、送り出す設備 → 受け取る設備の順にクリック。障害物を避けて自動で経路を引きます。</li>
+      <li><b>レシピを選ぶ</b> — 設備をクリックすると右のパネルで作るものを指定できます。指定した瞬間に生産量と電力が再計算されます。</li>
+    </ul>
+    <h4 class="sub">計算に組み込んである制約</h4>
+    <ul>
+      <li><span class="kv">ベルト 30個/分</span> — 1本で運べる上限。これを超える流量は自動で頭打ちになり、上流の設備が待機します。合流機で2本を1本にまとめると詰まる、あの現象です。</li>
+      <li><span class="kv">分流器 1→3</span> — 分流器は出力3本まで。片側が詰まればもう片側へ流れる前提（背圧あり）で計算しているので、下流の需要に応じた配分になります。</li>
+      <li><span class="kv">発電機 40秒/1個</span> — バッテリー1個で40秒発電。つまり1台あたり 1.5個/分 の供給が必要です。包装機がフル稼働で 6個/分（1個/10秒）作れるなら、発電機4台まで賄える計算になります。</li>
+      <li><span class="kv">電力の自己参照</span> — バッテリー製造ライン自身も電力を食うため、単純な足し算では解けません。このアプリは全設備の稼働率を繰り返し計算で収束させています。発電量が消費に足りないと画面が赤く落ちます（ゲームでは全停止）。</li>
+      <li><span class="kv">下流の需要</span> — 引き取り手が少ない設備は自動的に稼働率が下がります。「下流の需要が◯%しかなく設備が余っています」と出たら、その設備は減らせます。</li>
+      <li><span class="kv">口は1つにつきベルト1本</span> — 設備の搬入口・搬出口の数と位置が、そのまま繋げられるベルトの本数になります。精錬炉の出口1つから2か所へ送りたいときは分流器が要りますし、2台から1つの入口へ入れたいときは合流機が要ります。<b>これが詰め込み密度を決める最大の制約です。</b>口の数と向きは「データ編集」の設備タブで変えられます。</li>
+      <li><span class="kv">ラインの交差はブリッジ</span> — 直進しているライン同士は直交方向に跨げます。<b>ベルトブリッジ／パイプブリッジ（または地下配管）が必要な箇所</b>として盤面に橙色の小さな四角で示し、件数を診断に出します。同じ向きに重ねることや、曲がり角を跨ぐことはできません。</li>
+      <li><span class="kv">発電機の燃料は倉庫から</span> — 発電機は倉庫搬出口からバッテリーを引く形で置きます。燃料が倉庫に入っていないと「発電機の燃料が足りません」と出るので、別のエリアで燃料ラインを組むか、基礎電力を実情に合わせてください。</li>
+      <li><span class="kv">口の正面は空けておく</span> — 他のベルトが口の真正面のマスを横切ると、その口は使えなくなります。自動配線はこれを避けて経路を選びます。</li>
+      <li><span class="kv">出力の詰まり</span> — 出口にベルトがつながっていない設備は、内部が満杯になって停止＝稼働率0%として扱います。倉庫や協約核心の搬入口は無限に受け取れる扱いです。</li>
+    </ul>
+    <h4 class="sub">武陵まわりの注意</h4>
+    <ul>
+      <li>武陵の比率は、公開されている生産ラインの実数から逆算したものです（確度は<b>一部確認</b>）。赤銅塊・息壌・分離コア・焔銅部品・緋銅部品の原料総量は出典と一致することを確認していますが、<b>1周期の秒数はライン本数からの推定</b>を含みます。</li>
+      <li><b>副産物にも捨て先が要ります。</b>赤銅塊を作ると汚水が、壌晶を作ると不活性壌晶廃液が出ます。出口が無いと在庫が満杯になって設備が止まるので、自動配置では相に合った貯蔵設備（液体貯蔵タンク・ガス貯蔵タンク・倉庫搬入口）を自動で足します。</li>
+      <li>汚水のような副産物を材料に使う品目は、原料表に「◯◯の副産物として出ます」と表示します。別のラインから回してください。</li>
+      <li>ガス設備が主材料とは別に消費する<b>副材料</b>（息壌ガス・液化息壌を6個/分）はレシピの材料に織り込み済みです。一方、<b>ガス散布機による環境ガス</b>は範囲効果なのでレシピには入れていません。</li>
+      <li>「採取ゾーン」の<b>武陵の上限を読み込む</b>で、地域全体で取り出せる量の目安（源石鉱物540／青鉄鉱物120／赤銅鉱物420／不活性ガス460／息壌ガス100 個/分）を入れられます。</li>
+    </ul>
+    <h4 class="sub">データを揃える（網羅）</h4>
+    <ul>
+      <li>「データ編集」の<b>網羅状況</b>タブが起点です。品目が何件あって、そのうち何件に作り方が登録済みか、レシピの確度はどうかが一覧になります（<kbd>V</kbd> で直接開けます）。</li>
+      <li><b>行き止まり</b>＝作り方も採取ゾーンの登録も無い品目、<b>未到達</b>＝レシピはあるが材料が揃わない品目。ここが空になれば、その範囲は計算できる状態です。</li>
+      <li><b>まとめて入力</b>タブなら1行1レシピで一気に登録できます。書式は <span class="kv">設備名 秒数s: 材料*数 + 材料*数 -&gt; 産物*数</span>。知らない品目名は自動で品目を作るので、先に品目を登録しておく必要はありません。現在の内容が同じ書式で書き出されているので、テキストエディタで編集して貼り戻す使い方もできます。</li>
+      <li>確度は<b>確認済／一部確認／推定</b>の3段階で持たせています。推定のレシピが残っている間は、逆算した台数も推定値だと分かるようにしてあります。</li>
+    </ul>
+    <h4 class="sub">ラインを確認する</h4>
+    <ul>
+      <li><b>診断の各行はクリックできます。</b>該当する設備やラインを選択して画面中央へ移動するので、「どこが詰まっているのか」を探し回らずに済みます。</li>
+      <li><b>検証目標</b>を設定すると、効率パネルの先頭に達成度が出ます。生産目標の画面から「この目標を検証対象にする」を押すか、右パネル（何も選んでいない状態）で直接指定できます。</li>
+      <li>設備の重なり、1つの口への二重接続、行き先を失ったラインといった構造の不備も、稼働率とは別に点検して診断に出します。</li>
+    </ul>
+    <h4 class="sub">操作</h4>
+    <ul>
+      <li>上部の帯が<b>地域とエリアのタブ</b>です。四号谷地と武陵は倉庫が別なので、まず地域を選び、次にエリアを選びます。エリアごとに盤面・採取ゾーン・協約容量が独立しています。</li>
+      <li><b>倉庫は地域で1つ</b>です。首礎で作った赤銅塊は同じ武陵の応龍関から引き出せます。他エリアの生産量は、そのエリアを開いて計算したときの純増を持ち込む形で反映されるので、分担して組むときは各エリアを一度ずつ開いてください。</li>
+      <li>協約容量は攻略情報の一覧値を入れてあります（武陵城350、鉱山エリア220、中枢エリア200など）。工業エリア内の設備はほとんど消費せず、フィールドの採取機やタンク・散布機の類が消費します。超えると診断に出ます。ジップラインと戦闘設備の上限も参考値として持たせてあります。</li>
+      <li>盤面のドラッグでスクロール、ホイールで拡大縮小、<kbd>⤢</kbd> で全体表示。盤面の広さは右パネル（何も選んでいない状態）で変えられます。</li>
+      <li><kbd>Delete</kbd> で選択中の設備・ベルトを撤去。<kbd>Esc</kbd> で選択解除。</li>
+      <li>数値はすべて「データ編集」で書き換えられます。<b>品目タブ</b>には工業で扱う品目を分類つきで並べてあり、名前や分類で絞り込めます。作り方がまだ無い品目には<b>「＋作り方」</b>ボタンが出るので、そこからレシピを起こしてゲーム内の数値を入れてください。<b>レシピタブ</b>も品目名・設備名で絞り込めます。</li>
+    </ul>
+  </div>
+</div></div>
+
+<script>
+"use strict";
+/* ═══════════════════════════════════════════════════════════
+   0. 定数（検証済みのゲーム仕様）
+   ═══════════════════════════════════════════════════════════ */
+const BELT_CAP   = 30;   // 個/分 = 1個/2秒（検証済み）
+let  PIPE_CAP    = 30;   // パイプの上限（要確認・設定で変更可）
+const SPLIT_MAX  = 3;    // 分流器の分岐上限
+const GEN_SEC    = 40;   // 発電機がバッテリー1個を消費する秒数
+let GW = 80, GH = 56;            // 盤面のマス数（設定と自動配置で変わる）
+const GW_MAX = 240, GH_MAX = 160;
+function setBoard(w,h){
+  GW=Math.max(12,Math.min(GW_MAX,Math.round(w)));
+  GH=Math.max(12,Math.min(GH_MAX,Math.round(h)));
+}
+
+const KIND = {
+  field:    {label:'採取ゾーン', color:'#7FD48A'},
+  source:   {label:'倉庫搬出',  color:'#4FD8C2'},
+  process:  {label:'生産',     color:'#5AA9E6'},
+  generator:{label:'発電',     color:'#F0A93C'},
+  power:    {label:'送電',     color:'#E0B24A'},
+  logistics:{label:'物流',     color:'#9092DE'},
+  sink:     {label:'倉庫搬入',  color:'#93A3AA'}
+};
+/* 品目の相ごとの運搬手段と上限 */
+/* 協約容量の消費。工業エリア内の設備はおおむね0で、フィールドの採取機や
+   タンク・散布機の類が消費する（攻略サイトのコメント情報にもとづく推定値） */
+function capCostOf(f){
+  if(!f) return 0;
+  if(f.cap!=null) return f.cap;
+  if(f.field) return 2;
+  if(f.kind==='power') return 1;
+  if(f.env||f.phase==='liquid'||f.phase==='gas') return 2;
+  return 0;
+}
+const phaseOf = it => (IX.item[it]||{}).phase || 'solid';
+const capOf   = it => phaseOf(it)==='solid' ? BELT_CAP : PIPE_CAP;
+const lineName= it => phaseOf(it)==='solid' ? 'ベルト' : 'パイプ';
+
+/* ═══════════════════════════════════════════════════════════
+   1. 初期データ  ※ [仮] は要確認の推定値
+   ═══════════════════════════════════════════════════════════ */
+function seed(){return{
+ meta:{name:'四号谷地 プラン1', ver:2, basePower:240, autoGrow:true},
+
+ /* 品目。phase で運搬手段が決まる（固体＝ベルト／液体・ガス＝パイプ） */
+ items:[
+  /* ── 鉱物（フィールドの密集鉱物スポットで採掘） ── */
+  {id:'ore_gen', name:'源石鉱物',   cat:'鉱物', color:'#8FA6B2', phase:'solid'},
+  {id:'ore_blue',name:'青鉄鉱物',   cat:'鉱物', color:'#6FA8C8', phase:'solid'},
+  {id:'ore_pur', name:'紫晶鉱物',   cat:'鉱物', color:'#B58BD6', phase:'solid'},
+  {id:'ore_red', name:'赤銅鉱物',   cat:'鉱物', color:'#C0674A', phase:'solid'},
+  /* ── 植物（フィールド採集＋栽培機で増やす） ── */
+  {id:'soba',    name:'蕎花',       cat:'植物', color:'#8FD08A', phase:'solid'},
+  {id:'sand',    name:'サンドリーフ',cat:'植物', color:'#D8C48A', phase:'solid'},
+  {id:'kinso',   name:'錦草',       cat:'植物', color:'#C9D67A', phase:'solid'},
+  {id:'mebari',  name:'芽針',       cat:'植物', color:'#7FBF9A', phase:'solid'},
+  {id:'haimugi', name:'灰麦',       cat:'植物', color:'#BFB89A', phase:'solid'},
+  {id:'nigaha',  name:'苦葉椒',     cat:'植物', color:'#9ABF6A', phase:'solid'},
+  {id:'citrome', name:'シトローム',  cat:'植物', color:'#E0C060', phase:'solid'},
+  {id:'aketon',  name:'アケトン樹木', cat:'植物', color:'#A08050', phase:'solid'},
+  {id:'gyokuyo', name:'玉葉人参',    cat:'植物', color:'#D89A6A', phase:'solid'},
+  {id:'kinseki', name:'金石稲',      cat:'植物', color:'#D6C060', phase:'solid'},
+  {id:'talos',   name:'タロス茸',    cat:'植物', color:'#C08FA0', phase:'solid'},
+  {id:'akayari', name:'赤槍葉',      cat:'植物', color:'#D07070', phase:'solid'},
+  /* ── 種（採種機で作り、栽培機に入れる） ── */
+  {id:'seed_soba', name:'蕎花の種',        cat:'種', color:'#7FB07A', phase:'solid'},
+  {id:'seed_sand', name:'サンドリーフの種', cat:'種', color:'#A8B87A', phase:'solid'},
+  {id:'seed_kinso',name:'錦草の種',        cat:'種', color:'#A9B65A', phase:'solid'},
+  {id:'seed_mebari',name:'芽針の種',       cat:'種', color:'#6F9F8A', phase:'solid'},
+  /* ── 粉末（粉砕機・精錬炉） ── */
+  {id:'pw_soba', name:'蕎花粉末',    cat:'粉末', color:'#8FD0B0', phase:'solid'},
+  {id:'pw_kinso',name:'錦草粉末',    cat:'粉末', color:'#B9C77A', phase:'solid'},
+  {id:'pw_coal', name:'炭塊粉末',    cat:'粉末', color:'#6E6E6E', phase:'solid'},
+  {id:'pw_ore',  name:'鉱物粉末', conf:'guess', cat:'粉末', color:'#C7B9A0', phase:'solid'},
+  {id:'pw_gen',  name:'高密度源石粉末', cat:'粉末', color:'#A89A8C', phase:'solid'},
+  {id:'pw_sand', name:'サンドリーフ粉末', cat:'粉末', color:'#D8CBA0', phase:'solid'},
+  /* ── 加工材・部品 ── */
+  {id:'shell',   name:'結晶外殻',    cat:'加工材', color:'#7FD4E8', phase:'solid'},
+  {id:'ingot',   name:'精錬材', conf:'guess', cat:'加工材', color:'#9FB0B8', phase:'solid'},
+  {id:'bot_pur', name:'紫晶製ボトル', cat:'加工材', color:'#C98BD6', phase:'solid'},
+  {id:'bot_blue',name:'青鉄製ボトル', cat:'加工材', color:'#7FB8D8', phase:'solid'},
+  {id:'part_fe', name:'鉄製部品',    cat:'部品', color:'#A0A8AE', phase:'solid'},
+  {id:'part_hi', name:'高晶部品',    cat:'部品', color:'#8FD8E8', phase:'solid'},
+  {id:'part_cu', name:'焔銅部品',    cat:'部品', color:'#D08A5A', phase:'solid'},
+  {id:'part_eq', name:'焔銅装備部品', cat:'部品', color:'#E0A070', phase:'solid'},
+  {id:'core_sep',name:'分離コア',    cat:'部品', color:'#9AA8E0', phase:'solid'},
+  {id:'tank_cu', name:'赤銅圧力タンク',cat:'部品', color:'#C07050', phase:'solid'},
+  {id:'stone_kn',name:'協約紋石',    cat:'部品', color:'#D0C090', phase:'solid'},
+  {id:'ingot_red',name:'赤銅塊',     cat:'加工材', color:'#B86A4A', phase:'solid'},
+  {id:'crystal', name:'壌晶',        cat:'加工材', color:'#9C8FD0', phase:'solid'},
+  {id:'part_red',name:'赤銅部品',    cat:'部品', color:'#C07858', phase:'solid'},
+  {id:'part_sca',name:'緋銅部品',    cat:'部品', color:'#D05A4A', phase:'solid'},
+  {id:'eq_red',  name:'赤銅装備部品', cat:'部品', color:'#D08A6A', phase:'solid'},
+  {id:'eq_sca',  name:'緋銅装備部品', cat:'部品', color:'#E07060', phase:'solid'},
+  {id:'eq_soku', name:'息壌装備部品', cat:'部品', color:'#B0A0D8', phase:'solid'},
+  /* ── 息壌 ── */
+  {id:'sokuj',   name:'息壌',        cat:'息壌', color:'#B0A0D0', phase:'solid'},
+  {id:'sokuj_l', name:'液化息壌',     cat:'息壌', color:'#9080C0', phase:'liquid'},
+  {id:'sokuj_h', name:'重息壌',       cat:'息壌', color:'#7A68B0', phase:'solid'},
+  {id:'sokuj_hl',name:'液化重息壌',    cat:'息壌', color:'#6A58A0', phase:'liquid'},
+  /* ── 最終製品（取引・発電） ── */
+  {id:'cap1',    name:'蕎花カプセルⅠ', cat:'製品', color:'#8FD0B0', phase:'solid'},
+  {id:'cap2',    name:'蕎花カプセルⅡ', cat:'製品', color:'#6FC0A0', phase:'solid'},
+  {id:'batS',    name:'小容量谷地バッテリー', cat:'バッテリー', color:'#F0A93C', phase:'solid'},
+  {id:'batM',    name:'中容量谷地バッテリー', cat:'バッテリー', color:'#F2B840', phase:'solid'},
+  {id:'batL',    name:'大容量谷地バッテリー', cat:'バッテリー', color:'#F2C14E', phase:'solid'},
+  {id:'wbatS',   name:'小容量武陵バッテリー', cat:'バッテリー', color:'#E08A4C', phase:'solid'},
+  {id:'wbatM',   name:'中容量武陵バッテリー', cat:'バッテリー', color:'#E89A50', phase:'solid'},
+  {id:'inj1',    name:'芽針注射剤Ⅰ',  cat:'製品', color:'#7FBF9A', phase:'solid'},
+  {id:'inj2',    name:'芽針注射剤Ⅱ',  cat:'製品', color:'#6FAF8A', phase:'solid'},
+  {id:'soda1',   name:'錦草ソーダⅠ',  cat:'製品', color:'#B9C77A', phase:'solid'},
+  {id:'soda2',   name:'錦草ソーダⅡ',  cat:'製品', color:'#A9B76A', phase:'solid'},
+  {id:'cap3',    name:'蕎花カプセルⅢ', cat:'製品', color:'#5FB090', phase:'solid'},
+  /* ── 液体・ガス（パイプで運ぶ） ── */
+  {id:'water',   name:'水',          cat:'液体', color:'#5AA9E6', phase:'liquid'},
+  {id:'waste',   name:'汚水',        cat:'液体', color:'#7A8B6A', phase:'liquid'},
+  {id:'sludge',  name:'不活性壌晶廃液', cat:'液体', color:'#8A9AB0', phase:'liquid'},
+  {id:'sludge2', name:'壌晶廃液',     cat:'液体', color:'#9AA8BE', phase:'liquid'},
+  {id:'acid',    name:'沈殿酸',       cat:'液体', color:'#A8D05A', phase:'liquid'},
+  {id:'gas_in',  name:'不活性ガス',    cat:'ガス', color:'#9AA6B8', phase:'gas'},
+  {id:'gas_soku',name:'息壌ガス',      cat:'ガス', color:'#C58BD6', phase:'gas'},
+  {id:'gas_acid',name:'酸性ガス',      cat:'ガス', color:'#B8D060', phase:'gas'}
+ ],
+
+ /* 設備。field:true はフィールドの採取ゾーンに置くもので、工業エリアの盤面には置かない */
+ facs:[
+  /* ── 採取ゾーン（フィールド） ── */
+  {id:'miner0', name:'携帯式採鉱機',     kind:'field', w:1,h:1, power:0, gen:0, field:true, takes:['ore_gen']},
+  {id:'miner1', name:'電動採鉱機',      kind:'field', w:2,h:2, power:0, gen:0, field:true, takes:['ore_gen','ore_blue']},
+  {id:'miner2', name:'電動採鉱機Ⅱ',     kind:'field', w:2,h:2, power:0, gen:0, field:true, takes:['ore_gen','ore_blue','ore_pur','ore_red']},
+  {id:'hydro',  name:'水力採掘機',       kind:'field', w:3,h:3, power:0, gen:0, field:true, takes:['ore_gen','ore_blue']},
+  {id:'pump',   name:'液体ポンプ',       kind:'field', w:2,h:2, power:0, gen:0, field:true, takes:['water']},
+  {id:'pump2',  name:'耐酸性液体ポンプⅡ', kind:'field', w:2,h:2, power:0, gen:0, field:true, takes:['water']},
+  {id:'gaspump',name:'ガス収集ポンプ',    kind:'field', w:2,h:2, power:0, gen:0, field:true, takes:['gas_in','gas_soku']},
+  {id:'minerW', name:'水式鉱物採掘機',    kind:'field', w:3,h:3, power:0, gen:0, field:true, takes:['ore_red']},
+
+  /* ── 倉庫との出入口（工業エリアの起点と終点） ── */
+  {id:'wh_out', name:'倉庫搬出口',       kind:'source', w:1,h:1, power:0, gen:0, tap:true, nIn:0, nOut:1},
+  {id:'wh_in',  name:'倉庫搬入口',       kind:'sink',   w:1,h:1, power:0, gen:0, nIn:4, nOut:0},
+  {id:'box',    name:'協約貯蔵箱',       kind:'sink',   w:2,h:2, power:0, gen:0, nIn:4, nOut:0},
+  {id:'tank',   name:'液体貯蔵タンク',    kind:'sink',   w:2,h:2, power:0, gen:0, nIn:2, nOut:0, phase:'liquid'},
+  {id:'gastank',name:'ガス貯蔵タンク',    kind:'sink',   w:2,h:2, power:0, gen:0, nIn:2, nOut:0, phase:'gas'},
+
+  /* ── 基礎生産 ── */
+  {id:'smelt',  name:'精錬炉',          kind:'process', w:2,h:2, power:24, gen:0, nIn:2, nOut:2},
+  {id:'crush',  name:'粉砕機',          kind:'process', w:2,h:2, power:24, gen:0},
+  {id:'assy',   name:'組立機',          kind:'process', w:2,h:2, power:24, gen:0},
+  {id:'mold',   name:'成形機',          kind:'process', w:2,h:2, power:24, gen:0},
+  {id:'farm',   name:'栽培機',          kind:'process', w:3,h:3, power:16, gen:0},
+  {id:'seeder', name:'採種機',          kind:'process', w:2,h:2, power:16, gen:0},
+  {id:'wtreat', name:'排水処理機',       kind:'process', w:3,h:3, power:30, gen:0, nIn:2, nOut:2},
+
+  /* ── 合成生産 ── */
+  {id:'equip',  name:'装備部品加工機',    kind:'process', w:3,h:3, power:36, gen:0},
+  {id:'fill',   name:'充填機',          kind:'process', w:2,h:2, power:24, gen:0, nIn:3, nOut:1},
+  {id:'pack',   name:'包装機',          kind:'process', w:2,h:2, power:24, gen:0, nIn:3, nOut:1},
+  {id:'polish', name:'研磨機',          kind:'process', w:2,h:2, power:24, gen:0},
+  {id:'chem',   name:'化学反応炉',       kind:'process', w:3,h:3, power:40, gen:0, nIn:3, nOut:2},
+  {id:'chemL',  name:'大型化学反応炉',    kind:'process', w:4,h:4, power:72, gen:0, nIn:4, nOut:2},
+  {id:'tenyu',  name:'天有洪炉',         kind:'process', w:4,h:4, power:80, gen:0, max:12, nIn:3, nOut:2},
+  {id:'refine', name:'精製機',          kind:'process', w:3,h:3, power:40, gen:0, nIn:3, nOut:3},
+  {id:'dismant',name:'解体機',          kind:'process', w:2,h:2, power:24, gen:0},
+  {id:'g2l',    name:'ガス液体転換機',    kind:'process', w:3,h:3, power:40, gen:0, nIn:3, nOut:2},
+  {id:'g2s',    name:'ガス固体転換機',    kind:'process', w:3,h:3, power:40, gen:0, nIn:4, nOut:2},
+  {id:'gasrct', name:'ガス反応装置',      kind:'process', w:3,h:3, power:40, gen:0, nIn:3, nOut:2},
+  {id:'gasdif', name:'ガス散布機',        kind:'process', w:2,h:2, power:24, gen:0, env:true},
+
+  /* ── 物流 ── */
+  {id:'split',  name:'分流器',          kind:'logistics', w:1,h:1, power:0, gen:0, split:true, nIn:1,nOut:3},
+  {id:'merge',  name:'合流器',          kind:'logistics', w:1,h:1, power:0, gen:0, nIn:3,nOut:1},
+  {id:'psplit', name:'パイプ分流器',      kind:'logistics', w:1,h:1, power:0, gen:0, split:true, nIn:1,nOut:3, phase:'fluid'},
+  {id:'pmerge', name:'パイプ合流器',      kind:'logistics', w:1,h:1, power:0, gen:0, nIn:3,nOut:1, phase:'fluid'},
+
+  /* ── 電力 ── */
+  {id:'gen',    name:'発電機',          kind:'generator', w:2,h:2, power:0, gen:120, nIn:1,nOut:0},
+  {id:'pole',   name:'送電スタンド',      kind:'power', w:1,h:1, power:0, gen:0, nIn:0,nOut:0},
+  {id:'relay',  name:'中継タワー',       kind:'power', w:1,h:1, power:0, gen:0, nIn:0,nOut:0}
+ ],
+
+ /* レシピ。conf は情報の確度：'ok'＝出典で確認済み／'part'＝材料は判明・数量と秒数は未確認／
+    'guess'＝丸ごと推定。ゲーム内の製造プロセス画面を見て「データ編集」で直してください */
+ recs:[
+  {id:'r_seed_sand', name:'採種：サンドリーフの種', conf:'ok',    fac:'seeder', sec:6, in:[{item:'sand',qty:1}], out:[{item:'seed_sand',qty:2}]},
+  {id:'r_grow_sand', name:'栽培：サンドリーフ',     conf:'ok',    fac:'farm',   sec:6, in:[{item:'seed_sand',qty:1}], out:[{item:'sand',qty:1}]},
+  {id:'r_pw_coal',   name:'精錬：炭塊粉末',        conf:'ok',    fac:'smelt',  sec:4, in:[{item:'pw_kinso',qty:1}], out:[{item:'pw_coal',qty:2}]},
+  {id:'r_cap2',      name:'充填：蕎花カプセルⅡ',    conf:'part',  fac:'fill',   sec:12, in:[{item:'bot_blue',qty:1},{item:'pw_soba',qty:2}], out:[{item:'cap2',qty:1}]},
+  {id:'r_batL',      name:'包装：大容量谷地バッテリー', conf:'part', fac:'pack', sec:20, in:[{item:'batM',qty:2},{item:'sand',qty:2}], out:[{item:'batL',qty:1}]},
+  {id:'r_bot_pur',   name:'成形：紫晶製ボトル',      conf:'part',  fac:'mold',   sec:6, in:[{item:'ore_pur',qty:2}], out:[{item:'bot_pur',qty:1}]},
+  {id:'r_bot_blue',  name:'成形：青鉄製ボトル',      conf:'part',  fac:'mold',   sec:6, in:[{item:'ore_blue',qty:2}], out:[{item:'bot_blue',qty:1}]},
+  {id:'r_cap1',      name:'充填：蕎花カプセルⅠ',     conf:'part',  fac:'fill',   sec:12, in:[{item:'bot_pur',qty:1},{item:'pw_soba',qty:2}], out:[{item:'cap1',qty:1}]},
+  {id:'r_seed_soba', name:'採種：蕎花の種',         conf:'guess', fac:'seeder', sec:6, in:[{item:'soba',qty:1}], out:[{item:'seed_soba',qty:2}]},
+  {id:'r_grow_soba', name:'栽培：蕎花',            conf:'guess', fac:'farm',   sec:6, in:[{item:'seed_soba',qty:1}], out:[{item:'soba',qty:1}]},
+  {id:'r_seed_kinso',name:'採種：錦草の種',         conf:'guess', fac:'seeder', sec:6, in:[{item:'kinso',qty:1}], out:[{item:'seed_kinso',qty:2}]},
+  {id:'r_grow_kinso',name:'栽培：錦草',            conf:'guess', fac:'farm',   sec:6, in:[{item:'seed_kinso',qty:1}], out:[{item:'kinso',qty:1}]},
+  {id:'r_pw_soba',   name:'粉砕：蕎花粉末',         conf:'guess', fac:'crush',  sec:4, in:[{item:'soba',qty:1}], out:[{item:'pw_soba',qty:1}]},
+  {id:'r_pw_kinso',  name:'粉砕：錦草粉末',         conf:'guess', fac:'crush',  sec:4, in:[{item:'kinso',qty:1}], out:[{item:'pw_kinso',qty:1}]},
+  {id:'r_pw_ore',    name:'粉砕：鉱物粉末',         conf:'guess', fac:'crush',  sec:4, in:[{item:'ore_blue',qty:2}], out:[{item:'pw_ore',qty:1}]},
+  {id:'r_shell',     name:'精錬：結晶外殻',         conf:'guess', fac:'smelt',  sec:6, in:[{item:'ore_gen',qty:3}], out:[{item:'shell',qty:1}]},
+  {id:'r_ingot',     name:'精錬：精錬材',           conf:'guess', fac:'smelt',  sec:4, in:[{item:'ore_blue',qty:2}], out:[{item:'ingot',qty:1}]},
+  {id:'r_part_fe',   name:'組立：鉄製部品',         conf:'guess', fac:'assy',   sec:6, in:[{item:'ingot',qty:2}], out:[{item:'part_fe',qty:1}]},
+  {id:'r_part_hi',   name:'組立：高晶部品',         conf:'guess', fac:'assy',   sec:8, in:[{item:'shell',qty:2},{item:'part_fe',qty:1}], out:[{item:'part_hi',qty:1}]},
+  {id:'r_batS',      name:'包装：小容量谷地バッテリー', conf:'guess', fac:'pack', sec:10, in:[{item:'pw_ore',qty:2}], out:[{item:'batS',qty:1}]},
+  {id:'r_batM',      name:'包装：中容量谷地バッテリー', conf:'guess', fac:'pack', sec:16, in:[{item:'batS',qty:2},{item:'part_fe',qty:1}], out:[{item:'batM',qty:1}]},
+  {id:'r_waste',     name:'排水処理：水',           conf:'guess', fac:'wtreat', sec:6, in:[{item:'waste',qty:2}], out:[{item:'water',qty:1}]},
+
+  /* ── 武陵。比率は公開されている生産ラインの実数から逆算したもの（conf:'part'）。
+        1周期の秒数はライン本数からの推定を含みます ── */
+  {id:'r_ingot_red', name:'精錬：赤銅塊',            conf:'part', fac:'smelt',  sec:2,
+   in:[{item:'ore_red',qty:1},{item:'water',qty:1}], out:[{item:'ingot_red',qty:1},{item:'waste',qty:1}]},
+  {id:'r_pw_gen',    name:'粉砕：高密度源石粉末',      conf:'part', fac:'crush',  sec:2,
+   in:[{item:'ore_gen',qty:2}], out:[{item:'pw_gen',qty:1}]},
+  {id:'r_pw_sand',   name:'粉砕：サンドリーフ粉末',    conf:'part', fac:'crush',  sec:4,
+   in:[{item:'sand',qty:1}], out:[{item:'pw_sand',qty:3}]},
+  {id:'r_sokuj2',    name:'天有洪炉：息壌',           conf:'part', fac:'tenyu',  sec:2,
+   in:[{item:'water',qty:2},{item:'pw_coal',qty:1}], out:[{item:'sokuj',qty:1}]},
+  {id:'r_crystalA',  name:'大型化学反応炉：壌晶',      conf:'part', fac:'chemL',  sec:4,
+   in:[{item:'sokuj',qty:2},{item:'ore_blue',qty:1},{item:'water',qty:2},{item:'waste',qty:1}],
+   out:[{item:'crystal',qty:1},{item:'sludge',qty:2}]},
+  {id:'r_crystalB',  name:'精製：壌晶（廃液から）',     conf:'part', fac:'refine', sec:4,
+   in:[{item:'sludge',qty:8},{item:'ore_blue',qty:1}],
+   out:[{item:'crystal',qty:1},{item:'water',qty:2},{item:'waste',qty:1}]},
+  {id:'r_wbatM',     name:'包装：中容量武陵バッテリー', conf:'part', fac:'pack',   sec:10,
+   in:[{item:'crystal',qty:5},{item:'pw_gen',qty:20},{item:'pw_sand',qty:5}], out:[{item:'wbatM',qty:1}]},
+  {id:'r_sokuj_l2',  name:'ガス液体転換：液化息壌',    conf:'part', fac:'g2l',    sec:2,
+   in:[{item:'sokuj',qty:1},{item:'water',qty:1}], out:[{item:'sokuj_l',qty:1}]},
+  {id:'r_gas_soku',  name:'ガス反応：息壌ガス',        conf:'part', fac:'gasrct', sec:2.86,
+   in:[{item:'sokuj_l',qty:1.286}], out:[{item:'gas_soku',qty:1}]},
+  {id:'r_gas_acid',  name:'ガス反応：酸性ガス',        conf:'part', fac:'gasrct', sec:10,
+   in:[{item:'acid',qty:5},{item:'sokuj_l',qty:1}], out:[{item:'gas_acid',qty:1}]},
+  {id:'r_core_sep',  name:'ガス固体転換：分離コア',    conf:'part', fac:'g2s',    sec:2,
+   in:[{item:'ingot_red',qty:1},{item:'sokuj',qty:0.5},{item:'gas_in',qty:0.5}], out:[{item:'core_sep',qty:1}]},
+  {id:'r_part_cu',   name:'ガス固体転換：焔銅部品',    conf:'part', fac:'g2s',    sec:30,
+   in:[{item:'ingot_red',qty:20},{item:'core_sep',qty:5},{item:'gas_soku',qty:8}], out:[{item:'part_cu',qty:1}]},
+  {id:'r_part_sca',  name:'ガス固体転換：緋銅部品',    conf:'part', fac:'g2s',    sec:40,
+   in:[{item:'ingot_red',qty:20},{item:'core_sep',qty:5},{item:'gas_soku',qty:4}], out:[{item:'part_sca',qty:1}]},
+  {id:'r_sokuj_h',   name:'ガス固体転換：重息壌',      conf:'part', fac:'g2s',    sec:16.7,
+   in:[{item:'sokuj',qty:5},{item:'core_sep',qty:2.5},{item:'gas_soku',qty:1.67}], out:[{item:'sokuj_h',qty:1}]},
+  {id:'r_sokuj_hl',  name:'ガス液体転換：液化重息壌',  conf:'guess', fac:'g2l',   sec:4,
+   in:[{item:'sokuj_h',qty:1},{item:'water',qty:1}], out:[{item:'sokuj_hl',qty:1}]},
+  {id:'r_part_red',  name:'組立：赤銅部品',           conf:'guess', fac:'assy',  sec:8,
+   in:[{item:'ingot_red',qty:4}], out:[{item:'part_red',qty:1}]},
+  {id:'r_eq_red',    name:'装備部品加工：赤銅装備部品', conf:'guess', fac:'equip', sec:15,
+   in:[{item:'part_red',qty:3}], out:[{item:'eq_red',qty:1}]},
+  {id:'r_eq_cu',     name:'装備部品加工：焔銅装備部品', conf:'guess', fac:'equip', sec:15,
+   in:[{item:'part_cu',qty:3}], out:[{item:'part_eq',qty:1}]},
+  {id:'r_eq_sca',    name:'装備部品加工：緋銅装備部品', conf:'guess', fac:'equip', sec:15,
+   in:[{item:'part_sca',qty:3}], out:[{item:'eq_sca',qty:1}]},
+  {id:'r_eq_soku',   name:'装備部品加工：息壌装備部品', conf:'guess', fac:'equip', sec:15,
+   in:[{item:'sokuj_h',qty:2},{item:'part_red',qty:1}], out:[{item:'eq_soku',qty:1}]},
+  {id:'r_wbatS',     name:'包装：小容量武陵バッテリー', conf:'guess', fac:'pack',  sec:10,
+   in:[{item:'sokuj',qty:2},{item:'pw_gen',qty:4}], out:[{item:'wbatS',qty:1}]},
+  {id:'r_inj1',      name:'充填：芽針注射剤Ⅰ',        conf:'part', fac:'fill',   sec:12,
+   in:[{item:'ore_blue',qty:2},{item:'mebari',qty:2},{item:'water',qty:1}], out:[{item:'inj1',qty:1}]},
+  {id:'r_inj2',      name:'充填：芽針注射剤Ⅱ',        conf:'guess', fac:'fill',  sec:16,
+   in:[{item:'ore_red',qty:2},{item:'mebari',qty:2},{item:'water',qty:1}], out:[{item:'inj2',qty:1}]},
+  {id:'r_soda1',     name:'充填：錦草ソーダⅠ',        conf:'part', fac:'fill',   sec:20,
+   in:[{item:'ore_blue',qty:20},{item:'kinso',qty:2},{item:'water',qty:2}], out:[{item:'soda1',qty:1}]},
+  {id:'r_soda2',     name:'充填：錦草ソーダⅡ',        conf:'guess', fac:'fill',  sec:24,
+   in:[{item:'ore_red',qty:20},{item:'kinso',qty:2},{item:'water',qty:2}], out:[{item:'soda2',qty:1}]},
+  {id:'r_cap3',      name:'充填：蕎花カプセルⅢ',       conf:'guess', fac:'fill',  sec:14,
+   in:[{item:'bot_blue',qty:1},{item:'pw_soba',qty:3}], out:[{item:'cap3',qty:1}]},
+  {id:'r_gen_w',     name:'発電：小容量武陵バッテリー', conf:'guess', fac:'gen',   sec:GEN_SEC,
+   in:[{item:'wbatS',qty:1}], out:[]},
+  {id:'r_gen',       name:'発電：小容量谷地バッテリー', conf:'ok',   fac:'gen',   sec:GEN_SEC, in:[{item:'batS',qty:1}], out:[]}
+ ],
+
+ /* 工業エリア。地域（四号谷地／武陵）ごとに別の倉庫を持ち、エリアごとに盤面・採取ゾーン・協約容量が分かれる。
+    協約容量／ジップライン／戦闘設備の上限は攻略情報の一覧より。空欄のエリアは未掲載なので自分で入れてください */
+ areas: AREA_DEFAULTS.map(a=>Object.assign({field:[],nodes:[],belts:[],net:{},w:80,h:56},a)),
+ cur: 0
+};}
+
+const AREA_DEFAULTS=[
+ {id:'a_chusu', region:'四号谷地', name:'中枢エリア',      cap:200, zip:20, combat:10,
+  field:[{fac:'miner2',item:'ore_gen',count:4,rate:15},{fac:'miner2',item:'ore_blue',count:4,rate:15}]},
+ {id:'a_tsuro', region:'四号谷地', name:'谷地通路',        cap:100, zip:10, combat:10},
+ {id:'a_abree', region:'四号谷地', name:'アブリー採石場',   cap:100, zip:10, combat:10},
+ {id:'a_park',  region:'四号谷地', name:'源石研究パーク',   cap:200, zip:20, combat:10},
+ {id:'a_mine',  region:'四号谷地', name:'鉱山エリア',      cap:220, zip:25, combat:10,
+  field:[{fac:'miner2',item:'ore_pur',count:2,rate:15}]},
+ {id:'a_energy',region:'四号谷地', name:'エネルギー高地',   cap:200, zip:20, combat:10},
+
+ {id:'w_jo',    region:'武陵',    name:'武陵城',          cap:350, zip:50, combat:15,
+  field:[{fac:'miner2',item:'ore_gen',count:1,rate:540},{fac:'miner2',item:'ore_blue',count:1,rate:120},
+         {fac:'minerW',item:'ore_red',count:1,rate:240},{fac:'pump',item:'water',count:6,rate:60}]},
+ {id:'w_keigyo',region:'武陵',    name:'景玉谷',          cap:210, zip:25, combat:10},
+ {id:'w_seiha', region:'武陵',    name:'清波砦',          cap:160, zip:20, combat:15},
+ {id:'w_shuso', region:'武陵',    name:'首礎',            cap:180, zip:20, combat:15,
+  field:[{fac:'minerW',item:'ore_red',count:1,rate:120},{fac:'pump',item:'water',count:2,rate:60}]},
+ {id:'w_lab',   region:'武陵',    name:'実験区域',        cap:150, zip:20, combat:15},
+ {id:'w_zoken', region:'武陵',    name:'蔵剣谷',          cap:0,   zip:0,  combat:0},
+ {id:'w_tenno', region:'武陵',    name:'天王原',          cap:0,   zip:0,  combat:0,
+  field:[{fac:'pump',item:'water',count:12,rate:60},{fac:'farm',item:'kinso',count:6,rate:30}]},
+ {id:'w_oryu',  region:'武陵',    name:'応龍関',          cap:0,   zip:0,  combat:0,
+  field:[{fac:'gaspump',item:'gas_in',count:1,rate:180}]},
+ {id:'w_north', region:'武陵',    name:'北部封鎖区域',     cap:0,   zip:0,  combat:0,
+  field:[{fac:'gaspump',item:'gas_soku',count:1,rate:100},{fac:'gaspump',item:'gas_in',count:1,rate:40}]}
+];
+const REGIONS=['四号谷地','武陵'];
+
+let D = seed();
+D.nodes=[]; D.belts=[]; D.field=[];
+/* ── エリアの出し入れ。D.nodes / D.belts / D.field は「いま開いているエリア」の実体を指す ── */
+function curArea(){ return (D.areas||[])[D.cur||0] || null; }
+function curRegion(){ const a=curArea(); return a? a.region : REGIONS[0]; }
+function areasOf(reg){ return (D.areas||[]).filter(a=>a.region===reg); }
+function syncArea(){
+  const a=curArea(); if(!a) return;
+  a.nodes=D.nodes; a.belts=D.belts; a.field=D.field; a.w=GW; a.h=GH;
+  a.basePower=D.meta.basePower; a.goal=D.meta.goal;
+}
+let AREA_READY=false;
+function loadArea(i){
+  if(AREA_READY) syncArea();       // 起動時の空の状態でエリアを上書きしないように
+  AREA_READY=true;
+  D.cur=Math.max(0,Math.min((D.areas||[]).length-1,i|0));
+  const a=curArea(); if(!a) return;
+  D.nodes=a.nodes||(a.nodes=[]); D.belts=a.belts||(a.belts=[]); D.field=a.field||(a.field=[]);
+  if(a.basePower!=null) D.meta.basePower=a.basePower;
+  D.meta.goal=a.goal||null;
+  setBoard(a.w||80, a.h||56);
+  uidSeq=1;
+  D.nodes.concat(D.belts).forEach(o=>{ const m=/^u(\d+)$/.exec(o.uid||''); if(m) uidSeq=Math.max(uidSeq,+m[1]+1); });
+  sel=null;
+}
+let uidSeq = 1;
+const nextUid = ()=>'u'+(uidSeq++);
+
+/* 索引 */
+let IX = {};
+function reindex(){
+  IX = {item:{},fac:{},rec:{},recByFac:{}};
+  PORT_CACHE=new Map();
+  D.items.forEach(i=>IX.item[i.id]=i);
+  D.facs.forEach(f=>{facDefaults(f); IX.fac[f.id]=f; IX.recByFac[f.id]=[];});
+  IX.recOut={};
+  D.recs.forEach(r=>{IX.rec[r.id]=r; (IX.recByFac[r.fac]||(IX.recByFac[r.fac]=[])).push(r);
+    r.out.forEach(o=>{ (IX.recOut[o.item]||(IX.recOut[o.item]=[])).push(r); });});
+}
+const itemName = id => (IX.item[id]||{name:'?'}).name;
+/* 品目が増えても選びやすいよう、分類ごとにグループ化したセレクトを作る */
+function itemOptions(sel, blank){
+  const cats=[];
+  D.items.forEach(i=>{ const c=i.cat||'その他'; if(!cats.includes(c)) cats.push(c); });
+  return (blank?`<option value="">${blank}</option>`:'')+cats.map(c=>
+    `<optgroup label="${esc(c)}">`+D.items.filter(i=>(i.cat||'その他')===c)
+      .map(i=>`<option value="${i.id}" ${sel===i.id?'selected':''}>${esc(i.name)}</option>`).join('')+`</optgroup>`).join('');
+}
+const itemColor = id => (IX.item[id]||{color:'#888'}).color;
+
+/* ═══════════════════════════════════════════════════════════
+   2. 盤面ヘルパ
+   ═══════════════════════════════════════════════════════════ */
+function footprint(n){
+  const f = IX.fac[n.fac]; if(!f) return {w:1,h:1};
+  return n.rot ? {w:f.h,h:f.w} : {w:f.w,h:f.h};
+}
+function cellsOf(n){
+  const {w,h}=footprint(n), out=[];
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++)out.push({x:n.x+x,y:n.y+y});
+  return out;
+}
+function buildOcc(skipBeltUid){
+  const m = new Map();
+  D.nodes.forEach(n=>cellsOf(n).forEach(c=>m.set(c.x+','+c.y,{t:'n',uid:n.uid})));
+  D.belts.forEach(b=>{ if(b.uid===skipBeltUid) return;
+    (b.cells||[]).forEach(c=>{ const k=c.x+','+c.y; if(!m.has(k)) m.set(k,{t:'b',uid:b.uid}); });
+  });
+  return m;
+}
+function canPlace(n){
+  const {w,h}=footprint(n);
+  if(n.x<0||n.y<0||n.x+w>GW||n.y+h>GH) return false;
+  const occ = buildOcc();
+  return cellsOf(n).every(c=>!occ.has(c.x+','+c.y));
+}
+function nodeAt(x,y){
+  for(const n of D.nodes){
+    const {w,h}=footprint(n);
+    if(x>=n.x&&x<n.x+w&&y>=n.y&&y<n.y+h) return n;
+  }
+  return null;
+}
+function beltAt(x,y){
+  for(const b of D.belts) for(const c of (b.cells||[])) if(c.x===x&&c.y===y) return b;
+  return null;
+}
+/* 画面座標でベルト線に近いものを拾う（隣接設備間の短いベルト用） */
+function beltNear(sx,sy,tol){
+  let best=null,bd=tol*tol;
+  D.belts.forEach(b=>{
+    const pts=beltPoints(b);
+    for(let i=1;i<pts.length;i++){
+      const a=pts[i-1],c=pts[i], dx=c.x-a.x, dy=c.y-a.y, L=dx*dx+dy*dy;
+      let t = L? ((sx-a.x)*dx+(sy-a.y)*dy)/L : 0; t=Math.max(0,Math.min(1,t));
+      const px=a.x+t*dx-sx, py=a.y+t*dy-sy, d=px*px+py*py;
+      if(d<bd){bd=d;best=b;}
+    }
+  });
+  return best;
+}
+/* 設備の外周にある空きマス */
+function ringOf(n,occ){
+  const {w,h}=footprint(n), out=[];
+  const push=(x,y)=>{ if(x<0||y<0||x>=GW||y>=GH) return; const o=occ.get(x+','+y); if(!o) out.push({x,y}); };
+  for(let x=n.x;x<n.x+w;x++){push(x,n.y-1);push(x,n.y+h);}
+  for(let y=n.y;y<n.y+h;y++){push(n.x-1,y);push(n.x+w,y);}
+  return out;
+}
+function touching(a,b){
+  const A=footprint(a),B=footprint(b);
+  const gapX = Math.max(a.x-(b.x+B.w), b.x-(a.x+A.w));
+  const gapY = Math.max(a.y-(b.y+B.h), b.y-(a.y+A.h));
+  return (gapX===0 && gapY<0) || (gapY===0 && gapX<0);
+}
+/* ── 搬入口／搬出口（ポート）の幾何 ───────────────────────────
+   ポートは「設備のどの辺のどこに口があるか」で持つ。設備を回すと口も回る。
+   1つの口に繋げるベルトは1本まで — これが実際の詰め込み密度を決める。 */
+const DIRS=[[0,-1],[1,0],[0,1],[-1,0]];        // N,E,S,W
+const SIDE_JP=['上','右','下','左'];
+const sideLen=(f,s)=> (s&1)? f.h : f.w;
+let PORT_CACHE=new Map();
+function facDefaults(f){
+  if(f.nIn==null) f.nIn = f.kind==='sink'?Math.min(4,2*(f.w+f.h))
+                        : f.kind==='generator'?1
+                        : f.kind==='logistics'?(f.split?1:3)
+                        : f.kind==='source'?0 : 2;
+  if(f.nOut==null) f.nOut = f.kind==='sink'?0 : f.kind==='generator'?0
+                        : f.kind==='logistics'?(f.split?3:1) : 1;
+  if(f.inSide==null) f.inSide=3;               // 既定は左から入れて
+  if(f.outSide==null) f.outSide=1;             // 右へ出す
+  return f;
+}
+function allocSide(f,start,n,taken){
+  const ps=[]; let s=start&3, o=0, guard=0;
+  while(ps.length<n && guard++<200){
+    if(o>=sideLen(f,s)){ s=(s+1)&3; o=0; continue; }
+    const k=s+':'+o;
+    if(!taken.has(k)){ taken.add(k); ps.push({s,o}); }
+    o++;
+  }
+  return ps;
+}
+function portsOf(f){
+  const key=[f.id,f.w,f.h,f.nIn,f.nOut,f.inSide,f.outSide].join('|');
+  const hit=PORT_CACHE.get(f.id);
+  if(hit&&hit.key===key) return hit.ports;
+  const taken=new Set();
+  const outs=allocSide(f, f.outSide, f.nOut||0, taken).map(p=>({t:'out',s:p.s,o:p.o}));
+  const ins =allocSide(f, f.inSide , f.nIn ||0, taken).map(p=>({t:'in' ,s:p.s,o:p.o}));
+  const ports=outs.concat(ins);
+  PORT_CACHE.set(f.id,{key,ports});
+  return ports;
+}
+function portGeom(n,pi){
+  const f=IX.fac[n.fac]; if(!f) return null;
+  const P=portsOf(f)[pi]; if(!P) return null;
+  const w=f.w,h=f.h,r=(n.rot||0)&3;
+  let lx,ly;
+  if(P.s===0){lx=P.o;ly=0;} else if(P.s===1){lx=w-1;ly=P.o;}
+  else if(P.s===2){lx=P.o;ly=h-1;} else {lx=0;ly=P.o;}
+  let rx,ry;
+  if(r===0){rx=lx;ry=ly;} else if(r===1){rx=h-1-ly;ry=lx;}
+  else if(r===2){rx=w-1-lx;ry=h-1-ly;} else {rx=ly;ry=w-1-lx;}
+  const inside={x:n.x+rx,y:n.y+ry}, d=DIRS[(P.s+r)&3];
+  return {i:pi,t:P.t,inside,adj:{x:inside.x+d[0],y:inside.y+d[1]},dir:(P.s+r)&3};
+}
+function portUsed(uid,pi){
+  return D.belts.some(b=>(b.from===uid&&b.fromPort===pi)||(b.to===uid&&b.toPort===pi));
+}
+function portList(node,t){
+  const f=IX.fac[node.fac]; if(!f) return [];
+  return portsOf(f).map((p,i)=>({p,i})).filter(x=>x.p.t===t);
+}
+function freePorts(node,t){ return portList(node,t).filter(x=>!portUsed(node.uid,x.i)); }
+
+/* 設備だけの占有図（ラインは別扱い） */
+function machineOcc(){
+  const m=new Map();
+  D.nodes.forEach(n=>cellsOf(n).forEach(c=>m.set(c.x+','+c.y,n.uid)));
+  return m;
+}
+/* 既存ラインの通り方。直進しているマスは、直交方向ならブリッジで跨げる */
+function beltAxis(skip){
+  const m=new Map();
+  D.belts.forEach(b=>{
+    if(b.uid===skip) return;
+    const cs=b.cells||[];
+    for(let i=0;i<cs.length;i++){
+      const c=cs[i], pv=cs[i-1], nx=cs[i+1];
+      let ax;
+      if(pv&&nx) ax = (pv.x===nx.x)?'v' : (pv.y===nx.y)?'h' : 't';
+      else if(pv) ax = (pv.x===c.x)?'v':'h';
+      else if(nx) ax = (nx.x===c.x)?'v':'h';
+      else ax='t';
+      const k=c.x+','+c.y, cur=m.get(k);
+      m.set(k, cur? {axis:'t', bridged:true} : {axis:ax, bridged:false});
+    }
+  });
+  return m;
+}
+/* 全設備の口の正面マス。ここを他のベルトに横切られると、その口は死ぬ */
+function portFaces(){
+  const s=new Set();
+  D.nodes.forEach(n=>{
+    const f=IX.fac[n.fac]; if(!f) return;
+    portsOf(f).forEach((p,i)=>{ const g=portGeom(n,i); if(g) s.add(g.adj.x+','+g.adj.y); });
+  });
+  return s;
+}
+/* ── ポート間の経路探索（ダイクストラ法）
+      他の口の正面マスには重い通行料をかける。塞ぐくらいなら少し遠回りする、
+      が、大回りするくらいなら1マスだけ横切る、という判断になる ── */
+function routePorts(a,pa,b,pb,penal){
+  const ga=portGeom(a,pa), gb=portGeom(b,pb);
+  if(!ga||!gb) return null;
+  const ok=c=>c.x>=0&&c.y>=0&&c.x<GW&&c.y<GH;
+  if(!ok(ga.adj)||!ok(gb.adj)) return null;
+  if(ga.adj.x===gb.inside.x&&ga.adj.y===gb.inside.y&&
+     gb.adj.x===ga.inside.x&&gb.adj.y===ga.inside.y) return {cells:[],cost:0};  // 口どうしが密着
+  const occ=machineOcc(), bel=beltAxis();
+  const ka=ga.adj.x+','+ga.adj.y, kb=gb.adj.x+','+gb.adj.y;
+  if(occ.has(ka)||occ.has(kb)||bel.has(ka)||bel.has(kb)) return null;
+  if(ka===kb) return {cells:[ga.adj],cost:1};
+  const man=Math.abs(ga.adj.x-gb.adj.x)+Math.abs(ga.adj.y-gb.adj.y);
+  const cap=man*3+80;                                   // 遠回りの上限は「通ったマス数」で見る
+  const dist=new Map([[ka,0]]), prev=new Map([[ka,null]]), st=new Map([[ka,0]]);
+  const heap=[[0,ga.adj.x,ga.adj.y]];
+  const push=(c,x,y)=>{ heap.push([c,x,y]); let i=heap.length-1;
+    while(i>0){ const p=(i-1)>>1; if(heap[p][0]<=heap[i][0]) break; const t=heap[p];heap[p]=heap[i];heap[i]=t; i=p; } };
+  const pop=()=>{ const top=heap[0], last=heap.pop();
+    if(heap.length){ heap[0]=last; let i=0;
+      for(;;){ const l=2*i+1,r=l+1; let m=i;
+        if(l<heap.length&&heap[l][0]<heap[m][0]) m=l;
+        if(r<heap.length&&heap[r][0]<heap[m][0]) m=r;
+        if(m===i) break; const t=heap[m];heap[m]=heap[i];heap[i]=t; i=m; } }
+    return top; };
+  while(heap.length){
+    const top=pop(), c=top[0], x=top[1], y=top[2], k=x+','+y;
+    if(c>(dist.get(k)!==undefined?dist.get(k):Infinity)) continue;
+    if(k===kb) break;
+    const sk=st.get(k)||0;
+    if(sk>cap) continue;
+    for(const d of DIRS){
+      const nx=x+d[0], ny=y+d[1], nk=nx+','+ny;
+      if(nx<0||ny<0||nx>=GW||ny>=GH) continue;
+      if(occ.has(nk)) continue;
+      let extra=0;
+      const bi=bel.get(nk);
+      if(bi){
+        /* 既存ラインの上は、直交していてまだ跨がれていないときだけブリッジで越えられる */
+        if(nk===kb || bi.bridged || bi.axis==='t') continue;
+        const moveAxis = d[0]!==0 ? 'h' : 'v';
+        if(moveAxis===bi.axis) continue;          // 同じ向きに重ねることはできない
+        extra=12;                                 // ブリッジ1基ぶんのコスト
+      }
+      const w=1+extra+((penal&&nk!==kb&&penal.has(nk))?5:0);
+      const nc=c+w;
+      if(sk+1>cap) continue;
+      if(dist.has(nk)&&dist.get(nk)<=nc) continue;
+      dist.set(nk,nc); st.set(nk,sk+1); prev.set(nk,k); push(nc,nx,ny);
+    }
+  }
+  if(!prev.has(kb)) return null;
+  const path=[]; let k=kb;
+  while(k){ const t=k.split(','); path.push({x:+t[0],y:+t[1]}); k=prev.get(k); }
+  return {cells:path.reverse(), cost:dist.get(kb)};
+}
+
+/* ── 空いている口どうしを選んで繋ぐ ── */
+function connectNodes(A,Z,item,quiet){
+  const outs=freePorts(A,'out'), ins=freePorts(Z,'in');
+  if(!outs.length){ if(!quiet) flash(`${IX.fac[A.fac].name} の搬出口が満杯です。分流器を挟んでください。`); return null; }
+  if(!ins.length){ if(!quiet) flash(`${IX.fac[Z.fac].name} の搬入口が満杯です。合流機を挟んでください。`); return null; }
+  const pairs=[];
+  outs.forEach(o=>ins.forEach(i=>{
+    const ga=portGeom(A,o.i), gb=portGeom(Z,i.i);
+    if(!ga||!gb) return;
+    pairs.push({o:o.i,i:i.i,d:Math.abs(ga.adj.x-gb.adj.x)+Math.abs(ga.adj.y-gb.adj.y)});
+  }));
+  pairs.sort((x,y)=>x.d-y.d);
+  /* 口の組み合わせを何通りか引いてみて、いちばん安く済む経路を採る */
+  const faces=portFaces();
+  let best=null;
+  for(const pr of pairs.slice(0,12)){
+    const r=routePorts(A,pr.o,Z,pr.i,faces);
+    if(r&&(!best||r.cost<best.r.cost)) best={pr,r};
+    if(best&&best.r.cost<=pr.d) break;
+  }
+  if(best){
+    const b={uid:nextUid(),from:A.uid,fromPort:best.pr.o,to:Z.uid,toPort:best.pr.i,cells:best.r.cells,
+             item:item!==undefined?item:pickItemFor(A.uid,Z.uid)};
+    D.belts.push(b); return b;
+  }
+  if(!quiet) flash('経路が確保できません。間に空きマスが必要です。');
+  return null;
+}
+/* 設備を回した／動かしたあとに、繋がっているベルトを引き直す */
+function rewire(uid){
+  const touch=D.belts.filter(b=>b.from===uid||b.to===uid);
+  if(!touch.length) return 0;
+  const keep=touch.map(b=>({from:b.from,to:b.to,item:b.item}));
+  D.belts=D.belts.filter(b=>b.from!==uid&&b.to!==uid);
+  let lost=0;
+  keep.forEach(k=>{
+    const A=D.nodes.find(n=>n.uid===k.from), Z=D.nodes.find(n=>n.uid===k.to);
+    if(!A||!Z){lost++;return;}
+    if(!connectNodes(A,Z,k.item,true)) lost++;
+  });
+  return lost;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   3. ソルバー — 稼働率を繰り返し計算で収束させる
+   ═══════════════════════════════════════════════════════════ */
+let RES = {ratio:{},des:{},belt:{},gen:0,genOnly:0,base:0,cons:0,pf:1,balance:[],diag:[]};
+
+function solve(){
+  reindex();
+  const nodes = D.nodes, N = nodes.length;
+  const at = new Map(nodes.map((n,i)=>[n.uid,i]));
+  const meta = nodes.map(n=>{
+    const f = IX.fac[n.fac] || {kind:'process',power:0,gen:0,name:'?'};
+    /* 取出口は「倉庫から指定品目をベルト速度で引き出す口」として扱う */
+    const r = f.tap
+      ? (n.item ? {sec:60/capOf(n.item), in:[], out:[{item:n.item,qty:1}], name:'取出：'+itemName(n.item)} : null)
+      : (n.rec ? IX.rec[n.rec] : null);
+    const cpm = (r && r.sec>0) ? 60/r.sec : 0;          // サイクル/分
+    return {n,f,r,cpm,
+      inR:  r ? r.in .map(x=>({item:x.item, rate:x.qty*cpm})) : [],
+      outR: r ? r.out.map(x=>({item:x.item, rate:x.qty*cpm})) : []};
+  });
+  const belts = D.belts.filter(b=>at.has(b.from)&&at.has(b.to))
+    .map(b=>({b, a:at.get(b.from), z:at.get(b.to), item:b.item, flow:0}));
+
+  const key=(i,it)=>i+'|'+it;
+  const outCnt=new Map(), inCnt=new Map();
+  belts.forEach(e=>{
+    outCnt.set(key(e.a,e.item),(outCnt.get(key(e.a,e.item))||0)+1);
+    inCnt .set(key(e.z,e.item),(inCnt .get(key(e.z,e.item))||0)+1);
+  });
+  const outN = nodes.map((n,i)=>belts.filter(e=>e.a===i).length);
+  const kindOf = i => meta[i].f.kind;
+
+  /* ── 第1段：需要を下流から上流へ伝える（desired）
+        「作れる量」ではなく「引き取ってもらえる量」の上限を求める。
+        ベルト1本 30個/分 の壁もここで効く。 ── */
+  const des = nodes.map(()=>1);
+  function needOf(z,item,depth){
+    const m = meta[z];
+    if(m.f.kind==='sink') return Infinity;
+    if(m.f.kind==='logistics'){
+      if(depth>5) return capOf(item);
+      let s=0;
+      belts.forEach(e=>{ if(e.a===z) s += Math.min(capOf(item), needOf(e.z,item,depth+1)/(inCnt.get(key(e.z,item))||1)); });
+      return Math.min(s, capOf(item)*Math.max(1,outN[z]));
+    }
+    if(!m.r) return 0;
+    const x = m.inR.find(y=>y.item===item);
+    return x ? x.rate*des[z] : 0;
+  }
+  for(let it=0; it<160; it++){
+    const nd = nodes.map((n,i)=>{
+      const m = meta[i];
+      if(m.f.kind==='sink'||m.f.kind==='logistics'||m.f.kind==='generator') return 1;
+      if(!m.r) return 0;
+      let r = 1;
+      for(const x of m.outR){
+        let acc = 0;
+        belts.forEach(e=>{ if(e.a===i&&e.item===x.item)
+          acc += Math.min(capOf(x.item), needOf(e.z,x.item,0)/(inCnt.get(key(e.z,x.item))||1)); });
+        if(x.rate>0) r = Math.min(r, acc/x.rate);
+      }
+      return Math.max(0,Math.min(1,r));
+    });
+    for(let i=0;i<N;i++){ des[i] += 0.5*(nd[i]-des[i]); if(des[i]<1e-6) des[i]=0; }
+  }
+
+  /* ── 第2段：実際に流れる量（achieved）。電力の自己参照もここで収束させる ── */
+  const ach = nodes.map((n,i)=>kindOf(i)==='sink'||kindOf(i)==='logistics'?1:des[i]);
+  const base = Math.max(0, +D.meta.basePower||0);
+  /* 採取ゾーンからの転送量（毎分）。工業エリアの起点はここと倉庫在庫だけ */
+  /* 倉庫は地域ごとに1つ。同じ地域の全エリアの採取量と、他エリアの純増（最後の計算結果）を合算する */
+  const reg=curRegion();
+  const fieldRate={}, fromOther={};
+  (D.areas||[]).forEach((a,ai)=>{
+    if(a.region!==reg) return;
+    const fl = (ai===(D.cur||0)) ? (D.field||[]) : (a.field||[]);
+    fl.forEach(f=>{
+      if(!f.item||!(f.count>0)) return;
+      fieldRate[f.item]=(fieldRate[f.item]||0)+f.count*(+f.rate||0);
+    });
+    if(ai!==(D.cur||0) && a.net) Object.keys(a.net).forEach(k=>{
+      if(a.net[k]>0){ fieldRate[k]=(fieldRate[k]||0)+a.net[k]; fromOther[k]=(fromOther[k]||0)+a.net[k]; }
+    });
+  });
+  const tapN={};
+  nodes.forEach(n=>{ const f=IX.fac[n.fac]; if(f&&f.tap&&n.item) tapN[n.item]=(tapN[n.item]||0)+1; });
+  let coreIn=Object.assign({},fieldRate);          // 倉庫に入ってくる量（前回の反復値）
+  const tapRate=it=> Math.max(0, Math.min(capOf(it), (coreIn[it]||0)/Math.max(1,tapN[it]||1)));
+  let supply = nodes.map(()=>({})), pf=1, gen=0, genOnly=0, cons=0;
+  /* 前半は電力を満たしている前提で流れを立ち上げ、後半で実際の電力を効かせる。
+     いきなり電力を効かせると、初期状態（供給ゼロ）で発電機が止まったと判定され、
+     燃料が作れない→さらに発電が落ちる、という連鎖で0に張り付いてしまう */
+  for(let it=0; it<240; it++){
+    const avail = meta.map((m,i)=>{
+      const o={};
+      if(m.f.kind==='logistics') Object.assign(o, supply[i]);
+      else if(m.f.tap){ if(m.n.item) o[m.n.item]=tapRate(m.n.item); }
+      else m.outR.forEach(x=> o[x.item]=x.rate*ach[i]);
+      return o;
+    });
+    /* 同じ出口から出る複数のベルトへは、需要に応じて配分する。
+       分流器は片側が詰まればもう片側へ流すので、単純な等分にはならない */
+    const inflow = nodes.map(()=>({}));
+    const wsum=new Map();
+    belts.forEach(e=>{
+      if(!e.item){ e._w=0; return; }
+      e._w = Math.min(capOf(e.item), needOf(e.z,e.item,0)/(inCnt.get(key(e.z,e.item))||1));
+      const k=key(e.a,e.item); wsum.set(k,(wsum.get(k)||0)+e._w);
+    });
+    belts.forEach(e=>{
+      if(!e.item){ e.flow=0; return; }
+      const k=key(e.a,e.item), tot=wsum.get(k)||0, avl=avail[e.a][e.item]||0;
+      const share = tot>0 ? avl*e._w/tot : 0;
+      e.flow = Math.max(0, Math.min(capOf(e.item), share, e._w));
+      inflow[e.z][e.item] = (inflow[e.z][e.item]||0) + e.flow;
+    });
+    supply = inflow;
+    /* 倉庫の入りを更新：採取ゾーン＋搬入口に届いた分 */
+    const ci=Object.assign({},fieldRate);
+    belts.forEach(e=>{ if(e.item && meta[e.z].f.kind==='sink') ci[e.item]=(ci[e.item]||0)+e.flow; });
+    coreIn=ci;
+    const tgt = meta.map((m,i)=>{
+      if(m.f.kind==='sink'||m.f.kind==='logistics'||m.f.tap) return 1;
+      if(!m.r) return 0;
+      let r = m.f.kind==='generator' ? 1 : des[i];
+      for(const x of m.inR) if(x.rate>0) r = Math.min(r,(inflow[i][x.item]||0)/x.rate);
+      return Math.max(0,Math.min(1,r));
+    });
+    cons=0; genOnly=0;
+    meta.forEach((m,i)=>{ cons += (m.f.power||0); if(m.f.kind==='generator') genOnly += (m.f.gen||0)*ach[i]; });
+    gen = base + genOnly;
+    pf = cons>0 ? Math.min(1, gen/cons) : 1;
+    /* 反復中は電力を満たしている前提で流れを収束させる。
+       ここで毎回 pf を掛けると、上流から下流へ段ごとに pf が累乗され、
+       実際より何倍も低い稼働率になってしまう（3段で pf³ になる） */
+    for(let i=0;i<N;i++){
+      const t = tgt[i];
+      ach[i] += 0.45*(t-ach[i]);
+      if(ach[i]<1e-6) ach[i]=0;
+    }
+  }
+
+  /* 電力の充足率は、収束したあとに全体へ一度だけ効かせる。
+     ゲームでは電力が足りないと全設備が止まるので、これは「全体がこの割合まで落ちる」目安 */
+  if(pf<1){
+    for(let i=0;i<N;i++) if(meta[i].f.kind!=='generator') ach[i]*=pf;
+    belts.forEach(e=>{ e.flow*=pf; });
+    supply = supply.map(o=>{ const r2={}; Object.keys(o).forEach(k=>r2[k]=o[k]*pf); return r2; });
+    Object.keys(coreIn).forEach(k=>{ coreIn[k]*=pf; });
+  }
+
+  /* ── 結果 ── */
+  const rr={}, dd={}, bf={};
+  nodes.forEach((n,i)=>{ rr[n.uid]=ach[i]; dd[n.uid]=des[i]; });
+  belts.forEach(e=>bf[e.b.uid]=e.flow);
+
+  /* 倉庫（協約核心）の収支：採取ゾーンからの転送＋工業からの搬入 − 取出口の引き出し */
+  const core={};
+  const ctouch=id=>core[id]||(core[id]={id,field:fieldRate[id]||0,ship:0,draw:0,net:0});
+  Object.keys(fieldRate).forEach(ctouch);
+  belts.forEach(e=>{
+    if(!e.item) return;
+    if(meta[e.z].f.kind==='sink') ctouch(e.item).ship += e.flow;
+    if(meta[e.a].f.tap)           ctouch(e.item).draw += e.flow;
+  });
+  Object.values(core).forEach(c=>{ c.net = c.field + c.ship - c.draw; c.other = fromOther[c.id]||0; });
+  /* このエリアの純増を控えておき、同じ地域の他エリアを計算するときに倉庫の入りとして使う */
+  const meArea=curArea();
+  if(meArea){
+    const nt={};
+    Object.values(core).forEach(c=>{ const v=(c.ship||0)-(c.draw||0); if(Math.abs(v)>1e-6) nt[c.id]=v; });
+    meArea.net=nt;
+  }
+
+  const bal={};
+  const touch=id=>bal[id]||(bal[id]={id,make:0,use:0,ship:0});
+  meta.forEach((m,i)=>{
+    if(m.f.kind==='logistics'||!m.r) return;
+    m.outR.forEach(x=>touch(x.item).make += x.rate*ach[i]);
+    m.inR .forEach(x=>touch(x.item).use  += x.rate*ach[i]);
+  });
+  belts.forEach(e=>{ if(meta[e.z].f.kind==='sink' && e.item) touch(e.item).ship += e.flow; });
+
+  const dg=[];
+  const powerBad = cons>0 && gen<cons;
+  if(powerBad)
+    dg.push({lv:'err',t:`電力不足：供給 ${fmt(gen)} に対し消費 ${fmt(cons)}（充足率 ${Math.round(pf*100)}%）。ゲームでは全設備が停止します。以下の稼働率はすべてこの停電の影響を受けています。`});
+  else if(cons>0 && gen>0 && gen<cons*1.15)
+    dg.push({lv:'wrn',t:`電力の余裕が ${Math.round((gen/cons-1)*100)}% しかありません。設備を足すと落ちます。`});
+  nodes.forEach((n,i)=>{
+    const m=meta[i], nm=(m.f.name||'?')+' #'+n.uid.slice(1);
+    if(m.f.kind==='logistics'||m.f.kind==='sink') return;
+    if(!m.r){ dg.push({lv:'wrn',t:`${nm}：${m.f.tap?'引き出す品目':'レシピ'}が未設定です。`,uid:n.uid}); return; }
+    const blocked = m.outR.filter(x=>!(outCnt.get(key(i,x.item))||0));
+    if(ach[i]>=0.995 && !blocked.length) return;
+    if(powerBad && !blocked.length) return;
+    const lack = m.inR.filter(x=>x.rate>0 && (supply[i][x.item]||0) < x.rate*des[i]*0.995);
+    if(blocked.length)
+      dg.push({lv:'err',t:`${nm}：${blocked.map(x=>itemName(x.item)).join('・')} の出口にラインがなく停止しています。`,uid:n.uid});
+    else if(lack.length)
+      dg.push({lv:'wrn',t:`${nm}：${lack.map(x=>itemName(x.item)).join('・')} が足りず稼働率 ${Math.round(ach[i]*100)}%。`,uid:n.uid});
+    else if(des[i]<0.995)
+      dg.push({lv:'inf',t:`${nm}：下流の需要が ${Math.round(des[i]*100)}% しかなく、設備が余っています。`,uid:n.uid});
+    else
+      dg.push({lv:'wrn',t:`${nm}：出口が詰まり稼働率 ${Math.round(ach[i]*100)}%。`,uid:n.uid});
+  });
+  /* 取出口が引きたい量に対して倉庫の供給が足りていないか */
+  const wantDraw={};
+  belts.forEach(e=>{ if(e.item && meta[e.a].f.tap) wantDraw[e.item]=(wantDraw[e.item]||0)+(e._w||0); });
+  (function(){
+    const gr2=generatorRec();
+    const fuel=gr2&&gr2.in&&gr2.in[0]?gr2.in[0].item:null;
+    const nGen=nodes.filter((n,i)=>meta[i].f.kind==='generator').length;
+    if(fuel&&nGen>0){
+      const have=(fieldRate[fuel]||0)+((core[fuel]||{}).ship||0);
+      const need=nGen*(gr2.in[0].qty*60/gr2.sec);
+      if(have<need-0.01)
+        dg.push({lv:'err',t:`発電機の燃料が足りません：${itemName(fuel)}が毎分 ${fmt(need)} 必要ですが、倉庫に入るのは ${fmt(have)} です。燃料を作るラインを別に用意するか、採取ゾーン／他エリアからの供給を確認してください。`});
+    }
+  })();
+  Object.keys(wantDraw).forEach(id=>{
+    const have=(fieldRate[id]||0)+((core[id]||{}).ship||0);
+    if(wantDraw[id] > have+0.01)
+      dg.push({lv:'err',t:`${itemName(id)}の供給不足：工業側が毎分 ${fmt(wantDraw[id])} 引き出したいのに、倉庫へ入るのは ${fmt(have)}（採取ゾーン ${fmt(fieldRate[id]||0)}）。採取設備を増やすか目標を下げてください。`,field:true});
+  });
+  Object.values(core).forEach(c=>{
+    if(c.draw>0.01 && c.net < -0.01)
+      dg.push({lv:'err',t:`倉庫の${itemName(c.id)}が毎分 ${fmt(-c.net)} 足りません。採取ゾーンの設備を増やすか、引き出し量を減らしてください（採取 ${fmt(c.field)}＋搬入 ${fmt(c.ship)} に対し取出 ${fmt(c.draw)}）。`});
+  });
+  (function(){
+    const use=new Set(); let cross=0;
+    D.belts.forEach(b=>(b.cells||[]).forEach(c=>{ const k=c.x+','+c.y; if(use.has(k)) cross++; use.add(k); }));
+    if(cross>0) dg.push({lv:'inf',t:`ラインの交差が ${cross} 箇所あります。ここにはベルトブリッジ／パイプブリッジ（または地下配管）が要ります。`});
+  })();
+  belts.forEach(e=>{
+    if(!e.item){ dg.push({lv:'wrn',t:`ライン #${e.b.uid.slice(1)}：運ぶ品目が決まっていません（両端のレシピを確認）。`,belt:e.b.uid}); return; }
+    const ph=phaseOf(e.item), fa=meta[e.a].f, fz=meta[e.z].f;
+    const wrongFluid = ph!=='solid' && ((fa.kind==='logistics'&&fa.phase!=='fluid')||(fz.kind==='logistics'&&fz.phase!=='fluid'));
+    const wrongSolid = ph==='solid' && ((fa.kind==='logistics'&&fa.phase==='fluid')||(fz.kind==='logistics'&&fz.phase==='fluid'));
+    if(wrongFluid) dg.push({lv:'err',t:`#${e.b.uid.slice(1)}：${itemName(e.item)} は${ph==='gas'?'ガス':'液体'}なのでパイプ用の分流器・合流器が必要です。`,belt:e.b.uid});
+    if(wrongSolid) dg.push({lv:'err',t:`#${e.b.uid.slice(1)}：${itemName(e.item)} は固体なのでベルト用の分流器・合流器を使ってください。`,belt:e.b.uid});
+    const ma=meta[e.a], mz=meta[e.z];
+    if(ma.f.kind!=='logistics' && !ma.outR.some(x=>x.item===e.item))
+      dg.push({lv:'err',t:`ベルト #${e.b.uid.slice(1)}：${ma.f.name} は ${itemName(e.item)} を出力しません。`});
+    else if(mz.f.kind==='process'||mz.f.kind==='generator'){
+      if(!mz.inR.some(x=>x.item===e.item))
+        dg.push({lv:'err',t:`ベルト #${e.b.uid.slice(1)}：${mz.f.name} は ${itemName(e.item)} を受け取りません。`});
+    }
+    if(e.flow >= capOf(e.item)-0.05)
+      dg.push({lv:'inf',t:`${lineName(e.item)} #${e.b.uid.slice(1)}（${itemName(e.item)}）が上限 ${capOf(e.item)}個/分 に到達。増やすなら2本目が必要です。`,belt:e.b.uid});
+  });
+  const ar=curArea();
+  if(ar&&ar.cap>0){
+    let used=0;
+    (D.field||[]).forEach(f=>{ used += (f.count||0)*capCostOf(IX.fac[f.fac]); });
+    D.nodes.forEach(n=>{ used += capCostOf(IX.fac[n.fac]); });
+    if(used>ar.cap)
+      dg.push({lv:'err',t:`${ar.name}の協約容量を超えています（使用 ${used} / 上限 ${ar.cap}）。採取機やタンクを減らすか、地域建設レベルを上げてください。`});
+    else if(used>ar.cap*0.9)
+      dg.push({lv:'wrn',t:`${ar.name}の協約容量の残りが ${ar.cap-used} です（使用 ${used} / ${ar.cap}）。`});
+  }
+  const facCount={};
+  D.nodes.forEach(n=>{ facCount[n.fac]=(facCount[n.fac]||0)+1; });
+  Object.keys(facCount).forEach(fid=>{
+    const f=IX.fac[fid];
+    if(f&&f.max>0&&facCount[fid]>f.max)
+      dg.push({lv:'err',t:`${f.name} が ${facCount[fid]} 台あります（設置上限 ${f.max} 台）。`});
+  });
+  D.nodes.forEach(n=>{
+    const f=IX.fac[n.fac]; if(!f||f.kind!=='logistics') return;
+    const c = D.belts.filter(b=>b.from===n.uid).length;
+    if(c>SPLIT_MAX) dg.push({lv:'err',t:`${f.name} #${n.uid.slice(1)}：出力が ${c} 本ありますが上限は ${SPLIT_MAX} 本です。`,uid:n.uid});
+  });
+
+  RES = {ratio:rr, des:dd, belt:bf, gen, genOnly, base, cons, pf,
+         balance:Object.values(bal), core, field:fieldRate, diag:dg};
+}
+const fmt = v => (Math.abs(v)>=100?Math.round(v):Math.round(v*10)/10).toLocaleString('ja-JP');
+
+/* ═══════════════════════════════════════════════════════════
+   4. 描画
+   ═══════════════════════════════════════════════════════════ */
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const cam = {x:0,y:0,z:1};
+let CS = 26;   // 1マスの基準px
+let hover=null, sel=null, ghost=null, beltFrom=null, dragPan=null, dragNode=null;
+let tool='select', pickFac=null, ghostRot=0;
+
+function resize(){
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio||1;
+  cv.width = Math.max(1,r.width*dpr); cv.height = Math.max(1,r.height*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  draw();
+}
+const s2w = (sx,sy)=>({x:(sx-cam.x)/(CS*cam.z), y:(sy-cam.y)/(CS*cam.z)});
+const w2s = (wx,wy)=>({x:wx*CS*cam.z+cam.x, y:wy*CS*cam.z+cam.y});
+function fit(){
+  const r=cv.getBoundingClientRect();
+  cam.z = Math.min(r.width/(GW*CS), r.height/(GH*CS))*0.96;
+  cam.x = (r.width-GW*CS*cam.z)/2; cam.y=(r.height-GH*CS*cam.z)/2;
+  draw();
+}
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+
+function draw(){
+  const r = cv.getBoundingClientRect(), u = CS*cam.z;
+  ctx.clearRect(0,0,r.width,r.height);
+
+  /* 盤面 */
+  const o = w2s(0,0);
+  ctx.fillStyle='#0A1418'; ctx.fillRect(o.x,o.y,GW*u,GH*u);
+  ctx.strokeStyle='rgba(79,216,194,.055)'; ctx.lineWidth=1;
+  ctx.beginPath();
+  for(let x=0;x<=GW;x++){const p=w2s(x,0); ctx.moveTo(p.x,o.y); ctx.lineTo(p.x,o.y+GH*u);}
+  for(let y=0;y<=GH;y++){const p=w2s(0,y); ctx.moveTo(o.x,p.y); ctx.lineTo(o.x+GW*u,p.y);}
+  ctx.stroke();
+  ctx.strokeStyle='rgba(79,216,194,.13)'; ctx.beginPath();
+  for(let x=0;x<=GW;x+=8){const p=w2s(x,0); ctx.moveTo(p.x,o.y); ctx.lineTo(p.x,o.y+GH*u);}
+  for(let y=0;y<=GH;y+=8){const p=w2s(0,y); ctx.moveTo(o.x,p.y); ctx.lineTo(o.x+GW*u,p.y);}
+  ctx.stroke();
+  ctx.strokeStyle='#2B4550'; ctx.strokeRect(o.x,o.y,GW*u,GH*u);
+
+  /* ベルト */
+  D.belts.forEach(b=>{
+    const pts = beltPoints(b); if(pts.length<2) return;
+    const flow = RES.belt[b.uid]||0;
+    const col = b.item ? itemColor(b.item) : '#556A72';
+    const sat = flow>=(b.item?capOf(b.item):BELT_CAP)-0.05;
+    ctx.lineWidth = Math.max(2, u*0.30); ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.strokeStyle='rgba(6,12,15,.9)';
+    ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y); pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y)); ctx.stroke();
+    ctx.lineWidth = Math.max(1.4,u*0.19);
+    ctx.strokeStyle = flow<=0.001 ? 'rgba(120,140,150,.45)' : col;
+    ctx.globalAlpha = sat?1:0.9;
+    ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y); pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y)); ctx.stroke();
+    ctx.globalAlpha=1;
+    if(sat){ ctx.lineWidth=Math.max(1,u*0.07); ctx.strokeStyle='#F0A93C';
+      ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y); pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y)); ctx.stroke(); }
+    if(sel&&sel.k==='b'&&sel.uid===b.uid){
+      ctx.lineWidth=Math.max(1,u*0.06); ctx.strokeStyle='#fff';
+      ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y); pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y)); ctx.stroke();
+    }
+    /* 進行方向の矢印 */
+    if(u>13){
+      ctx.fillStyle = flow<=0.001?'rgba(150,170,180,.6)':'rgba(8,16,20,.85)';
+      for(let i=1;i<pts.length;i++){
+        const a=pts[i-1],c=pts[i], mx=(a.x+c.x)/2,my=(a.y+c.y)/2, ang=Math.atan2(c.y-a.y,c.x-a.x), s=u*0.15;
+        ctx.save(); ctx.translate(mx,my); ctx.rotate(ang);
+        ctx.beginPath(); ctx.moveTo(s,0); ctx.lineTo(-s*0.8,s*0.7); ctx.lineTo(-s*0.8,-s*0.7); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+    }
+  });
+
+  /* 交差（ブリッジが要る箇所） */
+  (function(){
+    const use=new Set(), cross=[];
+    D.belts.forEach(b=>(b.cells||[]).forEach(c=>{ const k=c.x+','+c.y; if(use.has(k)) cross.push(c); use.add(k); }));
+    cross.forEach(c=>{
+      const p2=w2s(c.x+0.5,c.y+0.5), sz=Math.max(2,u*0.24);
+      ctx.fillStyle='#0B1216'; ctx.fillRect(p2.x-sz/2,p2.y-sz/2,sz,sz);
+      ctx.strokeStyle='#F0A93C'; ctx.lineWidth=Math.max(1,u*0.05);
+      ctx.strokeRect(p2.x-sz/2,p2.y-sz/2,sz,sz);
+    });
+  })();
+
+  /* 設備 */
+  D.nodes.forEach(n=>{
+    const f=IX.fac[n.fac]; if(!f) return;
+    const {w,h}=footprint(n), p=w2s(n.x,n.y), W=w*u, H=h*u;
+    const kc = (KIND[f.kind]||KIND.process).color;
+    const rt = RES.ratio[n.uid];
+    const on = f.kind==='sink'||f.kind==='logistics' ? true : rt>0.005;
+    ctx.fillStyle = on ? '#17262D' : '#1A1416';
+    roundRect(p.x+1,p.y+1,W-2,H-2,Math.min(4,u*0.16)); ctx.fill();
+    ctx.strokeStyle = on ? kc : '#5E3A3A'; ctx.lineWidth = 1.4; ctx.globalAlpha = on?0.85:1;
+    roundRect(p.x+1,p.y+1,W-2,H-2,Math.min(4,u*0.16)); ctx.stroke(); ctx.globalAlpha=1;
+    /* 稼働率バー */
+    if(f.kind!=='sink'&&f.kind!=='logistics'){
+      const bw=(W-8)*Math.max(0,Math.min(1,rt||0));
+      ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillRect(p.x+4,p.y+H-6,W-8,3);
+      ctx.fillStyle = rt>0.995?'#4FD8C2': rt>0.005?'#F0A93C':'#E96A5B';
+      ctx.fillRect(p.x+4,p.y+H-6,bw,3);
+    }
+    ctx.fillStyle = kc; ctx.globalAlpha=0.22;
+    ctx.fillRect(p.x+1,p.y+1,Math.max(2,u*0.13),H-2); ctx.globalAlpha=1;
+    if(u>17){
+      ctx.fillStyle = on?'#CFDFE4':'#9A8A8C';
+      ctx.font=`500 ${Math.min(12,u*0.42)}px 'Zen Kaku Gothic New',sans-serif`;
+      ctx.textBaseline='top';
+      const label = f.name.length>7&&W<u*3 ? f.name.slice(0,6)+'…' : f.name;
+      ctx.fillText(label, p.x+u*0.22, p.y+u*0.16, W-u*0.3);
+      const sub2 = f.tap ? (n.item?itemName(n.item):'') : ((IX.rec[n.rec]||{}).name||'');
+      if(sub2&&u>21){
+        ctx.fillStyle='#6E858E'; ctx.font=`400 ${Math.min(10,u*0.33)}px 'Chakra Petch',monospace`;
+        ctx.fillText(sub2.replace(/^[^：]*：/,'').replace(' [仮]',''), p.x+u*0.22, p.y+u*0.16+Math.min(13,u*0.46), W-u*0.3);
+      }
+    }
+    if(sel&&sel.k==='n'&&sel.uid===n.uid){
+      ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
+      roundRect(p.x-2,p.y-2,W+4,H+4,4); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if(beltFrom===n.uid){
+      ctx.strokeStyle='#4FD8C2'; ctx.lineWidth=2;
+      roundRect(p.x-3,p.y-3,W+6,H+6,5); ctx.stroke();
+    }
+    /* 搬入口・搬出口 */
+    if(u>11){
+      const ps=portsOf(f);
+      for(let pi=0;pi<ps.length;pi++){
+        const g=portGeom(n,pi); if(!g) continue;
+        const c=w2s(g.inside.x+0.5,g.inside.y+0.5), d=DIRS[g.dir];
+        const t=u*0.40, len=u*0.15;
+        const mx=c.x+d[0]*t, my=c.y+d[1]*t;
+        const col = g.t==='out' ? '#4FD8C2' : '#93A3AA';
+        ctx.strokeStyle=col; ctx.lineWidth=Math.max(1.4,u*0.11); ctx.lineCap='butt';
+        ctx.beginPath(); ctx.moveTo(mx-d[0]*len,my-d[1]*len); ctx.lineTo(mx+d[0]*len,my+d[1]*len); ctx.stroke();
+        if(!portUsed(n.uid,pi)){
+          ctx.strokeStyle='rgba(8,16,20,.9)'; ctx.lineWidth=Math.max(1,u*0.05);
+          ctx.beginPath(); ctx.moveTo(mx-d[0]*len*0.2,my-d[1]*len*0.2); ctx.lineTo(mx+d[0]*len*0.2,my+d[1]*len*0.2); ctx.stroke();
+        }
+      }
+    }
+  });
+
+  /* ドラッグ移動の行き先 */
+  if(dragNode){
+    const t={fac:dragNode.n.fac,x:dragNode.tx,y:dragNode.ty,rot:dragNode.n.rot,uid:dragNode.n.uid};
+    const {w,h}=footprint(t), p=w2s(t.x,t.y);
+    const bak=D.nodes; D.nodes=D.nodes.filter(x=>x.uid!==t.uid);
+    const ok=canPlace(t); D.nodes=bak;
+    ctx.strokeStyle= ok?'#4FD8C2':'#E96A5B'; ctx.setLineDash([5,3]); ctx.lineWidth=1.6;
+    roundRect(p.x+1,p.y+1,w*u-2,h*u-2,3); ctx.stroke(); ctx.setLineDash([]);
+  }
+  /* ゴースト */
+  if(tool==='place'&&pickFac&&ghost){
+    const f=IX.fac[pickFac], t={fac:pickFac,x:ghost.x,y:ghost.y,rot:ghostRot};
+    const {w,h}=footprint(t), p=w2s(t.x,t.y), ok=canPlace(t);
+    ctx.globalAlpha=0.55; ctx.fillStyle= ok?'#1D3B41':'#3B1D22';
+    roundRect(p.x+1,p.y+1,w*u-2,h*u-2,3); ctx.fill();
+    ctx.globalAlpha=1; ctx.strokeStyle= ok?'#4FD8C2':'#E96A5B'; ctx.setLineDash([4,3]); ctx.lineWidth=1.4;
+    roundRect(p.x+1,p.y+1,w*u-2,h*u-2,3); ctx.stroke(); ctx.setLineDash([]);
+    if(u>17&&f){ ctx.fillStyle='#9FB6BC'; ctx.font=`500 ${Math.min(11,u*0.4)}px 'Zen Kaku Gothic New',sans-serif`;
+      ctx.textBaseline='top'; ctx.fillText(f.name,p.x+u*0.22,p.y+u*0.16,w*u-u*0.3); }
+  }
+}
+function beltPoints(b){
+  const A = D.nodes.find(n=>n.uid===b.from), Z = D.nodes.find(n=>n.uid===b.to);
+  if(!A||!Z) return [];
+  const ca=center(A), cz=center(Z), pts=[w2s(ca.x,ca.y)];
+  (b.cells||[]).forEach(c=>pts.push(w2s(c.x+0.5,c.y+0.5)));
+  pts.push(w2s(cz.x,cz.y));
+  return pts;
+}
+function center(n){ const {w,h}=footprint(n); return {x:n.x+w/2,y:n.y+h/2}; }
+
+/* ═══════════════════════════════════════════════════════════
+   5. 入力
+   ═══════════════════════════════════════════════════════════ */
+const stage=document.getElementById('stage'), hint=document.getElementById('hint');
+function setTool(t){
+  tool=t; stage.dataset.tool=t; beltFrom=null;
+  if(t!=='place') pickFac=null;
+  document.querySelectorAll('#tools button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.tool===t)));
+  paintPalette(); showHint(); draw();
+}
+function showHint(){
+  const m={
+    select:'設備やベルトをクリックすると右に詳細が出ます。空白をドラッグでスクロール。',
+    place:pickFac?`${IX.fac[pickFac].name} を設置 — クリックで確定 / R で向き切替`:'左の一覧から設備を選んでください。',
+    belt:beltFrom?'受け取り側の設備をクリック（Escで取り消し）':'送り出す側の設備をクリック → 受け取る側の設備をクリック',
+    erase:'撤去したい設備またはベルトをクリック'
+  };
+  hint.textContent = m[tool]||'';
+}
+document.getElementById('tools').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(b) setTool(b.dataset.tool);
+});
+cv.addEventListener('pointerdown',e=>{
+  cv.setPointerCapture(e.pointerId);
+  const r=cv.getBoundingClientRect(), sx=e.clientX-r.left, sy=e.clientY-r.top, w=s2w(sx,sy);
+  const gx=Math.floor(w.x), gy=Math.floor(w.y);
+  const n=nodeAt(gx,gy);
+  if(tool==='place'&&pickFac){
+    const t={uid:nextUid(),fac:pickFac,x:gx,y:gy,rot:ghostRot,rec:null};
+    if(canPlace(t)){
+      const rl=IX.recByFac[pickFac]||[]; if(rl.length===1) t.rec=rl[0].id;
+      D.nodes.push(t); sel={k:'n',uid:t.uid}; refresh();
+    }
+    return;
+  }
+  if(tool==='belt'){
+    if(!n) { beltFrom=null; showHint(); draw(); return; }
+    if(!beltFrom){ beltFrom=n.uid; showHint(); draw(); return; }
+    if(beltFrom===n.uid){ beltFrom=null; showHint(); draw(); return; }
+    addBelt(beltFrom,n.uid); beltFrom=null; showHint(); return;
+  }
+  if(tool==='erase'){
+    if(n) removeNode(n.uid);
+    else { const b=beltAt(gx,gy)||beltNear(sx,sy,9); if(b) removeBelt(b.uid); }
+    return;
+  }
+  /* select */
+  if(n){
+    sel={k:'n',uid:n.uid};
+    dragNode={n, offX:gx-n.x, offY:gy-n.y, tx:n.x, ty:n.y, moved:false};
+    paintInspector(); draw(); return;
+  }
+  const b=beltAt(gx,gy)||beltNear(sx,sy,9);
+  if(b){ sel={k:'b',uid:b.uid}; paintInspector(); draw(); return; }
+  sel=null; paintInspector(); dragPan={sx:e.clientX,sy:e.clientY,cx:cam.x,cy:cam.y}; draw();
+});
+cv.addEventListener('pointermove',e=>{
+  const r=cv.getBoundingClientRect(), w=s2w(e.clientX-r.left,e.clientY-r.top);
+  ghost={x:Math.floor(w.x),y:Math.floor(w.y)};
+  if(dragPan){ cam.x=dragPan.cx+(e.clientX-dragPan.sx); cam.y=dragPan.cy+(e.clientY-dragPan.sy); }
+  if(dragNode){
+    const tx=Math.floor(w.x)-dragNode.offX, ty=Math.floor(w.y)-dragNode.offY;
+    if(tx!==dragNode.tx||ty!==dragNode.ty){ dragNode.tx=tx; dragNode.ty=ty; dragNode.moved=true; }
+  }
+  if(dragPan||dragNode||tool==='place') draw();
+});
+addEventListener('pointerup',()=>{
+  dragPan=null;
+  if(dragNode){
+    const d=dragNode; dragNode=null;
+    if(d.moved&&(d.tx!==d.n.x||d.ty!==d.n.y)){
+      if(moveNode(d.n,d.tx,d.ty)) refresh();
+      else { flash('そこには置けません。'); draw(); }
+    } else draw();
+  }
+});
+cv.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const r=cv.getBoundingClientRect(), sx=e.clientX-r.left, sy=e.clientY-r.top, before=s2w(sx,sy);
+  cam.z = Math.max(0.35, Math.min(2.4, cam.z*(e.deltaY<0?1.12:1/1.12)));
+  const after=s2w(sx,sy);
+  cam.x += (after.x-before.x)*CS*cam.z; cam.y += (after.y-before.y)*CS*cam.z;
+  draw();
+},{passive:false});
+document.getElementById('zIn').onclick =()=>{cam.z=Math.min(2.4,cam.z*1.2);draw();};
+document.getElementById('zOut').onclick=()=>{cam.z=Math.max(0.35,cam.z/1.2);draw();};
+document.getElementById('zFit').onclick=fit;
+addEventListener('keydown',e=>{
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement||{}).tagName||'')) return;
+  if(e.key==='r'||e.key==='R'){
+    if(sel&&sel.k==='n'){ const n=D.nodes.find(x=>x.uid===sel.uid); if(n){rotateNode(n);return;} }
+    ghostRot=(ghostRot+1)&3; draw();
+  }
+  if(e.key==='Escape'){ beltFrom=null; sel=null; setTool('select'); paintInspector(); }
+  if(e.key==='Delete'||e.key==='Backspace'){
+    if(sel&&sel.k==='n') removeNode(sel.uid);
+    else if(sel&&sel.k==='b') removeBelt(sel.uid);
+  }
+});
+
+function pickItemFor(fromUid,toUid){
+  const A=D.nodes.find(n=>n.uid===fromUid), Z=D.nodes.find(n=>n.uid===toUid);
+  const fa=IX.fac[A.fac], fz=IX.fac[Z.fac];
+  const outs = fa.tap ? (A.item?[A.item]:[]) :
+               fa.kind==='logistics' ? D.items.map(i=>i.id) : ((IX.rec[A.rec]||{out:[]}).out.map(o=>o.item));
+  const ins  = fz.kind==='logistics'||fz.kind==='sink' ? D.items.map(i=>i.id) : ((IX.rec[Z.rec]||{in:[]}).in.map(o=>o.item));
+  const both = outs.filter(i=>ins.includes(i));
+  if(fa.kind==='logistics'&&fz.kind!=='logistics') return ins.length===1?ins[0]:(both[0]||null);
+  return both.length ? both[0] : null;
+}
+function addBelt(from,to){
+  const A=D.nodes.find(n=>n.uid===from), Z=D.nodes.find(n=>n.uid===to);
+  if(!A||!Z) return;
+  const b=connectNodes(A,Z);
+  if(b){ sel={k:'b',uid:b.uid}; refresh(); }
+}
+function removeNode(uid){
+  D.nodes = D.nodes.filter(n=>n.uid!==uid);
+  D.belts = D.belts.filter(b=>b.from!==uid&&b.to!==uid);
+  if(sel&&sel.uid===uid) sel=null;
+  refresh();
+}
+function removeBelt(uid){
+  D.belts = D.belts.filter(b=>b.uid!==uid);
+  if(sel&&sel.uid===uid) sel=null;
+  refresh();
+}
+function rotateNode(n){
+  const old=n.rot||0;
+  n.rot=(old+1)&3;
+  const bak=D.nodes; D.nodes=D.nodes.filter(x=>x.uid!==n.uid);
+  const ok=canPlace(n); D.nodes=bak;
+  if(!ok){ n.rot=old; flash('その向きでは他の設備と重なります。'); refresh(); return; }
+  const lost=rewire(n.uid);
+  refresh();
+  if(lost) flash(`${lost}本のベルトが引き直せず外れました。`);
+}
+function moveNode(n,nx,ny){
+  const ox=n.x, oy=n.y;
+  n.x=nx; n.y=ny;
+  const bak=D.nodes; D.nodes=D.nodes.filter(x=>x.uid!==n.uid);
+  const belts=D.belts, mine=D.belts.filter(b=>b.from===n.uid||b.to===n.uid);
+  D.belts=D.belts.filter(b=>b.from!==n.uid&&b.to!==n.uid);
+  const ok=canPlace(n);
+  D.nodes=bak; D.belts=belts;
+  if(!ok){ n.x=ox; n.y=oy; return false; }
+  const lost=rewire(n.uid);
+  if(lost) flash(`${lost}本のベルトが引き直せず外れました。`);
+  return true;
+}
+/* 診断から該当設備・ラインへ飛ぶ */
+function centerOn(wx,wy){
+  const r=cv.getBoundingClientRect();
+  cam.z=Math.max(cam.z,0.9);
+  cam.x=r.width/2 - wx*CS*cam.z;
+  cam.y=r.height/2 - wy*CS*cam.z;
+}
+function focusNode(uid){
+  const n=D.nodes.find(x=>x.uid===uid); if(!n) return;
+  const c=center(n); sel={k:'n',uid}; centerOn(c.x,c.y); paintInspector(); draw();
+}
+function focusBelt(uid){
+  const b=D.belts.find(x=>x.uid===uid); if(!b) return;
+  sel={k:'b',uid};
+  const cs=b.cells||[];
+  if(cs.length){ centerOn(cs[Math.floor(cs.length/2)].x+0.5, cs[Math.floor(cs.length/2)].y+0.5); }
+  else { const a=D.nodes.find(x=>x.uid===b.from); if(a){const c=center(a); centerOn(c.x,c.y);} }
+  paintInspector(); draw();
+}
+let flashT=null;
+function flash(msg){
+  hint.textContent=msg; hint.style.color='#F0A93C';
+  clearTimeout(flashT); flashT=setTimeout(()=>{hint.style.color='';showHint();},2600);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   6. パネル描画
+   ═══════════════════════════════════════════════════════════ */
+const el = (h)=>{const d=document.createElement('div');d.innerHTML=h.trim();return d.firstElementChild;};
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function paintPalette(){
+  const p=document.getElementById('palette');
+  const groups={};
+  D.facs.forEach(f=>{ if(f.field) return; (groups[f.kind]||(groups[f.kind]=[])).push(f); });
+  p.innerHTML='';
+  Object.keys(KIND).forEach(k=>{
+    if(!groups[k]) return;
+    const sec=el(`<div class="sec"><h3>${KIND[k].label}</h3></div>`);
+    groups[k].forEach(f=>{
+      const b=el(`<button class="fac" aria-pressed="${pickFac===f.id&&tool==='place'}">
+        <span class="swatch" style="background:${KIND[k].color}"></span>
+        <span class="nm">${esc(f.name)}</span>
+        <span class="mt">${f.w}×${f.h}${f.kind==='generator'?' +'+f.gen:(f.power?' −'+f.power:'')}</span></button>`);
+      b.onclick=()=>{ pickFac=f.id; setTool('place'); };
+      sec.appendChild(b);
+    });
+    p.appendChild(sec);
+  });
+}
+
+function paintPower(){
+  const {gen,cons,pf}=RES;
+  const bar=document.getElementById('powerBar');
+  const ratio = cons>0 ? gen/cons : (gen>0?1:0);
+  bar.style.width = Math.min(100, ratio*100)+'%';
+  bar.style.background = ratio>=1.15?'var(--mint)': ratio>=1?'#8ED8A0': ratio>0?'var(--amber)':'var(--coral)';
+  document.getElementById('powerNum').textContent = `${fmt(gen)} / ${fmt(cons)}`;
+  const bad = cons>0 && gen<cons;
+  document.getElementById('blackout').classList.toggle('on',bad);
+  document.getElementById('boLabel').classList.toggle('on',bad);
+}
+
+function paintBalance(){
+  const box=document.getElementById('balance');
+  const rows=RES.balance.filter(b=>b.make>0.001||b.use>0.001);
+  if(!rows.length){ box.innerHTML='<div class="empty">設備を置いてレシピを選ぶと、品目ごとの生産量・消費量・搬入量がここに出ます。</div>'; return; }
+  rows.sort((a,b)=>b.make-a.make);
+  const core=RES.core||{};
+  Object.keys(RES.field||{}).forEach(id=>{ if(!rows.some(r=>r.id===id)&&(RES.field[id]>0)) rows.push({id,make:0,use:0,ship:0}); });
+  box.innerHTML = `<table class="rt"><thead><tr><th>品目</th><th>採取</th><th>生産</th><th>消費</th><th>倉庫へ</th><th>倉庫収支</th></tr></thead><tbody>${
+    rows.map(r=>{
+      const c=core[r.id]||{field:0,ship:0,draw:0,net:0};
+      const cls = c.net>0.05?'pos':c.net<-0.05?'neg':'zero';
+      return `<tr><td><span class="dot" style="background:${itemColor(r.id)}"></span>${esc(itemName(r.id))}</td>
+        <td>${c.field>0.001?fmt(c.field):'—'}</td>
+        <td>${fmt(r.make)}</td><td>${fmt(r.use)}</td><td>${r.ship>0.001?fmt(r.ship):'—'}</td>
+        <td class="${cls}">${c.net>0.05?'+':''}${fmt(c.net)}</td></tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+function paintDiag(){
+  const box=document.getElementById('diag');
+  if(!RES.diag.length){
+    box.innerHTML = D.nodes.length
+      ? '<div class="warn"><span class="tag t-inf">OK</span><span>全設備がフル稼働、詰まりも電力不足もありません。</span></div>'
+      : '<div class="empty">問題が見つかるとここに並びます。</div>';
+    return;
+  }
+  const order={err:0,wrn:1,inf:2};
+  const list=RES.diag.slice().sort((a,b)=>order[a.lv]-order[b.lv]);
+  const nErr=list.filter(d=>d.lv==='err').length, nWrn=list.filter(d=>d.lv==='wrn').length;
+  box.innerHTML = `<div style="font-family:var(--mono);font-size:10px;color:var(--faint);margin-bottom:5px">
+      停止 ${nErr} ／ 注意 ${nWrn} ／ 上限 ${list.length-nErr-nWrn}　<span style="color:var(--dim)">行をクリックすると該当箇所へ移動します</span></div>`
+    + list.map((d,k)=>`<div class="warn${(d.uid||d.belt)?' jump':''}" data-i="${k}">
+        <span class="tag t-${d.lv==='err'?'err':d.lv==='wrn'?'wrn':'inf'}">${d.lv==='err'?'停止':d.lv==='wrn'?'注意':'上限'}</span>
+        <span>${esc(d.t)}</span></div>`).join('');
+  box.querySelectorAll('.jump').forEach(el4=>el4.onclick=()=>{
+    const d=list[+el4.dataset.i];
+    if(d.uid) focusNode(d.uid); else if(d.belt) focusBelt(d.belt);
+  });
+}
+
+function paintInspector(){
+  const box=document.getElementById('inspector');
+  if(!sel){
+    const cnt=D.nodes.length, bc=D.belts.length;
+    box.innerHTML=`<div class="sec"><h3>概況</h3>
+      <div class="row"><span class="k">設置数</span><span class="v">${cnt}</span></div>
+      <div class="row"><span class="k">ベルト</span><span class="v">${bc} 本</span></div>
+      <div class="row"><span class="k">消費電力</span><span class="v">−${fmt(RES.cons)}</span></div>
+      <div class="row"><span class="k">発電機</span><span class="v">+${fmt(RES.genOnly)}</span></div>
+      <div class="row"><span class="k">基礎電力</span><span class="v">+${fmt(RES.base)}</span></div>
+      <div class="row"><span class="k">充足率</span><span class="v">${RES.cons>0?Math.round(RES.gen/RES.cons*100)+'%':'—'}</span></div>
+      </div>
+      <div class="sec"><h3>${esc(curRegion())}／${esc((curArea()||{}).name||'エリア')}</h3>
+      <label class="fl">エリア名</label><input type="text" id="areaName" value="${esc((curArea()||{}).name||'')}">
+      <div style="display:flex;gap:6px">
+        <div style="flex:1"><label class="fl">協約容量</label><input type="number" id="areaCap" min="0" value="${(curArea()||{}).cap||0}"></div>
+        <div style="flex:1"><label class="fl">ジップライン</label><input type="number" id="areaZip" min="0" value="${(curArea()||{}).zip||0}"></div>
+        <div style="flex:1"><label class="fl">戦闘設備</label><input type="number" id="areaCb" min="0" value="${(curArea()||{}).combat||0}"></div>
+      </div>
+      <label class="fl">プラン名</label><input type="text" id="planName" value="${esc(D.meta.name)}">
+      <label class="fl">基礎電力（協約核心の供給）</label><input type="number" min="0" step="10" id="basePow" value="${+D.meta.basePower||0}">
+      <label class="fl">発電に使うバッテリー</label>
+      <select id="genRec">${(function(){
+        const g=D.facs.find(f=>f.kind==='generator'&&(f.gen||0)>0);
+        const ls=g?(IX.recByFac[g.id]||[]):[];
+        const cur=(generatorRec()||{}).id;
+        return ls.map(r=>`<option value="${r.id}" ${cur===r.id?'selected':''}>${esc(r.in[0]?itemName(r.in[0].item):r.name)}</option>`).join('');
+      })()}</select>
+      <label class="fl">検証目標</label>
+      <div style="display:flex;gap:6px">
+        <select id="goalItem" style="flex:1">${itemOptions((D.meta.goal||{}).item,'— 未設定 —')}</select>
+        <input type="number" id="goalRate" min="0" step="1" value="${(D.meta.goal||{}).rate||0}" style="width:80px">
+      </div>
+      <label class="fl">パイプの上限（個/分・要確認）</label>
+      <input type="number" id="pcap" min="1" step="1" value="${PIPE_CAP}">
+      <label class="fl">盤面の広さ（横 × 縦）</label>
+      <div style="display:flex;gap:6px"><input type="number" id="bw" min="12" max="${GW_MAX}" value="${GW}"><input type="number" id="bh" min="12" max="${GH_MAX}" value="${GH}"></div>
+      <label style="display:flex;gap:7px;align-items:center;margin-top:9px;font-size:12px;color:var(--dim)">
+        <input type="checkbox" id="agrow" ${D.meta.autoGrow!==false?'checked':''} style="width:auto"> 自動配置で盤面を広げる</label>
+      </div>`;
+    const pn=document.getElementById('planName');
+    if(pn) pn.onchange=e=>{D.meta.name=e.target.value;};
+    const an=document.getElementById('areaName');
+    if(an) an.onchange=e=>{ const a=curArea(); if(a){a.name=e.target.value; paintTabs();} };
+    [['areaCap','cap'],['areaZip','zip'],['areaCb','combat']].forEach(([id,key])=>{
+      const el5=document.getElementById(id);
+      if(el5) el5.onchange=e=>{ const a=curArea(); if(a){ a[key]=Math.max(0,+e.target.value||0); refresh(); } };
+    });
+    const bp=document.getElementById('basePow');
+    if(bp) bp.onchange=e=>{D.meta.basePower=Math.max(0,+e.target.value||0); refresh();};
+    const bw=document.getElementById('bw'), bh=document.getElementById('bh');
+    const resizeIt=()=>{ setBoard(+bw.value||GW, +bh.value||GH); refresh(); fit(); };
+    if(bw) bw.onchange=resizeIt;
+    if(bh) bh.onchange=resizeIt;
+    const ag=document.getElementById('agrow');
+    if(ag) ag.onchange=e=>{ D.meta.autoGrow=e.target.checked; };
+    const grx=document.getElementById('genRec');
+    if(grx) grx.onchange=e=>{ D.meta.genRec=e.target.value; refresh(); };
+    const gi=document.getElementById('goalItem'), gr2=document.getElementById('goalRate');
+    const setGoal=()=>{ const it=gi.value, rt=Math.max(0,+gr2.value||0);
+      D.meta.goal = it&&rt>0 ? {item:it,rate:rt} : null; refresh(); };
+    if(gi) gi.onchange=setGoal;
+    if(gr2) gr2.onchange=setGoal;
+    const pc=document.getElementById('pcap');
+    if(pc) pc.onchange=e=>{ PIPE_CAP=Math.max(1,+e.target.value||30); D.meta.pipeCap=PIPE_CAP; refresh(); };
+    return;
+  }
+  if(sel.k==='n'){
+    const n=D.nodes.find(x=>x.uid===sel.uid); if(!n){sel=null;return paintInspector();}
+    const f=IX.fac[n.fac], recs=IX.recByFac[n.fac]||[], rt=RES.ratio[n.uid]||0;
+    const r = f.tap ? (n.item?{sec:(60/capOf(n.item)),in:[],out:[{item:n.item,qty:1}]}:null) : IX.rec[n.rec];
+    const cpm = r&&r.sec>0 ? 60/r.sec : 0;
+    box.innerHTML=`<div class="sec"><h3>${KIND[f.kind].label}設備</h3>
+      <div style="font-family:var(--disp);font-size:15px;margin-bottom:2px">${esc(f.name)}</div>
+      <div class="mt" style="font-family:var(--mono);font-size:10px;color:var(--faint)">#${n.uid.slice(1)} · ${footprint(n).w}×${footprint(n).h} · 座標 ${n.x},${n.y}</div>
+      ${f.tap?`<label class="fl">引き出す品目</label>
+      <select id="tapSel">${itemOptions(n.item,'— 未設定 —')}</select>
+      <div class="row" style="margin-top:6px"><span class="k">供給上限</span><span class="v">${n.item?capOf(n.item):BELT_CAP} 個/分</span></div>
+      <div class="row"><span class="k">倉庫の在庫収支</span><span class="v" style="color:${n.item&&(RES.core&&RES.core[n.item]&&RES.core[n.item].net<-0.01)?'var(--coral)':'var(--mint)'}">${n.item&&RES.core&&RES.core[n.item]?(RES.core[n.item].net>0?'+':'')+fmt(RES.core[n.item].net)+' /分':'—'}</span></div>`
+      :recs.length?`<label class="fl">作るもの</label>
+      <select id="recSel"><option value="">— 未設定 —</option>${recs.map(rr=>`<option value="${rr.id}" ${n.rec===rr.id?'selected':''}>${esc(rr.name)}</option>`).join('')}</select>`:''}
+      ${f.kind!=='sink'&&f.kind!=='logistics'?`<label class="fl">稼働率</label>
+      <div class="bar"><i style="width:${Math.round(rt*100)}%;background:${rt>0.995?'var(--mint)':rt>0.005?'var(--amber)':'var(--coral)'}"></i></div>
+      <div class="row"><span class="k">実効</span><span class="v">${Math.round(rt*1000)/10} %</span></div>`:''}
+      ${f.power?`<div class="row"><span class="k">消費電力</span><span class="v">−${fmt(f.power)}</span></div>`:''}
+      ${f.gen?`<div class="row"><span class="k">発電量</span><span class="v">+${fmt(f.gen*rt)} / ${fmt(f.gen)}</span></div>`:''}
+      </div>
+      ${r?`<div class="sec"><h3>入出力（毎分）</h3>
+        ${r.in.map(x=>`<div class="row"><span class="k"><span class="dot" style="background:${itemColor(x.item)}"></span>${esc(itemName(x.item))}</span><span class="v">−${fmt(x.qty*cpm*rt)} / ${fmt(x.qty*cpm)}</span></div>`).join('')}
+        ${r.out.map(x=>`<div class="row"><span class="k"><span class="dot" style="background:${itemColor(x.item)}"></span>${esc(itemName(x.item))}</span><span class="v pos">+${fmt(x.qty*cpm*rt)} / ${fmt(x.qty*cpm)}</span></div>`).join('')}
+        ${!r.in.length&&!r.out.length?'<div class="empty">入出力なし（発電のみ）</div>':''}
+        <div class="row" style="margin-top:6px"><span class="k">サイクル</span><span class="v">${r.sec} 秒</span></div>
+      </div>`:''}
+      <div class="sec"><h3>搬入口 / 搬出口</h3>
+        <div class="row"><span class="k">向き</span><span class="v">${['↑ 上','→ 右','↓ 下','← 左'][(n.rot||0)&3]}向き</span></div>
+        <div class="row"><span class="k">搬入口</span><span class="v">${portList(n,'in').length-freePorts(n,'in').length} / ${portList(n,'in').length} 使用</span></div>
+        <div class="row"><span class="k">搬出口</span><span class="v">${portList(n,'out').length-freePorts(n,'out').length} / ${portList(n,'out').length} 使用</span></div>
+      </div>
+      <div class="sec"><h3>接続</h3>${connList(n.uid)}
+        <button class="mini" id="btnRot">向きを回す（R）</button>
+        <button class="mini danger" id="btnDel">この設備を撤去</button>
+      </div>`;
+    const rs=document.getElementById('recSel');
+    if(rs) rs.onchange=e=>{ n.rec=e.target.value||null; retagBelts(n.uid); refresh(); };
+    const ts=document.getElementById('tapSel');
+    if(ts) ts.onchange=e=>{ n.item=e.target.value||null; retagBelts(n.uid); refresh(); };
+    document.getElementById('btnRot').onclick=()=>rotateNode(n);
+    document.getElementById('btnDel').onclick=()=>removeNode(n.uid);
+    return;
+  }
+  const b=D.belts.find(x=>x.uid===sel.uid); if(!b){sel=null;return paintInspector();}
+  const A=D.nodes.find(n=>n.uid===b.from), Z=D.nodes.find(n=>n.uid===b.to);
+  const cap=b.item?capOf(b.item):BELT_CAP;
+  const flow=RES.belt[b.uid]||0, pct=Math.min(100,flow/cap*100);
+  box.innerHTML=`<div class="sec"><h3>ベルトコンベア</h3>
+    <div style="font-family:var(--disp);font-size:14px">${esc(IX.fac[A.fac].name)} → ${esc(IX.fac[Z.fac].name)}</div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--faint)">#${b.uid.slice(1)} · 長さ ${(b.cells||[]).length} マス</div>
+    <label class="fl">運ぶ品目</label>
+    <select id="beltItem">${itemOptions(b.item,'— 未設定 —')}</select>
+    <label class="fl">流量</label>
+    <div class="bar"><i style="width:${pct}%;background:${flow>=cap-0.05?'var(--amber)':'var(--mint)'}"></i></div>
+    <div class="row"><span class="k">実測 / 上限</span><span class="v">${fmt(flow)} / ${cap} 個/分</span></div>
+    <div class="row"><span class="k">占有率</span><span class="v">${Math.round(pct)} %</span></div>
+    ${flow>=cap-0.05?'<div class="empty" style="color:var(--amber)">上限に張り付いています。これ以上は2本目を引くか、分流器で分けてください。</div>':''}
+    <button class="mini" id="btnRe">経路を引き直す</button>
+    <button class="mini danger" id="btnDelB">このベルトを撤去</button>
+  </div>`;
+  document.getElementById('beltItem').onchange=e=>{b.item=e.target.value||null;refresh();};
+  document.getElementById('btnRe').onclick=()=>{
+    const item=b.item;
+    D.belts=D.belts.filter(x=>x.uid!==b.uid);
+    const nb=connectNodes(A,Z,item);
+    if(!nb){ D.belts.push(b); flash('別経路が見つかりません。'); }
+    else sel={k:'b',uid:nb.uid};
+    refresh();
+  };
+  document.getElementById('btnDelB').onclick=()=>removeBelt(b.uid);
+}
+function connList(uid){
+  const outs=D.belts.filter(b=>b.from===uid), ins=D.belts.filter(b=>b.to===uid);
+  const line=(b,dir)=>{
+    const other=D.nodes.find(n=>n.uid===(dir==='out'?b.to:b.from));
+    const f=other?IX.fac[other.fac].name:'?';
+    return `<div class="row"><span class="k">${dir==='out'?'→':'←'} ${esc(f)}</span><span class="v">${fmt(RES.belt[b.uid]||0)}</span></div>`;
+  };
+  if(!outs.length&&!ins.length) return '<div class="empty">まだベルトがつながっていません。</div>';
+  return ins.map(b=>line(b,'in')).join('')+outs.map(b=>line(b,'out')).join('');
+}
+function retagBelts(uid){
+  D.belts.forEach(b=>{
+    if(b.from!==uid&&b.to!==uid) return;
+    const guess=pickItemFor(b.from,b.to);
+    const A=D.nodes.find(n=>n.uid===b.from), Z=D.nodes.find(n=>n.uid===b.to);
+    const outs=IX.fac[A.fac].tap?(A.item?[A.item]:[]):(IX.rec[A.rec]||{out:[]}).out.map(o=>o.item);
+    const ins=(IX.rec[Z.rec]||{in:[]}).in.map(o=>o.item);
+    const fa=IX.fac[A.fac], fz=IX.fac[Z.fac];
+    const okA = fa.kind==='logistics'|| outs.includes(b.item);
+    const okZ = fz.kind==='logistics'||fz.kind==='sink'|| ins.includes(b.item);
+    if(!b.item||!okA||!okZ) b.item=guess;
+  });
+}
+
+function refresh(){
+  solve();
+  try{ RES.diag = inspectBoard().concat(RES.diag); }catch(e){}
+  paintPower(); paintBalance(); paintMetrics(); paintDiag(); paintInspector(); paintPalette(); paintTabs(); showHint(); draw();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   7. データ編集
+   ═══════════════════════════════════════════════════════════ */
+let dTab='items';
+const DFILT={item:'',cat:'',rec:''};
+document.getElementById('dTabs').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  dTab=b.dataset.tab;
+  document.querySelectorAll('#dTabs button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.tab===dTab)));
+  paintData();
+});
+function paintData(){
+  const p=document.getElementById('dPane');
+  if(dTab==='items'){
+    const q=(DFILT.item||'').trim(), cf=DFILT.cat||'';
+    const cats=[]; D.items.forEach(i=>{const c=i.cat||'その他'; if(!cats.includes(c))cats.push(c);});
+    const list=D.items.map((i,k)=>({i,k})).filter(o=>
+      (!cf||(o.i.cat||'その他')===cf) && (!q||o.i.name.indexOf(q)>=0||o.i.id.indexOf(q)>=0||(o.i.cat||'').indexOf(q)>=0));
+    p.innerHTML=`<div class="prow">
+      <div style="flex:1;min-width:150px"><label class="fl">名前で絞り込む</label><input type="text" id="qItem" value="${esc(q)}" placeholder="例：バッテリー"></div>
+      <div style="width:160px"><label class="fl">分類</label><select id="cItem"><option value="">すべて（${D.items.length}件）</option>${
+        cats.map(c=>`<option value="${esc(c)}" ${cf===c?'selected':''}>${esc(c)}（${D.items.filter(x=>(x.cat||'その他')===c).length}）</option>`).join('')}</select></div>
+      <div style="width:150px"><label class="fl">&nbsp;</label><button class="hbtn" id="addItem" style="width:100%">＋ 品目を追加</button></div>
+    </div>
+    <table class="ed"><thead><tr><th style="width:26%">品目名</th><th style="width:14%">ID</th><th style="width:14%">分類</th><th style="width:12%">状態</th><th style="width:9%">色</th><th style="width:16%">レシピ</th><th></th></tr></thead><tbody>${
+      list.map(({i,k})=>`<tr>
+        <td><input type="text" value="${esc(i.name)}" data-k="${k}" data-f="name"></td>
+        <td><input type="text" value="${esc(i.id)}" data-k="${k}" data-f="id"></td>
+        <td><input type="text" value="${esc(i.cat||'')}" data-k="${k}" data-f="cat" list="catList"></td>
+        <td><select data-k="${k}" data-f="phase">
+          <option value="solid" ${i.phase!=='liquid'&&i.phase!=='gas'?'selected':''}>固体（ベルト）</option>
+          <option value="liquid" ${i.phase==='liquid'?'selected':''}>液体（パイプ）</option>
+          <option value="gas" ${i.phase==='gas'?'selected':''}>ガス（パイプ）</option></select></td>
+        <td><input type="color" value="${i.color||'#8FA6B2'}" data-k="${k}" data-f="color" style="height:28px;padding:1px"></td>
+        <td>${(IX.recOut&&IX.recOut[i.id]||[]).length
+          ? `<span style="font-family:var(--mono);font-size:11px;color:var(--mint)">${(IX.recOut[i.id]||[]).length}件</span>`
+          : `<button class="hbtn" data-newrec="${i.id}" style="padding:3px 7px;font-size:11px">＋作り方</button>`}</td>
+        <td><button class="x" data-del="${k}">×</button></td></tr>`).join('')}</tbody></table>
+      <datalist id="catList">${cats.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
+      <p class="note" style="margin-top:12px">工業で作れる品目はここに全て並べておけます。<b>作り方が未登録の品目には「＋作り方」</b>が出るので、そこからレシピを作ってゲーム内の数値を入れてください。分類は自由に書き換えられ、入力した分類はそのまま絞り込みに使えます。<b>状態</b>を液体・ガスにすると、その品目はパイプ扱いになり上限や物流設備の判定が切り替わります。</p>`;
+    const qi=document.getElementById('qItem');
+    if(qi){ qi.oninput=e=>{DFILT.item=e.target.value; paintData(); const el2=document.getElementById('qItem'); if(el2){el2.focus();el2.setSelectionRange(el2.value.length,el2.value.length);} }; }
+    const ci=document.getElementById('cItem');
+    if(ci) ci.onchange=e=>{DFILT.cat=e.target.value; paintData();};
+    p.querySelectorAll('input[data-f],select[data-f]').forEach(inp=>inp.onchange=e=>{
+      const it=D.items[+e.target.dataset.k], f=e.target.dataset.f, v=e.target.value;
+      if(f==='id'){ const old=it.id; it.id=v; retargetItem(old,v); } else it[f]=v;
+      reindex(); paintData(); refresh();
+    });
+    p.querySelectorAll('[data-del]').forEach(b2=>b2.onclick=()=>{ D.items.splice(+b2.dataset.del,1); reindex(); paintData(); refresh(); });
+    p.querySelectorAll('[data-newrec]').forEach(b2=>b2.onclick=()=>{
+      const id=b2.dataset.newrec;
+      D.recs.push({id:'rec'+Date.now().toString(36).slice(-4), name:itemName(id)+' の作り方',
+        fac:(D.facs.find(f=>f.kind==='process')||{id:''}).id, sec:6, in:[], out:[{item:id,qty:1}]});
+      dTab='recs'; DFILT.rec=itemName(id);
+      document.querySelectorAll('#dTabs button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.tab==='recs')));
+      reindex(); paintData(); refresh();
+    });
+    document.getElementById('addItem').onclick=()=>{
+      D.items.push({id:'item'+Date.now().toString(36).slice(-4),name:'新しい品目',cat:DFILT.cat||'その他',color:'#8FA6B2',phase:'solid'});
+      reindex(); paintData();
+    };
+    return;
+  }
+  if(dTab==='facs'){
+    p.innerHTML=`<table class="ed"><thead><tr><th>設備名</th><th>ID</th><th>種別</th><th>幅</th><th>奥行</th><th>消費電力</th><th>発電量</th><th>搬入口</th><th>搬出口</th><th>入る辺</th><th>出る辺</th><th>取出口</th><th></th></tr></thead><tbody>${
+      D.facs.map((f,k)=>`<tr>
+        <td><input type="text" value="${esc(f.name)}" data-k="${k}" data-f="name"></td>
+        <td><input type="text" value="${esc(f.id)}" data-k="${k}" data-f="id" style="width:76px"></td>
+        <td><select data-k="${k}" data-f="kind">${Object.keys(KIND).map(kk=>`<option value="${kk}" ${f.kind===kk?'selected':''}>${KIND[kk].label}</option>`).join('')}</select></td>
+        <td><input type="number" min="1" max="12" value="${f.w}" data-k="${k}" data-f="w" style="width:52px"></td>
+        <td><input type="number" min="1" max="12" value="${f.h}" data-k="${k}" data-f="h" style="width:52px"></td>
+        <td><input type="number" min="0" step="1" value="${f.power}" data-k="${k}" data-f="power" style="width:64px"></td>
+        <td><input type="number" min="0" step="1" value="${f.gen}" data-k="${k}" data-f="gen" style="width:64px"></td>
+        <td><input type="number" min="0" max="16" value="${f.nIn}" data-k="${k}" data-f="nIn" style="width:52px"></td>
+        <td><input type="number" min="0" max="16" value="${f.nOut}" data-k="${k}" data-f="nOut" style="width:52px"></td>
+        <td><select data-k="${k}" data-f="inSide">${[0,1,2,3].map(v=>`<option value="${v}" ${f.inSide===v?'selected':''}>${SIDE_JP[v]}</option>`).join('')}</select></td>
+        <td><select data-k="${k}" data-f="outSide">${[0,1,2,3].map(v=>`<option value="${v}" ${f.outSide===v?'selected':''}>${SIDE_JP[v]}</option>`).join('')}</select></td>
+        <td style="text-align:center"><input type="checkbox" ${f.tap?'checked':''} data-k="${k}" data-f="tap" style="width:auto"></td>
+        <td><button class="x" data-del="${k}">×</button></td></tr>`).join('')}</tbody></table>
+      <button class="hbtn" id="addFac" style="margin-top:10px">＋ 設備を追加</button>
+      <p class="note" style="margin-top:12px"><b>搬入口／搬出口の数</b>が、その設備に何本のベルトを繋げるかを決めます（1つの口にベルト1本）。口が足りなければ分流器・合流機を挟む必要があり、これが実際の占有面積を左右します。<b>入る辺／出る辺</b>は口を並べる辺で、設備を回すと一緒に回ります。<br><b>取出口</b>にチェックを入れると、レシピの代わりに「引き出す品目」を選ぶ設備になります（協約核心の取出口のように、倉庫から ${BELT_CAP}個/分 まで供給する口）。<br><b>種別の意味</b>　採取＝素材を無から産出（採鉱機・栽培機・核心の取出口）／加工＝入力を出力に変換／発電＝品目を消費して電力を作る／物流＝分流器・合流機／搬入＝いくらでも受け取る終点（倉庫・核心の搬入口）。</p>`;
+    p.querySelectorAll('input,select').forEach(inp=>inp.onchange=e=>{
+      const f=D.facs[+e.target.dataset.k], fl=e.target.dataset.f;
+      let v = fl==='tap' ? e.target.checked : e.target.value;
+      if(['w','h','power','gen','nIn','nOut'].includes(fl)) v=Math.max(fl==='w'||fl==='h'?1:0, +v||0);
+      if(['inSide','outSide'].includes(fl)) v=+v||0;
+      if(fl==='id'){ const old=f.id; f.id=v; D.recs.forEach(r=>{if(r.fac===old)r.fac=v;}); D.nodes.forEach(n=>{if(n.fac===old)n.fac=v;}); }
+      else f[fl]=v;
+      reindex(); paintData(); refresh();
+    });
+    p.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
+      const id=D.facs[+b.dataset.del].id;
+      D.facs.splice(+b.dataset.del,1);
+      D.nodes.filter(n=>n.fac===id).map(n=>n.uid).forEach(removeNode);
+      reindex(); paintData(); refresh();
+    });
+    document.getElementById('addFac').onclick=()=>{ D.facs.push({id:'fac'+Date.now().toString(36).slice(-4),name:'新しい設備',kind:'process',w:2,h:2,power:20,gen:0}); reindex(); paintData(); };
+    return;
+  }
+  if(dTab==='bulk'){
+    p.innerHTML=`<p class="note">1行に1レシピ。<b>設備名 秒数s: 材料*数 + 材料*数 -> 産物*数</b> の形で書きます。
+      行末に <b>#確</b>／<b>#一部</b>／<b>#推定</b> を付けると確度を指定できます（省略時は推定）。
+      知らない品目名が出てきたら自動で品目を作ります。同じ設備で同じ産物のレシピがあれば上書きします。<br>
+      例：<span class="kv">包装機 10s: 鉱物粉末*2 -> 小容量谷地バッテリー*1 #確</span></p>
+    <label class="fl">レシピ（現在の内容を書き出してあります。編集して反映を押してください）</label>
+    <textarea id="bulkText" rows="16" spellcheck="false"></textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="hbtn" id="bulkApply" style="border-color:#3A6B62;color:var(--mint)">この内容を反映</button>
+      <button class="hbtn" id="bulkReload">現在の内容を読み直す</button>
+      <button class="hbtn" id="bulkCopy">クリップボードにコピー</button>
+    </div>
+    <div id="bulkLog" style="margin-top:12px"></div>`;
+    const ta=document.getElementById('bulkText');
+    ta.value=recipesToText();
+    document.getElementById('bulkReload').onclick=()=>{ta.value=recipesToText();};
+    document.getElementById('bulkCopy').onclick=async()=>{ try{await navigator.clipboard.writeText(ta.value);}catch(e){} };
+    document.getElementById('bulkApply').onclick=()=>{
+      const log=parseRecipes(ta.value);
+      const box=document.getElementById('bulkLog');
+      box.innerHTML=`<div class="advice"><b>反映しました</b>：追加 ${log.added} 件／更新 ${log.updated} 件
+        ${log.newItems.length?`／新しい品目 ${log.newItems.length} 件（${log.newItems.map(esc).join('、')}）`:''}</div>
+        ${log.errors.length?`<div class="advice" style="border-left-color:var(--coral);background:rgba(233,106,91,.06)"><b>読めなかった行</b><br>${log.errors.map(esc).join('<br>')}</div>`:''}`;
+      refresh();
+    };
+    return;
+  }
+  if(dTab==='cov'){
+    const cv=coverage(), tot=D.items.length;
+    const chip=(arr,label,color)=>arr.length?`<h4 class="sub">${label}（${arr.length}）</h4>
+      <div>${arr.map(i=>`<button class="chip" data-jump="${i.id}" style="border-color:${color};color:${color}">${esc(i.name)}</button>`).join('')}</div>`:'';
+    p.innerHTML=`<div class="cards">
+      <div class="card"><span class="cl">品目</span><span class="cv">${tot}<i>件</i></span></div>
+      <div class="card"><span class="cl">作り方あり</span><span class="cv">${tot-cv.noRecipe.length}<i>/ ${tot}</i></span></div>
+      <div class="card"><span class="cl">レシピ</span><span class="cv">${D.recs.length}<i>件</i></span></div>
+      <div class="card"><span class="cl">確認済</span><span class="cv" style="color:var(--mint)">${cv.byConf.ok||0}<i>件</i></span></div>
+      <div class="card"><span class="cl">一部確認</span><span class="cv" style="color:var(--amber)">${cv.byConf.part||0}<i>件</i></span></div>
+      <div class="card warnc"><span class="cl">推定のまま</span><span class="cv" style="color:var(--coral)">${cv.byConf.guess||0}<i>件</i></span></div>
+    </div>
+    <p class="note">品目名の付いたボタンを押すと、その品目の作り方を作る画面へ移ります。<b>推定のままのレシピが残っている間は、逆算した台数も推定値です。</b>ゲーム内の製造プロセス画面を見て「まとめて入力」で一気に直すのが早道です。</p>
+    ${chip(cv.noRecipe,'作り方が未登録の品目','var(--amber)')}
+    ${chip(cv.deadEnd,'行き止まり（作れず、採取ゾーンにも無い）','var(--coral)')}
+    ${chip(cv.unreachable,'材料が揃わず到達できない品目','var(--coral)')}
+    ${chip(cv.unused,'どのレシピでも使われない品目（最終製品ならOK）','var(--faint)')}`;
+    p.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>{
+      const id=b.dataset.jump;
+      if(!(IX.recOut[id]||[]).length){
+        D.recs.push({id:'rec'+Date.now().toString(36).slice(-4),name:itemName(id)+' の作り方',conf:'guess',
+          fac:(D.facs.find(f=>f.kind==='process')||{id:''}).id,sec:6,in:[],out:[{item:id,qty:1}]});
+      }
+      dTab='recs'; DFILT.rec=itemName(id);
+      document.querySelectorAll('#dTabs button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.tab==='recs')));
+      reindex(); paintData(); refresh();
+    });
+    return;
+  }
+  /* recipes */
+  const rq=(DFILT.rec||'').trim();
+  const shown=D.recs.map((r,k)=>({r,k})).filter(o=>!rq||o.r.name.indexOf(rq)>=0
+    ||o.r.out.some(x=>itemName(x.item).indexOf(rq)>=0)||o.r.in.some(x=>itemName(x.item).indexOf(rq)>=0)
+    ||((IX.fac[o.r.fac]||{name:''}).name.indexOf(rq)>=0));
+  p.innerHTML=`<div class="prow">
+      <div style="flex:1;min-width:170px"><label class="fl">品目名・設備名で絞り込む</label><input type="text" id="qRec" value="${esc(rq)}" placeholder="例：バッテリー / 包装機"></div>
+      <div style="width:150px"><label class="fl">&nbsp;</label><button class="hbtn" id="addRec" style="width:100%">＋ レシピを追加</button></div>
+    </div>
+    <div style="font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-bottom:8px">${shown.length} / ${D.recs.length} 件</div>
+    <div id="recList"></div>`;
+  const qr=document.getElementById('qRec');
+  if(qr) qr.oninput=e=>{DFILT.rec=e.target.value; paintData(); const el3=document.getElementById('qRec'); if(el3){el3.focus();el3.setSelectionRange(el3.value.length,el3.value.length);} };
+  const list=document.getElementById('recList');
+  shown.forEach(({r,k})=>{
+    const card=el(`<div style="border:1px solid var(--line);border-radius:3px;padding:10px 12px;margin-bottom:9px">
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:1;min-width:150px"><label class="fl">レシピ名</label><input type="text" value="${esc(r.name)}" data-f="name"></div>
+        <div style="width:110px"><label class="fl">確度</label><select data-f="conf">
+          <option value="ok" ${r.conf==='ok'?'selected':''}>確認済</option>
+          <option value="part" ${r.conf==='part'?'selected':''}>一部確認</option>
+          <option value="guess" ${(r.conf||'guess')==='guess'?'selected':''}>推定</option></select></div>
+        <div style="width:170px"><label class="fl">設備</label><select data-f="fac">${D.facs.filter(f=>!f.field&&f.kind!=='power').map(f=>`<option value="${f.id}" ${r.fac===f.id?'selected':''}>${esc(f.name)}</option>`).join('')}</select></div>
+        <div style="width:104px"><label class="fl">1周期（秒）</label><input type="number" min="0.5" step="0.5" value="${r.sec}" data-f="sec"></div>
+        <button class="x" data-del="1" title="削除">×</button>
+      </div>
+      <div style="display:flex;gap:18px;margin-top:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px"><label class="fl">入力</label><div data-io="in"></div><button class="hbtn" data-add="in" style="padding:3px 8px;font-size:11px">＋ 入力</button></div>
+        <div style="flex:1;min-width:200px"><label class="fl">出力</label><div data-io="out"></div><button class="hbtn" data-add="out" style="padding:3px 8px;font-size:11px">＋ 出力</button></div>
+      </div>
+      <div style="margin-top:8px;font-family:var(--mono);font-size:10.5px;color:${confOf(r).c}">${confOf(r).l} · = ${r.sec>0?(60/r.sec).toFixed(1):'0'} 周期/分 ${r.out.length?'→ '+r.out.map(o=>itemName(o.item)+' '+fmt(o.qty*60/r.sec)+'個/分').join('・'):''}</div>
+    </div>`);
+    const drawIO=side=>{
+      const wrap=card.querySelector(`[data-io="${side}"]`); wrap.innerHTML='';
+      r[side].forEach((x,j)=>{
+        const row=el(`<div class="io-row">
+          <select>${itemOptions(x.item)}</select>
+          <input type="number" min="0" step="1" value="${x.qty}">
+          <button class="x">×</button></div>`);
+        row.querySelector('select').onchange=e=>{x.item=e.target.value;reindex();paintData();refresh();};
+        row.querySelector('input').onchange=e=>{x.qty=Math.max(0,+e.target.value||0);paintData();refresh();};
+        row.querySelector('button').onclick=()=>{r[side].splice(j,1);paintData();refresh();};
+        wrap.appendChild(row);
+      });
+      if(!r[side].length) wrap.appendChild(el('<div class="empty">なし</div>'));
+    };
+    drawIO('in'); drawIO('out');
+    card.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
+      r[b.dataset.add].push({item:D.items[0]?D.items[0].id:'',qty:1}); paintData(); refresh();
+    });
+    card.querySelectorAll('[data-f]').forEach(inp=>inp.onchange=e=>{
+      const f=e.target.dataset.f;
+      r[f] = f==='sec' ? Math.max(0.5,+e.target.value||1) : e.target.value;
+      reindex();
+      if(f==='fac') D.nodes.forEach(n=>{ if(n.rec===r.id && n.fac!==r.fac) n.rec=null; });
+      paintData(); refresh();
+    });
+    card.querySelector('[data-del]').onclick=()=>{
+      D.nodes.forEach(n=>{if(n.rec===r.id)n.rec=null;});
+      D.recs.splice(k,1); reindex(); paintData(); refresh();
+    };
+    list.appendChild(card);
+  });
+  document.getElementById('addRec').onclick=()=>{
+    D.recs.push({id:'rec'+Date.now().toString(36).slice(-4),name:'新しいレシピ',
+      fac:(D.facs.find(f=>f.kind==='process')||D.facs[0]||{id:''}).id,sec:4,in:[],out:[]});
+    DFILT.rec=''; reindex(); paintData();
+  };
+}
+function retargetItem(oldId,newId){
+  D.recs.forEach(r=>{ r.in.forEach(x=>{if(x.item===oldId)x.item=newId;}); r.out.forEach(x=>{if(x.item===oldId)x.item=newId;}); });
+  D.belts.forEach(b=>{ if(b.item===oldId) b.item=newId; });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   8. 保存・読込
+   ═══════════════════════════════════════════════════════════ */
+const dump = ()=>{ syncArea();
+  return JSON.stringify({meta:Object.assign({},D.meta,{pipeCap:PIPE_CAP}),
+    items:D.items,facs:D.facs,recs:D.recs,areas:D.areas,cur:D.cur},null,1); };
+function repairBelts(){
+  const keep=D.belts.map(b=>({from:b.from,to:b.to,item:b.item}));
+  D.belts=[];
+  let lost=0;
+  keep.forEach(k=>{
+    const A=D.nodes.find(n=>n.uid===k.from), Z=D.nodes.find(n=>n.uid===k.to);
+    if(!A||!Z||!connectNodes(A,Z,k.item,true)) lost++;
+  });
+  return lost;
+}
+function load(json){
+  const o=JSON.parse(json);
+  ['items','facs','recs'].forEach(k=>{ if(!Array.isArray(o[k])) throw new Error(k+' がありません'); });
+  const areas = Array.isArray(o.areas)&&o.areas.length ? o.areas
+    : [{id:'a0',region:REGIONS[0],name:'エリア1',cap:0,zip:0,combat:0,w:80,h:56,net:{},
+        nodes:o.nodes||[],belts:o.belts||[],field:o.field||[]}];
+  areas.forEach(a=>{ a.nodes=a.nodes||[]; a.belts=a.belts||[]; a.field=a.field||[]; a.net=a.net||{};
+    a.w=a.w||80; a.h=a.h||56; a.region=a.region||REGIONS[0]; });
+  D={meta:Object.assign({name:'読み込んだプラン',basePower:240},o.meta||{}),
+     items:o.items,facs:o.facs,recs:o.recs,areas,cur:0,nodes:[],belts:[],field:[]};
+  if(D.meta.pipeCap>0) PIPE_CAP=+D.meta.pipeCap;
+  D.cur=0; loadArea(Math.min(+o.cur||0, areas.length-1));
+  sel=null; reindex();
+  if(D.belts.some(b=>b.fromPort===undefined||b.toPort===undefined)) repairBelts();
+  paintTabs(); refresh(); fit(); save();
+}
+document.getElementById('ioDown').onclick=()=>{
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([dump()],{type:'application/json'}));
+  a.download=(D.meta.name||'aic-plan').replace(/[\\/:*?"<>|]/g,'_')+'.json';
+  a.click(); URL.revokeObjectURL(a.href);
+};
+document.getElementById('ioUpBtn').onclick=()=>document.getElementById('ioUp').click();
+document.getElementById('ioUp').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ try{ load(rd.result); closeModals(); }catch(err){ alert('読み込めませんでした：'+err.message); } };
+  rd.readAsText(f); e.target.value='';
+};
+document.getElementById('ioCopy').onclick=async()=>{
+  try{ await navigator.clipboard.writeText(dump()); flash('JSONをコピーしました。'); closeModals(); }
+  catch{ document.getElementById('ioText').value=dump(); }
+};
+document.getElementById('ioPaste').onclick=()=>{
+  try{ load(document.getElementById('ioText').value); closeModals(); }
+  catch(err){ alert('読み込めませんでした：'+err.message); }
+};
+document.getElementById('ioReset').onclick=()=>{
+  if(!confirm('配置と数値をすべて初期状態に戻します。よろしいですか？')) return;
+  D=seed(); uidSeq=1; sel=null; reindex(); refresh(); fit(); save(); closeModals();
+};
+
+/* 任意の永続化（対応環境のみ） */
+async function save(){
+  try{ if(window.storage) await window.storage.set('aic:plan',dump()); }catch(e){}
+}
+async function restore(){
+  try{ if(window.storage){ const r=await window.storage.get('aic:plan'); if(r&&r.value){ load(r.value); return true; } } }catch(e){}
+  return false;
+}
+let saveT=null;
+const queueSave=()=>{clearTimeout(saveT);saveT=setTimeout(save,900);};
+
+/* ═══════════════════════════════════════════════════════════
+   10. 生産目標プランナー — 目標産出量から最小構成を逆算する
+   ═══════════════════════════════════════════════════════════ */
+
+/* 小数を分数に（連分数展開）。端数のない目標値を求めるのに使う */
+function toFrac(x,maxD){
+  maxD=maxD||20000;
+  let n0=0,d0=1,n1=1,d1=0,v=x;
+  for(let i=0;i<30;i++){
+    const a=Math.floor(v+1e-12);
+    const n2=a*n1+n0, d2=a*d1+d0;
+    if(d2>maxD||!isFinite(d2)) break;
+    n0=n1;d0=d1;n1=n2;d1=d2;
+    if(Math.abs(n1/d1-x)<1e-9) break;
+    const f=v-a; if(f<1e-9) break; v=1/f;
+  }
+  return d1? [n1,d1] : [Math.round(x),1];
+}
+function gcdI(a,b){a=Math.abs(a);b=Math.abs(b);while(b){const t=a%b;a=b;b=t;}return a||1;}
+function lcmI(a,b){return a/gcdI(a,b)*b;}
+
+/* 品目→その品目を「主産物として」作るレシピ候補。
+   2番目以降の産物（副産物）は、狙って作るものではないので候補にしない。
+   これを入れないと、副産物ほしさに上流を無限に増やす循環が起きる */
+function producersOf(){
+  const m={};
+  D.recs.forEach(r=>{ const o=r.out[0]; if(o) (m[o.item]||(m[o.item]=[])).push(r); });
+  return m;
+}
+/* 倉庫から引き出せる品目＝この地域のどこかで採取しているか、他エリアが余らせているもの。
+   既定では「作らずに倉庫から取る」扱いにする */
+function warehouseSupply(){
+  const reg=curRegion(), sup={};
+  (D.areas||[]).forEach((a,ai)=>{
+    if(a.region!==reg) return;
+    const fl=(ai===(D.cur||0))?(D.field||[]):(a.field||[]);
+    fl.forEach(f=>{ if(f.item&&f.count>0&&+f.rate>0) sup[f.item]=(sup[f.item]||0)+f.count*(+f.rate||0); });
+    if(ai!==(D.cur||0)&&a.net) Object.keys(a.net).forEach(k=>{ if(a.net[k]>0) sup[k]=(sup[k]||0)+a.net[k]; });
+  });
+  return sup;
+}
+function fieldSupplied(){
+  const sup=warehouseSupply(), s2={};
+  Object.keys(sup).forEach(k=>{ if(sup[k]>0) s2[k]=true; });
+  return s2;
+}
+function generatorFac(){ return D.facs.find(f=>f.kind==='generator'&&(f.gen||0)>0)||null; }
+function generatorRec(){
+  const g=generatorFac(); if(!g) return null;
+  const list=IX.recByFac[g.id]||[];
+  if(D.meta.genRec){ const hit=list.find(r=>r.id===D.meta.genRec); if(hit) return hit; }
+  return list[0]||null;
+}
+
+/* 需要を再帰的に展開してレシピ別サイクル数を求める */
+function expandNeed(targets, choice){
+  const prod = producersOf(), fs = fieldSupplied();
+  const need={}, made={}, cyc={}, raw={};
+  let diverged=false;
+  Object.keys(targets).forEach(k=>{ need[k]=targets[k]; delete fs[k]; });   // 目標そのものは掘らずに作る
+  for(let it=0; it<300; it++){
+    let changed=false;
+    for(const item of Object.keys(need)){
+      const deficit = need[item]-(made[item]||0);
+      if(deficit<=1e-9) continue;
+      if(!isFinite(deficit)||deficit>1e9){ diverged=true; break; }
+      const ch = choice[item];
+      let r = null;
+      if(ch==='__raw__') r=null;
+      else if(ch && IX.rec[ch]) r=IX.rec[ch];
+      else if(fs[item]) r=null;                    // 採取ゾーンにあるものは掘って賄う
+      else r=(prod[item]||[])[0]||null;
+      if(!r){ raw[item]=(raw[item]||0)+deficit; made[item]=(made[item]||0)+deficit; changed=true; continue; }
+      const q=(r.out.find(o=>o.item===item)||{qty:1}).qty||1;
+      const cycles = deficit/q;
+      cyc[r.id]=(cyc[r.id]||0)+cycles;
+      r.out.forEach(o=>{ made[o.item]=(made[o.item]||0)+cycles*o.qty; });
+      r.in .forEach(i=>{ need[i.item]=(need[i.item]||0)+cycles*i.qty; });
+      changed=true;
+    }
+    if(!changed||diverged) break;
+  }
+  return {cyc, raw, made, need, diverged};
+}
+
+/* 目標から最小構成を組む。発電機とバッテリー消費の自己参照もここで収束させる */
+function buildPlan(targetItem, targetRate, choice, opts){
+  choice = choice||{}; opts = opts||{};
+  const base = Math.max(0,+D.meta.basePower||0);
+  const gf = generatorFac(), gr = generatorRec();
+  let gens=0, out=null;
+  for(let k=0;k<12;k++){
+    /* 発電機の燃料は倉庫から引き出す前提にする。生産ツリーに混ぜると、
+       わずかな燃料のために中途半端な設備が1台ずつ増え、どれもフル稼働できなくなる */
+    const targets={}; targets[targetItem]=targetRate;
+    const ex = expandNeed(targets, choice);
+    const rows=[];
+    if(ex.diverged) return {targetItem,targetRate,rows:[],raw:{},made:{},gens:0,gf,gr,base,
+      power:0,area:0,fracSum:0,intSum:0,flow:[],capMax:0,pure:[],diverged:true};
+    let power=0, area=0, fracSum=0, intSum=0;
+    Object.keys(ex.cyc).forEach(rid=>{
+      const r=IX.rec[rid], f=IX.fac[r.fac]||{w:1,h:1,power:0,name:'?'};
+      const machines = ex.cyc[rid]*r.sec/60;
+      const int = Math.ceil(machines-1e-9);
+      rows.push({rid, rec:r, fac:f, machines, int,
+        util: int? machines/int : 0, area: int*f.w*f.h, power: int*(f.power||0)});
+      power += int*(f.power||0); area += int*f.w*f.h;
+      fracSum += machines; intSum += int;
+    });
+    rows.sort((a,b)=>b.machines-a.machines);
+    const deficit = Math.max(0, power - base);
+    const ng = (opts.noPower||!(gf && gf.gen>0)) ? 0 : Math.max(0,Math.ceil(deficit/gf.gen - 1e-9));
+    out = {targetItem,targetRate,rows,raw:ex.raw,made:ex.made,gens:ng,gf,gr,base,
+           power, area, fracSum, intSum};
+    if(ng===gens) break;
+    gens=ng;
+  }
+  /* 発電機の消費を除いた「純粋な生産比率」— 端数最適化はこちらで判定する */
+  const pure = expandNeed((function(){const t={};t[targetItem]=targetRate;return t;})(), choice);
+  out.pure = Object.keys(pure.cyc).map(rid=>{
+    const r=IX.rec[rid];
+    return {rid, machines: pure.cyc[rid]*r.sec/60};
+  });
+  /* 発電機そのものの面積 */
+  if(out.gens>0 && out.gf) out.area += out.gens*out.gf.w*out.gf.h;
+  /* 品目ごとの総搬送量と最低ベルト本数 */
+  const flow={};
+  const bump=(i,v)=>{ (flow[i]||(flow[i]={item:i,rate:0})).rate+=v; };
+  out.rows.forEach(r=>r.rec.out.forEach(x=>bump(x.item, x.qty*60/r.rec.sec*r.machines)));
+  Object.keys(out.raw).forEach(i=>bump(i,out.raw[i]));
+  out.flow = Object.values(flow).filter(f=>f.rate>1e-9).sort((a,b)=>b.rate-a.rate);
+  /* 切り上げ後の構成で実際に出せる上限 */
+  let capMax = Infinity;
+  out.rows.forEach(r=>{ if(r.machines>1e-9) capMax=Math.min(capMax, r.int*targetRate/r.machines); });
+  out.capMax = isFinite(capMax)? capMax : targetRate;
+  return out;
+}
+
+/* 全設備が整数台・100%稼働になる目標値を求める */
+function idealTargets(plan){
+  const src = (plan.pure&&plan.pure.length)?plan.pure:plan.rows;
+  if(!src.length||plan.targetRate<=0) return null;
+  let L=1, ok=true;
+  src.forEach(r=>{
+    const c=r.machines/plan.targetRate;              // 目標1個/分あたりの台数
+    const [p,q]=toFrac(c);
+    if(!p||!q){ok=false;return;}
+    const step=q/gcdI(p,q);
+    if(step>100000){ok=false;return;}
+    L=lcmI(L,step);
+    if(L>1e7) ok=false;
+  });
+  if(!ok||!isFinite(L)||L>1e6) return null;
+  const unit=L;                                      // これの倍数なら全設備が整数台・100%稼働
+  const k=Math.max(1,Math.round(plan.targetRate/unit));
+  const cands=[...new Set([Math.max(1,k-1),k,k+1,k+2])].map(i=>i*unit)
+    .filter(v=>v>0&&Math.abs(v-plan.targetRate)>1e-9).sort((a,b)=>Math.abs(a-plan.targetRate)-Math.abs(b-plan.targetRate));
+  return {unit, cands:cands.slice(0,3)};
+}
+
+/* ── 盤面メトリクス（実際に組んだラインの密度を測る） ── */
+function boardMetrics(){
+  const used=new Set(); let facCells=0, beltCells=0;
+  let minX=1e9,minY=1e9,maxX=-1,maxY=-1;
+  D.nodes.forEach(n=>cellsOf(n).forEach(c=>{
+    used.add(c.x+','+c.y); facCells++;
+    minX=Math.min(minX,c.x);minY=Math.min(minY,c.y);maxX=Math.max(maxX,c.x);maxY=Math.max(maxY,c.y);
+  }));
+  D.belts.forEach(b=>(b.cells||[]).forEach(c=>{
+    const k=c.x+','+c.y; if(!used.has(k)){used.add(k);beltCells++;}
+    minX=Math.min(minX,c.x);minY=Math.min(minY,c.y);maxX=Math.max(maxX,c.x);maxY=Math.max(maxY,c.y);
+  }));
+  const bbox = maxX<0?0:(maxX-minX+1)*(maxY-minY+1);
+  let util=0,cnt=0;
+  D.nodes.forEach(n=>{ const f=IX.fac[n.fac]; if(!f||f.kind==='sink'||f.kind==='logistics')return;
+    util+=(RES.ratio[n.uid]||0); cnt++; });
+  return {cells:used.size, facCells, beltCells, bbox,
+    fill: bbox? used.size/bbox : 0,
+    avgUtil: cnt? util/cnt : 0, machines:cnt,
+    bw: maxX<0?0:maxX-minX+1, bh: maxY<0?0:maxY-minY+1};
+}
+
+/* ── 構成を盤面に自動配置する
+      1) 段（原料→中間→製品）ごとに設備を並べ
+      2) つながる相手と高さが揃うように並び替え（重心法）
+      3) 近い組から順にベルトを引く                        ── */
+function autoLayout(plan, opts){
+  opts = opts||{};
+  const _gm=opts.gm||1, _pad=opts.pad||2, _order=opts.order||'dy';
+  const chosen={};
+  plan.rows.forEach(r=>r.rec.out.forEach(o=>{ if(!chosen[o.item]) chosen[o.item]=r.rec; }));
+  /* 段は「最終産物から何段手前か」で決める。原料からの距離で決めると、
+     終盤で使うだけの素材（香辛料のような枝）が左端に流されて長距離配線になる */
+  const consumersOf={};
+  plan.rows.forEach(r=>r.rec.in.forEach(x=>{ (consumersOf[x.item]||(consumersOf[x.item]=[])).push(r.rec); }));
+  const rankMemo={};
+  const rankRec=(rec,dep)=>{
+    if(rankMemo[rec.id]!==undefined) return rankMemo[rec.id];
+    if(dep>24) return 0;
+    rankMemo[rec.id]=0;
+    let m=-1;
+    rec.out.forEach(o=>(consumersOf[o.item]||[]).forEach(cr=>{
+      if(cr.id===rec.id) return;
+      m=Math.max(m, rankRec(cr,dep+1)+1);
+    }));
+    rankMemo[rec.id]= m<0?0:m;
+    return rankMemo[rec.id];
+  };
+  let maxRank=0;
+  plan.rows.forEach(r=>{ maxRank=Math.max(maxRank, rankRec(r.rec,0)); });
+  const rankItem=item=>{
+    const cs=consumersOf[item]||[];
+    let m=0; cs.forEach(cr=>{ m=Math.max(m, rankRec(cr,0)+1); });
+    return m;
+  };
+
+  /* 1) 段ごとのスロットを作る */
+  const tiers={};
+  const push=(d,o)=>{ o.d=d; (tiers[d]||(tiers[d]=[])).push(o); return o; };
+  const tapFac=D.facs.find(f=>f.tap);
+  Object.keys(plan.raw).forEach(item=>{
+    if(!tapFac) return;
+    const n=Math.max(1,Math.ceil(plan.raw[item]/capOf(item)-1e-9));
+    const d=maxRank-rankItem(item);        // 原料の供給口は使う側より必ず1段手前へ
+    for(let i=0;i<n;i++) push(d,{fac:tapFac.id, item, out:{[item]:capOf(item)}, in:{}});
+  });
+  let maxD=0;
+  plan.rows.forEach(r=>{
+    const d=maxRank-rankRec(r.rec,0);
+    maxD=Math.max(maxD,d);
+    const cpm=60/r.rec.sec, o={}, i={};
+    r.rec.out.forEach(x=>o[x.item]=x.qty*cpm);
+    r.rec.in .forEach(x=>i[x.item]=x.qty*cpm);
+    for(let k=0;k<r.int;k++) push(d,{fac:r.rec.fac, rec:r.rec.id, out:o, in:i});
+  });
+  if(plan.gens>0&&plan.gr){
+    const cpm=60/plan.gr.sec, i={};
+    plan.gr.in.forEach(x=>i[x.item]=x.qty*cpm);
+    for(let k=0;k<plan.gens;k++) push(maxD+1,{fac:plan.gr.fac, rec:plan.gr.id, out:{}, in:i});
+    /* 燃料を倉庫から引く取出口を、発電機の並びのすぐ手前に置く */
+    if(tapFac) plan.gr.in.forEach(x=>{
+      const need=plan.gens*x.qty*cpm;
+      const nt=Math.max(1,Math.ceil(need/capOf(x.item)-1e-9));
+      for(let k=0;k<nt;k++) push(maxD+0.5,{fac:tapFac.id, item:x.item, out:{[x.item]:capOf(x.item)}, in:{}});
+    });
+  }
+  /* 最終産物の搬入口は、下の「あまり回収」で作った設備の真横に置く。
+     遠くの一箇所へ集めると長距離のラインになり、詰まった設備列を貫通できずに落ちる */
+
+  /* 2) 接続（スロット同士）を先に決める */
+  let links=[]; const surplus=[];
+  const items=new Set();
+  Object.keys(tiers).forEach(d=>tiers[d].forEach(s=>{
+    Object.keys(s.out).forEach(i=>items.add(i)); Object.keys(s.in).forEach(i=>items.add(i));
+  }));
+  const all=[].concat.apply([],Object.keys(tiers).map(d=>tiers[d]));
+  items.forEach(item=>{
+    const P=all.filter(s=>s.out[item]>0).map(s=>({s,r:s.out[item]}));
+    const Cn=all.filter(s=>s.in[item]>0).map(s=>({s,r:s.in[item]}));
+    let pi=0;
+    Cn.forEach(c=>{
+      let need=c.r, guard=0;
+      while(need>1e-6 && pi<P.length && guard++<400){
+        if(P[pi].r<=1e-6){pi++;continue;}
+        const take=Math.min(need,P[pi].r,capOf(item));
+        links.push({a:P[pi].s, z:c.s, item});
+        need-=take; P[pi].r-=take;
+      }
+    });
+    P.forEach(x=>{ if(x.r>1e-6) surplus.push({slot:x.s, item, rate:x.r}); });
+  });
+
+  /* 2.9) 出口の無い産物（副産物を含む）には、相に合った貯蔵設備を足す。
+          在庫が満杯になると設備が止まるので、汚水や廃液も必ず捨て先が要る */
+  const sinkFor=item=>{
+    const ph=phaseOf(item);
+    return D.facs.find(f=>f.kind==='sink'&&(f.phase||'solid')===ph)
+        || D.facs.find(f=>f.kind==='sink'&&!f.phase)
+        || D.facs.find(f=>f.kind==='sink');
+  };
+  surplus.forEach(su=>{
+    const sf=sinkFor(su.item); if(!sf) return;
+    const n=Math.max(1,Math.ceil(su.rate/capOf(su.item)-1e-9));
+    for(let k=0;k<n;k++){
+      const sk=push(su.slot.d+0.5,{fac:sf.id, sink:true, out:{}, in:{[su.item]:Math.min(capOf(su.item),su.rate/n)}});
+      all.push(sk);
+      links.push({a:su.slot, z:sk, item:su.item});
+    }
+  });
+
+  /* 2.5) 口の数を超える分岐・合流には分流器／合流機を挟む。
+          1つの口にベルト1本しか繋がらないので、ここは物理的な必須条件。
+          分流器は繋がった本数に等分するだけなので、枝の重さが揃う「均等木」に組む。 */
+  /* 固体はベルト用、液体・ガスはパイプ用の物流設備を選ぶ */
+  const logiFor=(item,split)=>{
+    const fluid = phaseOf(item)!=='solid';
+    return D.facs.find(f=>f.kind==='logistics' && !!f.split===!!split && ((f.phase==='fluid')===fluid))
+        || D.facs.find(f=>f.kind==='logistics' && !!f.split===!!split);
+  };
+  const spF=D.facs.find(f=>f.kind==='logistics'&&f.split);
+  const mgF=D.facs.find(f=>f.kind==='logistics'&&!f.split);
+  const groupBy=(arr,kf)=>{const m=new Map();arr.forEach(x=>{const k=kf(x);if(!m.has(k))m.set(k,[]);m.get(k).push(x);});return m;};
+  const branch=(n,cap)=>{
+    if(n<=cap) return n;
+    for(let b=cap;b>=2;b--) if(n%b===0) return b;
+    return cap;
+  };
+  const evenSplit=(list,b)=>{
+    const per=Math.floor(list.length/b), rem=list.length%b, gs=[]; let i=0;
+    for(let g=0;g<b;g++){ const c=per+(g<rem?1:0); if(c>0){gs.push(list.slice(i,i+c)); i+=c;} }
+    return gs;
+  };
+  /* 品目ごとに何本の口を割り当てるか。1品目1本を確保したうえで、残りを本数の多い品目へ */
+  const allocPorts=(byItem,room)=>{
+    const items=Array.from(byItem.keys());
+    const alloc=new Map(items.map(i=>[i,1]));
+    let spare=room-items.length, guard=0;
+    const sorted=items.slice().sort((x,y)=>byItem.get(y).length-byItem.get(x).length);
+    while(spare>0 && guard++<500){
+      let moved=false;
+      for(const i of sorted){
+        if(spare<=0) break;
+        if(alloc.get(i)<byItem.get(i).length){ alloc.set(i,alloc.get(i)+1); spare--; moved=true; }
+      }
+      if(!moved) break;
+    }
+    return alloc;
+  };
+  /* 分流：親1つ → 子n個の均等木。品目をまたいで1本にまとめないこと */
+  if(spF){
+    const cap=Math.max(2,(spF.nOut||3));
+    groupBy(links,l=>l.a).forEach((ls,a)=>{
+      const room=Math.max(1,(IX.fac[a.fac]||{}).nOut||1);
+      if(ls.length<=room) return;
+      const byItem=groupBy(ls,l=>l.item);
+      const alloc=allocPorts(byItem,room);
+      byItem.forEach((ls2,item)=>{
+        const k=Math.max(1,Math.min(alloc.get(item)||1, ls2.length));
+        if(ls2.length<=k) return;
+        ls2.forEach(l=>l.dead=true);
+        const spF2=logiFor(item,true)||spF;
+        const build=(list,lv)=>{
+          if(list.length===1) return list[0].z;
+          const sp=push(a.d+0.2+lv*0.1,{fac:spF2.id,out:{},in:{},logi:true});
+          evenSplit(list,branch(list.length,cap)).forEach(g=>{
+            links.push({a:sp, z:build(g,lv+1), item});
+          });
+          return sp;
+        };
+        evenSplit(ls2,k).forEach(g=>{ links.push({a, z:build(g,0), item}); });
+      });
+    });
+    links=links.filter(l=>!l.dead);
+  }
+  /* 合流：子n個 → 親1つの均等木。こちらも品目ごとに分ける */
+  if(mgF){
+    const cap=Math.max(2,(mgF.nIn||3));
+    groupBy(links,l=>l.z).forEach((ls,z)=>{
+      const room=Math.max(1,(IX.fac[z.fac]||{}).nIn||1);
+      if(ls.length<=room) return;
+      const byItem=groupBy(ls,l=>l.item);
+      const alloc=allocPorts(byItem,room);
+      byItem.forEach((ls2,item)=>{
+        const k=Math.max(1,Math.min(alloc.get(item)||1, ls2.length));
+        if(ls2.length<=k) return;
+        ls2.forEach(l=>l.dead=true);
+        const mgF2=logiFor(item,false)||mgF;
+        const build=(list,lv)=>{
+          if(list.length===1) return list[0].a;
+          const mg=push(z.d-0.2-lv*0.1,{fac:mgF2.id,out:{},in:{},logi:true});
+          evenSplit(list,branch(list.length,cap)).forEach(g=>{
+            links.push({a:build(g,lv+1), z:mg, item});
+          });
+          return mg;
+        };
+        evenSplit(ls2,k).forEach(g=>{ links.push({a:build(g,0), z, item}); });
+      });
+    });
+    links=links.filter(l=>!l.dead);
+  }
+
+  /* 3) 重心法で段内の順序を決める（深い段から手前へ） */
+  const ds=Object.keys(tiers).map(Number).sort((a,b)=>a-b);
+  ds.slice().reverse().forEach((d,k)=>{
+    const list=tiers[d];
+    list.forEach((s,i)=>{ if(s.ord===undefined) s.ord=i; });
+    if(k===0){ list.forEach((s,i)=>s.ord=i); return; }
+    list.forEach(s=>{
+      const tos=links.filter(l=>l.a===s).map(l=>l.z.ord).filter(v=>v!==undefined);
+      s.ord = tos.length? tos.reduce((a,b)=>a+b,0)/tos.length : 1e6;
+    });
+    list.sort((a,b)=>a.ord-b.ord);
+    list.forEach((s,i)=>s.ord=i);
+  });
+
+  /* 4) 座標を割り当てる。段ごとの縦の広がりを揃えると、つながる相手が真横に来て配線が短くなる */
+  D.nodes=[]; D.belts=[]; uidSeq=1;
+  const hOf=d=>Math.max.apply(null,tiers[d].map(s=>(IX.fac[s.fac]||{h:1}).h));
+  /* いちばん台数の多い段が縦に収まるところまで盤面を広げる */
+  let want=1;
+  ds.forEach(d=>{ const n=tiers[d].length, h=hOf(d); want=Math.max(want, n*h+_pad*(n-1)+2); });
+  if(D.meta.autoGrow!==false){ setBoard(GW_MAX, Math.max(GH, Math.min(GH_MAX, want))); }
+  let span=Math.min(want, GH-2);
+  let cx=1, overflow=false;
+  ds.forEach(d=>{
+    const list=tiers[d], n=list.length, h=hOf(d);
+    let step=h+_pad;
+    if(n>1) step=Math.max(h+_pad, Math.floor((span-h)/(n-1)));
+    if(1+step*(n-1)+h>GH-1) step=h+_pad;               // 収まらないときは詰めて折り返す
+    let colW=0, y=1;
+    list.forEach(s=>{
+      const f=IX.fac[s.fac]; if(!f) return;
+      if(y+f.h>GH-1){ y=1; cx+=colW+_pad; colW=0; }
+      if(cx+f.w>GW-1){ overflow=true; return; }
+      s.node={uid:nextUid(),fac:s.fac,x:cx,y,rot:0,rec:s.rec||null,item:s.item||null};
+      D.nodes.push(s.node);
+      colW=Math.max(colW,f.w); y+=step;
+    });
+    const cross=links.filter(l=>l.a.d===d).length;
+    cx += colW + Math.max(3, Math.min(34, Math.ceil(cross*_gm)+3));
+  });
+  if(D.meta.autoGrow!==false){                       // 使った範囲まで横幅を詰め戻す
+    let mx=1; D.nodes.forEach(n=>{const f=IX.fac[n.fac]||{w:1};mx=Math.max(mx,n.x+f.w);});
+    setBoard(Math.min(GW_MAX, mx+Math.max(6,Math.round(mx*0.2))), GH);
+  }
+
+  /* 4.5) 分流器・合流機は、繋がる相手の平均の高さへ寄せる。
+          斜めに長く走るベルトが減り、通路の取り合いが起きにくくなる */
+  for(let pass=0; pass<3; pass++){
+    ds.forEach(d=>{
+      if(Number.isInteger(d)) return;
+      const list=tiers[d].filter(s=>s.node);
+      if(list.length<1) return;
+      const col=list[0].node.x;
+      if(list.some(s=>s.node.x!==col)) return;        // 折り返した段はいじらない
+      const want=list.map(s=>{
+        const ys=[];
+        links.forEach(l=>{
+          if(l.a===s&&l.z.node) ys.push(l.z.node.y);
+          if(l.z===s&&l.a.node) ys.push(l.a.node.y);
+        });
+        return {s, y: ys.length? Math.round(ys.reduce((x,y)=>x+y,0)/ys.length) : s.node.y};
+      }).sort((x,y)=>x.y-y.y);
+      let cursor=1;
+      want.forEach(w=>{
+        const h=(IX.fac[w.s.fac]||{h:1}).h;
+        const y=Math.max(cursor, Math.min(GH-1-h, w.y));
+        w.s.node.y=y; cursor=y+h+1;
+      });
+    });
+  }
+
+  /* 5) 高さの近い組から順に配線し、失敗はもう一度だけ試す */
+  const live=links.filter(l=>l.a.node&&l.z.node);
+  const dy=l=>Math.abs(l.a.node.y-l.z.node.y);
+  const len=l=>Math.abs(l.a.node.x-l.z.node.x)+dy(l);
+  if(_order==='len') live.sort((p,q)=>len(p)-len(q));
+  else if(_order==='x') live.sort((p,q)=>(p.a.node.x-q.a.node.x)||(dy(p)-dy(q)));
+  else live.sort((p,q)=>dy(p)-dy(q));
+  /* 全部引き直しを何度か。落ちた線を先頭に回すと、そこが優先して通路を取れる */
+  const routeAll=order=>{
+    D.belts=[];
+    let made=0; const lost=[];
+    order.forEach(l=>{ if(connectNodes(l.a.node,l.z.node,l.item,true)) made++; else lost.push(l); });
+    return {made, lost};
+  };
+  let order=live.slice();
+  let res=routeAll(order);
+  let best={belts:D.belts.slice(), res};
+  for(let round=0; round<4 && res.lost.length; round++){
+    order = res.lost.concat(order.filter(l=>res.lost.indexOf(l)<0));
+    const r2=routeAll(order);
+    if(r2.lost.length < best.res.lost.length) best={belts:D.belts.slice(), res:r2};
+    if(!r2.lost.length) break;
+    res=r2;
+  }
+  D.belts=best.belts;
+  const made=best.res.made, failed=best.res.lost.length;
+  return {overflow, failed, made, logistics:D.nodes.filter(n=>(IX.fac[n.fac]||{}).kind==='logistics').length};
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   11. ブロック方式の配置
+       同じ小ユニット（サブアセンブリ）を1つだけ丁寧に組み、
+       それを敷き詰める。ブロック内で完結しているので、
+       何枚並べても配線が破綻しない。                       */
+
+/* その品目の「全設備が整数台になる最小の生産量」＝ブロック1枚分 */
+function unitOf(item, choice){
+  const p = buildPlan(item, 1, choice, {noPower:true});
+  if(!p || !p.rows.length) return null;
+  const id = idealTargets(p);
+  if(!id || !isFinite(id.unit) || id.unit<=0 || id.unit>100000) return null;
+  return id.unit;
+}
+
+/* 1枚分を実際に組んでみて、原点に寄せた雛形として持ち帰る */
+const LAY_VARIANTS=(function(){
+  const v=[];
+  ['dy','len','x'].forEach(order=>[2,3,4].forEach(pad=>[1,2,3].forEach(gm=>v.push({order,pad,gm}))));
+  return v;
+})();
+/* 小さなブロックなら総当たりできる。配線が1本も落ちない置き方を探す */
+function captureBlock(plan, budget, msLimit){
+  const sn=D.nodes, sb=D.belts, sw=GW, sh=GH, su=uidSeq, ag=D.meta.autoGrow;
+  let best=null;
+  /* 大きなブロックは1回の試行が重いので、探索は時間で打ち切る */
+  const t0=Date.now(), limit=msLimit||2500;
+  const size=(plan.rows||[]).reduce((a,r)=>a+r.int,0);
+  const vs=LAY_VARIANTS.slice(0, budget||(size>60?4:size>30?9:LAY_VARIANTS.length));
+  for(const v of vs){
+    if(best && Date.now()-t0>limit) break;
+    D.meta.autoGrow=true;
+    let r=null, nd=[], bl=[];
+    try{ r=autoLayout(plan,v); nd=D.nodes; bl=D.belts; }
+    catch(e){ r=null; }
+    D.nodes=sn; D.belts=sb; setBoard(sw,sh); uidSeq=su; D.meta.autoGrow=ag;
+    if(!r||!nd.length) continue;
+    const score=r.failed*1000 + nd.length + bl.reduce((a,b)=>a+(b.cells||[]).length,0);
+    if(!best||score<best.score) best={score,r,nodes:nd,belts:bl};
+    if(r.failed===0) break;
+  }
+  if(!best) return null;
+  const r=best.r, nodes=best.nodes, belts=best.belts;
+  if(!nodes.length) return null;
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  nodes.forEach(n=>{
+    const f=IX.fac[n.fac]||{w:1,h:1}, sw2=((n.rot||0)&1);
+    const fw=sw2?f.h:f.w, fh=sw2?f.w:f.h;
+    x0=Math.min(x0,n.x); y0=Math.min(y0,n.y); x1=Math.max(x1,n.x+fw); y1=Math.max(y1,n.y+fh);
+  });
+  belts.forEach(b=>(b.cells||[]).forEach(c=>{
+    x0=Math.min(x0,c.x); y0=Math.min(y0,c.y); x1=Math.max(x1,c.x+1); y1=Math.max(y1,c.y+1);
+  }));
+  nodes.forEach(n=>{n.x-=x0;n.y-=y0;});
+  belts.forEach(b=>(b.cells||[]).forEach(c=>{c.x-=x0;c.y-=y0;}));
+  let power=0; nodes.forEach(n=>power+=((IX.fac[n.fac]||{}).power)||0);
+  return {nodes,belts,w:x1-x0,h:y1-y0,power,failed:r?r.failed:0,made:r?r.made:0,plan};
+}
+
+/* 雛形を指定位置に押す。配線は雛形のまま平行移動するだけなので必ず通る */
+function stampBlock(blk,ox,oy){
+  const map={};
+  blk.nodes.forEach(n=>{
+    const u=nextUid(); map[n.uid]=u;
+    D.nodes.push({uid:u,fac:n.fac,x:n.x+ox,y:n.y+oy,rot:n.rot||0,rec:n.rec||null,item:n.item||null});
+  });
+  blk.belts.forEach(b=>{
+    D.belts.push({uid:nextUid(),from:map[b.from],to:map[b.to],fromPort:b.fromPort,toPort:b.toPort,
+      item:b.item, cells:(b.cells||[]).map(c=>({x:c.x+ox,y:c.y+oy}))});
+  });
+}
+
+/* 発電区画：取出口→分流器→発電機（3台まで）を1組として並べる。
+   バッテリーは協約核心から引き出す前提なので、生産ラインとは切り離せる */
+function placePower(gens, batItem, ox, oy, maxY){
+  const gf=generatorFac(), gr=generatorRec();
+  const tapF=D.facs.find(f=>f.tap);
+  if(!gf||!tapF) return {failed:gens, right:ox, bottom:oy};
+  const gh=gf.h, gw=gf.w;
+  let placed=0, x=ox, y=oy, failed=0, right=ox, bottom=oy;
+  while(placed<gens){
+    if(y+gh>maxY && y>oy){ y=oy; x+=gw+4; }
+    if(x+gw+2>=GW_MAX) break;
+    /* 取出口を発電機の搬入口の真正面に置く。ベルト1マスで確実に繋がる */
+    const g={uid:nextUid(),fac:gf.id,x:x+2,y,rot:0,rec:gr?gr.id:null,item:null};
+    const tap={uid:nextUid(),fac:tapF.id,x,y,rot:0,rec:null,item:batItem};
+    D.nodes.push(tap,g);
+    if(!connectNodes(tap,g,batItem,true)) failed++;
+    placed++; y+=gh+1;
+    right=Math.max(right,x+2+gw); bottom=Math.max(bottom,y);
+  }
+  if(placed<gens) failed+=gens-placed;
+  return {failed, right, bottom};
+}
+
+/* ブロック方式で全体を組む */
+function autoLayoutBlocks(plan, choice){
+  const gf=generatorFac(), gr=generatorRec();
+  const base=Math.max(0,+D.meta.basePower||0);
+  const batItem=(gr&&gr.in&&gr.in[0])?gr.in[0].item:null;
+  const perGen=(gr&&gr.in&&gr.in[0])?gr.in[0].qty*60/gr.sec:0;
+
+  const unitMain=unitOf(plan.targetItem, choice);
+  if(!unitMain) return null;
+  const blkMain=captureBlock(buildPlan(plan.targetItem, unitMain, choice, {noPower:true}));
+  if(!blkMain) return null;
+
+  /* 発電用のバッテリーが別品目なら、必要量ちょうどの給電ラインを1本だけ作る */
+  const sep = !!(batItem && batItem!==plan.targetItem && gf);
+  let blkBat=null;
+
+  /* 台数と発電機数を収束させる（給電ライン自身の消費も含めて） */
+  let gens=0, nMain=1;
+  for(let it=0; it<10; it++){
+    const rate=plan.targetRate + (sep?0:gens*perGen);
+    nMain=Math.max(1, Math.ceil(rate/unitMain-1e-9));
+    const power=nMain*blkMain.power + (blkBat?blkBat.power:0);
+    const ng=(gf&&gf.gen>0)? Math.max(0,Math.ceil((power-base)/gf.gen-1e-9)) : 0;
+    if(ng===gens) break;
+    gens=ng;
+    if(sep&&gens>0){
+      const bp=buildPlan(batItem, gens*perGen, choice, {noPower:true});
+      blkBat = bp&&bp.rows.length? captureBlock(bp, 9) : null;
+    }
+  }
+  const nBat = blkBat?1:0;
+  if(nMain>200) return null;
+
+  /* 並べ方：全体が正方形に近くなる列数を選ぶ */
+  const grid=(n,w,h)=>{
+    const cols=Math.max(1, Math.round(Math.sqrt(n*(h+2)/(w+2))) || 1);
+    return {cols:Math.min(cols,n), rows:Math.ceil(n/Math.min(cols,n))};
+  };
+  const gA=grid(nMain, blkMain.w, blkMain.h);
+  const gB={cols:1,rows:1};
+  const wA=gA.cols*(blkMain.w+2)+1, hA=gA.rows*(blkMain.h+2)+1;
+  const wB=nBat? blkBat.w+3 : 0, hB=nBat? blkBat.h+3 : 0;
+  const powW=gens? (Math.ceil(gens/3)>4? 2*(gf.w+7) : (gf.w+7)) : 0;
+  setBoard(Math.min(GW_MAX, wA+wB+powW+6), Math.min(GH_MAX, Math.max(hA,hB,gens?Math.ceil(gens/3)*(gf.h*3+4):0)+3));
+
+  D.nodes=[]; D.belts=[]; uidSeq=1;
+  let failed=blkMain.failed*nMain + (blkBat?blkBat.failed:0);
+  for(let i=0;i<nMain;i++){
+    const c=i%gA.cols, r=Math.floor(i/gA.cols);
+    stampBlock(blkMain, 1+c*(blkMain.w+2), 1+r*(blkMain.h+2));
+  }
+  let cx=wA+2;
+  if(nBat){ stampBlock(blkBat, cx, 1); cx+=wB+2; }
+  let pw={failed:0};
+  if(gens>0) pw=placePower(gens, batItem, cx, 1, GH-2);
+  failed+=pw.failed;
+
+  return {mode:'blocks', blocks:nMain, batBlocks:nBat, gens, failed,
+    made:D.belts.length, unit:unitMain, batRate:gens*perGen, batItem,
+    blockSize:[blkMain.w,blkMain.h], blockPower:blkMain.power,
+    blockMachines:blkMain.nodes.length, overflow:false};
+}
+
+/* ── 生産目標プランナー UI ── */
+let PLAN=null, PCHOICE={}, PTARGET={item:null, rate:6};
+function openPlanner(){
+  if(!PTARGET.item){
+    const cand = D.items.find(i=>D.recs.some(r=>r.out.some(o=>o.item===i.id)));
+    PTARGET.item = cand? cand.id : (D.items[0]||{}).id;
+  }
+  runPlan(); openModal('mPlan');
+}
+function runPlan(){
+  reindex();
+  PLAN = (PTARGET.item && PTARGET.rate>0) ? buildPlan(PTARGET.item, PTARGET.rate, PCHOICE) : null;
+  paintPlan();
+}
+function paintPlan(){
+  const box=document.getElementById('planPane');
+  const head=`<div class="prow">
+    <div style="flex:2;min-width:170px"><label class="fl">目標産物</label>
+      <select id="pItem">${itemOptions(PTARGET.item)}</select></div>
+    <div style="width:120px"><label class="fl">個 / 分</label>
+      <input type="number" id="pRate" min="0.1" step="0.5" value="${PTARGET.rate}"></div>
+    <div style="width:110px"><label class="fl">&nbsp;</label><button class="hbtn" id="pRun" style="width:100%">計算する</button></div>
+  </div>`;
+  if(!PLAN||!PLAN.rows.length){
+    box.innerHTML=head+`<div class="empty" style="padding:14px 0">${PTARGET.item&&!D.recs.some(r=>r.out.some(o=>o.item===PTARGET.item))
+      ?'この品目を作るレシピが登録されていません。「データ編集」でレシピを追加してください。'
+      :'目標を入力して「計算する」を押してください。'}</div>`;
+    bindPlanHead(); return;
+  }
+  const P=PLAN;
+  const ideal=idealTargets(P);
+  const perCell = P.area? P.targetRate/P.area : 0;
+  const waste = P.intSum? 1-P.fracSum/P.intSum : 0;
+
+  const cards=`<div class="cards">
+    <div class="card"><span class="cl">総設備数</span><span class="cv">${P.intSum+P.gens}<i>台</i></span></div>
+    <div class="card"><span class="cl">占有面積</span><span class="cv">${P.area}<i>マス</i></span></div>
+    <div class="card"><span class="cl">面積効率</span><span class="cv">${(perCell).toFixed(2)}<i>個/分/マス</i></span></div>
+    <div class="card"><span class="cl">消費電力</span><span class="cv">${fmt(P.power)}<i>／基礎 ${fmt(P.base)}</i></span></div>
+    <div class="card ${P.gens>0?'hot':''}"><span class="cl">必要な発電機</span><span class="cv">${P.gens}<i>台</i></span></div>
+    <div class="card ${waste>0.001?'warnc':''}"><span class="cl">切り上げの無駄</span><span class="cv">${(waste*100).toFixed(1)}<i>%</i></span></div>
+  </div>`;
+
+  let advice='';
+  if(ideal&&ideal.cands.length){
+    advice=`<div class="advice"><b>無駄なく組める目標値</b>：この生産系統は <span class="kv">${fmt(ideal.unit)} 個/分</span> の倍数なら全設備が整数台・100%稼働になります。
+      ${ideal.cands.map(v=>`<button class="chip" data-goal="${v}">${fmt(v)} 個/分で組み直す</button>`).join('')}
+      ${P.gens>0?'<br><span style="color:var(--faint)">※発電機のバッテリー消費が加わるぶん、実際の台数は多少ずれます。</span>':''}</div>`;
+  }
+  if(ideal&&ideal.unit>0){
+    const nb=Math.max(1,Math.ceil(P.targetRate/ideal.unit-1e-9));
+    const over = ideal.unit*nb - P.targetRate;
+    advice+=`<div class="advice"><b>ブロック方式</b>：<span class="kv">${fmt(ideal.unit)} 個/分</span>の小ユニットを <span class="kv">${nb} 枚</span>並べる形で組めます。
+      1枚が原料の取り出しから核心への搬入まで自己完結するので、何枚並べても配線が破綻せず、増設も1枚単位でできます。
+      ${over>P.targetRate*0.25?`<br><span style="color:var(--amber)">ただし目標を ${fmt(over)} 個/分 上回る作りになります。ぴったり組みたいなら「1本のラインで配置」の方が省スペースです。</span>`:''}</div>`;
+  }
+  if(waste>0.001){
+    advice+=`<div class="advice"><b>この構成の実力</b>：切り上げた台数なら最大 <span class="kv">${fmt(P.capMax)} 個/分</span> まで出せます。目標を上げても設備は増えません。</div>`;
+  }
+
+  const rows=`<table class="ed"><thead><tr><th>設備</th><th>作るもの</th><th style="text-align:right">理論台数</th><th style="text-align:right">実台数</th><th style="text-align:right">稼働率</th><th style="text-align:right">面積</th><th style="text-align:right">電力</th></tr></thead><tbody>${
+    P.rows.map(r=>`<tr>
+      <td>${esc(r.fac.name)}</td>
+      <td>${esc(r.rec.name)}</td>
+      <td class="n">${r.machines.toFixed(2)}</td>
+      <td class="n"><b>${r.int}</b></td>
+      <td class="n" style="color:${r.util>0.995?'var(--mint)':r.util>0.85?'var(--ink)':'var(--amber)'}">${(r.util*100).toFixed(0)}%</td>
+      <td class="n">${r.area}</td><td class="n">${fmt(r.power)}</td></tr>`).join('')}
+    ${P.gens>0?`<tr><td>${esc(P.gf.name)}</td><td>${esc(P.gr?P.gr.name:'発電')}</td><td class="n">—</td><td class="n"><b>${P.gens}</b></td><td class="n">100%</td><td class="n">${P.gens*P.gf.w*P.gf.h}</td><td class="n">+${fmt(P.gens*P.gf.gen)}</td></tr>`:''}
+    </tbody></table>`;
+
+  const rawKeys=Object.keys(P.raw);
+  const fieldHave=warehouseSupply();
+  const rawTbl = rawKeys.length? `<h4 class="sub">倉庫から引き出す原料</h4><table class="ed"><thead><tr><th>品目</th><th style="text-align:right">必要量</th><th style="text-align:right">倉庫から出せる量</th><th style="text-align:right">過不足</th><th style="text-align:right">最低ライン数</th></tr></thead><tbody>${
+    rawKeys.map(i=>{
+      const need=P.raw[i], have=fieldHave[i]||0, d=have-need;
+      const byprod=D.recs.filter(r=>r.out.slice(1).some(o=>o.item===i));
+      return `<tr><td><span class="dot" style="background:${itemColor(i)}"></span>${esc(itemName(i))}
+        ${byprod.length?`<br><span style="font-size:10.5px;color:var(--amber)">${esc((IX.fac[byprod[0].fac]||{name:''}).name)}の副産物として出ます</span>`:''}</td>
+      <td class="n">${fmt(need)} 個/分</td><td class="n">${fmt(have)}</td>
+      <td class="n" style="color:${d<-0.01?'var(--coral)':'var(--mint)'}">${d>0?'+':''}${fmt(d)}</td>
+      <td class="n">${Math.ceil(need/capOf(i)-1e-9)}</td></tr>`;
+    }).join('')}</tbody></table>
+    <p class="note" style="margin-top:8px">原料は採鉱機を工業エリアに置いて作るのではなく、<b>フィールドの採取ゾーン</b>から倉庫へ転送されたものを<b>倉庫搬出口</b>で引き出します。不足しているときは「採取ゾーン」から採取設備を追加してください。</p>`:'';
+
+  const flowTbl=`<h4 class="sub">搬送量とベルト本数</h4><table class="ed"><thead><tr><th>品目</th><th style="text-align:right">総流量</th><th style="text-align:right">最低ベルト本数</th></tr></thead><tbody>${
+    P.flow.map(f=>`<tr><td><span class="dot" style="background:${itemColor(f.item)}"></span>${esc(itemName(f.item))}</td><td class="n">${fmt(f.rate)} 個/分</td><td class="n">${Math.ceil(f.rate/capOf(f.item)-1e-9)}</td></tr>`).join('')}</tbody></table>
+    <p class="note" style="margin-top:8px">ベルト1本は ${BELT_CAP}個/分（検証済み）、パイプ1本は ${PIPE_CAP}個/分（要確認）が上限です。ここでの本数は「合流しきった場合の下限」なので、実際の配置では設備ごとの取り回しでこれより増えることがあります。</p>`;
+
+  /* レシピが複数ある品目は選べるようにする */
+  const multi=D.items.filter(i=>{
+    const c=D.recs.filter(r=>r.out.some(o=>o.item===i.id)).length;
+    return c>1 && (P.made[i.id]>1e-9||P.raw[i.id]>1e-9);
+  });
+  const choiceUI = multi.length? `<h4 class="sub">経路の選択</h4>${multi.map(i=>{
+    const cs=D.recs.filter(r=>r.out.some(o=>o.item===i.id));
+    return `<div class="prow"><div style="flex:1"><label class="fl">${esc(i.name)}</label>
+      <select data-choice="${i.id}">${cs.map(r=>`<option value="${r.id}" ${PCHOICE[i.id]===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}
+      <option value="__raw__" ${PCHOICE[i.id]==='__raw__'?'selected':''}>取出口から供給（作らない）</option></select></div></div>`;
+  }).join('')}`:'';
+
+  box.innerHTML = head+cards+advice+rows+rawTbl+flowTbl+choiceUI+
+    `<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+      <button class="hbtn" id="pApply" style="border-color:#3A6B62;color:var(--mint)">ブロックを並べて配置</button>
+      <button class="hbtn" id="pApply1">1本のラインで配置</button>
+      <button class="hbtn" id="pGoal">この目標を検証対象にする</button>
+      <span style="flex:1"></span>
+      <span style="font-size:11.5px;color:var(--faint);align-self:center">配置すると現在の盤面は置き換わります</span>
+    </div>`;
+  bindPlanHead();
+  box.querySelectorAll('[data-goal]').forEach(b=>b.onclick=()=>{ PTARGET.rate=+b.dataset.goal; runPlan(); });
+  box.querySelectorAll('[data-choice]').forEach(s=>s.onchange=e=>{ PCHOICE[e.target.dataset.choice]=e.target.value; runPlan(); });
+  const apply=useBlocks=>{
+    if(!confirm('現在の盤面を消して、この構成を配置します。よろしいですか？')) return;
+    let r=null;
+    if(useBlocks){
+      try{ r=autoLayoutBlocks(PLAN,PCHOICE); }catch(e){ r=null; }
+      if(r && r.failed>0){                       // ブロックで配線が落ちるなら1本のラインと比べて良い方を採る
+        const keep={nodes:D.nodes,belts:D.belts,gw:GW,gh:GH,seq:uidSeq};
+        D.nodes=[];D.belts=[];
+        const r2=autoLayout(PLAN);
+        if(r2.failed < r.failed){ r=r2; }
+        else { D.nodes=keep.nodes; D.belts=keep.belts; setBoard(keep.gw,keep.gh); uidSeq=keep.seq; }
+      }
+    }
+    if(!r) r=autoLayout(PLAN);
+    sel=null; refresh(); paintTabs(); fit(); closeModals();
+    if(r.overflow) flash('盤面に収まりきらない設備がありました。目標値を下げてください。');
+    else if(r.failed) flash(`${r.failed}本のベルトが配線できませんでした。設備を動かして経路を空けてください。`);
+    else if(r.mode==='blocks') flash(`${fmt(r.unit)}個/分のブロックを${r.blocks}枚並べ、${r.made}本のベルトで配線しました。`);
+    else flash(`${r.made}本のベルトで配線しました。`);
+  };
+  const ap=document.getElementById('pApply');
+  if(ap) ap.onclick=()=>apply(true);
+  const ap1=document.getElementById('pApply1');
+  if(ap1) ap1.onclick=()=>apply(false);
+  const pg=document.getElementById('pGoal');
+  if(pg) pg.onclick=()=>{ D.meta.goal={item:PTARGET.item, rate:PTARGET.rate}; refresh(); closeModals();
+    flash(`検証目標を ${itemName(PTARGET.item)} ${fmt(PTARGET.rate)}個/分 に設定しました。`); };
+}
+function bindPlanHead(){
+  const i=document.getElementById('pItem'), r=document.getElementById('pRate'), b=document.getElementById('pRun');
+  if(i) i.onchange=e=>{PTARGET.item=e.target.value; runPlan();};
+  if(r) r.onchange=e=>{PTARGET.rate=Math.max(0,+e.target.value||0); runPlan();};
+  if(r) r.onkeydown=e=>{ if(e.key==='Enter'){PTARGET.rate=Math.max(0,+e.target.value||0); runPlan();} };
+  if(b) b.onclick=()=>{
+    const rr=document.getElementById('pRate'); if(rr) PTARGET.rate=Math.max(0,+rr.value||0);
+    runPlan();
+  };
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   12. 網羅状況とライン検証
+   ═══════════════════════════════════════════════════════════ */
+const CONF={ok:{l:'確認済',c:'var(--mint)'},part:{l:'一部',c:'var(--amber)'},guess:{l:'推定',c:'var(--coral)'}};
+const confOf=o=>CONF[(o&&o.conf)||'guess']||CONF.guess;
+
+/* データの網羅状況を数える */
+function coverage(){
+  reindex();
+  const fieldItems={};
+  (D.field||[]).forEach(f=>{ if(f.item&&f.count>0) fieldItems[f.item]=(fieldItems[f.item]||0)+f.count*(+f.rate||0); });
+  const usedAsInput={}, madeBy={};
+  D.recs.forEach(r=>{
+    r.in .forEach(x=>{ (usedAsInput[x.item]||(usedAsInput[x.item]=[])).push(r); });
+    r.out.forEach(x=>{ (madeBy[x.item]||(madeBy[x.item]=[])).push(r); });
+  });
+  const noRecipe=[], deadEnd=[], unused=[], byConf={ok:0,part:0,guess:0};
+  D.recs.forEach(r=>{ byConf[(r.conf||'guess')]=(byConf[(r.conf||'guess')]||0)+1; });
+  D.items.forEach(i=>{
+    const made=(madeBy[i.id]||[]).length>0, field=!!fieldItems[i.id], used=(usedAsInput[i.id]||[]).length>0;
+    if(!made) noRecipe.push(i);
+    if(!made && !field) deadEnd.push(i);          // 作れず採取もされない＝行き止まり
+    if(!used && made) unused.push(i);             // 作れるが誰も使わない＝最終製品か登録漏れ
+  });
+  /* 到達可能性：採取ゾーン＋作れる品目から前向きに広げる */
+  const reach=new Set(Object.keys(fieldItems));
+  for(let k=0;k<40;k++){
+    let grew=false;
+    D.recs.forEach(r=>{
+      if(r.in.every(x=>reach.has(x.item))) r.out.forEach(o=>{ if(!reach.has(o.item)){reach.add(o.item);grew=true;} });
+    });
+    if(!grew) break;
+  }
+  const unreachable=D.items.filter(i=>!reach.has(i.id) && (madeBy[i.id]||[]).length>0);
+  return {noRecipe, deadEnd, unused, byConf, reach, unreachable, fieldItems, madeBy, usedAsInput};
+}
+
+/* 盤面そのものの整合性を検査する（ソルバーとは別の、構造の点検） */
+function inspectBoard(){
+  const out=[];
+  const occ=new Map();
+  D.nodes.forEach(n=>cellsOf(n).forEach(c=>{
+    const k=c.x+','+c.y;
+    if(occ.has(k)) out.push({lv:'err',t:`設備が重なっています（${c.x},${c.y}）。`,uid:n.uid});
+    occ.set(k,n.uid);
+  }));
+  D.belts.forEach(b=>(b.cells||[]).forEach(c=>{
+    const k=c.x+','+c.y;
+    if(occ.has(k)) out.push({lv:'err',t:`ラインが設備と重なっています（${c.x},${c.y}）。`,belt:b.uid});
+  }));
+  const seen=new Set();
+  D.belts.forEach(b=>{
+    [[b.from,b.fromPort],[b.to,b.toPort]].forEach(([u,pi])=>{
+      if(u==null||pi==null) return;
+      const k=u+'/'+pi;
+      if(seen.has(k)) out.push({lv:'err',t:'1つの口に2本のラインが繋がっています。',belt:b.uid});
+      seen.add(k);
+    });
+    if(!D.nodes.some(n=>n.uid===b.from)||!D.nodes.some(n=>n.uid===b.to))
+      out.push({lv:'err',t:'行き先を失ったラインが残っています。',belt:b.uid});
+  });
+  return out;
+}
+
+/* 目標に対する達成度 */
+function goalStatus(){
+  const g=D.meta.goal;
+  if(!g||!g.item||!(g.rate>0)) return null;
+  const c=(RES.core||{})[g.item]||{ship:0,net:0};
+  const got=c.ship||0;
+  return {item:g.item, rate:g.rate, got, ratio: g.rate>0? got/g.rate : 0};
+}
+
+/* ── レシピのまとめて入力／書き出し ──
+   1行1レシピ。書式:  設備名 秒数s: 材料*数 + 材料*数 -> 産物*数   #確 / #一部 / #推定 */
+function recipesToText(){
+  const tag={ok:'#確',part:'#一部',guess:'#推定'};
+  return D.recs.map(r=>{
+    const side=a=>a.length? a.map(x=>itemName(x.item)+'*'+x.qty).join(' + ') : '(なし)';
+    return `${(IX.fac[r.fac]||{name:'?'}).name} ${r.sec}s: ${side(r.in)} -> ${side(r.out)}  ${tag[r.conf||'guess']}`;
+  }).join('\n');
+}
+function parseRecipes(text){
+  const lines=String(text||'').split(/\r?\n/);
+  const log={added:0, updated:0, newItems:[], errors:[]};
+  const facByName={}; D.facs.forEach(f=>facByName[f.name]=f);
+  const itemByName={}; D.items.forEach(i=>itemByName[i.name]=i);
+  const ensureItem=nm=>{
+    if(itemByName[nm]) return itemByName[nm];
+    const it={id:'it'+Date.now().toString(36).slice(-4)+Math.floor(Math.random()*900+100),
+              name:nm, cat:'未分類', color:'#8FA6B2', phase:'solid', conf:'guess'};
+    D.items.push(it); itemByName[nm]=it; log.newItems.push(nm); return it;
+  };
+  const parseSide=str=>{
+    str=str.trim();
+    if(!str||/^\(?なし\)?$/.test(str)||str==='-') return [];
+    return str.split('+').map(tok=>{
+      const m=/^\s*(.+?)\s*(?:[*x×]\s*([\d.]+))?\s*$/.exec(tok);
+      if(!m) return null;
+      return {name:m[1].trim(), qty: m[2]? +m[2] : 1};
+    }).filter(Boolean);
+  };
+  lines.forEach((raw,ln)=>{
+    let line=raw.trim();
+    if(!line||line[0]==='#'||line[0]==='＃') return;
+    let conf='guess';
+    const tm=/[#＃]\s*(確|一部|推定)\s*$/.exec(line);
+    if(tm){ conf = tm[1]==='確'?'ok': tm[1]==='一部'?'part':'guess'; line=line.slice(0,tm.index).trim(); }
+    const m=/^(.+?)\s+([\d.]+)\s*s\s*[:：]\s*(.*?)\s*(?:->|→|=>)\s*(.*)$/.exec(line);
+    if(!m){ log.errors.push(`${ln+1}行目：書式が読めません → ${raw.slice(0,40)}`); return; }
+    const facName=m[1].trim(), sec=Math.max(0.5,+m[2]||1);
+    const fac=facByName[facName];
+    if(!fac){ log.errors.push(`${ln+1}行目：設備「${facName}」が見つかりません`); return; }
+    if(fac.field){ log.errors.push(`${ln+1}行目：「${facName}」は採取ゾーンの設備です（レシピではなく採取ゾーンに登録してください）`); return; }
+    const ins=parseSide(m[3]).map(x=>({item:ensureItem(x.name).id, qty:x.qty}));
+    const outs=parseSide(m[4]).map(x=>({item:ensureItem(x.name).id, qty:x.qty}));
+    if(!outs.length && fac.kind!=='generator'){ log.errors.push(`${ln+1}行目：産物がありません`); return; }
+    /* 同じ設備で同じ産物（産物が無いものは同じ材料）のレシピがあれば置き換える */
+    const sig=(o,i2)=>o.length? 'O:'+o.map(x=>x.item).sort().join(',') : 'I:'+i2.map(x=>x.item).sort().join(',');
+    const key=sig(outs,ins);
+    const hit=D.recs.find(r=>r.fac===fac.id && sig(r.out,r.in)===key);
+    const name=(outs[0]? fac.name.replace(/機$|炉$/,'')+'：'+itemName(outs[0].item) : fac.name);
+    if(hit){ hit.sec=sec; hit.in=ins; hit.out=outs; hit.conf=conf; hit.name=name; log.updated++; }
+    else { D.recs.push({id:'rec'+Date.now().toString(36).slice(-4)+Math.floor(Math.random()*900+100),
+                        name, conf, fac:fac.id, sec, in:ins, out:outs}); log.added++; }
+  });
+  reindex();
+  return log;
+}
+
+/* 地域ごとの採取上限のプリセット（公開されている武陵1.4の上限値など） */
+const REGION_PRESETS={
+  '四号谷地':[
+    {fac:'miner2', item:'ore_gen',  count:1, rate:180},
+    {fac:'miner2', item:'ore_blue', count:1, rate:60},
+    {fac:'miner2', item:'ore_pur',  count:1, rate:30},
+    {fac:'pump',   item:'water',    count:2, rate:60}
+  ],
+  '武陵':[
+    {fac:'miner2', item:'ore_gen',  count:1, rate:540},
+    {fac:'miner2', item:'ore_blue', count:1, rate:120},
+    {fac:'minerW', item:'ore_red',  count:1, rate:420},
+    {fac:'gaspump',item:'gas_in',   count:1, rate:460},
+    {fac:'gaspump',item:'gas_soku', count:1, rate:100},
+    {fac:'pump',   item:'water',    count:12, rate:60}
+  ]
+};
+
+/* ── 採取ゾーン（フィールド）の登録 ── */
+function paintField(){
+  const box=document.getElementById('fieldPane');
+  const F=D.field||(D.field=[]);
+  const fieldFacs=D.facs.filter(f=>f.field);
+  const rows=F.map((r,k)=>{
+    const fac=IX.fac[r.fac]||{name:'?'};
+    const total=(r.count||0)*(+r.rate||0);
+    return `<tr>
+      <td><select data-k="${k}" data-f="fac">${fieldFacs.map(f=>`<option value="${f.id}" ${r.fac===f.id?'selected':''}>${esc(f.name)}</option>`).join('')}</select></td>
+      <td><select data-k="${k}" data-f="item">${itemOptions(r.item,'— 未設定 —')}</select></td>
+      <td><input type="number" min="0" step="1" value="${r.count||0}" data-k="${k}" data-f="count" style="width:70px"></td>
+      <td><input type="number" min="0" step="0.5" value="${+r.rate||0}" data-k="${k}" data-f="rate" style="width:80px"></td>
+      <td class="n" style="color:var(--mint)">${fmt(total)}</td>
+      <td><button class="x" data-del="${k}">×</button></td></tr>`;
+  }).join('');
+  const sum={};
+  F.forEach(r=>{ if(r.item) sum[r.item]=(sum[r.item]||0)+(r.count||0)*(+r.rate||0); });
+  const ar0=curArea();
+  box.innerHTML=`<div class="advice"><b>${esc(curRegion())} ／ ${esc((ar0||{}).name||'')}</b> の採取ゾーンです。
+    採取スポットはマップごとにあるので、この登録はエリア単位です。産出はすべて<b>地域で共通の倉庫</b>に入り、同じ地域のどのエリアからでも引き出せます。</div>
+    <p class="note"><b>採鉱機やポンプは工業エリアではなくフィールドの採取スポットに置く設備です。</b>
+    産出は倉庫（協約核心）へ自動で転送され、工業エリアからは<b>倉庫搬出口</b>で引き出して使います。
+    そのためこのアプリでは、採取設備を盤面に置くのではなくここに登録します。1台あたりの産出量は地域建設レベル（鉱物純度）で変わるので、ゲーム内の実測値を入れてください。</p>
+    <table class="ed"><thead><tr><th>採取設備</th><th>品目</th><th style="text-align:left">台数</th><th style="text-align:left">1台あたり/分</th><th style="text-align:right">合計/分</th><th></th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="6" class="empty">まだ登録がありません</td></tr>'}</tbody></table>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="hbtn" id="addField">＋ 採取設備を追加</button>
+      <button class="hbtn" data-preset="${esc(curRegion())}">${esc(curRegion())}の上限をこのエリアに読み込む</button>
+    </div>
+    <p class="note" style="margin-top:10px">プリセットは地域全体で取り出せる量の目安です（武陵1.4時点で 源石鉱物540／青鉄鉱物120／赤銅鉱物420／不活性ガス460／息壌ガス100 個/分）。実際は地域建設レベルや解放状況で変わるので、読み込んだあと自分の値に直してください。台数と1台あたりの産出量に分けて入れても、合計だけを1行で入れても構いません。</p>
+    <h4 class="sub">倉庫への転送量（合計）</h4>
+    <h4 class="sub">${esc(curRegion())}の倉庫（地域共通）</h4>
+    ${Object.keys(RES.core||{}).length?`<table class="ed"><thead><tr><th>品目</th><th style="text-align:right">採取（地域計）</th><th style="text-align:right">他エリアから</th><th style="text-align:right">このエリアの搬入</th><th style="text-align:right">引き出し</th><th style="text-align:right">収支</th></tr></thead><tbody>${
+      Object.values(RES.core).map(c=>`<tr><td><span class="dot" style="background:${itemColor(c.id)}"></span>${esc(itemName(c.id))}</td>
+          <td class="n">${fmt((c.field||0)-(c.other||0))}</td><td class="n">${c.other>0.01?fmt(c.other):'—'}</td>
+          <td class="n">${fmt(c.ship||0)}</td><td class="n">${fmt(c.draw||0)}</td>
+          <td class="n" style="color:${(c.net||0)<-0.01?'var(--coral)':'var(--mint)'}">${(c.net||0)>0?'+':''}${fmt(c.net||0)}</td></tr>`).join('')}</tbody></table>
+      <p class="note" style="margin-top:8px">「他エリアから」は、同じ地域の別エリアで最後に計算したときの純増を持ち込んだ量です。別エリアを開いて計算し直すと更新されます。</p>`
+      :'<div class="empty">登録すると倉庫の収支が出ます。</div>'}`;
+  box.querySelectorAll('select,input').forEach(el2=>el2.onchange=e=>{
+    const r=F[+e.target.dataset.k], f=e.target.dataset.f;
+    r[f] = (f==='count'||f==='rate') ? Math.max(0,+e.target.value||0) : e.target.value;
+    if(f==='fac'){ const nf=IX.fac[r.fac]; if(nf&&nf.takes&&nf.takes.length&&!nf.takes.includes(r.item)) r.item=nf.takes[0]; }
+    refresh(); paintField();
+  });
+  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ F.splice(+b.dataset.del,1); refresh(); paintField(); });
+  box.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{
+    const r=REGION_PRESETS[b.dataset.preset]; if(!r) return;
+    D.field=r.map(x=>Object.assign({},x)); D.meta.region=b.dataset.preset;
+    refresh(); paintField();
+  });
+  const add=document.getElementById('addField');
+  if(add) add.onclick=()=>{ const f=fieldFacs[0]; F.push({fac:f?f.id:'',item:(f&&f.takes&&f.takes[0])||'',count:1,rate:15}); refresh(); paintField(); };
+}
+
+/* ── 地域とエリアのタブ ── */
+function paintTabs(){
+  const rt=document.getElementById('regionTabs'), at=document.getElementById('areaTabs');
+  const reg=curRegion();
+  rt.innerHTML=REGIONS.map(r=>`<button data-reg="${esc(r)}" aria-pressed="${r===reg}">${esc(r)}</button>`).join('');
+  const list=(D.areas||[]).map((a,i)=>({a,i})).filter(o=>o.a.region===reg);
+  at.innerHTML=list.map(({a,i})=>{
+    const busy=(a.nodes||[]).length;
+    return `<button data-area="${i}" aria-pressed="${i===D.cur}" title="協約容量 ${a.cap||'—'}／ジップライン ${a.zip||'—'}／戦闘設備 ${a.combat||'—'}">
+      ${esc(a.name)}${busy?`<span class="cap">${busy}</span>`:''}</button>`;
+  }).join('');
+  rt.querySelectorAll('[data-reg]').forEach(b=>b.onclick=()=>{
+    const r=b.dataset.reg;
+    const first=(D.areas||[]).findIndex(a=>a.region===r);
+    if(first>=0){ loadArea(first); paintTabs(); refresh(); fit(); }
+  });
+  at.querySelectorAll('[data-area]').forEach(b=>b.onclick=()=>{
+    loadArea(+b.dataset.area); paintTabs(); refresh(); fit();
+  });
+  const ar=curArea();
+  if(ar){
+    let used=0;
+    (D.field||[]).forEach(f=>{ used += (f.count||0)*capCostOf(IX.fac[f.fac]); });
+    D.nodes.forEach(n=>{ used += capCostOf(IX.fac[n.fac]); });
+    document.getElementById('areaInfo').textContent =
+      `${GW}×${GH}マス　協約容量 ${ar.cap? used+' / '+ar.cap : '未設定'}　設備 ${D.nodes.length}`;
+  }
+}
+
+/* ── 効率メトリクス（実際の盤面） ── */
+function paintMetrics(){
+  const box=document.getElementById('metrics');
+  const m=boardMetrics();
+  if(!D.nodes.length){ box.innerHTML='<div class="empty">盤面に設備を置くと、占有マス・密度・平均稼働率をここで測ります。</div>'; return; }
+  const ship=RES.balance.filter(b=>b.ship>0.001).sort((a,b)=>b.ship-a.ship)[0];
+  const net=RES.balance.map(b=>({id:b.id,v:b.make-b.use})).sort((a,b)=>b.v-a.v)[0];
+  const main = ship? {id:ship.id, v:ship.ship, lbl:'核心への搬入'} : (net&&net.v>0.001? {id:net.id,v:net.v,lbl:'純産出'} : null);
+  const perCell = main&&m.cells? main.v/m.cells : 0;
+  const perPow  = main&&RES.cons>0? main.v/RES.cons*100 : 0;
+  const g=goalStatus();
+  const goalHtml = g? `<div style="margin-bottom:8px">
+      <div class="row"><span class="k">検証目標</span><span class="v">${esc(itemName(g.item))} ${fmt(g.rate)}/分</span></div>
+      <div class="bar"><i style="width:${Math.min(100,g.ratio*100)}%;background:${g.ratio>=0.999?'var(--mint)':g.ratio>=0.8?'var(--amber)':'var(--coral)'}"></i></div>
+      <div class="row"><span class="k">達成度</span><span class="v" style="color:${g.ratio>=0.999?'var(--mint)':'var(--amber)'}">${fmt(g.got)} / ${fmt(g.rate)}（${Math.round(g.ratio*100)}%）${g.ratio<0.999?'　不足 '+fmt(g.rate-g.got):''}</span></div>
+    </div>` : '';
+  box.innerHTML=goalHtml+`
+    ${main?`<div class="row"><span class="k">主産物（${main.lbl}）</span><span class="v" style="color:var(--mint)">${esc(itemName(main.id))} ${fmt(main.v)}/分</span></div>`:'<div class="row"><span class="k">主産物</span><span class="v zero">まだ搬出がありません</span></div>'}
+    <div class="row"><span class="k">占有マス（設備＋ベルト）</span><span class="v">${m.cells}（設備 ${m.facCells} / ベルト ${m.beltCells}）</span></div>
+    <div class="row"><span class="k">外接範囲</span><span class="v">${m.bw}×${m.bh} = ${m.bbox}　充填 ${Math.round(m.fill*100)}%</span></div>
+    <div class="row"><span class="k">面積効率</span><span class="v" style="color:${perCell>0?'var(--mint)':'var(--faint)'}">${perCell.toFixed(3)} 個/分/マス</span></div>
+    <div class="row"><span class="k">電力効率</span><span class="v">${perPow>0?perPow.toFixed(2)+' 個/分/電力100':'—'}</span></div>
+    <div class="row"><span class="k">平均稼働率</span><span class="v" style="color:${m.avgUtil>0.99?'var(--mint)':m.avgUtil>0.8?'var(--ink)':'var(--amber)'}">${Math.round(m.avgUtil*100)}%（${m.machines}台）</span></div>
+    ${m.avgUtil<0.999&&m.machines?`<div class="empty" style="margin-top:6px">稼働率100%未満の設備は削れる余地です。「生産目標」から必要台数を逆算すると最小構成が出ます。</div>`:''}`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   9. モーダル・起動
+   ═══════════════════════════════════════════════════════════ */
+function openModal(id){ document.getElementById(id).classList.add('on'); }
+function closeModals(){ document.querySelectorAll('.modal').forEach(m=>m.classList.remove('on')); }
+document.getElementById('btnPlan').onclick=openPlanner;
+document.getElementById('btnField').onclick=()=>{paintField();openModal('mField');};
+document.getElementById('btnData').onclick=()=>{paintData();openModal('mData');};
+addEventListener('keydown',e=>{
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement||{}).tagName||'')) return;
+  if(e.key==='v'||e.key==='V'){ dTab='cov';
+    document.querySelectorAll('#dTabs button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.tab==='cov')));
+    paintData(); openModal('mData'); }
+});
+document.getElementById('btnIO').onclick=()=>{document.getElementById('ioText').value='';openModal('mIO');};
+document.getElementById('btnHelp').onclick=()=>openModal('mHelp');
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeModals);
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModals();}));
+addEventListener('keydown',e=>{ if(e.key==='Escape') closeModals(); });
+
+const _refresh = refresh;
+refresh = function(){ _refresh(); queueSave(); };
+
+addEventListener('resize',resize);
+reindex();
+(async()=>{
+  const had = await restore();
+  if(!had){ solve(); }
+  loadArea(D.cur||0); paintTabs();
+  paintPalette(); paintPower(); paintBalance(); paintMetrics(); paintDiag(); paintInspector();
+  resize(); fit(); showHint();
+})();
+</script>
+</body>
+</html>
