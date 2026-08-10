@@ -36,6 +36,32 @@ export interface ReferenceApi {
   seed(): unknown;
   setPipeCap(v: number): void;
   solveWith(st: RefSolveState): RefSolveResult;
+  planWith(
+    st: RefSolveState,
+    item: string,
+    rate: number,
+    choice?: Record<string, string | undefined>,
+    opts?: { noPower?: boolean },
+  ): RefPlanResult;
+  unitOf(st: RefSolveState, item: string, choice?: Record<string, string | undefined>): number | null;
+  toFrac(x: number, maxD?: number): [number, number];
+}
+
+export interface RefPlanResult {
+  rows: { rid: string; fac: string; machines: number; int: number; util: number; area: number; power: number }[];
+  raw: Record<string, number>;
+  made: Record<string, number>;
+  gens: number;
+  base: number;
+  power: number;
+  area: number;
+  fracSum: number;
+  intSum: number;
+  capMax: number;
+  diverged: boolean;
+  pure: { rid: string; machines: number }[];
+  flow: { item: string; rate: number }[];
+  ideal: { unit: number; cands: number[] } | null;
 }
 
 export interface RefSolveState {
@@ -89,10 +115,15 @@ export function loadReference(): ReferenceApi {
   const solveStart = js.indexOf('let RES =');
   const solveEnd = js.indexOf('/* ═', js.indexOf('const fmt ='));
   if (solveStart < 0 || solveEnd < 0) throw new Error('ソルバーの切り出しに失敗しました');
-  // solve() から呼ばれる発電まわり（§10 に置かれている）
-  const genStart = js.indexOf('function generatorFac()');
-  const genEnd = js.indexOf('/* 需要を再帰的に展開', genStart);
-  if (genStart < 0 || genEnd < 0) throw new Error('generatorFac の切り出しに失敗しました');
+  /* §10 の逆算プランナー一式（toFrac 〜 idealTargets）。
+     solve() から呼ばれる generatorFac / generatorRec もこの範囲に含まれる */
+  const planStart = js.indexOf('function toFrac(');
+  const planEnd = js.indexOf('/* ── 盤面メトリクス', planStart);
+  if (planStart < 0 || planEnd < 0) throw new Error('プランナーの切り出しに失敗しました');
+  // §11 のブロック方式から unitOf だけ
+  const unitStart = js.indexOf('function unitOf(');
+  const unitEnd = js.indexOf('const LAY_VARIANTS', unitStart);
+  if (unitStart < 0 || unitEnd < 0) throw new Error('unitOf の切り出しに失敗しました');
 
   const body =
     js.slice(start, end) +
@@ -101,7 +132,9 @@ export function loadReference(): ReferenceApi {
     '\n' +
     js.slice(solveStart, solveEnd) +
     '\n' +
-    js.slice(genStart, genEnd);
+    js.slice(planStart, planEnd) +
+    '\n' +
+    js.slice(unitStart, unitEnd);
 
   const src = `
     "use strict";
@@ -148,7 +181,38 @@ export function loadReference(): ReferenceApi {
         setBoard(st.w, st.h);
         solve();
         return RES;
-      }
+      },
+      /* 逆算プランナー。地域とエリアの文脈（採取ゾーン・他エリアの純増）に
+         依存するので、盤面と同じように状態を差し替えてから呼ぶ */
+      planWith: function(st, item, rate, choice, opts){
+        D.areas = st.areas; D.cur = st.cur|0;
+        D.nodes = st.nodes || []; D.belts = st.belts || [];
+        D.field = st.field || (D.areas[st.cur|0] && D.areas[st.cur|0].field) || [];
+        D.meta.basePower = st.basePower;
+        D.meta.genRec = st.genRec || undefined;
+        reindex();
+        var p = buildPlan(item, rate, choice||{}, opts||{});
+        return {
+          rows: p.rows.map(function(r){
+            return {rid:r.rid, fac:r.fac.id, machines:r.machines, int:r.int,
+                    util:r.util, area:r.area, power:r.power};
+          }),
+          raw: p.raw, made: p.made, gens: p.gens, base: p.base,
+          power: p.power, area: p.area, fracSum: p.fracSum, intSum: p.intSum,
+          capMax: p.capMax, diverged: !!p.diverged,
+          pure: p.pure, flow: p.flow,
+          ideal: idealTargets(p)
+        };
+      },
+      unitOf: function(st, item, choice){
+        D.areas = st.areas; D.cur = st.cur|0;
+        D.nodes = st.nodes || []; D.belts = st.belts || [];
+        D.field = st.field || (D.areas[st.cur|0] && D.areas[st.cur|0].field) || [];
+        D.meta.basePower = st.basePower;
+        reindex();
+        return unitOf(item, choice||{});
+      },
+      toFrac: function(x, maxD){ return toFrac(x, maxD); }
     };
   `;
 

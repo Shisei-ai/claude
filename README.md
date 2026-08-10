@@ -24,7 +24,7 @@ npm run dev     # Vite
 | 1 | domain の型と定数、seed データの切り出し | ✅ 完了 |
 | 2 | geometry と routing | ✅ 完了 |
 | 3 | solver（§7 の回帰ケースが通るまで UI に触らない） | ✅ 移植・差分テスト済（§7 は layout 後） |
-| 4 | planner（逆算・端数最適化） | ⬜ |
+| 4 | planner（逆算・端数最適化） | ✅ 完了 |
 | 5 | layout（1本のライン／ブロック方式） | ⬜ |
 | 6 | UI | ⬜ |
 | 7 | 保存形式の後方互換の確認 | ⬜ |
