@@ -22,7 +22,7 @@ npm run dev     # Vite
 | | 段階 | 状態 |
 |---|---|---|
 | 1 | domain の型と定数、seed データの切り出し | ✅ 完了 |
-| 2 | geometry と routing | ⬜ |
+| 2 | geometry と routing | ✅ 完了 |
 | 3 | solver（§7 の回帰ケースが通るまで UI に触らない） | ⬜ |
 | 4 | planner（逆算・端数最適化） | ⬜ |
 | 5 | layout（1本のライン／ブロック方式） | ⬜ |
