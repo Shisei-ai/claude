@@ -35,6 +35,37 @@ export interface ReferenceApi {
   belts(): Belt[];
   seed(): unknown;
   setPipeCap(v: number): void;
+  solveWith(st: RefSolveState): RefSolveResult;
+}
+
+export interface RefSolveState {
+  areas: unknown[];
+  cur: number;
+  nodes: Node[];
+  belts: Belt[];
+  field?: unknown[];
+  basePower: number;
+  genRec?: string | null;
+  w: number;
+  h: number;
+  items?: unknown[];
+  facs?: unknown[];
+  recs?: unknown[];
+}
+
+export interface RefSolveResult {
+  ratio: Record<string, number>;
+  des: Record<string, number>;
+  belt: Record<string, number>;
+  gen: number;
+  genOnly: number;
+  base: number;
+  cons: number;
+  pf: number;
+  balance: { id: string; make: number; use: number; ship: number }[];
+  core: Record<string, { id: string; field: number; other: number; ship: number; draw: number; net: number }>;
+  field: Record<string, number>;
+  diag: { lv: string; t: string; uid?: string; belt?: string }[];
 }
 
 let cached: ReferenceApi | null = null;
@@ -54,7 +85,23 @@ export function loadReference(): ReferenceApi {
   const pickStart = js.indexOf('function pickItemFor(');
   const pickEnd = js.indexOf('function addBelt(', pickStart);
   if (pickStart < 0 || pickEnd < 0) throw new Error('pickItemFor の切り出しに失敗しました');
-  const body = js.slice(start, end) + '\n' + js.slice(pickStart, pickEnd);
+  // §3 ソルバー本体（末尾の fmt まで）
+  const solveStart = js.indexOf('let RES =');
+  const solveEnd = js.indexOf('/* ═', js.indexOf('const fmt ='));
+  if (solveStart < 0 || solveEnd < 0) throw new Error('ソルバーの切り出しに失敗しました');
+  // solve() から呼ばれる発電まわり（§10 に置かれている）
+  const genStart = js.indexOf('function generatorFac()');
+  const genEnd = js.indexOf('/* 需要を再帰的に展開', genStart);
+  if (genStart < 0 || genEnd < 0) throw new Error('generatorFac の切り出しに失敗しました');
+
+  const body =
+    js.slice(start, end) +
+    '\n' +
+    js.slice(pickStart, pickEnd) +
+    '\n' +
+    js.slice(solveStart, solveEnd) +
+    '\n' +
+    js.slice(genStart, genEnd);
 
   const src = `
     "use strict";
@@ -82,7 +129,26 @@ export function loadReference(): ReferenceApi {
       connectNodes: function(a,z,item){ return connectNodes(a,z,item,true); },
       belts: function(){ return D.belts; },
       seed: seed,
-      setPipeCap: function(v){ PIPE_CAP = v; }
+      setPipeCap: function(v){ PIPE_CAP = v; },
+      /* 盤面と地域の状態をまるごと差し替えてソルバーを回す。
+         solve() は内部で reindex() を呼ぶので索引の作り直しは要らない */
+      solveWith: function(st){
+        if(st.items) D.items = st.items;
+        if(st.facs)  D.facs  = st.facs;
+        if(st.recs)  D.recs  = st.recs;
+        D.areas = st.areas; D.cur = st.cur|0;
+        D.nodes = st.nodes; D.belts = st.belts;
+        /* 参照実装の D.field は「いま開いているエリアの採取ゾーンの実体」。
+           loadArea が area.field を代入して同期している。ここでも同じ既定にする */
+        D.field = st.field || (D.areas[st.cur|0] && D.areas[st.cur|0].field) || [];
+        D.meta.basePower = st.basePower;
+        D.meta.genRec = st.genRec || undefined;
+        var a = D.areas[D.cur];
+        if(a){ a.nodes = st.nodes; a.belts = st.belts; a.field = D.field; }
+        setBoard(st.w, st.h);
+        solve();
+        return RES;
+      }
     };
   `;
 
