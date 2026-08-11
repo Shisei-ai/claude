@@ -13,7 +13,7 @@ import { type Board, createBoard, nextUid } from '../geometry';
 import { buildPlan, unitOf, type Choice, type Plan, type PlanContext } from '../planner';
 import { connectNodes } from '../routing';
 import type { Belt, Node } from '../types';
-import { autoLayout, type LayoutOptions, type LayoutResult } from './autoLayout';
+import { autoLayout, type LayoutBase, type LayoutOptions, type LayoutResult } from './autoLayout';
 
 /** 置き方の候補。順序・縦の間隔・段間の余白の組み合わせで 3×3×3 = 27通り */
 export const LAY_VARIANTS: LayoutOptions[] = (() => {
@@ -185,7 +185,7 @@ export function placePower(
   return { failed, right, bottom };
 }
 
-export interface BlocksResult extends LayoutResult {
+export interface BlocksResult extends LayoutBase {
   mode: 'blocks';
   blocks: number;
   batBlocks: number;
@@ -305,7 +305,7 @@ export function applyPlan(
   plan: Plan,
   choice: Choice = {},
   opts: { useBlocks?: boolean; msLimit?: number; now?: () => number } = {},
-): LayoutResult {
+): LayoutResult | BlocksResult {
   const useBlocks = opts.useBlocks !== false;
   if (useBlocks) {
     let r: BlocksResult | null = null;

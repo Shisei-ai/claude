@@ -35,12 +35,18 @@ export interface LayoutOptions {
   autoGrow?: boolean;
 }
 
-export interface LayoutResult {
+/** どちらの方式でも共通の結果 */
+export interface LayoutBase {
   overflow: boolean;
   failed: number;
   made: number;
+  /** 挟んだ分流器・合流器の数 */
   logistics: number;
-  mode?: 'line' | 'blocks';
+}
+
+/** 1本のライン方式の結果。mode で方式を見分ける */
+export interface LayoutResult extends LayoutBase {
+  mode: 'line';
 }
 
 export function autoLayout(ds: Dataset, board: Board, plan: Plan, opts: LayoutOptions = {}): LayoutResult {

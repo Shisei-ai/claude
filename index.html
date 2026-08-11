@@ -3,15 +3,226 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
     <title>集成工業プランナー — AIC Layout Planner</title>
   </head>
   <body>
-    <div id="app"></div>
-    <!--
-      UI は移植の最後（HANDOFF §6-6）。
-      それまでは domain/ の純粋関数と test/ の回帰ケースだけを進める。
-      参照実装は reference/aic-planner.html にそのまま置いてある。
-    -->
+    <div id="app">
+      <header>
+        <div class="brand"><b>集成工業プランナー</b><span>AIC Layout</span></div>
+
+        <div class="tools" id="tools" role="group" aria-label="ツール">
+          <button data-tool="select" aria-pressed="true">選択 <kbd>1</kbd></button>
+          <button data-tool="place" aria-pressed="false">設備 <kbd>2</kbd></button>
+          <button data-tool="belt" aria-pressed="false">ライン <kbd>3</kbd></button>
+          <button data-tool="erase" aria-pressed="false">撤去 <kbd>4</kbd></button>
+        </div>
+
+        <button class="iconbtn" id="btnUndo" title="取り消す（Ctrl+Z）" aria-label="取り消す">↶</button>
+        <button class="iconbtn" id="btnRedo" title="やり直す（Ctrl+Shift+Z）" aria-label="やり直す">↷</button>
+
+        <div id="power" title="発電量と消費電力">
+          <span class="lbl">POWER</span>
+          <div id="powerBarWrap"><div id="powerBar"></div></div>
+          <span id="powerNum" class="num">0 / 0</span>
+        </div>
+
+        <span class="spacer"></span>
+        <span id="saveState" title="変更は自動で保存されます"></span>
+        <button class="hbtn" id="btnField">採取ゾーン</button>
+        <button class="hbtn primary" id="btnPlan">生産目標</button>
+        <button class="hbtn" id="btnData">データ編集</button>
+        <button class="hbtn" id="btnIO">保存 / 読込</button>
+        <button class="hbtn" id="btnHelp">使い方</button>
+      </header>
+
+      <div id="areabar">
+        <div class="rtabs" id="regionTabs" role="tablist" aria-label="地域"></div>
+        <div class="atabs" id="areaTabs" role="tablist" aria-label="エリア"></div>
+        <span class="spacer"></span>
+        <span id="areaInfo" class="num"></span>
+      </div>
+
+      <main>
+        <aside id="palette" aria-label="設備パレット"></aside>
+
+        <div id="stage" data-tool="select">
+          <canvas id="cv"></canvas>
+          <div id="blackout"></div>
+          <div id="boLabel">電力不足 — 全設備停止のおそれ</div>
+          <div id="zoomWrap">
+            <button class="iconbtn" id="zIn" title="拡大（+）" aria-label="拡大">＋</button>
+            <button class="iconbtn" id="zOut" title="縮小（−）" aria-label="縮小">－</button>
+            <button class="iconbtn" id="zFit" title="全体表示（F）" aria-label="全体表示">⤢</button>
+          </div>
+          <div id="legend" aria-hidden="true">
+            <div><i style="background:#5fe3cd"></i>搬出口</div>
+            <div><i style="background:#9db0b8"></i>搬入口</div>
+            <div><i class="dash"></i>上限に到達</div>
+            <div><span class="sq"></span>ブリッジが必要</div>
+          </div>
+          <div id="tip"></div>
+          <div id="hint"></div>
+        </div>
+
+        <aside id="inspector" aria-label="検査パネル"></aside>
+      </main>
+
+      <footer>
+        <div class="fcol">
+          <h3>品目バランス（毎分）</h3>
+          <div class="fbody" id="balance"></div>
+        </div>
+        <div class="fcol">
+          <h3>効率</h3>
+          <div class="fbody" id="metrics"></div>
+        </div>
+        <div class="fcol">
+          <h3>診断</h3>
+          <div class="fbody" id="diag"></div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- ─── データ編集 ─── -->
+    <div class="modal" id="mData" role="dialog" aria-modal="true" aria-label="データ編集">
+      <div class="sheet">
+        <header><b>データ編集</b><span class="spacer"></span><button class="hbtn" data-close>閉じる</button></header>
+        <div class="content">
+          <p class="note"><b>初期データの数値は多くが仮の値です。</b>ゲーム内の「製造プロセス」やアイテム図鑑で実数を確認して、
+            ここで上書きしてください。検証済みの固定値は、ベルト搬送量 30個/分（1個/2秒）・分流器 1→最大3分岐・
+            発電機 バッテリー1個で40秒 の3つです。</p>
+          <div class="tabs" id="dTabs">
+            <button data-tab="items" aria-pressed="true">品目</button>
+            <button data-tab="facs" aria-pressed="false">設備</button>
+            <button data-tab="recs" aria-pressed="false">レシピ</button>
+            <button data-tab="bulk" aria-pressed="false">まとめて入力</button>
+            <button data-tab="cov" aria-pressed="false">網羅状況</button>
+          </div>
+          <div id="dPane"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── 採取ゾーン ─── -->
+    <div class="modal" id="mField" role="dialog" aria-modal="true" aria-label="採取ゾーン">
+      <div class="sheet" style="max-width: 800px">
+        <header><b>採取ゾーン（フィールド）</b><span class="spacer"></span><button class="hbtn" data-close>閉じる</button></header>
+        <div class="content" id="fieldPane"></div>
+      </div>
+    </div>
+
+    <!-- ─── 生産目標 ─── -->
+    <div class="modal" id="mPlan" role="dialog" aria-modal="true" aria-label="生産目標">
+      <div class="sheet">
+        <header><b>生産目標から最小構成を逆算</b><span class="spacer"></span><button class="hbtn" data-close>閉じる</button></header>
+        <div class="content" id="planPane"></div>
+      </div>
+    </div>
+
+    <!-- ─── 保存 / 読込 ─── -->
+    <div class="modal" id="mIO" role="dialog" aria-modal="true" aria-label="保存と読込">
+      <div class="sheet" style="max-width: 660px">
+        <header><b>保存 / 読込</b><span class="spacer"></span><button class="hbtn" data-close>閉じる</button></header>
+        <div class="content">
+          <p class="note">この設計図（品目・設備・レシピ・配置）はすべて1つのJSONに入ります。
+            編集内容はブラウザにも自動保存されますが、ファイルに書き出しておけば別の端末でも続けられます。</p>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 15px">
+            <button class="hbtn primary" id="ioDown">JSONファイルに書き出す</button>
+            <button class="hbtn" id="ioUpBtn">ファイルから読み込む</button>
+            <input type="file" id="ioUp" accept=".json,application/json" style="display: none" />
+            <button class="hbtn" id="ioCopy">クリップボードにコピー</button>
+          </div>
+          <label class="fl" for="ioText">JSONを直接貼り付け</label>
+          <textarea id="ioText" rows="9" spellcheck="false" placeholder="ここにJSONを貼り付けて「貼り付けを反映」を押します"></textarea>
+          <div style="display: flex; gap: 8px; margin-top: 9px">
+            <button class="hbtn" id="ioPaste">貼り付けを反映</button>
+            <span class="spacer"></span>
+            <button class="hbtn" id="ioReset">初期状態に戻す</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── 使い方 ─── -->
+    <div class="modal" id="mHelp" role="dialog" aria-modal="true" aria-label="使い方">
+      <div class="sheet" style="max-width: 740px">
+        <header><b>使い方</b><span class="spacer"></span><button class="hbtn" data-close>閉じる</button></header>
+        <div class="content help">
+          <h4 class="sub">まず知っておくこと：採取と生産は別の場所</h4>
+          <ul>
+            <li><b>採鉱機・ポンプ類はフィールドの採取スポットに置く設備</b>で、工業エリアの盤面には置きません。
+              産出は倉庫（協約核心）へ自動転送され、工業エリアからは<b>倉庫搬出口</b>で引き出して使います。</li>
+            <li>そのためこのアプリでは、採取設備を盤面ではなく上部の<b>「採取ゾーン」</b>に台数と産出量で登録します。
+              1台あたりの産出量は地域建設レベル（鉱物純度）で変わるので、実測値を入れてください。</li>
+            <li>工業エリアの起点は必ず<b>倉庫搬出口</b>、終点は<b>倉庫搬入口</b>や協約貯蔵箱です。</li>
+            <li>品目には<b>固体・液体・ガス</b>の別があり、固体はベルト、液体とガスはパイプで運びます。
+              分流器・合流器もベルト用とパイプ用で別物です。取り違えると警告が出ます。</li>
+          </ul>
+
+          <h4 class="sub">最小構成を出す（いちばん速い使い方）</h4>
+          <ul>
+            <li>上部の<b>「生産目標」</b>に作りたいものと毎分の個数を入れると、必要な設備台数・面積・電力・発電機の数を逆算します。</li>
+            <li><b>「無駄なく組める目標値」</b>の提案が出たら、その数値で組み直すと全設備が整数台・100%稼働になります。</li>
+            <li><b>「ブロックを並べて配置」</b>が基本です。全設備が整数台になる最小ユニットを1枚だけ丁寧に組み、
+              それを敷き詰めます。1枚ごとに自己完結しているので、規模を上げても配線が破綻せず、増設も1枚単位です。</li>
+            <li>工程が絡み合っていて1枚にまとめたいときは<b>「1本のラインで配置」</b>を使います。</li>
+          </ul>
+
+          <h4 class="sub">操作</h4>
+          <ul>
+            <li><b>ツール</b>　<kbd>1</kbd> 選択／<kbd>2</kbd> 設備／<kbd>3</kbd> ライン／<kbd>4</kbd> 撤去</li>
+            <li><b>盤面</b>　空白をドラッグでスクロール、ホイールで拡大縮小、<kbd>F</kbd> で全体表示、<kbd>+</kbd> <kbd>-</kbd> で拡大縮小</li>
+            <li><b>設備</b>　左の一覧から選んでクリックで設置。<kbd>R</kbd> で向きを90°ずつ回します（口も一緒に回ります）。
+              選択ツールでは設備をドラッグして動かせます。</li>
+            <li><b>ライン</b>　送り出す設備 → 受け取る設備の順にクリック。障害物を避けて自動で経路を引きます。</li>
+            <li><b>取り消し</b>　<kbd>Ctrl</kbd>+<kbd>Z</kbd> で取り消し、<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> でやり直し。
+              自動配置もデータ編集も取り消せます。</li>
+            <li><kbd>Delete</kbd> で選択中の設備・ラインを撤去、<kbd>Esc</kbd> で選択解除。<kbd>V</kbd> で網羅状況。</li>
+            <li><b>診断の各行はクリックできます。</b>該当する設備やラインを選択して画面中央へ移動します。</li>
+          </ul>
+
+          <h4 class="sub">計算に組み込んである制約</h4>
+          <ul>
+            <li><span class="kv">ベルト 30個/分</span> — 1本で運べる上限。これを超える流量は自動で頭打ちになり、上流の設備が待機します。</li>
+            <li><span class="kv">分流器 1→3</span> — 出力3本まで。片側が詰まればもう片側へ流れる前提（背圧あり）で計算しているので、
+              下流の需要に応じた配分になります。</li>
+            <li><span class="kv">発電機 40秒/1個</span> — バッテリー1個で40秒発電。つまり1台あたり 1.5個/分 の供給が必要です。</li>
+            <li><span class="kv">電力の自己参照</span> — バッテリー製造ライン自身も電力を食うため、単純な足し算では解けません。
+              全設備の稼働率を繰り返し計算で収束させています。発電量が消費に足りないと画面が赤く落ちます。</li>
+            <li><span class="kv">口は1つにつきライン1本</span> — 設備の搬入口・搬出口の数と位置が、そのまま繋げられる本数になります。
+              <b>これが詰め込み密度を決める最大の制約です。</b>口の数と向きは「データ編集」の設備タブで変えられます。</li>
+            <li><span class="kv">ラインの交差はブリッジ</span> — 直進しているライン同士は直交方向に跨げます。
+              必要な箇所を盤面に橙色の四角で示し、件数を診断に出します。同じ向きに重ねること、曲がり角を跨ぐことはできません。</li>
+            <li><span class="kv">発電機の燃料は倉庫から</span> — 燃料が倉庫に入っていないと「発電機の燃料が足りません」と出ます。</li>
+            <li><span class="kv">口の正面は空けておく</span> — 他のラインが口の真正面を横切ると、その口は使えなくなります。
+              自動配線はこれを避けて経路を選びます。</li>
+            <li><span class="kv">出力の詰まり</span> — 出口にラインがつながっていない設備は、内部が満杯になって停止＝稼働率0%として扱います。</li>
+          </ul>
+
+          <h4 class="sub">数値の確からしさ</h4>
+          <ul>
+            <li>レシピには<b>確認済／一部確認／推定</b>の3段階の確度を持たせています。
+              検査パネルと生産目標の画面に、その計画がどれだけ推定値に依存しているかを表示します。</li>
+            <li>武陵の比率は公開されている生産ラインの実数から逆算したものです。
+              原料総量は出典と一致することを確認していますが、<b>1周期の秒数はライン本数からの推定</b>を含みます。</li>
+            <li>「データ編集」の<b>網羅状況</b>タブ（<kbd>V</kbd>）が起点です。
+              <b>行き止まり</b>＝作り方も採取ゾーンの登録も無い品目、<b>未到達</b>＝レシピはあるが材料が揃わない品目。
+              ここが空になれば、その範囲は計算できる状態です。</li>
+          </ul>
+
+          <h4 class="sub">地域とエリア</h4>
+          <ul>
+            <li>四号谷地と武陵は<b>倉庫が別</b>なので、まず地域を選び、次にエリアを選びます。
+              エリアごとに盤面・採取ゾーン・協約容量が独立しています。</li>
+            <li><b>倉庫は地域で1つ</b>です。首礎で作った赤銅塊は同じ武陵の応龍関から引き出せます。
+              他エリアの生産量は、そのエリアを開いて計算したときの純増を持ち込む形で反映されるので、
+              分担して組むときは各エリアを一度ずつ開いてください。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
