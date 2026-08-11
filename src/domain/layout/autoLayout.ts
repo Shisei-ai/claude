@@ -24,6 +24,16 @@ import { connectNodes } from '../routing';
 import type { Node } from '../types';
 import { addSurplusSinks, buildLinks, buildTiers, insertLogistics, orderByCentroid, type Link, type Slot } from './tiers';
 
+/**
+ * 「大きな計画」とみなすライン本数。
+ *
+ * 引き直しは1巡ごとに全ラインを引き直す。1本あたりダイクストラを最大12回走らせるので、
+ * 本数が増えると費用が跳ね上がる（233本の計画で1巡14秒）。
+ * これを超えたら巡回を1回に抑える。順序を入れ替える効果は1巡目でほぼ出るので、
+ * 失敗本数はさほど変わらない。
+ */
+export const BIG_PLAN_LINKS = 150;
+
 export interface LayoutOptions {
   /** 段間の余白の係数（交差本数に掛ける） */
   gm?: number;
@@ -33,6 +43,12 @@ export interface LayoutOptions {
   order?: 'dy' | 'len' | 'x';
   /** 盤面を自動で広げてよいか（meta.autoGrow） */
   autoGrow?: boolean;
+  /**
+   * スロットの産出量・消費量の決め方（tiers.ts の TierOptions）。
+   * 既定は 'planned'。'nameplate' は参照実装と同じ挙動で、
+   * 差分テストのためだけに残してある。
+   */
+  rates?: 'planned' | 'nameplate';
 }
 
 /** どちらの方式でも共通の結果 */
@@ -56,7 +72,7 @@ export function autoLayout(ds: Dataset, board: Board, plan: Plan, opts: LayoutOp
   const autoGrow = opts.autoGrow !== false;
 
   /* 1) 段ごとのスロットを作る */
-  const { tiers, all } = buildTiers(ds, plan);
+  const { tiers, all } = buildTiers(ds, plan, { rates: opts.rates ?? 'planned' });
 
   /* 2) スロット同士の接続を決める（貪欲マッチング） */
   const { links: links0, surplus } = buildLinks(ds, all);
@@ -192,10 +208,13 @@ export function autoLayout(ds: Dataset, board: Board, plan: Plan, opts: LayoutOp
     return { made, lost };
   };
 
+  /* 引き直しの巡回数。1巡でも全ラインを引き直すので、本数が多いと費用が効く。
+     大きな計画では1巡に抑える（順序を入れ替える効果は1巡目でほぼ出る）。 */
+  const rounds = live.length > BIG_PLAN_LINKS ? 1 : 4;
   let seq = live.slice();
   let res = routeAll(seq);
   let best = { belts: board.belts.slice(), res };
-  for (let round = 0; round < 4 && res.lost.length; round++) {
+  for (let round = 0; round < rounds && res.lost.length; round++) {
     seq = res.lost.concat(seq.filter((l) => res.lost.indexOf(l) < 0));
     const r2 = routeAll(seq);
     if (r2.lost.length < best.res.lost.length) best = { belts: board.belts.slice(), res: r2 };

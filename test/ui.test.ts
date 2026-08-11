@@ -332,3 +332,72 @@ describe('保存', () => {
     expect(store2.board.nodes[0]!.fac).toBe('smelt');
   });
 });
+
+describe('自動配置は別スレッドへ逃がす（§8-3）', () => {
+  it('Worker が使えない環境では同期で計算して同じ結果を返す', async () => {
+    const { requestLayout } = await import('../src/ui/layoutRunner');
+    const { runLayout } = await import('../src/worker/layout.worker');
+    const req = {
+      save: JSON.parse(store.toJSON()),
+      cfg: { ...store.cfg },
+      cur: store.save.cur,
+      item: 'shell',
+      rate: 20,
+      choice: {},
+      useBlocks: true,
+      w: 80,
+      h: 56,
+    };
+    // jsdom には Worker が無いので、その場で計算する経路に落ちる
+    expect(typeof Worker).toBe('undefined');
+    const viaRunner = await requestLayout(req);
+    const direct = runLayout(req);
+    expect(viaRunner.ok).toBe(true);
+    expect(direct.ok).toBe(true);
+    if (viaRunner.ok && direct.ok) {
+      expect(viaRunner.nodes.length).toBe(direct.nodes.length);
+      expect(viaRunner.belts.length).toBe(direct.belts.length);
+      expect(viaRunner.result.failed).toBe(0);
+    }
+  });
+
+  it('壊れた目標でも例外にせず、理由を返す', async () => {
+    const { runLayout } = await import('../src/worker/layout.worker');
+    const r = runLayout({
+      save: JSON.parse(store.toJSON()),
+      cfg: { ...store.cfg },
+      cur: 99, // 存在しないエリア
+      item: 'shell',
+      rate: 20,
+      choice: {},
+      useBlocks: true,
+      w: 80,
+      h: 56,
+    });
+    // 落ちずに何らかの結果（成功でも失敗でも）を返すこと
+    expect(typeof r.ok).toBe('boolean');
+  });
+
+  it('配置ボタンを押すと盤面が置き換わり、取り消せる', async () => {
+    $('#btnPlan').click();
+    await Promise.resolve();
+    const sel = $<HTMLSelectElement>('#pItem');
+    sel.value = 'shell';
+    sel.dispatchEvent(new Event('change'));
+    $<HTMLInputElement>('#pRate').value = '20';
+    $('#pRun').click();
+
+    expect(store.board.nodes).toHaveLength(0);
+    $('#pApply').click();
+    // 非同期なので待つ
+    await new Promise((r) => setTimeout(r, 50));
+    expect(store.board.nodes.length).toBeGreaterThan(0);
+    expect($('#mPlan').classList.contains('on')).toBe(false);
+
+    const n = store.board.nodes.length;
+    store.undo();
+    expect(store.board.nodes).toHaveLength(0);
+    store.redo();
+    expect(store.board.nodes).toHaveLength(n);
+  });
+});

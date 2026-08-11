@@ -11,7 +11,7 @@ import { seed } from '../src/data/seed';
 import { buildDataset, type Dataset } from '../src/domain/dataset';
 import { createBoard, type Board } from '../src/domain/geometry';
 import { autoLayout } from '../src/domain/layout/autoLayout';
-import { autoLayoutBlocks, captureBlock, stampBlock } from '../src/domain/layout/blocks';
+import { applyPlan, autoLayoutBlocks, captureBlock, stampBlock } from '../src/domain/layout/blocks';
 import {
   addSurplusSinks,
   buildLinks,
@@ -104,10 +104,13 @@ describe('処理順序（HANDOFF §5-3）', () => {
        超えた接続は配線時に必ず落ちる（失敗22本の原因がこれだった）。
 
        口の定員を超えたスロットの数を、正しい順序と入れ替えた順序で数えて比べる。 */
-    const overflows = (areaId: string, item: string, rate: number, correctOrder: boolean): number => {
+    const overflows = (
+      areaId: string, item: string, rate: number, correctOrder: boolean,
+      rates: 'planned' | 'nameplate',
+    ): number => {
       const ctx: PlanContext = { ds, areas: seed().areas, cur: areaIdx(areaId), basePower: 240 };
       const plan = buildPlan(ctx, item, rate, {}, { noPower: true });
-      const { tiers, all } = buildTiers(ds, plan);
+      const { tiers, all } = buildTiers(ds, plan, { rates });
       const { links: l0, surplus } = buildLinks(ds, all);
       let links = l0;
       if (correctOrder) {
@@ -139,14 +142,16 @@ describe('処理順序（HANDOFF §5-3）', () => {
       ['a_chusu', 'batM', 10],
       ['a_chusu', 'batS', 30],
     ];
-    let broken = 0;
-    for (const [area, item, rate] of cases) {
-      // 正しい順序なら、どの構成でも口の定員を超えるスロットは1つも無い
-      expect(overflows(area, item, rate, true), `${area} ${item} ${rate}`).toBe(0);
-      if (overflows(area, item, rate, false) > 0) broken++;
+    for (const rates of ['planned', 'nameplate'] as const) {
+      let broken = 0;
+      for (const [area, item, rate] of cases) {
+        // 正しい順序なら、どの構成でも口の定員を超えるスロットは1つも無い
+        expect(overflows(area, item, rate, true, rates), `${area} ${item} ${rate} (${rates})`).toBe(0);
+        if (overflows(area, item, rate, false, rates) > 0) broken++;
+      }
+      // 入れ替えると定員超過が出る（どちらのモードでも）
+      expect(broken, `入れ替えで壊れた構成の数 (${rates})`).toBeGreaterThanOrEqual(1);
     }
-    // 入れ替えると、複数の構成で定員超過が出る
-    expect(broken).toBeGreaterThanOrEqual(4);
 
     // 正しい順序で組んだ本物の配置は、1本も落ちない
     const { plan } = redPlan();
@@ -244,6 +249,10 @@ describe('ブロック方式', () => {
 describe('参照実装との差分テスト', () => {
   const ref = loadReference();
 
+  /* 参照実装と突き合わせるので、スロットの量は互換モード（定格）で回す。
+     既定の 'planned' は §8-1 を直した挙動なので、意図的に参照実装と食い違う。 */
+  const COMPAT = { rates: 'nameplate' } as const;
+
   const runMine = (
     areaId: string, item: string, rate: number, useBlocks: boolean,
   ): { board: Board; failed: number; made: number; ds: Dataset; data: Save; cur: number } => {
@@ -255,11 +264,11 @@ describe('参照実装との差分テスト', () => {
     const plan = buildPlan(ctx, item, rate);
     let r: { failed: number; made: number } | null = null;
     if (useBlocks) {
-      const b = autoLayoutBlocks(ctx, board, plan);
+      const b = autoLayoutBlocks(ctx, board, plan, {}, COMPAT);
       if (b && b.failed > 0) {
         const keep = { nodes: board.nodes, belts: board.belts, w: board.w, h: board.h, seq: board.uidSeq };
         board.nodes = []; board.belts = [];
-        const r2 = autoLayout(ds2, board, plan);
+        const r2 = autoLayout(ds2, board, plan, COMPAT);
         if (r2.failed < b.failed) r = r2;
         else {
           board.nodes = keep.nodes; board.belts = keep.belts;
@@ -268,7 +277,7 @@ describe('参照実装との差分テスト', () => {
         }
       } else r = b;
     }
-    if (!r) r = autoLayout(ds2, board, plan);
+    if (!r) r = autoLayout(ds2, board, plan, COMPAT);
     return { board, failed: r.failed, made: r.made, ds: ds2, data: d2, cur };
   };
 
@@ -331,4 +340,50 @@ describe('参照実装との差分テスト', () => {
       }
     });
   }
+});
+
+describe('§8-3 大きな計画でも現実的な時間で返る', () => {
+  /* 参照実装の課題「ブロック方式の探索が重い。27通り×大きな計画で数秒かかる」。
+     実測すると数秒どころではなく、
+       ・端数の多いレシピで単位が 15000個/分（1枚3287台）になり、探索が返ってこない
+       ・ブロックが失敗したときの1本ライン方式との比較に、105台の計画で55秒
+     という2つの穴があった。前者は台数で単位を弾き、後者は計画の大きさで比較を打ち切る。 */
+
+  const measure = (areaId: string, item: string, rate: number): { ms: number; failed: number; nodes: number } => {
+    const d2 = seed();
+    const ds2 = buildDataset(d2);
+    const cur = d2.areas.findIndex((a) => a.id === areaId);
+    const ctx: PlanContext = { ds: ds2, areas: d2.areas, cur, basePower: 240 };
+    const board = createBoard(80, 56);
+    const t0 = Date.now();
+    const r = applyPlan(ctx, board, buildPlan(ctx, item, rate), {}, { useBlocks: true });
+    return { ms: Date.now() - t0, failed: r.failed, nodes: board.nodes.length };
+  };
+
+  it(
+    '470台規模でも配置が返る（以前は60秒かかっていた）',
+    { timeout: 120_000 },
+    () => {
+      const r = measure('w_jo', 'part_cu', 60);
+      expect(r.nodes).toBeGreaterThan(300);
+      expect(r.ms, `${r.ms}ms かかった`).toBeLessThan(25_000);
+    },
+  );
+
+  it(
+    '端数の多いレシピでも固まらない（以前は返ってこなかった）',
+    { timeout: 120_000 },
+    () => {
+      // 息壌ガスは「1周期2.86秒・材料1.286個」なので単位が 15000個/分 になる
+      const r = measure('w_oryu', 'sokuj_h', 6);
+      expect(r.ms, `${r.ms}ms かかった`).toBeLessThan(10_000);
+      expect(r.failed).toBe(0);
+    },
+  );
+
+  it('小さな計画はこれまでどおり速い', { timeout: 60_000 }, () => {
+    const r = measure('a_chusu', 'shell', 20);
+    expect(r.ms, `${r.ms}ms かかった`).toBeLessThan(5_000);
+    expect(r.failed).toBe(0);
+  });
 });

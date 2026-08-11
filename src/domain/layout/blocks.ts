@@ -42,7 +42,7 @@ export interface Block {
 export function captureBlock(
   ds: Dataset,
   plan: Plan,
-  opts: { budget?: number; msLimit?: number; now?: () => number; w?: number; h?: number } = {},
+  opts: { budget?: number; msLimit?: number; now?: () => number; w?: number; h?: number; rates?: 'planned' | 'nameplate' } = {},
 ): Block | null {
   const now = opts.now ?? (() => Date.now());
   const t0 = now();
@@ -61,7 +61,7 @@ export function captureBlock(
     const tmp = createBoard(opts.w ?? BOARD_W_DEFAULT, opts.h ?? BOARD_H_DEFAULT);
     let r: LayoutResult | null = null;
     try {
-      r = autoLayout(ds, tmp, plan, { ...v, autoGrow: true });
+      r = autoLayout(ds, tmp, plan, { ...v, autoGrow: true, ...(opts.rates ? { rates: opts.rates } : {}) });
     } catch {
       r = null;
     }
@@ -198,14 +198,36 @@ export interface BlocksResult extends LayoutBase {
   blockMachines: number;
 }
 
+/**
+ * ブロック探索に使ってよい時間の既定値。
+ *
+ * 主ブロックと給電ブロックで captureBlock を何度も呼ぶので、
+ * 1回ぶんではなく**全体**に締切を持たせる。
+ * 上限を切っても、それまでの最良の置き方が返るので結果が壊れることはない。
+ */
+export const BLOCK_SEARCH_MS = 4000;
+
+/**
+ * ブロックが失敗したときに1本のライン方式と比べるかどうかの、計画の大きさの上限。
+ *
+ * 実測（初期データ）:
+ *   66台の計画  … 比較に3秒、失敗20本 → 6本 に減るので割に合う
+ *  105台の計画  … 比較に22秒かかったうえ、1本のライン方式のほうが失敗が多い
+ */
+export const COMPARE_MACHINES_MAX = 100;
+
 /** ブロック方式で全体を組む */
 export function autoLayoutBlocks(
   ctx: PlanContext,
   board: Board,
   plan: Plan,
   choice: Choice = {},
-  opts: { msLimit?: number; now?: () => number } = {},
+  opts: { msLimit?: number; now?: () => number; rates?: 'planned' | 'nameplate' } = {},
 ): BlocksResult | null {
+  const now = opts.now ?? (() => Date.now());
+  const deadline = now() + (opts.msLimit ?? BLOCK_SEARCH_MS);
+  /** 残り時間。使い切っていても最低200msは与える（1通りは試させる） */
+  const budgetMs = (): number => Math.max(200, deadline - now());
   const ds = ctx.ds;
   const gf = ds.generatorFac();
   const gr = ds.generatorRec(ctx.genRec);
@@ -216,7 +238,11 @@ export function autoLayoutBlocks(
   const unitMain = unitOf(ctx, plan.targetItem, choice);
   if (!unitMain) return null;
   const size = { w: board.w, h: board.h };
-  const blkMain = captureBlock(ds, buildPlan(ctx, plan.targetItem, unitMain, choice, { noPower: true }), { ...opts, ...size });
+  const blkMain = captureBlock(ds, buildPlan(ctx, plan.targetItem, unitMain, choice, { noPower: true }), {
+    ...opts,
+    ...size,
+    msLimit: budgetMs(),
+  });
   if (!blkMain) return null;
 
   /* 発電用のバッテリーが別品目なら、必要量ちょうどの給電ラインを1本だけ作る */
@@ -235,7 +261,13 @@ export function autoLayoutBlocks(
     gens = ng;
     if (sep && gens > 0 && batItem) {
       const bp = buildPlan(ctx, batItem, gens * perGen, choice, { noPower: true });
-      blkBat = bp && bp.rows.length ? captureBlock(ds, bp, { ...opts, ...size, budget: 9 }) : null;
+      /* 給電ラインは発電機の数が決まるたびに組み直すので、ここが一番かさむ。
+         残り時間を渡して、締切を過ぎたら手早く済ませる */
+      blkBat = bp && bp.rows.length ? captureBlock(ds, bp, { ...opts, ...size, budget: 9, msLimit: budgetMs() }) : null;
+      if (now() > deadline) {
+        // 締切を過ぎたら台数の収束はここで打ち切る（発電機が数台ずれる可能性はある）
+        break;
+      }
     }
   }
   const nBat = blkBat ? 1 : 0;
@@ -304,7 +336,7 @@ export function applyPlan(
   board: Board,
   plan: Plan,
   choice: Choice = {},
-  opts: { useBlocks?: boolean; msLimit?: number; now?: () => number } = {},
+  opts: { useBlocks?: boolean; msLimit?: number; now?: () => number; rates?: 'planned' | 'nameplate' } = {},
 ): LayoutResult | BlocksResult {
   const useBlocks = opts.useBlocks !== false;
   if (useBlocks) {
@@ -314,12 +346,17 @@ export function applyPlan(
     } catch {
       r = null;
     }
-    if (r && r.failed > 0) {
+    /* ブロックで配線が落ちたら1本のラインと比べたいが、
+       大きな計画では比較のためだけに全体をもう一度組むことになる。
+       105台の計画で55秒かかったので、台数で足切りする。
+       （利用者が「1本のラインで配置」を明示的に押した場合はこの制限を受けない） */
+    const tooBig = plan.intSum > COMPARE_MACHINES_MAX;
+    if (r && r.failed > 0 && !tooBig) {
       // ブロックで配線が落ちるなら、1本のラインと比べて良い方を採る
       const keep = { nodes: board.nodes, belts: board.belts, w: board.w, h: board.h, seq: board.uidSeq };
       board.nodes = [];
       board.belts = [];
-      const r2 = autoLayout(ctx.ds, board, plan);
+      const r2 = autoLayout(ctx.ds, board, plan, opts.rates ? { rates: opts.rates } : {});
       if (r2.failed < r.failed) return r2;
       board.nodes = keep.nodes;
       board.belts = keep.belts;
@@ -330,5 +367,5 @@ export function applyPlan(
     }
     if (r) return r;
   }
-  return autoLayout(ctx.ds, board, plan);
+  return autoLayout(ctx.ds, board, plan, opts.rates ? { rates: opts.rates } : {});
 }

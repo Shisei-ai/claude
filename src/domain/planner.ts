@@ -73,6 +73,8 @@ export interface Plan {
   /** 切り上げ後の構成で実際に出せる上限 */
   capMax: number;
   diverged?: boolean;
+  /** 材料が循環していて必要量が収束しなかった品目（§8-5） */
+  unresolved?: Record<string, number>;
 }
 
 export interface ExpandResult {
@@ -83,6 +85,15 @@ export interface ExpandResult {
   made: Record<string, number>;
   need: Record<string, number>;
   diverged: boolean;
+  /**
+   * 反復を打ち切ってもなお足りていない品目と、その不足量。
+   *
+   * 材料が循環していて利得が1以下だと（1個作るのに1個要る、など）、
+   * 展開は永久に終わらない。参照実装は反復上限で黙って打ち切っていたので、
+   * 台数が「それらしいが正しくない値」になっていた。
+   * ここで検出して、呼び出し側が「収束しなかった」と言えるようにする。
+   */
+  unresolved: Record<string, number>;
 }
 
 /**
@@ -179,7 +190,14 @@ export function expandNeed(ctx: PlanContext, targets: Record<string, number>, ch
     }
     if (!changed || diverged) break;
   }
-  return { cyc, raw, made, need, diverged };
+
+  // 打ち切り時点で埋まっていない需要が残っていれば、それは収束しなかったということ
+  const unresolved: Record<string, number> = {};
+  for (const item of Object.keys(need)) {
+    const short = need[item]! - (made[item] || 0);
+    if (short > 1e-6) unresolved[item] = short;
+  }
+  return { cyc, raw, made, need, diverged, unresolved };
 }
 
 /**
@@ -209,6 +227,7 @@ export function buildPlan(
       return {
         targetItem, targetRate, rows: [], raw: {}, made: {}, gens: 0, gf, gr, base,
         power: 0, area: 0, fracSum: 0, intSum: 0, flow: [], capMax: 0, pure: [], diverged: true,
+        unresolved: ex.unresolved,
       };
 
     const rows: PlanRow[] = [];
@@ -239,6 +258,7 @@ export function buildPlan(
     out = {
       targetItem, targetRate, rows, raw: ex.raw, made: ex.made, gens: ng, gf, gr, base,
       power, area, fracSum, intSum, pure: [], flow: [], capMax: 0,
+      ...(Object.keys(ex.unresolved).length ? { unresolved: ex.unresolved } : {}),
     };
     if (ng === gens) break;
     gens = ng;
@@ -345,11 +365,31 @@ export function idealTargets(plan: Plan): { unit: number; cands: number[] } | nu
   return { unit, cands: cands.slice(0, 3) };
 }
 
+/**
+ * ブロック1枚に入れてよい設備の数。
+ *
+ * 初期データには「1周期2.86秒・材料1.286個」のように、ライン本数から逆算した
+ * 端数の値がある。連分数展開はそれを額面どおり受け取るので、
+ * 全設備が整数台になる目標値が 15000個/分（＝1枚3287台）のような
+ * 現実離れした大きさになることがある。
+ * そのまま組もうとすると探索が何十秒も返ってこないので、
+ * 大きすぎる単位はブロック方式の対象から外し、1本のライン方式へ回す。
+ */
+export const BLOCK_MACHINES_MAX = 120;
+
 /** その品目の「全設備が整数台になる最小の生産量」＝ブロック1枚分 */
-export function unitOf(ctx: PlanContext, item: string, choice: Choice = {}): number | null {
+export function unitOf(
+  ctx: PlanContext,
+  item: string,
+  choice: Choice = {},
+  opts: { maxMachines?: number } = {},
+): number | null {
   const p = buildPlan(ctx, item, 1, choice, { noPower: true });
   if (!p || !p.rows.length) return null;
   const id = idealTargets(p);
   if (!id || !isFinite(id.unit) || id.unit <= 0 || id.unit > 100000) return null;
+  // 単位の値ではなく、その単位で組んだときの**台数**で現実味を判定する
+  const unitPlan = buildPlan(ctx, item, id.unit, choice, { noPower: true });
+  if (unitPlan.intSum > (opts.maxMachines ?? BLOCK_MACHINES_MAX)) return null;
   return id.unit;
 }

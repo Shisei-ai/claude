@@ -48,14 +48,21 @@ interface RunOut {
  * 目標を立てて自動配置し、ソルバーを回す。
  * 実際のアプリと同じく、計算後に純増をエリアへ書き戻す（次のエリアの倉庫の入りになる）。
  */
-function run(data: Save, areaId: string, item: string, rate: number, useBlocks: boolean): RunOut {
+function run(
+  data: Save,
+  areaId: string,
+  item: string,
+  rate: number,
+  useBlocks: boolean,
+  rates: 'planned' | 'nameplate' = 'nameplate',
+): RunOut {
   const ds = buildDataset(data);
   const cur = data.areas.findIndex((a) => a.id === areaId);
   if (cur < 0) throw new Error('エリアが見つかりません: ' + areaId);
   const ctx: PlanContext = { ds, areas: data.areas, cur, basePower: 240 };
   const board = createBoard(80, 56);
   const plan = buildPlan(ctx, item, rate);
-  const lay = applyPlan(ctx, board, plan, {}, { useBlocks });
+  const lay = applyPlan(ctx, board, plan, {}, { useBlocks, rates });
 
   const area = data.areas[cur]!;
   area.nodes = board.nodes;
@@ -110,6 +117,10 @@ function runRef(areaId: string, item: string, rate: number, useBlocks: boolean):
     belts: rr.belts.length,
   };
 }
+
+/* 表の数値は参照実装と同じ設定（rates:'nameplate'）で出したもの。
+   既定の 'planned' は §8-1 を直した挙動なので、意図的に数値が変わる。
+   下の「§8-1 改善後」でその差を記録している。 */
 
 /** 表1行ぶん */
 interface Row {
@@ -207,5 +218,102 @@ describe('§7 エリア連携（この順に実行すること）', () => {
     const cur = data.areas.findIndex((a) => a.id === 'w_jo');
     const res = solve({ ds, board: createBoard(80, 56), areas: data.areas, cur, basePower: 240 });
     expect(res.field['sokuj']).toBeCloseTo(tenno.net['sokuj']!, 6);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   §8-1 の改善 ── 多段構成で稼働率が揃わない問題
+
+   HANDOFF:「中容量武陵バッテリーのように6〜8段になると、貪欲マッチングの端数が
+             偏って各設備が中途半端な稼働率になり、搬入量が目標に届かない。」
+
+   実際に測ると「中途半端」どころか **設備がまるごと停止して搬入0** になっていた。
+   原因は2つあり、どちらも配置側（layout）にあった。
+
+     1. スロットが名乗る量が「定格能力」だった。
+        切り上げた台数ぶんの定格は供給を上回るので、貪欲マッチングで
+        最初の消費者が供給を食い尽くし、2台目以降にラインが1本も繋がらない。
+        → 計画上の実際の量（定格 × その工程の稼働率）で名乗るようにした。
+
+     2. 原料の取出口を全体で1つのプールにしていた。
+        必要量の違う設備どうしが同じ口を共有すると、ソルバーは定格の需要比で
+        分けるので、計画が意図した配分にならず片方が飢える。
+        → 同じレシピの設備ごとに取出口をまとめた（必要量が等しければ等分が正しい）。
+
+   ソルバーには手を入れていない。需要の割り振りを「入口本数で等分」から
+   「先頭から上限まで詰める」に変えると、逆に上流が飢えて悪化することを確認済み。
+   HANDOFF が言う最小費用流での定式化は、この2点の改善で足りたので見送っている。
+   ═══════════════════════════════════════════════════════════ */
+
+interface ImproveRow {
+  area: string;
+  areaId: string;
+  item: string;
+  itemId: string;
+  rate: number;
+  /** 参照実装のまま（定格で名乗る）だとこうなる */
+  before: number;
+  /** 改善後 */
+  after: number;
+}
+
+const IMPROVED: ImproveRow[] = [
+  { area: '応龍関', areaId: 'w_oryu', item: '重息壌', itemId: 'sokuj_h', rate: 6, before: 0, after: 3.6 },
+  { area: '武陵城', areaId: 'w_jo', item: '重息壌', itemId: 'sokuj_h', rate: 6, before: 0, after: 3.6 },
+  { area: '武陵城', areaId: 'w_jo', item: '息壌装備部品', itemId: 'eq_soku', rate: 2, before: 0, after: 1.7 },
+  { area: '武陵城', areaId: 'w_jo', item: '焔銅部品', itemId: 'part_cu', rate: 12, before: 2.8, after: 3.5 },
+  { area: '中枢エリア', areaId: 'a_chusu', item: '大容量谷地バッテリー', itemId: 'batL', rate: 3, before: 0.2, after: 2.2 },
+  { area: '中枢エリア', areaId: 'a_chusu', item: '中容量谷地バッテリー', itemId: 'batM', rate: 10, before: 2.6, after: 3.5 },
+];
+
+describe('§8-1 多段構成の稼働率（改善後）', () => {
+  for (const row of IMPROVED) {
+    it(`${row.area} ／ ${row.item} ${row.rate} → 搬入 ${row.before} から ${row.after} へ`, () => {
+      const before = run(seed(), row.areaId, row.itemId, row.rate, false, 'nameplate');
+      const after = run(seed(), row.areaId, row.itemId, row.rate, false, 'planned');
+      expect(before.ship, '改善前').toBe(row.before);
+      expect(after.ship, '改善後').toBe(row.after);
+      expect(after.ship, '改善後のほうが多い').toBeGreaterThan(before.ship);
+      expect(after.failed, '配線失敗は増えない').toBeLessThanOrEqual(before.failed);
+    });
+  }
+
+  it('稼働率0で死んでいた設備が無くなる', () => {
+    const dead = (rates: 'planned' | 'nameplate'): number => {
+      const data = seed();
+      const out = run(data, 'w_oryu', 'sokuj_h', 6, false, rates);
+      const ds = buildDataset(data);
+      const area = data.areas.find((a) => a.id === 'w_oryu')!;
+      return area.nodes.filter((n) => ds.fac(n.fac)?.kind === 'process' && (out.res.ratio[n.uid] ?? 0) < 0.005).length;
+    };
+    expect(dead('nameplate'), '改善前は生産設備がまるごと停止していた').toBeGreaterThan(0);
+    expect(dead('planned'), '改善後は停止する設備が無い').toBe(0);
+  });
+
+  it('電力さえ足りれば、重息壌は目標ちょうどに届く', () => {
+    /* 既定の基礎電力240では、燃料の無い発電機のぶん全体が落ちる。
+       電力を十分にすると、配置そのものは目標を満たせていることが分かる。 */
+    const data = seed();
+    const ds = buildDataset(data);
+    const cur = data.areas.findIndex((a) => a.id === 'w_oryu');
+    const ctx: PlanContext = { ds, areas: data.areas, cur, basePower: 5000 };
+    const board = createBoard(80, 56);
+    const plan = buildPlan(ctx, 'sokuj_h', 6);
+    const lay = applyPlan(ctx, board, plan, {}, { useBlocks: false });
+    data.areas[cur]!.nodes = board.nodes;
+    data.areas[cur]!.belts = board.belts;
+    const res = solve({ ds, board, areas: data.areas, cur, basePower: 5000 });
+    expect(lay.failed).toBe(0);
+    expect(r1(res.core['sokuj_h']?.ship ?? 0)).toBe(6);
+  });
+
+  it('§7 の回帰ケースは改善後も配線失敗0で、搬入が減らない', () => {
+    for (const row of TABLE) {
+      const before = run(seed(), row.areaId, row.itemId, row.rate, row.blocks, 'nameplate');
+      const after = run(seed(), row.areaId, row.itemId, row.rate, row.blocks, 'planned');
+      const label = `${row.area} ${row.item} ${row.rate}`;
+      expect(after.failed, label + ' 配線失敗').toBe(0);
+      expect(after.ship, label + ' 搬入').toBeGreaterThanOrEqual(before.ship - 1e-9);
+    }
   });
 });

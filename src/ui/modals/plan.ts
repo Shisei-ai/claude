@@ -6,16 +6,17 @@
  */
 
 import { BELT_CAP, fmt } from '../../domain/constants';
-import { applyPlan } from '../../domain/layout/blocks';
 import {
   buildPlan,
   idealTargets,
+  unitOf,
   warehouseSupply,
   type Choice,
   type Plan,
   type PlanContext,
 } from '../../domain/planner';
 import type { Store } from '../../store/state';
+import { requestLayout } from '../layoutRunner';
 import { confBadge, esc, itemChip, itemOptions, qsa } from '../dom';
 
 export interface PlanHooks {
@@ -78,6 +79,11 @@ export function paintPlan(box: HTMLElement, store: Store, ui: PlanUi, hooks: Pla
   }
 
   const ideal = idealTargets(P);
+  /* ブロック方式が実際に使える大きさか。初期データの端数（1周期2.86秒など）のせいで
+     単位が現実離れした大きさになることがあるので、台数で判定する */
+  const blockUnit = unitOf(ctxOf(store), ui.item!, ui.choice);
+  const have = warehouseSupply(ctxOf(store));
+  const short = Object.keys(P.raw).filter((i) => (have[i] ?? 0) < P.raw[i]! - 1e-9);
   const perCell = P.area ? P.targetRate / P.area : 0;
   const waste = P.intSum ? 1 - P.fracSum / P.intSum : 0;
   const guessed = P.rows.filter((r) => (r.rec.conf ?? 'guess') === 'guess').length;
@@ -93,27 +99,57 @@ export function paintPlan(box: HTMLElement, store: Store, ui: PlanUi, hooks: Pla
   </div>`;
 
   let advice = '';
+  /* 倉庫に無い原料。ここが埋まらないと、どれだけ設備を並べても動かない。
+     副産物としてしか出ない品目（汚水など）がここに来ることが多い */
+  if (short.length) {
+    advice += `<div class="advice warnc"><b>倉庫に足りない原料があります。</b>
+      ${short
+        .map((i) => {
+          const byprod = [...ds.recs.values()].filter((r) => r.out.slice(1).some((o) => o.item === i));
+          return `${esc(ds.itemName(i))}（必要 ${fmt(P.raw[i]!)} / 出せる ${fmt(have[i] ?? 0)}${
+            byprod.length ? `・${esc(ds.fac(byprod[0]!.fac)?.name ?? '')}の副産物としてのみ産出` : ''
+          }）`;
+        })
+        .join('、')}。
+      このまま配置しても該当のラインは動きません。「採取ゾーン」で採取設備を足すか、
+      別のエリアで作って倉庫へ入れるか、下の「経路の選択」で作り方を変えてください。</div>`;
+  }
+  if (P.unresolved && Object.keys(P.unresolved).length) {
+    advice += `<div class="advice warnc"><b>材料が循環していて必要量が収束しません。</b>
+      ${Object.keys(P.unresolved)
+        .map((i) => esc(ds.itemName(i)))
+        .join('、')} の作り方が「作るのに自分自身が同じだけ要る」形になっています。
+      レシピの数量を見直してください。表示している台数は打ち切った時点の値で、正しくありません。</div>`;
+  }
   if (guessed || parted) {
     advice += `<div class="advice ${guessed ? 'warnc' : ''}"><b>この計画は${guessed ? '推定値' : '未確認の数量'}に依存しています。</b>
       使用レシピ ${P.rows.length} 件のうち ${guessed ? `推定 ${guessed} 件` : ''}${guessed && parted ? '、' : ''}${
         parted ? `一部確認 ${parted} 件` : ''
       }。ゲーム内の「製造プロセス」で実数を確認して「データ編集」で上書きすると、台数の精度が上がります。</div>`;
   }
-  if (ideal?.cands.length) {
+  if (ideal?.cands.length && blockUnit) {
     advice += `<div class="advice"><b>無駄なく組める目標値</b>：この生産系統は <span class="kv">${fmt(ideal.unit)} 個/分</span> の倍数なら全設備が整数台・100%稼働になります。
       ${ideal.cands.map((v) => `<button class="chip" data-goal="${v}">${fmt(v)} 個/分で組み直す</button>`).join('')}
       ${P.gens > 0 ? '<br><span style="color:var(--faint)">※発電機のバッテリー消費が加わるぶん、実際の台数は多少ずれます。</span>' : ''}</div>`;
   }
-  if (ideal && ideal.unit > 0) {
-    const nb = Math.max(1, Math.ceil(P.targetRate / ideal.unit - 1e-9));
-    const over = ideal.unit * nb - P.targetRate;
-    advice += `<div class="advice"><b>ブロック方式</b>：<span class="kv">${fmt(ideal.unit)} 個/分</span>の小ユニットを <span class="kv">${nb} 枚</span>並べる形で組めます。
+  if (blockUnit) {
+    const nb = Math.max(1, Math.ceil(P.targetRate / blockUnit - 1e-9));
+    const over = blockUnit * nb - P.targetRate;
+    advice += `<div class="advice"><b>ブロック方式</b>：<span class="kv">${fmt(blockUnit)} 個/分</span>の小ユニットを <span class="kv">${nb} 枚</span>並べる形で組めます。
       1枚が原料の取り出しから倉庫への搬入まで自己完結するので、何枚並べても配線が破綻せず、増設も1枚単位でできます。
       ${
         over > P.targetRate * 0.25
           ? `<br><span style="color:var(--amber)">ただし目標を ${fmt(over)} 個/分 上回る作りになります。ぴったり組みたいなら「1本のラインで配置」の方が省スペースです。</span>`
           : ''
       }</div>`;
+  } else if (ideal) {
+    /* 端数最適化が現実離れした単位を返した場合。初期データの「1周期2.86秒」のような
+       推定値が原因なので、そう書いておく */
+    advice += `<div class="advice"><b>この生産系統はブロック方式に向きません。</b>
+      全設備が整数台になる目標値が <span class="kv">${fmt(ideal.unit)} 個/分</span> と大きすぎて、
+      1枚が現実的な大きさに収まりません（レシピの秒数や数量に端数があるため）。
+      「1本のラインで配置」を使ってください。<br>
+      <span style="color:var(--faint)">秒数・数量をゲーム内の実数に直すと、きれいな比率になって解消することがあります。</span></div>`;
   }
   if (waste > 0.001) {
     advice += `<div class="advice"><b>この構成の実力</b>：切り上げた台数なら最大 <span class="kv">${fmt(P.capMax)} 個/分</span> まで出せます。目標を上げても設備は増えません。</div>`;
@@ -142,11 +178,12 @@ export function paintPlan(box: HTMLElement, store: Store, ui: PlanUi, hooks: Pla
     }</tbody></table>`;
 
   const rawKeys = Object.keys(P.raw);
-  const have = warehouseSupply(ctxOf(store));
   const rawTbl = rawKeys.length
     ? `<h4 class="sub">倉庫から引き出す原料</h4><table class="ed">
       <thead><tr><th>品目</th><th class="n">必要量</th><th class="n">倉庫から出せる量</th><th class="n">過不足</th><th class="n">最低ライン数</th></tr></thead>
       <tbody>${rawKeys
+        .slice()
+        .sort((a, b) => (have[a] ?? 0) - P.raw[a]! - ((have[b] ?? 0) - P.raw[b]!))
         .map((i) => {
           const need = P.raw[i]!;
           const got = have[i] ?? 0;
@@ -226,20 +263,50 @@ export function paintPlan(box: HTMLElement, store: Store, ui: PlanUi, hooks: Pla
       paintPlan(box, store, ui, hooks);
     };
 
-  const apply = (useBlocks: boolean): void => {
+  /* 配置は別スレッドで走らせる。ブロック方式は大きな計画で10秒近くかかるので、
+     同期で回すと画面が固まる（HANDOFF §8-3） */
+  const apply = async (useBlocks: boolean): Promise<void> => {
     if (!ui.plan) return;
-    const plan = ui.plan;
-    // store.edit のクロージャ内の代入は型の絞り込みに現れないので、入れ物越しに受け取る
-    const out: { r: ReturnType<typeof applyPlan> | null } = { r: null };
-    store.edit(() => {
-      out.r = applyPlan(ctxOf(store), store.board, plan, ui.choice, { useBlocks });
+    const buttons = qsa<HTMLButtonElement>(box, '#pApply, #pApply1, #pGoal, #pRun');
+    for (const b of buttons) b.disabled = true;
+    const label = box.querySelector<HTMLButtonElement>(useBlocks ? '#pApply' : '#pApply1')!;
+    const was = label.textContent;
+    label.textContent = '配置しています…';
+
+    const reply = await requestLayout({
+      save: JSON.parse(store.toJSON()),
+      cfg: { ...store.cfg },
+      cur: store.save.cur,
+      item: ui.item!,
+      rate: ui.rate,
+      choice: { ...ui.choice },
+      useBlocks,
+      w: store.board.w,
+      h: store.board.h,
     });
-    store.ui.sel = null;
+
+    label.textContent = was;
+    for (const b of buttons) b.disabled = false;
+
+    if (!reply.ok) {
+      hooks.flash('配置に失敗しました：' + reply.error);
+      return;
+    }
+    store.edit(() => {
+      store.board.nodes = reply.nodes;
+      store.board.belts = reply.belts;
+      store.board.w = reply.w;
+      store.board.h = reply.h;
+      // uid は配置側で 1 から振り直されているので、続きから採番する
+      store.board.uidSeq =
+        1 + Math.max(0, ...[...reply.nodes, ...reply.belts].map((o) => +(/^u(\d+)$/.exec(o.uid)?.[1] ?? 0)));
+      store.ui.sel = null;
+    });
     hooks.close();
     hooks.refresh();
     hooks.fitView();
-    const res = out.r;
-    if (!res) return;
+
+    const res = reply.result;
     if (res.overflow) hooks.flash('盤面に収まりきらない設備がありました。目標値を下げてください。');
     else if (res.failed)
       hooks.flash(`${res.failed}本のラインが配線できませんでした。設備を動かして経路を空けてください。`);
@@ -247,8 +314,8 @@ export function paintPlan(box: HTMLElement, store: Store, ui: PlanUi, hooks: Pla
       hooks.flash(`${fmt(res.unit)}個/分のブロックを${res.blocks}枚並べ、${res.made}本のラインで配線しました。`);
     else hooks.flash(`${res.made}本のラインで配線しました。`);
   };
-  box.querySelector<HTMLButtonElement>('#pApply')!.onclick = () => apply(true);
-  box.querySelector<HTMLButtonElement>('#pApply1')!.onclick = () => apply(false);
+  box.querySelector<HTMLButtonElement>('#pApply')!.onclick = () => void apply(true);
+  box.querySelector<HTMLButtonElement>('#pApply1')!.onclick = () => void apply(false);
   box.querySelector<HTMLButtonElement>('#pGoal')!.onclick = () => {
     store.edit(() => {
       store.save.meta.goal = { item: ui.item!, rate: ui.rate };

@@ -99,10 +99,30 @@ export function makeRanker(plan: Plan): {
   return { rankRec, rankItem, maxRank };
 }
 
+export interface TierOptions {
+  /**
+   * スロットが名乗る産出量・消費量をどう決めるか。
+   *
+   *   'planned'    … 計画上の実際の量（定格 × その工程の稼働率）
+   *   'nameplate'  … 定格能力そのもの（参照実装の挙動）
+   *
+   * 'nameplate' だと、切り上げた台数ぶんの定格が供給を上回るため、
+   * 下の貪欲マッチングで**最初の消費者が供給を食い尽くし、
+   * 2台目以降にラインが1本も繋がらない**（＝稼働率0で死ぬ）。
+   * 計画としては足りているのに届かない、というのが
+   * HANDOFF §8-1「多段構成で稼働率が揃わない」の正体。
+   *
+   * 'planned' なら供給と需要が釣り合うので、全ての消費者に行き渡る。
+   * 参照実装との差分テストのために 'nameplate' も残してある。
+   */
+  rates?: 'planned' | 'nameplate';
+}
+
 /**
  * 1) 段ごとのスロットを作る（採取口・生産設備・発電機とその燃料取出口）
  */
-export function buildTiers(ds: Dataset, plan: Plan): TierBuild {
+export function buildTiers(ds: Dataset, plan: Plan, opts: TierOptions = {}): TierBuild {
+  const planned = (opts.rates ?? 'planned') === 'planned';
   const { rankRec, rankItem, maxRank } = makeRanker(plan);
   const tiers: Tiers = {};
   const push = (d: number, o: Omit<Slot, 'd'>): Slot => {
@@ -114,23 +134,32 @@ export function buildTiers(ds: Dataset, plan: Plan): TierBuild {
 
   const tapFac = [...ds.facs.values()].find((f) => f.tap);
 
-  // 倉庫から引く原料の取出口。使う側より必ず1段手前へ
-  for (const item of Object.keys(plan.raw)) {
-    if (!tapFac) break;
-    const n = Math.max(1, Math.ceil(plan.raw[item]! / ds.capOf(item) - 1e-9));
-    const d = maxRank - rankItem(item);
-    for (let i = 0; i < n; i++) push(d, { fac: tapFac.id, item, out: { [item]: ds.capOf(item) }, in: {} });
-  }
+  /* 倉庫から引く原料の取出口は、生産設備を作ってから用意する。
+     どの設備が何を欲しがるかが分からないと、まとめ方を決められないため。
+     （nameplate 互換モードでは参照実装どおり先に作る） */
+  const makeTapsPooled = (): void => {
+    for (const item of Object.keys(plan.raw)) {
+      if (!tapFac) break;
+      const cap = ds.capOf(item);
+      const n = Math.max(1, Math.ceil(plan.raw[item]! / cap - 1e-9));
+      const d = maxRank - rankItem(item);
+      for (let i = 0; i < n; i++) push(d, { fac: tapFac.id, item, out: { [item]: cap }, in: {} });
+    }
+  };
+  if (!planned) makeTapsPooled();
 
   let maxD = 0;
   for (const r of plan.rows) {
     const d = maxRank - rankRec(r.rec, 0);
     maxD = Math.max(maxD, d);
     const cpm = 60 / r.rec.sec;
+    /* 切り上げた台数で理論台数ぶんを分け合うので、1台あたりの稼働率はこれ。
+       この率を掛けた量で名乗ると、供給と需要が釣り合う */
+    const util = planned && r.int > 0 ? r.machines / r.int : 1;
     const out: Record<string, number> = {};
     const inp: Record<string, number> = {};
-    for (const x of r.rec.out) out[x.item] = x.qty * cpm;
-    for (const x of r.rec.in) inp[x.item] = x.qty * cpm;
+    for (const x of r.rec.out) out[x.item] = x.qty * cpm * util;
+    for (const x of r.rec.in) inp[x.item] = x.qty * cpm * util;
     for (let k = 0; k < r.int; k++) push(d, { fac: r.rec.fac, rec: r.rec.id, out, in: inp });
   }
 
@@ -144,9 +173,44 @@ export function buildTiers(ds: Dataset, plan: Plan): TierBuild {
     if (tapFac) {
       for (const x of gr.in) {
         const need = plan.gens * x.qty * cpm;
-        const nt = Math.max(1, Math.ceil(need / ds.capOf(x.item) - 1e-9));
+        const cap = ds.capOf(x.item);
+        const nt = Math.max(1, Math.ceil(need / cap - 1e-9));
+        const rate = planned ? Math.min(cap, need / nt) : cap;
         for (let k = 0; k < nt; k++)
-          push(maxD + 0.5, { fac: tapFac.id, item: x.item, out: { [x.item]: ds.capOf(x.item) }, in: {} });
+          push(maxD + 0.5, { fac: tapFac.id, item: x.item, out: { [x.item]: rate }, in: {} });
+      }
+    }
+  }
+
+  /* 原料の取出口を「同じレシピの設備」ごとにまとめて用意する。
+     ── なぜまとめ方が要るか ──
+     取出口を全体で1つのプールにすると、必要量の違う設備どうしが同じ口を共有する。
+     ソルバーは1つの出口から出る複数のラインを**定格の需要比**で分けるので、
+     計画が意図した配分（例：37.5 と 15）にはならず、片方が飢える。
+     同じレシピの設備どうしなら必要量が等しく、等分がそのまま正しい配分になる。
+     これが HANDOFF §8-1「多段構成で稼働率が揃わない」の残りの半分。 */
+  if (planned && tapFac) {
+    const machines: Slot[] = ([] as Slot[]).concat(...Object.keys(tiers).map((d) => tiers[d]!));
+    for (const item of Object.keys(plan.raw)) {
+      const cap = ds.capOf(item);
+      const d = maxRank - rankItem(item);
+      // 消費する設備をレシピ単位でまとめる。並びは盤面に現れる順を保つ
+      const groups = new Map<string, number>();
+      for (const s2 of machines) {
+        const need = s2.in[item] ?? 0;
+        if (need > 0) groups.set(s2.rec ?? s2.fac, (groups.get(s2.rec ?? s2.fac) ?? 0) + need);
+      }
+      if (!groups.size) {
+        // 誰も使わない原料（起こりにくいが、計画だけ立てた場合など）
+        const n = Math.max(1, Math.ceil(plan.raw[item]! / cap - 1e-9));
+        const rate = Math.min(cap, plan.raw[item]! / n);
+        for (let i = 0; i < n; i++) push(d, { fac: tapFac.id, item, out: { [item]: rate }, in: {} });
+        continue;
+      }
+      for (const need of groups.values()) {
+        const n = Math.max(1, Math.ceil(need / cap - 1e-9));
+        const rate = Math.min(cap, need / n);
+        for (let i = 0; i < n; i++) push(d, { fac: tapFac.id, item, out: { [item]: rate }, in: {} });
       }
     }
   }

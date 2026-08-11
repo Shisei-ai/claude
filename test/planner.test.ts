@@ -357,3 +357,67 @@ describe('参照実装との差分テスト', () => {
     expect(mineMachines).toEqual(want.pure.map((p) => `${p.rid}:${p.machines.toFixed(9)}`).sort());
   });
 });
+
+/* ═══════════════════════════════════════════════════════════
+   §8 の未解決課題への対応
+   ═══════════════════════════════════════════════════════════ */
+
+describe('§8-5 循環レシピ', () => {
+  it('利得のある循環（種2個 ⇄ サンドリーフ1個）は正しく収束する', () => {
+    /* 1個の種から1個のサンドリーフ、1個のサンドリーフから2個の種。
+       種を作るぶんを自分で賄いながら、目標ぶんを外へ出す形に落ち着く。 */
+    const p = buildPlan(ctxOf('a_chusu'), 'sand', 30, {}, { noPower: true });
+    expect(p.diverged).toBeFalsy();
+    expect(p.unresolved ?? {}).toEqual({});
+    const farm = p.rows.find((r) => r.rid === 'r_grow_sand')!;
+    const seeder = p.rows.find((r) => r.rid === 'r_seed_sand')!;
+    // 栽培60個/分（うち30を採種へ回す）、採種30個/分
+    near(farm.machines, 6);
+    near(seeder.machines, 3);
+    expect(Object.keys(p.raw)).toEqual([]); // 外から要るものは無い
+  });
+
+  it('利得のない循環は「収束しない」と分かる（黙って打ち切らない）', () => {
+    /* 参照実装は反復上限で打ち切るだけだったので、
+       台数が「それらしいが正しくない値」になっていた（HANDOFF §8-5）。 */
+    const broken: Save = seed();
+    const seedRec = broken.recs.find((r) => r.id === 'r_seed_sand')!;
+    seedRec.out = [{ item: 'seed_sand', qty: 1 }]; // 1個から1個 ＝ 利得なし
+    const ctx: PlanContext = { ds: buildDataset(broken), areas: broken.areas, cur: 0, basePower: 240 };
+    const p = buildPlan(ctx, 'sand', 30, {}, { noPower: true });
+    expect(Object.keys(p.unresolved ?? {}).length).toBeGreaterThan(0);
+    expect(p.unresolved!['sand'] ?? p.unresolved!['seed_sand']).toBeGreaterThan(0);
+  });
+});
+
+describe('§8-3 ブロック方式が現実的な大きさに収まるか', () => {
+  it('端数だらけのレシピでは、単位が大きすぎるので使わない', () => {
+    /* 息壌ガスは「1周期2.86秒・材料1.286個」というライン本数からの推定値なので、
+       全設備が整数台になる目標値が 15000個/分（1枚3287台）になってしまう。
+       そのまま組もうとすると探索が返ってこない。 */
+    const ctx = ctxOf('w_jo');
+    const ideal = idealTargets(buildPlan(ctx, 'gas_soku', 1, {}, { noPower: true }))!;
+    expect(ideal.unit).toBe(15000);
+    expect(buildPlan(ctx, 'gas_soku', ideal.unit, {}, { noPower: true }).intSum).toBeGreaterThan(1000);
+    // 台数で弾く
+    expect(unitOf(ctx, 'gas_soku')).toBeNull();
+    expect(unitOf(ctx, 'sokuj_h')).toBeNull();
+    expect(unitOf(ctx, 'eq_soku')).toBeNull();
+  });
+
+  it('普通のレシピはこれまでどおり使える', () => {
+    const ctx = ctxOf('a_chusu');
+    expect(unitOf(ctx, 'batS')).toBe(30);
+    expect(unitOf(ctx, 'shell')).toBe(10);
+    expect(unitOf(ctxOf('w_jo'), 'ingot_red')).toBe(30);
+    expect(unitOf(ctxOf('w_jo'), 'part_cu')).toBe(12);
+  });
+
+  it('上限は明示的に変えられる', () => {
+    const ctx = ctxOf('w_jo');
+    // 上限を外せば、数学的に正しい単位そのものは今までどおり得られる
+    expect(unitOf(ctx, 'gas_soku', {}, { maxMachines: 100000 })).toBe(15000);
+    // 逆に上限を0にすれば何も通らない
+    expect(unitOf(ctx, 'ingot_red', {}, { maxMachines: 0 })).toBeNull();
+  });
+});
