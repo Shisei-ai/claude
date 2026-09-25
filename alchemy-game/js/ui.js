@@ -12,9 +12,10 @@ const STATUS_TEXT = {
 // URLの末尾に ?debug を付けて開くと、バランス調整用の開発者パネルが表示される
 const DEBUG = { on: /[?&]debug/.test(location.search), speed: 1 };
 
+// [ID, 表示名, 表示条件(省略時は常に表示)]
 const TABS = [
   ['workshop', '工房'], ['storage', '倉庫'], ['library', '書庫'],
-  ['skills', '技能'], ['magic', '魔法'], ['explore', '探索'], ['log', '記録'],
+  ['skills', '技能'], ['magic', '魔法'], ['equip', '装備', () => S.flags.ended], ['explore', '探索'], ['log', '記録'],
 ];
 
 const fmtTime = sec => `${Math.floor(sec / 3600)}時間${Math.floor(sec % 3600 / 60)}分`;
@@ -41,7 +42,6 @@ const UI = {
   sig: '',
 
   init() {
-    $('#tabs').innerHTML = TABS.map(([id, name]) => `<button data-tab="${id}">${name}<i class="dot" data-dot="${id}"></i></button>`).join('');
     $('#tabs').addEventListener('click', e => {
       const b = e.target.closest('button[data-tab]');
       if (b) { this.tab = b.dataset.tab; this.render(); }
@@ -99,6 +99,9 @@ const UI = {
         try { localStorage.setItem('ui_hideRead', this.hideRead ? '1' : ''); } catch (e) { /* noop */ }
         break;
       case 'go': Field.start(arg); return;
+      case 'abyss': Field.start('abyss', { mode: 'abyss', floor: +$('#abyss-floor').value || 1 }); return;
+      case 'arena': Field.start(arg, { mode: 'arena' }); return;
+      case 'equip': { const [slot, id] = arg.split(':'); setEquip(slot, id || null); break; }
       case 'ending': this.showStory(STORY.ending, () => { S.flags.ended = true; log('レネイを、取り戻した。', 'lv'); saveGame(); this.render(); }); return;
       case 'prologue': this.showStory(STORY.prologue); return;
       case 'dbg':
@@ -120,6 +123,8 @@ const UI = {
 
   // ---------------- 描画 ----------------
   render() {
+    $('#tabs').innerHTML = TABS.filter(t => !t[2] || t[2]())
+      .map(([id, name]) => `<button data-tab="${id}">${name}<i class="dot" data-dot="${id}"></i></button>`).join('');
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === this.tab));
     const fn = this['r_' + this.tab];
     $('#panel').innerHTML = fn.call(this);
@@ -131,7 +136,7 @@ const UI = {
   // これが変化したら画面全体を描き直す
   signature() {
     return [S.mlv, S.alv, S.sp, S.machines.length, Object.keys(S.inv).sort().join(','),
-      S.machines.map(m => machineStatus(m)).join(''), S.flags.bossDefeated, S.flags.ended, OBJECTIVES.findIndex(o => !o.done(S))].join('|');
+      S.machines.map(m => machineStatus(m)).join(''), S.flags.bossDefeated, S.flags.ended, JSON.stringify(S.post), JSON.stringify(S.equip), OBJECTIVES.findIndex(o => !o.done(S))].join('|');
   },
 
   tick() {
@@ -144,8 +149,8 @@ const UI = {
     $('#mxpt').textContent = S.mlv >= MAX_LV ? 'MAX' : `${Math.floor(S.mxp)} / ${xpNeed(S.mlv)}`;
     $('#axpt').textContent = S.alv >= MAX_LV ? 'MAX' : `${Math.floor(S.axp)} / ${xpNeed(S.alv)}`;
     // タブの通知ドット(読める本・振れるSPがあるとき)
-    $('[data-dot="library"]').classList.toggle('show', BOOKS.some(canRead));
-    $('[data-dot="skills"]').classList.toggle('show', Object.keys(SKILLS).some(canLearn));
+    $('[data-dot="library"]') && $('[data-dot="library"]').classList.toggle('show', BOOKS.some(canRead));
+    $('[data-dot="skills"]') && $('[data-dot="skills"]').classList.toggle('show', Object.keys(SKILLS).some(canLearn));
     if (Field.active) return;
 
     const focused = document.activeElement && ['INPUT', 'SELECT'].includes(document.activeElement.tagName);
@@ -267,9 +272,10 @@ const UI = {
       return h || '<p class="muted small">（すべて読了）</p>';
     };
     const unread = books => books.filter(b => !S.books[b.id]).length;
-    const alch = BOOKS.filter(b => b.kind === 'alchemy');
-    const basic = BOOKS.filter(b => b.kind === 'magic' && !b.series);
-    const grade = BOOKS.filter(b => b.kind === 'magic' && b.series);
+    const vis = BOOKS.filter(bookVisible);
+    const alch = vis.filter(b => b.kind === 'alchemy');
+    const basic = vis.filter(b => b.kind === 'magic' && !b.series);
+    const grade = vis.filter(b => b.kind === 'magic' && b.series);
     return `<div class="panel-head"><h2>書庫</h2>
         <p class="sub">レベルが上がると読める書物が増え、<b>書物を読むことで記載された術を習得</b>します（魔法とそのグレード・設備・レシピ・地域）。読むとSPも得られます。<br>
         魔術書は M.Lv（戦闘で上昇）、錬金術書は A.Lv（生産で上昇）で読めるようになります。</p>
@@ -373,7 +379,85 @@ const UI = {
         ${id === 'underworld' && has('philosopher_stone') && !S.flags.ended ? `<button class="btn final" data-act="ending">賢者の石を掲げ、レネイを迎えに行く</button>` : ''}
       </div>`;
     }
+    return h + '</div>' + this.postExplore();
+  },
+
+  // 探索タブ: やり込み(冥界の深層・強化ボス)
+  postExplore() {
+    const abyss = fieldUnlocked('abyss'), hunt = unlocked('features').has('bosses');
+    if (!abyss && !hunt) return '';
+    let h = '<h3 class="cat">やり込み</h3><div class="fields">';
+    if (abyss) {
+      const f = FIELDS.abyss, best = S.post.abyssBest;
+      // 道標: 1層と、到達済みの (5の倍数+1) 層から潜り始められる
+      const starts = [1];
+      for (let n = ABYSS_CHECKPOINT + 1; n <= best; n += ABYSS_CHECKPOINT) starts.push(n);
+      h += `<div class="field" style="--fc:#5a3070">
+        <div class="fname">${f.name}<small>最深到達 第${best}層</small></div>
+        <p>${f.desc}</p>
+        <p class="small">階段 [E] で次の層へ。${ABYSS_CHECKPOINT}層ごとに道標が残り、次回そこから潜れます。第${ABYSS_EMBER_FLOOR}層以降では原初の火種が見つかります。</p>
+        <div class="small">深層の素材：${['abyss_shard', 'void_essence', 'primal_ember'].map(k => icon(k)).join('')}</div>
+        <label class="small">開始する階層 <select id="abyss-floor">${starts.map(n => `<option value="${n}" ${n === starts[starts.length - 1] ? 'selected' : ''}>第${n}層</option>`).join('')}</select></label>
+        <button class="btn glow" data-act="abyss">潜る</button>
+      </div>`;
+    }
+    if (hunt) {
+      for (const [fid, type] of Object.entries(BOSS_ARENAS)) {
+        const e = ENEMIES[type], rank = S.post.bossRank[fid] || 0, ok = fieldUnlocked(fid);
+        const time = S.post.bossBestTime[fid];
+        const next = rank + 1, mult = 1 + Math.floor(next / 3);
+        h += `<div class="field ${ok ? '' : 'lock'}" style="--fc:${FIELDS[fid].wall}">
+          <div class="fname">${e.name}<small>${FIELDS[fid].name}の主</small></div>
+          <p class="small">討伐済みランク <b>${rank}</b>${time ? ` ・ 最速 ${time}秒` : ''}</p>
+          <p class="small">次の挑戦: ランク${next}（HP ×${(1 + 0.5 * (next - 1)).toFixed(1)} ・ 攻撃力 ×${(1 + 0.15 * (next - 1)).toFixed(2)} ・ 報酬 ×${mult}）</p>
+          <div class="small">主の素材：${e.drops.map(d => icon(d[0])).join('')}</div>
+          ${ok ? '' : '<p class="bad small">この地域をまだ知らない</p>'}
+          <button class="btn ${ok ? 'glow' : ''}" data-act="arena" data-arg="${fid}" ${ok ? '' : 'disabled'}>挑む</button>
+        </div>`;
+      }
+    }
     return h + '</div>';
+  },
+
+  // ---- 装備 ----
+  equipText(e) {
+    const t = [];
+    if (e.dmg) t.push(`与ダメージ +${Math.round(e.dmg * 100)}%`);
+    if (e.hp) t.push(`最大HP +${e.hp}`);
+    if (e.guard) t.push(`被ダメージ -${Math.round(e.guard * 100)}%`);
+    if (e.boost || e.regen || e.cd || e.hpMult || e.heal) t.push(e.desc);
+    return t.join(' ・ ');
+  },
+  r_equip() {
+    const st = playerStats();
+    let h = `<div class="panel-head"><h2>装備</h2><p class="sub">【錬装の炉】で作った杖・法衣・触媒を身に着けます。上位の装備は下位の装備を素材にして作るので、素材にすると装備も外れます。</p></div>
+      <div class="eqslots">`;
+    for (const [slot, label] of EQUIP_SLOTS) {
+      const cur = equipped(slot);
+      const owned = Object.keys(EQUIPS).filter(id => EQUIPS[id].slot === slot && has(id));
+      h += `<div class="eqslot"><h3>${label}</h3>
+        <div class="eqcur">${cur ? `${icon(S.equip[slot], 'big')}<div><b>${cur.name}</b><div class="small">${this.equipText(cur)}</div></div>` : '<span class="muted">（なし）</span>'}</div>
+        <select onchange="UI.act('equip', '${slot}:' + this.value)"><option value="">外す</option>
+          ${owned.map(id => `<option value="${id}" ${S.equip[slot] === id ? 'selected' : ''}>${EQUIPS[id].name}</option>`).join('')}</select></div>`;
+    }
+    h += `</div><div class="card small">現在の能力：最大HP <b>${st.maxHp}</b> ・ 最大MP <b>${st.maxMp}</b> ・ 魔法威力 ×<b>${st.dmgMult.toFixed(2)}</b> ・ 被ダメージ -<b>${Math.round(st.guard * 100)}%</b> ・ 再使用時間 ×<b>${st.cdMult.toFixed(2)}</b> ・ MP回復 <b>${st.mpRegen.toFixed(1)}</b>/秒</div>`;
+    const recipes = unlocked('recipes');
+    for (const [slot, label] of EQUIP_SLOTS) {
+      h += `<h3 class="cat">${label}</h3><div class="eqlist">`;
+      for (const [id, e] of Object.entries(EQUIPS)) {
+        if (e.slot !== slot) continue;
+        const rid = Object.keys(RECIPES).find(r => RECIPES[r].out[id]);
+        const book = BOOKS.find(b => (b.unlock.recipes || []).includes(rid));
+        const known = recipes.has(rid);
+        h += `<div class="eqitem ${has(id) ? 'own' : ''}">${icon(id, 'big')}<div>
+          <b>${known || has(id) ? e.name : '？？？'}</b> ${has(id) ? '<span class="good small">所持</span>' : ''}
+          <div class="small">${known || has(id) ? this.equipText(e) : ''}</div>
+          <div class="recipe">${known ? Object.entries(RECIPES[rid].in).map(([k, v]) => itemReq(k, v)).join('') : `<span class="muted small">『${book ? book.name : '？'}』に記載</span>`}</div>
+        </div></div>`;
+      }
+      h += '</div>';
+    }
+    return h;
   },
 
   // ---- 記録 ----

@@ -23,6 +23,8 @@ function newState() {
     machines: [newMachine('pot')],     // 工房にある設備(最初から壺が1つある)
     slots: [null, null, null, null, null, null], // 数字キー1〜6の魔法 ('fire:2' = 火球のグレードII)
     flags: { prologue: false, bossDefeated: false, ended: false },
+    equip: { staff: null, robe: null, catalyst: null },  // 装備中のアイテムID
+    post: { abyssBest: 0, bossRank: {}, bossBestTime: {} }, // やり込みの記録
     stats: { made: {}, visited: {}, kills: 0, playSec: 0 },
     log: [],
   };
@@ -48,6 +50,8 @@ function loadGame() {
     S = Object.assign(newState(), data);
     S.flags = Object.assign(newState().flags, data.flags);
     S.stats = Object.assign(newState().stats, data.stats);
+    S.equip = Object.assign(newState().equip, data.equip);
+    S.post = Object.assign(newState().post, data.post);
     // 旧形式の魔法スロット('fire')を新形式('fire:1')へ変換
     S.slots = S.slots.map(v => (v && !v.includes(':') ? v + ':1' : v));
     if (S.skills.exp_keep) { S.sp += S.skills.exp_keep * 2; delete S.skills.exp_keep; } // 廃止した技能はSPを返却
@@ -115,8 +119,12 @@ function gainAXP(n) {
 }
 
 // ---- 書物 ----------------------------------------------------
+// 書庫に現れているか(クリア後の書物は、物語を終えるまで現れない)
+function bookVisible(b) {
+  return !b.after || S.flags[b.after];
+}
 function canRead(b) {
-  return !S.books[b.id] && (b.kind === 'magic' ? S.mlv : S.alv) >= b.lv;
+  return bookVisible(b) && !S.books[b.id] && (b.kind === 'magic' ? S.mlv : S.alv) >= b.lv;
 }
 
 function readBook(b) {
@@ -267,14 +275,31 @@ function simulateOffline(sec) {
   return { sec, gained, alvUp: S.alv - alv };
 }
 
+// ---- 装備 ----------------------------------------------------
+// 装備中で、かつ倉庫に実物があるものだけ効果を持つ
+// (上位装備の素材として使われて無くなった場合は、自動的に外れる)
+function equipped(slot) {
+  const id = S.equip[slot];
+  return id && has(id) ? EQUIPS[id] : null;
+}
+function setEquip(slot, id) {
+  if (id && (!EQUIPS[id] || EQUIPS[id].slot !== slot || !has(id))) return false;
+  S.equip[slot] = id || null;
+  return true;
+}
+
 // ---- 探索用のプレイヤー能力値 ---------------------------------
 function playerStats() {
+  const staff = equipped('staff') || {}, robe = equipped('robe') || {}, cat = equipped('catalyst') || {};
   return {
-    maxHp: 100 + 12 * (S.mlv - 1) + 20 * skill('cmb_hp'),
+    maxHp: Math.round((100 + 12 * (S.mlv - 1) + 20 * skill('cmb_hp') + (robe.hp || 0)) * (1 + (cat.hpMult || 0))),
     maxMp: 50 + 6 * (S.mlv - 1) + 15 * skill('cmb_mp'),
-    mpRegen: (3 + 0.25 * S.mlv) * (1 + 0.35 * skill('cmb_regen')),
-    dmgMult: (1 + 0.08 * (S.mlv - 1)) * (1 + 0.1 * skill('cmb_dmg')),
-    cdMult: 1 - 0.1 * skill('cmb_cd'),
+    mpRegen: (3 + 0.25 * S.mlv) * (1 + 0.35 * skill('cmb_regen') + (cat.regen || 0)),
+    dmgMult: (1 + 0.08 * (S.mlv - 1)) * (1 + 0.1 * skill('cmb_dmg')) * (1 + (staff.dmg || 0)),
+    spellBoost: cat.boost || {},           // 触媒による魔法ごとの威力上昇
+    healMult: 1 + (cat.heal || 0),
+    guard: robe.guard || 0,                // 被ダメージ軽減
+    cdMult: (1 - 0.1 * skill('cmb_cd')) * (1 - (cat.cd || 0)),
     speed: 190 * (1 + 0.1 * skill('exp_speed')),
     gatherTime: 0.9 * (1 - 0.2 * skill('exp_gather')),
     yieldMult: 1 + 0.2 * skill('exp_yield'),

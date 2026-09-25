@@ -57,6 +57,7 @@
 | 魔法弾 | `spells/<魔法ID>.png` / `spells/<魔法ID>_<グレード>.png` | `fly`（飛行中ループ） |
 | 敵の弾 | `effects/enemy_shot.png` | `fly` |
 | 帰還ゲート | `effects/portal.png` | `idle` |
+| 下り階段 | `effects/stairs.png` | `idle`（冥界の深層） |
 | 爆発 | `effects/explosion.png` | `play`（火球の着弾時。`once: true`） |
 | ヒット | `effects/hit.png` | `play`（魔法弾が当たった時。`once: true`） |
 
@@ -78,8 +79,8 @@
 
 ## ID一覧
 
-- **アイテムID**: `herb`（霊草）、`wood`（古木の枝）、`stone`（石材）、`mushroom`（月光茸）、`sand`（赤砂）、`sunstone`（陽光石）、`iron_ore`（鉄鉱石）、`silver_ore`（銀鉱石）、`crystal`（魔晶の欠片）、`ice`（永久氷）、`frost_flower`（霜の花）、`soul_ash`（魂の残滓）、`nether_stone`（冥石）、`slime_gel`（粘液）、`wolf_fang`（獣の牙）、`bone`（古骨）、`miasma_core`（瘴気の核）、`nether_heart`（番人の心核）、`water`（清水）、`essence`（草の精髄）、`charcoal`（木炭）、`glass`（硝子瓶）、`mana`（魔素）、`iron_powder`（鉄粉）、`silver_powder`（銀粉）、`sun_dust`（陽光の粉）、`bone_powder`（骨粉）、`iron_ingot`（鉄塊）、`silver_ingot`（銀塊）、`pure_water`（聖水）、`pure_core`（浄化核）、`enchanted_iron`（魔鉄）、`gold`（錬金の金）、`alkahest`（万能溶媒）、`salt`（賢者の塩）、`mercury`（賢者の水銀）、`sulfur`（賢者の硫黄）、`quintessence`（第五元素）、`red_tincture`（赤きティンクトゥラ）、`potion`（回復薬）、`mana_potion`（魔力薬）、`lantern`（霧払いの灯）、`frost_amulet`（耐寒の護符）、`nether_key`（冥府の鍵）、`philosopher_stone`（賢者の石）
-- **設備ID**: `pot`（抽出の壺）、`furnace`（精錬の竈）、`mortar`（破砕の臼）、`cauldron`（融合の釜）、`purifier`（浄化の匣）、`enchanter`（魔化の匣）
-- **敵ID**: `slime`（スライム）、`wolf`（森狼）、`scorpion`（骨蠍）、`sandwraith`（砂の亡霊）、`ghost`（霧の亡霊）、`golem`（岩のゴーレム）、`icewolf`（氷狼）、`frostspirit`（雪の精）、`dead`（亡者）、`specter`（怨霊）、`guardian`（冥府の番人）
-- **フィールドID**: `forest`（芽吹き森）、`desert`（割れた砂漠）、`mine`（霧深い鉱山）、`snow`（永久雪原）、`underworld`（冥界）
-- **魔法ID**: `bolt`（魔弾→重魔弾→穿魔弾→星魔弾）、`fire`（火球→業火球→煉獄球→劫火）、`heal`（治癒→快癒→聖癒→再生の祈り）、`ice`（氷槍→氷牙槍→凍獄槍→絶対零度）、`thunder`（雷鎖→迅雷鎖→轟雷鎖→天雷）、`nova`（風陣→旋風陣→嵐刃陣→天嵐）、`light`（反証の光→否定の光→棄却の光→審判返し）（グレードは 1〜4）
+- **アイテムID**（装備を含む）: `herb`（霊草）、`wood`（古木の枝）、`stone`（石材）、`mushroom`（月光茸）、`sand`（赤砂）、`sunstone`（陽光石）、`iron_ore`（鉄鉱石）、`silver_ore`（銀鉱石）、`crystal`（魔晶の欠片）、`ice`（永久氷）、`frost_flower`（霜の花）、`soul_ash`（魂の残滓）、`nether_stone`（冥石）、`slime_gel`（粘液）、`wolf_fang`（獣の牙）、`bone`（古骨）、`miasma_core`（瘴気の核）、`nether_heart`（番人の心核）、`water`（清水）、`essence`（草の精髄）、`charcoal`（木炭）、`glass`（硝子瓶）、`mana`（魔素）、`iron_powder`（鉄粉）、`silver_powder`（銀粉）、`sun_dust`（陽光の粉）、`bone_powder`（骨粉）、`iron_ingot`（鉄塊）、`silver_ingot`（銀塊）、`pure_water`（聖水）、`pure_core`（浄化核）、`enchanted_iron`（魔鉄）、`gold`（錬金の金）、`alkahest`（万能溶媒）、`salt`（賢者の塩）、`mercury`（賢者の水銀）、`sulfur`（賢者の硫黄）、`quintessence`（第五元素）、`red_tincture`（赤きティンクトゥラ）、`potion`（回復薬）、`mana_potion`（魔力薬）、`lantern`（霧払いの灯）、`frost_amulet`（耐寒の護符）、`nether_key`（冥府の鍵）、`philosopher_stone`（賢者の石）、`stone_shard`（賢者の石の欠片）、`abyss_shard`（深淵の欠片）、`void_essence`（虚無の雫）、`primal_ember`（原初の火種）、`forest_core`（古王の樹核）、`desert_core`（大蠍の毒晶）、`mine_core`（巨像の魔核）、`snow_core`（狼王の氷牙）、`staff1`（樫の魔杖）、`staff2`（銀晶の杖）、`staff3`（魔鉄の杖）、`staff4`（金冥の杖）、`staff5`（賢者の杖）、`robe1`（旅の外套）、`robe2`（聖布の法衣）、`robe3`（冥布の法衣）、`robe4`（虚無の衣）、`robe5`（第五元素の衣）、`cat_fire`（紅蓮の触媒）、`cat_ice`（凍晶の触媒）、`cat_thunder`（雷霆の触媒）、`cat_wind`（疾風の触媒）、`cat_light`（煌光の触媒）、`cat_cycle`（循環の触媒）、`cat_swift`（迅速の触媒）、`cat_life`（生命の触媒）
+- **設備ID**: `pot`（抽出の壺）、`furnace`（精錬の竈）、`mortar`（破砕の臼）、`cauldron`（融合の釜）、`purifier`（浄化の匣）、`enchanter`（魔化の匣）、`forge`（錬装の炉）、`transmuter`（変成の祭壇）
+- **敵ID**（`b_` で始まるものは強化ボス）: `slime`（スライム）、`wolf`（森狼）、`scorpion`（骨蠍）、`sandwraith`（砂の亡霊）、`ghost`（霧の亡霊）、`golem`（岩のゴーレム）、`icewolf`（氷狼）、`frostspirit`（雪の精）、`dead`（亡者）、`specter`（怨霊）、`guardian`（冥府の番人）、`b_forest`（森の古王）、`b_desert`（砂塵の大蠍）、`b_mine`（霧喰らいの巨像）、`b_snow`（氷獄の狼王）
+- **フィールドID**: `forest`（芽吹き森）、`desert`（割れた砂漠）、`mine`（霧深い鉱山）、`snow`（永久雪原）、`underworld`（冥界）、`abyss`（冥界の深層）
+- **魔法ID**: `bolt`（魔弾→重魔弾→穿魔弾→星魔弾）、`fire`（火球→業火球→煉獄球→劫火）、`heal`（治癒→快癒→聖癒→再生の祈り）、`ice`（氷槍→氷牙槍→凍獄槍→絶対零度）、`thunder`（雷鎖→迅雷鎖→轟雷鎖→天雷）、`nova`（風陣→旋風陣→嵐刃陣→天嵐）、`light`（反証の光→否定の光→棄却の光→煌輝）（グレードは 1〜4）

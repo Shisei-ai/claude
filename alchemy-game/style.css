@@ -240,3 +240,13 @@ input[type=number] { width: 64px; }
 .sub-h { margin-top: 18px; }
 .panel-head label { display: inline-flex; gap: 6px; align-items: center; margin-top: 6px; color: var(--muted); cursor: pointer; }
 .book.far { padding: 8px 12px; }
+
+/* ---- 装備 ---- */
+.eqslots { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.eqslot { background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.eqslot h3 { color: var(--gold); font-size: 15px; }
+.eqcur { display: flex; gap: 10px; align-items: center; min-height: 40px; }
+.eqlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 8px; }
+.eqitem { display: flex; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.eqitem.own { border-color: var(--good); }
+.field label select { margin-left: 6px; }

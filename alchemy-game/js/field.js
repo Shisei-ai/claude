@@ -18,28 +18,99 @@ const Field = {
   selSlot: 0,
 
   // ---------------- 開始 / 終了 ----------------
-  start(id) {
+  // mode: 'field'=通常の探索 / 'abyss'=冥界の深層(opt.floor 階から) / 'arena'=強化ボスとの再戦
+  start(id, opt = {}) {
     this.id = id;
-    this.f = FIELDS[id];
+    this.mode = opt.mode || 'field';
+    this.f = this.mode === 'abyss' ? FIELDS.abyss : FIELDS[id];
     this.st = playerStats();
-    this.generate();
-    const c = (MAP_W / 2) * TS;
-    this.p = { x: c, y: c, r: 11, hp: this.st.maxHp, mp: this.st.maxMp, inv: 0, face: 0, walk: 0 };
-    this.portal = { x: c, y: c };
-    this.enemies = []; this.projs = []; this.eprojs = [];
-    this.fx = []; this.texts = []; this.parts = []; this.corpses = [];
-    this.cds = {}; this.potionCd = 0;
     this.bag = {};
-    this.gather = null; this.recall = null;
-    this.time = 0; this.spawnT = 0; this.msg = null;
+    this.boss = null; this.won = false;
+    this.cds = {}; this.potionCd = 0;
+    this.time = 0; this.msg = null;
     this.active = true; this.paused = false;
     this.selSlot = Math.max(0, S.slots.findIndex(x => x));
-    for (let i = 0; i < 7; i++) this.spawnEnemy(true);
-    if (this.f.boss && !S.flags.bossDefeated) this.spawnBoss();
-    S.stats.visited[id] = true;
-    this.say(`${this.f.name}に足を踏み入れた`);
+    this.p = { x: 0, y: 0, r: 11, hp: this.st.maxHp, mp: this.st.maxMp, inv: 0, face: 0, walk: 0 };
+    if (this.mode === 'arena') {
+      // ランクが上がるほど強く: HP +50% / 攻撃力 +15% / 経験値 +30% (1ランクごと)
+      this.rank = (S.post.bossRank[id] || 0) + 1;
+      this.scale = { hp: 1 + 0.5 * (this.rank - 1), dmg: 1 + 0.15 * (this.rank - 1), xp: 1 + 0.3 * (this.rank - 1) };
+      this.enterArena();
+    } else if (this.mode === 'abyss') {
+      this.enterFloor(opt.floor || 1);
+    } else {
+      this.scale = { hp: 1, dmg: 1, xp: 1 };
+      this.spawnY = 0;
+      this.setupMap(() => this.generate());
+      for (let i = 0; i < 7; i++) this.spawnEnemy(true);
+      if (this.f.boss && !S.flags.bossDefeated) this.spawnBoss();
+      S.stats.visited[id] = true;
+      this.say(`${this.f.name}に足を踏み入れた`);
+    }
     UI.enterField();
     this.resize();
+  },
+
+  // 地形を作り直し、敵・弾・演出を空にしてプレイヤーを入口へ置く
+  setupMap(gen) {
+    this.enemies = []; this.projs = []; this.eprojs = [];
+    this.fx = []; this.texts = []; this.parts = []; this.corpses = [];
+    this.gather = null; this.recall = null; this.stairs = null;
+    this.spawnT = 0;
+    gen();
+    const c = (MAP_W / 2) * TS;
+    this.p.x = c; this.p.y = this.spawnY || c;
+    this.portal = { x: this.p.x, y: this.p.y };
+  },
+
+  // ---- 冥界の深層 ----
+  enterFloor(n) {
+    this.floorN = n;
+    this.scale = { hp: 1 + 0.3 * (n - 1), dmg: 1 + 0.1 * (n - 1), xp: 1 + 0.12 * (n - 1) };
+    this.spawnY = 0;
+    this.setupMap(() => this.generate(n >= ABYSS_EMBER_FLOOR ? null : 'primal_ember'));
+    // 下り階段は入口から最も遠い場所に置く
+    let best = null, bd = 0;
+    for (const i of this.floorTiles) {
+      const x = (i % MAP_W + 0.5) * TS, y = (((i / MAP_W) | 0) + 0.5) * TS;
+      const d = Math.hypot(x - this.p.x, y - this.p.y);
+      if (d > bd) { bd = d; best = { x, y }; }
+    }
+    this.stairs = best;
+    for (let i = 0; i < 8; i++) this.spawnEnemy(true);
+    if (n > S.post.abyssBest) {
+      S.post.abyssBest = n;
+      if (n > 1 && (n - 1) % ABYSS_CHECKPOINT === 0) log(`冥界の深層・第${n}層に道標を残した（次回ここから潜れる）`, 'good');
+    }
+    this.say(`冥界の深層 ── 第${n}層`);
+  },
+  nextFloor() {
+    const hp = this.p.hp, mp = this.p.mp;
+    this.enterFloor(this.floorN + 1);
+    this.p.hp = hp; this.p.mp = mp;
+  },
+
+  // ---- 強化ボスとの再戦 ----
+  enterArena() {
+    this.spawnY = (MAP_H / 2 + 7) * TS;
+    this.setupMap(() => this.generateArena());
+    const type = BOSS_ARENAS[this.id];
+    this.boss = this.addEnemy(type, (MAP_W / 2) * TS, (MAP_H / 2 - 5) * TS);
+    this.boss.awake = true;
+    this.say(`${ENEMIES[type].name} ── ランク${this.rank}`);
+  },
+  // 柱の立つ広間
+  generateArena() {
+    const m = new Uint8Array(MAP_W * MAP_H).fill(1);
+    const cx = MAP_W / 2, cy = MAP_H / 2;
+    for (let y = cy - 13; y < cy + 13; y++) for (let x = cx - 17; x < cx + 17; x++) m[y * MAP_W + x] = 0;
+    for (const [px, py] of [[-9, -5], [8, -5], [-9, 4], [8, 4]]) {
+      for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) m[(cy + py + dy) * MAP_W + cx + px + dx] = 1;
+    }
+    this.map = m;
+    this.floorTiles = [];
+    for (let i = 0; i < m.length; i++) if (!m[i]) this.floorTiles.push(i);
+    this.nodes = [];
   },
 
   end(reason) {
@@ -66,7 +137,7 @@ const Field = {
   // ---------------- マップ生成 ----------------
   // セルオートマトンで洞窟のような地形を作り、
   // 入口から辿り着けない場所は壁で埋める。
-  generate() {
+  generate(excludeNode) {
     let m = new Uint8Array(MAP_W * MAP_H);
     for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
       const edge = x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1;
@@ -106,14 +177,15 @@ const Field = {
     // 採取ポイントの配置
     this.nodes = [];
     const used = new Set();
-    const total = this.f.nodes.reduce((a, n) => a + n[1], 0);
+    const defs = this.f.nodes.filter(n => n[0] !== excludeNode);
+    const total = defs.reduce((a, n) => a + n[1], 0);
     for (let k = 0; k < 55; k++) {
       const i = this.floorTiles[(Math.random() * this.floorTiles.length) | 0];
       const x = i % MAP_W, y = (i / MAP_W) | 0;
       if (used.has(i) || (x - cx) ** 2 + (y - cy) ** 2 < 36) continue;
       used.add(i);
-      let roll = Math.random() * total, def = this.f.nodes[0];
-      for (const n of this.f.nodes) { roll -= n[1]; if (roll <= 0) { def = n; break; } }
+      let roll = Math.random() * total, def = defs[0];
+      for (const n of defs) { roll -= n[1]; if (roll <= 0) { def = n; break; } }
       this.nodes.push({ x: (x + 0.5) * TS, y: (y + 0.5) * TS, item: def[0], min: def[2], max: def[3], gone: false, back: 0 });
     }
   },
@@ -149,7 +221,9 @@ const Field = {
   },
   addEnemy(type, x, y) {
     const d = ENEMIES[type];
-    const e = { type, d, x, y, r: d.r, hp: d.hp, maxHp: d.hp, slow: 0, hitCd: 0, t: Math.random() * 3,
+    const sc = this.scale || { hp: 1, dmg: 1, xp: 1 };
+    const hp = Math.round(d.hp * sc.hp);
+    const e = { type, d, x, y, r: d.r, hp, maxHp: hp, dmg: d.dmg * sc.dmg, xp: Math.round(d.xp * sc.xp), slow: 0, hitCd: 0, t: Math.random() * 3,
       wander: Math.random() * Math.PI * 2, state: 'move', stateT: 0, shotT: 1 + Math.random() * 2, flash: 0, kx: 0, ky: 0 };
     this.enemies.push(e);
     return e;
@@ -197,7 +271,7 @@ const Field = {
     const ang = Math.atan2(m.y - p.y, m.x - p.x);
     p.face = ang;
     p.castT = 0.3; // 詠唱アニメーション用
-    const dmg = (sp.dmg || 0) * this.st.dmgMult;
+    const dmg = (sp.dmg || 0) * this.st.dmgMult * (1 + (this.st.spellBoost[id] || 0));
     if (sp.type === 'proj') {
       const n = sp.count || 1;
       for (let k = 0; k < n; k++) {
@@ -206,7 +280,7 @@ const Field = {
           dmg, sp, life: 1.4, hit: new Set(), t0: this.time });
       }
     } else if (sp.type === 'heal') {
-      const v = this.st.maxHp * sp.heal;
+      const v = this.st.maxHp * sp.heal * this.st.healMult;
       p.hp = Math.min(this.st.maxHp, p.hp + v);
       this.text(p.x, p.y - 20, `+${Math.round(v)}`, '#7dff9a');
       this.burst(p.x, p.y, sp.color, 18, 120);
@@ -283,6 +357,7 @@ const Field = {
   },
   interact() {
     if (Math.hypot(this.portal.x - this.p.x, this.portal.y - this.p.y) < 40) { this.end('return'); return; }
+    if (this.stairs && Math.hypot(this.stairs.x - this.p.x, this.stairs.y - this.p.y) < 40) { this.nextFloor(); return; }
     const n = this.nearestNode();
     if (n) this.gather = { n, t: 0 };
   },
@@ -305,15 +380,26 @@ const Field = {
     // 倒れるアニメーション(die)が用意されていれば、その場に亡骸を残して再生する
     const dieLen = Assets.animLength(`enemies/${e.type}`, 'die');
     if (dieLen) this.corpses.push({ key: `enemies/${e.type}`, x: e.x, y: e.y + e.r, t0: this.time, len: dieLen, flip: this.p.x < e.x });
-    gainMXP(e.d.xp);
+    gainMXP(e.xp);
     S.stats.kills++;
-    for (const [item, chance, mn, mx] of e.d.drops) {
+    // 強化ボスは3ランクごとに報酬が1倍ずつ増える
+    const mult = this.mode === 'arena' && e.d.boss ? 1 + Math.floor(this.rank / 3) : 1;
+    const drops = e.d.drops.concat(!e.d.boss && this.f.extraDrops ? this.f.extraDrops : []);
+    for (const [item, chance, mn, mx] of drops) {
       if (Math.random() < Math.min(1, chance * this.st.luck)) {
-        const n = mn + Math.floor(Math.random() * (mx - mn + 1));
+        const n = (mn + Math.floor(Math.random() * (mx - mn + 1))) * mult;
         this.addBag(item, n, e.x, e.y);
       }
     }
-    if (e.d.boss) {
+    if (e.d.boss && this.mode === 'arena') {
+      this.won = true;
+      S.post.bossRank[this.id] = this.rank;
+      const t = Math.round(this.time);
+      const best = S.post.bossBestTime[this.id];
+      if (!best || t < best) S.post.bossBestTime[this.id] = t;
+      log(`${e.d.name}（ランク${this.rank}）を${t}秒で討伐した！`, 'lv');
+      this.say('討伐成功！ 入口のゲートから帰還できる');
+    } else if (e.d.boss) {
       S.flags.bossDefeated = true;
       log('冥府の番人を討ち果たした！', 'lv');
       this.say('番人は崩れ落ち、紅い心核が残された…');
@@ -322,6 +408,7 @@ const Field = {
   hurtPlayer(dmg) {
     const p = this.p;
     if (p.inv > 0) return;
+    dmg *= 1 - this.st.guard; // 法衣による軽減
     p.hp -= dmg;
     p.inv = 0.5;
     p.hurtT = 0.3; // 被弾アニメーション用
@@ -393,7 +480,7 @@ const Field = {
     // 敵の出現
     this.spawnT -= dt;
     const normal = this.enemies.filter(e => !e.d.boss).length;
-    if (this.spawnT <= 0 && normal < this.f.maxEnemies) { this.spawnEnemy(false); this.spawnT = 2.2; }
+    if (this.mode !== 'arena' && this.spawnT <= 0 && normal < this.f.maxEnemies) { this.spawnEnemy(false); this.spawnT = 2.2; }
 
     // 敵AI
     for (const e of this.enemies) this.updateEnemy(e, dt);
@@ -460,20 +547,34 @@ const Field = {
     const ang = Math.atan2(dy, dx);
     const aggro = dist < 380;
     const step = (a, s) => this.move(e, Math.cos(a) * s * dt, Math.sin(a) * s * dt);
-    const shoot = (a, speed = 230, r = 6) => { e.atkT = 0.4; this.eprojs.push({ x: e.x, y: e.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r, dmg: d.dmg, life: 3, color: d.color, t0: this.time }); };
+    const shoot = (a, speed = 230, r = 6) => { e.atkT = 0.4; this.eprojs.push({ x: e.x, y: e.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r, dmg: e.dmg, life: 3, color: d.color, t0: this.time }); };
 
     if (d.ai === 'boss') {
-      if (!e.awake && dist < 420) { e.awake = true; this.say('──冥府の番人が目を覚ました'); }
+      // ボスは pattern に書かれた行動(全方位弾・狙い撃ち・突進・手下召喚)を順番に繰り返す。HPが半分を切ると激昂
+      if (!e.awake && dist < 420) { e.awake = true; this.say(`──${d.name}が目を覚ました`); }
       if (!e.awake) return;
-      const rage = e.hp < e.maxHp / 2;
-      step(ang, spd * (rage ? 1.35 : 1));
+      const pt = d.pattern || {}, rage = e.hp < e.maxHp / 2;
+      e.stateT -= dt;
+      if (e.state === 'wind') { if (e.stateT <= 0) { e.state = 'dash'; e.stateT = 0.5; } }
+      else if (e.state === 'dash') { step(e.chargeA, spd * 3.2); if (e.stateT <= 0) e.state = 'move'; }
+      else step(ang, spd * (rage ? 1.3 : 1));
       e.shotT -= dt;
-      if (e.shotT <= 0) {
-        const n = rage ? 16 : 12;
-        const off = e.t;
-        if (Math.floor(e.t) % 2 === 0) for (let i = 0; i < n; i++) shoot(off + i * Math.PI * 2 / n, 180, 8);
-        else for (let i = -2; i <= 2; i++) shoot(ang + i * 0.18, 280, 7);
-        e.shotT = rage ? 1.6 : 2.4;
+      if (e.shotT <= 0 && e.state === 'move') {
+        const acts = ['ring', 'aimed', 'charge', 'summon'].filter(a => pt[a]);
+        e.phase = (e.phase || 0) + 1;
+        const act = acts[e.phase % acts.length];
+        if (act === 'ring') {
+          const n = pt.ring + (rage ? 4 : 0);
+          for (let i = 0; i < n; i++) shoot(e.t + i * Math.PI * 2 / n, 180, 8);
+        } else if (act === 'aimed') {
+          const n = pt.aimed + (rage ? 2 : 0);
+          for (let i = 0; i < n; i++) shoot(ang + (i - (n - 1) / 2) * 0.16, 280, 7);
+        } else if (act === 'charge') {
+          e.state = 'wind'; e.stateT = 0.6; e.chargeA = ang;
+        } else if (act === 'summon' && this.enemies.length < 9) {
+          for (let i = 0; i < 2; i++) this.addEnemy(pt.summon, e.x + (Math.random() - 0.5) * 120, e.y + (Math.random() - 0.5) * 120);
+        }
+        e.shotT = (pt.rate || 2.4) * (rage ? 0.7 : 1);
       }
     } else if (!aggro) {
       if (e.t > 2) { e.t = 0; e.wander = Math.random() * Math.PI * 2; }
@@ -503,7 +604,7 @@ const Field = {
     if (dist < e.r + p.r && e.hitCd <= 0) {
       e.hitCd = 0.8;
       e.atkT = 0.3;
-      this.hurtPlayer(d.dmg);
+      this.hurtPlayer(e.dmg);
     }
   },
 
@@ -595,6 +696,16 @@ const Field = {
     ctx.fillStyle = 'rgba(120,200,255,0.18)'; ctx.fill();
     }
 
+    // 下り階段(冥界の深層)
+    if (this.stairs) {
+      const st = this.stairs;
+      if (!Assets.sprite(ctx, 'effects/stairs', ['idle'], this.time, st.x, st.y)) {
+        ctx.fillStyle = '#000'; ctx.strokeStyle = `rgba(200,120,255,${0.5 + pulse * 0.5})`; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(st.x, st.y, 22, 14, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#c890ff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('↓', st.x, st.y + 1);
+      }
+    }
     // 採取ポイント
     const near = this.nearestNode();
     for (const n of this.nodes) {
@@ -748,6 +859,12 @@ const Field = {
     this.drawHud();
   },
 
+  title() {
+    if (this.mode === 'abyss') return `冥界の深層 第${this.floorN}層`;
+    if (this.mode === 'arena') return `${this.f.name}・主の間`;
+    return this.f.name;
+  },
+
   onScreen(x, y, m) {
     return x > this.cam.x - m && x < this.cam.x + this.vw + m && y > this.cam.y - m && y < this.cam.y + this.vh + m;
   },
@@ -810,12 +927,13 @@ const Field = {
     const ms = 2.4, mw = MAP_W * ms, mx = vw - mw - 14, my = 34;
     ctx.fillStyle = 'rgba(10,8,20,0.75)'; ctx.fillRect(mx - 6, 8, mw + 12, mw + 34);
     ctx.fillStyle = '#fff'; ctx.font = 'bold 13px serif'; ctx.textAlign = 'center';
-    ctx.fillText(this.f.name, mx + mw / 2, 21);
+    ctx.fillText(this.title(), mx + mw / 2, 21);
     ctx.fillStyle = this.f.wallTop;
     for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
       if (this.map[y * MAP_W + x]) ctx.fillRect(mx + x * ms, my + y * ms, ms, ms);
     }
     ctx.fillStyle = '#8fd3ff'; ctx.fillRect(mx + this.portal.x / TS * ms - 2, my + this.portal.y / TS * ms - 2, 4, 4);
+    if (this.stairs) { ctx.fillStyle = '#c890ff'; ctx.fillRect(mx + this.stairs.x / TS * ms - 3, my + this.stairs.y / TS * ms - 3, 6, 6); }
     for (const n of this.nodes) if (!n.gone) { ctx.fillStyle = ITEMS[n.item].color; ctx.fillRect(mx + n.x / TS * ms - 1, my + n.y / TS * ms - 1, 2, 2); }
     for (const e of this.enemies) {
       ctx.fillStyle = e.d.boss ? '#ff3355' : '#f66';
@@ -841,13 +959,14 @@ const Field = {
     if (this.boss && this.boss.hp > 0 && this.boss.awake) {
       const w = Math.min(500, vw - 80), x = (vw - w) / 2;
       ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = 'bold 14px serif';
-      ctx.fillText('冥府の番人', vw / 2, 100);
+      ctx.fillText(this.boss.d.name + (this.mode === 'arena' ? `　ランク${this.rank}` : ''), vw / 2, 100);
       this.bar(x, 112, w, 10, this.boss.hp / this.boss.maxHp, '#ff3355');
     }
 
     // ヒント
     let hint = null;
     if (Math.hypot(this.portal.x - p.x, this.portal.y - p.y) < 40) hint = '[E] 工房へ帰還する';
+    else if (this.stairs && Math.hypot(this.stairs.x - p.x, this.stairs.y - p.y) < 40) hint = `[E] 第${this.floorN + 1}層へ降りる`;
     else { const n = this.nearestNode(); if (n) hint = `[E] ${ITEMS[n.item].name}を採取`; }
     if (hint) {
       ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
