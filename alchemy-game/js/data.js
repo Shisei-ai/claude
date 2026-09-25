@@ -118,16 +118,72 @@ const RECIPES = {
 };
 
 // ---- 魔法 -----------------------------------------------------
+// 各魔法には4段階の「グレード」があり、段階ごとに名称と性能が変わる。
 // type: proj=弾を飛ばす / chain=連鎖雷 / heal=回復 / nova=周囲攻撃 / beam=光線
+// grades[n]: そのグレードの性能(基本値を上書きする)
+//   count=同時に放つ弾の数 / pierce=貫通 / explode=爆発半径 / slow=鈍足秒数
+//   chains=連鎖数 / radius=範囲 / heal=回復割合 / width=光線の太さ
+// need[n]: グレード n+1 の習得条件 { mlv: 必要M.Lv, uses: その魔法の使用回数(熟練度) }
+//   (グレードIは書物を読むと習得。need[0] は常に null)
 const SPELLS = {
-  bolt:    { name: '魔弾',   ch: '弾', color: '#b9a4ff', type: 'proj', dmg: 12, mp: 2,  cd: 0.28, speed: 520, r: 5, desc: '魔力の弾を放つ基本の魔法。' },
-  fire:    { name: '火球',   ch: '火', color: '#ff7a3d', type: 'proj', dmg: 26, mp: 8,  cd: 1.1,  speed: 380, r: 8, explode: 70, desc: '着弾すると爆発し、周囲を焼く。' },
-  heal:    { name: '治癒',   ch: '癒', color: '#7dff9a', type: 'heal', heal: 0.35, mp: 16, cd: 7, desc: '最大HPの35%を回復する。' },
-  ice:     { name: '氷槍',   ch: '氷', color: '#9fe3ff', type: 'proj', dmg: 22, mp: 6,  cd: 0.75, speed: 600, r: 6, pierce: true, slow: 2.0, desc: '敵を貫通し、動きを鈍らせる。' },
-  thunder: { name: '雷鎖',   ch: '雷', color: '#ffe66b', type: 'chain', dmg: 30, mp: 10, cd: 1.4, range: 320, chains: 4, desc: '照準付近の敵に落雷し、次々と連鎖する。' },
-  nova:    { name: '風陣',   ch: '風', color: '#b8ffd8', type: 'nova', dmg: 24, mp: 12, cd: 3.0, radius: 150, desc: '周囲の敵を切り裂き、吹き飛ばす。' },
-  light:   { name: '反証の光', ch: '光', color: '#fff7c2', type: 'beam', dmg: 90, mp: 26, cd: 4.0, length: 640, width: 26, desc: '神の理を否定する光線。貫通する。' },
+  bolt: { ch: '弾', color: '#b9a4ff', type: 'proj', speed: 520, r: 5, desc: '魔力の弾を放つ基本の魔法。',
+    grades: [
+      { name: '魔弾',     dmg: 12, mp: 2, cd: 0.28 },
+      { name: '重魔弾',   dmg: 22, mp: 3, cd: 0.26, count: 2 },
+      { name: '穿魔弾',   dmg: 38, mp: 5, cd: 0.24, count: 2, pierce: true },
+      { name: '星魔弾',   dmg: 60, mp: 7, cd: 0.22, count: 3, pierce: true },
+    ],
+    need: [null, { mlv: 5, uses: 150 }, { mlv: 11, uses: 600 }, { mlv: 18, uses: 1500 }] },
+  fire: { ch: '火', color: '#ff7a3d', type: 'proj', speed: 380, r: 8, desc: '着弾すると爆発し、周囲を焼く。',
+    grades: [
+      { name: '火球',     dmg: 26,  mp: 8,  cd: 1.1, explode: 70 },
+      { name: '業火球',   dmg: 50,  mp: 13, cd: 1.1, explode: 90 },
+      { name: '煉獄球',   dmg: 88,  mp: 20, cd: 1.0, explode: 115 },
+      { name: '劫火',     dmg: 140, mp: 30, cd: 1.0, explode: 150, count: 3 },
+    ],
+    need: [null, { mlv: 7, uses: 80 }, { mlv: 13, uses: 300 }, { mlv: 20, uses: 800 }] },
+  heal: { ch: '癒', color: '#7dff9a', type: 'heal', desc: '最大HPの一定割合を回復する。',
+    grades: [
+      { name: '治癒',     heal: 0.35, mp: 16, cd: 7 },
+      { name: '快癒',     heal: 0.5,  mp: 22, cd: 6.5 },
+      { name: '聖癒',     heal: 0.7,  mp: 30, cd: 6 },
+      { name: '再生の祈り', heal: 1.0, mp: 40, cd: 6 },
+    ],
+    need: [null, { mlv: 8, uses: 30 }, { mlv: 14, uses: 100 }, { mlv: 21, uses: 250 }] },
+  ice: { ch: '氷', color: '#9fe3ff', type: 'proj', speed: 600, r: 6, pierce: true, desc: '敵を貫通し、動きを鈍らせる。',
+    grades: [
+      { name: '氷槍',     dmg: 22,  mp: 6,  cd: 0.75, slow: 2.0 },
+      { name: '氷牙槍',   dmg: 42,  mp: 10, cd: 0.7,  slow: 2.5 },
+      { name: '凍獄槍',   dmg: 72,  mp: 15, cd: 0.65, slow: 3.0, count: 2 },
+      { name: '絶対零度', dmg: 115, mp: 22, cd: 0.6,  slow: 4.0, count: 3 },
+    ],
+    need: [null, { mlv: 11, uses: 100 }, { mlv: 16, uses: 350 }, { mlv: 22, uses: 900 }] },
+  thunder: { ch: '雷', color: '#ffe66b', type: 'chain', range: 320, desc: '照準付近の敵に落雷し、次々と連鎖する。',
+    grades: [
+      { name: '雷鎖',     dmg: 30,  mp: 10, cd: 1.4, chains: 4 },
+      { name: '迅雷鎖',   dmg: 55,  mp: 15, cd: 1.3, chains: 5 },
+      { name: '轟雷鎖',   dmg: 90,  mp: 22, cd: 1.2, chains: 7 },
+      { name: '天雷',     dmg: 140, mp: 32, cd: 1.1, chains: 10 },
+    ],
+    need: [null, { mlv: 12, uses: 80 }, { mlv: 17, uses: 300 }, { mlv: 23, uses: 800 }] },
+  nova: { ch: '風', color: '#b8ffd8', type: 'nova', desc: '周囲の敵を切り裂き、吹き飛ばす。',
+    grades: [
+      { name: '風陣',     dmg: 24,  mp: 12, cd: 3.0, radius: 150 },
+      { name: '旋風陣',   dmg: 45,  mp: 17, cd: 2.8, radius: 180 },
+      { name: '嵐刃陣',   dmg: 78,  mp: 24, cd: 2.6, radius: 215 },
+      { name: '天嵐',     dmg: 125, mp: 34, cd: 2.4, radius: 260 },
+    ],
+    need: [null, { mlv: 13, uses: 60 }, { mlv: 18, uses: 220 }, { mlv: 24, uses: 600 }] },
+  light: { ch: '光', color: '#fff7c2', type: 'beam', length: 640, desc: '神の理を否定する光線。貫通する。',
+    grades: [
+      { name: '反証の光', dmg: 90,  mp: 26, cd: 4.0, width: 26 },
+      { name: '否定の光', dmg: 150, mp: 34, cd: 3.8, width: 32 },
+      { name: '棄却の光', dmg: 240, mp: 44, cd: 3.6, width: 40 },
+      { name: '審判返し', dmg: 380, mp: 56, cd: 3.4, width: 52 },
+    ],
+    need: [null, { mlv: 16, uses: 40 }, { mlv: 21, uses: 150 }, { mlv: 26, uses: 400 }] },
 };
+const GRADE_LABEL = ['I', 'II', 'III', 'IV'];
 
 // ---- 書物 -----------------------------------------------------
 // kind: magic=魔術書(M.Lvで解放) / alchemy=錬金術書(A.Lvで解放)
@@ -299,7 +355,7 @@ const SKILLS = {
   exp_speed:  { tree: 'explore', name: '健脚',       max: 3, cost: 1, desc: '移動速度 +10%/ランク' },
   exp_gather: { tree: 'explore', name: '手際',       max: 3, cost: 1, desc: '採取時間 -20%/ランク' },
   exp_luck:   { tree: 'explore', name: '幸運',       max: 3, cost: 2, desc: '魔物の素材ドロップ率 +15%/ランク', req: { exp_yield: 2 } },
-  exp_keep:   { tree: 'explore', name: '命綱',       max: 2, cost: 2, desc: '力尽きた時に失う素材 50%→25%→0%', req: { exp_gather: 1 } },
+  exp_recall: { tree: 'explore', name: '帰還術',     max: 2, cost: 2, desc: '帰還詠唱の時間 3秒→2秒→1秒', req: { exp_gather: 1 } },
 
   cmb_dmg:    { tree: 'combat', name: '魔力増幅', max: 5, cost: 1, desc: '魔法の与ダメージ +10%/ランク' },
   cmb_hp:     { tree: 'combat', name: '生命強化', max: 5, cost: 1, desc: '最大HP +20/ランク' },
@@ -354,7 +410,7 @@ const FIELDS = {
     enemies: [['icewolf', 2], ['frostspirit', 1.5]], maxEnemies: 12,
   },
   underworld: {
-    name: '冥界', lv: '12〜', need: 'nether_key', tint: 'rgba(60,0,60,0.18)', desc: '審判神に堕とされた人々が縛られる地の底。妹は、この先に。',
+    name: '冥界', lv: '12〜', need: 'nether_key', tint: 'rgba(60,0,60,0.18)', desc: '審判神に堕とされた人々が縛られる地の底。レネイは、この先に。',
     floor: '#2e1a36', floor2: '#331d3c', wall: '#0d0610', wallTop: '#3a1a4a',
     nodes: [['soul_ash', 4, 1, 3], ['nether_stone', 3, 1, 2]],
     enemies: [['dead', 2], ['specter', 1.5]], maxEnemies: 12, boss: 'guardian',
@@ -365,16 +421,16 @@ const FIELD_ORDER = ['forest', 'desert', 'mine', 'snow', 'underworld'];
 // ---- 物語 -----------------------------------------------------
 const STORY = {
   prologue: [
-    { title: '序', text: '平和とは言えずとも、緩やかに時が流れる世界。\nあなたは妹と二人、慎ましくも幸せに暮らしていた。' },
+    { title: '序', text: '平和とは言えずとも、緩やかに時が流れる世界。\nクラヴィスは妹のレネイと二人、慎ましくも幸せに暮らしていた。' },
     { title: '降臨', text: 'ある日、空が割れ、世界に「神」が降り立った。\n\n其れは【審判神エリクラウス】を名乗り、こう告げた。\n\n「人は蔓延り過ぎた。愚か者が溢れ、もはや霊長の資格に値しない。\n　──故にこれより、浄化する」' },
-    { title: '喪失', text: '神が腕を振るうと、世界中の大地がひび割れた。\n人々の七割が、その裂け目へと堕ちていった。\n\n落ちてゆく妹に手を伸ばし──一度は、掴んだ。\nけれど大地の震えに負けて、その手を離してしまった。' },
+    { title: '喪失', text: '神が腕を振るうと、世界中の大地がひび割れた。\n人々の七割が、その裂け目へと堕ちていった。\n\n「兄さん──！」\n\n落ちてゆくレネイに手を伸ばし──一度は、掴んだ。\nけれど大地の震えに負けて、クラヴィスはその手を離してしまった。' },
     { title: '工房', text: '失意のまま彷徨い、辿り着いたのは人の寄りつかぬ大森林の深奥。\nそこに、古ぼけた小屋があった。\n\n外見よりずっと広い室内には、無数の書物と、埃をかぶった錬金設備。\nここはかつて、魔術師であり錬金術師であった誰かの工房だった。' },
-    { title: '覚悟', text: '手に取った一冊に、こう記されていた。\n\n「神は人を殺せない。殺すように見えるのは、人の全てを冥界に縛り付けるからだ」\n\n妹は、死んでいない。\nならば──取り戻す。\n\n神の呪いを解く唯一の触媒、【賢者の石】を創り出して。' },
+    { title: '覚悟', text: '手に取った一冊に、こう記されていた。\n\n「神は人を殺せない。殺すように見えるのは、人の全てを冥界に縛り付けるからだ」\n\nレネイは、死んでいない。\nならば──取り戻す。\n\n神の呪いを解く唯一の触媒、【賢者の石】を創り出して。' },
   ],
   ending: [
     { title: '冥界の底', text: '賢者の石が、紅く脈打つ。\n冥界の闇が、その光に触れた端から解けてゆく。\n\n縛られていた無数の魂が、ゆっくりと顔を上げた。' },
-    { title: '再会', text: '光の中に、見覚えのある背中があった。\n\n振り返ったその顔は、あの日と何も変わらない。\n\n今度こそ。\nあなたは手を伸ばし──その手を、決して離さなかった。' },
-    { title: '終', text: '審判神の呪いは解けた。\n冥界に縛られた人々は、在るべき場所へと還ってゆく。\n\n森の奥の小さな工房には、今日も二人分の足音が響いている。\n\n── 完 ──\n\n（工房はこのまま運営を続けられます）' },
+    { title: '再会', text: '光の中に、見覚えのある背中があった。\n\n「……兄さん？」\n\n振り返ったレネイの顔は、あの日と何も変わらない。\n\n今度こそ。\nクラヴィスは手を伸ばし──その手を、決して離さなかった。' },
+    { title: '終', text: '審判神の呪いは解けた。\n冥界に縛られた人々は、在るべき場所へと還ってゆく。\n\n森の奥の小さな工房には、今日も二人分の足音が響いている。\n\n── Descensus ad Inferos ──\n\n（工房はこのまま運営を続けられます）' },
   ],
 };
 
@@ -399,7 +455,7 @@ const OBJECTIVES = [
   { text: '冥界の奥に潜む【冥府の番人】を討て', done: s => s.flags.bossDefeated },
   { text: '第五元素、そして赤きティンクトゥラを作ろう', done: s => (s.stats.made.red_tincture || 0) > 0 },
   { text: '【賢者の石】を創り出せ', done: s => (s.stats.made.philosopher_stone || 0) > 0 },
-  { text: '探索タブの【冥界】から、妹を迎えに行こう', done: s => s.flags.ended },
+  { text: '探索タブの【冥界】から、レネイを迎えに行こう', done: s => s.flags.ended },
 ];
 
 function countMachines(s, type) {
@@ -408,5 +464,5 @@ function countMachines(s, type) {
 
 // Node.js(テスト)から読み込めるようにするための一行
 if (typeof module !== 'undefined') {
-  module.exports = { ITEMS, ITEM_CATS, MACHINES, RECIPES, SPELLS, BOOKS, SKILL_TREES, SKILLS, ENEMIES, FIELDS, FIELD_ORDER, STORY, OBJECTIVES, countMachines };
+  module.exports = { ITEMS, ITEM_CATS, MACHINES, RECIPES, SPELLS, GRADE_LABEL, BOOKS, SKILL_TREES, SKILLS, ENEMIES, FIELDS, FIELD_ORDER, STORY, OBJECTIVES, countMachines };
 }

@@ -2,10 +2,13 @@
 //  main.js — 起動処理とメインループ
 // =============================================================
 
-(function main() {
+// 画像素材を読み込み終えてからゲームを開始する
+Assets.load(function main() {
   // セーブデータを読み込む。無ければ新規作成
   const loaded = loadGame();
   if (!loaded) S = newState();
+  checkSpellGrades(); // 現在の魔法グレードを記録(ここでは通知しない)
+  document.body.classList.toggle('pixel', Assets.pixelArt());
 
   UI.init();
 
@@ -57,7 +60,8 @@
   function frame(now) {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
-    tickProduction(dt);
+    tickProduction(dt * DEBUG.speed);
+    S.stats.playSec += dt;
     if (Field.active) { Field.update(dt); Field.draw(); }
     uiT += dt; saveT += dt;
     if (uiT > 0.25) { uiT = 0; UI.tick(); }
@@ -65,4 +69,4 @@
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
-})();
+});

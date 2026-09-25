@@ -178,7 +178,14 @@ input[type=number] { width: 64px; }
 .slot { display: flex; align-items: center; gap: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
 .slot select { flex: 1; min-width: 0; }
 .key { display: grid; place-items: center; width: 26px; height: 26px; background: #0005; border: 1px solid var(--gold); color: var(--gold); border-radius: 4px; font-weight: 700; }
-.spells { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.spells { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 10px; }
+.sbody { flex: 1; min-width: 0; }
+.grades { width: 100%; border-collapse: collapse; margin-top: 6px; }
+.grades th { color: var(--gold); width: 28px; text-align: left; font-family: var(--serif); }
+.grades td, .grades th { padding: 3px 4px; border-top: 1px solid var(--line); vertical-align: top; }
+.grades .gname { font: 700 13px var(--serif); white-space: nowrap; }
+.grades tr.nogot { opacity: .6; }
+@media (max-width: 600px) { .spells { grid-template-columns: 1fr; } }
 .spell { display: flex; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
 .spell h4 { font-size: 15px; } .spell p { margin: 2px 0; font-size: 13px; }
 
@@ -225,3 +232,8 @@ input[type=number] { width: 64px; }
 #field { position: fixed; inset: 0; background: #000; }
 #cv { display: block; cursor: crosshair; }
 .infield #toasts { bottom: auto; top: 160px; }
+.ic.img, .mic.img { object-fit: contain; background: none; box-shadow: none; padding: 0; }
+.mic.img { border: none; }
+.debug { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--bad); display: flex; flex-wrap: wrap; gap: 4px; font-size: 12px; color: var(--bad); }
+.debug b { width: 100%; }
+.pixel img { image-rendering: pixelated; }

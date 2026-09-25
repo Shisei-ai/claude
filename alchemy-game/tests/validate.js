@@ -22,6 +22,12 @@ for (const [id, f] of Object.entries(D.FIELDS)) {
   f.enemies.forEach(e => check(D.ENEMIES[e[0]], `${id}: 敵 ${e[0]} が存在しない`));
 }
 for (const [id, e] of Object.entries(D.ENEMIES)) e.drops.forEach(d => check(D.ITEMS[d[0]], `${id}: ドロップ ${d[0]} が存在しない`));
+for (const [id, sp] of Object.entries(D.SPELLS)) {
+  check(sp.grades && sp.grades.length === 4, `魔法 ${id}: グレードが4段階ない`);
+  check(sp.need && sp.need.length === 4 && sp.need[0] === null, `魔法 ${id}: need の形式が不正`);
+  (sp.grades || []).forEach((g, i) => check(g.name && g.mp != null && g.cd != null, `魔法 ${id}: グレード${i + 1} に name/mp/cd がない`));
+  for (let i = 2; i < 4; i++) check(sp.need[i].mlv >= sp.need[i - 1].mlv && sp.need[i].uses >= sp.need[i - 1].uses, `魔法 ${id}: グレード${i + 1} の条件が前段より緩い`);
+}
 for (const id of Object.keys(D.SPELLS)) check(D.BOOKS.some(b => (b.unlock.spells || []).includes(id)), `魔法 ${id} を覚える書物がない`);
 for (const id of Object.keys(D.RECIPES)) check(D.BOOKS.some(b => (b.unlock.recipes || []).includes(id)), `レシピ ${id} を解放する書物がない`);
 

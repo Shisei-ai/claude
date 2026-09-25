@@ -34,6 +34,7 @@ const Field = {
     this.time = 0; this.spawnT = 0; this.msg = null;
     this.active = true; this.paused = false;
     this.selSlot = Math.max(0, S.slots.findIndex(x => x));
+    checkSpellGrades();
     for (let i = 0; i < 7; i++) this.spawnEnemy(true);
     if (this.f.boss && !S.flags.bossDefeated) this.spawnBoss();
     S.stats.visited[id] = true;
@@ -53,7 +54,7 @@ const Field = {
         lost += l;
         addItem(k, v - l);
       }
-      log(`力尽きて工房へ運び戻された…${lost > 0 ? `（素材を${lost}個失った）` : ''}`, 'bad');
+      log(`力尽きて工房へ運び戻された…${lost > 0 ? `（採取袋の素材${lost}個を全て失った）` : ''}`, 'bad');
     } else {
       for (const [k, v] of entries) addItem(k, v);
       const total = entries.reduce((a, [, v]) => a + v, 0);
@@ -185,9 +186,9 @@ const Field = {
 
   // ---------------- 魔法 ----------------
   cast(i) {
-    const id = S.slots[i];
-    if (!id) return;
-    const sp = SPELLS[id], p = this.p;
+    const slot = parseSlot(S.slots[i]);
+    if (!slot) return;
+    const id = slot.id, sp = spellAt(id, slot.g), p = this.p;
     if ((this.cds[id] || 0) > 0) return;
     if (p.mp < sp.mp) { this.say('MPが足りない'); return; }
     p.mp -= sp.mp;
@@ -197,9 +198,16 @@ const Field = {
     const ang = Math.atan2(m.y - p.y, m.x - p.x);
     p.face = ang;
     const dmg = (sp.dmg || 0) * this.st.dmgMult;
+    // 熟練度(使用回数)を加算し、グレードアップを判定
+    S.spellUse[id] = (S.spellUse[id] || 0) + 1;
+    checkSpellGrades();
     if (sp.type === 'proj') {
-      this.projs.push({ x: p.x, y: p.y, vx: Math.cos(ang) * sp.speed, vy: Math.sin(ang) * sp.speed, r: sp.r,
-        dmg, sp, life: 1.4, hit: new Set() });
+      const n = sp.count || 1;
+      for (let k = 0; k < n; k++) {
+        const a = ang + (k - (n - 1) / 2) * 0.14; // 複数発は扇状に広げる
+        this.projs.push({ x: p.x, y: p.y, vx: Math.cos(a) * sp.speed, vy: Math.sin(a) * sp.speed, r: sp.r + (slot.g - 1),
+          dmg, sp, life: 1.4, hit: new Set() });
+      }
     } else if (sp.type === 'heal') {
       const v = this.st.maxHp * sp.heal;
       p.hp = Math.min(this.st.maxHp, p.hp + v);
@@ -282,7 +290,7 @@ const Field = {
     if (n) this.gather = { n, t: 0 };
   },
   startRecall() {
-    if (!this.recall) { this.recall = { t: 0, need: 3 }; this.say('帰還の詠唱を始めた…（被弾・移動・詠唱で中断）'); }
+    if (!this.recall) { this.recall = { t: 0, need: this.st.recallTime }; this.say('帰還の詠唱を始めた…（被弾・移動・詠唱で中断）'); }
   },
 
   // ---------------- ダメージ処理 ----------------
@@ -516,6 +524,7 @@ const Field = {
     cv.style.width = this.vw + 'px'; cv.style.height = this.vh + 'px';
     this.ctx = cv.getContext('2d');
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.ctx.imageSmoothingEnabled = !Assets.pixelArt();
   },
 
   draw() {
@@ -535,6 +544,15 @@ const Field = {
     // 地形
     const x0 = Math.max(0, Math.floor(this.cam.x / TS)), y0 = Math.max(0, Math.floor(this.cam.y / TS));
     const x1 = Math.min(MAP_W, Math.ceil((this.cam.x + vw) / TS) + 1), y1 = Math.min(MAP_H, Math.ceil((this.cam.y + vh) / TS) + 1);
+    // 画像素材(tiles/<フィールド>_floor, _wall)があればそれを敷き詰める
+    const floorImg = Assets.get(`tiles/${this.id}_floor`), wallImg = Assets.get(`tiles/${this.id}_wall`);
+    if (floorImg || wallImg) {
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+        const wall = this.map[y * MAP_W + x], im = wall ? wallImg : floorImg;
+        if (im) ctx.drawImage(im, x * TS, y * TS, TS, TS);
+        else { ctx.fillStyle = wall ? f.wallTop : f.floor; ctx.fillRect(x * TS, y * TS, TS, TS); }
+      }
+    } else {
     // 1周目: 床、2周目: 壁(木や岩を丸い塊として重ねて描く)
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
       const h = (x * 73856093 ^ y * 19349663) & 7;
@@ -553,12 +571,15 @@ const Field = {
       ctx.fillStyle = 'rgba(255,255,255,0.08)';
       ctx.beginPath(); ctx.arc(cx - 4, cy - 5, TS * 0.28, 0, Math.PI * 2); ctx.fill();
     }
+    }
     // 帰還ゲート
     const pt = this.portal;
     const pulse = 0.5 + 0.5 * Math.sin(this.time * 3);
+    if (!Assets.draw(ctx, 'effects/portal', pt.x, pt.y, 64, 64, { alpha: 0.7 + pulse * 0.3 })) {
     ctx.strokeStyle = `rgba(160,220,255,${0.5 + pulse * 0.5})`; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.ellipse(pt.x, pt.y, 22, 12, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = 'rgba(120,200,255,0.18)'; ctx.fill();
+    }
 
     // 採取ポイント
     const near = this.nearestNode();
@@ -567,6 +588,10 @@ const Field = {
       const it = ITEMS[n.item];
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.beginPath(); ctx.ellipse(n.x, n.y + 10, 12, 5, 0, 0, Math.PI * 2); ctx.fill();
+      if (Assets.draw(ctx, `nodes/${n.item}`, n.x, n.y - 2, 32, 32) || Assets.draw(ctx, `items/${n.item}`, n.x, n.y - 2, 28, 28)) {
+        if (n === near) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(n.x - 17, n.y - 19, 34, 34); }
+        continue;
+      }
       ctx.fillStyle = it.color;
       ctx.beginPath(); ctx.moveTo(n.x, n.y - 14); ctx.lineTo(n.x + 12, n.y); ctx.lineTo(n.x, n.y + 10); ctx.lineTo(n.x - 12, n.y); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#111'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -582,6 +607,10 @@ const Field = {
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.beginPath(); ctx.ellipse(e.x, e.y + e.r * 0.8, e.r, e.r * 0.4, 0, 0, Math.PI * 2); ctx.fill();
       const bob = Math.sin(e.t * 6) * 1.5;
+      const sz = e.r * 2.8;
+      if (Assets.draw(ctx, `enemies/${e.type}`, e.x, e.y + bob, sz, sz, { flip: p.x < e.x, alpha: e.flash > 0 ? 0.5 : 1 })) {
+        if (e.slow > 0) { ctx.strokeStyle = '#9fe3ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 3, 0, Math.PI * 2); ctx.stroke(); }
+      } else {
       ctx.fillStyle = e.flash > 0 ? '#fff' : (e.state === 'wind' ? '#ff5050' : e.d.color);
       ctx.beginPath(); ctx.arc(e.x, e.y + bob, e.r, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = e.slow > 0 ? '#9fe3ff' : 'rgba(0,0,0,0.55)'; ctx.lineWidth = 2; ctx.stroke();
@@ -592,6 +621,7 @@ const Field = {
         ctx.beginPath();
         ctx.arc(e.x + Math.cos(a + s * 0.5) * e.r * 0.5, e.y + bob + Math.sin(a + s * 0.5) * e.r * 0.5, Math.max(2, e.r * 0.15), 0, Math.PI * 2);
         ctx.fill();
+      }
       }
       if (e.hp < e.maxHp && !e.d.boss) {
         ctx.fillStyle = '#300'; ctx.fillRect(e.x - 14, e.y - e.r - 9, 28, 4);
@@ -607,6 +637,8 @@ const Field = {
       ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(p.x, p.y, 34, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(0,0,0,0.35)';
       ctx.beginPath(); ctx.ellipse(p.x, p.y + 10, 11, 4, 0, 0, Math.PI * 2); ctx.fill();
+      const facingLeft = Math.cos(p.face) < 0;
+      if (!Assets.draw(ctx, 'player/clavis', p.x, p.y - 8, 48, 48, { flip: facingLeft })) {
       ctx.fillStyle = '#4a3a78'; ctx.strokeStyle = '#d9ccff'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(p.x - 11, p.y + 10); ctx.lineTo(p.x + 11, p.y + 10); ctx.lineTo(p.x + 7, p.y - 6); ctx.lineTo(p.x - 7, p.y - 6); ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.fillStyle = '#f1d7b8';
@@ -619,14 +651,19 @@ const Field = {
       ctx.lineTo(p.x + Math.cos(p.face) * 18, p.y + Math.sin(p.face) * 18); ctx.stroke();
       ctx.fillStyle = '#b9a4ff';
       ctx.beginPath(); ctx.arc(p.x + Math.cos(p.face) * 19, p.y + Math.sin(p.face) * 19, 3, 0, Math.PI * 2); ctx.fill();
+      }
     }
 
     // 弾
     for (const b of this.projs) {
+      const rot = Math.atan2(b.vy, b.vx);
+      if (Assets.draw(ctx, `spells/${b.sp.id}_${b.sp.g}`, b.x, b.y, b.r * 5, b.r * 5, { rot }) ||
+          Assets.draw(ctx, `spells/${b.sp.id}`, b.x, b.y, b.r * 5, b.r * 5, { rot })) continue;
       ctx.fillStyle = b.sp.color; ctx.shadowColor = b.sp.color; ctx.shadowBlur = 12;
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
     }
     for (const b of this.eprojs) {
+      if (Assets.draw(ctx, 'effects/enemy_shot', b.x, b.y, b.r * 4, b.r * 4)) continue;
       ctx.fillStyle = b.color; ctx.shadowColor = '#f00'; ctx.shadowBlur = 10;
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
     }
@@ -710,13 +747,17 @@ const Field = {
     const sw = 52, gap = 6, total = 6 * sw + 5 * gap;
     const bx = (vw - total) / 2, by = vh - sw - 16;
     for (let i = 0; i < 6; i++) {
-      const x = bx + i * (sw + gap), id = S.slots[i], sp = id && SPELLS[id];
+      const slot = parseSlot(S.slots[i]);
+      const x = bx + i * (sw + gap), id = slot && slot.id, sp = slot && spellAt(slot.id, slot.g);
       ctx.fillStyle = 'rgba(10,8,20,0.75)'; ctx.fillRect(x, by, sw, sw);
       ctx.strokeStyle = i === this.selSlot ? '#ffe066' : '#555'; ctx.lineWidth = 2; ctx.strokeRect(x, by, sw, sw);
       if (sp) {
-        ctx.fillStyle = p.mp < sp.mp ? '#555' : sp.color;
-        ctx.font = 'bold 22px serif'; ctx.textAlign = 'center';
-        ctx.fillText(sp.ch, x + sw / 2, by + sw / 2 + 1);
+        if (!Assets.draw(ctx, `icons/spell_${id}_${slot.g}`, x + sw / 2, by + sw / 2, sw - 8, sw - 8, { alpha: p.mp < sp.mp ? 0.35 : 1 }) &&
+            !Assets.draw(ctx, `icons/spell_${id}`, x + sw / 2, by + sw / 2, sw - 8, sw - 8, { alpha: p.mp < sp.mp ? 0.35 : 1 })) {
+          ctx.fillStyle = p.mp < sp.mp ? '#555' : sp.color;
+          ctx.font = 'bold 22px serif'; ctx.textAlign = 'center';
+          ctx.fillText(sp.ch, x + sw / 2, by + sw / 2 + 1);
+        }
         const cd = this.cds[id] || 0;
         if (cd > 0) {
           ctx.fillStyle = 'rgba(0,0,0,0.6)';
@@ -725,6 +766,7 @@ const Field = {
         }
         ctx.font = '9px sans-serif'; ctx.fillStyle = '#9ab';
         ctx.textAlign = 'right'; ctx.fillText(sp.mp, x + sw - 4, by + sw - 7);
+        ctx.fillStyle = '#ffe066'; ctx.fillText(GRADE_LABEL[slot.g - 1], x + sw - 4, by + 9);
       }
       ctx.font = 'bold 10px sans-serif'; ctx.fillStyle = '#ddd'; ctx.textAlign = 'left';
       ctx.fillText(i + 1, x + 4, by + 9);

@@ -9,16 +9,22 @@ const STATUS_TEXT = {
   limit: ['在庫上限', 'st-limit'], wait: ['素材待ち', 'st-wait'], ready: ['開始待ち', 'st-ready'],
 };
 
+// URLの末尾に ?debug を付けて開くと、バランス調整用の開発者パネルが表示される
+const DEBUG = { on: /[?&]debug/.test(location.search), speed: 1 };
+
 const TABS = [
   ['workshop', '工房'], ['storage', '倉庫'], ['library', '書庫'],
   ['skills', '技能'], ['magic', '魔法'], ['explore', '探索'], ['log', '記録'],
 ];
 
+const fmtTime = sec => `${Math.floor(sec / 3600)}時間${Math.floor(sec % 3600 / 60)}分`;
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function icon(id, cls = '') {
   const it = ITEMS[id];
+  const img = Assets.html(`items/${id}`, `ic img ${cls}`, esc(it.name) + '：' + esc(it.desc));
+  if (img) return img;
   return `<span class="ic ${cls}" style="--c:${it.color}" title="${esc(it.name)}：${esc(it.desc)}">${it.ch}</span>`;
 }
 // 「素材 ×必要数（所持数）」の表示。所持数は data-inv で自動更新される
@@ -88,8 +94,15 @@ const UI = {
       }
       case 'learn': learnSkill(arg); break;
       case 'go': Field.start(arg); return;
-      case 'ending': this.showStory(STORY.ending, () => { S.flags.ended = true; log('妹を、取り戻した。', 'lv'); saveGame(); this.render(); }); return;
+      case 'ending': this.showStory(STORY.ending, () => { S.flags.ended = true; log('レネイを、取り戻した。', 'lv'); saveGame(); this.render(); }); return;
       case 'prologue': this.showStory(STORY.prologue); return;
+      case 'dbg':
+        if (arg === 'mlv') gainMXP(xpNeed(S.mlv));
+        if (arg === 'alv') gainAXP(xpNeed(S.alv) / (1 + 0.25 * skill('ind_xp')));
+        if (arg === 'sp') S.sp += 5;
+        if (arg === 'items') Object.keys(ITEMS).forEach(k => addItem(k, 20));
+        if (arg === 'speed') DEBUG.speed = DEBUG.speed >= 100 ? 1 : DEBUG.speed * 10;
+        break;
       case 'save': saveGame(); this.toast('保存しました', 'good'); return;
       case 'reset':
         if (confirm('セーブデータを消去して最初から始めますか？この操作は取り消せません。')) {
@@ -168,7 +181,7 @@ const UI = {
       const cost = machineCost(type);
       h += `<section class="mgroup">
         <div class="mhead">
-          <span class="mic" style="--c:${M.color}">${M.ch}</span>
+          ${Assets.html(`machines/${type}`, 'mic img') || `<span class="mic" style="--c:${M.color}">${M.ch}</span>`}
           <div><h3>${M.name} <small>${n} / ${max}台</small></h3><p>${M.desc}</p></div>
           <div class="build">
             ${n < max ? `<div class="costs">${Object.entries(cost).map(([k, v]) => itemReq(k, v)).join('')}</div>` : '<div class="costs muted">建造上限（技能【工房拡張】で増やせます）</div>'}
@@ -246,7 +259,7 @@ const UI = {
   unlockText(b) {
     const u = b.unlock, parts = [];
     (u.machines || []).forEach(x => parts.push(`設備【${MACHINES[x].name}】`));
-    (u.spells || []).forEach(x => parts.push(`魔法【${SPELLS[x].name}】`));
+    (u.spells || []).forEach(x => parts.push(`魔法【${SPELLS[x].grades[0].name}】`));
     (u.fields || []).forEach(x => parts.push(`地域【${FIELDS[x].name}】`));
     if (u.recipes && u.recipes.length) parts.push(`レシピ ${u.recipes.length}種：${u.recipes.map(r => Object.keys(RECIPES[r].out).map(o => ITEMS[o].name).join('')).join('、')}`);
     return parts.join(' ／ ');
@@ -277,27 +290,45 @@ const UI = {
   r_magic() {
     const learned = [...unlocked('spells')];
     const dmgMult = playerStats().dmgMult;
-    let h = `<div class="panel-head"><h2>魔法</h2><p class="sub">探索中、数字キー 1〜6 で割り当てた魔法を照準（マウス）の方向へ放ちます。左クリックでも最後に使ったスロットを連射できます。</p></div>`;
+    let h = `<div class="panel-head"><h2>魔法</h2><p class="sub">探索中、数字キー 1〜6 で割り当てた魔法を照準（マウス）の方向へ放ちます。左クリックでも最後に使ったスロットを連射できます。<br>
+      各魔法には4段階の<b>グレード</b>があります。M.Lv と<b>熟練度</b>（その魔法を使った回数）が条件を満たすと、上位グレードを習得します。下位グレードも消費MPを抑えたいときのために使い分けられます。</p></div>`;
     h += '<div class="slots">';
     for (let i = 0; i < 6; i++) {
-      h += `<label class="slot"><span class="key">${i + 1}</span><select data-slot="${i}"><option value="">（なし）</option>
-        ${learned.map(id => `<option value="${id}" ${S.slots[i] === id ? 'selected' : ''}>${SPELLS[id].name}</option>`).join('')}</select></label>`;
+      let opts = '';
+      for (const id of learned) {
+        for (let g = 1; g <= spellMaxGrade(id); g++) {
+          const v = `${id}:${g}`;
+          opts += `<option value="${v}" ${S.slots[i] === v ? 'selected' : ''}>${SPELLS[id].grades[g - 1].name}（${GRADE_LABEL[g - 1]}）</option>`;
+        }
+      }
+      h += `<label class="slot"><span class="key">${i + 1}</span><select data-slot="${i}"><option value="">（なし）</option>${opts}</select></label>`;
     }
     h += '</div><div class="spells">';
     if (!learned.length) h += '<p class="muted">まだ魔法を覚えていない。書庫で『魔術入門』を読もう。</p>';
     for (const id of learned) {
-      const sp = SPELLS[id];
-      h += `<div class="spell"><span class="mic" style="--c:${sp.color}">${sp.ch}</span><div>
-        <h4>${sp.name}</h4><p>${sp.desc}</p>
-        <p class="small muted">${sp.dmg ? `威力 ${Math.round(sp.dmg * dmgMult)} ・ ` : ''}消費MP ${sp.mp} ・ 再使用 ${sp.cd}秒</p></div></div>`;
+      const sp = SPELLS[id], max = spellMaxGrade(id), uses = S.spellUse[id] || 0;
+      h += `<div class="spell">${Assets.html(`icons/spell_${id}_${max}`, 'mic img') || Assets.html(`icons/spell_${id}`, 'mic img') || `<span class="mic" style="--c:${sp.color}">${sp.ch}</span>`}<div class="sbody">
+        <h4>${sp.grades[max - 1].name} <small class="muted">グレード${GRADE_LABEL[max - 1]} ・ 熟練度 ${uses}</small></h4><p>${sp.desc}</p>
+        <table class="grades">`;
+      sp.grades.forEach((gr, gi) => {
+        const g = gi + 1, got = g <= max, need = sp.need[gi];
+        const a = spellAt(id, g);
+        const perf = [a.dmg ? `威力${Math.round(a.dmg * dmgMult)}` : '', a.heal ? `回復${Math.round(a.heal * 100)}%` : '',
+          a.count > 1 ? `${a.count}発` : '', a.chains ? `連鎖${a.chains}` : '', a.explode ? `爆発${a.explode}` : '',
+          a.radius ? `範囲${a.radius}` : '', `MP${a.mp}`, `${a.cd}秒`].filter(Boolean).join(' ・ ');
+        const cond = got ? '<span class="good">習得済</span>'
+          : need ? `<span class="${S.mlv >= need.mlv ? 'good' : 'bad'}">M.Lv${need.mlv}</span> ／ <span class="${uses >= need.uses ? 'good' : 'bad'}">熟練度 ${Math.min(uses, need.uses)}/${need.uses}</span>` : '';
+        h += `<tr class="${got ? '' : 'nogot'}"><th>${GRADE_LABEL[gi]}</th><td class="gname">${got ? gr.name : '？？？'}</td><td class="small">${got ? perf : ''}</td><td class="small">${cond}</td></tr>`;
+      });
+      h += '</table></div></div>';
     }
     return h + '</div>';
   },
 
   // ---- 探索 ----
   r_explore() {
-    let h = `<div class="panel-head"><h2>探索</h2><p class="sub">フィールドで素材を集め、魔物を倒して M.Lv を上げましょう。力尽きると採取袋の素材の一部を失います。</p></div>
-      <div class="controls">操作：<b>WASD</b> 移動 ／ <b>マウス</b> 照準 ／ <b>1〜6</b> 魔法 ／ <b>左クリック</b> 選択中の魔法 ／ <b>E</b> 採取・帰還ゲート ／ <b>H</b> 帰還詠唱(3秒) ／ <b>Q</b> 回復薬 ／ <b>R</b> 魔力薬 ／ <b>Esc</b> 一時停止</div>
+    let h = `<div class="panel-head"><h2>探索</h2><p class="sub">フィールドで素材を集め、魔物を倒して M.Lv を上げましょう。力尽きると<b>採取袋の素材を全て失います</b>。危ないと思ったら早めに帰還しましょう。</p></div>
+      <div class="controls">操作：<b>WASD</b> 移動 ／ <b>マウス</b> 照準 ／ <b>1〜6</b> 魔法 ／ <b>左クリック</b> 選択中の魔法 ／ <b>E</b> 採取・帰還ゲート ／ <b>H</b> 帰還詠唱 ／ <b>Q</b> 回復薬 ／ <b>R</b> 魔力薬 ／ <b>Esc</b> 一時停止</div>
       <div class="fields">`;
     for (const id of FIELD_ORDER) {
       const f = FIELDS[id], un = fieldUnlocked(id), ok = fieldAccessible(id);
@@ -311,7 +342,7 @@ const UI = {
         ${un ? `<div class="small">採れる素材：${f.nodes.map(n => icon(n[0])).join('')}</div>` : ''}
         ${reason ? `<p class="bad small">${reason}</p>` : ''}
         <button class="btn ${ok ? 'glow' : ''}" data-act="go" data-arg="${id}" ${ok ? '' : 'disabled'}>出発</button>
-        ${id === 'underworld' && has('philosopher_stone') && !S.flags.ended ? `<button class="btn final" data-act="ending">賢者の石を掲げ、妹を迎えに行く</button>` : ''}
+        ${id === 'underworld' && has('philosopher_stone') && !S.flags.ended ? `<button class="btn final" data-act="ending">賢者の石を掲げ、レネイを迎えに行く</button>` : ''}
       </div>`;
     }
     return h + '</div>';
@@ -321,7 +352,7 @@ const UI = {
   r_log() {
     return `<div class="panel-head"><h2>記録</h2></div>
       <p><button class="btn sm" data-act="prologue">序章を読み返す</button></p>
-      <p class="small muted">討伐数 ${S.stats.kills} ／ 建造した設備 ${S.machines.length}台</p>
+      <p class="small muted">プレイ時間 ${fmtTime(S.stats.playSec)} ／ 討伐数 ${S.stats.kills} ／ 建造した設備 ${S.machines.length}台</p>
       <ul class="log">${S.log.map(l => `<li class="${l.type}"><time>${new Date(l.t).toLocaleTimeString()}</time>${esc(l.msg)}</li>`).join('')}</ul>`;
   },
 
@@ -331,7 +362,13 @@ const UI = {
       ? '<p class="good">すべての目標を達成した。</p>'
       : `<div class="onum">目標 ${i + 1} / ${OBJECTIVES.length}</div><p>${OBJECTIVES[i].text}</p>`;
     const busy = S.machines.filter(m => m.busy).length;
-    $('#summary').innerHTML = `稼働中の設備 <b>${busy}</b> / ${S.machines.length}`;
+    $('#summary').innerHTML = `稼働中の設備 <b>${busy}</b> / ${S.machines.length}<br><span class="small muted">プレイ時間 ${fmtTime(S.stats.playSec)}</span>`
+      + (DEBUG.on ? `<div class="debug"><b>開発者パネル</b><br>
+        <button class="btn sm" data-act="dbg" data-arg="mlv">M.Lv+1</button>
+        <button class="btn sm" data-act="dbg" data-arg="alv">A.Lv+1</button>
+        <button class="btn sm" data-act="dbg" data-arg="sp">SP+5</button>
+        <button class="btn sm" data-act="dbg" data-arg="items">全素材+20</button>
+        <button class="btn sm" data-act="dbg" data-arg="speed">生産×${DEBUG.speed}</button></div>` : '');
   },
 
   // ---------------- モーダル(物語・書物) ----------------
