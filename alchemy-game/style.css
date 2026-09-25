@@ -250,3 +250,7 @@ input[type=number] { width: 64px; }
 .eqitem { display: flex; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
 .eqitem.own { border-color: var(--good); }
 .field label select { margin-left: 6px; }
+.eqline { font: 700 14px var(--serif); margin: 10px 0 6px; }
+.tier { display: inline-block; min-width: 26px; text-align: center; font: 700 12px var(--serif); color: var(--gold); border: 1px solid var(--gold); border-radius: 4px; padding: 0 4px; }
+.tag { font-size: 10px; padding: 1px 6px; border-radius: 8px; background: #3fdf8f22; color: var(--good); }
+.tag.post { background: #ff5a7a22; color: #ff8aa0; }

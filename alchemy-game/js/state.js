@@ -52,6 +52,11 @@ function loadGame() {
     S.stats = Object.assign(newState().stats, data.stats);
     S.equip = Object.assign(newState().equip, data.equip);
     S.post = Object.assign(newState().post, data.post);
+    // 旧バージョンの装備IDを読み替え(触媒が段階制になったため)
+    for (const [from, to] of Object.entries(EQUIP_RENAMES)) {
+      if (S.inv[from]) { addItem(to, S.inv[from]); delete S.inv[from]; }
+      if (S.equip.catalyst === from) S.equip.catalyst = to;
+    }
     // 旧形式の魔法スロット('fire')を新形式('fire:1')へ変換
     S.slots = S.slots.map(v => (v && !v.includes(':') ? v + ':1' : v));
     if (S.skills.exp_keep) { S.sp += S.skills.exp_keep * 2; delete S.skills.exp_keep; } // 廃止した技能はSPを返却

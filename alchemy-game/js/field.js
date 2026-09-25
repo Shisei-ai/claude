@@ -385,7 +385,10 @@ const Field = {
     // 強化ボスは3ランクごとに報酬が1倍ずつ増える
     const mult = this.mode === 'arena' && e.d.boss ? 1 + Math.floor(this.rank / 3) : 1;
     const drops = e.d.drops.concat(!e.d.boss && this.f.extraDrops ? this.f.extraDrops : []);
-    for (const [item, chance, mn, mx] of drops) {
+    // 5つ目の値がある素材は、ランク(強化ボス)または階層(深層)がその値以上のときだけ落ちる
+    const depth = this.mode === 'arena' ? this.rank : this.mode === 'abyss' ? this.floorN : 0;
+    for (const [item, chance, mn, mx, minDepth] of drops) {
+      if (minDepth && depth < minDepth) continue;
       if (Math.random() < Math.min(1, chance * this.st.luck)) {
         const n = (mn + Math.floor(Math.random() * (mx - mn + 1))) * mult;
         this.addBag(item, n, e.x, e.y);

@@ -15,7 +15,7 @@ const DEBUG = { on: /[?&]debug/.test(location.search), speed: 1 };
 // [ID, 表示名, 表示条件(省略時は常に表示)]
 const TABS = [
   ['workshop', '工房'], ['storage', '倉庫'], ['library', '書庫'],
-  ['skills', '技能'], ['magic', '魔法'], ['equip', '装備', () => S.flags.ended], ['explore', '探索'], ['log', '記録'],
+  ['skills', '技能'], ['magic', '魔法'], ['equip', '装備', () => unlocked('machines').has('forge')], ['explore', '探索'], ['log', '記録'],
 ];
 
 const fmtTime = sec => `${Math.floor(sec / 3600)}時間${Math.floor(sec % 3600 / 60)}分`;
@@ -420,42 +420,43 @@ const UI = {
   },
 
   // ---- 装備 ----
-  equipText(e) {
-    const t = [];
-    if (e.dmg) t.push(`与ダメージ +${Math.round(e.dmg * 100)}%`);
-    if (e.hp) t.push(`最大HP +${e.hp}`);
-    if (e.guard) t.push(`被ダメージ -${Math.round(e.guard * 100)}%`);
-    if (e.boost || e.regen || e.cd || e.hpMult || e.heal) t.push(e.desc);
-    return t.join(' ・ ');
-  },
   r_equip() {
     const st = playerStats();
-    let h = `<div class="panel-head"><h2>装備</h2><p class="sub">【錬装の炉】で作った杖・法衣・触媒を身に着けます。上位の装備は下位の装備を素材にして作るので、素材にすると装備も外れます。</p></div>
+    const recipes = unlocked('recipes');
+    let h = `<div class="panel-head"><h2>装備</h2><p class="sub">【錬装の炉】で作った杖・法衣・触媒を身に着けます。
+      上位の段階は1つ下の段階の装備を素材にして作ります（素材にした装備は外れます）。I〜III段階は本編中に、IV段階以上は物語を終えた後に作れるようになります。</p></div>
       <div class="eqslots">`;
     for (const [slot, label] of EQUIP_SLOTS) {
       const cur = equipped(slot);
       const owned = Object.keys(EQUIPS).filter(id => EQUIPS[id].slot === slot && has(id));
       h += `<div class="eqslot"><h3>${label}</h3>
-        <div class="eqcur">${cur ? `${icon(S.equip[slot], 'big')}<div><b>${cur.name}</b><div class="small">${this.equipText(cur)}</div></div>` : '<span class="muted">（なし）</span>'}</div>
+        <div class="eqcur">${cur ? `${icon(S.equip[slot], 'big')}<div><b>${cur.name}</b> <small class="muted">${TIER_LABEL[cur.tier - 1]}</small><div class="small">${equipEffectText(cur)}</div></div>` : '<span class="muted">（なし）</span>'}</div>
         <select onchange="UI.act('equip', '${slot}:' + this.value)"><option value="">外す</option>
-          ${owned.map(id => `<option value="${id}" ${S.equip[slot] === id ? 'selected' : ''}>${EQUIPS[id].name}</option>`).join('')}</select></div>`;
+          ${owned.map(id => `<option value="${id}" ${S.equip[slot] === id ? 'selected' : ''}>${EQUIPS[id].name}（${TIER_LABEL[EQUIPS[id].tier - 1]}）</option>`).join('')}</select></div>`;
     }
     h += `</div><div class="card small">現在の能力：最大HP <b>${st.maxHp}</b> ・ 最大MP <b>${st.maxMp}</b> ・ 魔法威力 ×<b>${st.dmgMult.toFixed(2)}</b> ・ 被ダメージ -<b>${Math.round(st.guard * 100)}%</b> ・ 再使用時間 ×<b>${st.cdMult.toFixed(2)}</b> ・ MP回復 <b>${st.mpRegen.toFixed(1)}</b>/秒</div>`;
-    const recipes = unlocked('recipes');
     for (const [slot, label] of EQUIP_SLOTS) {
-      h += `<h3 class="cat">${label}</h3><div class="eqlist">`;
-      for (const [id, e] of Object.entries(EQUIPS)) {
-        if (e.slot !== slot) continue;
-        const rid = Object.keys(RECIPES).find(r => RECIPES[r].out[id]);
-        const book = BOOKS.find(b => (b.unlock.recipes || []).includes(rid));
-        const known = recipes.has(rid);
-        h += `<div class="eqitem ${has(id) ? 'own' : ''}">${icon(id, 'big')}<div>
-          <b>${known || has(id) ? e.name : '？？？'}</b> ${has(id) ? '<span class="good small">所持</span>' : ''}
-          <div class="small">${known || has(id) ? this.equipText(e) : ''}</div>
-          <div class="recipe">${known ? Object.entries(RECIPES[rid].in).map(([k, v]) => itemReq(k, v)).join('') : `<span class="muted small">『${book ? book.name : '？'}』に記載</span>`}</div>
-        </div></div>`;
+      h += `<h3 class="cat">${label}</h3>`;
+      for (const [line, L] of Object.entries(EQUIP_LINES)) {
+        if (L.slot !== slot) continue;
+        if (slot === 'catalyst') h += `<h4 class="eqline" style="color:${L.color}">${L.name}</h4>`;
+        h += '<div class="eqlist">';
+        L.tiers.forEach((tier, i) => {
+          const id = `${line}${i + 1}`, e = EQUIPS[id], rid = `e_${id}`;
+          const book = BOOKS.find(b => b.id === tier.book);
+          const known = recipes.has(rid) || has(id);
+          const hidden = !bookVisible(book); // クリア後の段階は、物語を終えるまで中身を伏せる
+          h += `<div class="eqitem ${has(id) ? 'own' : ''} ${book.after ? 'post' : ''}">${icon(id, 'big')}<div>
+            <span class="tier">${TIER_LABEL[i]}</span> <b>${known ? e.name : '？？？'}</b>
+            <span class="tag ${book.after ? 'post' : ''}">${book.after ? 'クリア後' : '本編'}</span> ${has(id) ? '<span class="good small">所持</span>' : ''}
+            <div class="small">${known ? equipEffectText(e) : ''}</div>
+            <div class="recipe">${recipes.has(rid) ? Object.entries(RECIPES[rid].in).map(([k, v]) => itemReq(k, v)).join('')
+              : hidden ? '<span class="muted small">物語の果てに、記す書物が現れる</span>'
+              : `<span class="muted small">『${book.name}』（A.Lv ${book.lv}）に記載</span>`}</div>
+          </div></div>`;
+        });
+        h += '</div>';
       }
-      h += '</div>';
     }
     return h;
   },

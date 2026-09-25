@@ -183,7 +183,8 @@ const SPELLS = {
     ],
   },
 };
-const GRADE_LABEL = ['I', 'II', 'III', 'IV'];
+// グレード表記。SPELLS の grades に行を足せば5段階目以降も追加できる(対応する奥義書も GRADE_BOOKS に追加する)
+const GRADE_LABEL = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 
 // ---- 書物 -----------------------------------------------------
 // kind: magic=魔術書(M.Lvで解放) / alchemy=錬金術書(A.Lvで解放)
