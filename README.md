@@ -20,3 +20,9 @@ python calculator.py
 ```bash
 python -m pytest test_calculator.py
 ```
+
+---
+
+# 森奥の錬金術師（ブラウザゲーム）
+
+`alchemy-game/index.html` をブラウザで開くと遊べます。詳細は [alchemy-game/README.md](alchemy-game/README.md) を参照してください。
