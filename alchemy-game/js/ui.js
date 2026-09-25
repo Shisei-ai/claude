@@ -37,6 +37,7 @@ function itemOut(id, n) {
 
 const UI = {
   tab: 'workshop',
+  hideRead: (() => { try { return !!localStorage.getItem('ui_hideRead'); } catch (e) { return false; } })(),
   sig: '',
 
   init() {
@@ -93,6 +94,10 @@ const UI = {
         break;
       }
       case 'learn': learnSkill(arg); break;
+      case 'hideread':
+        this.hideRead = !this.hideRead;
+        try { localStorage.setItem('ui_hideRead', this.hideRead ? '1' : ''); } catch (e) { /* noop */ }
+        break;
       case 'go': Field.start(arg); return;
       case 'ending': this.showStory(STORY.ending, () => { S.flags.ended = true; log('レネイを、取り戻した。', 'lv'); saveGame(); this.render(); }); return;
       case 'prologue': this.showStory(STORY.prologue); return;
@@ -234,32 +239,52 @@ const UI = {
   },
 
   // ---- 書庫 ----
+  // 流れ: レベルが上がる → 読める書物が増える → 読む → 記載された術(魔法・設備・レシピ・地域)を習得
+  bookRow(b, lvName) {
+    const read = S.books[b.id], ok = canRead(b);
+    const locked = !read && !ok;
+    return `<div class="book ${read ? 'read' : ''} ${ok ? 'ready' : ''} ${locked ? 'locked' : ''}">
+      <div class="bspine ${b.kind}"></div>
+      <div class="binfo">
+        <div class="bname">${locked ? '？？？' : '『' + b.name + '』'}</div>
+        <div class="bmeta">${lvName} ${b.lv} 以上 ・ SP +${b.sp}${read ? ' ・ <span class="good">読了</span>' : ''}</div>
+        ${read ? `<div class="bunlock">${this.unlockText(b)}</div>` : ''}
+      </div>
+      ${ok ? `<button class="btn glow" data-act="read" data-arg="${b.id}">読む</button>` : read ? `<button class="btn sm ghost" data-act="read" data-arg="${b.id}">再読</button>` : `<span class="muted small">${lvName}不足</span>`}
+    </div>`;
+  },
+
   r_library() {
-    const col = (kind, title, lvName, lv) => {
-      let h = `<div class="bookcol"><h3>${title} <small>${lvName} ${lv}</small></h3>`;
-      for (const b of BOOKS.filter(x => x.kind === kind)) {
-        const read = S.books[b.id], ok = canRead(b);
-        const locked = !read && !ok;
-        h += `<div class="book ${read ? 'read' : ''} ${ok ? 'ready' : ''} ${locked ? 'locked' : ''}">
-          <div class="bspine ${kind}"></div>
-          <div class="binfo">
-            <div class="bname">${locked ? '？？？' : '『' + b.name + '』'}</div>
-            <div class="bmeta">${lvName} ${b.lv} 以上 ・ SP +${b.sp}${read ? ' ・ <span class="good">読了</span>' : ''}</div>
-            ${read ? `<div class="bunlock">${this.unlockText(b)}</div>` : ''}
-          </div>
-          ${ok ? `<button class="btn glow" data-act="read" data-arg="${b.id}">読む</button>` : read ? `<button class="btn sm ghost" data-act="read" data-arg="${b.id}">再読</button>` : `<span class="muted small">${lvName}不足</span>`}
-        </div>`;
-      }
-      return h + '</div>';
+    const hide = this.hideRead;
+    // 今のレベルより6以上先の未読書物は、1行にまとめて表示する(一覧が長くなりすぎないように)
+    const list = (books, lvName) => {
+      const lv = lvName === 'M.Lv' ? S.mlv : S.alv;
+      const sorted = books.filter(b => !(hide && S.books[b.id])).sort((a, b) => a.lv - b.lv);
+      const near = sorted.filter(b => S.books[b.id] || b.lv <= lv + 5);
+      const far = sorted.filter(b => !near.includes(b));
+      let h = near.map(b => this.bookRow(b, lvName)).join('');
+      if (far.length) h += `<div class="book locked far"><div class="binfo muted small">……ほか ${far.length} 冊（${lvName} ${far[0].lv}〜${far[far.length - 1].lv} で読めるようになる）</div></div>`;
+      return h || '<p class="muted small">（すべて読了）</p>';
     };
-    return `<div class="panel-head"><h2>書庫</h2><p class="sub">魔術書は M.Lv（戦闘で上昇）、錬金術書は A.Lv（生産で上昇）が足りると読めます。読むとSPを得られます。</p></div>
-      <div class="books">${col('alchemy', '錬金術書', 'A.Lv', S.alv)}${col('magic', '魔術書', 'M.Lv', S.mlv)}</div>`;
+    const unread = books => books.filter(b => !S.books[b.id]).length;
+    const alch = BOOKS.filter(b => b.kind === 'alchemy');
+    const basic = BOOKS.filter(b => b.kind === 'magic' && !b.series);
+    const grade = BOOKS.filter(b => b.kind === 'magic' && b.series);
+    return `<div class="panel-head"><h2>書庫</h2>
+        <p class="sub">レベルが上がると読める書物が増え、<b>書物を読むことで記載された術を習得</b>します（魔法とそのグレード・設備・レシピ・地域）。読むとSPも得られます。<br>
+        魔術書は M.Lv（戦闘で上昇）、錬金術書は A.Lv（生産で上昇）で読めるようになります。</p>
+        <label class="small"><input type="checkbox" data-act="hideread" ${hide ? 'checked' : ''}> 読了済みの書物を隠す</label></div>
+      <div class="books">
+        <div class="bookcol"><h3>錬金術書 <small>A.Lv ${S.alv} ・ 未読 ${unread(alch)}</small></h3>${list(alch, 'A.Lv')}</div>
+        <div class="bookcol"><h3>魔術書 <small>M.Lv ${S.mlv} ・ 未読 ${unread(basic)}</small></h3>${list(basic, 'M.Lv')}
+          <h3 class="sub-h">魔術奥義書 <small>魔法の上位グレードを記す ・ 未読 ${unread(grade)}</small></h3>${list(grade, 'M.Lv')}</div>
+      </div>`;
   },
 
   unlockText(b) {
     const u = b.unlock, parts = [];
     (u.machines || []).forEach(x => parts.push(`設備【${MACHINES[x].name}】`));
-    (u.spells || []).forEach(x => parts.push(`魔法【${SPELLS[x].grades[0].name}】`));
+    (u.spells || []).forEach(x => { const p = parseSlot(x); parts.push(`魔法【${SPELLS[p.id].grades[p.g - 1].name}】（グレード${GRADE_LABEL[p.g - 1]}）`); });
     (u.fields || []).forEach(x => parts.push(`地域【${FIELDS[x].name}】`));
     if (u.recipes && u.recipes.length) parts.push(`レシピ ${u.recipes.length}種：${u.recipes.map(r => Object.keys(RECIPES[r].out).map(o => ITEMS[o].name).join('')).join('、')}`);
     return parts.join(' ／ ');
@@ -288,10 +313,11 @@ const UI = {
 
   // ---- 魔法 ----
   r_magic() {
-    const learned = [...unlocked('spells')];
+    const learned = learnedSpells();
     const dmgMult = playerStats().dmgMult;
     let h = `<div class="panel-head"><h2>魔法</h2><p class="sub">探索中、数字キー 1〜6 で割り当てた魔法を照準（マウス）の方向へ放ちます。左クリックでも最後に使ったスロットを連射できます。<br>
-      各魔法には4段階の<b>グレード</b>があります。M.Lv と<b>熟練度</b>（その魔法を使った回数）が条件を満たすと、上位グレードを習得します。下位グレードも消費MPを抑えたいときのために使い分けられます。</p></div>`;
+      各魔法には4段階の<b>グレード</b>があります。上位グレードは、それを記した<b>魔術奥義書</b>を書庫で読むと習得します（M.Lv が上がると読める書物が増えます）。<br>
+      習得した下位グレードも残るので、消費MPを抑えたいときは使い分けられます。</p></div>`;
     h += '<div class="slots">';
     for (let i = 0; i < 6; i++) {
       let opts = '';
@@ -306,18 +332,20 @@ const UI = {
     h += '</div><div class="spells">';
     if (!learned.length) h += '<p class="muted">まだ魔法を覚えていない。書庫で『魔術入門』を読もう。</p>';
     for (const id of learned) {
-      const sp = SPELLS[id], max = spellMaxGrade(id), uses = S.spellUse[id] || 0;
+      const sp = SPELLS[id], max = spellMaxGrade(id);
       h += `<div class="spell">${Assets.html(`icons/spell_${id}_${max}`, 'mic img') || Assets.html(`icons/spell_${id}`, 'mic img') || `<span class="mic" style="--c:${sp.color}">${sp.ch}</span>`}<div class="sbody">
-        <h4>${sp.grades[max - 1].name} <small class="muted">グレード${GRADE_LABEL[max - 1]} ・ 熟練度 ${uses}</small></h4><p>${sp.desc}</p>
+        <h4>${sp.grades[max - 1].name} <small class="muted">グレード${GRADE_LABEL[max - 1]}</small></h4><p>${sp.desc}</p>
         <table class="grades">`;
       sp.grades.forEach((gr, gi) => {
-        const g = gi + 1, got = g <= max, need = sp.need[gi];
+        const g = gi + 1, got = g <= max, book = gradeBook(id, g);
         const a = spellAt(id, g);
         const perf = [a.dmg ? `威力${Math.round(a.dmg * dmgMult)}` : '', a.heal ? `回復${Math.round(a.heal * 100)}%` : '',
           a.count > 1 ? `${a.count}発` : '', a.chains ? `連鎖${a.chains}` : '', a.explode ? `爆発${a.explode}` : '',
           a.radius ? `範囲${a.radius}` : '', `MP${a.mp}`, `${a.cd}秒`].filter(Boolean).join(' ・ ');
         const cond = got ? '<span class="good">習得済</span>'
-          : need ? `<span class="${S.mlv >= need.mlv ? 'good' : 'bad'}">M.Lv${need.mlv}</span> ／ <span class="${uses >= need.uses ? 'good' : 'bad'}">熟練度 ${Math.min(uses, need.uses)}/${need.uses}</span>` : '';
+          : !book ? ''
+          : canRead(book) ? `<span class="good">『${book.name}』が読める！</span>`
+          : `<span class="bad">M.Lv${book.lv}で読める書物に記載</span>`;
         h += `<tr class="${got ? '' : 'nogot'}"><th>${GRADE_LABEL[gi]}</th><td class="gname">${got ? gr.name : '？？？'}</td><td class="small">${got ? perf : ''}</td><td class="small">${cond}</td></tr>`;
       });
       h += '</table></div></div>';

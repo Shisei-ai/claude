@@ -27,14 +27,13 @@ const Field = {
     this.p = { x: c, y: c, r: 11, hp: this.st.maxHp, mp: this.st.maxMp, inv: 0, face: 0, walk: 0 };
     this.portal = { x: c, y: c };
     this.enemies = []; this.projs = []; this.eprojs = [];
-    this.fx = []; this.texts = []; this.parts = [];
+    this.fx = []; this.texts = []; this.parts = []; this.corpses = [];
     this.cds = {}; this.potionCd = 0;
     this.bag = {};
     this.gather = null; this.recall = null;
     this.time = 0; this.spawnT = 0; this.msg = null;
     this.active = true; this.paused = false;
     this.selSlot = Math.max(0, S.slots.findIndex(x => x));
-    checkSpellGrades();
     for (let i = 0; i < 7; i++) this.spawnEnemy(true);
     if (this.f.boss && !S.flags.bossDefeated) this.spawnBoss();
     S.stats.visited[id] = true;
@@ -197,16 +196,14 @@ const Field = {
     const m = this.worldMouse();
     const ang = Math.atan2(m.y - p.y, m.x - p.x);
     p.face = ang;
+    p.castT = 0.3; // 詠唱アニメーション用
     const dmg = (sp.dmg || 0) * this.st.dmgMult;
-    // 熟練度(使用回数)を加算し、グレードアップを判定
-    S.spellUse[id] = (S.spellUse[id] || 0) + 1;
-    checkSpellGrades();
     if (sp.type === 'proj') {
       const n = sp.count || 1;
       for (let k = 0; k < n; k++) {
         const a = ang + (k - (n - 1) / 2) * 0.14; // 複数発は扇状に広げる
         this.projs.push({ x: p.x, y: p.y, vx: Math.cos(a) * sp.speed, vy: Math.sin(a) * sp.speed, r: sp.r + (slot.g - 1),
-          dmg, sp, life: 1.4, hit: new Set() });
+          dmg, sp, life: 1.4, hit: new Set(), t0: this.time });
       }
     } else if (sp.type === 'heal') {
       const v = this.st.maxHp * sp.heal;
@@ -305,6 +302,9 @@ const Field = {
   },
   kill(e) {
     this.burst(e.x, e.y, e.d.color, 14, 160);
+    // 倒れるアニメーション(die)が用意されていれば、その場に亡骸を残して再生する
+    const dieLen = Assets.animLength(`enemies/${e.type}`, 'die');
+    if (dieLen) this.corpses.push({ key: `enemies/${e.type}`, x: e.x, y: e.y + e.r, t0: this.time, len: dieLen, flip: this.p.x < e.x });
     gainMXP(e.d.xp);
     S.stats.kills++;
     for (const [item, chance, mn, mx] of e.d.drops) {
@@ -324,6 +324,7 @@ const Field = {
     if (p.inv > 0) return;
     p.hp -= dmg;
     p.inv = 0.5;
+    p.hurtT = 0.3; // 被弾アニメーション用
     this.gather = null;
     if (this.recall) { this.recall = null; this.say('詠唱が中断された！'); }
     this.text(p.x, p.y - 18, `-${Math.round(dmg)}`, '#ff5a5a');
@@ -346,6 +347,9 @@ const Field = {
     if (this.keys.s || this.keys.arrowdown) my += 1;
     if (this.keys.a || this.keys.arrowleft) mx -= 1;
     if (this.keys.d || this.keys.arrowright) mx += 1;
+    p.moving = !!(mx || my);
+    p.castT = Math.max(0, (p.castT || 0) - dt);
+    p.hurtT = Math.max(0, (p.hurtT || 0) - dt);
     if (mx || my) {
       const l = Math.hypot(mx, my);
       this.move(p, mx / l * st.speed * dt, my / l * st.speed * dt);
@@ -405,6 +409,7 @@ const Field = {
         if (Math.hypot(e.x - b.x, e.y - b.y) < e.r + b.r) {
           b.hit.add(e);
           this.damage(e, b.dmg);
+          this.animFx('effects/hit', b.x, b.y);
           if (b.sp.slow) e.slow = b.sp.slow;
           if (!b.sp.pierce) { this.explode(b); b.life = 0; break; }
         }
@@ -422,6 +427,7 @@ const Field = {
     // 演出
     for (const f of this.fx) { f.life -= dt; if (f.type === 'ring') f.r += (f.maxR / 0.3) * dt; }
     this.fx = this.fx.filter(f => f.life > 0);
+    this.corpses = this.corpses.filter(c => this.time - c.t0 < c.len + 0.6);
     for (const t of this.texts) { t.y -= 30 * dt; t.life -= dt; }
     this.texts = this.texts.filter(t => t.life > 0);
     for (const q of this.parts) { q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= 0.92; q.vy *= 0.92; q.life -= dt; }
@@ -431,6 +437,7 @@ const Field = {
 
   explode(b) {
     if (!b.sp.explode) return;
+    this.animFx('effects/explosion', b.x, b.y);
     this.fx.push({ type: 'ring', x: b.x, y: b.y, r: 8, maxR: b.sp.explode, life: 0.3, color: b.sp.color });
     this.burst(b.x, b.y, b.sp.color, 16, 200);
     for (const e of this.enemies) {
@@ -453,7 +460,7 @@ const Field = {
     const ang = Math.atan2(dy, dx);
     const aggro = dist < 380;
     const step = (a, s) => this.move(e, Math.cos(a) * s * dt, Math.sin(a) * s * dt);
-    const shoot = (a, speed = 230, r = 6) => this.eprojs.push({ x: e.x, y: e.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r, dmg: d.dmg, life: 3, color: d.color });
+    const shoot = (a, speed = 230, r = 6) => { e.atkT = 0.4; this.eprojs.push({ x: e.x, y: e.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r, dmg: d.dmg, life: 3, color: d.color, t0: this.time }); };
 
     if (d.ai === 'boss') {
       if (!e.awake && dist < 420) { e.awake = true; this.say('──冥府の番人が目を覚ました'); }
@@ -492,8 +499,10 @@ const Field = {
       }
     }
     // 接触ダメージ
+    e.atkT = Math.max(0, (e.atkT || 0) - dt);
     if (dist < e.r + p.r && e.hitCd <= 0) {
       e.hitCd = 0.8;
+      e.atkT = 0.3;
       this.hurtPlayer(d.dmg);
     }
   },
@@ -514,6 +523,11 @@ const Field = {
     }
   },
   say(s) { this.msg = { s, life: 3 }; },
+  // 1回だけ再生するアニメーション演出(画像が無ければ何もしない)
+  animFx(key, x, y) {
+    const len = Assets.animLength(key, 'play');
+    if (len) this.fx.push({ type: 'anim', key, x, y, t0: this.time, life: len });
+  },
 
   // ---------------- 描画 ----------------
   resize() {
@@ -575,7 +589,7 @@ const Field = {
     // 帰還ゲート
     const pt = this.portal;
     const pulse = 0.5 + 0.5 * Math.sin(this.time * 3);
-    if (!Assets.draw(ctx, 'effects/portal', pt.x, pt.y, 64, 64, { alpha: 0.7 + pulse * 0.3 })) {
+    if (!Assets.sprite(ctx, 'effects/portal', ['idle'], this.time, pt.x, pt.y)) {
     ctx.strokeStyle = `rgba(160,220,255,${0.5 + pulse * 0.5})`; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.ellipse(pt.x, pt.y, 22, 12, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = 'rgba(120,200,255,0.18)'; ctx.fill();
@@ -588,7 +602,7 @@ const Field = {
       const it = ITEMS[n.item];
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.beginPath(); ctx.ellipse(n.x, n.y + 10, 12, 5, 0, 0, Math.PI * 2); ctx.fill();
-      if (Assets.draw(ctx, `nodes/${n.item}`, n.x, n.y - 2, 32, 32) || Assets.draw(ctx, `items/${n.item}`, n.x, n.y - 2, 28, 28)) {
+      if (Assets.sprite(ctx, `nodes/${n.item}`, ['idle'], this.time, n.x, n.y + 10, { anchor: 'feet' }) || Assets.draw(ctx, `items/${n.item}`, n.x, n.y - 2, 28, 28)) {
         if (n === near) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(n.x - 17, n.y - 19, 34, 34); }
         continue;
       }
@@ -601,14 +615,21 @@ const Field = {
       }
     }
 
+    // 倒れた敵(dieアニメーション)
+    for (const c of this.corpses) {
+      const t = this.time - c.t0;
+      Assets.sprite(ctx, c.key, ['die'], t, c.x, c.y, { anchor: 'feet', flip: c.flip, alpha: t > c.len ? Math.max(0, 1 - (t - c.len) / 0.6) : 1 });
+    }
     // 敵
     for (const e of this.enemies) {
       if (!this.onScreen(e.x, e.y, 60)) continue;
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.beginPath(); ctx.ellipse(e.x, e.y + e.r * 0.8, e.r, e.r * 0.4, 0, 0, Math.PI * 2); ctx.fill();
       const bob = Math.sin(e.t * 6) * 1.5;
-      const sz = e.r * 2.8;
-      if (Assets.draw(ctx, `enemies/${e.type}`, e.x, e.y + bob, sz, sz, { flip: p.x < e.x, alpha: e.flash > 0 ? 0.5 : 1 })) {
+      // 状態 → アニメーション名: hurt(被弾) / attack(攻撃・突進) / move(移動)
+      const est = e.flash > 0 ? 'hurt' : (e.atkT > 0 || e.state === 'wind' || e.state === 'dash') ? 'attack' : 'move';
+      if (est !== e.animState) { e.animState = est; e.animT0 = this.time; }
+      if (Assets.sprite(ctx, `enemies/${e.type}`, [est, 'move', 'idle'], this.time - e.animT0, e.x, e.y + e.r, { anchor: 'feet', flip: p.x < e.x, alpha: e.flash > 0 && !Assets.sheets[`enemies/${e.type}`] ? 0.5 : 1 })) {
         if (e.slow > 0) { ctx.strokeStyle = '#9fe3ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 3, 0, Math.PI * 2); ctx.stroke(); }
       } else {
       ctx.fillStyle = e.flash > 0 ? '#fff' : (e.state === 'wind' ? '#ff5050' : e.d.color);
@@ -637,8 +658,13 @@ const Field = {
       ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(p.x, p.y, 34, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(0,0,0,0.35)';
       ctx.beginPath(); ctx.ellipse(p.x, p.y + 10, 11, 4, 0, 0, Math.PI * 2); ctx.fill();
-      const facingLeft = Math.cos(p.face) < 0;
-      if (!Assets.draw(ctx, 'player/clavis', p.x, p.y - 8, 48, 48, { flip: facingLeft })) {
+      // 状態(idle/walk/cast/hurt) × 向き(down/up/side) → 'walk_down' のようなアニメーション名
+      const pst = p.hurtT > 0 ? 'hurt' : p.castT > 0 ? 'cast' : p.moving ? 'walk' : 'idle';
+      if (pst !== p.animState) { p.animState = pst; p.animT0 = this.time; }
+      const cs = Math.cos(p.face), sn = Math.sin(p.face);
+      const dir = Math.abs(cs) >= Math.abs(sn) ? 'side' : sn > 0 ? 'down' : 'up';
+      if (!Assets.sprite(ctx, 'player/clavis', [`${pst}_${dir}`, pst, `idle_${dir}`, 'idle'], this.time - p.animT0, p.x, p.y + 10,
+        { anchor: 'feet', flip: dir === 'side' && cs < 0 })) {
       ctx.fillStyle = '#4a3a78'; ctx.strokeStyle = '#d9ccff'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(p.x - 11, p.y + 10); ctx.lineTo(p.x + 11, p.y + 10); ctx.lineTo(p.x + 7, p.y - 6); ctx.lineTo(p.x - 7, p.y - 6); ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.fillStyle = '#f1d7b8';
@@ -657,13 +683,13 @@ const Field = {
     // 弾
     for (const b of this.projs) {
       const rot = Math.atan2(b.vy, b.vx);
-      if (Assets.draw(ctx, `spells/${b.sp.id}_${b.sp.g}`, b.x, b.y, b.r * 5, b.r * 5, { rot }) ||
-          Assets.draw(ctx, `spells/${b.sp.id}`, b.x, b.y, b.r * 5, b.r * 5, { rot })) continue;
+      if (Assets.sprite(ctx, `spells/${b.sp.id}_${b.sp.g}`, ['fly'], this.time - b.t0, b.x, b.y, { rot }) ||
+          Assets.sprite(ctx, `spells/${b.sp.id}`, ['fly'], this.time - b.t0, b.x, b.y, { rot })) continue;
       ctx.fillStyle = b.sp.color; ctx.shadowColor = b.sp.color; ctx.shadowBlur = 12;
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
     }
     for (const b of this.eprojs) {
-      if (Assets.draw(ctx, 'effects/enemy_shot', b.x, b.y, b.r * 4, b.r * 4)) continue;
+      if (Assets.sprite(ctx, 'effects/enemy_shot', ['fly'], this.time - b.t0, b.x, b.y, { rot: Math.atan2(b.vy, b.vx) })) continue;
       ctx.fillStyle = b.color; ctx.shadowColor = '#f00'; ctx.shadowBlur = 10;
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
     }
@@ -671,7 +697,10 @@ const Field = {
     // 魔法エフェクト
     for (const fx of this.fx) {
       ctx.globalAlpha = Math.min(1, fx.life * 5);
-      if (fx.type === 'ring') {
+      if (fx.type === 'anim') {
+        ctx.globalAlpha = 1;
+        Assets.sprite(ctx, fx.key, ['play'], this.time - fx.t0, fx.x, fx.y);
+      } else if (fx.type === 'ring') {
         ctx.strokeStyle = fx.color; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r, 0, Math.PI * 2); ctx.stroke();
       } else if (fx.type === 'bolt') {

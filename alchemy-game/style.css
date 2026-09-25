@@ -237,3 +237,6 @@ input[type=number] { width: 64px; }
 .debug { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--bad); display: flex; flex-wrap: wrap; gap: 4px; font-size: 12px; color: var(--bad); }
 .debug b { width: 100%; }
 .pixel img { image-rendering: pixelated; }
+.sub-h { margin-top: 18px; }
+.panel-head label { display: inline-flex; gap: 6px; align-items: center; margin-top: 6px; color: var(--muted); cursor: pointer; }
+.book.far { padding: 8px 12px; }

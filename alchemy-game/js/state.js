@@ -22,7 +22,6 @@ function newState() {
     skills: {},       // 習得した技能 { id: ランク }
     machines: [newMachine('pot')],     // 工房にある設備(最初から壺が1つある)
     slots: [null, null, null, null, null, null], // 数字キー1〜6の魔法 ('fire:2' = 火球のグレードII)
-    spellUse: {},     // 魔法ごとの使用回数(熟練度) { fire: 120 }
     flags: { prologue: false, bossDefeated: false, ended: false },
     stats: { made: {}, visited: {}, kills: 0, playSec: 0 },
     log: [],
@@ -61,7 +60,6 @@ function loadGame() {
 function resetGame() {
   try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* noop */ }
   S = newState();
-  S_knownGrades = {};
 }
 
 // ---- 便利関数 -----------------------------------------------
@@ -100,7 +98,6 @@ function gainMXP(n) {
     S.mxp -= xpNeed(S.mlv);
     S.mlv++;
     log(`M.Lv が ${S.mlv} に上がった！`, 'lv');
-    checkSpellGrades();
     if (typeof Field !== 'undefined' && Field.active) Field.onLevelUp();
   }
   if (S.mlv >= MAX_LV) S.mxp = 0;
@@ -127,9 +124,12 @@ function readBook(b) {
   S.books[b.id] = true;
   S.sp += b.sp;
   // 新しく覚えた魔法は空いているスロットに自動で割り当てる
-  for (const sp of b.unlock.spells || []) {
-    const i = S.slots.indexOf(null);
-    if (i >= 0 && !S.slots.some(v => v && v.startsWith(sp + ':'))) S.slots[i] = sp + ':1';
+  // 覚えた魔法をスロットへ: 同じ魔法の下位グレードが入っていれば昇格、無ければ空きスロットへ
+  for (const v of b.unlock.spells || []) {
+    const { id, g } = parseSlot(v);
+    const j = S.slots.findIndex(x => x && parseSlot(x).id === id);
+    if (j >= 0) { if (parseSlot(S.slots[j]).g < g) S.slots[j] = `${id}:${g}`; }
+    else { const i = S.slots.indexOf(null); if (i >= 0) S.slots[i] = `${id}:${g}`; }
   }
   log(`『${b.name}』を読んだ（SP +${b.sp}）`, 'book');
   return true;
@@ -159,30 +159,26 @@ function parseSlot(v) {
   const [id, g] = v.split(':');
   return { id, g: +g || 1 };
 }
-// その魔法で習得済みの最高グレード(未習得なら0)
+// その魔法で習得済みの最高グレード(未習得なら0)。対応する書物を読んだかどうかで決まる
 function spellMaxGrade(id) {
-  if (!unlocked('spells').has(id)) return 0;
-  const sp = SPELLS[id], uses = S.spellUse[id] || 0;
-  let g = 1;
-  while (g < 4 && S.mlv >= sp.need[g].mlv && uses >= sp.need[g].uses) g++;
+  let g = 0;
+  for (const v of unlocked('spells')) {
+    const p = parseSlot(v);
+    if (p.id === id) g = Math.max(g, p.g);
+  }
   return g;
+}
+// 習得済みの魔法IDの一覧
+function learnedSpells() {
+  return Object.keys(SPELLS).filter(id => spellMaxGrade(id) > 0);
+}
+// その魔法のグレード g を記した書物
+function gradeBook(id, g) {
+  return BOOKS.find(b => (b.unlock.spells || []).some(v => { const p = parseSlot(v); return p.id === id && p.g === g; }));
 }
 // グレード g の性能(基本値 + グレードごとの上書き)
 function spellAt(id, g) {
   return Object.assign({ id, g }, SPELLS[id], SPELLS[id].grades[g - 1]);
-}
-// 新しいグレードを習得していないか調べる。習得していたらスロットも自動で昇格
-let S_knownGrades = {};
-function checkSpellGrades() {
-  for (const id of unlocked('spells')) {
-    const g = spellMaxGrade(id);
-    const known = S_knownGrades[id] || 0;
-    if (known && g > known) {
-      log(`魔法【${SPELLS[id].grades[known - 1].name}】が【${SPELLS[id].grades[g - 1].name}】（グレード${GRADE_LABEL[g - 1]}）に昇華した！`, 'lv');
-      S.slots = S.slots.map(v => (v === `${id}:${known}` ? `${id}:${g}` : v));
-    }
-    S_knownGrades[id] = g;
-  }
 }
 
 // ---- 設備 ----------------------------------------------------

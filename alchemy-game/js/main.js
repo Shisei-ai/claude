@@ -7,7 +7,6 @@ Assets.load(function main() {
   // セーブデータを読み込む。無ければ新規作成
   const loaded = loadGame();
   if (!loaded) S = newState();
-  checkSpellGrades(); // 現在の魔法グレードを記録(ここでは通知しない)
   document.body.classList.toggle('pixel', Assets.pixelArt());
 
   UI.init();

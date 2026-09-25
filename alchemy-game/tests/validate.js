@@ -14,7 +14,7 @@ for (const b of D.BOOKS) {
   const u = b.unlock;
   (u.recipes || []).forEach(r => check(D.RECIPES[r], `${b.id}: レシピ ${r} が存在しない`));
   (u.machines || []).forEach(m => check(D.MACHINES[m], `${b.id}: 設備 ${m} が存在しない`));
-  (u.spells || []).forEach(s => check(D.SPELLS[s], `${b.id}: 魔法 ${s} が存在しない`));
+  (u.spells || []).forEach(s => { const [id, g = 1] = s.split(':'); check(D.SPELLS[id] && +g >= 1 && +g <= 4, `${b.id}: 魔法 ${s} が存在しない`); });
   (u.fields || []).forEach(f => check(D.FIELDS[f], `${b.id}: フィールド ${f} が存在しない`));
 }
 for (const [id, f] of Object.entries(D.FIELDS)) {
@@ -24,11 +24,17 @@ for (const [id, f] of Object.entries(D.FIELDS)) {
 for (const [id, e] of Object.entries(D.ENEMIES)) e.drops.forEach(d => check(D.ITEMS[d[0]], `${id}: ドロップ ${d[0]} が存在しない`));
 for (const [id, sp] of Object.entries(D.SPELLS)) {
   check(sp.grades && sp.grades.length === 4, `魔法 ${id}: グレードが4段階ない`);
-  check(sp.need && sp.need.length === 4 && sp.need[0] === null, `魔法 ${id}: need の形式が不正`);
   (sp.grades || []).forEach((g, i) => check(g.name && g.mp != null && g.cd != null, `魔法 ${id}: グレード${i + 1} に name/mp/cd がない`));
-  for (let i = 2; i < 4; i++) check(sp.need[i].mlv >= sp.need[i - 1].mlv && sp.need[i].uses >= sp.need[i - 1].uses, `魔法 ${id}: グレード${i + 1} の条件が前段より緩い`);
+  // 各グレードを記した書物がちょうど1冊あり、上位ほど必要M.Lvが高いこと
+  const lvs = [1, 2, 3, 4].map(g => {
+    const books = D.BOOKS.filter(b => (b.unlock.spells || []).some(v => { const [i, gg = 1] = v.split(':'); return i === id && +gg === g; }));
+    check(books.length === 1, `魔法 ${id}: グレード${g} を記した書物が ${books.length} 冊`);
+    return books[0] ? books[0].lv : 0;
+  });
+  for (let i = 1; i < 4; i++) check(lvs[i] >= lvs[i - 1], `魔法 ${id}: グレード${i + 1} の書物が下位より低レベルで読める`);
 }
-for (const id of Object.keys(D.SPELLS)) check(D.BOOKS.some(b => (b.unlock.spells || []).includes(id)), `魔法 ${id} を覚える書物がない`);
+const ids = new Set();
+for (const b of D.BOOKS) { check(!ids.has(b.id), `書物ID ${b.id} が重複`); ids.add(b.id); }
 for (const id of Object.keys(D.RECIPES)) check(D.BOOKS.some(b => (b.unlock.recipes || []).includes(id)), `レシピ ${id} を解放する書物がない`);
 
 // ---- 進行シミュレーション ----
