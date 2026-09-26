@@ -281,3 +281,9 @@ input[type=number] { width: 64px; }
 .hskill small { font: 10px sans-serif; color: var(--muted); }
 .hskill.r-r { border-color: #6fd6ff; } .hskill.r-sr { border-color: #d08aff; } .hskill.r-ur { border-color: #ffcf40; box-shadow: 0 0 8px #ffcf4066; }
 .sortbar { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; color: var(--muted); }
+
+.odds { width: 100%; border-collapse: collapse; margin: 8px 0 4px; font-size: 13px; }
+.odds th, .odds td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: center; }
+.odds td:first-child, .odds td:last-child { text-align: left; }
+.odds tr.nogot { opacity: .55; }
+.elixir-row { flex-wrap: wrap; }

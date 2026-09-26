@@ -23,6 +23,7 @@ function newState() {
     machines: [{ uid: 1, type: 'pot', recipe: null, prog: 0, busy: false, on: true, limit: 0 }], // 工房にある設備(最初から壺が1つある)
     nextUid: 2,       // 設備・ホムンクルスに振る通し番号
     homunculi: [],    // 工房で働くホムンクルス
+    homuPity: 0,      // 【秀】以上が出ないまま生まれた数(天井のカウント)
     slots: [null, null, null, null, null, null], // 数字キー1〜6の魔法 ('fire:2' = 火球のグレードII)
     flags: { prologue: false, bossDefeated: false, ended: false },
     equip: { staff: null, robe: null, catalyst: null },  // 装備中のアイテムID
@@ -56,6 +57,7 @@ function loadGame() {
     S.equip = Object.assign(newState().equip, data.equip);
     S.post = Object.assign(newState().post, data.post);
     S.homunculi = data.homunculi || [];
+    S.homuPity = data.homuPity || 0;
     S.nextUid = data.nextUid || 1;
     for (const m of S.machines) if (!m.uid) m.uid = S.nextUid++; // 旧セーブの設備に番号を振る
     // 旧仕様(個体値なし)のホムンクルスは【並】として能力値を振り直す
@@ -65,7 +67,14 @@ function loadGame() {
     for (const type of Object.keys(HOMUNCULI)) { // 倉庫で眠っていた旧仕様の個体
       while (count(type) > 0) { addItem(type, -1); const h = rollHomunculus(type, 'n'); h.asleep = true; S.homunculi.push(h); }
     }
-    for (const m of S.machines) if (m.recipe && !RECIPES[m.recipe] && RECIPES[m.recipe + '_n']) m.recipe += '_n'; // 旧レシピID
+    // 旧レシピIDの読み替え: r_h_worker → r_h_worker_m0 / r_h_worker_n,r,sr,ur → 霊媒なし〜魂の萌芽
+    const OLD = { n: 'm0', r: 'm1', sr: 'm2', ur: 'm3' };
+    for (const m of S.machines) {
+      if (!m.recipe || RECIPES[m.recipe]) continue;
+      const mm = m.recipe.match(/^(r_h_[a-z]+?)(?:_(n|r|sr|ur))?$/);
+      m.recipe = mm && RECIPES[`${mm[1]}_${OLD[mm[2] || 'n']}`] ? `${mm[1]}_${OLD[mm[2] || 'n']}` : null;
+      m.busy = false; m.prog = 0;
+    }
     // 旧バージョンの装備IDを読み替え(触媒が段階制になったため)
     for (const [from, to] of Object.entries(EQUIP_RENAMES)) {
       if (S.inv[from]) { addItem(to, S.inv[from]); delete S.inv[from]; }
@@ -345,13 +354,39 @@ function rollHomunculus(type, rarity) {
   return { id: S.nextUid++, type, rarity: R.id, name, lv: 1, xp: 0, stats, skills, at: null, asleep: false, hunger: 0, hungry: false };
 }
 const homuTotal = h => HOMU_STATS.reduce((a, [k]) => a + h.stats[k], 0);
+// 【極】などは、解放する書物を読むまで抽選に出ない
+function homuRarityOpen(R) { return !R.book || !!S.books[R.book]; }
+// その霊媒での実際の出現率(解放されていないレアリティの重みは、1つ下のレアリティへ回す)
+function homuOdds(media) {
+  const w = Object.assign({}, HOMU_MEDIA[media].weights);
+  for (let i = HOMU_RARITIES.length - 1; i > 0; i--) {
+    const R = HOMU_RARITIES[i];
+    if (!homuRarityOpen(R)) { w[HOMU_RARITIES[i - 1].id] += w[R.id] || 0; w[R.id] = 0; }
+  }
+  const total = Object.values(w).reduce((a, b) => a + b, 0);
+  for (const k in w) w[k] /= total;
+  return w;
+}
+// レアリティを抽選する。天井に達していたら【秀】以上から選ぶ
+function rollRarity(media) {
+  const odds = homuOdds(media);
+  const pity = S.homuPity >= HOMU_PITY - 1;
+  const cands = HOMU_RARITIES.filter(R => odds[R.id] > 0 && (!pity || ['sr', 'ur'].includes(R.id)));
+  const total = cands.reduce((a, R) => a + odds[R.id], 0);
+  let roll = Math.random() * total, pick = cands[cands.length - 1];
+  for (const R of cands) { roll -= odds[R.id]; if (roll <= 0) { pick = R; break; } }
+  S.homuPity = ['sr', 'ur'].includes(pick.id) ? 0 : S.homuPity + 1;
+  return { id: pick.id, pity };
+}
 function birthHomunculus(itemId) {
   const it = ITEMS[itemId];
-  const h = rollHomunculus(it.homuType, it.rarity);
+  const rar = rollRarity(it.media);
+  const h = rollHomunculus(it.homuType, rar.id);
   h.asleep = homuAwake().length >= homuCapacity(); // 空きが無ければ瓶の中で眠って待つ
   S.homunculi.push(h);
   S.stats.made[itemId] = (S.stats.made[itemId] || 0) + 1;
-  log(`【${homuRarity(h.rarity).name}】${HOMUNCULI[h.type].short}の「${h.name}」が生まれた（能力値合計 ${homuTotal(h)}${h.skills.length ? '・' + h.skills.map(id => HOMU_SKILLS[id].name).join('・') : ''}）`, 'good');
+  const rare = ['sr', 'ur'].includes(h.rarity);
+  log(`${rar.pity ? '【天井】' : ''}${rare ? '✦ ' : ''}【${homuRarity(h.rarity).name}】${HOMUNCULI[h.type].short}の「${h.name}」が生まれた（能力値合計 ${homuTotal(h)}${h.skills.length ? '・' + h.skills.map(id => HOMU_SKILLS[id].name).join('・') : ''}）`, rare ? 'lv' : 'good');
 }
 // 眠っている個体を、空きがあれば目覚めさせる
 function wakeHomunculi() {
@@ -386,6 +421,48 @@ function homuGainXp(h, amount) {
   }
   if (h.lv >= homuMaxLv(h)) h.xp = 0;
 }
+// ---- 秘薬 ----
+// レアリティの枠に合わせて、足りない固有スキルを補う
+function fillHomuSkills(h) {
+  const R = homuRarity(h.rarity);
+  const have = h.skills.map(id => HOMU_SKILLS[id].rank);
+  for (const rank of R.skills) {
+    const i = have.indexOf(rank);
+    if (i >= 0) { have.splice(i, 1); continue; }
+    const pool = Object.keys(HOMU_SKILLS).filter(id => HOMU_SKILLS[id].rank === rank && !h.skills.includes(id)
+      && (!HOMU_SKILLS[id].type || HOMU_SKILLS[id].type === h.type));
+    if (pool.length) h.skills.push(pool[Math.floor(Math.random() * pool.length)]);
+  }
+}
+// 秘薬を使う。戻り値: 結果の説明文(使えなければ null)
+function useElixir(hid, elixirId, stat) {
+  const h = S.homunculi.find(x => x.id === hid), e = HOMU_ELIXIRS[elixirId];
+  if (!h || !e || !has(elixirId)) return null;
+  let msg;
+  if (e.effect === 'raise') {
+    if (!h.stats[stat] || h.stats[stat] >= HOMU_STAT_MAX) return null;
+    const before = h.stats[stat];
+    h.stats[stat] = Math.min(HOMU_STAT_MAX, before + e.amount);
+    msg = `${HOMU_STATS.find(x => x[0] === stat)[1]} ${before} → ${h.stats[stat]}`;
+  } else if (e.effect === 'reroll') {
+    const R = homuRarity(h.rarity), before = homuTotal(h);
+    for (const [k] of HOMU_STATS) h.stats[k] = R.iv[0] + Math.floor(Math.random() * (R.iv[1] - R.iv[0] + 1));
+    msg = `能力値合計 ${before} → ${homuTotal(h)}（${HOMU_STATS.map(([k, l]) => `${l}${h.stats[k]}`).join('・')}）`;
+  } else if (e.effect === 'ascend') {
+    const i = HOMU_RARITIES.findIndex(r => r.id === h.rarity);
+    const next = HOMU_RARITIES[i + 1];
+    if (!next || !homuRarityOpen(next)) return null;
+    const before = homuRarity(h.rarity).name;
+    h.rarity = next.id;
+    for (const [k] of HOMU_STATS) h.stats[k] = Math.max(h.stats[k], next.iv[0]); // 新しい下限まで引き上げ
+    fillHomuSkills(h);
+    msg = `レアリティ【${before}】→【${next.name}】`;
+  }
+  addItem(elixirId, -1);
+  log(`「${h.name}」に${e.name}を使った：${msg}`, 'lv');
+  return msg;
+}
+
 // 瓶に還す: 個体は消え、レアリティに応じた培養液が戻る
 function releaseHomunculus(h) {
   S.homunculi.splice(S.homunculi.indexOf(h), 1);

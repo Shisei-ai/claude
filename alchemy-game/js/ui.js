@@ -97,6 +97,15 @@ const UI = {
         if (h && confirm(`「${h.name}」を瓶に還しますか？（元には戻せません。培養液 ${n}個が戻ります）`)) releaseHomunculus(h);
         break;
       }
+      case 'elixir': {
+        const eid = $(`#elx-${arg}`).value, stat = $(`#elxs-${arg}`) && $(`#elxs-${arg}`).value;
+        const e = HOMU_ELIXIRS[eid];
+        if (!e || !confirm(`${e.name}を使いますか？\n${e.desc}`)) return;
+        const msg = useElixir(+arg, eid, stat);
+        if (msg) this.modal(`<h2>${e.name}</h2><p class="story">${esc(msg)}</p><div class="mfoot"><span></span><button class="btn glow" onclick="UI.closeModal()">閉じる</button></div>`);
+        else this.toast('この個体には使えない（能力値が最大、またはこれ以上レアリティを上げられない）', 'bad');
+        break;
+      }
       case 'homu-sort':
         this.homuSort = arg;
         break;
@@ -537,10 +546,19 @@ const UI = {
         <div class="small">${HOMU_EFFECT_TEXT[d.effect](homuEffect(x))} ・ 食事 ${Math.round(HOMU_FEED_SEC * mods.feedMult)}秒ごと ・ 成長 ×${(mods.grow || (0.5 + 0.075 * x.stats.int)).toFixed(2)}</div>
         ${x.skills.length ? `<div class="hskills">${x.skills.map(id => { const sk = HOMU_SKILLS[id]; return `<span class="hskill r-${sk.rank}" title="${sk.desc}">${sk.name}<small>${sk.desc}</small></span>`; }).join('')}</div>` : ''}
         <div class="prog"><div style="width:${x.lv >= maxLv ? 100 : x.xp / homuXpNeed(x.lv) * 100}%"></div></div>
+        ${this.elixirRow(x)}
         <div class="mrow">${x.asleep ? '<span class="small muted">培養の瓶に空きができると目覚めます</span>' : `<select data-homu="${x.id}"><option value="">（配置しない）</option>
           ${S.machines.map(m => `<option value="${m.uid}" ${m.uid === x.at ? 'selected' : ''}>${this.machineLabel(m)}${homuAt(m) && homuAt(m) !== x ? ' ─ ' + esc(homuAt(m).name) + 'と交代' : ''}</option>`).join('')}</select>`}
           <button class="btn sm ghost" data-act="homu-release" data-arg="${x.id}">瓶に還す</button></div>
       </div></div>`;
+  },
+  // 秘薬を持っている時だけ出る「秘薬を使う」欄
+  elixirRow(x) {
+    const owned = Object.keys(HOMU_ELIXIRS).filter(id => has(id));
+    if (!owned.length) return '';
+    return `<div class="mrow elixir-row"><select id="elx-${x.id}">${owned.map(id => `<option value="${id}">${HOMU_ELIXIRS[id].name}（${count(id)}）</option>`).join('')}</select>
+      <select id="elxs-${x.id}" title="錬魂の秘薬で上げる能力値">${HOMU_STATS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select>
+      <button class="btn sm" data-act="elixir" data-arg="${x.id}">秘薬を使う</button></div>`;
   },
   r_homu() {
     const cap = homuCapacity(), awake = homuAwake();
@@ -553,7 +571,7 @@ const UI = {
       total: (a, b) => homuTotal(b) - homuTotal(a), lv: (a, b) => b.lv - a.lv, type: (a, b) => a.type.localeCompare(b.type) || homuTotal(b) - homuTotal(a) };
     const list = S.homunculi.slice().sort(sorters[sort]);
     let h = `<div class="panel-head"><h2>ホムンクルス</h2><p class="sub">【培養の瓶】で生まれたホムンクルスは、設備に1体ずつ配置すると仕事を手伝います。
-      1体ごとに<b>個体値（器用・体力・知性・幸運）</b>が生まれた瞬間に決まり、培養に<b>霊媒</b>を加えるとレアリティが上がって<b>固有スキル</b>を持って生まれます。</p></div>
+      1体ごとに<b>個体値（器用・体力・知性・幸運）</b>が生まれた瞬間に決まり、レアリティは生まれる瞬間の<b>抽選</b>で決まり、培養に<b>霊媒</b>を加えると上位（<b>固有スキル</b>持ち）が出やすくなります。</p></div>
       <div class="card small">養っている数 <b>${awake.length}</b> / ${cap}（培養の瓶1台につき${HOMU_PER_JAR}体）
         ・ 培養液 <b data-inv="nutrient">${count('nutrient')}</b>（約${perMin.toFixed(1)}個/分 消費）
         ${g.speed || g.grow ? ` ・ <span class="good">工房全体: ${g.speed ? `生産速度 +${Math.round(g.speed * 100)}%` : ''} ${g.grow ? `成長 +${Math.round(g.grow * 100)}%` : ''}</span>` : ''}
@@ -566,13 +584,29 @@ const UI = {
     // 図鑑: 能力値・レアリティ・スキル・培養レシピの説明
     h += `<h3 class="cat">能力値（個体値）</h3><div class="card small">${HOMU_STATS.map(([, l, role]) => `<b>${l}</b>：${role}`).join(' ／ ')}
       <br>評価：S（18〜）・A（15〜）・B（11〜）・C（7〜）・D。レアリティが高いほど、能力値の下限と上限が上がります。</div>`;
-    h += `<h3 class="cat">レアリティと霊媒</h3><div class="eqlist">${HOMU_RARITIES.map(R => {
-      const book = R.book && BOOKS.find(b => b.id === R.book);
-      const hidden = book && !bookVisible(book);
-      return `<div class="eqitem" style="border-color:${R.color}">${this.rarityBadge(R.id)}<div>
-        <div class="small">能力値 ${R.iv[0]}〜${R.iv[1]} ・ 最大Lv${R.maxLv} ・ 固有スキル ${R.skills.length}つ ・ 培養時間 ×${R.time}</div>
-        <div class="recipe">${hidden ? '<span class="muted small">物語の果てに、記す書物が現れる</span>' : `霊媒：${Object.keys(R.extra).length ? Object.entries(R.extra).map(([k, v]) => itemReq(k, v)).join('') : 'なし'}${book ? `<span class="muted small">（『${book.name}』）</span>` : ''}`}</div></div></div>`;
-    }).join('')}</div>`;
+    h += `<h3 class="cat">レアリティ</h3><div class="eqlist">${HOMU_RARITIES.map(R => `<div class="eqitem" style="border-color:${R.color}">${this.rarityBadge(R.id)}<div class="small">
+        能力値 ${R.iv[0]}〜${R.iv[1]} ・ 最大Lv${R.maxLv} ・ 固有スキル ${R.skills.length}つ${homuRarityOpen(R) ? '' : ' ・ <span class="bad">まだ生まれない（物語の果てに記す書物が現れる）</span>'}</div></div>`).join('')}</div>`;
+    const recipes = unlocked('recipes');
+    h += `<h3 class="cat">霊媒と出現率</h3>
+      <div class="card small">生まれる瞬間にレアリティが抽選されます。霊媒を加えると上位のレアリティが出やすくなります。
+        【秀】以上が${HOMU_PITY}体続けて出なければ、次は必ず【秀】以上（天井）。<b>天井まであと ${HOMU_PITY - S.homuPity} 体</b></div>
+      <table class="odds"><tr><th>霊媒</th>${HOMU_RARITIES.map(R => `<th>${this.rarityBadge(R.id)}</th>`).join('')}<th>培養時間</th><th>素材</th></tr>
+      ${HOMU_MEDIA.map((M, k) => {
+        const known = recipes.has(`r_h_worker_m${k}`) || recipes.has(`r_h_saver_m${k}`) || recipes.has(`r_h_twin_m${k}`) || recipes.has(`r_h_sage_m${k}`);
+        const book = M.book && BOOKS.find(b => b.id === M.book);
+        const odds = homuOdds(k);
+        const mrec = M.item && Object.entries(RECIPES).find(([, r]) => r.out[M.item]);
+        return `<tr class="${known ? '' : 'nogot'}"><td><b>${known ? M.name : '？？？'}</b>${M.item && known ? ` ×${M.n}` : ''}</td>
+          ${HOMU_RARITIES.map(R => `<td>${odds[R.id] ? (odds[R.id] * 100).toFixed(odds[R.id] < 0.1 ? 1 : 0) + '%' : '─'}</td>`).join('')}
+          <td>×${M.time}</td>
+          <td class="small">${!M.item ? '─' : known ? `【${MACHINES[mrec[1].m].name}】${Object.entries(mrec[1].in).map(([a, b]) => itemReq(a, b)).join('')}` : `『${book.name}』（A.Lv ${book.lv}）に記載`}</td></tr>`;
+      }).join('')}</table>`;
+    const eb = BOOKS.find(b => b.id === 'h_elixir');
+    if (bookVisible(eb)) {
+      h += `<h3 class="cat">秘薬（能力値を後から変える）</h3><div class="eqlist">${Object.entries(HOMU_ELIXIRS).map(([id, e]) => `<div class="eqitem">${icon(id, 'big')}<div>
+        <b>${e.name}</b> <span class="small muted">所持 ${count(id)}</span><div class="small">${e.desc}</div>
+        <div class="recipe">${recipes.has(`r_${id}`) ? `【培養の瓶】${Object.entries(e.in).map(([a, b]) => itemReq(a, b)).join('')}` : `<span class="muted small">『${eb.name}』（A.Lv ${eb.lv}）に記載</span>`}</div></div></div>`).join('')}</div>`;
+    }
     h += '<h3 class="cat">固有スキル</h3><div class="skilllist">';
     for (const R of HOMU_RARITIES.filter(r => r.skills.length)) {
       const ids = Object.keys(HOMU_SKILLS).filter(id => HOMU_SKILLS[id].rank === R.skills[0]);
@@ -580,13 +614,12 @@ const UI = {
     }
     h += '<p class="small muted">【良】は良の枠から1つ、【秀】は秀と良から1つずつ、【極】は種類ごとの伝説スキルと秀から1つずつ持って生まれます。</p></div>';
     h += '<h3 class="cat">種類と培養の素材</h3><div class="eqlist">';
-    const recipes = unlocked('recipes');
     for (const [type, d] of Object.entries(HOMUNCULI)) {
       const book = BOOKS.find(b => b.id === d.book);
-      const known = recipes.has(`r_${type}_n`);
+      const known = recipes.has(`r_${type}_m0`);
       h += `<div class="eqitem"><span class="mic" style="--c:${d.color}">${d.ch}</span><div><b>${known ? d.name : '？？？'}</b>
         <div class="small">${known ? `${d.desc} Lv1: ${HOMU_EFFECT_TEXT[d.effect](d.base)}（器用で ×0.73〜×1.30）、1Lvごと +${Math.round(d.perLv * 100)}%` : ''}</div>
-        <div class="recipe">${known ? Object.entries(d.in).map(([k, v]) => itemReq(k, v)).join('') + '<span class="muted small">＋霊媒でレアリティ上昇</span>' : `<span class="muted small">『${book.name}』（A.Lv ${book.lv}）に記載</span>`}</div></div></div>`;
+        <div class="recipe">${known ? Object.entries(d.in).map(([k, v]) => itemReq(k, v)).join('') + '<span class="muted small">＋霊媒で上位が出やすくなる</span>' : `<span class="muted small">『${book.name}』（A.Lv ${book.lv}）に記載</span>`}</div></div></div>`;
     }
     return h + '</div>';
   },
