@@ -367,11 +367,11 @@ function homuOdds(media) {
   for (const k in w) w[k] /= total;
   return w;
 }
-// レアリティを抽選する。天井に達していたら【秀】以上から選ぶ
+// レアリティを抽選する。天井に達していたら必ず【秀】
 function rollRarity(media) {
   const odds = homuOdds(media);
   const pity = S.homuPity >= HOMU_PITY - 1;
-  const cands = HOMU_RARITIES.filter(R => odds[R.id] > 0 && (!pity || ['sr', 'ur'].includes(R.id)));
+  const cands = pity ? [homuRarity('sr')] : HOMU_RARITIES.filter(R => odds[R.id] > 0);
   const total = cands.reduce((a, R) => a + odds[R.id], 0);
   let roll = Math.random() * total, pick = cands[cands.length - 1];
   for (const R of cands) { roll -= odds[R.id]; if (roll <= 0) { pick = R; break; } }
@@ -386,7 +386,7 @@ function birthHomunculus(itemId) {
   S.homunculi.push(h);
   S.stats.made[itemId] = (S.stats.made[itemId] || 0) + 1;
   const rare = ['sr', 'ur'].includes(h.rarity);
-  log(`${rar.pity ? '【天井】' : ''}${rare ? '✦ ' : ''}【${homuRarity(h.rarity).name}】${HOMUNCULI[h.type].short}の「${h.name}」が生まれた（能力値合計 ${homuTotal(h)}${h.skills.length ? '・' + h.skills.map(id => HOMU_SKILLS[id].name).join('・') : ''}）`, rare ? 'lv' : 'good');
+  log(`${rare ? '✦ ' : ''}【${homuRarity(h.rarity).name}】${HOMUNCULI[h.type].short}の「${h.name}」が生まれた（能力値合計 ${homuTotal(h)}${h.skills.length ? '・' + h.skills.map(id => HOMU_SKILLS[id].name).join('・') : ''}）`, rare ? 'lv' : 'good');
 }
 // 眠っている個体を、空きがあれば目覚めさせる
 function wakeHomunculi() {

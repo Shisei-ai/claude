@@ -587,17 +587,18 @@ const UI = {
     h += `<h3 class="cat">レアリティ</h3><div class="eqlist">${HOMU_RARITIES.map(R => `<div class="eqitem" style="border-color:${R.color}">${this.rarityBadge(R.id)}<div class="small">
         能力値 ${R.iv[0]}〜${R.iv[1]} ・ 最大Lv${R.maxLv} ・ 固有スキル ${R.skills.length}つ${homuRarityOpen(R) ? '' : ' ・ <span class="bad">まだ生まれない（物語の果てに記す書物が現れる）</span>'}</div></div>`).join('')}</div>`;
     const recipes = unlocked('recipes');
-    h += `<h3 class="cat">霊媒と出現率</h3>
-      <div class="card small">生まれる瞬間にレアリティが抽選されます。霊媒を加えると上位のレアリティが出やすくなります。
-        【秀】以上が${HOMU_PITY}体続けて出なければ、次は必ず【秀】以上（天井）。<b>天井まであと ${HOMU_PITY - S.homuPity} 体</b></div>
-      <table class="odds"><tr><th>霊媒</th>${HOMU_RARITIES.map(R => `<th>${this.rarityBadge(R.id)}</th>`).join('')}<th>培養時間</th><th>素材</th></tr>
+    // 確率と天井は伏せ、霊媒ごとの言い伝えと「兆し」だけを見せる
+    const omen = S.homuPity >= HOMU_PITY * HOMU_PITY_OMEN;
+    h += `<h3 class="cat">霊媒</h3>
+      <div class="card small">レアリティは生まれる瞬間に決まります。霊媒を加えると、上位の小人が生まれやすくなると言われています。
+        ${omen ? '<br><b class="omen">培養の瓶が熱を帯び、底で何かが脈打っている……。</b>' : ''}</div>
+      <table class="odds"><tr><th>霊媒</th><th>言い伝え</th><th>培養時間</th><th>素材</th></tr>
       ${HOMU_MEDIA.map((M, k) => {
-        const known = recipes.has(`r_h_worker_m${k}`) || recipes.has(`r_h_saver_m${k}`) || recipes.has(`r_h_twin_m${k}`) || recipes.has(`r_h_sage_m${k}`);
+        const known = Object.keys(HOMUNCULI).some(t => recipes.has(`r_${t}_m${k}`));
         const book = M.book && BOOKS.find(b => b.id === M.book);
-        const odds = homuOdds(k);
         const mrec = M.item && Object.entries(RECIPES).find(([, r]) => r.out[M.item]);
         return `<tr class="${known ? '' : 'nogot'}"><td><b>${known ? M.name : '？？？'}</b>${M.item && known ? ` ×${M.n}` : ''}</td>
-          ${HOMU_RARITIES.map(R => `<td>${odds[R.id] ? (odds[R.id] * 100).toFixed(odds[R.id] < 0.1 ? 1 : 0) + '%' : '─'}</td>`).join('')}
+          <td class="small">${known ? M.hint : ''}</td>
           <td>×${M.time}</td>
           <td class="small">${!M.item ? '─' : known ? `【${MACHINES[mrec[1].m].name}】${Object.entries(mrec[1].in).map(([a, b]) => itemReq(a, b)).join('')}` : `『${book.name}』（A.Lv ${book.lv}）に記載`}</td></tr>`;
       }).join('')}</table>`;

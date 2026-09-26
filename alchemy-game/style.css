@@ -287,3 +287,5 @@ input[type=number] { width: 64px; }
 .odds td:first-child, .odds td:last-child { text-align: left; }
 .odds tr.nogot { opacity: .55; }
 .elixir-row { flex-wrap: wrap; }
+.omen { color: #ffb0d8; text-shadow: 0 0 8px #ff80c0; }
+.odds td.small { text-align: left; }
