@@ -4,7 +4,7 @@
 // data.js と data_post.js を同じ環境で順に実行し、定義データを取り出す
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const src = ['data.js', 'data_post.js', 'data_equip.js', 'data_homunculus.js'].map(f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8')).join('\n');
-const D = vm.runInNewContext(src + '\n;({ ITEMS, MACHINES, RECIPES, SPELLS, BOOKS, ENEMIES, FIELDS, EQUIPS, BOSS_ARENAS, TRANSMUTES, EQUIP_LINES, GRADE_LABEL, HOMUNCULI })', {});
+const D = vm.runInNewContext(src + '\n;({ ITEMS, MACHINES, RECIPES, SPELLS, BOOKS, ENEMIES, FIELDS, EQUIPS, BOSS_ARENAS, TRANSMUTES, EQUIP_LINES, GRADE_LABEL, HOMUNCULI, HOMU_RARITIES, HOMU_SKILLS, HOMU_STAT_MAX })', {});
 const errors = [];
 const check = (cond, msg) => { if (!cond) errors.push(msg); };
 
@@ -54,10 +54,14 @@ for (const [id, sp] of Object.entries(D.SPELLS)) {
   });
   for (let i = 1; i < lvs.length; i++) check(lvs[i] >= lvs[i - 1], `魔法 ${id}: グレード${i + 1} の書物が下位より低レベルで読める`);
 }
-for (const id of Object.keys(D.HOMUNCULI)) {
-  check(D.ITEMS[id] && D.ITEMS[id].cat === 'homu', `ホムンクルス ${id}: アイテムとして登録されていない`);
-  const r = Object.entries(D.RECIPES).find(([, r]) => r.out[id]);
-  check(r && r[1].m === 'incubator', `ホムンクルス ${id}: 培養の瓶のレシピがない`);
+for (const type of Object.keys(D.HOMUNCULI)) {
+  for (const R of D.HOMU_RARITIES) {
+    const id = `${type}_${R.id}`;
+    check(D.ITEMS[id] && D.ITEMS[id].cat === 'homu', `ホムンクルス ${id}: アイテムとして登録されていない`);
+    check(D.RECIPES[`r_${id}`] && D.RECIPES[`r_${id}`].m === 'incubator', `ホムンクルス ${id}: 培養の瓶のレシピがない`);
+    check(R.iv[0] >= 1 && R.iv[1] <= D.HOMU_STAT_MAX && R.iv[0] <= R.iv[1], `レアリティ ${R.id}: 個体値の範囲が不正`);
+    for (const rank of R.skills) check(Object.values(D.HOMU_SKILLS).some(sk => sk.rank === rank && (!sk.type || sk.type === type)), `ホムンクルス ${id}: ${rank} のスキル候補がない`);
+  }
 }
 const ids = new Set();
 for (const b of D.BOOKS) { check(!ids.has(b.id), `書物ID ${b.id} が重複`); ids.add(b.id); }
@@ -108,7 +112,11 @@ for (const [line, L] of Object.entries(D.EQUIP_LINES)) {
     if (book && !book.after) check(story.has(`${line}${i + 1}`), `本編の装備 ${line}${i + 1} が本編の素材だけでは作れない`);
   });
 }
-for (const id of Object.keys(D.HOMUNCULI)) check(story.has(id), `ホムンクルス ${id} が本編の素材だけでは作れない`);
+// 【極】以外のレアリティは本編中に作れること
+for (const type of Object.keys(D.HOMUNCULI)) for (const R of D.HOMU_RARITIES) {
+  const book = R.book && D.BOOKS.find(b => b.id === R.book);
+  if (!book || !book.after) check(story.has(`${type}_${R.id}`), `ホムンクルス ${type}_${R.id} が本編の素材だけでは作れない`);
+}
 // クリア後も含めて: 全てのアイテムに入手手段があること
 const all = reachable(D.BOOKS);
 const unreachable = Object.keys(D.ITEMS).filter(k => !all.has(k));

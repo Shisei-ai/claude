@@ -58,6 +58,14 @@ function loadGame() {
     S.homunculi = data.homunculi || [];
     S.nextUid = data.nextUid || 1;
     for (const m of S.machines) if (!m.uid) m.uid = S.nextUid++; // 旧セーブの設備に番号を振る
+    // 旧仕様(個体値なし)のホムンクルスは【並】として能力値を振り直す
+    for (const h of S.homunculi) {
+      if (!h.stats) { const r = rollHomunculus(h.type, 'n'); h.rarity = 'n'; h.stats = r.stats; h.skills = []; h.asleep = false; }
+    }
+    for (const type of Object.keys(HOMUNCULI)) { // 倉庫で眠っていた旧仕様の個体
+      while (count(type) > 0) { addItem(type, -1); const h = rollHomunculus(type, 'n'); h.asleep = true; S.homunculi.push(h); }
+    }
+    for (const m of S.machines) if (m.recipe && !RECIPES[m.recipe] && RECIPES[m.recipe + '_n']) m.recipe += '_n'; // 旧レシピID
     // 旧バージョンの装備IDを読み替え(触媒が段階制になったため)
     for (const [from, to] of Object.entries(EQUIP_RENAMES)) {
       if (S.inv[from]) { addItem(to, S.inv[from]); delete S.inv[from]; }
@@ -234,7 +242,7 @@ function machineStatus(m) {
   const mainOut = Object.keys(r.out)[0];
   if (m.limit > 0 && count(mainOut) >= m.limit) return 'limit';
   // ホムンクルスは養える数(培養の瓶の台数×3)を超えて培養しない
-  if (HOMUNCULI[mainOut] && S.homunculi.length + homuSleeping() >= homuCapacity()) return 'limit';
+  if (ITEMS[mainOut].cat === 'homu' && S.homunculi.length >= homuCapacity()) return 'limit';
   if (!Object.entries(r.in).every(([k, v]) => has(k, v))) return 'wait';
   return 'ready';
 }
@@ -243,88 +251,151 @@ function tickProduction(dt) {
   const speed = productionSpeed();
   const saveChance = 0.08 * skill('ind_save');
   const doubleChance = 0.08 * skill('ind_double');
+  const g = homuGlobal(); // 工房全体にかかるホムンクルスのスキル効果
   for (const m of S.machines) {
     if (!m.recipe) continue;
     const r = RECIPES[m.recipe];
-    // 配置されたホムンクルスの補助(空腹なら効果なし)
+    // 配置されたホムンクルスの補助(個体値・レベル・スキルで決まる。空腹なら原則効果なし)
     const h = homuAt(m);
-    const hb = h && !h.hungry ? { [HOMUNCULI[h.type].effect]: homuEffect(h) } : {};
+    const hb = h ? homuMods(h) : {};
     if (!m.busy) {
       if (machineStatus(m) !== 'ready') continue;
+      const save = Math.min(HOMU_SAVE_CAP, saveChance + (hb.save || 0));
       for (const [k, v] of Object.entries(r.in)) {
-        if (Math.random() >= saveChance + (hb.save || 0)) addItem(k, -v);
+        if (Math.random() >= save) addItem(k, -v);
       }
       m.busy = true;
       m.prog = 0;
     }
-    m.prog += dt * speed * (1 + (hb.speed || 0));
-    if (h) feedHomunculus(h, dt);
+    m.prog += dt * speed * (1 + (hb.speed || 0) + g.speed);
+    if (h) feedHomunculus(h, dt, hb.feedMult);
     if (m.prog >= r.t) {
-      const mult = Math.random() < doubleChance + (hb.double || 0) ? 2 : 1;
+      let mult = Math.random() < doubleChance + (hb.double || 0) ? 2 : 1;
+      if (mult === 2 && Math.random() < (hb.triple || 0)) mult = 3;
       for (const [k, v] of Object.entries(r.out)) {
+        if (ITEMS[k].cat === 'homu') { for (let i = 0; i < v; i++) birthHomunculus(k); continue; } // 培養されたホムンクルスは個体として生まれる
         addItem(k, v * mult);
         S.stats.made[k] = (S.stats.made[k] || 0) + v * mult;
       }
       gainAXP(r.xp * (1 + (hb.wisdom || 0)));
-      if (h && !h.hungry) homuGainXp(h);
+      if (h && hb.grow) homuGainXp(h, hb.grow * (1 + g.grow));
       m.busy = false;
       m.prog = 0;
     }
   }
-  awakenHomunculi();
+  wakeHomunculi();
+}
+
+// その設備の実際の生産速度(技能 × 配置したホムンクルス × 工房全体への効果)
+function machineSpeed(m) {
+  const h = homuAt(m);
+  return productionSpeed() * (1 + (h ? homuMods(h).speed : 0) + homuGlobal().speed);
 }
 
 // ---- ホムンクルス ----------------------------------------------
-// その設備の実際の生産速度(技能 × 配置したホムンクルス)
-function machineSpeed(m) {
-  const h = homuAt(m);
-  const bonus = h && !h.hungry && HOMUNCULI[h.type].effect === 'speed' ? homuEffect(h) : 0;
-  return productionSpeed() * (1 + bonus);
-}
+// 1体のデータ: { id, type, rarity, name, lv, xp, stats: {dex, vit, int, luk}, skills: [...], at(配置先の設備uid), asleep, hunger, hungry }
 function homuCapacity() { return countMachines(S, 'incubator') * HOMU_PER_JAR; }
-function homuAt(m) { return S.homunculi.find(h => h.at === m.uid) || null; }
-function homuEffect(h) { const d = HOMUNCULI[h.type]; return d.base + d.perLv * (h.lv - 1); }
-// 培養された(倉庫にいる)ホムンクルスの数
-function homuSleeping() { return Object.keys(HOMUNCULI).reduce((a, id) => a + count(id), 0); }
+function homuAwake() { return S.homunculi.filter(h => !h.asleep); }
+function homuAt(m) { return S.homunculi.find(h => h.at === m.uid && !h.asleep) || null; }
+function homuMaxLv(h) { return homuRarity(h.rarity).maxLv; }
+// 本来の仕事の効果(レベルと器用さで決まる)
+function homuEffect(h) {
+  const d = HOMUNCULI[h.type];
+  return (d.base + d.perLv * (h.lv - 1)) * (0.7 + 0.03 * h.stats.dex);
+}
+// その個体が配置先の設備に与える効果をまとめて計算する
+function homuMods(h) {
+  const sk = h.skills.map(id => HOMU_SKILLS[id].mod);
+  const hungryWork = sk.some(m => m.hungryWork);
+  const k = h.hungry ? (hungryWork ? 0.5 : 0) : 1; // 空腹: 効果なし(不屈なら半分)
+  const mods = { speed: 0, save: 0, double: 0, wisdom: 0, triple: 0 };
+  mods[HOMUNCULI[h.type].effect] += homuEffect(h);
+  mods.double += 0.005 * h.stats.luk;
+  for (const m of sk) for (const key of Object.keys(mods)) mods[key] += m[key] || 0;
+  for (const key of Object.keys(mods)) mods[key] *= k;
+  mods.feedMult = (0.8 + 0.03 * h.stats.vit) * (1 + sk.reduce((a, m) => a + (m.feed || 0), 0));
+  mods.grow = k * (0.5 + 0.075 * h.stats.int) * (1 + sk.reduce((a, m) => a + (m.grow || 0), 0));
+  return mods;
+}
+// 工房全体への効果(配置されていて空腹でない個体のスキルを合計)
+function homuGlobal() {
+  let speed = 0, grow = 0;
+  for (const h of S.homunculi) {
+    if (h.asleep || h.at == null || h.hungry) continue;
+    for (const id of h.skills) { const m = HOMU_SKILLS[id].mod; speed += m.globalSpeed || 0; grow += m.globalGrow || 0; }
+  }
+  return { speed: Math.min(HOMU_GLOBAL_SPEED_CAP, speed), grow };
+}
 
-// 倉庫で眠っているホムンクルスを、空きがあれば目覚めさせる
-function awakenHomunculi() {
-  for (const type of Object.keys(HOMUNCULI)) {
-    while (count(type) > 0 && S.homunculi.length < homuCapacity()) {
-      addItem(type, -1);
-      const used = new Set(S.homunculi.map(h => h.name));
-      const free = HOMU_NAMES.filter(n => !used.has(n));
-      const name = free.length ? free[Math.floor(Math.random() * free.length)] : `${HOMU_NAMES[0]}${S.homunculi.length + 1}`;
-      S.homunculi.push({ id: S.nextUid++, type, name, lv: 1, xp: 0, at: null, hunger: 0, hungry: false });
-      log(`${HOMUNCULI[type].name}「${name}」が目を覚ました`, 'good');
-    }
+// 個体を1体生み出す: 能力値とスキルはこの瞬間に決まる
+function rollHomunculus(type, rarity) {
+  const R = homuRarity(rarity);
+  const roll = () => R.iv[0] + Math.floor(Math.random() * (R.iv[1] - R.iv[0] + 1));
+  const stats = {};
+  for (const [key] of HOMU_STATS) stats[key] = roll();
+  const skills = [];
+  for (const rank of R.skills) {
+    const pool = Object.keys(HOMU_SKILLS).filter(id => HOMU_SKILLS[id].rank === rank && !skills.includes(id)
+      && (!HOMU_SKILLS[id].type || HOMU_SKILLS[id].type === type));
+    if (pool.length) skills.push(pool[Math.floor(Math.random() * pool.length)]);
+  }
+  const used = new Set(S.homunculi.map(h => h.name));
+  const free = HOMU_NAMES.filter(n => !used.has(n));
+  const name = free.length ? free[Math.floor(Math.random() * free.length)] : `${HOMU_NAMES[0]}${S.homunculi.length + 1}`;
+  return { id: S.nextUid++, type, rarity: R.id, name, lv: 1, xp: 0, stats, skills, at: null, asleep: false, hunger: 0, hungry: false };
+}
+const homuTotal = h => HOMU_STATS.reduce((a, [k]) => a + h.stats[k], 0);
+function birthHomunculus(itemId) {
+  const it = ITEMS[itemId];
+  const h = rollHomunculus(it.homuType, it.rarity);
+  h.asleep = homuAwake().length >= homuCapacity(); // 空きが無ければ瓶の中で眠って待つ
+  S.homunculi.push(h);
+  S.stats.made[itemId] = (S.stats.made[itemId] || 0) + 1;
+  log(`【${homuRarity(h.rarity).name}】${HOMUNCULI[h.type].short}の「${h.name}」が生まれた（能力値合計 ${homuTotal(h)}${h.skills.length ? '・' + h.skills.map(id => HOMU_SKILLS[id].name).join('・') : ''}）`, 'good');
+}
+// 眠っている個体を、空きがあれば目覚めさせる
+function wakeHomunculi() {
+  for (const h of S.homunculi) {
+    if (!h.asleep) continue;
+    if (homuAwake().length >= homuCapacity()) break;
+    h.asleep = false;
+    log(`「${h.name}」が目を覚ました`, 'good');
   }
 }
-// 働いている間に空腹が溜まり、一定ごとに培養液を1つ食べる。無ければ空腹で効果が止まる
-function feedHomunculus(h, dt) {
+// 働いている間に空腹が溜まり、一定ごとに培養液を1つ食べる。無ければ空腹になる
+function feedHomunculus(h, dt, feedMult = 1) {
+  const need = HOMU_FEED_SEC * feedMult;
   h.hunger += dt;
-  if (h.hunger < HOMU_FEED_SEC) return;
+  if (h.hunger < need) return;
   if (has('nutrient')) {
     addItem('nutrient', -1);
-    h.hunger -= HOMU_FEED_SEC;
-    if (h.hungry) { h.hungry = false; }
+    h.hunger -= need;
+    h.hungry = false;
   } else {
     if (!h.hungry) log(`「${h.name}」がお腹を空かせている（培養液が足りない）`, 'bad');
     h.hungry = true;
-    h.hunger = HOMU_FEED_SEC;
+    h.hunger = need;
   }
 }
-function homuGainXp(h) {
-  if (h.lv >= HOMU_MAX_LV) return;
-  h.xp++;
-  if (h.xp >= homuXpNeed(h.lv)) {
-    h.xp = 0; h.lv++;
+function homuGainXp(h, amount) {
+  if (h.lv >= homuMaxLv(h)) return;
+  h.xp += amount;
+  while (h.lv < homuMaxLv(h) && h.xp >= homuXpNeed(h.lv)) {
+    h.xp -= homuXpNeed(h.lv); h.lv++;
     log(`「${h.name}」のレベルが ${h.lv} に上がった`, 'good');
   }
+  if (h.lv >= homuMaxLv(h)) h.xp = 0;
+}
+// 瓶に還す: 個体は消え、レアリティに応じた培養液が戻る
+function releaseHomunculus(h) {
+  S.homunculi.splice(S.homunculi.indexOf(h), 1);
+  const n = HOMU_RELEASE_NUTRIENT[HOMU_RARITIES.findIndex(r => r.id === h.rarity)] || 3;
+  addItem('nutrient', n);
+  log(`「${h.name}」を瓶に還した（培養液 +${n}）`);
 }
 function assignHomunculus(hid, uid) {
   const h = S.homunculi.find(x => x.id === hid);
-  if (!h) return;
+  if (!h || h.asleep) return;
   const other = S.homunculi.find(x => x.at === uid && uid != null);
   if (other && other !== h) other.at = null; // 1つの設備に1体まで(入れ替え)
   h.at = uid;
