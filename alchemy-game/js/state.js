@@ -20,7 +20,9 @@ function newState() {
     sp: 0,            // スキルポイント
     books: {},        // 読んだ書物 { id: true }
     skills: {},       // 習得した技能 { id: ランク }
-    machines: [newMachine('pot')],     // 工房にある設備(最初から壺が1つある)
+    machines: [{ uid: 1, type: 'pot', recipe: null, prog: 0, busy: false, on: true, limit: 0 }], // 工房にある設備(最初から壺が1つある)
+    nextUid: 2,       // 設備・ホムンクルスに振る通し番号
+    homunculi: [],    // 工房で働くホムンクルス
     slots: [null, null, null, null, null, null], // 数字キー1〜6の魔法 ('fire:2' = 火球のグレードII)
     flags: { prologue: false, bossDefeated: false, ended: false },
     equip: { staff: null, robe: null, catalyst: null },  // 装備中のアイテムID
@@ -30,8 +32,9 @@ function newState() {
   };
 }
 
+// uid: 設備ごとの固定番号(他の設備を撤去しても変わらない。ホムンクルスの配置先に使う)
 function newMachine(type) {
-  return { type, recipe: null, prog: 0, busy: false, on: true, limit: 0 };
+  return { uid: S.nextUid++, type, recipe: null, prog: 0, busy: false, on: true, limit: 0 };
 }
 
 // ---- セーブ / ロード ----------------------------------------
@@ -52,6 +55,9 @@ function loadGame() {
     S.stats = Object.assign(newState().stats, data.stats);
     S.equip = Object.assign(newState().equip, data.equip);
     S.post = Object.assign(newState().post, data.post);
+    S.homunculi = data.homunculi || [];
+    S.nextUid = data.nextUid || 1;
+    for (const m of S.machines) if (!m.uid) m.uid = S.nextUid++; // 旧セーブの設備に番号を振る
     // 旧バージョンの装備IDを読み替え(触媒が段階制になったため)
     for (const [from, to] of Object.entries(EQUIP_RENAMES)) {
       if (S.inv[from]) { addItem(to, S.inv[from]); delete S.inv[from]; }
@@ -227,6 +233,8 @@ function machineStatus(m) {
   const r = RECIPES[m.recipe];
   const mainOut = Object.keys(r.out)[0];
   if (m.limit > 0 && count(mainOut) >= m.limit) return 'limit';
+  // ホムンクルスは養える数(培養の瓶の台数×3)を超えて培養しない
+  if (HOMUNCULI[mainOut] && S.homunculi.length + homuSleeping() >= homuCapacity()) return 'limit';
   if (!Object.entries(r.in).every(([k, v]) => has(k, v))) return 'wait';
   return 'ready';
 }
@@ -238,26 +246,88 @@ function tickProduction(dt) {
   for (const m of S.machines) {
     if (!m.recipe) continue;
     const r = RECIPES[m.recipe];
+    // 配置されたホムンクルスの補助(空腹なら効果なし)
+    const h = homuAt(m);
+    const hb = h && !h.hungry ? { [HOMUNCULI[h.type].effect]: homuEffect(h) } : {};
     if (!m.busy) {
       if (machineStatus(m) !== 'ready') continue;
       for (const [k, v] of Object.entries(r.in)) {
-        if (Math.random() >= saveChance) addItem(k, -v);
+        if (Math.random() >= saveChance + (hb.save || 0)) addItem(k, -v);
       }
       m.busy = true;
       m.prog = 0;
     }
-    m.prog += dt * speed;
+    m.prog += dt * speed * (1 + (hb.speed || 0));
+    if (h) feedHomunculus(h, dt);
     if (m.prog >= r.t) {
-      const mult = Math.random() < doubleChance ? 2 : 1;
+      const mult = Math.random() < doubleChance + (hb.double || 0) ? 2 : 1;
       for (const [k, v] of Object.entries(r.out)) {
         addItem(k, v * mult);
         S.stats.made[k] = (S.stats.made[k] || 0) + v * mult;
       }
-      gainAXP(r.xp);
+      gainAXP(r.xp * (1 + (hb.wisdom || 0)));
+      if (h && !h.hungry) homuGainXp(h);
       m.busy = false;
       m.prog = 0;
     }
   }
+  awakenHomunculi();
+}
+
+// ---- ホムンクルス ----------------------------------------------
+// その設備の実際の生産速度(技能 × 配置したホムンクルス)
+function machineSpeed(m) {
+  const h = homuAt(m);
+  const bonus = h && !h.hungry && HOMUNCULI[h.type].effect === 'speed' ? homuEffect(h) : 0;
+  return productionSpeed() * (1 + bonus);
+}
+function homuCapacity() { return countMachines(S, 'incubator') * HOMU_PER_JAR; }
+function homuAt(m) { return S.homunculi.find(h => h.at === m.uid) || null; }
+function homuEffect(h) { const d = HOMUNCULI[h.type]; return d.base + d.perLv * (h.lv - 1); }
+// 培養された(倉庫にいる)ホムンクルスの数
+function homuSleeping() { return Object.keys(HOMUNCULI).reduce((a, id) => a + count(id), 0); }
+
+// 倉庫で眠っているホムンクルスを、空きがあれば目覚めさせる
+function awakenHomunculi() {
+  for (const type of Object.keys(HOMUNCULI)) {
+    while (count(type) > 0 && S.homunculi.length < homuCapacity()) {
+      addItem(type, -1);
+      const used = new Set(S.homunculi.map(h => h.name));
+      const free = HOMU_NAMES.filter(n => !used.has(n));
+      const name = free.length ? free[Math.floor(Math.random() * free.length)] : `${HOMU_NAMES[0]}${S.homunculi.length + 1}`;
+      S.homunculi.push({ id: S.nextUid++, type, name, lv: 1, xp: 0, at: null, hunger: 0, hungry: false });
+      log(`${HOMUNCULI[type].name}「${name}」が目を覚ました`, 'good');
+    }
+  }
+}
+// 働いている間に空腹が溜まり、一定ごとに培養液を1つ食べる。無ければ空腹で効果が止まる
+function feedHomunculus(h, dt) {
+  h.hunger += dt;
+  if (h.hunger < HOMU_FEED_SEC) return;
+  if (has('nutrient')) {
+    addItem('nutrient', -1);
+    h.hunger -= HOMU_FEED_SEC;
+    if (h.hungry) { h.hungry = false; }
+  } else {
+    if (!h.hungry) log(`「${h.name}」がお腹を空かせている（培養液が足りない）`, 'bad');
+    h.hungry = true;
+    h.hunger = HOMU_FEED_SEC;
+  }
+}
+function homuGainXp(h) {
+  if (h.lv >= HOMU_MAX_LV) return;
+  h.xp++;
+  if (h.xp >= homuXpNeed(h.lv)) {
+    h.xp = 0; h.lv++;
+    log(`「${h.name}」のレベルが ${h.lv} に上がった`, 'good');
+  }
+}
+function assignHomunculus(hid, uid) {
+  const h = S.homunculi.find(x => x.id === hid);
+  if (!h) return;
+  const other = S.homunculi.find(x => x.at === uid && uid != null);
+  if (other && other !== h) other.at = null; // 1つの設備に1体まで(入れ替え)
+  h.at = uid;
 }
 
 // 画面を閉じていた間の生産をまとめて計算する(放置要素)

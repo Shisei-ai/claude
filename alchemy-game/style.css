@@ -254,3 +254,12 @@ input[type=number] { width: 64px; }
 .tier { display: inline-block; min-width: 26px; text-align: center; font: 700 12px var(--serif); color: var(--gold); border: 1px solid var(--gold); border-radius: 4px; padding: 0 4px; }
 .tag { font-size: 10px; padding: 1px 6px; border-radius: 8px; background: #3fdf8f22; color: var(--good); }
 .tag.post { background: #ff5a7a22; color: #ff8aa0; }
+
+/* ---- ホムンクルス ---- */
+.homus { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; }
+.homu { display: flex; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+.hbody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.hname { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-family: var(--serif); }
+.hname b { font-size: 16px; }
+.homu select, .homu-row select { flex: 1; min-width: 0; }
+.homu-row { font-size: 12px; }

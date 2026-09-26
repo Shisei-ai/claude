@@ -15,7 +15,7 @@ const DEBUG = { on: /[?&]debug/.test(location.search), speed: 1 };
 // [ID, 表示名, 表示条件(省略時は常に表示)]
 const TABS = [
   ['workshop', '工房'], ['storage', '倉庫'], ['library', '書庫'],
-  ['skills', '技能'], ['magic', '魔法'], ['equip', '装備', () => unlocked('machines').has('forge')], ['explore', '探索'], ['log', '記録'],
+  ['skills', '技能'], ['magic', '魔法'], ['equip', '装備', () => unlocked('machines').has('forge')], ['homu', 'ホムンクルス', () => unlocked('machines').has('incubator')], ['explore', '探索'], ['log', '記録'],
 ];
 
 const fmtTime = sec => `${Math.floor(sec / 3600)}時間${Math.floor(sec % 3600 / 60)}分`;
@@ -61,6 +61,18 @@ const UI = {
         m.recipe = t.value || null;
         this.render();
       }
+      // ホムンクルスの配置(工房の設備カード / ホムンクルスタブのどちらからでも)
+      if (t.dataset.homuMachine !== undefined) {
+        const uid = +t.dataset.homuMachine;
+        const cur = S.homunculi.find(h => h.at === uid);
+        if (cur) cur.at = null;
+        if (t.value) assignHomunculus(+t.value, uid);
+        this.render();
+      }
+      if (t.dataset.homu !== undefined) {
+        assignHomunculus(+t.dataset.homu, t.value ? +t.value : null);
+        this.render();
+      }
       if (t.dataset.limit !== undefined) {
         S.machines[+t.dataset.limit].limit = Math.max(0, parseInt(t.value, 10) || 0);
       }
@@ -79,11 +91,26 @@ const UI = {
     switch (act) {
       case 'build': buildMachine(arg); break;
       case 'toggle': { const m = S.machines[+arg]; m.on = !m.on; break; }
+      case 'homu-release': {
+        const h = S.homunculi.find(x => x.id === +arg);
+        if (h && confirm(`「${h.name}」を瓶に還しますか？（元には戻せません）`)) {
+          S.homunculi.splice(S.homunculi.indexOf(h), 1);
+          log(`「${h.name}」を瓶に還した`);
+        }
+        break;
+      }
+      case 'homu-rename': {
+        const h = S.homunculi.find(x => x.id === +arg);
+        const name = h && prompt('新しい名前（10文字まで）', h.name);
+        if (name && name.trim()) h.name = name.trim().slice(0, 10);
+        break;
+      }
       case 'remove': {
         const m = S.machines[+arg];
         if (m.type === 'pot' && countMachines(S, 'pot') <= 1) { this.toast('最後の抽出の壺は撤去できません', 'bad'); return; }
         if (!confirm(`${MACHINES[m.type].name}を撤去しますか？（建造素材は戻りません）`)) return;
         if (m.busy) for (const [k, v] of Object.entries(RECIPES[m.recipe].in)) addItem(k, v);
+        S.homunculi.forEach(h => { if (h.at === m.uid) h.at = null; });
         S.machines.splice(+arg, 1);
         break;
       }
@@ -136,7 +163,7 @@ const UI = {
   // これが変化したら画面全体を描き直す
   signature() {
     return [S.mlv, S.alv, S.sp, S.machines.length, Object.keys(S.inv).sort().join(','),
-      S.machines.map(m => machineStatus(m)).join(''), S.flags.bossDefeated, S.flags.ended, JSON.stringify(S.post), JSON.stringify(S.equip), OBJECTIVES.findIndex(o => !o.done(S))].join('|');
+      S.machines.map(m => machineStatus(m)).join(''), S.flags.bossDefeated, S.flags.ended, JSON.stringify(S.post), JSON.stringify(S.equip), S.homunculi.map(h => h.id + ':' + h.at + ':' + h.lv + ':' + h.hungry).join(','), OBJECTIVES.findIndex(o => !o.done(S))].join('|');
   },
 
   tick() {
@@ -213,9 +240,10 @@ const UI = {
           ${r ? `<div class="recipe">
               ${Object.keys(r.in).length ? Object.entries(r.in).map(([k, v]) => itemReq(k, v)).join('<i>+</i>') : '<span class="muted">（材料不要）</span>'}
               <i class="arrow">→</i>${Object.entries(r.out).map(([k, v]) => itemOut(k, v)).join('')}
-              <span class="muted small">${(r.t / productionSpeed()).toFixed(1)}秒 / A.xp ${r.xp}</span>
+              <span class="muted small">${(r.t / machineSpeed(m)).toFixed(1)}秒 / A.xp ${r.xp}</span>
             </div>
             <div class="prog"><div data-prog="${i}"></div></div>` : '<div class="recipe muted">レシピを選ぶと、倉庫から自動で材料を取り出して作り続けます。</div>'}
+          ${this.homuRow(m)}
           <div class="mrow ctrl">
             <label title="生産物がこの数に達したら作業を止めます。0で無制限。">在庫上限 <input type="number" min="0" step="1" value="${m.limit}" data-limit="${i}"></label>
             <button class="btn sm" data-act="toggle" data-arg="${i}">${m.on ? '一時停止' : '再開'}</button>
@@ -459,6 +487,68 @@ const UI = {
       }
     }
     return h;
+  },
+
+  // ---- ホムンクルス ----
+  // 設備の表示名: 「精錬の竈 #2（木炭）」
+  machineLabel(m) {
+    const n = S.machines.filter(x => x.type === m.type).indexOf(m) + 1;
+    const out = m.recipe ? Object.keys(RECIPES[m.recipe].out).map(k => ITEMS[k].name).join('・') : '未設定';
+    return `${MACHINES[m.type].name} #${n}（${out}）`;
+  },
+  homuStatus(h) {
+    const m = S.machines.find(x => x.uid === h.at);
+    if (!m) return ['未配置', 'st-idle'];
+    if (h.hungry) return ['空腹', 'st-wait'];
+    return m.busy ? ['働いている', 'st-work'] : ['待機中', 'st-ready'];
+  },
+  // 工房の設備カードに出す「補助ホムンクルス」の行
+  homuRow(m) {
+    if (!S.homunculi.length) return '';
+    const h = homuAt(m);
+    return `<div class="mrow homu-row">
+      <span class="small muted">補助</span>
+      <select data-homu-machine="${m.uid}"><option value="">（なし）</option>
+        ${S.homunculi.map(x => `<option value="${x.id}" ${x === h ? 'selected' : ''}>${esc(x.name)} Lv${x.lv}・${HOMUNCULI[x.type].name.replace('のホムンクルス', '')}${x.at != null && x !== h ? '（配置中）' : ''}</option>`).join('')}</select>
+      ${h ? `<span class="small ${h.hungry ? 'bad' : 'good'}">${h.hungry ? '空腹' : HOMU_EFFECT_TEXT[HOMUNCULI[h.type].effect](homuEffect(h))}</span>` : ''}
+    </div>`;
+  },
+  r_homu() {
+    const cap = homuCapacity(), working = S.homunculi.filter(h => { const m = S.machines.find(x => x.uid === h.at); return m && m.busy; }).length;
+    let h = `<div class="panel-head"><h2>ホムンクルス</h2><p class="sub">【培養の瓶】で生まれたホムンクルスは、設備に1体ずつ配置すると仕事を手伝います。
+      働くほどレベルが上がり（最大Lv${HOMU_MAX_LV}）、効果が伸びます。働いている間は${HOMU_FEED_SEC}秒ごとに【培養液】を1つ食べ、切らすと空腹で効果が止まります。</p></div>
+      <div class="card small">養っている数 <b>${S.homunculi.length}</b> / ${cap}（培養の瓶1台につき${HOMU_PER_JAR}体）
+        ・ 培養液 <b data-inv="nutrient">${count('nutrient')}</b>（いま働いている${working}体で 約${(working * 60 / HOMU_FEED_SEC).toFixed(1)}個/分）
+        ${homuSleeping() ? ` ・ <span class="bad">瓶の中で眠っている ${homuSleeping()}体（培養の瓶を増やすと目覚める）</span>` : ''}</div>`;
+    if (!S.homunculi.length) h += '<p class="muted">まだホムンクルスはいない。工房で【培養の瓶】を建て、ホムンクルスを培養しよう。</p>';
+    h += '<div class="homus">';
+    for (const x of S.homunculi) {
+      const d = HOMUNCULI[x.type], [st, cls] = this.homuStatus(x);
+      const next = x.lv < HOMU_MAX_LV ? `（次のLv: ${HOMU_EFFECT_TEXT[d.effect](d.base + d.perLv * x.lv)}）` : '（最大レベル）';
+      h += `<div class="homu">
+        ${Assets.html(`homunculi/${x.type}`, 'mic img') || `<span class="mic" style="--c:${d.color}">${d.ch}</span>`}
+        <div class="hbody">
+          <div class="hname"><b>${esc(x.name)}</b> <small>Lv${x.lv}</small> <span class="status ${cls}">${st}</span>
+            <button class="btn sm ghost" data-act="homu-rename" data-arg="${x.id}">名前</button></div>
+          <div class="small muted">${d.name}</div>
+          <div class="small">${HOMU_EFFECT_TEXT[d.effect](homuEffect(x))} <span class="muted">${next}</span></div>
+          <div class="prog"><div style="width:${x.lv >= HOMU_MAX_LV ? 100 : x.xp / homuXpNeed(x.lv) * 100}%"></div></div>
+          <div class="mrow"><select data-homu="${x.id}"><option value="">（配置しない）</option>
+            ${S.machines.map(m => `<option value="${m.uid}" ${m.uid === x.at ? 'selected' : ''}>${this.machineLabel(m)}${homuAt(m) && homuAt(m) !== x ? ' ─ ' + esc(homuAt(m).name) + 'と交代' : ''}</option>`).join('')}</select>
+            <button class="btn sm ghost" data-act="homu-release" data-arg="${x.id}">瓶に還す</button></div>
+        </div></div>`;
+    }
+    h += '</div><h3 class="cat">ホムンクルスの種類</h3><div class="eqlist">';
+    const recipes = unlocked('recipes');
+    for (const [id, d] of Object.entries(HOMUNCULI)) {
+      const rid = Object.keys(RECIPES).find(r => RECIPES[r].out[id]);
+      const book = BOOKS.find(b => (b.unlock.recipes || []).includes(rid));
+      const known = recipes.has(rid);
+      h += `<div class="eqitem">${icon(id, 'big')}<div><b>${known ? d.name : '？？？'}</b>
+        <div class="small">${known ? `${d.desc} Lv1: ${HOMU_EFFECT_TEXT[d.effect](d.base)} → Lv${HOMU_MAX_LV}: ${HOMU_EFFECT_TEXT[d.effect](d.base + d.perLv * (HOMU_MAX_LV - 1))}` : ''}</div>
+        <div class="recipe">${known ? Object.entries(RECIPES[rid].in).map(([k, v]) => itemReq(k, v)).join('') : `<span class="muted small">『${book.name}』（A.Lv ${book.lv}）に記載</span>`}</div></div></div>`;
+    }
+    return h + '</div>';
   },
 
   // ---- 記録 ----
