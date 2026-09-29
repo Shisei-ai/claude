@@ -1,6 +1,7 @@
 // リザルト — Unity版 RunSummaryUI.cs + MetaProgression.RecordRunEnd の移植
 // 敗北は「状態の記録」のみ (GameOverシーン廃止のUnity版リファクタ準拠)
 import Phaser from 'phaser';
+import { playBgm } from '../audio/bgm';
 import { COLORS, makeButton, textStyle, drawSceneBackground } from '../ui/theme';
 import { loadRun, clearRun } from '../core/save';
 import { recordRunEnd } from '../core/meta';
@@ -24,6 +25,7 @@ export class ResultScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = this.scale;
+    playBgm(this, null);   // 結末は無音で文章を読ませる
     drawSceneBackground(this, this.won ? 0x0d1108 : 0x110708);
 
     const run = loadRun();

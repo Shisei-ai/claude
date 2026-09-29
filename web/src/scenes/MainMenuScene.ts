@@ -3,6 +3,7 @@
 import Phaser from 'phaser';
 import { COLORS, makeButton, textStyle, drawSceneBackground } from '../ui/theme';
 import { hasSavedRun, loadMeta, clearRun } from '../core/save';
+import { playBgm } from '../audio/bgm';
 
 export class MainMenuScene extends Phaser.Scene {
   constructor() { super('MainMenu'); }
@@ -39,6 +40,13 @@ export class MainMenuScene extends Phaser.Scene {
       this.scene.start('Meta');
     });
     y += gap;
+
+    makeButton(this, cx, y, '設定', () => {
+      this.scene.start('Settings', { from: 'MainMenu' });
+    });
+    y += gap;
+
+    playBgm(this, 'title');
 
     // 記録
     this.add.text(cx, height * 0.88,

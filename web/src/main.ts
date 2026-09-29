@@ -10,6 +10,7 @@ import { MetaScene } from './scenes/MetaScene';
 import { FinaleScene } from './scenes/FinaleScene';
 import { EquipScene } from './scenes/EquipScene';
 import { PhantomJoinScene } from './scenes/PhantomJoinScene';
+import { SettingsScene } from './scenes/SettingsScene';
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -33,5 +34,6 @@ new Phaser.Game({
     FinaleScene,
     EquipScene,
     PhantomJoinScene,
+    SettingsScene,
   ],
 });

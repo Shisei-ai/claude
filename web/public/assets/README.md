@@ -20,7 +20,13 @@ id: bernhard / lavinia / ash / lilia / zeno
 ## 背景 (public/assets/bg/)
 - 16:9 (1280x720 以上)。対応後に src/data/assets.ts の BG_ART に登録する。
 
+## BGM (public/assets/audio/)
+- `<key>.mp3` … ループ再生される曲。置かなければ無音 (効果音は合成音で常に鳴る)。
+- key: title (タイトル・メニュー) / floor0〜floor3 (各層の探索) /
+  battle (通常戦) / boss (ボス戦) / finale (最終層)
+
 ## 反映の仕組み
-- src/data/assets.ts に宣言済みのパスを PreloadScene が起動時に読み込む。
+- src/data/assets.ts に宣言済みのパスのうち、実在するファイルだけを PreloadScene が起動時に読み込む
+  (ビルド時に public/assets の一覧を作るため、未配置のファイルを読みに行ってエラーを出さない)。
 - ファイルが無い枠は自動で従来の矩形描画にフォールバック (ゲームは落ちない)。
 - 透過が無い画像でも表示は可能だが、切り抜き済み透過PNGを推奨。

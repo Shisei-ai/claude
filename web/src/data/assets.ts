@@ -77,6 +77,18 @@ export const BG_ART: Record<string, string> = Object.fromEntries(
   BG_KEYS.map((k) => [k, `assets/bg/${k}.png`]),
 );
 
+/** BGM キー → パス (public/assets/audio/<key>.mp3)。無い曲は無音 */
+const BGM_KEYS: string[] = [
+  'title',                                  // タイトル・メニュー
+  'floor0', 'floor1', 'floor2', 'floor3',   // 各層の探索 (マップ・イベント)
+  'battle', 'boss',                         // 通常戦 / ボス戦
+  'finale',                                 // 最終層
+];
+export const BGM_ART: Record<string, string> = Object.fromEntries(
+  BGM_KEYS.map((k) => [k, `assets/audio/${k}.mp3`]),
+);
+export const bgmKey = (key: string): string => `bgm_${key}`;
+
 /** EndingType → アリーナ/一枚絵のファイル語幹 */
 export const ENDING_BG_STEM: Record<string, string> = {
   DemonKing: 'demon_king', AbyssGod: 'abyss_god', TimeWraith: 'time_wraith',

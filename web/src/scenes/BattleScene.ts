@@ -13,6 +13,9 @@ import { FLOORS } from '../data/enemies';
 import { getCharacter } from '../data/characters';
 import { RelicBattleState } from '../battle/relicHooks';
 import { getBoostPreview } from '../battle/boost';
+import { playSfx } from '../audio/sfx';
+import { playBgm } from '../audio/bgm';
+import { getSettings, updateSettings, BATTLE_SPEEDS } from '../core/settings';
 import { hasArt } from './PreloadScene';
 import { charFullKey, enemyArtKey, bgArtKey, ENDING_BG_STEM, artFrame } from '../data/assets';
 import {
@@ -38,6 +41,9 @@ const ELEMENT_BADGE: Record<ElementType, { label: string; color: string }> = {
 };
 
 interface WeakSlot { el: ElementType; box: Phaser.GameObjects.Rectangle; text: Phaser.GameObjects.Text }
+
+/** 付与されたときに上昇音を鳴らす状態 (それ以外は下降音) */
+const BUFF_STATUSES = new Set(['AtkUp', 'MatkUp', 'DefUp', 'SpdUp', 'Regen', 'RegenFlat', 'CritUp', 'Afterimage', 'Barrier']);
 
 export class BattleScene extends Phaser.Scene {
   private run!: RunState;
@@ -79,6 +85,8 @@ export class BattleScene extends Phaser.Scene {
     this.commandContainer = null;
     this.boostLevel = 0;
     this.processing = false;
+
+    playBgm(this, this.run.currentFloor >= 4 ? 'finale' : this.nodeType === 'Boss' ? 'boss' : 'battle');
 
     // 背景: 画像があれば全面表示、無ければフロアごとの色味
     const floorTints = [0x0d0a16, 0x08120a, 0x160810, 0x14100a];
@@ -149,6 +157,7 @@ export class BattleScene extends Phaser.Scene {
           .setStrokeStyle(2, 0xd8d0e8);
       }
       sprite.setDepth(i === 0 ? 5 : 4);   // 主人公を手前に
+      sprite.setData('homeX', x);
       this.add.text(x, feetY - bodyH - 12, h.name.split('・')[0], labelStyle(i === 0 ? 14 : 12))
         .setOrigin(0.5).setDepth(6);
       if (!h.isAlive) sprite.setAlpha(0.25);
@@ -207,7 +216,7 @@ export class BattleScene extends Phaser.Scene {
           if (revealAll || known.has(el)) this.showWeakSlot(slot, false);
         });
       }
-      container.setData({ combatant: e, rect, hpText, shieldText, bodyH, bodyW, labelTop, weakSlots });
+      container.setData({ combatant: e, rect, hpText, shieldText, bodyH, bodyW, labelTop, weakSlots, homeX: x });
       this.enemySprites.push(container);
     });
 
@@ -216,6 +225,7 @@ export class BattleScene extends Phaser.Scene {
       .setStrokeStyle(1, COLORS.border);
     this.msgText = this.add.text(width / 2, 60, `${this.enemyDefs.map((d) => d.name).join('、')} が現れた！`,
       textStyle(17)).setOrigin(0.5);
+    this.createSpeedToggle();
 
     // HUD領域
     this.hudG = this.add.graphics();
@@ -265,7 +275,7 @@ export class BattleScene extends Phaser.Scene {
       const e = events[i++];
       const delay = this.renderEvent(e);
       this.refreshDisplay();
-      this.time.delayedCall(delay, step);
+      this.time.delayedCall(this.spd(delay), step);
     };
     step();
   }
@@ -274,14 +284,21 @@ export class BattleScene extends Phaser.Scene {
     switch (e.kind) {
       case 'message':
         this.msgText.setText(e.text);
+        if (e.text.includes('回避')) playSfx('miss');
         return 550;
       case 'skillUse':
         this.msgText.setText(`${e.user.name} の ${e.skillName}！`);
+        this.lunge(e.user);
+        if (e.skillName !== '攻撃') playSfx('skill');
         return 420;
       case 'damage': {
         this.spawnDamageNumber(e.target, e.amount,
           e.isCrit ? '#ffd24a' : '#ffffff', e.isCrit, e.isWeak);
         this.flashCombatant(e.target);
+        if (e.amount > 0) {
+          this.shake(e.target, e.isCrit ? 9 : 6);
+          playSfx(e.isWeak ? 'weak' : e.isCrit ? 'crit' : 'hit');
+        }
         if (e.isWeak && e.element && !e.target.isPlayer) this.revealWeakness(e.target, e.element);
         return e.isCrit ? 480 : 320;
       }
@@ -290,10 +307,13 @@ export class BattleScene extends Phaser.Scene {
         return 350;
       case 'heal':
         this.spawnDamageNumber(e.target, e.amount, '#6ade8a', false, false, '+');
+        this.healRing(e.target);
+        playSfx('heal');
         return 350;
       case 'status':
         if (e.applied) {
           this.msgText.setText(`${e.target.name} に ${STATUS_DISPLAY_NAME[e.status]}`);
+          playSfx(BUFF_STATUSES.has(e.status) ? 'buff' : 'debuff');
           return 380;
         }
         return 60;
@@ -311,13 +331,20 @@ export class BattleScene extends Phaser.Scene {
         return 700;
       case 'break': {
         this.msgText.setText(`⚡ ${e.target.name} を Break！`);
-        this.cameras.main.shake(200, 0.008);
-        return 600;
+        this.cameras.main.shake(this.spd(240), 0.01);
+        this.breakBurst(e.target);
+        playSfx('break');
+        return 700;
       }
       case 'defeat': {
         const sprite = this.findEnemySprite(e.target);
         if (sprite) {
-          this.tweens.add({ targets: sprite, alpha: 0, duration: 400 });
+          // 沈みながら消える
+          this.tweens.add({
+            targets: sprite, alpha: 0, y: sprite.y + 18, scale: 0.92,
+            duration: this.spd(420), ease: 'Quad.easeIn',
+          });
+          playSfx('defeat');
         }
         if (e.target.isPlayer) {
           this.heroSpriteOf(e.target)?.setAlpha(0.25);
@@ -329,6 +356,7 @@ export class BattleScene extends Phaser.Scene {
       }
       case 'victory':
         this.msgText.setText('勝利！');
+        playSfx('victory');
         return 600;
       case 'defeat_party':
         this.msgText.setText(`${this.hero.name} は倒れた…`);
@@ -365,7 +393,7 @@ export class BattleScene extends Phaser.Scene {
       stroke: '#000000', strokeThickness: 4,
     })).setOrigin(0.5).setDepth(50);
     this.tweens.add({
-      targets: txt, y: y - 46, alpha: 0, duration: 850,
+      targets: txt, y: y - 46, alpha: 0, duration: this.spd(850),
       ease: 'Cubic.easeOut',
       onComplete: () => txt.destroy(),
     });
@@ -400,7 +428,103 @@ export class BattleScene extends Phaser.Scene {
     const obj = target.isPlayer ? this.heroSpriteOf(target) : this.findEnemySprite(target)?.getData('rect');
     if (!obj) return;
     this.tweens.add({
-      targets: obj, alpha: { from: 1, to: 0.3 }, duration: 80, yoyo: true, repeat: 1,
+      targets: obj, alpha: { from: 1, to: 0.3 }, duration: this.spd(80), yoyo: true, repeat: 1,
+    });
+  }
+
+  // ── 戦闘演出 ─────────────────────────────────────────────────────────
+  /** 演出時間を戦闘速度に合わせる */
+  private spd(ms: number): number {
+    return ms / getSettings().battleSpeed;
+  }
+
+  /** 画面上の本体 (ヒーローは立ち絵、敵は名前等を含むコンテナ) */
+  private bodyOf(c: Combatant): Phaser.GameObjects.Rectangle | Phaser.GameObjects.Image | Phaser.GameObjects.Container | undefined {
+    return c.isPlayer ? this.heroSpriteOf(c) : this.findEnemySprite(c);
+  }
+
+  /** 行動時の踏み込み (ヒーローは右へ、敵は左へ) */
+  private lunge(c: Combatant): void {
+    const obj = this.bodyOf(c);
+    const homeX = obj?.getData('homeX') as number | undefined;
+    if (!obj || homeX === undefined) return;
+    const dx = c.isPlayer ? 36 : -36;
+    this.tweens.addCounter({
+      from: 0, to: 1, duration: this.spd(110), yoyo: true, ease: 'Quad.easeOut',
+      onUpdate: (tw) => { obj.x = homeX + dx * (tw.getValue() ?? 0); },
+      onComplete: () => { obj.x = homeX; },
+    });
+  }
+
+  /** 被弾時の揺れ */
+  private shake(c: Combatant, amp: number): void {
+    const obj = this.bodyOf(c);
+    const homeX = obj?.getData('homeX') as number | undefined;
+    if (!obj || homeX === undefined) return;
+    this.tweens.addCounter({
+      from: 0, to: 1, duration: this.spd(240),
+      onUpdate: (tw) => {
+        const v = tw.getValue() ?? 0;
+        obj.x = homeX + Math.sin(v * Math.PI * 6) * amp * (1 - v);
+      },
+      onComplete: () => { obj.x = homeX; },
+    });
+  }
+
+  /** 回復時の光の輪 */
+  private healRing(c: Combatant): void {
+    const obj = this.bodyOf(c);
+    if (!obj) return;
+    const ring = this.add.circle(obj.x, obj.y, 26, 0x6ade8a, 0.35).setStrokeStyle(2, 0x9affb8).setDepth(40);
+    this.tweens.add({
+      targets: ring, scale: 3, alpha: 0, duration: this.spd(520), ease: 'Quad.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+  }
+
+  /** Break の演出: 「BREAK!」の文字と、シールドの破片が飛び散る */
+  private breakBurst(c: Combatant): void {
+    const obj = this.findEnemySprite(c);
+    if (!obj) return;
+    const cx = obj.x;
+    const cy = obj.y - 20;
+    this.cameras.main.flash(this.spd(140), 255, 236, 170);
+    const label = this.add.text(cx, cy, 'BREAK!', textStyle(40, '#ffd24a', {
+      fontStyle: 'bold', stroke: '#3a1a00', strokeThickness: 6,
+    })).setOrigin(0.5).setDepth(60).setScale(0.5);
+    this.tweens.add({
+      targets: label, scale: 1.25, duration: this.spd(220), ease: 'Back.easeOut',
+      onComplete: () => this.tweens.add({
+        targets: label, alpha: 0, y: cy - 30, duration: this.spd(520), delay: this.spd(180),
+        onComplete: () => label.destroy(),
+      }),
+    });
+    for (let k = 0; k < 10; k++) {
+      const ang = (Math.PI * 2 * k) / 10 + Math.random() * 0.4;
+      const dist = 70 + Math.random() * 60;
+      const shard = this.add.rectangle(cx, cy, 8, 4, 0x8fc2ee, 1).setDepth(59).setRotation(ang);
+      this.tweens.add({
+        targets: shard, x: cx + Math.cos(ang) * dist, y: cy + Math.sin(ang) * dist,
+        alpha: 0, angle: shard.angle + 180, duration: this.spd(560), ease: 'Quad.easeOut',
+        onComplete: () => shard.destroy(),
+      });
+    }
+  }
+
+  /** 画面右上の戦闘速度ボタン (押すたびに ×1 → ×1.5 → ×2 → ×3) */
+  private createSpeedToggle(): void {
+    const { width } = this.scale;
+    const bg = this.add.rectangle(width - 70, 104, 104, 24, 0x1c1628, 0.92)
+      .setStrokeStyle(1, COLORS.border).setDepth(56)
+      .setInteractive({ useHandCursor: true });
+    const label = this.add.text(width - 70, 104, '', textStyle(12, COLORS.text)).setOrigin(0.5).setDepth(57);
+    const refresh = () => label.setText(`速度 ×${getSettings().battleSpeed}`);
+    refresh();
+    bg.on('pointerdown', () => {
+      const i = BATTLE_SPEEDS.indexOf(getSettings().battleSpeed);
+      updateSettings({ battleSpeed: BATTLE_SPEEDS[(i + 1) % BATTLE_SPEEDS.length] });
+      playSfx('select');
+      refresh();
     });
   }
 

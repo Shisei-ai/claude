@@ -11,6 +11,7 @@ import { FLOORS } from '../data/enemies';
 import { getCharacter } from '../data/characters';
 import { heldRelics, hasEffect } from '../core/relics';
 import { RARITY_COLOR } from '../data/relics';
+import { playBgm } from '../audio/bgm';
 
 const NODE_ICONS: Record<NodeType, string> = {
   Battle: '戦', EliteBattle: '強', Boss: '王', Shop: '商',
@@ -73,6 +74,12 @@ export class MapScene extends Phaser.Scene {
     makeButton(this, width - 100, height - 36, '装備', () => {
       this.scene.start('Equip');
     }, { width: 160, height: 40, fontSize: 15 });
+
+    makeButton(this, width - 280, height - 36, '設定', () => {
+      this.scene.start('Settings', { from: 'Map' });
+    }, { width: 160, height: 40, fontSize: 15 });
+
+    playBgm(this, `floor${Math.min(this.run.currentFloor, 3)}`);
   }
 
   private drawHUD(): void {

@@ -1,6 +1,7 @@
 // 彼方の墓標 — Unity版 MetaUpgradeSceneSetup.cs / MetaUpgradeUIController.cs の移植
 // 5パス × 5ノード = 25ノードのメタ強化ツリー
 import Phaser from 'phaser';
+import { playBgm } from '../audio/bgm';
 import { COLORS, makeButton, textStyle, drawSceneBackground } from '../ui/theme';
 import { META_NODES, isNodeUnlocked, canUnlockNode, tryUnlockNode } from '../core/meta';
 import { loadMeta } from '../core/save';
@@ -10,6 +11,7 @@ export class MetaScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = this.scale;
+    playBgm(this, 'title');
     drawSceneBackground(this, 0x0a0812, 'meta');
 
     const meta = loadMeta();

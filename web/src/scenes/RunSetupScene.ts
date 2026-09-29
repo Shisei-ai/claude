@@ -1,6 +1,7 @@
 // ラン設定 — Unity版 RunSetupSceneSetup.cs / RunSetupUI.cs の移植
 // キャラクター / 加護 / 難易度 を選び「旅立つ」
 import Phaser from 'phaser';
+import { playBgm } from '../audio/bgm';
 import { COLORS, makeButton, textStyle, drawSceneBackground } from '../ui/theme';
 import { CHARACTERS } from '../data/characters';
 import { BLESSINGS } from '../data/blessings';
@@ -25,6 +26,7 @@ export class RunSetupScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = this.scale;
+    playBgm(this, 'title');
     drawSceneBackground(this, undefined, 'charselect');
     this.charMarks = [];
     this.blessMarks = [];

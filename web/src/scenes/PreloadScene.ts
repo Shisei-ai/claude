@@ -4,9 +4,11 @@
 import Phaser from 'phaser';
 import { COLORS, textStyle, drawSceneBackground } from '../ui/theme';
 import {
-  CHARACTER_ART, ENEMY_ART, BG_ART, MISSING_ART,
-  charFullKey, charPortraitKey, enemyArtKey, bgArtKey,
+  CHARACTER_ART, ENEMY_ART, BG_ART, BGM_ART, MISSING_ART,
+  charFullKey, charPortraitKey, enemyArtKey, bgArtKey, bgmKey,
 } from '../data/assets';
+
+import presentFiles from 'virtual:asset-list';
 
 // 既存の import 経路 (scenes → PreloadScene) を維持するため再エクスポート
 export { hasArt } from '../data/assets';
@@ -20,21 +22,26 @@ export class PreloadScene extends Phaser.Scene {
     this.add.text(width / 2, height / 2, 'Now Loading…',
       textStyle(20, COLORS.textDim)).setOrigin(0.5);
 
-    // 未配置ファイルはここで握りつぶす (コンソール汚染も抑止)
+    // 実在しないファイルは読みに行かない (404 やデコードエラーを出さない)。
+    // 読み込まなかったキーは MISSING_ART に入れ、各シーンは従来描画にフォールバック
+    const present = new Set(presentFiles);
+    const queue = (key: string, url: string, kind: 'image' | 'audio') => {
+      if (!present.has(url)) { MISSING_ART.add(key); return; }
+      if (kind === 'image') this.load.image(key, url);
+      else this.load.audio(key, url);
+    };
+    // 実在しても壊れていて読めなかった場合の保険
     this.load.on('loaderror', (file: Phaser.Loader.File) => {
       MISSING_ART.add(file.key);
     });
 
     for (const [id, art] of Object.entries(CHARACTER_ART)) {
-      if (art.full) this.load.image(charFullKey(id), art.full);
-      if (art.portrait) this.load.image(charPortraitKey(id), art.portrait);
+      if (art.full) queue(charFullKey(id), art.full, 'image');
+      if (art.portrait) queue(charPortraitKey(id), art.portrait, 'image');
     }
-    for (const [id, url] of Object.entries(ENEMY_ART)) {
-      this.load.image(enemyArtKey(id), url);
-    }
-    for (const [key, url] of Object.entries(BG_ART)) {
-      this.load.image(bgArtKey(key), url);
-    }
+    for (const [id, url] of Object.entries(ENEMY_ART)) queue(enemyArtKey(id), url, 'image');
+    for (const [key, url] of Object.entries(BG_ART)) queue(bgArtKey(key), url, 'image');
+    for (const [key, url] of Object.entries(BGM_ART)) queue(bgmKey(key), url, 'audio');
   }
 
   create(): void {

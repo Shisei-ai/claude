@@ -23,6 +23,7 @@ import { RARITY_LABEL, RARITY_COLOR, getRelic, type RelicRarity } from '../data/
 import { RANDOM_EVENTS, ENDING_RELIC_ID, type RandomEventDef, type EventChoiceDef, type EventResult } from '../data/events';
 import { getEnding } from '../data/endings';
 import { addJP } from '../core/level';
+import { playBgm } from '../audio/bgm';
 import { drawEquipmentForFloor, getEquipment, EQUIP_RARITY_LABEL, EQUIP_RARITY_COLOR, SLOT_LABEL } from '../data/equipment';
 
 interface NodeEventInit { nodeType: NodeType; contentSeed: number }
@@ -71,6 +72,7 @@ export class NodeEventScene extends Phaser.Scene {
   }
 
   create(): void {
+    playBgm(this, `floor${Math.min(this.run.currentFloor, 3)}`);
     drawSceneBackground(this, undefined, this.bgKey());
     switch (this.nodeType) {
       case 'RestSite': this.createRestSite(); break;

@@ -1,6 +1,7 @@
 // 最終層 (Floor 4) 導入 — Unity版 EndingSystem.CreateFloor4 相当
 // ヴァルゴット撃破後、証印を持つ場合のみ到達する
 import Phaser from 'phaser';
+import { playBgm } from '../audio/bgm';
 import { COLORS, makeButton, textStyle } from '../ui/theme';
 import { loadRun, saveRun } from '../core/save';
 import { getEnding } from '../data/endings';
@@ -13,6 +14,7 @@ export class FinaleScene extends Phaser.Scene {
     const run = loadRun();
     const ending = getEnding(run?.activeEnding ?? null);
     if (!run || !ending) { this.scene.start('MainMenu'); return; }
+    playBgm(this, 'finale');
 
     const { width, height } = this.scale;
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000);
