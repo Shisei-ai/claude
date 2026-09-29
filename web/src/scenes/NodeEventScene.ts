@@ -24,6 +24,8 @@ import { RANDOM_EVENTS, ENDING_RELIC_ID, type RandomEventDef, type EventChoiceDe
 import { getEnding } from '../data/endings';
 import { addJP } from '../core/level';
 import { playBgm } from '../audio/bgm';
+import { getCharacter } from '../data/characters';
+import { LINES, pickLine, shortName, type CharLines } from '../data/dialogue';
 import { drawEquipmentForFloor, getEquipment, EQUIP_RARITY_LABEL, EQUIP_RARITY_COLOR, SLOT_LABEL } from '../data/equipment';
 
 interface NodeEventInit { nodeType: NodeType; contentSeed: number }
@@ -49,6 +51,7 @@ export class NodeEventScene extends Phaser.Scene {
     this.rng = new Rng(data.contentSeed);
     this.shopStock = [];
     this.shopMessage = '';
+    this.shopQuote = null;
     const run = loadRun();
     if (!run) { this.scene.start('MainMenu'); return; }
     this.run = run;
@@ -81,6 +84,12 @@ export class NodeEventScene extends Phaser.Scene {
       case 'CursedRoom': this.createCursedRoom(); break;
       default: this.createRandomEvent(); break;
     }
+  }
+
+  /** 主人公のひとこと (「名前「台詞」」の形。台詞が無ければ null) */
+  private heroQuote(kind: keyof Omit<CharLines, 'skill' | 'element'>): string | null {
+    const line = pickLine(LINES[this.run.characterId]?.[kind]);
+    return line ? `${shortName(getCharacter(this.run.characterId).name)}「${line}」` : null;
   }
 
   private header(title: string, subtitle: string): void {
@@ -126,6 +135,12 @@ export class NodeEventScene extends Phaser.Scene {
     const maxHP = getEffectiveMaxHP(this.run);
     // 羽毛の毛布/聖者の遺骨/涸れの呪い: 回復量補正 (RelicManager.ModifyHealAmount)
     const healAmount = modifyHealAmount(this.run, Math.round(maxHP * 0.30));
+    const quote = this.heroQuote('rest');
+    if (quote) {
+      this.add.text(width / 2, height / 2 + 50, quote, textStyle(17, COLORS.text, {
+        align: 'center', wordWrap: { width: width - 300 },
+      })).setOrigin(0.5);
+    }
 
     this.statusLine();
     makeButton(this, width / 2 - 150, height - 64, `休息する (+${healAmount} HP)`, () => {
@@ -145,6 +160,8 @@ export class NodeEventScene extends Phaser.Scene {
   // ── 商人 (ShopController.cs 移植) ───────────────────────────────────
   private shopStock: ShopEntry[] = [];
   private shopMessage = '';
+  /** 入店時に選んだ主人公の台詞 (購入で再描画しても変えない) */
+  private shopQuote: string | null = null;
 
   private createShop(): void {
     // 在庫は入店時に確定して保存する。中断→再開しても同じ在庫・同じ売約状態で再開し、
@@ -379,6 +396,12 @@ export class NodeEventScene extends Phaser.Scene {
       }
     });
 
+    const quote = this.shopQuote ??= this.heroQuote('shop') ?? '';
+    if (quote) {
+      this.add.text(width / 2, height - 158, quote, textStyle(15, COLORS.textDim, {
+        align: 'center', wordWrap: { width: width - 300 },
+      })).setOrigin(0.5);
+    }
     this.statusLine();
     this.leave('店を出る');
   }
@@ -387,7 +410,8 @@ export class NodeEventScene extends Phaser.Scene {
   private createTreasure(): void {
     const { width, height } = this.scale;
     this.header('宝箱', '埃を被った箱が静かに佇んでいる');
-    this.add.text(width / 2, height / 2 - 60, '▣', textStyle(72, COLORS.textGold)).setOrigin(0.5);
+    // 見つけた物の説明が複数行になるので、箱は上寄せにする
+    this.add.text(width / 2, 210, '▣', textStyle(64, COLORS.textGold)).setOrigin(0.5);
 
     const floor = FLOORS[Math.min(this.run.currentFloor, FLOORS.length - 1)];
     let gold = floor.baseGoldReward + this.rng.range(10, 41);
@@ -417,6 +441,8 @@ export class NodeEventScene extends Phaser.Scene {
     if (relic) {
       addRelicToRun(this.run, relic);
       message += `\n【${RARITY_LABEL[relic.rarity]}】「${relic.name}」を見つけた！\n${relic.description}`;
+      const quote = this.heroQuote('getRelic');
+      if (quote) message += `\n\n${quote}`;
     }
 
     earnGold(this.run, gold);
@@ -608,6 +634,8 @@ export class NodeEventScene extends Phaser.Scene {
       if (relic) {
         addRelicToRun(run, relic);
         outcomes.push(`「${relic.name}」を得た (${relic.description})`);
+        const quote = this.heroQuote('getRelic');
+        if (quote) outcomes.push(quote);
       }
     }
 

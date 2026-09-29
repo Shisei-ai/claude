@@ -8,6 +8,7 @@ import { recordRunEnd } from '../core/meta';
 import { getCharacter } from '../data/characters';
 import { getEnding, getCharacterEpilogue, DEFAULT_ENDING_TEXT } from '../data/endings';
 import { hasArt } from './PreloadScene';
+import { LINES, pickLine, shortName } from '../data/dialogue';
 import { bgArtKey, ENDING_BG_STEM } from '../data/assets';
 
 interface ResultInit { won: boolean; finale?: boolean }
@@ -88,6 +89,13 @@ export class ResultScene extends Phaser.Scene {
         ? `${char.name}は、廃墟の王国の深淵を踏破した。`
         : `${char.name}の旅はここで潰えた。だが、その足跡は碑文となり残る。`,
       textStyle(16, COLORS.textDim)).setOrigin(0.5);
+
+    // 倒れたときの最後のひとこと
+    const lastWords = this.won ? null : pickLine(LINES[run.characterId]?.defeat);
+    if (lastWords) {
+      this.add.text(width / 2, height * 0.16 + 92, `${shortName(char.name)}「${lastWords}」`,
+        textStyle(15, COLORS.text)).setOrigin(0.5);
+    }
 
     // 統計
     const stats = [

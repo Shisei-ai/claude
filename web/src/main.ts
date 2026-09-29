@@ -11,6 +11,7 @@ import { FinaleScene } from './scenes/FinaleScene';
 import { EquipScene } from './scenes/EquipScene';
 import { PhantomJoinScene } from './scenes/PhantomJoinScene';
 import { SettingsScene } from './scenes/SettingsScene';
+import { PrologueScene } from './scenes/PrologueScene';
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -35,5 +36,6 @@ new Phaser.Game({
     EquipScene,
     PhantomJoinScene,
     SettingsScene,
+    PrologueScene,
   ],
 });

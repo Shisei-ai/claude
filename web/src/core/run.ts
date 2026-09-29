@@ -79,6 +79,8 @@ export interface RunState {
   /** 進行中のノード。完了するまで残し、中断→再開時はここから再開する
    *  (戦闘を飛ばせる・ボス戦中断で進めなくなる不具合の対策) */
   pendingEncounter: PendingEncounter | null;
+  /** 入ったときの台詞を表示済みの層 (同じ層で繰り返さない) */
+  floorIntroSeen: number[];
 
   // Statistics
   damageDealt: number;
@@ -169,6 +171,7 @@ export function createRun(
     partyMembers: [],
     phantomEventDone: false,
     pendingEncounter: null,
+    floorIntroSeen: [],
 
     damageDealt: 0,
     damageTaken: 0,

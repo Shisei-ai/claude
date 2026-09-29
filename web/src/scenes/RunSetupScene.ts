@@ -127,6 +127,6 @@ export class RunSetupScene extends Phaser.Scene {
     const run = createRun(char.id, this.selectedDifficulty, blessing);
     run.map = generateMap(run.seed, run.currentFloor);
     saveRun(run);
-    this.scene.start('Map');
+    this.scene.start('Prologue');
   }
 }

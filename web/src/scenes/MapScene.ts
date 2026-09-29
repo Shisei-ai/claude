@@ -12,6 +12,8 @@ import { getCharacter } from '../data/characters';
 import { heldRelics, hasEffect } from '../core/relics';
 import { RARITY_COLOR } from '../data/relics';
 import { playBgm } from '../audio/bgm';
+import { FIELD_LINES, shortName } from '../data/dialogue';
+import { showDialogue } from '../ui/dialogue';
 
 const NODE_ICONS: Record<NodeType, string> = {
   Battle: '戦', EliteBattle: '強', Boss: '王', Shop: '商',
@@ -80,6 +82,7 @@ export class MapScene extends Phaser.Scene {
     }, { width: 160, height: 40, fontSize: 15 });
 
     playBgm(this, `floor${Math.min(this.run.currentFloor, 3)}`);
+    this.maybeShowFloorLine();
   }
 
   private drawHUD(): void {
@@ -144,6 +147,23 @@ export class MapScene extends Phaser.Scene {
       }).join('　');
       this.add.text(width - 560, 122, `仲間: ${partyStr}`, textStyle(11, COLORS.textBlue));
     }
+  }
+
+  /** その層に初めて入ったとき、主人公の台詞を出す (Unity版 FieldLines.OnEnterFloorN) */
+  private maybeShowFloorLine(): void {
+    const run = this.run;
+    const floor = run.currentFloor;
+    if (run.floorIntroSeen.includes(floor)) return;
+    run.floorIntroSeen.push(floor);
+    saveRun(run);
+    let line = FIELD_LINES[run.characterId]?.[floor];
+    if (!line) return;
+    if (line.includes('{ALLY}')) {
+      const ally = run.partyMembers.find((m) => m.currentHP > 0) ?? run.partyMembers[0];
+      if (!ally) return;   // 同行者がいなければ、仲間に呼びかける台詞は出さない
+      line = line.replace('{ALLY}', shortName(getCharacter(ally.characterId).name));
+    }
+    showDialogue(this, { characterId: run.characterId, lines: [line] });
   }
 
   private showRelicTip(x: number, y: number, text: string): void {

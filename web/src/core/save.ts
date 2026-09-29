@@ -82,6 +82,7 @@ export function loadRun(): RunState | null {
     run.partyMembers ??= [];
     run.phantomEventDone ??= false;
     run.pendingEncounter ??= null;
+    run.floorIntroSeen ??= [];
     return run;
   } catch {
     return null;

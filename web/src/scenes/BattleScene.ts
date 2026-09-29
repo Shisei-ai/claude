@@ -23,6 +23,7 @@ import {
   drawRelic, rollRelicRarity,
 } from '../core/relics';
 import { RARITY_LABEL, RARITY_COLOR, getRelic, type RelicDef } from '../data/relics';
+import { LINES, pickLine, shortName, type CharLines } from '../data/dialogue';
 
 interface BattleInit { nodeType: NodeType; contentSeed: number }
 
@@ -66,6 +67,10 @@ export class BattleScene extends Phaser.Scene {
   private armedCommand = -1;
 
   private contentSeed = 0;
+  /** 頭上の吹き出し (同時に1つだけ) */
+  private bubble: Phaser.GameObjects.Container | null = null;
+  /** 一度だけ言う台詞 (HP危険など) を言い終えた組み合わせ */
+  private saidOnce = new Set<string>();
 
   constructor() { super('Battle'); }
 
@@ -85,6 +90,8 @@ export class BattleScene extends Phaser.Scene {
     this.commandContainer = null;
     this.boostLevel = 0;
     this.processing = false;
+    this.bubble = null;
+    this.saidOnce = new Set();
 
     playBgm(this, this.run.currentFloor >= 4 ? 'finale' : this.nodeType === 'Boss' ? 'boss' : 'battle');
 
@@ -227,6 +234,9 @@ export class BattleScene extends Phaser.Scene {
       textStyle(17)).setOrigin(0.5);
     this.createSpeedToggle();
 
+    // 開幕の台詞 (危険域の台詞はこれが消えてから)
+    this.say(this.hero, this.linesOf(this.hero)?.battleStart, { force: true });
+
     // HUD領域
     this.hudG = this.add.graphics();
     this.refreshDisplay();
@@ -255,6 +265,10 @@ export class BattleScene extends Phaser.Scene {
     if (this.processing) return;
     this.hideCommandMenu();
     this.processing = true;
+    const actor = this.engine.activeCombatant;
+    if (cmd.boostLevel > 0 && actor?.isPlayer) {
+      this.say(actor, this.linesOf(actor)?.boost, { force: true });
+    }
     const result = this.engine.executePlayerCommand(cmd);
     const events = this.engine.drainEvents();
     this.playEvents(events, () => {
@@ -285,11 +299,15 @@ export class BattleScene extends Phaser.Scene {
       case 'message':
         this.msgText.setText(e.text);
         if (e.text.includes('回避')) playSfx('miss');
+        this.sayForMessage(e.text);
         return 550;
       case 'skillUse':
         this.msgText.setText(`${e.user.name} の ${e.skillName}！`);
         this.lunge(e.user);
-        if (e.skillName !== '攻撃') playSfx('skill');
+        if (e.skillName !== '攻撃') {
+          playSfx('skill');
+          if (e.user.isPlayer) this.sayForSkill(e.user, e.skillName);
+        }
         return 420;
       case 'damage': {
         this.spawnDamageNumber(e.target, e.amount,
@@ -300,6 +318,10 @@ export class BattleScene extends Phaser.Scene {
           playSfx(e.isWeak ? 'weak' : e.isCrit ? 'crit' : 'hit');
         }
         if (e.isWeak && e.element && !e.target.isPlayer) this.revealWeakness(e.target, e.element);
+        if (e.isCrit && !e.target.isPlayer) {
+          const actor = this.engine.activeCombatant;
+          if (actor?.isPlayer) this.say(actor, this.linesOf(actor)?.crit, { chance: 0.6 });
+        }
         return e.isCrit ? 480 : 320;
       }
       case 'dot':
@@ -322,18 +344,29 @@ export class BattleScene extends Phaser.Scene {
       case 'shadow': {
         if (e.target.isPlayer) {
           this.heroSpriteOf(e.target)?.setAlpha(e.active ? 0.55 : 1);
-          if (e.active) this.msgText.setText(`${e.target.name} は影に溶けた…`);
+          if (e.active) {
+            this.msgText.setText(`${e.target.name} は影に溶けた…`);
+            this.say(e.target, this.linesOf(e.target)?.shadow);
+          }
         }
         return e.active ? 420 : 100;
       }
       case 'absorb':
         this.msgText.setText(`「${e.skillName}」をグリモワールに刻んだ！`);
+        {
+          const actor = this.engine.activeCombatant;
+          if (actor?.isPlayer) this.say(actor, this.linesOf(actor)?.absorbSuccess, { force: true });
+        }
         return 700;
       case 'break': {
         this.msgText.setText(`⚡ ${e.target.name} を Break！`);
         this.cameras.main.shake(this.spd(240), 0.01);
         this.breakBurst(e.target);
         playSfx('break');
+        {
+          const actor = this.engine.activeCombatant;
+          if (actor?.isPlayer) this.say(actor, this.linesOf(actor)?.breakEnemy);
+        }
         return 700;
       }
       case 'defeat': {
@@ -362,6 +395,96 @@ export class BattleScene extends Phaser.Scene {
         this.msgText.setText(`${this.hero.name} は倒れた…`);
         return 900;
     }
+  }
+
+  // ── 台詞の吹き出し (Unity版 VoiceLines) ─────────────────────────────
+  private linesOf(c: Combatant): CharLines | undefined {
+    return LINES[c.characterId ?? this.run.characterId];
+  }
+
+  /** 味方の頭上に台詞を約2秒出す。force でなければ、表示中の吹き出しは上書きしない。
+   *  出せたら true */
+  private say(c: Combatant, list: string[] | undefined, opts: { force?: boolean; chance?: number } = {}): boolean {
+    if (opts.chance !== undefined && Math.random() > opts.chance) return false;
+    if (!opts.force && this.bubble?.active) return false;
+    const text = pickLine(list);
+    const sprite = this.heroSpriteOf(c);
+    if (!text || !sprite) return false;
+    this.bubble?.destroy();
+
+    const txt = this.add.text(0, 0, text, textStyle(14, '#2a2030', {
+      wordWrap: { width: 260, useAdvancedWrap: true }, align: 'center',
+    })).setOrigin(0.5);
+    const w = txt.width + 24;
+    const h = txt.height + 14;
+    const g = this.add.graphics();
+    g.fillStyle(0xf4ecd8, 0.96).fillRoundedRect(-w / 2, -h / 2, w, h, 8);
+    g.lineStyle(2, 0x5a4a3a, 1).strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
+    g.fillStyle(0xf4ecd8, 0.96).fillTriangle(-8, h / 2 - 1, 8, h / 2 - 1, 0, h / 2 + 10);
+
+    // 頭上の名前ラベル (頭の12px上) より上に置く
+    const headY = sprite.y - sprite.displayHeight / 2;
+    const x = Phaser.Math.Clamp(sprite.getData('homeX') as number, w / 2 + 8, this.scale.width - w / 2 - 8);
+    const bubble = this.add.container(x, headY - 26 - 10 - h / 2, [g, txt]).setDepth(60);
+    this.bubble = bubble;
+    bubble.setScale(0.85).setAlpha(0);
+    this.tweens.add({ targets: bubble, scale: 1, alpha: 1, duration: 140, ease: 'Back.easeOut' });
+    // 戦闘速度に関係なく読める長さだけ残す
+    this.tweens.add({
+      targets: bubble, alpha: 0, delay: 2200, duration: 300,
+      onComplete: () => {
+        bubble.destroy();
+        if (this.bubble === bubble) this.bubble = null;
+        this.checkLowLines();   // 待たせていた危険域の台詞を出す
+      },
+    });
+    return true;
+  }
+
+  private sayForSkill(user: Combatant, skillName: string): void {
+    const L = this.linesOf(user);
+    if (!L) return;
+    const specific = L.skill?.[skillName];
+    if (specific) { this.say(user, specific); return; }
+    const skill = user.skills.find((s) => s.name === skillName);
+    const byElement = skill ? L.element?.[skill.element] : undefined;
+    if (byElement) this.say(user, byElement, { chance: 0.7 });
+    else this.say(user, L.genericSkill, { chance: 0.4 });
+  }
+
+  /** エンジンのメッセージから場面を判定して台詞を出す */
+  private sayForMessage(text: string): void {
+    const actor = this.engine.activeCombatant;
+    if (text.includes('回避')) {
+      const who = this.heroes.find((h) => text.startsWith(h.name));
+      if (who) this.say(who, this.linesOf(who)?.evade, { force: true });
+    } else if (text.includes('踏みとどまった')) {
+      const who = this.heroes.find((h) => text.startsWith(h.name));
+      if (who) this.say(who, this.linesOf(who)?.indomitable, { force: true });
+    } else if (text.includes('吸収に失敗') && actor?.isPlayer) {
+      this.say(actor, this.linesOf(actor)?.absorbFail, { force: true });
+    } else if (text.includes('元素が共鳴') && actor?.isPlayer) {
+      this.say(actor, this.linesOf(actor)?.resonance, { force: true });
+    }
+  }
+
+  /** HP・MPが危険域に入ったときの台詞 (各1戦につき1回。他の吹き出しが消えるのを待って出す) */
+  private checkLowLines(): void {
+    if (!this.engine || this.engine.over) return;
+    this.heroes.forEach((c, i) => {
+      if (!c.isAlive) return;
+      const L = this.linesOf(c);
+      if (!L) return;
+      const once = (key: string, list: string[] | undefined) => {
+        const k = `${key}:${i}`;
+        if (!list || this.saidOnce.has(k)) return;
+        if (this.say(c, list)) this.saidOnce.add(k);
+      };
+      if (c.hp / c.base.maxHP < 0.3) once('lowHP', L.lowHP);
+      if (c.base.maxMP > 0 && c.mp / c.base.maxMP < 0.2) once('lowMP', L.lowMP);
+      const allyDown = this.heroes.some((o) => o !== c && o.isAlive && o.hp / o.base.maxHP < 0.3);
+      if (allyDown) once('lowAlly', L.lowAlly);
+    });
   }
 
   private findEnemySprite(c: Combatant): Phaser.GameObjects.Container | undefined {
@@ -570,6 +693,7 @@ export class BattleScene extends Phaser.Scene {
   // ── HUD更新 ────────────────────────────────────────────────────────
   private refreshDisplay(): void {
     this.drawTurnOrder();
+    this.checkLowLines();
     const { width, height } = this.scale;
     this.hudG.clear();
     this.hudTexts.forEach((t) => t.destroy());
@@ -885,6 +1009,11 @@ export class BattleScene extends Phaser.Scene {
     if (newSkills.length > 0) {
       lines.push(`新スキル習得: ${newSkills.map((s: SkillDef) => s.name).join('、')}`);
     }
+    // 主人公のひとこと (レベルアップ時はその台詞を優先)
+    const heroLines = this.linesOf(this.hero);
+    const quote = (levelResult.levelsGained.length > 0 ? pickLine(heroLines?.levelUp) : null)
+      ?? pickLine(heroLines?.victory);
+    if (quote) lines.push(`${shortName(this.hero.name)}「${quote}」`);
 
     // 報酬は付与済み。ここで中断しても、再開時は戦闘ではなく遺物選択から
     run.pendingEncounter = {
