@@ -34,11 +34,11 @@ export class FinaleScene extends Phaser.Scene {
       })).setOrigin(0.5);
 
     makeButton(this, width / 2, height - 90, '― 最深部へ ―', () => {
+      const contentSeed = new Rng(run.seed + 44444).int(0x7fffffff);
+      // 最終戦も「進行中」として保存 (中断→再開で最終戦に戻る)
+      run.pendingEncounter = { scene: 'Battle', nodeType: 'Boss', contentSeed };
       saveRun(run);
-      this.scene.start('Battle', {
-        nodeType: 'Boss',
-        contentSeed: new Rng(run.seed + 44444).int(0x7fffffff),
-      });
+      this.scene.start('Battle', { nodeType: 'Boss', contentSeed });
     }, { width: 320, color: COLORS.textGold });
   }
 }

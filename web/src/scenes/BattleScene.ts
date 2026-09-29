@@ -19,7 +19,7 @@ import {
   buildBattleLoot, addRelicToRun, modifyGoldDrop, hasEffect, sumEffect,
   drawRelic, rollRelicRarity,
 } from '../core/relics';
-import { RARITY_LABEL, RARITY_COLOR, type RelicDef } from '../data/relics';
+import { RARITY_LABEL, RARITY_COLOR, getRelic, type RelicDef } from '../data/relics';
 
 interface BattleInit { nodeType: NodeType; contentSeed: number }
 
@@ -40,10 +40,13 @@ export class BattleScene extends Phaser.Scene {
   private boostLevel = 0;
   private processing = false;
 
+  private contentSeed = 0;
+
   constructor() { super('Battle'); }
 
   init(data: BattleInit): void {
     this.nodeType = data.nodeType;
+    this.contentSeed = data.contentSeed;
     const run = loadRun();
     if (!run) { this.scene.start('MainMenu'); return; }
     this.run = run;
@@ -75,6 +78,20 @@ export class BattleScene extends Phaser.Scene {
     // 地面線。コマンド欄 (3行時の上端 = 画面下から202px) に足元が隠れない高さ
     const groundLineY = height - 202;
     this.add.rectangle(width / 2, groundLineY, width, 2, 0x3a3050);
+
+    // 勝利後の遺物選択の途中で中断していた場合: 戦闘はやり直さず、選択画面から再開
+    // (報酬は勝利時に付与・保存済みなので、戦闘をやり直すと二重取りになる)
+    const pendingReward = this.run.pendingEncounter?.reward;
+    if (pendingReward) {
+      this.add.rectangle(width / 2, 60, width - 60, 44, 0x000000, 0.6)
+        .setStrokeStyle(1, COLORS.border);
+      this.msgText = this.add.text(width / 2, 60, '戦いの余韻が残っている…', textStyle(17)).setOrigin(0.5);
+      const loot = pendingReward.loot
+        .map((id) => getRelic(id))
+        .filter((r): r is RelicDef => !!r && !this.run.relics.includes(r.id));
+      this.showVictoryPanel(pendingReward.lines, loot, pendingReward.isBoss);
+      return;
+    }
 
     // エンジン構築 (主人公+幻影パーティ)
     this.heroes = buildHeroes(this.run);
@@ -617,8 +634,6 @@ export class BattleScene extends Phaser.Scene {
       if (bonus) lootChoices.push(bonus);
     }
 
-    saveRun(run);
-
     const lines = [`◈ ${gold} G　　EXP +${rewards.exp}　　JP +${rewards.jp}`];
     if (levelResult.levelsGained.length > 0) {
       lines.push(`レベルアップ！ → Lv.${run.characterLevel}（最大HP +${levelResult.hpGained}）`);
@@ -626,6 +641,13 @@ export class BattleScene extends Phaser.Scene {
     if (newSkills.length > 0) {
       lines.push(`新スキル習得: ${newSkills.map((s: SkillDef) => s.name).join('、')}`);
     }
+
+    // 報酬は付与済み。ここで中断しても、再開時は戦闘ではなく遺物選択から
+    run.pendingEncounter = {
+      ...(run.pendingEncounter ?? { scene: 'Battle', nodeType: this.nodeType, contentSeed: this.contentSeed }),
+      reward: { lines, loot: lootChoices.map((r) => r.id), isBoss },
+    };
+    saveRun(run);
 
     this.showVictoryPanel(lines, lootChoices, isBoss);
   }
@@ -638,6 +660,7 @@ export class BattleScene extends Phaser.Scene {
     const cy = height / 2;
 
     const done = () => {
+      this.run.pendingEncounter = null;   // このノードは完了
       saveRun(this.run);
       if (isBoss) this.onFloorClear();
       else this.scene.start('Map');

@@ -67,6 +67,7 @@ export function loadRun(): RunState | null {
     run.equipmentInventory ??= [];
     run.partyMembers ??= [];
     run.phantomEventDone ??= false;
+    run.pendingEncounter ??= null;
     return run;
   } catch {
     return null;

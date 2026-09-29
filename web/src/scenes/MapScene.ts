@@ -30,6 +30,17 @@ export class MapScene extends Phaser.Scene {
   create(): void {
     const run = loadRun();
     if (!run) { this.scene.start('MainMenu'); return; }
+    // 中断したノードがあれば、そこから再開する (戦闘を飛ばす・ボス戦で詰むのを防ぐ)
+    const pending = run.pendingEncounter;
+    if (pending) {
+      this.scene.start(pending.scene, { nodeType: pending.nodeType, contentSeed: pending.contentSeed });
+      return;
+    }
+    // 第1層クリア後の幻影加入を選ぶ前に中断していたら、やり直す
+    if (run.currentFloor >= 1 && run.currentFloor < 4 && !run.phantomEventDone) {
+      this.scene.start('PhantomJoin');
+      return;
+    }
     // 最終層 (Floor 4) にはマップがない — 直接最終戦へ
     if (run.currentFloor >= 4) { this.scene.start('Finale'); return; }
     this.run = run;
@@ -131,8 +142,11 @@ export class MapScene extends Phaser.Scene {
     const map = this.run.map!;
     const available = new Set(getAvailableNodes(map, this.run.currentNodeId).map((n) => n.id));
 
-    const topY = height - 80;
-    const rowGap = (height - 220) / 14;
+    // 最下段 (開始) と最上段 (ボス) の位置。ボスはHUDの下端 (レリック行 y≈135) より下に置く
+    // (以前はボス行が y=140 でHUDと重なっていた)
+    const topY = height - 72;
+    const bossY = 166;
+    const rowGap = (topY - bossY) / 14;
     const colGap = (width - 300) / 6;
     const nodeX = (col: number) => 150 + col * colGap;
     const nodeY = (row: number) => topY - row * rowGap;
@@ -223,17 +237,15 @@ export class MapScene extends Phaser.Scene {
       this.run.currentHP = Math.max(1, this.run.currentHP - drain);
     }
 
+    // 完了するまで「進行中」として保存 (中断→再開でここに戻る)
+    const isBattle = node.type === 'Battle' || node.type === 'EliteBattle' || node.type === 'Boss';
+    this.run.pendingEncounter = {
+      scene: isBattle ? 'Battle' : 'NodeEvent',
+      nodeType: node.type,
+      contentSeed: node.contentSeed,
+    };
     saveRun(this.run);
-
-    switch (node.type) {
-      case 'Battle':
-      case 'EliteBattle':
-      case 'Boss':
-        this.scene.start('Battle', { nodeType: node.type, contentSeed: node.contentSeed });
-        break;
-      default:
-        this.scene.start('NodeEvent', { nodeType: node.type, contentSeed: node.contentSeed });
-        break;
-    }
+    this.scene.start(this.run.pendingEncounter.scene,
+      { nodeType: node.type, contentSeed: node.contentSeed });
   }
 }

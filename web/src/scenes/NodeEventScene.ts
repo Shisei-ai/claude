@@ -10,7 +10,7 @@ import Phaser from 'phaser';
 import { COLORS, makeButton, textStyle, drawSceneBackground } from '../ui/theme';
 import { loadRun, saveRun } from '../core/save';
 import type { RunState } from '../core/run';
-import { getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip } from '../core/run';
+import { getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip, type ShopSpec } from '../core/run';
 import type { NodeType } from '../core/types';
 import { Rng } from '../core/rng';
 import { FLOORS } from '../data/enemies';
@@ -23,7 +23,7 @@ import { RARITY_LABEL, RARITY_COLOR, getRelic, type RelicRarity } from '../data/
 import { RANDOM_EVENTS, ENDING_RELIC_ID, type RandomEventDef, type EventChoiceDef, type EventResult } from '../data/events';
 import { getEnding } from '../data/endings';
 import { addJP } from '../core/level';
-import { drawEquipmentForFloor, EQUIP_RARITY_LABEL, EQUIP_RARITY_COLOR, SLOT_LABEL } from '../data/equipment';
+import { drawEquipmentForFloor, getEquipment, EQUIP_RARITY_LABEL, EQUIP_RARITY_COLOR, SLOT_LABEL } from '../data/equipment';
 
 interface NodeEventInit { nodeType: NodeType; contentSeed: number }
 
@@ -51,6 +51,12 @@ export class NodeEventScene extends Phaser.Scene {
     const run = loadRun();
     if (!run) { this.scene.start('MainMenu'); return; }
     this.run = run;
+    run.pendingEncounter ??= { scene: 'NodeEvent', nodeType: data.nodeType, contentSeed: data.contentSeed };
+  }
+
+  /** このノードを完了扱いにする (保存は呼び出し側) */
+  private finish(): void {
+    this.run.pendingEncounter = null;
   }
 
   /** ノード種別 → 背景キー */
@@ -92,6 +98,7 @@ export class NodeEventScene extends Phaser.Scene {
   private leave(label = 'マップへ戻る'): void {
     const { width, height } = this.scale;
     makeButton(this, width / 2, height - 64, label, () => {
+      this.finish();
       saveRun(this.run);
       this.scene.start('Map');
     }, { width: 260 });
@@ -122,10 +129,12 @@ export class NodeEventScene extends Phaser.Scene {
     makeButton(this, width / 2 - 150, height - 64, `休息する (+${healAmount} HP)`, () => {
       healRun(this.run, healAmount);
       addSanity(this.run, 1);
+      this.finish();
       saveRun(this.run);
       this.scene.start('Map');
     }, { width: 280 });
     makeButton(this, width / 2 + 160, height - 64, '先を急ぐ', () => {
+      this.finish();
       saveRun(this.run);
       this.scene.start('Map');
     }, { width: 260 });
@@ -136,38 +145,32 @@ export class NodeEventScene extends Phaser.Scene {
   private shopMessage = '';
 
   private createShop(): void {
-    if (this.shopStock.length === 0) this.generateShopStock();
+    // 在庫は入店時に確定して保存する。中断→再開しても同じ在庫・同じ売約状態で再開し、
+    // 在庫の引き直しや購入済み品の買い直しはできない
+    const pending = this.run.pendingEncounter!;
+    if (!pending.shop) {
+      pending.shop = { stock: this.buildShopSpecs(), sold: [] };
+      saveRun(this.run);
+    }
+    const shop = pending.shop;
+    this.shopStock = shop.stock.map((spec, i) => ({ ...this.shopEntry(spec), sold: shop.sold.includes(i) }));
     this.renderShop();
   }
 
-  // ShopController.GenerateStock の移植。在庫は入店時に1度だけ生成し、
-  // 購入した枠は「売約済」になる (Unity版の MarkSold 相当)。
-  private generateShopStock(): void {
+  // ShopController.GenerateStock の移植。何を何Gで並べるかだけを決める
+  private buildShopSpecs(): ShopSpec[] {
     const run = this.run;
     const floor = run.currentFloor;
     // ApplyMetaDiscount(RelicManager.ModifyShopPrice(...)) 相当
     // (modifyShopPrice がレリック割引+メタ割引を合算・60%上限)
     const price = (base: number) => modifyShopPrice(run, base);
-    const stock = this.shopStock;
+    const specs: ShopSpec[] = [];
 
     // スキル枠 3-4 (SkillBasePrice=75 × (1+floor×0.3))
     // Web版適応: デッキ構築が無いため、購入で JP+25 を得る「修練の書」
     const skillCount = this.rng.range(3, 5);
     const skillPrice = price(Math.round(75 * (1 + floor * 0.3)));
-    for (let i = 0; i < skillCount; i++) {
-      stock.push({
-        tag: '【修練】', tagColor: COLORS.textBlue,
-        name: '修練の書', desc: '読み解くと職業の理解が深まる (JP+25)',
-        price: skillPrice, sold: false,
-        canBuy: () => true,
-        buy: () => {
-          const unlocked = addJP(run, 25);
-          return unlocked.length > 0
-            ? `JP+25　新スキル習得: ${unlocked.map((s) => s.name).join('、')}`
-            : 'JP+25 を得た';
-        },
-      });
-    }
+    for (let i = 0; i < skillCount; i++) specs.push({ k: 'skill', price: skillPrice });
 
     // レリック枠 2-3 (RollRelicRarity + RelicBasePrices × (1+floor×0.25))
     const RELIC_BASE_PRICE: Partial<Record<RelicRarity, number>> = {
@@ -178,19 +181,9 @@ export class NodeEventScene extends Phaser.Scene {
       const rarity = forceCursed ? 'Cursed' : rollRelicRarity(run.sanity, false);
       const relic = drawRelic(run, rarity, usedRelics);
       if (!relic) return;
-      stock.push({
-        tag: `【${RARITY_LABEL[relic.rarity]}】`, tagColor: RARITY_COLOR[relic.rarity],
-        name: relic.name, desc: relic.description,
+      specs.push({
+        k: 'relic', id: relic.id,
         price: price(Math.round((RELIC_BASE_PRICE[relic.rarity] ?? 100) * (1 + floor * 0.25))),
-        sold: false,
-        canBuy: () => !run.relics.includes(relic.id),
-        buy: () => {
-          const cursesBefore = run.curses.length;
-          const gained = addRelicToRun(run, relic);
-          let msg = `「${gained.map((r) => r.name).join('」「')}」を手に入れた`;
-          if (run.curses.length > cursesBefore) msg += '　…呪いも憑いてきた';
-          return msg;
-        },
       });
     };
     const relicCount = this.rng.range(2, 4);
@@ -199,7 +192,41 @@ export class NodeEventScene extends Phaser.Scene {
     if (hasEffect(run, 'BlackMarket')) addRelicSlot(true);
 
     // 消耗品枠 2 (ConsumablePrice=40 一律 / Web版適応: 即時使用型)
-    const consumablePool: Array<Omit<ShopEntry, 'price' | 'sold' | 'tag' | 'tagColor'>> = [
+    const consumablePrice = price(40);
+    const poolIdx = [...this.consumablePool().keys()];
+    for (let i = 0; i < 2 && poolIdx.length > 0; i++) {
+      const pick = poolIdx.splice(this.rng.int(poolIdx.length), 1)[0];
+      specs.push({ k: 'consumable', i: pick, price: consumablePrice });
+    }
+
+    // 装備枠 1-2 (CanEquip を満たすまで最大6回抽選 / 価格 = equip.Value)
+    const equipCount = this.rng.range(1, 3);
+    const ownedOrStocked = new Set<string>([
+      ...run.equipmentInventory,
+      run.equippedWeapon ?? '', run.equippedArmor ?? '', run.equippedAccessory ?? '',
+    ]);
+    for (let i = 0; i < equipCount; i++) {
+      let equip = null as ReturnType<typeof drawEquipmentForFloor> | null;
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const cand = drawEquipmentForFloor(floor, this.rng);
+        if (canEquip(run, cand.id) && !ownedOrStocked.has(cand.id)) { equip = cand; break; }
+      }
+      if (!equip) continue;
+      ownedOrStocked.add(equip.id);
+      specs.push({ k: 'equip', id: equip.id, price: price(equip.value) });
+    }
+
+    // サービス (SkillPurgePrice=100 / SkillUpgradePrice=120)
+    // Web版適応: 「スキル削除」→「呪い解除」、「スキル強化」→ JP+50
+    specs.push({ k: 'purge', price: hasEffect(run, 'FreeRemove') ? 0 : price(100) });
+    specs.push({ k: 'upgrade', price: price(120) });
+    return specs;
+  }
+
+  /** 消耗品の候補 (Web版適応: 即時使用型4種) */
+  private consumablePool(): Array<Omit<ShopEntry, 'price' | 'sold' | 'tag' | 'tagColor'>> {
+    const run = this.run;
+    return [
       {
         name: '回復薬', desc: 'HPを30%回復する',
         canBuy: () => run.currentHP < getEffectiveMaxHP(run),
@@ -229,68 +256,84 @@ export class NodeEventScene extends Phaser.Scene {
         buy: () => { run.maxHPBase += 10; healRun(run, 10); return '最大HPが 10 上がった'; },
       },
     ];
-    const consumablePrice = price(40);
-    const poolIdx = [...consumablePool.keys()];
-    for (let i = 0; i < 2 && poolIdx.length > 0; i++) {
-      const pick = poolIdx.splice(this.rng.int(poolIdx.length), 1)[0];
-      stock.push({
-        tag: '【消耗品】', tagColor: COLORS.textGreen,
-        ...consumablePool[pick], price: consumablePrice, sold: false,
-      });
-    }
+  }
 
-    // 装備枠 1-2 (CanEquip を満たすまで最大6回抽選 / 価格 = equip.Value)
-    const equipCount = this.rng.range(1, 3);
-    const ownedOrStocked = new Set<string>([
-      ...run.equipmentInventory,
-      run.equippedWeapon ?? '', run.equippedArmor ?? '', run.equippedAccessory ?? '',
-    ]);
-    for (let i = 0; i < equipCount; i++) {
-      let equip = null as ReturnType<typeof drawEquipmentForFloor> | null;
-      for (let attempt = 0; attempt < 6; attempt++) {
-        const cand = drawEquipmentForFloor(floor, this.rng);
-        if (canEquip(run, cand.id) && !ownedOrStocked.has(cand.id)) { equip = cand; break; }
+  /** 保存した在庫1枠から、表示と購入処理を組み立てる */
+  private shopEntry(spec: ShopSpec): ShopEntry {
+    const run = this.run;
+    switch (spec.k) {
+      case 'skill':
+        return {
+          tag: '【修練】', tagColor: COLORS.textBlue,
+          name: '修練の書', desc: '読み解くと職業の理解が深まる (JP+25)',
+          price: spec.price, sold: false,
+          canBuy: () => true,
+          buy: () => {
+            const unlocked = addJP(run, 25);
+            return unlocked.length > 0
+              ? `JP+25　新スキル習得: ${unlocked.map((s) => s.name).join('、')}`
+              : 'JP+25 を得た';
+          },
+        };
+      case 'relic': {
+        const relic = getRelic(spec.id)!;
+        return {
+          tag: `【${RARITY_LABEL[relic.rarity]}】`, tagColor: RARITY_COLOR[relic.rarity],
+          name: relic.name, desc: relic.description,
+          price: spec.price, sold: false,
+          canBuy: () => !run.relics.includes(relic.id),
+          buy: () => {
+            const cursesBefore = run.curses.length;
+            const gained = addRelicToRun(run, relic);
+            let msg = `「${gained.map((r) => r.name).join('」「')}」を手に入れた`;
+            if (run.curses.length > cursesBefore) msg += '　…呪いも憑いてきた';
+            return msg;
+          },
+        };
       }
-      if (!equip) continue;
-      const chosen = equip;
-      ownedOrStocked.add(chosen.id);
-      stock.push({
-        tag: `${EQUIP_RARITY_LABEL[chosen.rarity]}`, tagColor: EQUIP_RARITY_COLOR[chosen.rarity],
-        name: `${chosen.name}〔${SLOT_LABEL[chosen.slot]}〕`, desc: chosen.description,
-        price: price(chosen.value), sold: false,
-        canBuy: () => true,
-        buy: () => {
-          run.equipmentInventory.push(chosen.id);
-          return `「${chosen.name}」を仕入れた (装備画面で装備できる)`;
-        },
-      });
+      case 'consumable':
+        return {
+          tag: '【消耗品】', tagColor: COLORS.textGreen,
+          ...this.consumablePool()[spec.i], price: spec.price, sold: false,
+        };
+      case 'equip': {
+        const equip = getEquipment(spec.id)!;
+        return {
+          tag: `${EQUIP_RARITY_LABEL[equip.rarity]}`, tagColor: EQUIP_RARITY_COLOR[equip.rarity],
+          name: `${equip.name}〔${SLOT_LABEL[equip.slot]}〕`, desc: equip.description,
+          price: spec.price, sold: false,
+          canBuy: () => true,
+          buy: () => {
+            run.equipmentInventory.push(equip.id);
+            return `「${equip.name}」を仕入れた (装備画面で装備できる)`;
+          },
+        };
+      }
+      case 'purge':
+        return {
+          tag: '【サービス】', tagColor: COLORS.textGold,
+          name: '呪い解除', desc: '身に宿った呪いを1つ祓ってもらう',
+          price: spec.price, sold: false,
+          canBuy: () => run.curses.length > 0,
+          buy: () => {
+            const removed = run.curses.pop()! as keyof typeof CURSE_INFO;
+            return `【${CURSE_INFO[removed].name}】の呪いが解けた`;
+          },
+        };
+      case 'upgrade':
+        return {
+          tag: '【サービス】', tagColor: COLORS.textGold,
+          name: 'スキル強化', desc: '実戦の型を教わり、職業の理解が大きく深まる (JP+50)',
+          price: spec.price, sold: false,
+          canBuy: () => true,
+          buy: () => {
+            const unlocked = addJP(run, 50);
+            return unlocked.length > 0
+              ? `JP+50　新スキル習得: ${unlocked.map((s) => s.name).join('、')}`
+              : 'JP+50 を得た';
+          },
+        };
     }
-
-    // サービス (SkillPurgePrice=100 / SkillUpgradePrice=120)
-    // Web版適応: 「スキル削除」→「呪い解除」、「スキル強化」→ JP+50
-    const purgeFree = hasEffect(run, 'FreeRemove');
-    stock.push({
-      tag: '【サービス】', tagColor: COLORS.textGold,
-      name: '呪い解除', desc: '身に宿った呪いを1つ祓ってもらう',
-      price: purgeFree ? 0 : price(100), sold: false,
-      canBuy: () => run.curses.length > 0,
-      buy: () => {
-        const removed = run.curses.pop()! as keyof typeof CURSE_INFO;
-        return `【${CURSE_INFO[removed].name}】の呪いが解けた`;
-      },
-    });
-    stock.push({
-      tag: '【サービス】', tagColor: COLORS.textGold,
-      name: 'スキル強化', desc: '実戦の型を教わり、職業の理解が大きく深まる (JP+50)',
-      price: price(120), sold: false,
-      canBuy: () => true,
-      buy: () => {
-        const unlocked = addJP(run, 50);
-        return unlocked.length > 0
-          ? `JP+50　新スキル習得: ${unlocked.map((s) => s.name).join('、')}`
-          : 'JP+50 を得た';
-      },
-    });
   }
 
   private renderShop(): void {
@@ -327,6 +370,7 @@ export class NodeEventScene extends Phaser.Scene {
           this.run.gold -= item.price;
           this.shopMessage = `「${item.name}」— ${item.buy()}`;
           item.sold = true;
+          this.run.pendingEncounter?.shop?.sold.push(i);
           saveRun(this.run);
           this.renderShop();
         }, { width: 110, height: 36, fontSize: 13, disabled: !affordable });
@@ -374,6 +418,7 @@ export class NodeEventScene extends Phaser.Scene {
     }
 
     earnGold(this.run, gold);
+    this.finish();   // 報酬付与と同じ保存で完了 (再開しても二重に受け取れない)
     saveRun(this.run);
     this.resultAndLeave(message, COLORS.textGold);
   }
@@ -402,6 +447,7 @@ export class NodeEventScene extends Phaser.Scene {
       damageRun(this.run, damage);
       addSanity(this.run, -1);
       earnGold(this.run, gold);
+      this.finish();
       saveRun(this.run);
       if (this.run.currentHP <= 0) {
         this.scene.start('Result', { won: false });
@@ -410,6 +456,7 @@ export class NodeEventScene extends Phaser.Scene {
       }
     }, { width: 340 });
     makeButton(this, width / 2 + 180, height - 64, '立ち去る', () => {
+      this.finish();
       saveRun(this.run);
       this.scene.start('Map');
     }, { width: 240 });
@@ -601,6 +648,17 @@ export class NodeEventScene extends Phaser.Scene {
       outcomes.push(`【放浪者の日記】+${diary} G`);
     }
 
+    // 選択の結果を適用した保存で完了。戦闘が起きる場合は、その戦闘を進行中にする
+    // (再開すると選択肢から選び直せてしまう、または戦闘を飛ばせてしまうため)
+    if (r.battle) {
+      run.pendingEncounter = {
+        scene: 'Battle',
+        nodeType: r.elite ? 'EliteBattle' : 'Battle',
+        contentSeed: this.rng.int(0x7fffffff),
+      };
+    } else {
+      this.finish();
+    }
     saveRun(run);
 
     // 死亡チェック
@@ -630,11 +688,9 @@ export class NodeEventScene extends Phaser.Scene {
     this.statusLine();
 
     if (r.battle) {
+      const battle = this.run.pendingEncounter!;
       makeButton(this, width / 2, height - 64, '― 戦闘開始 ―', () => {
-        this.scene.start('Battle', {
-          nodeType: r.elite ? 'EliteBattle' : 'Battle',
-          contentSeed: this.rng.int(0x7fffffff),
-        });
+        this.scene.start('Battle', { nodeType: battle.nodeType, contentSeed: battle.contentSeed });
       }, { width: 300, color: COLORS.textRed });
     } else {
       this.leave();

@@ -1,11 +1,31 @@
 // 1ランの全状態 — Unity版 Roguelike/RunData.cs の移植
 // (JSONシリアライズ可能な形にするため、スキルはID参照で保持する)
-import type { BlessingType, CharacterStats, MapData } from './types';
+import type { BlessingType, CharacterStats, MapData, NodeType } from './types';
 import { getCharacter } from '../data/characters';
 import { getDifficulty } from '../data/difficulty';
 import { applyMetaBonuses } from './meta';
 import { grantRandomCommonRelic, randomCurse, hasEffect, sumEffect } from './relics';
 import { getEquipment as getEquipmentDef } from '../data/equipment';
+
+/** ショップ在庫1枠の保存形式。入店時に確定し、再開しても引き直さない */
+export type ShopSpec =
+  | { k: 'skill'; price: number }
+  | { k: 'relic'; id: string; price: number }
+  | { k: 'consumable'; i: number; price: number }
+  | { k: 'equip'; id: string; price: number }
+  | { k: 'purge'; price: number }
+  | { k: 'upgrade'; price: number };
+
+/** 進行中のノード */
+export interface PendingEncounter {
+  scene: 'Battle' | 'NodeEvent';
+  nodeType: NodeType;
+  contentSeed: number;
+  /** 戦闘に勝利済みで、報酬 (付与済み) の遺物選択待ち */
+  reward?: { lines: string[]; loot: string[]; isBoss: boolean };
+  /** ショップ: 確定した在庫と購入済みの枠番号 */
+  shop?: { stock: ShopSpec[]; sold: number[] };
+}
 
 export interface RunState {
   // Identity
@@ -56,6 +76,9 @@ export interface RunState {
   // Party (RunData.PartyMembers — Floor0→1の幻影加入)
   partyMembers: PartyMember[];
   phantomEventDone: boolean;    // 幻影イベント消化済みか
+  /** 進行中のノード。完了するまで残し、中断→再開時はここから再開する
+   *  (戦闘を飛ばせる・ボス戦中断で進めなくなる不具合の対策) */
+  pendingEncounter: PendingEncounter | null;
 
   // Statistics
   damageDealt: number;
@@ -145,6 +168,7 @@ export function createRun(
 
     partyMembers: [],
     phantomEventDone: false,
+    pendingEncounter: null,
 
     damageDealt: 0,
     damageTaken: 0,
