@@ -3,11 +3,11 @@ import Phaser from 'phaser';
 import { COLORS, makeButton, textStyle, drawBar } from '../ui/theme';
 import { BattleEngine, Combatant, type BattleEvent, type PlayerCommand } from '../battle/engine';
 import { pickEncounter, buildHeroes, buildEnemies, computeRewards } from '../battle/setup';
-import { loadRun, saveRun, clearRun } from '../core/save';
+import { loadRun, saveRun, clearRun, loadMeta, recordWeakness } from '../core/save';
 import type { RunState } from '../core/run';
 import { getEffectiveMaxHP } from '../core/run';
 import { addExp, addJP } from '../core/level';
-import type { EnemyDef, NodeType, SkillDef } from '../core/types';
+import type { ElementType, EnemyDef, NodeType, SkillDef } from '../core/types';
 import { STATUS_DISPLAY_NAME } from '../core/types';
 import { FLOORS } from '../data/enemies';
 import { getCharacter } from '../data/characters';
@@ -23,6 +23,22 @@ import { RARITY_LABEL, RARITY_COLOR, getRelic, type RelicDef } from '../data/rel
 
 interface BattleInit { nodeType: NodeType; contentSeed: number }
 
+/** 弱点枠に表示する属性の略称と色 */
+const ELEMENT_BADGE: Record<ElementType, { label: string; color: string }> = {
+  None: { label: '無', color: '#d8d0e8' },
+  Physical: { label: '物', color: '#e8e0d0' },
+  Fire: { label: '炎', color: '#ff8a4a' },
+  Ice: { label: '氷', color: '#8ad8ff' },
+  Lightning: { label: '雷', color: '#ffe04a' },
+  Wind: { label: '風', color: '#8aeaa0' },
+  Dark: { label: '闇', color: '#c09aff' },
+  Light: { label: '光', color: '#fff2a8' },
+  Poison: { label: '毒', color: '#b0e070' },
+  Bleed: { label: '血', color: '#ff6a7a' },
+};
+
+interface WeakSlot { el: ElementType; box: Phaser.GameObjects.Rectangle; text: Phaser.GameObjects.Text }
+
 export class BattleScene extends Phaser.Scene {
   private run!: RunState;
   private engine!: BattleEngine;
@@ -36,9 +52,12 @@ export class BattleScene extends Phaser.Scene {
   private msgText!: Phaser.GameObjects.Text;
   private hudG!: Phaser.GameObjects.Graphics;
   private hudTexts: Phaser.GameObjects.Text[] = [];
+  private turnStrip: Phaser.GameObjects.Container | null = null;
   private commandContainer: Phaser.GameObjects.Container | null = null;
   private boostLevel = 0;
   private processing = false;
+  /** タッチ操作で「1回目のタップ」を受けたコマンド (2回目で決定) */
+  private armedCommand = -1;
 
   private contentSeed = 0;
 
@@ -137,6 +156,7 @@ export class BattleScene extends Phaser.Scene {
     });
 
     // 敵描画 (右側)。足元を地面線にそろえ、名前・HP・シールドは頭上にまとめる
+    const knownWeak = loadMeta().knownWeaknesses;
     enemies.forEach((e, i) => {
       const x = width - 200 - i * 180;
       const rank = e.enemyDef!.rank;
@@ -166,14 +186,28 @@ export class BattleScene extends Phaser.Scene {
       const nameText = this.add.text(0, top - 27, e.name, labelStyle(12)).setOrigin(0.5);
       const shieldText = this.add.text(0, top - 45, '', labelStyle(13, '#8fc2ee')).setOrigin(0.5);
       const container = this.add.container(x, groundY - bodyH / 2, [rect, hpText, nameText, shieldText]);
+
+      // 弱点枠: 弱点の数だけ「?」を並べ、弱点を突くと属性を開示する (オクトパストラベラー式)。
+      // 一度見つけた弱点はランをまたいで記憶する。鑑定士の片眼鏡を持っていれば最初から全開示
+      const weaknesses = e.enemyDef!.elementWeaknesses;
+      const revealAll = hasEffect(this.run, 'WeaknessReveal');
+      const known = new Set(knownWeak[e.enemyDef!.id] ?? []);
+      const weakSlots: WeakSlot[] = [];
       let labelTop = top - 45;
-      // 鑑定士の片眼鏡: 弱点を常時表示
-      if (hasEffect(this.run, 'WeaknessReveal')) {
-        const weakStr = '弱点: ' + e.enemyDef!.elementWeaknesses.join('/');
-        labelTop = top - 62;
-        container.add(this.add.text(0, labelTop, weakStr, labelStyle(10, COLORS.textGold)).setOrigin(0.5));
+      if (weaknesses.length > 0) {
+        labelTop = top - 64;
+        const gap = 22;
+        weaknesses.forEach((el, wi) => {
+          const sx = (wi - (weaknesses.length - 1) / 2) * gap;
+          const box = this.add.rectangle(sx, labelTop, 19, 19, 0x000000, 0.65).setStrokeStyle(1, 0x6a5a8a);
+          const text = this.add.text(sx, labelTop, '?', labelStyle(12, '#9a90b0')).setOrigin(0.5);
+          container.add([box, text]);
+          const slot = { el, box, text };
+          weakSlots.push(slot);
+          if (revealAll || known.has(el)) this.showWeakSlot(slot, false);
+        });
       }
-      container.setData({ combatant: e, rect, hpText, shieldText, bodyH, bodyW, labelTop });
+      container.setData({ combatant: e, rect, hpText, shieldText, bodyH, bodyW, labelTop, weakSlots });
       this.enemySprites.push(container);
     });
 
@@ -248,6 +282,7 @@ export class BattleScene extends Phaser.Scene {
         this.spawnDamageNumber(e.target, e.amount,
           e.isCrit ? '#ffd24a' : '#ffffff', e.isCrit, e.isWeak);
         this.flashCombatant(e.target);
+        if (e.isWeak && e.element && !e.target.isPlayer) this.revealWeakness(e.target, e.element);
         return e.isCrit ? 480 : 320;
       }
       case 'dot':
@@ -336,6 +371,31 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
+  /** 弱点枠を開示表示にする */
+  private showWeakSlot(slot: WeakSlot, animate: boolean): void {
+    const badge = ELEMENT_BADGE[slot.el];
+    slot.text.setText(badge.label).setColor(badge.color);
+    slot.box.setStrokeStyle(1, Phaser.Display.Color.HexStringToColor(badge.color).color);
+    if (animate) {
+      this.tweens.add({ targets: [slot.box, slot.text], scale: { from: 1.8, to: 1 }, duration: 260, ease: 'Back.easeOut' });
+    }
+  }
+
+  /** 弱点を突いたとき: 同じ種類の敵すべての枠を開示し、初発見ならランをまたいで記録する */
+  private revealWeakness(target: Combatant, el: ElementType): void {
+    const id = target.enemyDef?.id;
+    if (!id) return;
+    for (const container of this.enemySprites) {
+      const c = container.getData('combatant') as Combatant;
+      if (c.enemyDef?.id !== id) continue;
+      const slot = (container.getData('weakSlots') as WeakSlot[]).find((w) => w.el === el);
+      if (slot && slot.text.text === '?') this.showWeakSlot(slot, true);
+    }
+    if (recordWeakness(id, el)) {
+      this.msgText.setText(`${target.name} の弱点を見つけた！【${ELEMENT_BADGE[el].label}】`);
+    }
+  }
+
   private flashCombatant(target: Combatant): void {
     const obj = target.isPlayer ? this.heroSpriteOf(target) : this.findEnemySprite(target)?.getData('rect');
     if (!obj) return;
@@ -344,8 +404,48 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
+  // ── 行動順 (画面上部。先頭=いま行動中、以降は予測) ───────────────────
+  private drawTurnOrder(): void {
+    this.turnStrip?.destroy();
+    this.turnStrip = null;
+    if (!this.engine || this.engine.over) return;
+    const { width } = this.scale;
+    const current = this.engine.activeCombatant;
+    const upcoming = this.engine.predictTurnOrder(current?.isAlive ? 7 : 8);
+    const order = current?.isAlive ? [current, ...upcoming] : upcoming;
+
+    // 同名の敵は A/B/C で区別する
+    const shortName = (c: Combatant): string => {
+      const base = c.isPlayer ? c.name.split('・')[0] : c.name.split(' ').pop()!;
+      if (c.isPlayer) return base;
+      const same = this.engine.enemies.filter((e) => e.name === c.name);
+      return same.length > 1 ? `${base}${'ABCD'[same.indexOf(c)]}` : base;
+    };
+
+    const chipW = 86;
+    const gap = 6;
+    const y = 104;
+    const totalW = order.length * chipW + (order.length - 1) * gap;
+    const startX = width / 2 - totalW / 2 + chipW / 2;
+    const items: Phaser.GameObjects.GameObject[] = [
+      this.add.text(startX - chipW / 2 - 10, y, '行動順', textStyle(12, COLORS.textDim)).setOrigin(1, 0.5),
+    ];
+    order.forEach((c, i) => {
+      const x = startX + i * (chipW + gap);
+      const isNow = i === 0 && c === current;
+      const box = this.add.rectangle(x, y, chipW, 22, c.isPlayer ? 0x1a2a44 : 0x3a1822, 0.9)
+        .setStrokeStyle(isNow ? 2 : 1, isNow ? 0xd9c66b : c.isPlayer ? 0x4a6a9a : 0x7a3a4a);
+      const label = this.add.text(x, y, shortName(c), textStyle(11,
+        isNow ? COLORS.textGold : c.isPlayer ? '#b8d0f0' : '#f0b8c0')).setOrigin(0.5);
+      if (label.width > chipW - 8) label.setScale((chipW - 8) / label.width);
+      items.push(box, label);
+    });
+    this.turnStrip = this.add.container(0, 0, items).setDepth(55);
+  }
+
   // ── HUD更新 ────────────────────────────────────────────────────────
   private refreshDisplay(): void {
+    this.drawTurnOrder();
     const { width, height } = this.scale;
     this.hudG.clear();
     this.hudTexts.forEach((t) => t.destroy());
@@ -429,6 +529,7 @@ export class BattleScene extends Phaser.Scene {
   // ── コマンドメニュー (2列 / 多スキル対応 / 手番のヒーロー用) ────────
   private showCommandMenu(): void {
     this.hideCommandMenu();
+    this.armedCommand = -1;
     const { width, height } = this.scale;
     const h = this.engine.activeCombatant?.isPlayer ? this.engine.activeCombatant : this.hero;
     const items: Phaser.GameObjects.GameObject[] = [];
@@ -475,23 +576,42 @@ export class BattleScene extends Phaser.Scene {
       const row = Math.floor(index / 2);
       const btn = this.add.text(colX[col], listTop + row * 30, label,
         textStyle(14, enabled ? color : '#554d66'));
+      const describe = () => {
+        if (skill) {
+          // ブースト選択中はスキル別の強化内容 (BoostSkillResolver) を表示
+          const preview = this.boostLevel > 0
+            ? `\n【ブースト×${this.boostLevel}】${getBoostPreview(skill, this.boostLevel)}`
+            : '';
+          this.msgText.setText(skill.description + preview);
+        } else {
+          this.msgText.setText('武器で攻撃する。');
+        }
+      };
       if (enabled) {
         btn.setInteractive({ useHandCursor: true })
-          .on('pointerover', () => {
-            if (skill) {
-              // ブースト選択中はスキル別の強化内容 (BoostSkillResolver) を表示
-              const preview = this.boostLevel > 0
-                ? `\n【ブースト×${this.boostLevel}】${getBoostPreview(skill, this.boostLevel)}`
-                : '';
-              this.msgText.setText(skill.description + preview);
-            }
+          .on('pointerover', (pointer: Phaser.Input.Pointer) => {
+            if (pointer.wasTouch) return;   // タッチはタップ側で説明を出す (案内文を上書きしない)
+            describe();
             btn.setColor(COLORS.textGold);
           })
-          .on('pointerout', () => btn.setColor(color))
-          .on('pointerdown', onPick);
+          .on('pointerout', () => { if (this.armedCommand !== index) btn.setColor(color); })
+          .on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+            // タッチではホバーが無いので、1回目のタップで説明を出し、2回目で決定する
+            if (pointer.wasTouch && this.armedCommand !== index) {
+              this.armedCommand = index;
+              describe();
+              this.msgText.setText(`${this.msgText.text}\n（もう一度タップで決定）`);
+              for (const t of commandTexts) t.setColor(t === btn ? COLORS.textGold : (t.getData('baseColor') as string));
+              return;
+            }
+            onPick();
+          });
       }
+      btn.setData('baseColor', enabled ? color : '#554d66');
+      commandTexts.push(btn);
       items.push(btn);
     };
+    const commandTexts: Phaser.GameObjects.Text[] = [];
 
     addCommand(0, '⚔ 攻撃', COLORS.text, true, null, () => {
       this.selectTarget((idx) => {

@@ -265,7 +265,9 @@ export class Combatant {
 
 export type BattleEvent =
   | { kind: 'message'; text: string }
-  | { kind: 'damage'; target: Combatant; amount: number; isCrit: boolean; isWeak: boolean }
+  | { kind: 'damage'; target: Combatant; amount: number; isCrit: boolean; isWeak: boolean;
+      /** 攻撃の属性 (弱点を突いたときに画面側で弱点を開示するため) */
+      element?: ElementType }
   | { kind: 'heal'; target: Combatant; amount: number }
   | { kind: 'status'; target: Combatant; status: StatusEffectType; applied: boolean }
   | { kind: 'break'; target: Combatant }
@@ -341,6 +343,26 @@ export class BattleEngine {
     const out = this.events;
     this.events = [];
     return out;
+  }
+
+  /** 今後の行動順の予測 (現在の速度が続くと仮定。advance と同じゲージ規則を
+   *  コピー上で回すので、実際の状態は変えない)。先頭は次に行動する者 */
+  predictTurnOrder(count: number): Combatant[] {
+    const living = this.all.filter((c) => c.isAlive);
+    if (living.length === 0) return [];
+    const gauge = new Map(living.map((c) => [c, c.turnGauge] as const));
+    const order: Combatant[] = [];
+    for (let guard = 0; order.length < count && guard < 10000; guard++) {
+      while (!living.some((c) => gauge.get(c)! >= 100)) {
+        for (const c of living) gauge.set(c, gauge.get(c)! + Math.max(1, c.speed));
+      }
+      const next = living
+        .filter((c) => gauge.get(c)! >= 100)
+        .sort((a, b) => gauge.get(b)! - gauge.get(a)! || b.speed - a.speed)[0];
+      gauge.set(next, gauge.get(next)! - 100);
+      order.push(next);
+    }
+    return order;
   }
 
   advance(): 'awaitInput' | 'over' {
@@ -1251,7 +1273,7 @@ export class BattleEngine {
         target.passives.has('SKL_Passive_IndomitableWill') && !target.indomitableUsed) {
       target.indomitableUsed = true;
       target.hp = 1;
-      this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak });
+      this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak, element });
       this.emit({ kind: 'message', text: `${target.name} は踏みとどまった！` });
       return isCrit;
     }
@@ -1260,19 +1282,19 @@ export class BattleEngine {
     if (!target.isAlive && target.isPlayer && target.revivalAmuletAvailable) {
       target.revivalAmuletAvailable = false;
       target.hp = 1;
-      this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak });
+      this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak, element });
       this.emit({ kind: 'message', text: `蘇生の護符が砕け、${target.name} を死の淵から引き戻した！` });
       return isCrit;
     }
 
     // 不死鳥の綿羽: 1ランに1回HP1で復活
     if (!target.isAlive && target.isPlayer && this.relics?.tryRevive(target)) {
-      this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak });
+      this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak, element });
       this.emit({ kind: 'message', text: `不死鳥の綿羽が燃え上がり、${target.name} は蘇った！` });
       return isCrit;
     }
 
-    this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak });
+    this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak, element });
 
     // レリック: 与ダメ確定後の効果 (吸血・出血/麻痺付与)
     if (this.relics && attacker.isPlayer && !target.isPlayer) {

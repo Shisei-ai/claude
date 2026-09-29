@@ -11,6 +11,8 @@ export interface MetaSave {
   maxFloor: number;
   unlockedNodes: string[];
   clearedEndings: string[];   // 到達済みエンディング (EndingType)
+  /** 発見済みの弱点 (敵ID → 属性)。ランをまたいで保持し、戦闘で「?」を開示済みにする */
+  knownWeaknesses: Record<string, string[]>;
 }
 
 const DEFAULT_META: MetaSave = {
@@ -20,25 +22,37 @@ const DEFAULT_META: MetaSave = {
   maxFloor: 0,
   unlockedNodes: [],
   clearedEndings: [],
+  knownWeaknesses: {},
 };
 
 export function loadMeta(): MetaSave {
   try {
     const raw = localStorage.getItem(META_KEY);
-    if (!raw) return { ...DEFAULT_META, unlockedNodes: [] };
+    if (!raw) return { ...DEFAULT_META, unlockedNodes: [], clearedEndings: [], knownWeaknesses: {} };
     const parsed = JSON.parse(raw) as Partial<MetaSave>;
     return {
       ...DEFAULT_META, ...parsed,
       unlockedNodes: parsed.unlockedNodes ?? [],
       clearedEndings: parsed.clearedEndings ?? [],
+      knownWeaknesses: parsed.knownWeaknesses ?? {},
     };
   } catch {
-    return { ...DEFAULT_META, unlockedNodes: [], clearedEndings: [] };
+    return { ...DEFAULT_META, unlockedNodes: [], clearedEndings: [], knownWeaknesses: {} };
   }
 }
 
 export function saveMeta(meta: MetaSave): void {
   localStorage.setItem(META_KEY, JSON.stringify(meta));
+}
+
+/** 弱点を発見済みとして記録する。新しく見つけたときだけ true */
+export function recordWeakness(enemyId: string, element: string): boolean {
+  const meta = loadMeta();
+  const known = meta.knownWeaknesses[enemyId] ?? [];
+  if (known.includes(element)) return false;
+  meta.knownWeaknesses[enemyId] = [...known, element];
+  saveMeta(meta);
+  return true;
 }
 
 // ── ラン途中セーブ (チェックポイント) ──────────────────────────────────

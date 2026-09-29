@@ -24,6 +24,9 @@ const NODE_LABELS: Record<NodeType, string> = {
 
 export class MapScene extends Phaser.Scene {
   private run!: RunState;
+  /** タッチ操作で1回目のタップを受けたノード (2回目で進む) */
+  private armedNodeId = -1;
+  private tipTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor() { super('Map'); }
 
@@ -44,6 +47,7 @@ export class MapScene extends Phaser.Scene {
     // 最終層 (Floor 4) にはマップがない — 直接最終戦へ
     if (run.currentFloor >= 4) { this.scene.start('Finale'); return; }
     this.run = run;
+    this.armedNodeId = -1;
     if (!this.run.map) {
       this.run.map = generateMap(this.run.seed, this.run.currentFloor);
       saveRun(this.run);
@@ -105,7 +109,15 @@ export class MapScene extends Phaser.Scene {
         const label = this.add.text(x, y, `◆${r.name}`, textStyle(11, RARITY_COLOR[r.rarity]))
           .setInteractive({ useHandCursor: true })
           .on('pointerover', () => this.showRelicTip(label.x + 40, y - 8, `${r.name}\n${r.description}`))
-          .on('pointerout', () => this.hideTooltip());
+          // タッチは指を離すと pointerout が来るため、タッチ由来では消さない (タイマーで消す)
+          .on('pointerout', (pointer: Phaser.Input.Pointer) => { if (!pointer.wasTouch) this.hideTooltip(); })
+          .on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+            // タッチではホバーが無いので、タップで説明を出して数秒後に消す
+            if (!pointer.wasTouch) return;
+            this.showRelicTip(label.x + 40, y + 150, `${r.name}\n${r.description}`);
+            this.tipTimer?.remove();
+            this.tipTimer = this.time.delayedCall(3000, () => this.hideTooltip());
+          });
         x += label.width + 14;
         if (x > this.scale.width - 200) break;
       }
@@ -192,15 +204,24 @@ export class MapScene extends Phaser.Scene {
 
       if (isAvailable) {
         circle.setInteractive({ useHandCursor: true })
-          .on('pointerover', () => {
+          .on('pointerover', (pointer: Phaser.Input.Pointer) => {
             circle.setScale(1.25);
-            this.showTooltip(x, y, node);
+            this.showTooltip(x, y, node, pointer.wasTouch);   // タッチなら案内文つき
           })
           .on('pointerout', () => {
+            // タッチで1回目のタップを受けたノードは、指を離しても名前を出したままにする
+            if (this.armedNodeId === node.id) return;
             circle.setScale(1);
             this.hideTooltip();
           })
-          .on('pointerdown', () => this.enterNode(node));
+          .on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+            if (pointer.wasTouch && this.armedNodeId !== node.id) {
+              this.armedNodeId = node.id;
+              this.showTooltip(x, y, node, true);
+              return;
+            }
+            this.enterNode(node);
+          });
 
         this.tweens.add({
           targets: circle, alpha: { from: 1, to: 0.6 },
@@ -212,9 +233,10 @@ export class MapScene extends Phaser.Scene {
 
   private tooltip: Phaser.GameObjects.Container | null = null;
 
-  private showTooltip(x: number, y: number, node: MapNode): void {
+  private showTooltip(x: number, y: number, node: MapNode, touchHint = false): void {
     this.hideTooltip();
-    const label = this.add.text(0, 0, NODE_LABELS[node.type], textStyle(13)).setOrigin(0.5);
+    const text = touchHint ? `${NODE_LABELS[node.type]}（もう一度タップで進む）` : NODE_LABELS[node.type];
+    const label = this.add.text(0, 0, text, textStyle(13)).setOrigin(0.5);
     const bg = this.add.rectangle(0, 0, label.width + 20, 26, 0x000000, 0.85)
       .setStrokeStyle(1, COLORS.border);
     this.tooltip = this.add.container(x, y - 34, [bg, label]).setDepth(100);

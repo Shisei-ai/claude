@@ -509,16 +509,27 @@ export class NodeEventScene extends Phaser.Scene {
     const btnW = Math.min(340, (width - 120) / count - 16);
     const startX = width / 2 - ((count - 1) * (btnW + 16)) / 2;
 
+    let armedChoice = -1;
     event.choices.forEach((choice, i) => {
       const affordable = !choice.goldCost || this.run.gold >= choice.goldCost;
-      const btn = makeButton(this, startX + i * (btnW + 16), btnY, choice.text, () => {
+      const btn = makeButton(this, startX + i * (btnW + 16), btnY, choice.text, (pointer) => {
+        // タッチではホバーが無いので、補足がある選択肢は1回目のタップで補足を出し、2回目で決定
+        if (choice.tooltip && pointer.wasTouch && armedChoice !== i) {
+          armedChoice = i;
+          this.showChoiceTooltip(startX + i * (btnW + 16), btnY - 40, `${choice.tooltip}\n（もう一度タップで決定）`);
+          return;
+        }
         this.resolveChoice(choice);
       }, { width: btnW, height: 52, fontSize: 14, disabled: !affordable });
 
       if (choice.tooltip) {
         const bg = btn.list[0] as Phaser.GameObjects.Rectangle;
         bg.on('pointerover', () => this.showChoiceTooltip(startX + i * (btnW + 16), btnY - 40, choice.tooltip!));
-        bg.on('pointerout', () => { this.choiceTip?.destroy(); this.choiceTip = null; });
+        // タッチは指を離すと pointerout が来るため、タッチ由来では補足を消さない
+        bg.on('pointerout', (pointer: Phaser.Input.Pointer) => {
+          if (pointer.wasTouch) return;
+          this.choiceTip?.destroy(); this.choiceTip = null;
+        });
       }
     });
   }

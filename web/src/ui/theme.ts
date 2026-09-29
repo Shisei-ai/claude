@@ -53,7 +53,7 @@ export interface ButtonOpts {
 /** 汎用ボタン */
 export function makeButton(
   scene: Phaser.Scene, x: number, y: number, label: string,
-  onClick: () => void, opts: ButtonOpts = {},
+  onClick: (pointer: Phaser.Input.Pointer) => void, opts: ButtonOpts = {},
 ): Phaser.GameObjects.Container {
   const w = opts.width ?? 320;
   const h = opts.height ?? 52;
@@ -79,7 +79,7 @@ export function makeButton(
         bg.setFillStyle(COLORS.bgPanelLight, 0.92).setStrokeStyle(1, COLORS.border);
         txt.setColor(opts.color ?? COLORS.text);
       })
-      .on('pointerdown', onClick);
+      .on('pointerdown', (pointer: Phaser.Input.Pointer) => onClick(pointer));
   }
 
   return container;
