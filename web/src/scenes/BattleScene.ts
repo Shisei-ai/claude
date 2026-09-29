@@ -14,7 +14,7 @@ import { getCharacter } from '../data/characters';
 import { RelicBattleState } from '../battle/relicHooks';
 import { getBoostPreview } from '../battle/boost';
 import { hasArt } from './PreloadScene';
-import { charFullKey, enemyArtKey, bgArtKey, ENDING_BG_STEM } from '../data/assets';
+import { charFullKey, enemyArtKey, bgArtKey, ENDING_BG_STEM, artFrame } from '../data/assets';
 import {
   buildBattleLoot, addRelicToRun, modifyGoldDrop, hasEffect, sumEffect,
   drawRelic, rollRelicRarity,
@@ -72,7 +72,9 @@ export class BattleScene extends Phaser.Scene {
       this.add.rectangle(width / 2, height / 2, width, height,
         floorTints[Math.min(this.run.currentFloor, 3)]);
     }
-    this.add.rectangle(width / 2, height - 170, width, 2, 0x3a3050);  // 地面線
+    // 地面線。コマンド欄 (3行時の上端 = 画面下から202px) に足元が隠れない高さ
+    const groundLineY = height - 202;
+    this.add.rectangle(width / 2, groundLineY, width, 2, 0x3a3050);
 
     // エンジン構築 (主人公+幻影パーティ)
     this.heroes = buildHeroes(this.run);
@@ -85,57 +87,76 @@ export class BattleScene extends Phaser.Scene {
     const relicState = new RelicBattleState(this.run);
     this.engine = new BattleEngine(this.heroes, enemies, this.run.metaStartBP, relicState);
 
-    // ヒーロー描画 (左側・最大3人)
+    // ヒーロー描画 (左側・最大3人)。足元を地面線にそろえ、名前は頭上に表示
+    const groundY = groundLineY - 2;   // 足元の位置
+    const labelStyle = (size: number, color: string = COLORS.text) =>
+      textStyle(size, color, { stroke: '#000000', strokeThickness: 3 });
     this.heroSprites = [];
     this.heroes.forEach((h, i) => {
       const x = 220 - i * 10 + (i > 0 ? (i === 1 ? -90 : 90) : 0);
-      const y = height - 260 - (i > 0 ? 60 : 0);
+      const feetY = groundY - (i > 0 ? 40 : 0);   // 仲間は一歩奥
       const id = h.characterId ?? this.run.characterId;
       const color = getCharacter(id).themeColor;
-      const labelY = y + (i === 0 ? 70 : 58);
 
       // 立ち絵があれば画像、無ければ従来の矩形 (アスペクト比維持で高さ合わせ)
       let sprite: Phaser.GameObjects.Rectangle | Phaser.GameObjects.Image;
+      let bodyH: number;
       const key = charFullKey(id);
       if (hasArt(this, key)) {
-        const img = this.add.image(x, y, key).setOrigin(0.5, 0.5);
-        const targetH = i === 0 ? 230 : 168;
-        img.setScale(targetH / img.height);
+        bodyH = i === 0 ? 230 : 168;
+        const img = this.add.image(x, feetY - bodyH / 2, key, artFrame(this, key)).setOrigin(0.5, 0.5);
+        img.setScale(bodyH / img.height);
         sprite = img;
       } else {
-        sprite = this.add.rectangle(x, y, i === 0 ? 72 : 58, i === 0 ? 110 : 88, color, 0.95)
+        bodyH = i === 0 ? 110 : 88;
+        sprite = this.add.rectangle(x, feetY - bodyH / 2, i === 0 ? 72 : 58, bodyH, color, 0.95)
           .setStrokeStyle(2, 0xd8d0e8);
       }
-      this.add.text(x, labelY, h.name.split('・')[0], textStyle(i === 0 ? 14 : 12)).setOrigin(0.5);
+      sprite.setDepth(i === 0 ? 5 : 4);   // 主人公を手前に
+      this.add.text(x, feetY - bodyH - 12, h.name.split('・')[0], labelStyle(i === 0 ? 14 : 12))
+        .setOrigin(0.5).setDepth(6);
       if (!h.isAlive) sprite.setAlpha(0.25);
       this.heroSprites.push(sprite);
     });
 
-    // 敵描画 (右側)
+    // 敵描画 (右側)。足元を地面線にそろえ、名前・HP・シールドは頭上にまとめる
     enemies.forEach((e, i) => {
       const x = width - 200 - i * 180;
-      const y = height - 270;
-      const size = e.enemyDef!.rank === 'Boss' ? 130 : e.enemyDef!.rank === 'Elite' ? 100 : 76;
+      const rank = e.enemyDef!.rank;
       const ekey = enemyArtKey(e.enemyDef!.id);
       let rect: Phaser.GameObjects.Rectangle | Phaser.GameObjects.Image;
+      let bodyH: number;
+      let bodyW: number;
       if (hasArt(this, ekey)) {
-        const img = this.add.image(0, 0, ekey).setOrigin(0.5, 0.5);
-        img.setScale((size * 1.4) / img.height);
+        // 主人公(230px)と釣り合う高さ: 通常190 / エリート235 / ボス300。
+        // 横長の敵 (狼など) が隣と重ならないよう横幅にも上限を設ける
+        const isBoss = rank === 'Boss' || rank === 'TrueFinalBoss';
+        const targetH = isBoss ? 300 : rank === 'Elite' ? 235 : 190;
+        const maxW = isBoss ? 320 : 170;
+        const img = this.add.image(0, 0, ekey, artFrame(this, ekey)).setOrigin(0.5, 0.5);
+        img.setScale(Math.min(targetH / img.height, maxW / img.width));
+        bodyH = img.displayHeight;
+        bodyW = img.displayWidth;
         rect = img;
       } else {
-        rect = this.add.rectangle(0, 0, size * 0.7, size, e.enemyDef!.tint, 0.95)
+        bodyH = rank === 'Boss' || rank === 'TrueFinalBoss' ? 130 : rank === 'Elite' ? 100 : 76;
+        bodyW = bodyH * 0.7;
+        rect = this.add.rectangle(0, 0, bodyW, bodyH, e.enemyDef!.tint, 0.95)
           .setStrokeStyle(2, 0x000000);
       }
-      const nameText = this.add.text(0, size / 2 + 14, e.name, textStyle(12)).setOrigin(0.5);
-      const hpText = this.add.text(0, size / 2 + 32, '', textStyle(11, COLORS.textDim)).setOrigin(0.5);
-      const shieldText = this.add.text(0, -size / 2 - 16, '', textStyle(13, '#8fc2ee')).setOrigin(0.5);
-      const container = this.add.container(x, y, [rect, nameText, hpText, shieldText]);
+      const top = -bodyH / 2;
+      const hpText = this.add.text(0, top - 10, '', labelStyle(11, COLORS.textDim)).setOrigin(0.5);
+      const nameText = this.add.text(0, top - 27, e.name, labelStyle(12)).setOrigin(0.5);
+      const shieldText = this.add.text(0, top - 45, '', labelStyle(13, '#8fc2ee')).setOrigin(0.5);
+      const container = this.add.container(x, groundY - bodyH / 2, [rect, hpText, nameText, shieldText]);
+      let labelTop = top - 45;
       // 鑑定士の片眼鏡: 弱点を常時表示
       if (hasEffect(this.run, 'WeaknessReveal')) {
         const weakStr = '弱点: ' + e.enemyDef!.elementWeaknesses.join('/');
-        container.add(this.add.text(0, size / 2 + 48, weakStr, textStyle(10, COLORS.textGold)).setOrigin(0.5));
+        labelTop = top - 62;
+        container.add(this.add.text(0, labelTop, weakStr, labelStyle(10, COLORS.textGold)).setOrigin(0.5));
       }
-      container.setData({ combatant: e, rect, hpText, shieldText });
+      container.setData({ combatant: e, rect, hpText, shieldText, bodyH, bodyW, labelTop });
       this.enemySprites.push(container);
     });
 
@@ -379,8 +400,8 @@ export class BattleScene extends Phaser.Scene {
       const statusLine = c.statuses.map((s) => STATUS_DISPLAY_NAME[s.type]).join(' ');
       let st = sprite.getData('statusText') as Phaser.GameObjects.Text | undefined;
       if (!st) {
-        st = this.add.text(0, -((sprite.getData('rect') as Phaser.GameObjects.Rectangle).height / 2) - 34,
-          '', textStyle(10, COLORS.textRed)).setOrigin(0.5);
+        st = this.add.text(0, (sprite.getData('labelTop') as number) - 17,
+          '', textStyle(10, COLORS.textRed, { stroke: '#000000', strokeThickness: 3 })).setOrigin(0.5);
         sprite.add(st);
         sprite.setData('statusText', st);
       }
@@ -527,12 +548,15 @@ export class BattleScene extends Phaser.Scene {
     for (const { e, i } of living) {
       const sprite = this.findEnemySprite(e);
       if (!sprite) continue;
-      const marker = this.add.text(sprite.x, sprite.y - 100, '▼', textStyle(26, COLORS.textGold))
+      const markerY = sprite.y + (sprite.getData('labelTop') as number) - 40;
+      const marker = this.add.text(sprite.x, markerY, '▼', textStyle(26, COLORS.textGold))
         .setOrigin(0.5).setDepth(70)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => { this.clearTargetSelectors(); onPick(i); });
       this.tweens.add({ targets: marker, y: marker.y - 8, duration: 400, yoyo: true, repeat: -1 });
-      const hit = this.add.rectangle(sprite.x, sprite.y, 140, 160, 0xffffff, 0.001)
+      const hitW = Math.max(110, sprite.getData('bodyW') as number);
+      const hitH = Math.max(140, sprite.getData('bodyH') as number);
+      const hit = this.add.rectangle(sprite.x, sprite.y, hitW, hitH, 0xffffff, 0.001)
         .setDepth(69)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => { this.clearTargetSelectors(); onPick(i); });

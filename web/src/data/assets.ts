@@ -88,3 +88,61 @@ export const charFullKey = (id: string): string => `char_${id}_full`;
 export const charPortraitKey = (id: string): string => `char_${id}_portrait`;
 export const enemyArtKey = (id: string): string => `enemy_${id}`;
 export const bgArtKey = (key: string): string => `bg_${key}`;
+
+// ── 透明余白の自動トリミング ──────────────────────────────────────────
+// 生成画像はキャンバス内の余白量がまちまちなため、そのままだと表示サイズを
+// 揃えても見た目の大きさ・足元の位置がばらつく。不透明部分の外接矩形を求め、
+// その範囲だけを指す 'trim' フレームをテクスチャに追加する。
+// 1枚あたり約20msかかるため起動時に一括では行わず、初めて表示するときに
+// その画像だけ処理する (artFrame 経由)。結果はテクスチャに残るので2回目以降は即時。
+
+/** トリミング済みフレーム名 */
+export const TRIM_FRAME = 'trim';
+
+/** 不透明部分の外接矩形を 'trim' フレームとして登録する (元画像は変更しない)。
+ *  原寸で走査すると1枚あたり数十msかかるため、長辺256pxに縮小して検出し、
+ *  結果を原寸座標に戻す (誤差は数px程度、余白を1マス分足して吸収)。 */
+export function trimTexture(scene: Phaser.Scene, key: string): void {
+  const tex = scene.textures.get(key);
+  if (tex.has(TRIM_FRAME)) return;
+  const src = tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement;
+  const w = src.width;
+  const h = src.height;
+  const k = Math.min(1, 256 / Math.max(w, h));
+  const sw = Math.max(1, Math.round(w * k));
+  const sh = Math.max(1, Math.round(h * k));
+  const canvas = document.createElement('canvas');
+  canvas.width = sw;
+  canvas.height = sh;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return;
+  ctx.drawImage(src, 0, 0, sw, sh);
+  const data = ctx.getImageData(0, 0, sw, sh).data;
+
+  const ALPHA_MIN = 24;
+  let minX = sw, minY = sh, maxX = -1, maxY = -1;
+  for (let y = 0; y < sh; y++) {
+    const row = y * sw * 4;
+    for (let x = 0; x < sw; x++) {
+      if (data[row + x * 4 + 3] > ALPHA_MIN) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < 0) return;   // 完全に透明な画像はそのまま
+  // 縮小画像の1マス分を余白として足し、原寸座標へ戻す
+  const x0 = Math.max(0, Math.floor((minX - 1) / k));
+  const y0 = Math.max(0, Math.floor((minY - 1) / k));
+  const x1 = Math.min(w, Math.ceil((maxX + 2) / k));
+  const y1 = Math.min(h, Math.ceil((maxY + 2) / k));
+  tex.add(TRIM_FRAME, 0, x0, y0, x1 - x0, y1 - y0);
+}
+
+/** 画像表示に使うフレーム。未処理なら余白を切り詰めてから 'trim' を返す */
+export function artFrame(scene: Phaser.Scene, key: string): string | undefined {
+  trimTexture(scene, key);
+  return scene.textures.get(key).has(TRIM_FRAME) ? TRIM_FRAME : undefined;
+}
