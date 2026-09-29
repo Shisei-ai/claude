@@ -23,22 +23,16 @@ export interface CharArt {
   portrait?: string;  // 顔グラ (正方・バストアップ)
 }
 
-/** キャラクターID → 画像パス */
-export const CHARACTER_ART: Record<string, CharArt> = {
-  // ベルンハルト
-  bernhard: {},
-  // ラヴィニア
-  lavinia: {},
-  // アッシュ・レイヴン
-  ash: {
-    full: 'assets/characters/ash_full.png',
-    portrait: 'assets/characters/ash_portrait.png',
-  },
-  // リリア
-  lilia: {},
-  // ゼノ
-  zeno: {},
-};
+/** プレイアブルキャラID。ファイル名は <id>_full.png / <id>_portrait.png で揃える。 */
+const CHARACTER_IDS: string[] = ['bernhard', 'lavinia', 'ash', 'lilia', 'zeno'];
+
+/** キャラクターID → 画像パス。ファイルが無い枠は矩形描画へ自動フォールバック。 */
+export const CHARACTER_ART: Record<string, CharArt> = Object.fromEntries(
+  CHARACTER_IDS.map((id) => [id, {
+    full: `assets/characters/${id}_full.png`,
+    portrait: `assets/characters/${id}_portrait.png`,
+  }]),
+);
 
 /** 全41体の敵ID (EnemyDef.id)。各層 通常4+エリート4+ボス1 = 各9体 ×4層
  *  + 最終層エンディングボス5体。ファイル名は <id>.png で揃える。 */
