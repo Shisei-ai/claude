@@ -81,6 +81,8 @@ export interface RunState {
   pendingEncounter: PendingEncounter | null;
   /** 入ったときの台詞を表示済みの層 (同じ層で繰り返さない) */
   floorIntroSeen: number[];
+  /** デイリー挑戦の日付 (YYYY-MM-DD)。通常の旅は null */
+  dailyDate: string | null;
 
   // Statistics
   damageDealt: number;
@@ -172,6 +174,7 @@ export function createRun(
     phantomEventDone: false,
     pendingEncounter: null,
     floorIntroSeen: [],
+    dailyDate: null,
 
     damageDealt: 0,
     damageTaken: 0,

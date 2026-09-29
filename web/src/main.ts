@@ -12,6 +12,8 @@ import { EquipScene } from './scenes/EquipScene';
 import { PhantomJoinScene } from './scenes/PhantomJoinScene';
 import { SettingsScene } from './scenes/SettingsScene';
 import { PrologueScene } from './scenes/PrologueScene';
+import { CodexScene } from './scenes/CodexScene';
+import { ToastScene } from './scenes/ToastScene';
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -37,5 +39,7 @@ new Phaser.Game({
     PhantomJoinScene,
     SettingsScene,
     PrologueScene,
+    CodexScene,
+    ToastScene,   // 常に最前面 (実績通知)
   ],
 });

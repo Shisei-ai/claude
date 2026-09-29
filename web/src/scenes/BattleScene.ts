@@ -3,7 +3,8 @@ import Phaser from 'phaser';
 import { COLORS, makeButton, textStyle, drawBar } from '../ui/theme';
 import { BattleEngine, Combatant, type BattleEvent, type PlayerCommand } from '../battle/engine';
 import { pickEncounter, buildHeroes, buildEnemies, computeRewards } from '../battle/setup';
-import { loadRun, saveRun, clearRun, loadMeta, recordWeakness } from '../core/save';
+import { loadRun, saveRun, clearRun, loadMeta, recordWeakness, recordEnemiesSeen, recordEnemyKills } from '../core/save';
+import { notifyAchievements } from './ToastScene';
 import type { RunState } from '../core/run';
 import { getEffectiveMaxHP } from '../core/run';
 import { addExp, addJP } from '../core/level';
@@ -24,22 +25,9 @@ import {
 } from '../core/relics';
 import { RARITY_LABEL, RARITY_COLOR, getRelic, type RelicDef } from '../data/relics';
 import { LINES, pickLine, shortName, type CharLines } from '../data/dialogue';
+import { ELEMENT_BADGE } from '../ui/elements';
 
 interface BattleInit { nodeType: NodeType; contentSeed: number }
-
-/** 弱点枠に表示する属性の略称と色 */
-const ELEMENT_BADGE: Record<ElementType, { label: string; color: string }> = {
-  None: { label: '無', color: '#d8d0e8' },
-  Physical: { label: '物', color: '#e8e0d0' },
-  Fire: { label: '炎', color: '#ff8a4a' },
-  Ice: { label: '氷', color: '#8ad8ff' },
-  Lightning: { label: '雷', color: '#ffe04a' },
-  Wind: { label: '風', color: '#8aeaa0' },
-  Dark: { label: '闇', color: '#c09aff' },
-  Light: { label: '光', color: '#fff2a8' },
-  Poison: { label: '毒', color: '#b0e070' },
-  Bleed: { label: '血', color: '#ff6a7a' },
-};
 
 interface WeakSlot { el: ElementType; box: Phaser.GameObjects.Rectangle; text: Phaser.GameObjects.Text }
 
@@ -135,6 +123,7 @@ export class BattleScene extends Phaser.Scene {
     if (isFirstCombat && this.run.blessingFirstCombatShieldReduction) {
       this.run.blessingFirstCombatShieldReduction = false;
     }
+    recordEnemiesSeen(this.enemyDefs.map((d) => d.id));
     const relicState = new RelicBattleState(this.run);
     this.engine = new BattleEngine(this.heroes, enemies, this.run.metaStartBP, relicState);
 
@@ -544,6 +533,7 @@ export class BattleScene extends Phaser.Scene {
     }
     if (recordWeakness(id, el)) {
       this.msgText.setText(`${target.name} の弱点を見つけた！【${ELEMENT_BADGE[el].label}】`);
+      notifyAchievements(this, this.run);
     }
   }
 
@@ -1021,6 +1011,8 @@ export class BattleScene extends Phaser.Scene {
       reward: { lines, loot: lootChoices.map((r) => r.id), isBoss },
     };
     saveRun(run);
+    recordEnemyKills(this.enemyDefs.map((d) => d.id));
+    notifyAchievements(this, run);
 
     this.showVictoryPanel(lines, lootChoices, isBoss);
   }

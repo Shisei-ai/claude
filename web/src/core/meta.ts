@@ -172,6 +172,16 @@ export function recordRunEnd(run: RunState, won: boolean): number {
   if (won && run.activeEnding && !meta.clearedEndings.includes(run.activeEnding)) {
     meta.clearedEndings.push(run.activeEnding);
   }
+  if (!meta.playedCharacters.includes(run.characterId)) meta.playedCharacters.push(run.characterId);
+  // デイリー挑戦: その日の最高記録を残す (踏破 > 到達層 > 踏破した部屋数 の順で比べる)
+  if (run.dailyDate) {
+    const prev = meta.dailyRecords[run.dailyDate];
+    const score = (r: { won: boolean; floor: number; rooms: number }) =>
+      (r.won ? 1_000_000 : 0) + r.floor * 1000 + r.rooms;
+    const now = { floor: run.currentFloor, rooms: run.totalRoomsCleared, won };
+    const best = !prev || score(now) > score(prev) ? now : prev;
+    meta.dailyRecords[run.dailyDate] = { ...best, attempts: (prev?.attempts ?? 0) + 1 };
+  }
   const earned = calculateEpitaphsEarned(run, won);
   meta.totalEpitaphs += earned;
   saveMeta(meta);

@@ -5,6 +5,7 @@ import { playBgm } from '../audio/bgm';
 import { COLORS, makeButton, textStyle, drawSceneBackground } from '../ui/theme';
 import { META_NODES, isNodeUnlocked, canUnlockNode, tryUnlockNode } from '../core/meta';
 import { loadMeta } from '../core/save';
+import { notifyAchievements } from './ToastScene';
 
 export class MetaScene extends Phaser.Scene {
   constructor() { super('Meta'); }
@@ -82,7 +83,10 @@ export class MetaScene extends Phaser.Scene {
             .on('pointerover', () => bg.setFillStyle(0x2a2140, 1))
             .on('pointerout', () => bg.setFillStyle(0x221a33, 0.95))
             .on('pointerdown', () => {
-              if (tryUnlockNode(node.id)) this.scene.restart();
+              if (tryUnlockNode(node.id)) {
+                notifyAchievements(this);
+                this.scene.restart();
+              }
             });
         }
       });

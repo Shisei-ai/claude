@@ -27,7 +27,8 @@ export class PrologueScene extends Phaser.Scene {
       textStyle(22, COLORS.textGold)).setOrigin(0.5);
 
     const toMap = () => this.scene.start('Map');
-    makeButton(this, width - 90, 48, 'スキップ', toMap, { width: 130, height: 36, fontSize: 14 });
+    // 会話の下敷き (クリックで次へ) より手前に置かないと押せない
+    makeButton(this, width - 90, 48, 'スキップ', toMap, { width: 130, height: 36, fontSize: 14 }).setDepth(400);
     showDialogue(this, { characterId: run.characterId, lines, onDone: toMap });
   }
 }

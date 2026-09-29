@@ -9,6 +9,7 @@ import { getCharacter } from '../data/characters';
 import { getEnding, getCharacterEpilogue, DEFAULT_ENDING_TEXT } from '../data/endings';
 import { hasArt } from './PreloadScene';
 import { LINES, pickLine, shortName } from '../data/dialogue';
+import { notifyAchievements } from './ToastScene';
 import { bgArtKey, ENDING_BG_STEM } from '../data/assets';
 
 interface ResultInit { won: boolean; finale?: boolean }
@@ -35,6 +36,7 @@ export class ResultScene extends Phaser.Scene {
     // 碑文獲得 & メタ記録
     const earned = recordRunEnd(run, this.won);
     clearRun();
+    notifyAchievements(this, run);
 
     const char = getCharacter(run.characterId);
     const ending = getEnding(run.activeEnding);
@@ -122,6 +124,10 @@ export class ResultScene extends Phaser.Scene {
     this.add.text(width / 2, height * 0.72 + 32,
       '「彼方の墓標」で碑文を力に変えられる',
       textStyle(13, COLORS.textDim)).setOrigin(0.5);
+    if (run.dailyDate) {
+      this.add.text(width / 2, height * 0.72 + 56,
+        `デイリー挑戦 ${run.dailyDate} の記録を残した`, textStyle(13, COLORS.textGold)).setOrigin(0.5);
+    }
 
     makeButton(this, width / 2 - 170, height - 70, '彼方の墓標へ', () => {
       this.scene.start('Meta');

@@ -14,6 +14,7 @@ import { RARITY_COLOR } from '../data/relics';
 import { playBgm } from '../audio/bgm';
 import { FIELD_LINES, shortName } from '../data/dialogue';
 import { showDialogue } from '../ui/dialogue';
+import { notifyAchievements } from './ToastScene';
 
 const NODE_ICONS: Record<NodeType, string> = {
   Battle: '戦', EliteBattle: '強', Boss: '王', Shop: '商',
@@ -82,6 +83,8 @@ export class MapScene extends Phaser.Scene {
     }, { width: 160, height: 40, fontSize: 15 });
 
     playBgm(this, `floor${Math.min(this.run.currentFloor, 3)}`);
+    // 所持金・レリック数などの実績 (イベントや商人での変化もここで拾う)
+    notifyAchievements(this, this.run);
     this.maybeShowFloorLine();
   }
 

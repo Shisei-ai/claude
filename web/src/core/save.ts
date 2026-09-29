@@ -13,36 +13,106 @@ export interface MetaSave {
   clearedEndings: string[];   // 到達済みエンディング (EndingType)
   /** 発見済みの弱点 (敵ID → 属性)。ランをまたいで保持し、戦闘で「?」を開示済みにする */
   knownWeaknesses: Record<string, string[]>;
+  // ── 図鑑 ──
+  /** 戦ったことのある敵ID */
+  seenEnemies: string[];
+  /** 敵ID → 倒した数 */
+  enemyKills: Record<string, number>;
+  /** 手に入れたことのあるレリックID */
+  seenRelics: string[];
+  /** 手に入れたことのある装備ID */
+  seenEquipment: string[];
+  // ── 実績・デイリー ──
+  /** 解除した実績ID */
+  achievements: string[];
+  /** 旅に出たことのあるキャラクターID */
+  playedCharacters: string[];
+  /** デイリー挑戦の最高記録 (日付 YYYY-MM-DD → 記録) */
+  dailyRecords: Record<string, DailyRecord>;
 }
 
-const DEFAULT_META: MetaSave = {
-  totalEpitaphs: 0,
-  totalRuns: 0,
-  totalWins: 0,
-  maxFloor: 0,
-  unlockedNodes: [],
-  clearedEndings: [],
-  knownWeaknesses: {},
-};
+export interface DailyRecord {
+  /** 到達した層 (0始まり) */
+  floor: number;
+  rooms: number;
+  won: boolean;
+  attempts: number;
+}
+
+/** 配列・オブジェクトを共有しない新しい既定値 */
+function freshMeta(): MetaSave {
+  return {
+    totalEpitaphs: 0,
+    totalRuns: 0,
+    totalWins: 0,
+    maxFloor: 0,
+    unlockedNodes: [],
+    clearedEndings: [],
+    knownWeaknesses: {},
+    seenEnemies: [],
+    enemyKills: {},
+    seenRelics: [],
+    seenEquipment: [],
+    achievements: [],
+    playedCharacters: [],
+    dailyRecords: {},
+  };
+}
 
 export function loadMeta(): MetaSave {
   try {
     const raw = localStorage.getItem(META_KEY);
-    if (!raw) return { ...DEFAULT_META, unlockedNodes: [], clearedEndings: [], knownWeaknesses: {} };
+    if (!raw) return freshMeta();
     const parsed = JSON.parse(raw) as Partial<MetaSave>;
-    return {
-      ...DEFAULT_META, ...parsed,
-      unlockedNodes: parsed.unlockedNodes ?? [],
-      clearedEndings: parsed.clearedEndings ?? [],
-      knownWeaknesses: parsed.knownWeaknesses ?? {},
-    };
+    // 旧セーブに無い項目は既定値で補う
+    const meta = freshMeta();
+    for (const k of Object.keys(parsed) as (keyof MetaSave)[]) {
+      if (parsed[k] !== undefined && parsed[k] !== null) (meta as unknown as Record<string, unknown>)[k] = parsed[k];
+    }
+    return meta;
   } catch {
-    return { ...DEFAULT_META, unlockedNodes: [], clearedEndings: [], knownWeaknesses: {} };
+    return freshMeta();
   }
 }
 
 export function saveMeta(meta: MetaSave): void {
-  localStorage.setItem(META_KEY, JSON.stringify(meta));
+  try {
+    localStorage.setItem(META_KEY, JSON.stringify(meta));
+  } catch { /* 保存できない環境では記録を諦める */ }
+}
+
+/** 所持しているレリック・装備を図鑑に記録する (新しい物があるときだけ書き込む) */
+function recordOwnedItems(run: RunState): void {
+  const meta = loadMeta();
+  let changed = false;
+  const add = (list: string[], id: string | null) => {
+    if (id && !list.includes(id)) { list.push(id); changed = true; }
+  };
+  run.relics.forEach((id) => add(meta.seenRelics, id));
+  run.equipmentInventory.forEach((id) => add(meta.seenEquipment, id));
+  add(meta.seenEquipment, run.equippedWeapon);
+  add(meta.seenEquipment, run.equippedArmor);
+  add(meta.seenEquipment, run.equippedAccessory);
+  if (changed) saveMeta(meta);
+}
+
+/** 戦闘で出会った敵を図鑑に記録する */
+export function recordEnemiesSeen(enemyIds: string[]): void {
+  const meta = loadMeta();
+  const fresh = enemyIds.filter((id) => !meta.seenEnemies.includes(id));
+  if (fresh.length === 0) return;
+  meta.seenEnemies.push(...new Set(fresh));
+  saveMeta(meta);
+}
+
+/** 倒した敵を図鑑に記録する */
+export function recordEnemyKills(enemyIds: string[]): void {
+  const meta = loadMeta();
+  for (const id of enemyIds) {
+    meta.enemyKills[id] = (meta.enemyKills[id] ?? 0) + 1;
+    if (!meta.seenEnemies.includes(id)) meta.seenEnemies.push(id);
+  }
+  saveMeta(meta);
 }
 
 /** 弱点を発見済みとして記録する。新しく見つけたときだけ true */
@@ -59,6 +129,7 @@ export function recordWeakness(enemyId: string, element: string): boolean {
 
 export function saveRun(run: RunState): void {
   localStorage.setItem(RUN_KEY, JSON.stringify(run));
+  recordOwnedItems(run);
 }
 
 export function loadRun(): RunState | null {
@@ -83,6 +154,7 @@ export function loadRun(): RunState | null {
     run.phantomEventDone ??= false;
     run.pendingEncounter ??= null;
     run.floorIntroSeen ??= [];
+    run.dailyDate ??= null;
     return run;
   } catch {
     return null;
