@@ -5,19 +5,20 @@ import { COLORS, makeButton, textStyle, drawSceneBackground } from '../ui/theme'
 import { ELEMENT_BADGE } from '../ui/elements';
 import { loadMeta, type MetaSave } from '../core/save';
 import { ACHIEVEMENTS } from '../core/achievements';
-import type { CharacterStats, EnemyDef, EnemyRank, EquipmentDef } from '../core/types';
-import { CODEX_ENEMIES, enemyFloor } from '../data/codex';
+import type { CharacterStats, EnemyDef, EnemyRank, EquipmentDef, SkillDef } from '../core/types';
+import { CODEX_ENEMIES, GRIMOIRE_SKILLS, enemyFloor, enemyUsingSkill, isCarryableGrimoireSkill } from '../data/codex';
 import { RELICS, RARITY_LABEL, RARITY_COLOR, type RelicDef } from '../data/relics';
 import { EQUIPMENT, EQUIP_RARITY_LABEL, EQUIP_RARITY_COLOR, SLOT_LABEL } from '../data/equipment';
 import { hasArt } from './PreloadScene';
 import { enemyArtKey, artFrame } from '../data/assets';
 
-type Tab = 'enemy' | 'relic' | 'equip' | 'achievement';
+type Tab = 'enemy' | 'relic' | 'equip' | 'grimoire' | 'achievement';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'enemy', label: '魔物' },
   { id: 'relic', label: '遺物' },
   { id: 'equip', label: '装備' },
+  { id: 'grimoire', label: '魔導書' },
   { id: 'achievement', label: '実績' },
 ];
 
@@ -71,7 +72,7 @@ export class CodexScene extends Phaser.Scene {
     this.add.text(width / 2, 36, '図鑑', textStyle(34, COLORS.textGold)).setOrigin(0.5);
 
     TABS.forEach((t, i) => {
-      const x = width / 2 + (i - 1.5) * 160;
+      const x = width / 2 + (i - (TABS.length - 1) / 2) * 160;
       const active = t.id === this.tab;
       this.add.rectangle(x, 110, 148, 38, active ? 0x2a2140 : 0x151020, 0.95)
         .setStrokeStyle(active ? 2 : 1, active ? COLORS.borderBright : COLORS.border)
@@ -106,6 +107,7 @@ export class CodexScene extends Phaser.Scene {
       case 'enemy': this.renderEnemies(); break;
       case 'relic': this.renderRelics(); break;
       case 'equip': this.renderEquipment(); break;
+      case 'grimoire': this.renderGrimoire(); break;
       case 'achievement': this.renderAchievements(); break;
     }
   }
@@ -231,6 +233,37 @@ export class CodexScene extends Phaser.Scene {
   }
 
   // ── 遺物 ───────────────────────────────────────────────────────────
+  // ── 魔導書 (ゼノがグリモワールに刻んだ敵の技) ─────────────────────
+  private renderGrimoire(): void {
+    const got = new Set(this.meta.grimoireArchive);
+    const known = GRIMOIRE_SKILLS.filter((s) => got.has(s.id)).length;
+    this.renderGrid(GRIMOIRE_SKILLS,
+      (s) => ({ label: s.name, color: ELEMENT_BADGE[s.element].color, known: got.has(s.id) }),
+      (s) => this.grimoireDetail(s, got.has(s.id)),
+      `刻んだ技 ${known} / ${GRIMOIRE_SKILLS.length}　（ゼノの吸収で記録。「魔獣の書」を解放すると旅立ちに持ち込める）`);
+  }
+
+  private grimoireDetail(s: SkillDef, known: boolean): void {
+    let y = LIST_Y + 12;
+    const from = enemyUsingSkill(s.id);
+    if (!known) {
+      y = this.line(y, '？？？', 22, COLORS.textDim);
+      this.line(y, `${from ? from.name + ' が使う技。' : ''}まだ吸収していない。`, 14, COLORS.textDim);
+      return;
+    }
+    const badge = ELEMENT_BADGE[s.element];
+    y = this.line(y, s.name, 22, COLORS.textGold);
+    y = this.line(y, `【${badge.label}】　${from ? from.name + ' の技' : ''}`, 13, badge.color);
+    const power = s.basePower > 0
+      ? `威力 ${Math.round(s.basePower * 100)}%${s.hitCount > 1 ? ` × ${s.hitCount}回` : ''}${s.hitsAllEnemies ? '（全体）' : ''}`
+      : '補助技';
+    y = this.line(y, `${power}　MP ${Math.max(4, s.mpCost || 8)}　魔法攻撃力で放つ`, 14);
+    if (s.description) y = this.line(y, s.description, 13, COLORS.textDim);
+    this.line(y + 6, isCarryableGrimoireSkill(s.id)
+      ? '◆ 「魔獣の書」で旅立ちに持ち込める'
+      : '◇ 強敵の技のため、旅立ちには持ち込めない', 13, isCarryableGrimoireSkill(s.id) ? COLORS.textGold : COLORS.textDim);
+  }
+
   private renderRelics(): void {
     const seen = new Set(this.meta.seenRelics);
     const known = RELICS.filter((r) => seen.has(r.id)).length;

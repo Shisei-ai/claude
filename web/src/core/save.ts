@@ -28,6 +28,8 @@ export interface MetaSave {
   achievements: string[];
   /** 旅に出たことのあるキャラクターID */
   playedCharacters: string[];
+  /** ゼノがこれまでにグリモワールへ刻んだ敵の技 (旅をまたいで持ち越す候補) */
+  grimoireArchive: string[];
   /** デイリー挑戦の最高記録 (日付 YYYY-MM-DD → 記録) */
   dailyRecords: Record<string, DailyRecord>;
 }
@@ -56,6 +58,7 @@ function freshMeta(): MetaSave {
     seenEquipment: [],
     achievements: [],
     playedCharacters: [],
+    grimoireArchive: [],
     dailyRecords: {},
   };
 }
@@ -103,6 +106,15 @@ export function recordEnemiesSeen(enemyIds: string[]): void {
   const fresh = enemyIds.filter((id) => !meta.seenEnemies.includes(id));
   if (fresh.length === 0) return;
   meta.seenEnemies.push(...new Set(fresh));
+  saveMeta(meta);
+}
+
+/** グリモワールに刻んだ技を記録する (持ち越しの候補になる) */
+export function recordGrimoire(skillIds: string[]): void {
+  const meta = loadMeta();
+  const fresh = skillIds.filter((id) => !meta.grimoireArchive.includes(id));
+  if (fresh.length === 0) return;
+  meta.grimoireArchive.push(...new Set(fresh));
   saveMeta(meta);
 }
 

@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { COLORS, makeButton, textStyle, drawBar } from '../ui/theme';
 import { BattleEngine, Combatant, type BattleEvent, type PlayerCommand } from '../battle/engine';
 import { pickEncounter, buildHeroes, buildEnemies, computeRewards } from '../battle/setup';
-import { loadRun, saveRun, clearRun, loadMeta, recordWeakness, recordEnemiesSeen, recordEnemyKills } from '../core/save';
+import { loadRun, saveRun, clearRun, loadMeta, recordWeakness, recordEnemiesSeen, recordEnemyKills, recordGrimoire } from '../core/save';
 import { notifyAchievements } from './ToastScene';
 import type { RunState } from '../core/run';
 import { getEffectiveMaxHP } from '../core/run';
@@ -946,6 +946,8 @@ export class BattleScene extends Phaser.Scene {
 
   // ── 決着処理 ────────────────────────────────────────────────────────
   private onBattleEnd(): void {
+    // 刻んだ技は勝敗に関係なく記録 (次の旅で持ち込む候補になる)
+    if (this.engine.absorbedThisBattle.length > 0) recordGrimoire(this.engine.absorbedThisBattle);
     if (this.engine.over === 'victory') {
       this.onVictory();
     } else {

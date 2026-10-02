@@ -67,7 +67,7 @@ export class MetaScene extends Phaser.Scene {
           costLabel = '― 解放済 ―';
           costColor = COLORS.textGold;
         } else if (!prereqMet) {
-          costLabel = `前の段階を解放すると選べる　碑文 ${node.epitaphCost}`;
+          costLabel = `前の段階が必要　碑文 ${node.epitaphCost}`;
           costColor = '#8a7fa0';
         } else if (meta.totalEpitaphs < node.epitaphCost) {
           costLabel = `碑文 ${node.epitaphCost}（あと ${node.epitaphCost - meta.totalEpitaphs}）`;

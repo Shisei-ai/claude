@@ -9,7 +9,8 @@ export type MetaBonusType =
   | 'CritRateFlat' | 'MaxMPFlat' | 'StartingGold' | 'ShopDiscount'
   | 'ExtraRelicChoices' | 'StartBP'
   | 'FloorClearExtraHeal' | 'StartWithCommonRelic'
-  | 'CurseDmgReduction' | 'CurseHPReductionImmune';
+  | 'CurseDmgReduction' | 'CurseHPReductionImmune'
+  | 'GrimoireCarrySlot';   // Web版で追加: ゼノが旅立ちに持ち込める吸収技の枠
 
 export interface MetaBonus { type: MetaBonusType; value: number }
 
@@ -95,6 +96,12 @@ export const META_NODES: MetaNode[] = [
     { type: 'CurseDmgReduction', value: 0.20 }),
   N('wild_5', '荒野の知恵', '★ 不死身の旅人', '「衰弱」呪いによる最大HP低下を完全に無効化する。', 30, ['wild_4'], true,
     { type: 'CurseHPReductionImmune', value: 1 }),
+
+  // PATH 6 : 魔獣の書 (Web版で追加 — ゼノの吸収技の持ち越し)
+  N('grimoire_1', '魔獣の書', '書に残る記憶', 'ゼノで旅立つとき、これまでに刻んだ技を1つ持ち込める。', 15, [], false,
+    { type: 'GrimoireCarrySlot', value: 1 }),
+  N('grimoire_2', '魔獣の書', '★ 深淵の蔵書', '持ち込める技がさらに1つ増える。', 30, ['grimoire_1'], true,
+    { type: 'GrimoireCarrySlot', value: 1 }),
 ];
 
 export function getMetaNode(id: string): MetaNode | undefined {
@@ -123,6 +130,15 @@ export function tryUnlockNode(id: string): boolean {
   return true;
 }
 
+/** ゼノが旅立ちに持ち込める吸収技の数 (彼方の墓標「魔獣の書」で解放) */
+export function grimoireCarrySlots(): number {
+  return META_NODES
+    .filter((n) => isNodeUnlocked(n.id))
+    .reduce((sum, n) => sum + n.bonuses
+      .filter((b) => b.type === 'GrimoireCarrySlot')
+      .reduce((a, b) => a + b.value, 0), 0);
+}
+
 /** ランスタート時: 解放済みノードのボーナスを RunState に適用 */
 export function applyMetaBonuses(run: RunState): void {
   for (const node of META_NODES) {
@@ -144,6 +160,7 @@ export function applyMetaBonuses(run: RunState): void {
         case 'StartWithCommonRelic':run.metaStartWithCommonRelic = true; break;
         case 'CurseDmgReduction':   run.metaCurseDmgReduction += b.value; break;
         case 'CurseHPReductionImmune': run.metaCurseHPReductionImmune = true; break;
+        case 'GrimoireCarrySlot':   break;   // 旅立ちの画面で使う (grimoireCarrySlots)
       }
     }
   }

@@ -26,7 +26,8 @@ import { CHARACTERS, getCharacter } from '../src/data/characters';
 import { BLESSINGS } from '../src/data/blessings';
 import { FLOORS } from '../src/data/enemies';
 import { Rng } from '../src/core/rng';
-import { META_NODES } from '../src/core/meta';
+import { META_NODES, grimoireCarrySlots } from '../src/core/meta';
+import { GRIMOIRE_SKILLS, isCarryableGrimoireSkill } from '../src/data/codex';
 import type { NodeType, SkillDef } from '../src/core/types';
 
 // ── 戦闘の操作方針 ──────────────────────────────────────────────────────
@@ -311,6 +312,13 @@ function playRun(charId: string, seed: number, blessingIdx: number): RunResult {
   const blessing = BLESSINGS[blessingIdx].type;
   const run = createRun(charId, 1, blessing);
   run.seed = seed;
+  // 魔獣の書 (墓標の全解放時): ゼノはこれまでに刻んだ技から強い2つを持ち込む想定
+  if (SCENARIO === 'meta' && charId === 'zeno') {
+    run.absorbedSkillIds = [...GRIMOIRE_SKILLS]
+      .filter((s) => s.basePower > 0 && isCarryableGrimoireSkill(s.id))
+      .sort((a, b) => b.basePower * b.hitCount * (b.hitsAllEnemies ? 1.5 : 1) - a.basePower * a.hitCount * (a.hitsAllEnemies ? 1.5 : 1))
+      .slice(0, grimoireCarrySlots()).map((s) => s.id);
+  }
   let diedAt = '';
   const nodeRng = (s: number) => new Rng(s);
 
