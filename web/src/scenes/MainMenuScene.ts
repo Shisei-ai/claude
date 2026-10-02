@@ -1,7 +1,7 @@
 // メインメニュー — Unity版 MainMenuSceneSetup.cs / MainMenuUI.cs の移植
 // 「新しい旅を始める」がゲーム開始の唯一の入口 (Unity版リファクタ準拠)
 import Phaser from 'phaser';
-import { COLORS, makeButton, textStyle, drawSceneBackground } from '../ui/theme';
+import { COLORS, makeButton, textStyle, titleStyle, latinStyle, drawSceneBackground, drawOrnamentLine, addAmbientMotes } from '../ui/theme';
 import { hasSavedRun, loadMeta, clearRun, saveRun } from '../core/save';
 import { dailySetup, createDailyRun } from '../core/daily';
 import { generateMap } from '../core/mapgen';
@@ -14,13 +14,25 @@ export class MainMenuScene extends Phaser.Scene {
     const { width, height } = this.scale;
     drawSceneBackground(this, undefined, 'title');
 
-    // タイトル
-    this.add.text(width / 2, height * 0.20, 'Dark Chronicle', textStyle(64, COLORS.textGold, {
-      fontStyle: 'bold',
-      shadow: { offsetX: 0, offsetY: 4, color: '#000000', blur: 12, fill: true },
-    })).setOrigin(0.5);
-    this.add.text(width / 2, height * 0.20 + 52, '― 廃墟の王国に朽ちぬ魂を ―',
-      textStyle(18, COLORS.textDim)).setOrigin(0.5);
+    addAmbientMotes(this, 34);
+
+    // タイトルロゴ: 碑文風の欧文大文字に、古金のグラデーションと淡い後光
+    const logoY = height * 0.19;
+    const halo = this.add.text(width / 2, logoY, 'DARK CHRONICLE', latinStyle(62, '#c9a35a', true, {
+      shadow: { offsetX: 0, offsetY: 0, color: '#b8862e', blur: 26, fill: true, stroke: false },
+    })).setOrigin(0.5).setLetterSpacing(10).setAlpha(0.55);
+    this.tweens.add({ targets: halo, alpha: 0.2, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    const logo = this.add.text(width / 2, logoY, 'DARK CHRONICLE', latinStyle(62, COLORS.textGold, true, {
+      shadow: { offsetX: 0, offsetY: 3, color: '#000000', blur: 8, fill: true, stroke: false },
+    })).setOrigin(0.5).setLetterSpacing(10);
+    const grad = logo.context.createLinearGradient(0, 0, 0, logo.height);
+    grad.addColorStop(0, '#f6e3a8');
+    grad.addColorStop(0.55, '#d4a955');
+    grad.addColorStop(1, '#8a6428');
+    logo.setFill(grad);
+    drawOrnamentLine(this, width / 2, logoY + 44, 520);
+    this.add.text(width / 2, logoY + 70, '廃墟の王国に、朽ちぬ魂を',
+      titleStyle(19, COLORS.textDim)).setOrigin(0.5).setLetterSpacing(4);
 
     const meta = loadMeta();
     const cx = width / 2;

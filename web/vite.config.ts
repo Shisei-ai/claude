@@ -1,5 +1,5 @@
 import { defineConfig, type Plugin } from 'vite';
-import { readdirSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -48,9 +48,39 @@ function assetListPlugin(): Plugin {
   };
 }
 
+/**
+ * src 配下で使われている文字 (日本語を含む全文字) を `virtual:used-glyphs` として公開する。
+ * 和文フォントは文字範囲ごとに分割配信されるが、Phaser はキャンバスに文字を描くため、
+ * 未読み込みの字形は代替フォントで描かれたまま戻らない。起動時にこの文字列で
+ * document.fonts.load を呼び、ゲームで使う字形のファイルを先に読み込む。
+ */
+function usedGlyphsPlugin(): Plugin {
+  const id = 'virtual:used-glyphs';
+  const resolved = '\0' + id;
+  const collect = (): string => {
+    const set = new Set<string>();
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const p = join(dir, name);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (/\.ts$/.test(name)) for (const ch of readFileSync(p, 'utf8')) set.add(ch);
+      }
+    };
+    walk(join(root, 'src'));
+    // 数字・英字は動的な値 (HP・ゴールドなど) にも使うので全て含める
+    for (let c = 0x20; c < 0x7f; c++) set.add(String.fromCharCode(c));
+    return [...set].filter((ch) => ch.trim() !== '').sort().join('');
+  };
+  return {
+    name: 'used-glyphs',
+    resolveId(source) { return source === id ? resolved : undefined; },
+    load(loadId) { return loadId === resolved ? `export default ${JSON.stringify(collect())};` : undefined; },
+  };
+}
+
 export default defineConfig({
   base: './',
-  plugins: [assetListPlugin()],
+  plugins: [assetListPlugin(), usedGlyphsPlugin()],
   server: {
     host: true,
     port: 5173,

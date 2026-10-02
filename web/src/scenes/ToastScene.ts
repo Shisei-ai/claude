@@ -1,6 +1,6 @@
 // 実績解除の通知 — 他のシーンの上に常駐し、画面が切り替わっても通知を出し切る
 import Phaser from 'phaser';
-import { COLORS, textStyle } from '../ui/theme';
+import { COLORS, textStyle, titleStyle, latinStyle, drawPanel } from '../ui/theme';
 import { playSfx } from '../audio/sfx';
 import { checkAchievements, type AchievementDef } from '../core/achievements';
 import type { RunState } from '../core/run';
@@ -23,12 +23,13 @@ export class ToastScene extends Phaser.Scene {
     playSfx('buff');
 
     const { width } = this.scale;
-    const w = 330, h = 64;
-    const bg = this.add.rectangle(0, 0, w, h, 0x0e0a18, 0.96).setStrokeStyle(2, 0xd9c66b);
-    const head = this.add.text(-w / 2 + 14, -h / 2 + 8, '実績解除', textStyle(11, COLORS.textGold));
-    const name = this.add.text(-w / 2 + 14, -h / 2 + 22, a.name, textStyle(17, COLORS.text));
-    const desc = this.add.text(w / 2 - 12, -h / 2 + 10, a.desc, textStyle(11, COLORS.textDim)).setOrigin(1, 0);
-    const box = this.add.container(width + w / 2, 20 + h / 2, [bg, head, name, desc]);
+    const w = 340, h = 76;
+    const bg = drawPanel(this, 0, 0, w, h, { alpha: 0.97 });
+    const head = this.add.text(-w / 2 + 16, -h / 2 + 10, 'ACHIEVEMENT', latinStyle(10, COLORS.textGold, true)).setLetterSpacing(3);
+    const name = this.add.text(-w / 2 + 16, -h / 2 + 24, a.name, titleStyle(18, COLORS.text));
+    const desc = this.add.text(-w / 2 + 16, -h / 2 + 50, a.desc, textStyle(11, COLORS.textDim));
+    const star = this.add.text(w / 2 - 22, 0, '✦', textStyle(26, COLORS.textGold)).setOrigin(0.5);
+    const box = this.add.container(width + w / 2, 20 + h / 2, [bg, head, name, desc, star]);
 
     this.tweens.add({ targets: box, x: width - w / 2 - 16, duration: 280, ease: 'Cubic.easeOut' });
     this.tweens.add({

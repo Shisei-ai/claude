@@ -2,7 +2,7 @@
 // 5パス × 5ノード = 25ノードのメタ強化ツリー
 import Phaser from 'phaser';
 import { playBgm } from '../audio/bgm';
-import { COLORS, makeButton, textStyle, drawSceneBackground } from '../ui/theme';
+import { COLORS, makeButton, textStyle, drawSceneBackground, drawOrnamentLine } from '../ui/theme';
 import { META_NODES, isNodeUnlocked, canUnlockNode, tryUnlockNode } from '../core/meta';
 import { loadMeta } from '../core/save';
 import { notifyAchievements } from './ToastScene';
@@ -18,6 +18,7 @@ export class MetaScene extends Phaser.Scene {
     const meta = loadMeta();
 
     this.add.text(width / 2, 36, '彼方の墓標', textStyle(34, COLORS.textGold)).setOrigin(0.5);
+    drawOrnamentLine(this, width / 2, 56, 320);
     this.add.text(width / 2, 72,
       `刻まれた碑文: ${meta.totalEpitaphs}　　倒れた旅人の記憶が、次の旅人の力になる`,
       textStyle(15, COLORS.textDim)).setOrigin(0.5);

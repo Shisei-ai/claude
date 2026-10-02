@@ -1,6 +1,6 @@
 // バトルシーン — Unity版 UI/BattleUI.cs 相当の簡易UI + BattleEngine 駆動
 import Phaser from 'phaser';
-import { COLORS, makeButton, textStyle, drawBar } from '../ui/theme';
+import { COLORS, makeButton, textStyle, titleStyle, latinStyle, drawBar, drawPanel, paintPanel, drawOrnamentLine } from '../ui/theme';
 import { BattleEngine, Combatant, type BattleEvent, type PlayerCommand } from '../battle/engine';
 import { pickEncounter, buildHeroes, buildEnemies, computeRewards } from '../battle/setup';
 import { loadRun, saveRun, clearRun, loadMeta, recordWeakness, recordEnemiesSeen, recordEnemyKills, recordGrimoire } from '../core/save';
@@ -105,8 +105,7 @@ export class BattleScene extends Phaser.Scene {
     // (報酬は勝利時に付与・保存済みなので、戦闘をやり直すと二重取りになる)
     const pendingReward = this.run.pendingEncounter?.reward;
     if (pendingReward) {
-      this.add.rectangle(width / 2, 60, width - 60, 44, 0x000000, 0.6)
-        .setStrokeStyle(1, COLORS.border);
+      drawPanel(this, width / 2, 60, width - 60, 46, { alpha: 0.8 });
       this.msgText = this.add.text(width / 2, 60, '戦いの余韻が残っている…', textStyle(17)).setOrigin(0.5);
       const loot = pendingReward.loot
         .map((id) => getRelic(id))
@@ -217,8 +216,7 @@ export class BattleScene extends Phaser.Scene {
     });
 
     // メッセージ帯
-    this.add.rectangle(width / 2, 60, width - 60, 44, 0x000000, 0.6)
-      .setStrokeStyle(1, COLORS.border);
+    drawPanel(this, width / 2, 60, width - 60, 46, { alpha: 0.8 });
     this.msgText = this.add.text(width / 2, 60, `${this.enemyDefs.map((d) => d.name).join('、')} が現れた！`,
       textStyle(17)).setOrigin(0.5);
     this.createSpeedToggle();
@@ -499,15 +497,20 @@ export class BattleScene extends Phaser.Scene {
       if (!s) return;
       x = s.x; y = s.y - 70;
     }
-    const label = `${prefix}${amount}${isWeak ? ' 弱点!' : ''}`;
-    const txt = this.add.text(x, y, label, textStyle(isCrit ? 30 : 22, color, {
-      fontStyle: 'bold',
-      stroke: '#000000', strokeThickness: 4,
+    // 数字は碑文風の欧文書体で。弱点・会心は添え字を付けて少し大きく弾ませる
+    const txt = this.add.text(x, y, `${prefix}${amount}`, latinStyle(isCrit ? 34 : 26, color, true, {
+      stroke: '#120a06', strokeThickness: 5,
     })).setOrigin(0.5).setDepth(50);
+    const tag = isWeak || isCrit
+      ? this.add.text(x, y - (isCrit ? 26 : 22), isCrit && isWeak ? '会心・弱点' : isCrit ? '会心' : '弱点',
+        textStyle(13, isWeak ? '#ffd88a' : '#ffe9a8', { stroke: '#120a06', strokeThickness: 4 })).setOrigin(0.5).setDepth(50)
+      : null;
+    const parts = tag ? [txt, tag] : [txt];
+    this.tweens.add({ targets: parts, scale: { from: isCrit ? 1.6 : 1.3, to: 1 }, duration: this.spd(160), ease: 'Back.easeOut' });
     this.tweens.add({
-      targets: txt, y: y - 46, alpha: 0, duration: this.spd(850),
-      ease: 'Cubic.easeOut',
-      onComplete: () => txt.destroy(),
+      targets: parts, y: '-=46', alpha: 0, delay: this.spd(220), duration: this.spd(760),
+      ease: 'Cubic.easeIn',
+      onComplete: () => parts.forEach((o) => o.destroy()),
     });
   }
 
@@ -602,9 +605,9 @@ export class BattleScene extends Phaser.Scene {
     const cx = obj.x;
     const cy = obj.y - 20;
     this.cameras.main.flash(this.spd(140), 255, 236, 170);
-    const label = this.add.text(cx, cy, 'BREAK!', textStyle(40, '#ffd24a', {
-      fontStyle: 'bold', stroke: '#3a1a00', strokeThickness: 6,
-    })).setOrigin(0.5).setDepth(60).setScale(0.5);
+    const label = this.add.text(cx, cy, 'BREAK', latinStyle(44, '#ffd24a', true, {
+      stroke: '#3a1a00', strokeThickness: 7,
+    })).setOrigin(0.5).setDepth(60).setScale(0.5).setLetterSpacing(6);
     this.tweens.add({
       targets: label, scale: 1.25, duration: this.spd(220), ease: 'Back.easeOut',
       onComplete: () => this.tweens.add({
@@ -627,8 +630,8 @@ export class BattleScene extends Phaser.Scene {
   /** 画面右上の戦闘速度ボタン (押すたびに ×1 → ×1.5 → ×2 → ×3) */
   private createSpeedToggle(): void {
     const { width } = this.scale;
-    const bg = this.add.rectangle(width - 70, 104, 104, 24, 0x1c1628, 0.92)
-      .setStrokeStyle(1, COLORS.border).setDepth(56)
+    const bg = this.add.rectangle(width - 70, 104, 104, 24, 0x140f1e, 0.9)
+      .setStrokeStyle(1, COLORS.trim).setDepth(56)
       .setInteractive({ useHandCursor: true });
     const label = this.add.text(width - 70, 104, '', textStyle(12, COLORS.text)).setOrigin(0.5).setDepth(57);
     const refresh = () => label.setText(`速度 ×${getSettings().battleSpeed}`);
@@ -670,8 +673,8 @@ export class BattleScene extends Phaser.Scene {
     order.forEach((c, i) => {
       const x = startX + i * (chipW + gap);
       const isNow = i === 0 && c === current;
-      const box = this.add.rectangle(x, y, chipW, 22, c.isPlayer ? 0x1a2a44 : 0x3a1822, 0.9)
-        .setStrokeStyle(isNow ? 2 : 1, isNow ? 0xd9c66b : c.isPlayer ? 0x4a6a9a : 0x7a3a4a);
+      const box = this.add.rectangle(x, y, chipW, 22, c.isPlayer ? 0x17223a : 0x2c121b, 0.88)
+        .setStrokeStyle(isNow ? 2 : 1, isNow ? COLORS.trimBright : c.isPlayer ? 0x4f6a96 : 0x8a3f4f);
       const label = this.add.text(x, y, shortName(c), textStyle(11,
         isNow ? COLORS.textGold : c.isPlayer ? '#b8d0f0' : '#f0b8c0')).setOrigin(0.5);
       if (label.width > chipW - 8) label.setScale((chipW - 8) / label.width);
@@ -692,26 +695,28 @@ export class BattleScene extends Phaser.Scene {
     // ヒーローパネル (左下・パーティ全員)
     const panelH = 120;
     const px = 40, py = height - 150;
-    this.hudG.fillStyle(0x0e0a18, 0.92).fillRect(px, py, 360, panelH);
-    this.hudG.lineStyle(1, COLORS.border).strokeRect(px, py, 360, panelH);
+    paintPanel(this.hudG, px, py, 360, panelH, { alpha: 0.92 });
     const h = this.hero;
 
-    this.hudTexts.push(this.add.text(px + 14, py + 8,
-      `${h.name}`, textStyle(15)));
+    this.hudTexts.push(this.add.text(px + 16, py + 8,
+      `${h.name}`, titleStyle(16, COLORS.textGold)));
     drawBar(this.hudG, px + 14, py + 34, 240, 14, h.hp / h.base.maxHP,
       h.hp / h.base.maxHP > 0.3 ? COLORS.hpBar : COLORS.hpBarLow);
-    this.hudTexts.push(this.add.text(px + 260, py + 32,
-      `${h.hp}/${h.base.maxHP}`, textStyle(12)));
+    this.hudTexts.push(this.add.text(px + 262, py + 31,
+      `${h.hp}/${h.base.maxHP}`, latinStyle(12)));
     drawBar(this.hudG, px + 14, py + 56, 240, 10, h.mp / Math.max(1, h.base.maxMP), COLORS.mpBar);
-    this.hudTexts.push(this.add.text(px + 260, py + 52,
-      `MP ${h.mp}/${h.base.maxMP}`, textStyle(11, COLORS.textBlue)));
+    this.hudTexts.push(this.add.text(px + 262, py + 51,
+      `MP ${h.mp}/${h.base.maxMP}`, latinStyle(11, COLORS.textBlue)));
 
     // BP
+    // BP は菱形の宝石で表す
     for (let i = 0; i < 5; i++) {
       const filled = i < h.bp;
-      this.hudG.fillStyle(filled ? COLORS.bpBar : 0x201a2c, 1)
-        .fillCircle(px + 24 + i * 26, py + 86, 9);
-      this.hudG.lineStyle(1, 0x000000).strokeCircle(px + 24 + i * 26, py + 86, 9);
+      const gx = px + 26 + i * 26, gy = py + 86;
+      const gem = [{ x: gx, y: gy - 10 }, { x: gx + 8, y: gy }, { x: gx, y: gy + 10 }, { x: gx - 8, y: gy }];
+      this.hudG.fillStyle(filled ? COLORS.bpBar : 0x221a2e, 1).fillPoints(gem, true);
+      if (filled) this.hudG.fillStyle(0xfff0c0, 0.55).fillPoints([{ x: gx, y: gy - 10 }, { x: gx + 4, y: gy - 5 }, { x: gx, y: gy }, { x: gx - 4, y: gy - 5 }], true);
+      this.hudG.lineStyle(1, filled ? 0x6b4a14 : COLORS.trim, 0.9).strokePoints(gem, true);
     }
     this.hudTexts.push(this.add.text(px + 160, py + 78, `BP`, textStyle(12, COLORS.textGold)));
 
@@ -725,15 +730,14 @@ export class BattleScene extends Phaser.Scene {
     this.heroes.slice(1).forEach((m, i) => {
       const mx = px + 372;
       const my = py + i * 62;
-      this.hudG.fillStyle(0x0e0a18, 0.92).fillRect(mx, my, 250, 56);
-      this.hudG.lineStyle(1, COLORS.border).strokeRect(mx, my, 250, 56);
+      paintPanel(this.hudG, mx, my, 250, 56, { alpha: 0.9, ornate: false });
       this.hudTexts.push(this.add.text(mx + 10, my + 5,
         m.isAlive ? m.name.split('・')[0] : `${m.name.split('・')[0]} (戦闘不能)`,
         textStyle(12, m.isAlive ? COLORS.text : '#77445a')));
       drawBar(this.hudG, mx + 10, my + 28, 160, 10, m.hp / m.base.maxHP,
         m.hp / m.base.maxHP > 0.3 ? COLORS.hpBar : COLORS.hpBarLow);
-      this.hudTexts.push(this.add.text(mx + 178, my + 24,
-        `${m.hp}/${m.base.maxHP}`, textStyle(10)));
+      this.hudTexts.push(this.add.text(mx + 178, my + 23,
+        `${m.hp}/${m.base.maxHP}`, latinStyle(10)));
       for (let b = 0; b < 5; b++) {
         this.hudG.fillStyle(b < m.bp ? COLORS.bpBar : 0x201a2c, 1)
           .fillCircle(mx + 16 + b * 16, my + 47, 5);
@@ -777,9 +781,10 @@ export class BattleScene extends Phaser.Scene {
     const panelH = 76 + rows * 30 + 16;
     const panelW = 620;
 
-    const bg = this.add.rectangle(0, 0, panelW, panelH, 0x0e0a18, 0.96)
-      .setStrokeStyle(1, COLORS.borderBright);
-    items.push(bg);
+    const bg = this.add.rectangle(0, 0, panelW, panelH, 0x000000, 0.001);
+    const frame = this.add.graphics();
+    paintPanel(frame, -panelW / 2, -panelH / 2, panelW, panelH, { alpha: 0.96 });
+    items.push(frame, bg);
     const topY = -panelH / 2 + 18;
 
     // 手番表示 + ブースト選択
@@ -1033,10 +1038,10 @@ export class BattleScene extends Phaser.Scene {
       else this.scene.start('Map');
     };
 
-    this.add.rectangle(width / 2, cy, Math.max(620, loot.length * 200 + 60), panelH, 0x0e0a18, 0.97)
-      .setStrokeStyle(2, COLORS.borderBright).setDepth(80);
-    this.add.text(width / 2, cy - panelH / 2 + 34, '― 勝利 ―', textStyle(28, COLORS.textGold))
-      .setOrigin(0.5).setDepth(81);
+    drawPanel(this, width / 2, cy, Math.max(620, loot.length * 200 + 60), panelH, { alpha: 0.97, depth: 80 });
+    this.add.text(width / 2, cy - panelH / 2 + 34, 'VICTORY', latinStyle(30, COLORS.textGold, true))
+      .setOrigin(0.5).setDepth(81).setLetterSpacing(8);
+    drawOrnamentLine(this, width / 2, cy - panelH / 2 + 58, 320).setDepth(81);
     this.add.text(width / 2, cy - panelH / 2 + 88, lines.join('\n'),
       textStyle(15, COLORS.text, { align: 'center', lineSpacing: 8 }))
       .setOrigin(0.5).setDepth(81);
@@ -1055,11 +1060,12 @@ export class BattleScene extends Phaser.Scene {
     loot.forEach((relic, i) => {
       const x = startX + i * (cardW + 12);
       const y = cy + 60;
-      const card = this.add.rectangle(x, y, cardW, 180, 0x171226, 0.98)
-        .setStrokeStyle(1, COLORS.border).setDepth(81)
+      const rarityColor = Phaser.Display.Color.HexStringToColor(RARITY_COLOR[relic.rarity]).color;
+      const card = this.add.rectangle(x, y, cardW, 180, 0x150f20, 0.98)
+        .setStrokeStyle(1, COLORS.trim).setDepth(81)
         .setInteractive({ useHandCursor: true })
-        .on('pointerover', () => card.setStrokeStyle(2, COLORS.borderBright))
-        .on('pointerout', () => card.setStrokeStyle(1, COLORS.border))
+        .on('pointerover', () => { card.setStrokeStyle(2, COLORS.trimBright); card.setFillStyle(0x221832, 1); })
+        .on('pointerout', () => { card.setStrokeStyle(1, COLORS.trim); card.setFillStyle(0x150f20, 0.98); })
         .on('pointerdown', () => {
           const gained = addRelicToRun(this.run, relic);
           this.msgText.setText(gained.length > 1
@@ -1067,6 +1073,8 @@ export class BattleScene extends Phaser.Scene {
             : `「${relic.name}」を得た！`);
           done();
         });
+      // 上端にレアリティ色の帯
+      this.add.rectangle(x, y - 89, cardW - 2, 3, rarityColor, 0.9).setDepth(82);
       this.add.text(x, y - 64, `【${RARITY_LABEL[relic.rarity]}】`,
         textStyle(11, RARITY_COLOR[relic.rarity])).setOrigin(0.5).setDepth(82);
       this.add.text(x, y - 40, relic.name, textStyle(15, COLORS.textGold, {

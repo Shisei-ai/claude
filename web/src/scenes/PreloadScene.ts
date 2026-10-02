@@ -2,7 +2,7 @@
 // 実ファイルが無いキーは loaderror で MISSING_ART に記録し、
 // 各シーンは hasArt() で存在チェックしてから画像を使う (無ければ矩形描画)。
 import Phaser from 'phaser';
-import { COLORS, textStyle, drawSceneBackground } from '../ui/theme';
+import { COLORS, latinStyle, drawSceneBackground } from '../ui/theme';
 import {
   CHARACTER_ART, ENEMY_ART, BG_ART, BGM_ART, MISSING_ART,
   charFullKey, charPortraitKey, enemyArtKey, bgArtKey, bgmKey,
@@ -19,8 +19,13 @@ export class PreloadScene extends Phaser.Scene {
   preload(): void {
     const { width, height } = this.scale;
     drawSceneBackground(this);
-    this.add.text(width / 2, height / 2, 'Now Loading…',
-      textStyle(20, COLORS.textDim)).setOrigin(0.5);
+    this.add.text(width / 2, height / 2 - 24, 'DARK CHRONICLE',
+      latinStyle(22, COLORS.textGold, true)).setOrigin(0.5).setLetterSpacing(8);
+    // 読み込みの進み具合 (古金の細い線)
+    const barW = 260;
+    this.add.rectangle(width / 2, height / 2 + 12, barW, 2, 0x2a2236);
+    const fill = this.add.rectangle(width / 2 - barW / 2, height / 2 + 12, 0, 2, COLORS.trimBright).setOrigin(0, 0.5);
+    this.load.on('progress', (v: number) => fill.setSize(barW * v, 2));
 
     // 実在しないファイルは読みに行かない (404 やデコードエラーを出さない)。
     // 読み込まなかったキーは MISSING_ART に入れ、各シーンは従来描画にフォールバック

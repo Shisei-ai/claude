@@ -1,7 +1,7 @@
 // 図鑑 — Web版独自の追加要素。出会った敵・手に入れたレリックと装備、実績を一覧する
 import Phaser from 'phaser';
 import { playBgm } from '../audio/bgm';
-import { COLORS, makeButton, textStyle, drawSceneBackground } from '../ui/theme';
+import { COLORS, makeButton, textStyle, drawSceneBackground, drawOrnamentLine } from '../ui/theme';
 import { ELEMENT_BADGE } from '../ui/elements';
 import { loadMeta, type MetaSave } from '../core/save';
 import { ACHIEVEMENTS } from '../core/achievements';
@@ -70,6 +70,7 @@ export class CodexScene extends Phaser.Scene {
     this.body = [];
 
     this.add.text(width / 2, 36, '図鑑', textStyle(34, COLORS.textGold)).setOrigin(0.5);
+    drawOrnamentLine(this, width / 2, 58, 260);
 
     TABS.forEach((t, i) => {
       const x = width / 2 + (i - (TABS.length - 1) / 2) * 160;

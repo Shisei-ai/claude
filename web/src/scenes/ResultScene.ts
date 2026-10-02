@@ -2,7 +2,7 @@
 // 敗北は「状態の記録」のみ (GameOverシーン廃止のUnity版リファクタ準拠)
 import Phaser from 'phaser';
 import { playBgm } from '../audio/bgm';
-import { COLORS, makeButton, textStyle, drawSceneBackground } from '../ui/theme';
+import { COLORS, makeButton, textStyle, drawSceneBackground, drawPanel } from '../ui/theme';
 import { loadRun, clearRun } from '../core/save';
 import { recordRunEnd } from '../core/meta';
 import { getCharacter } from '../data/characters';
@@ -109,8 +109,7 @@ export class ResultScene extends Phaser.Scene {
       ['訪れた出来事', `${run.eventsVisited}`],
     ];
 
-    this.add.rectangle(width / 2, height * 0.5, 520, 250, 0x0e0a18, 0.95)
-      .setStrokeStyle(1, COLORS.border);
+    drawPanel(this, width / 2, height * 0.5, 520, 250, { alpha: 0.94 });
     stats.forEach(([label, value], i) => {
       const y = height * 0.5 - 95 + i * 40;
       this.add.text(width / 2 - 220, y, label, textStyle(15, COLORS.textDim));

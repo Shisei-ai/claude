@@ -7,7 +7,7 @@
 // Unity同様一律 ConsumablePrice=40)。価格式・枠数・BlackMarket・装備6回抽選は
 // ShopController.cs に忠実。
 import Phaser from 'phaser';
-import { COLORS, makeButton, textStyle, drawSceneBackground } from '../ui/theme';
+import { COLORS, makeButton, textStyle, titleStyle, drawSceneBackground, drawPanel, drawOrnamentLine } from '../ui/theme';
 import { loadRun, saveRun } from '../core/save';
 import type { RunState } from '../core/run';
 import { getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip, type ShopSpec } from '../core/run';
@@ -94,8 +94,16 @@ export class NodeEventScene extends Phaser.Scene {
 
   private header(title: string, subtitle: string): void {
     const { width } = this.scale;
-    this.add.text(width / 2, 90, title, textStyle(34, COLORS.textGold)).setOrigin(0.5);
-    this.add.text(width / 2, 130, subtitle, textStyle(15, COLORS.textDim)).setOrigin(0.5);
+    this.add.text(width / 2, 84, title, titleStyle(36, COLORS.textGold)).setOrigin(0.5).setLetterSpacing(4);
+    drawOrnamentLine(this, width / 2, 112, 360);
+    this.add.text(width / 2, 134, subtitle, textStyle(15, COLORS.textDim)).setOrigin(0.5);
+  }
+
+  /** 文章の後ろに羊皮紙のような暗い板を敷く (背景画像の上でも読めるように) */
+  private backPanel(text: Phaser.GameObjects.Text, padX = 48, padY = 26): void {
+    const b = text.getBounds();
+    drawPanel(this, b.centerX, b.centerY, b.width + padX * 2, b.height + padY * 2, { alpha: 0.82 })
+      .setDepth(text.depth - 1);
   }
 
   private statusLine(): void {
@@ -117,8 +125,9 @@ export class NodeEventScene extends Phaser.Scene {
 
   private resultAndLeave(message: string, color = COLORS.text): void {
     const { width, height } = this.scale;
-    this.add.text(width / 2, height / 2 + 40, message,
-      textStyle(18, color, { align: 'center', lineSpacing: 8 })).setOrigin(0.5);
+    const msg = this.add.text(width / 2, height / 2 + 40, message,
+      textStyle(18, color, { align: 'center', lineSpacing: 8 })).setOrigin(0.5).setDepth(2);
+    this.backPanel(msg);
     this.statusLine();
     this.leave();
   }
@@ -373,8 +382,8 @@ export class NodeEventScene extends Phaser.Scene {
       const y = topY + (i % perCol) * rowH;
       const affordable = !item.sold && this.run.gold >= item.price && item.canBuy();
 
-      this.add.rectangle(x, y, 600, 48, 0x171226, item.sold ? 0.5 : 0.95)
-        .setStrokeStyle(1, COLORS.border);
+      this.add.rectangle(x, y, 600, 48, 0x140e1d, item.sold ? 0.55 : 0.92)
+        .setStrokeStyle(1, item.sold ? COLORS.border : COLORS.trim, item.sold ? 0.6 : 0.7);
       this.add.text(x - 285, y - 16, item.tag + item.name,
         textStyle(13, item.sold ? COLORS.textDim : item.tagColor)).setAlpha(item.sold ? 0.5 : 1);
       this.add.text(x - 285, y + 3, item.desc, textStyle(10, COLORS.textDim, {
@@ -527,9 +536,10 @@ export class NodeEventScene extends Phaser.Scene {
     this.add.rectangle(width / 2, height / 2, width, height, event.tint, 0.12);
 
     this.header(event.title, '― 未知との遭遇 ―');
-    this.add.text(width / 2, 250, event.narrative,
-      textStyle(16, COLORS.text, { align: 'center', lineSpacing: 10, wordWrap: { width: width - 260 } }))
-      .setOrigin(0.5, 0);
+    const story = this.add.text(width / 2, 250, event.narrative,
+      textStyle(17, COLORS.text, { align: 'center', lineSpacing: 12, wordWrap: { width: width - 300 } }))
+      .setOrigin(0.5, 0).setDepth(2);
+    this.backPanel(story, 60, 30);
 
     this.statusLine();
 
@@ -720,11 +730,12 @@ export class NodeEventScene extends Phaser.Scene {
     // 画面を作り直して結果を表示
     this.children.removeAll(true);
     drawSceneBackground(this, undefined, this.bgKey());
-    this.add.text(width / 2, height / 2 - 120, r.narrative,
-      textStyle(16, COLORS.text, { align: 'center', lineSpacing: 10, wordWrap: { width: width - 300 } }))
-      .setOrigin(0.5);
+    const story = this.add.text(width / 2, height / 2 - 120, r.narrative,
+      textStyle(17, COLORS.text, { align: 'center', lineSpacing: 12, wordWrap: { width: width - 320 } }))
+      .setOrigin(0.5).setDepth(2);
+    this.backPanel(story, 60, 26);
     if (outcomes.length > 0) {
-      this.add.text(width / 2, height / 2 + 20, outcomes.join('\n'),
+      this.add.text(width / 2, height / 2 + 40, outcomes.join('\n'),
         textStyle(15, COLORS.textGold, { align: 'center', lineSpacing: 8, wordWrap: { width: width - 300 } }))
         .setOrigin(0.5);
     }

@@ -1,6 +1,6 @@
 // 設定 — BGM音量・効果音量・戦闘速度。メインメニューとマップから開く。
 import Phaser from 'phaser';
-import { COLORS, makeButton, textStyle, drawSceneBackground, drawBar } from '../ui/theme';
+import { COLORS, makeButton, textStyle, drawSceneBackground, drawBar, drawOrnamentLine } from '../ui/theme';
 import { getSettings, updateSettings, BATTLE_SPEEDS } from '../core/settings';
 import { playSfx } from '../audio/sfx';
 import { applyBgmVolume } from '../audio/bgm';
@@ -23,6 +23,7 @@ export class SettingsScene extends Phaser.Scene {
     const s = getSettings();
 
     this.add.text(width / 2, 70, '設定', textStyle(34, COLORS.textGold)).setOrigin(0.5);
+    drawOrnamentLine(this, width / 2, 98, 260);
 
     const labelX = width / 2 - 300;
     const volumeRow = (y: number, label: string, value: number, onChange: (v: number) => void) => {

@@ -1,7 +1,7 @@
 // ノードマップ — Unity版 Roguelike/Map/NodeMapUI.cs 相当
 // 15行×最大7列のSlay the Spire型マップを描画し、進行先を選ぶ
 import Phaser from 'phaser';
-import { COLORS, makeButton, textStyle, drawSceneBackground, drawBar } from '../ui/theme';
+import { COLORS, makeButton, textStyle, drawSceneBackground, drawBar, titleStyle, latinStyle, drawPanel } from '../ui/theme';
 import { loadRun, saveRun, clearRun } from '../core/save';
 import type { RunState } from '../core/run';
 import { getEffectiveMaxHP } from '../core/run';
@@ -62,9 +62,9 @@ export class MapScene extends Phaser.Scene {
     drawSceneBackground(this, undefined, `floor${Math.min(this.run.currentFloor, 3)}`);
 
     const floor = FLOORS[Math.min(this.run.currentFloor, FLOORS.length - 1)];
-    this.add.text(width / 2, 32,
+    this.add.text(width / 2, 30,
       `第${this.run.currentFloor + 1}層　${floor.floorName}`,
-      textStyle(26, COLORS.textGold)).setOrigin(0.5);
+      titleStyle(28, COLORS.textGold)).setOrigin(0.5).setLetterSpacing(3);
     this.add.text(width / 2, 60, floor.floorSubtitle, textStyle(14, COLORS.textDim)).setOrigin(0.5);
 
     this.drawHUD();
@@ -82,6 +82,11 @@ export class MapScene extends Phaser.Scene {
       this.scene.start('Settings', { from: 'Map' });
     }, { width: 160, height: 40, fontSize: 15 });
 
+    // 記号の凡例 (下端中央)
+    const legend = ([['戦', '戦闘'], ['強', '強敵'], ['？', '未知'], ['宝', '宝箱'], ['商', '商人'], ['火', '焚き火'], ['呪', '呪われた間'], ['王', '主']] as const)
+      .map(([k, v]) => `${k} ${v}`).join('　');
+    this.add.text(width / 2 - 90, height - 36, legend, textStyle(12, COLORS.textDim)).setOrigin(0.5);
+
     playBgm(this, `floor${Math.min(this.run.currentFloor, 3)}`);
     // 所持金・レリック数などの実績 (イベントや商人での変化もここで拾う)
     notifyAchievements(this, this.run);
@@ -94,8 +99,7 @@ export class MapScene extends Phaser.Scene {
     const char = getCharacter(run.characterId);
     const maxHP = getEffectiveMaxHP(run);
 
-    this.add.rectangle(width / 2, 98, width - 80, 44, 0x0e0a18, 0.92)
-      .setStrokeStyle(1, COLORS.border);
+    drawPanel(this, width / 2, 98, width - 80, 44, { alpha: 0.88 });
 
     this.add.text(70, 90,
       `${char.name}　Lv.${run.characterLevel}　職Lv.${run.jobLevel}`,
@@ -105,7 +109,7 @@ export class MapScene extends Phaser.Scene {
     drawBar(g, width / 2 - 100, 90, 200, 14, run.currentHP / maxHP,
       run.currentHP / maxHP > 0.3 ? COLORS.hpBar : COLORS.hpBarLow);
     this.add.text(width / 2, 97, `${run.currentHP} / ${maxHP}`,
-      textStyle(11, '#ffffff')).setOrigin(0.5);
+      latinStyle(11, '#ffffff')).setOrigin(0.5);
 
     this.add.text(width - 320, 90, `◈ ${run.gold} G`, textStyle(15, COLORS.textGold));
     const sanityStr = run.sanity > 0 ? `+${run.sanity}` : `${run.sanity}`;
@@ -226,6 +230,14 @@ export class MapScene extends Phaser.Scene {
         : 0x171226;
       const stroke = isAvailable ? 0xd9c66b : node.visited ? 0x6a5a8a : 0x2a2440;
 
+      // ボスは紅い外輪、進める場所は古金の輪が脈打つ
+      if (node.type === 'Boss') {
+        this.add.circle(x, y, radius + 5).setStrokeStyle(2, 0x9a2a36, 0.9);
+      }
+      if (isAvailable) {
+        const ring = this.add.circle(x, y, radius + 3).setStrokeStyle(2, COLORS.trimBright, 0.9);
+        this.tweens.add({ targets: ring, scale: 1.45, alpha: 0, duration: 1300, repeat: -1, ease: 'Sine.easeOut' });
+      }
       const circle = this.add.circle(x, y, radius, fill)
         .setStrokeStyle(isAvailable ? 2 : 1, stroke);
 

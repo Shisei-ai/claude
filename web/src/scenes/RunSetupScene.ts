@@ -2,7 +2,7 @@
 // キャラクター / 加護 / 難易度 を選び「旅立つ」
 import Phaser from 'phaser';
 import { playBgm } from '../audio/bgm';
-import { COLORS, makeButton, textStyle, drawSceneBackground } from '../ui/theme';
+import { COLORS, makeButton, textStyle, drawSceneBackground, drawOrnamentLine, drawPanel } from '../ui/theme';
 import { CHARACTERS } from '../data/characters';
 import { BLESSINGS } from '../data/blessings';
 import { DIFFICULTY_TIERS } from '../data/difficulty';
@@ -39,6 +39,7 @@ export class RunSetupScene extends Phaser.Scene {
     this.diffMarks = [];
 
     this.add.text(width / 2, 44, '旅の支度', textStyle(36, COLORS.textGold)).setOrigin(0.5);
+    drawOrnamentLine(this, width / 2, 70, 300);
 
     // ── キャラクター選択 ──
     this.add.text(80, 100, '◆ 旅人', textStyle(20, COLORS.text));
@@ -46,7 +47,7 @@ export class RunSetupScene extends Phaser.Scene {
       const x = 140 + i * 216;
       const y = 190;
       const card = this.add.rectangle(x, y, 196, 120, 0x171226, 0.95)
-        .setStrokeStyle(2, i === this.selectedChar ? COLORS.borderBright : COLORS.border)
+        .setStrokeStyle(2, i === this.selectedChar ? COLORS.trimBright : COLORS.border)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => { this.selectedChar = i; this.refresh(); });
       this.charMarks.push(card);
@@ -70,7 +71,7 @@ export class RunSetupScene extends Phaser.Scene {
       const x = 140 + i * 180;
       const y = 348;
       const card = this.add.rectangle(x, y, 164, 76, 0x171226, 0.95)
-        .setStrokeStyle(2, i === this.selectedBlessing ? COLORS.borderBright : COLORS.border)
+        .setStrokeStyle(2, i === this.selectedBlessing ? COLORS.trimBright : COLORS.border)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => { this.selectedBlessing = i; this.refresh(); });
       this.blessMarks.push(card);
@@ -83,7 +84,7 @@ export class RunSetupScene extends Phaser.Scene {
       const x = 140 + i * 180;
       const y = 482;
       const card = this.add.rectangle(x, y, 164, 64, 0x171226, 0.95)
-        .setStrokeStyle(2, i === this.selectedDifficulty ? COLORS.borderBright : COLORS.border)
+        .setStrokeStyle(2, i === this.selectedDifficulty ? COLORS.trimBright : COLORS.border)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => { this.selectedDifficulty = i; this.refresh(); });
       this.diffMarks.push(card);
@@ -92,8 +93,7 @@ export class RunSetupScene extends Phaser.Scene {
     });
 
     // ── 説明パネル ──
-    this.add.rectangle(width / 2, 584, width - 160, 96, 0x0e0a18, 0.9)
-      .setStrokeStyle(1, COLORS.border);
+    drawPanel(this, width / 2, 584, width - 160, 96, { alpha: 0.9 });
     this.infoText = this.add.text(width / 2, 584, '', textStyle(14, COLORS.textDim, {
       wordWrap: { width: width - 220 }, align: 'center',
     })).setOrigin(0.5);
@@ -111,11 +111,11 @@ export class RunSetupScene extends Phaser.Scene {
 
   private refresh(): void {
     this.charMarks.forEach((m, i) =>
-      m.setStrokeStyle(2, i === this.selectedChar ? COLORS.borderBright : COLORS.border));
+      m.setStrokeStyle(2, i === this.selectedChar ? COLORS.trimBright : COLORS.border));
     this.blessMarks.forEach((m, i) =>
-      m.setStrokeStyle(2, i === this.selectedBlessing ? COLORS.borderBright : COLORS.border));
+      m.setStrokeStyle(2, i === this.selectedBlessing ? COLORS.trimBright : COLORS.border));
     this.diffMarks.forEach((m, i) =>
-      m.setStrokeStyle(2, i === this.selectedDifficulty ? COLORS.borderBright : COLORS.border));
+      m.setStrokeStyle(2, i === this.selectedDifficulty ? COLORS.trimBright : COLORS.border));
 
     const c = CHARACTERS[this.selectedChar];
     const b = BLESSINGS[this.selectedBlessing];

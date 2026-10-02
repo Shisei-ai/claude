@@ -4,7 +4,7 @@
 //               (Unity版は2名とも加入。Web版の難易度調整で1名に)
 //   拒む:       主人公のレベル+2
 import Phaser from 'phaser';
-import { COLORS, makeButton, textStyle } from '../ui/theme';
+import { COLORS, makeButton, textStyle, addVignette, addAmbientMotes } from '../ui/theme';
 import { loadRun, saveRun } from '../core/save';
 import { buildPartyMemberStats } from '../core/run';
 import { CHARACTERS, getCharacter } from '../data/characters';
@@ -24,6 +24,9 @@ export class PhantomJoinScene extends Phaser.Scene {
 
     const { width, height } = this.scale;
     this.add.rectangle(width / 2, height / 2, width, height, 0x0d081a, 1);
+    // 奈落の霧: 青白い粒がゆっくり昇る
+    addVignette(this, 0.85);
+    addAmbientMotes(this, 40, 0x9ab8ff);
 
     // 候補: 主人公以外をシャッフルして2名。ランの種から決めるので、
     // 中断して開き直しても同じ2名になる (引き直しはできない)

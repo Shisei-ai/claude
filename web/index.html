@@ -21,9 +21,22 @@
       justify-content: center;
     }
     canvas { image-rendering: auto; }
+    /* 書体を読み込む間の起動画面 */
+    #boot {
+      position: fixed; inset: 0; z-index: 10;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+      background: radial-gradient(ellipse at center, #140f20 0%, #07050d 70%);
+      color: #c9a65a; font-family: "Cinzel", "Hiragino Mincho ProN", "Yu Mincho", serif;
+      letter-spacing: 0.35em; font-size: 18px;
+      transition: opacity 0.5s ease;
+    }
+    #boot.done { opacity: 0; pointer-events: none; }
+    #boot .bar { width: 220px; height: 2px; background: #2a2236; overflow: hidden; }
+    #boot .bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #6b5426, #e3c77a); transition: width 0.3s ease; }
   </style>
 </head>
 <body>
+  <div id="boot">DARK CHRONICLE<div class="bar"><i></i></div></div>
   <div id="game"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>

@@ -2,7 +2,7 @@
 // ヴァルゴット撃破後、証印を持つ場合のみ到達する
 import Phaser from 'phaser';
 import { playBgm } from '../audio/bgm';
-import { COLORS, makeButton, textStyle } from '../ui/theme';
+import { COLORS, makeButton, textStyle, titleStyle, addVignette, addAmbientMotes, drawOrnamentLine } from '../ui/theme';
 import { loadRun, saveRun } from '../core/save';
 import { getEnding } from '../data/endings';
 import { Rng } from '../core/rng';
@@ -19,9 +19,12 @@ export class FinaleScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000);
     this.add.rectangle(width / 2, height / 2, width, height, ending.tint, 0.5);
+    addVignette(this, 0.9);
+    addAmbientMotes(this, 30, Phaser.Display.Color.IntegerToColor(ending.tint).lighten(40).color);
 
     this.add.text(width / 2, height * 0.22, `最終層　${ending.floorName}`,
-      textStyle(40, COLORS.textGold)).setOrigin(0.5);
+      titleStyle(42, COLORS.textGold)).setOrigin(0.5).setLetterSpacing(4);
+    drawOrnamentLine(this, width / 2, height * 0.22 + 32, 420);
     this.add.text(width / 2, height * 0.22 + 52, ending.floorSubtitle,
       textStyle(17, COLORS.textDim)).setOrigin(0.5);
 
