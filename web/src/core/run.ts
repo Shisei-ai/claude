@@ -165,7 +165,7 @@ export function createRun(
     activeEnding: null,
     seenOneTimeEvents: [],
 
-    equippedWeapon: null,
+    equippedWeapon: char.starterWeapon ?? null,   // Web版の調整: 初期武器を持って旅立つ
     equippedArmor: null,
     equippedAccessory: null,
     equipmentInventory: [],

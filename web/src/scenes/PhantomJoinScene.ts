@@ -1,6 +1,7 @@
 // 幻影との邂逅 — Unity版 UI/PhantomJoinUI.cs + RoguelikeManager.PhantomJoinEvent
 // Floor 0 クリア時に一度だけ発生する二択イベント
-//   受け入れる: 主人公以外からランダム2名が Lv4 で加入 (スキルなし=通常攻撃のみ)
+//   受け入れる: 主人公以外から現れた2名のうち、選んだ1名が Lv4 で加入 (スキルなし=通常攻撃のみ)
+//               (Unity版は2名とも加入。Web版の難易度調整で1名に)
 //   拒む:       主人公のレベル+2
 import Phaser from 'phaser';
 import { COLORS, makeButton, textStyle } from '../ui/theme';
@@ -37,13 +38,21 @@ export class PhantomJoinScene extends Phaser.Scene {
     this.add.text(width / 2, height * 0.18, '幻影との邂逅',
       textStyle(34, '#eee0c7')).setOrigin(0.5);
     this.add.text(width / 2, height * 0.30,
-      '奈落の霧の中から、二つの気配が近づいてくる。\nそれは旅の同行者となるのか、それとも拒むのか。',
+      '奈落の霧の中から、二つの気配が近づいてくる。\nどちらか一人を旅の同行者に迎えるか、それとも拒むのか。',
       textStyle(17, '#ccc2ad', { align: 'center', lineSpacing: 10 })).setOrigin(0.5);
 
-    // 候補の立ち絵 (霧の中の幻影らしく青白く透かす。絵が無ければテーマカラー矩形)
+    // 候補の立ち絵 (霧の中の幻影らしく青白く透かす。絵が無ければテーマカラー矩形)。
+    // クリック/タップで同行させる1名を選ぶ
+    let chosen = 0;
+    const frames: Phaser.GameObjects.Rectangle[] = [];
+    const refreshChoice = () => frames.forEach((f, i) =>
+      f.setStrokeStyle(i === chosen ? 2 : 1, i === chosen ? 0xd9c66b : 0x3a3050).setFillStyle(0x171226, i === chosen ? 0.6 : 0.25));
     joinPool.forEach((c, i) => {
       const x = width / 2 - 130 + i * 260;
       const feetY = height * 0.64;
+      frames.push(this.add.rectangle(x, feetY - 50, 220, 240, 0x171226, 0.25)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => { chosen = i; refreshChoice(); }));
       const key = charFullKey(c.id);
       if (hasArt(this, key)) {
         const img = this.add.image(x, feetY, key, artFrame(this, key)).setOrigin(0.5, 1);
@@ -56,10 +65,11 @@ export class PhantomJoinScene extends Phaser.Scene {
       this.add.text(x, feetY + 38, `Lv. ${JOIN_LEVEL}　${c.jobName}`,
         textStyle(12, '#99cc99')).setOrigin(0.5);
     });
+    refreshChoice();
 
     // 受け入れる
-    makeButton(this, width / 2 - 220, height * 0.82, '幻影を受け入れる\n（仲間が加入）', () => {
-      for (const c of joinPool) {
+    makeButton(this, width / 2 - 220, height * 0.82, '選んだ幻影を受け入れる\n（1人が仲間に加入）', () => {
+      for (const c of [joinPool[chosen]]) {
         const stats = buildPartyMemberStats(c.id, JOIN_LEVEL);
         run.partyMembers.push({
           characterId: c.id, level: JOIN_LEVEL,

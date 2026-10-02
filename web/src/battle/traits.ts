@@ -5,6 +5,8 @@
 // 未移植だったリリア・ゼノの全トレイトと、アッシュ「影舞踊」を扱う。
 // 数値は各トレイトクラスの定数そのまま。発動箇所は BattleManager.cs の呼び出し位置に合わせる。
 
+import type { SkillDef } from '../core/types';
+
 export type TraitId =
   // アッシュ
   | 'ShadowDance'      // 影舞踊
@@ -69,4 +71,14 @@ export const DARKWILL_DEBUFF_AMPLIFY = 0.50;
 
 export function traitsFor(characterId: string | undefined): Set<TraitId> {
   return new Set(characterId ? CHARACTER_TRAITS[characterId] ?? [] : []);
+}
+
+/** グリモワールに刻む形へ変換 (MP4以上、Web版の調整: 元が物理技でもゼノの魔法攻撃力で放つ) */
+export function toGrimoireSkill(sk: SkillDef): SkillDef {
+  return {
+    ...sk,
+    mpCost: Math.max(4, sk.mpCost || 8),
+    damageType: sk.damageType === 'Physical' ? 'Magical' : sk.damageType,
+    fromGrimoire: true,
+  };
 }

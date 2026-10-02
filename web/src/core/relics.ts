@@ -168,6 +168,9 @@ export function grantRandomCommonRelic(run: RunState): RelicDef | null {
 // ── 戦闘後の報酬抽選 (LootSystem.BuildChoices) ──────────────────────────
 // スキルプールが Web 版に存在しないため、Unity版で「レリックが出る確率」
 // だった枠のみレリック候補として提示する (スキル枠は出現しない)。
+/** 通常戦の報酬にレリックが出る確率の倍率 (Web版の難易度調整) */
+export const NORMAL_BATTLE_RELIC_RATE = 0.5;
+
 export function buildBattleLoot(
   run: RunState, isElite: boolean, isBoss: boolean,
 ): RelicDef[] {
@@ -193,8 +196,10 @@ export function buildBattleLoot(
 
   const remaining = count - choices.length;
   for (let i = 0; i < remaining; i++) {
+    // Web版の調整: 通常戦はレリックの出る確率を半分に (エリート・ボスはUnity版のまま)
+    const normalBattleRate = isElite || isBoss ? 1 : NORMAL_BATTLE_RELIC_RATE;
     const offerRelic = isElite ||
-      rnd.value() < 0.25 + run.currentFloor * 0.1 + sanity * 0.05;
+      rnd.value() < (0.25 + run.currentFloor * 0.1 + sanity * 0.05) * normalBattleRate;
     if (!offerRelic) continue;   // Unity版ではこの枠はスキル候補だった
     const rarity = rollRelicRarity(sanity, isElite);
     const relic = drawRelic(run, rarity, used);

@@ -32,11 +32,13 @@ import type { NodeType, SkillDef } from '../src/core/types';
 // ── 戦闘の操作方針 ──────────────────────────────────────────────────────
 // 回復 (HP40%未満) > 状態異常を入れる (付与系の技・未付与の敵) > 弱点を突く > 最大威力。
 // Break中の敵や BP 満タン時にブースト。ゼノは弱った通常敵に吸収を試す。
+const dotTries = new WeakMap<object, number>();
 function chooseCommand(eng: BattleEngine) {
   const h = eng.activeCombatant!;
   const alive = eng.enemies.map((e, k) => ({ e, k })).filter((x) => x.e.isAlive);
   alive.sort((a, b) => Number(b.e.isBroken) - Number(a.e.isBroken) || a.e.currentShields - b.e.currentShields || a.e.hp - b.e.hp);
   const tgt = alive[0];
+  const tries = dotTries.get(tgt.e) ?? 0;
   const usable = h.skills.filter((s) => !s.isPassive && !s.isFieldSkill && s.mpCost <= h.mp);
   const lowAlly = eng.heroes.filter((x) => x.isAlive).sort((a, b) => a.hpRatio - b.hpRatio)[0];
   const heal = usable.find((s) => s.isHeal);
@@ -47,8 +49,9 @@ function chooseCommand(eng: BattleEngine) {
   else {
     const absorb = usable.find((s) => s.absorb);
     if (absorb && tgt.e.enemyDef?.rank === 'Normal' && tgt.e.hpRatio < 0.5) skill = absorb;
-    const dot = usable.find((s) => s.appliedStatus && s.basePower === 0 && !s.isHeal
-      && !tgt.e.statuses.some((st) => st.type === s.appliedStatus!.type));
+    // 状態異常の技は同じ敵に2回まで (外れ続けると同じ技を撃ち続けてしまうため)
+    const dot = tries < 2 ? usable.find((s) => s.appliedStatus && s.basePower === 0 && !s.isHeal
+      && !tgt.e.statuses.some((st) => st.type === s.appliedStatus!.type)) : undefined;
     if (!skill && dot) skill = dot;
     if (!skill) {
       const dmg = usable.filter((s) => s.basePower > 0 && !s.isHeal);
@@ -57,6 +60,7 @@ function chooseCommand(eng: BattleEngine) {
       skill = (!tgt.e.isBroken ? weak[0] : undefined) ?? strong[0];
     }
   }
+  if (skill && skill.appliedStatus && skill.basePower === 0) dotTries.set(tgt.e, tries + 1);
   const boostLevel = tgt.e.isBroken || h.bp >= 5 ? Math.min(3, h.bp) : 0;
   const targetIndex = tgt.k;
   return skill
@@ -372,7 +376,7 @@ function playRun(charId: string, seed: number, blessingIdx: number): RunResult {
     if (shieldPct > 0) run.shieldBarrier += Math.round(maxHP * shieldPct);
     const wasFloor0 = run.currentFloor === 0;
     run.currentFloor++;
-    // PhantomJoin: 幻影を受け入れる (2名 Lv4 加入)
+    // PhantomJoin: 現れた2名のうち1名を受け入れる (Lv4 加入)
     if (wasFloor0 && !run.phantomEventDone && SCENARIO === 'nophantom') {
       const ch = getCharacter(run.characterId);
       for (let i = 0; i < 2 && run.characterLevel < MAX_CHARACTER_LEVEL; i++) {
@@ -384,7 +388,7 @@ function playRun(charId: string, seed: number, blessingIdx: number): RunResult {
       const others = CHARACTERS.filter((c) => c.id !== run.characterId);
       const prng = new Rng(run.seed + 0x5a17);
       for (let i = others.length - 1; i > 0; i--) { const j = prng.range(0, i + 1); [others[i], others[j]] = [others[j], others[i]]; }
-      for (const c of others.slice(0, 2)) {
+      for (const c of others.slice(0, 1)) {
         const s = buildPartyMemberStats(c.id, 4);
         run.partyMembers.push({ characterId: c.id, level: 4, currentHP: s.maxHP, maxHP: s.maxHP });
       }
@@ -420,15 +424,17 @@ const pct = (n: number, d: number) => `${((n / d) * 100).toFixed(0).padStart(3)}
 const LABEL: Record<string, string> = { full: 'ランダム強化あり (標準)', norandom: 'レリック・装備なし', meta: '墓標の強化を全解放', nophantom: '幻影を拒んでLv+2' };
 console.log(`\n■ ${LABEL[SCENARIO]} — 各キャラ ${N} ラン (難易度: 標準 / 加護: ランダム)`);
 console.log('キャラ          踏破率  第2層到達 第3層到達 第4層到達 最終層到達  平均Lv  平均レリック  主な敗因');
+const ALL = { n: 0, won: 0, f1: 0 };
 for (const ch of CHARACTERS) {
   const res: RunResult[] = [];
   for (let i = 0; i < N; i++) res.push(playRun(ch.id, 1000 + i * 7919, i % BLESSINGS.length));
   const reach = (f: number) => res.filter((r) => r.won || r.floor >= f).length;
+  ALL.n += N; ALL.won += res.filter((r) => r.won).length; ALL.f1 += reach(1);
   const causes = new Map<string, number>();
   for (const r of res) if (!r.won) causes.set(r.diedAt, (causes.get(r.diedAt) ?? 0) + 1);
   const top = [...causes.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k} ${pct(v, N).trim()}`).join(' / ');
   const avg = (f: (r: RunResult) => number) => (res.reduce((a, r) => a + f(r), 0) / N).toFixed(1);
   console.log(`${ch.name.split('・')[0].padEnd(8, '　')} ${pct(res.filter((r) => r.won).length, N)}    ${pct(reach(1), N)}     ${pct(reach(2), N)}     ${pct(reach(3), N)}     ${pct(res.filter((r) => r.floor >= 4).length, N)}      ${avg((r) => r.level).padStart(4)}   ${avg((r) => r.relics).padStart(5)}      ${top}`);
 }
-console.log(`\n平均手番/戦闘: ${(stats.battleTurns / stats.battles).toFixed(1)}`);
+console.log(`\n平均手番/戦闘: ${(stats.battleTurns / stats.battles).toFixed(1)}　全キャラ平均: 踏破 ${(ALL.won / ALL.n * 100).toFixed(0)}% / 第1層突破 ${(ALL.f1 / ALL.n * 100).toFixed(0)}%`);
 void MAX_CHARACTER_LEVEL; void Combatant; void getRelic;

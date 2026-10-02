@@ -10,6 +10,7 @@ import { FLOORS, findEnemySkillById, type EncounterGroup } from '../data/enemies
 import { getEnding } from '../data/endings';
 import { getEquipment as getEquipmentDefById } from '../data/equipment';
 import { getActiveSkills, getPassiveIds } from '../core/level';
+import { toGrimoireSkill } from './traits';
 import { Rng } from '../core/rng';
 
 /** Sanity補正付き重み (EnemyEncounterGroup.AdjustedWeight) */
@@ -53,7 +54,7 @@ export function buildHero(run: RunState): Combatant {
   for (const id of run.absorbedSkillIds) {
     const sk = findEnemySkillById(id);
     if (sk && !skills.some((s) => s.id === sk.id)) {
-      skills.push({ ...sk, mpCost: Math.max(4, sk.mpCost || 8), fromGrimoire: true });
+      skills.push(toGrimoireSkill(sk));
     }
   }
 
@@ -99,16 +100,24 @@ export function buildHeroes(run: RunState): Combatant[] {
   return heroes;
 }
 
+/** 層ごとの敵の強化率 (第1層=0、第2層=+1段…最終層=+4段)。難易度の倍率に掛け合わせる */
+export const DEPTH_HP_PER_FLOOR = 0.80;
+export const DEPTH_ATK_PER_FLOOR = 0.30;
+
 export function buildEnemies(
   run: RunState, defs: EnemyDef[], nodeType: NodeType, isFirstCombat: boolean,
 ): Combatant[] {
   const diff = getDifficulty(run.difficultyLevel);
   const floor = FLOORS[Math.min(run.currentFloor, FLOORS.length - 1)];
   const scale = floor.interimScale ?? 1;
+  // Web版の難易度調整: 第2層以降は層が深いほど敵が強くなる (レリック・装備で強くなる分への対抗)
+  const depth = Math.min(run.currentFloor, 4);
+  const depthHP = 1 + DEPTH_HP_PER_FLOOR * depth;
+  const depthAtk = 1 + DEPTH_ATK_PER_FLOOR * depth;
 
   return defs.map((def) => {
-    const hpMult = diff.enemyHPMult * scale;
-    const dmgMult = diff.enemyDamageMult * Math.sqrt(scale);
+    const hpMult = diff.enemyHPMult * scale * depthHP;
+    const dmgMult = diff.enemyDamageMult * Math.sqrt(scale) * depthAtk;
 
     let shields = def.shieldPoints + diff.extraAllEnemyShields;
     if (def.rank === 'Elite') shields += diff.extraEliteShields;

@@ -217,6 +217,8 @@ export interface CharacterDef {
   learnableSkills: JobSkillEntry[];
   allowedWeapons: WeaponType[];
   allowedArmors: ArmorType[];
+  /** 旅立ち時に装備している武器 (Web版の調整: 第1層の突破率を上げるため) */
+  starterWeapon?: string;
 }
 
 // ── Map (Roguelike/RunData.cs NodeType) ────────────────────────────────

@@ -1,5 +1,6 @@
 // localStorage セーブ — Unity版 PlayerPrefs / RunSaveSystem 相当
 import type { RunState } from './run';
+import { getCharacter } from '../data/characters';
 
 const META_KEY = 'dc_meta_v1';
 const RUN_KEY = 'dc_run_v1';
@@ -155,6 +156,13 @@ export function loadRun(): RunState | null {
     run.pendingEncounter ??= null;
     run.floorIntroSeen ??= [];
     run.dailyDate ??= null;
+    // 職レベル以下で覚えるはずのスキルを補う (LevelSystem.RestoreSkillsToJobLevel。
+    // 習得レベルを前倒ししたスキル — ゼノの吸収など — を進行中のセーブにも反映する)
+    for (const entry of getCharacter(run.characterId).learnableSkills) {
+      if (entry.jobLevel <= run.jobLevel && !run.unlockedSkillIds.includes(entry.skill.id)) {
+        run.unlockedSkillIds.push(entry.skill.id);
+      }
+    }
     return run;
   } catch {
     return null;

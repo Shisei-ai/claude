@@ -468,7 +468,7 @@ export const ZENO_SKILLS = {
   }),
   absorb: atk({
     id: 'SKL_Z_Absorb', name: '吸収',
-    description: '敵1体を確率で吸収しその技をグリモワールに記録する（基本25%、敵HPが低いほど+最大50%）。術者HP-15%。ボスには無効。',
+    description: '敵1体を確率で吸収しその技をグリモワールに記録する（基本25%、敵HPが低いほど+最大50%）。術者HP-15%。ボスには無効。刻んだ技はゼノの魔法攻撃力で放つ。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 16,
     absorb: { baseChance: 0.25, maxBonus: 0.50, hpCostPct: 0.15, eliteMult: 0 },
   }),

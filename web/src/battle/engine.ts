@@ -19,6 +19,7 @@ import { battleRandom as rnd } from '../core/rng';
 import type { RelicBattleState } from './relicHooks';
 import { getBoostUpgrade, type BoostUpgrade } from './boost';
 import * as T from './traits';
+import { toGrimoireSkill } from './traits';
 
 const BREAK_STUN_TURNS = 2;
 
@@ -1168,7 +1169,7 @@ export class BattleEngine {
       target.hp = 0;
       this.emit({ kind: 'message', text: `${target.name} の魂を喰らった！` });
       if (pick && !user.skills.some((s) => s.id === pick.skill.id)) {
-        user.skills = [...user.skills, { ...pick.skill, mpCost: Math.max(4, pick.skill.mpCost || 8), fromGrimoire: true }];
+        user.skills = [...user.skills, toGrimoireSkill(pick.skill)];
         this.absorbedThisBattle.push(pick.skill.id);
         this.emit({ kind: 'absorb', skillId: pick.skill.id, skillName: pick.skill.name });
         this.emit({ kind: 'message', text: `「${pick.skill.name}」をグリモワールに刻んだ！` });
