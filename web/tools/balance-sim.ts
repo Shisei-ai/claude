@@ -33,39 +33,78 @@ import type { NodeType, SkillDef } from '../src/core/types';
 // ── 戦闘の操作方針 ──────────────────────────────────────────────────────
 // 回復 (HP40%未満) > 状態異常を入れる (付与系の技・未付与の敵) > 弱点を突く > 最大威力。
 // Break中の敵や BP 満タン時にブースト。ゼノは弱った通常敵に吸収を試す。
-const dotTries = new WeakMap<object, number>();
+// 行動ごとの期待値 (与えるダメージ・毒の総量・吸収で消せるHP など) を見積もり、最大のものを選ぶ。
+// 回復が必要なとき (HP40%未満の味方 / 戦闘不能の味方) は回復・蘇生を優先する。
+type Foe = BattleEngine['enemies'][number];
+function hitValue(h: Combatant, e: Foe, power: number, dmgType: string, element: string, hits: number, undeadMult = 1): number {
+  const atk = dmgType === 'Physical' ? h.patk : h.matk;
+  const weak = e.enemyDef?.elementWeaknesses.includes(element as never) ? 1.5 : 1;
+  const raw = atk * power * weak * (e.isBroken ? 1.5 : 1) * (e.enemyDef?.isUndead ? undeadMult : 1);
+  const def = dmgType === 'Physical' ? e.pdef : dmgType === 'Magical' ? e.mdef : 0;
+  const per = Math.max(1, raw - def);
+  // シールドを削れるなら Break に近づく分を少し上乗せ
+  const breakBonus = weak > 1 && !e.isBroken && e.currentShields > 0 ? per * 0.3 : 0;
+  return Math.min(e.hp, per * hits) + breakBonus;
+}
+function skillValue(h: Combatant, s: SkillDef, e: Foe, foes: Foe[]): number {
+  const targets = s.hitsAllEnemies ? foes : [e];
+  let v = 0;
+  for (const t of targets) {
+    if (s.basePower > 0) {
+      const power = s.basePower + (s.powerPerStatus ?? 0) * Math.min(4, t.statuses.length);
+      v += hitValue(h, t, power, s.damageType, s.element, s.hitCount, s.undeadMult ?? 1);
+    }
+    if (s.appliedStatus && s.statusChance && !t.statuses.some((x) => x.type === s.appliedStatus!.type)) {
+      const st = s.appliedStatus;
+      const dot = st.type === 'Poison' || st.type === 'Bleed' || st.type === 'Burn';
+      v += s.statusChance * (dot
+        ? Math.min(t.hp, t.base.maxHP * st.value * st.duration)
+        : Math.max(t.patk, t.matk) * 0.6 * st.duration);   // 行動阻害系: 防げる被害の目安
+    }
+    if (s.debuff) v += s.debuff.reduce((a, d) => a + Math.max(t.patk, t.matk) * d.value * d.duration * 0.5, 0);
+    if (s.deathSentence) v += t.enemyDef?.rank === 'Boss' || t.enemyDef?.rank === 'TrueFinalBoss' ? t.base.maxHP * s.deathSentence.bossDmgPct * 0.5 : t.hp * 0.6;
+  }
+  if (s.absorb) {
+    const rank = e.enemyDef?.rank ?? 'Normal';
+    const mult = rank === 'Normal' ? 1 : rank === 'Elite' ? (s.absorb.eliteMult ?? 0) : 0;
+    const chance = Math.min(1, (s.absorb.baseChance + s.absorb.maxBonus * (1 - e.hpRatio)) * mult);
+    // 吸収は投資: 持っていない攻撃技を覚えられるなら、その分の価値を上乗せ
+    const newSkill = (e.enemyDef?.actions ?? []).some((a) => a.skill.basePower > 0 && !h.skills.some((x) => x.id === a.skill.id));
+    const grimoireSize = h.skills.filter((x) => x.fromGrimoire).length;
+    const invest = newSkill ? Math.max(0, 90 - grimoireSize * 20) : 0;
+    v = chance * (e.hp * 1.3 + invest) - h.base.maxHP * s.absorb.hpCostPct * 0.4;
+  }
+  return v;
+}
 function chooseCommand(eng: BattleEngine) {
   const h = eng.activeCombatant!;
-  const alive = eng.enemies.map((e, k) => ({ e, k })).filter((x) => x.e.isAlive);
-  alive.sort((a, b) => Number(b.e.isBroken) - Number(a.e.isBroken) || a.e.currentShields - b.e.currentShields || a.e.hp - b.e.hp);
-  const tgt = alive[0];
-  const tries = dotTries.get(tgt.e) ?? 0;
+  const foes = eng.enemies.filter((e) => e.isAlive);
   const usable = h.skills.filter((s) => !s.isPassive && !s.isFieldSkill && s.mpCost <= h.mp);
   const lowAlly = eng.heroes.filter((x) => x.isAlive).sort((a, b) => a.hpRatio - b.hpRatio)[0];
   const heal = usable.find((s) => s.isHeal);
   const revive = usable.find((s) => s.revive);
-  let skill: SkillDef | undefined;
-  if (revive && eng.heroes.some((x) => !x.isAlive)) skill = revive;
-  else if (heal && lowAlly && lowAlly.hpRatio < 0.4) skill = heal;
+  const idx = (e: Foe) => eng.enemies.indexOf(e);
+  let best: { v: number; skill?: SkillDef; target: Foe } = { v: -1, target: foes[0] };
+  if (revive && eng.heroes.some((x) => !x.isAlive)) best = { v: 1e9, skill: revive, target: foes[0] };
+  else if (heal && lowAlly && lowAlly.hpRatio < 0.4) best = { v: 1e9, skill: heal, target: foes[0] };
   else {
-    const absorb = usable.find((s) => s.absorb);
-    if (absorb && tgt.e.enemyDef?.rank === 'Normal' && tgt.e.hpRatio < 0.5) skill = absorb;
-    // 状態異常の技は同じ敵に2回まで (外れ続けると同じ技を撃ち続けてしまうため)
-    const dot = tries < 2 ? usable.find((s) => s.appliedStatus && s.basePower === 0 && !s.isHeal
-      && !tgt.e.statuses.some((st) => st.type === s.appliedStatus!.type)) : undefined;
-    if (!skill && dot) skill = dot;
-    if (!skill) {
-      const dmg = usable.filter((s) => s.basePower > 0 && !s.isHeal);
-      const weak = dmg.filter((s) => tgt.e.enemyDef!.elementWeaknesses.includes(s.element));
-      const strong = [...dmg].sort((a, b) => b.basePower * b.hitCount - a.basePower * a.hitCount);
-      skill = (!tgt.e.isBroken ? weak[0] : undefined) ?? strong[0];
+    const atkEl = h.weaponElement !== 'None' ? h.weaponElement : 'Physical';
+    for (const e of foes) {
+      const va = hitValue(h, e, 1, 'Physical', atkEl, 1);
+      if (va > best.v) best = { v: va, target: e };
+      for (const s of usable) {
+        if (s.isHeal || s.revive || s.buff || s.barrier || s.cleanse || s.regenFlat) continue;
+        // MPが心許ないときは安い手を優先 (見積もりをMP比で少し割り引く)
+        const v = skillValue(h, s, e, foes) * (h.mp - s.mpCost < h.base.maxMP * 0.15 ? 0.7 : 1);
+        if (v > best.v) best = { v, skill: s, target: e };
+      }
     }
   }
-  if (skill && skill.appliedStatus && skill.basePower === 0) dotTries.set(tgt.e, tries + 1);
-  const boostLevel = tgt.e.isBroken || h.bp >= 5 ? Math.min(3, h.bp) : 0;
-  const targetIndex = tgt.k;
-  return skill
-    ? { type: 'skill' as const, skill, targetIndex, boostLevel }
+  const tgt = best.target;
+  const boostLevel = tgt && (tgt.isBroken || h.bp >= 5) ? Math.min(3, h.bp) : 0;
+  const targetIndex = tgt ? idx(tgt) : 0;
+  return best.skill
+    ? { type: 'skill' as const, skill: best.skill, targetIndex, boostLevel }
     : { type: 'attack' as const, targetIndex, boostLevel };
 }
 

@@ -327,6 +327,30 @@ for (const boss of [MORVA, F1_BOSS_GRISELDA, F2_BOSS_SANGUINA]) {
   const curseRatio = curseWith / curseBase;
   check(curseRatio > 1.25, `呪詛増幅: 状態異常2種の敵へ ×${curseRatio.toFixed(2)} (期待 1.3以上)`);
 
+  // 呪詛解放 (Web版で追加): 状態異常2種の敵へは威力 0.8 → 1.6 (2倍前後)
+  const burstWith = avgDamage(() => mk(zeno), '呪詛解放', GOBLIN, twoDebuffs);
+  const burstBase = avgDamage(() => mk(zeno), '呪詛解放', GOBLIN);
+  const burstRatio = burstWith / burstBase;
+  check(burstRatio > 1.9, `呪詛解放: 状態異常2種の敵へ ×${burstRatio.toFixed(2)} (期待 約2倍以上・呪詛増幅込み)`);
+
+  // 吸収の代価: 吸収に成功すると、その技を即座に1回放つ
+  {
+    let freeCast = false;
+    for (let i = 0; i < 30 && !freeCast; i++) {
+      const z = mk(zeno);
+      z.passives.add('SKL_Z_Passive_PriceOfAbsorption');
+      const enemies = makeEnemies([GOBLIN, GOBLIN]);
+      enemies[0].hp = 1;   // 吸収しやすくする
+      enemies[1].base.maxHP = enemies[1].hp = 99999;
+      const eng = new BattleEngine([z], enemies, 0);
+      let st = eng.advance(); eng.drainEvents();
+      while (st !== 'awaitInput' && !eng.over) { st = eng.advance(); eng.drainEvents(); }
+      eng.executePlayerCommand({ type: 'skill', skill: z.skills.find((s) => s.name === '吸収')!, targetIndex: 0, boostLevel: 0 });
+      freeCast = eng.drainEvents().some((e) => e.kind === 'message' && e.text.startsWith('吸収の代価'));
+    }
+    check(freeCast, '吸収の代価: 吸収成功後に刻んだ技を即座に放つ');
+  }
+
   // 奇跡の手: 行動後に最もHPの低い味方を自動回復
   {
     const h = mk(lilia);

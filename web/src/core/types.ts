@@ -118,6 +118,7 @@ export interface SkillDef {
 
   // ── キャラ固有メカニクス ──────────────────────────────────────────
   undeadMult?: number;          // アンデッド特効倍率 (聖光弾・神罰・聖光閃)
+  powerPerStatus?: number;      // 対象の状態異常1種ごとの威力加算 (最大4種)
   chainCount?: number;          // 連鎖対象数 (連鎖雷撃: 2体目以降にも同威力)
   ignoreDefPct?: number;        // 防御無視率 (魔力爆発)
   mpScaling?: { min: number; max: number }; // MP残量で威力スケール (魔力爆発)

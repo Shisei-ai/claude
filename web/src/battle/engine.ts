@@ -861,9 +861,11 @@ export class BattleEngine {
             if (!target.isAlive) break;
             const lastHitCrit = (hit === hits - 1 && boost.lastHitGuaranteedCrit) ? 100 : 0;
             const multi = user.isPlayer ? (this.relics?.multiHitBonus(hit) ?? 0) : 0;   // 連撃の護符
+            // 呪詛解放など: 対象の状態異常の数で威力が上がる
+            const statusBonus = (skill.powerPerStatus ?? 0) * Math.min(4, target.statuses.length);
             this.dealHit(
               user, target,
-              (skill.basePower + shadowBonus) * boostPowerMult * convergeMult * mpMult * grimoireScale * (1 + multi),
+              (skill.basePower + shadowBonus + statusBonus) * boostPowerMult * convergeMult * mpMult * grimoireScale * (1 + multi),
               skill.damageType, element,
               (skill.critBonus ?? 0) + boostCrit + lastHitCrit,
               ignoreDef,
@@ -1180,6 +1182,13 @@ export class BattleEngine {
         this.emit({ kind: 'message', text: `${user.name} のBP+${boost.gainBP}！` });
       }
       this.handleDefeat(target);
+
+      // 吸収の代価: 吸収した技を即座に1回、MPを使わずに放つ (ZenoDesign.Passive_PriceOfAbsorption)
+      const absorbed = pick ? user.skills.find((s) => s.id === pick.skill.id) : undefined;
+      if (absorbed && user.passives.has('SKL_Z_Passive_PriceOfAbsorption') && this.enemies.some((e) => e.isAlive)) {
+        this.emit({ kind: 'message', text: `吸収の代価 — 「${absorbed.name}」を即座に放つ！` });
+        this.executeSkill(user, absorbed, this.enemies.findIndex((e) => e.isAlive), 0, true);
+      }
     } else {
       this.emit({ kind: 'message', text: `吸収に失敗した… (成功率${Math.round(chance * 100)}%)` });
     }

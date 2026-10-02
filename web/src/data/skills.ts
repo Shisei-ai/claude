@@ -433,6 +433,13 @@ export const LILIA_SKILLS = {
 // ══════════════════════════════════════════════════════════════════════
 
 export const ZENO_SKILLS = {
+  // Web版で追加: デバフを重ねて爆ぜさせる攻撃手段 (Unity版のゼノは攻撃技を持たない)
+  curseBurst: atk({
+    id: 'SKL_Z_CurseBurst', name: '呪詛解放',
+    description: '敵1体に刻まれた呪いを爆ぜさせる闇魔法（80%）。対象の状態異常1種につき威力+40%（最大4種）。',
+    element: 'Dark', damageType: 'Magical', basePower: 0.8, mpCost: 10,
+    powerPerStatus: 0.4,
+  }),
   bindCurse: atk({
     id: 'SKL_Z_BindCurse', name: '呪縛',
     description: '一体の敵の速度を-40%にする（2ターン）。',
@@ -569,7 +576,7 @@ export const ZENO_SKILLS = {
   }),
   passivePriceOfAbsorption: atk({
     id: 'SKL_Z_Passive_PriceOfAbsorption', name: '吸収の代価',
-    description: '【パッシブ】吸収スキルのHP消費を50%軽減する。',
+    description: '【パッシブ】吸収スキルのHP消費を50%軽減する。吸収に成功すると、その技を即座に1回MPなしで放つ。',
     basePower: 0, isPassive: true,
   }),
 };

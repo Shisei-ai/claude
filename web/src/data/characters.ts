@@ -188,9 +188,12 @@ export const CHARACTERS: CharacterDef[] = [
     },
     learnableSkills: [
       { jobLevel: 1,  skill: ZENO_SKILLS.bindCurse, jpCost: 0 },
+      // Web版で追加: 呪いを重ねて爆ぜさせる攻撃技
+      { jobLevel: 1,  skill: ZENO_SKILLS.curseBurst, jpCost: 0 },
       // Web版の調整: 吸収は職Lv4 → 最初から (Unity版 ZenoSOGenerator では JobLevel=4)
       { jobLevel: 1,  skill: ZENO_SKILLS.absorb, jpCost: 0 },
-      { jobLevel: 2,  skill: ZENO_SKILLS.poisonMist, jpCost: 60 },
+      // Web版の調整: 毒霧は職Lv2 → 最初から (呪詛解放と組み合わせる前提)
+      { jobLevel: 1,  skill: ZENO_SKILLS.poisonMist, jpCost: 0 },
       { jobLevel: 3,  skill: ZENO_SKILLS.terror, jpCost: 80 },
       { jobLevel: 3,  skill: ZENO_SKILLS.evilEye, jpCost: 90 },
 
