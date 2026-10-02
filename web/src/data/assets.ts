@@ -72,9 +72,12 @@ const BG_KEYS: string[] = [
   'ending_demon_king', 'ending_abyss_god', 'ending_time_wraith', 'ending_cursed_king', 'ending_true_core',
 ];
 
-/** 背景キー → パス。 */
-export const BG_ART: Record<string, string> = Object.fromEntries(
-  BG_KEYS.map((k) => [k, `assets/bg/${k}.png`]),
+/** 背景の拡張子 (写真調の背景は JPG でも置けるように、先に見つかったものを使う) */
+const BG_EXTS = ['png', 'jpg', 'jpeg', 'webp'];
+
+/** 背景キー → 候補パス (先頭から順に、実在するものを読み込む)。 */
+export const BG_ART: Record<string, string[]> = Object.fromEntries(
+  BG_KEYS.map((k) => [k, BG_EXTS.map((ext) => `assets/bg/${k}.${ext}`)]),
 );
 
 /** BGM キー → パス (public/assets/audio/<key>.mp3)。無い曲は無音 */

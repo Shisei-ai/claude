@@ -40,7 +40,9 @@ export class PreloadScene extends Phaser.Scene {
       if (art.portrait) queue(charPortraitKey(id), art.portrait, 'image');
     }
     for (const [id, url] of Object.entries(ENEMY_ART)) queue(enemyArtKey(id), url, 'image');
-    for (const [key, url] of Object.entries(BG_ART)) queue(bgArtKey(key), url, 'image');
+    for (const [key, urls] of Object.entries(BG_ART)) {
+      queue(bgArtKey(key), urls.find((u) => present.has(u)) ?? urls[0], 'image');
+    }
     for (const [key, url] of Object.entries(BGM_ART)) queue(bgmKey(key), url, 'audio');
   }
 

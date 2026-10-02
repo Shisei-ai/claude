@@ -15,7 +15,7 @@ import { PrologueScene } from './scenes/PrologueScene';
 import { CodexScene } from './scenes/CodexScene';
 import { ToastScene } from './scenes/ToastScene';
 
-new Phaser.Game({
+const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
   width: 1280,
@@ -43,3 +43,8 @@ new Phaser.Game({
     ToastScene,   // 常に最前面 (実績通知)
   ],
 });
+
+// 自動テスト用: URL に ?debug を付けたときだけゲーム本体を参照できるようにする
+if (new URLSearchParams(location.search).has('debug')) {
+  (window as unknown as { __dcGame: Phaser.Game }).__dcGame = game;
+}

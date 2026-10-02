@@ -8,7 +8,9 @@ import { loadRun, saveRun } from '../core/save';
 import { buildPartyMemberStats } from '../core/run';
 import { CHARACTERS, getCharacter } from '../data/characters';
 import { MAX_CHARACTER_LEVEL } from '../core/level';
-import { battleRandom as rnd } from '../core/rng';
+import { Rng } from '../core/rng';
+import { hasArt } from './PreloadScene';
+import { charFullKey, artFrame } from '../data/assets';
 
 const JOIN_LEVEL = 4;
 
@@ -22,7 +24,9 @@ export class PhantomJoinScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.add.rectangle(width / 2, height / 2, width, height, 0x0d081a, 1);
 
-    // 候補: 主人公以外をシャッフルして2名
+    // 候補: 主人公以外をシャッフルして2名。ランの種から決めるので、
+    // 中断して開き直しても同じ2名になる (引き直しはできない)
+    const rnd = new Rng(run.seed + 0x5a17);
     const candidates = CHARACTERS.filter((c) => c.id !== run.characterId);
     for (let i = candidates.length - 1; i > 0; i--) {
       const j = rnd.range(0, i + 1);
@@ -36,13 +40,20 @@ export class PhantomJoinScene extends Phaser.Scene {
       '奈落の霧の中から、二つの気配が近づいてくる。\nそれは旅の同行者となるのか、それとも拒むのか。',
       textStyle(17, '#ccc2ad', { align: 'center', lineSpacing: 10 })).setOrigin(0.5);
 
-    // 候補の立ち絵 (暫定: テーマカラー矩形)
+    // 候補の立ち絵 (霧の中の幻影らしく青白く透かす。絵が無ければテーマカラー矩形)
     joinPool.forEach((c, i) => {
-      const x = width / 2 - 110 + i * 220;
-      const y = height * 0.50;
-      this.add.rectangle(x, y, 84, 104, c.themeColor, 0.85).setStrokeStyle(2, 0xd8e8f4, 0.5);
-      this.add.text(x, y + 72, c.name, textStyle(14, '#eee0c7')).setOrigin(0.5);
-      this.add.text(x, y + 94, `Lv. ${JOIN_LEVEL}　${c.jobName}`,
+      const x = width / 2 - 130 + i * 260;
+      const feetY = height * 0.64;
+      const key = charFullKey(c.id);
+      if (hasArt(this, key)) {
+        const img = this.add.image(x, feetY, key, artFrame(this, key)).setOrigin(0.5, 1);
+        img.setScale(170 / img.height).setAlpha(0.8).setTint(0xc8d8ff);
+        this.tweens.add({ targets: img, alpha: 0.6, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      } else {
+        this.add.rectangle(x, feetY - 52, 84, 104, c.themeColor, 0.85).setStrokeStyle(2, 0xd8e8f4, 0.5);
+      }
+      this.add.text(x, feetY + 16, c.name, textStyle(14, '#eee0c7')).setOrigin(0.5);
+      this.add.text(x, feetY + 38, `Lv. ${JOIN_LEVEL}　${c.jobName}`,
         textStyle(12, '#99cc99')).setOrigin(0.5);
     });
 

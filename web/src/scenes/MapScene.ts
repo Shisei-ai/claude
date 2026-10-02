@@ -193,17 +193,22 @@ export class MapScene extends Phaser.Scene {
     const nodeX = (col: number) => 150 + col * colGap;
     const nodeY = (row: number) => topY - row * rowGap;
 
-    // エッジ描画
+    // エッジ描画。背景画像の上でも道筋が追えるよう、暗い縁取りの上に明るめの線を重ねる
+    const shadow = this.add.graphics();
     const g = this.add.graphics();
     for (const node of map.nodes) {
       for (const nextId of node.nextIDs) {
         const next = getNode(map, nextId)!;
         const visited = node.visited && next.visited;
         const reachable = node.id === this.run.currentNodeId && available.has(nextId);
-        g.lineStyle(reachable ? 2 : 1,
-          visited ? 0x6a5a8a : reachable ? 0xd9c66b : 0x2a2440,
-          visited || reachable ? 0.9 : 0.5);
-        g.lineBetween(nodeX(node.column), nodeY(node.row), nodeX(next.column), nodeY(next.row));
+        const x1 = nodeX(node.column), y1 = nodeY(node.row);
+        const x2 = nodeX(next.column), y2 = nodeY(next.row);
+        const w = reachable ? 2.5 : visited ? 2 : 1.5;
+        shadow.lineStyle(w + 3, 0x000000, 0.55).lineBetween(x1, y1, x2, y2);
+        g.lineStyle(w,
+          visited ? 0x9a8abd : reachable ? 0xd9c66b : 0x8a7fa8,
+          visited || reachable ? 0.95 : 0.7);
+        g.lineBetween(x1, y1, x2, y2);
       }
     }
 

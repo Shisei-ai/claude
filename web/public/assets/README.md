@@ -18,7 +18,9 @@ id: bernhard / lavinia / ash / lilia / zeno
   ※ 対応後に src/data/assets.ts の ENEMY_ART に登録する。
 
 ## 背景 (public/assets/bg/)
-- 16:9 (1280x720 以上)。対応後に src/data/assets.ts の BG_ART に登録する。
+- `<key>.png` / `.jpg` / `.jpeg` / `.webp` のどれでもよい (同じキーに複数あれば png → jpg → jpeg → webp の順で1つ使う)。
+- 16:9 (1280x720 以上)。key は src/data/assets.ts の BG_KEYS を参照
+  (floor0〜floor3 / arena_* / event_* / title / charselect / meta / panel / ending_*)。
 
 ## BGM (public/assets/audio/)
 - `<key>.mp3` … ループ再生される曲。置かなければ無音 (効果音は合成音で常に鳴る)。

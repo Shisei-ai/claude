@@ -64,6 +64,7 @@ export function makeButton(
   const txt = scene.add.text(0, 0, label, textStyle(
     opts.fontSize ?? 20,
     disabled ? '#554d66' : (opts.color ?? COLORS.text),
+    { align: 'center' },   // 2行のラベルも各行を中央に
   )).setOrigin(0.5);
 
   const container = scene.add.container(x, y, [bg, txt]);

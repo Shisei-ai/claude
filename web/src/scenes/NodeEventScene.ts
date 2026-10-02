@@ -455,7 +455,9 @@ export class NodeEventScene extends Phaser.Scene {
   private createCursedRoom(): void {
     const { width, height } = this.scale;
     this.header('呪われた間', '空気が重い。何かがこちらを見ている——');
-    this.add.text(width / 2, height / 2 - 60, '✖', textStyle(72, COLORS.textRed)).setOrigin(0.5);
+    // 「閉じる/エラー」の✖に見えないよう、焚き火の🔥と同じく絵文字で示す
+    const skull = this.add.text(width / 2, height / 2 - 60, '💀', { fontSize: '68px' }).setOrigin(0.5);
+    this.tweens.add({ targets: skull, alpha: { from: 1, to: 0.65 }, duration: 1400, yoyo: true, repeat: -1 });
 
     const maxHP = getEffectiveMaxHP(this.run);
     // 罠師の知識 (アッシュ): トラップダメージ50%軽減
