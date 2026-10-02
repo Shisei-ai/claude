@@ -111,6 +111,7 @@ export interface SkillDef {
   critBonus?: number;       // このスキル使用時の会心率ボーナス
   isPassive?: boolean;      // パッシブ(コマンドとして出さない)
   isFieldSkill?: boolean;   // フィールドスキル(鍵師の手など。バトル外で効果)
+  fromGrimoire?: boolean;   // ゼノがグリモワールに刻んだ敵の技 (吸収技)
   shieldRestore?: number;   // 敵専用: シールド回復
   healAmountFlat?: number;  // 敵専用: 固定回復
   clearsOwnStatus?: boolean;// 敵専用: 自身の状態異常を全解除 (封印解除/虚無の浄化)

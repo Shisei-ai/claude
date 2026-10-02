@@ -271,5 +271,81 @@ for (const boss of [MORVA, F1_BOSS_GRISELDA, F2_BOSS_SANGUINA]) {
   else { console.error(`✗ ${boss.name}: Trueダメージが確認できない`); failures++; }
 }
 
+// ── 固有トレイト (Unity版 Character/Traits) ─────────────────────────
+{
+  const check = (ok: boolean, label: string) => {
+    if (ok) console.log(`✓ ${label}`);
+    else { console.error(`✗ ${label}`); failures++; }
+  };
+  const lilia = CHARACTERS.find((c) => c.id === 'lilia')!;
+  const zeno = CHARACTERS.find((c) => c.id === 'zeno')!;
+  const mk = (ch: typeof lilia, keepTraits = true) => {
+    const c = new Combatant({
+      isPlayer: true, name: ch.name, characterId: ch.id,
+      stats: { ...ch.baseStats, maxMP: 999, speed: 999, criticalRate: 0 },
+      skills: ch.learnableSkills.filter((e) => !e.skill.isPassive).map((e) => e.skill),
+    });
+    c.mp = 999;
+    if (!keepTraits) c.traits.clear();
+    return c;
+  };
+  check(mk(lilia).traits.size === 3 && mk(zeno).traits.size === 3, 'リリア・ゼノに固有トレイトが3つずつ付く');
+  check(makeEnemies([GOBLIN])[0].traits.size === 0, '敵にはトレイトが付かない');
+
+  // 1回のスキル使用で対象に与えた平均ダメージ
+  const avgDamage = (hero: () => Combatant, skillName: string, enemy: EnemyDef, prep?: (e: Combatant) => void) => {
+    let total = 0;
+    const N = 300;
+    for (let i = 0; i < N; i++) {
+      const h = hero();
+      const skill = h.skills.find((s) => s.name === skillName)!;
+      const enemies = makeEnemies([enemy]);
+      enemies[0].base.maxHP = enemies[0].hp = 999999;
+      prep?.(enemies[0]);
+      const eng = new BattleEngine([h], enemies, 0);
+      let st = eng.advance(); eng.drainEvents();
+      while (st !== 'awaitInput' && !eng.over) { st = eng.advance(); eng.drainEvents(); }
+      prep?.(enemies[0]);
+      eng.executePlayerCommand({ type: 'skill', skill, targetIndex: 0, boostLevel: 0 });
+      for (const e of eng.drainEvents()) if (e.kind === 'damage' && e.target === enemies[0]) { total += e.amount; break; }
+    }
+    return total / N;
+  };
+
+  // 聖光の加護: 光属性+40%、アンデッドに×1.5 → 防御差し引き前で×2.1。防御があるので比は2.1よりやや大きくなる
+  const holyWith = avgDamage(() => mk(lilia), '聖光弾', ROTTING_ZOMBIE);
+  const holyWithout = avgDamage(() => mk(lilia, false), '聖光弾', ROTTING_ZOMBIE);
+  const holyRatio = holyWith / holyWithout;
+  check(holyRatio > 1.9 && holyRatio < 2.6, `聖光の加護: アンデッドへの聖光弾 ×${holyRatio.toFixed(2)} (期待 約2.1〜2.4)`);
+
+  // 呪詛増幅: 状態異常2種で+30%
+  const twoDebuffs = (e: Combatant) => {
+    e.statuses = [{ type: 'Poison', value: 0, remainingTurns: 9 }, { type: 'AtkDown', value: 0, remainingTurns: 9 }];
+  };
+  const curseWith = avgDamage(() => mk(zeno), '呪縛', GOBLIN, twoDebuffs);
+  const curseBase = avgDamage(() => mk(zeno), '呪縛', GOBLIN);
+  const curseRatio = curseWith / curseBase;
+  check(curseRatio > 1.25, `呪詛増幅: 状態異常2種の敵へ ×${curseRatio.toFixed(2)} (期待 1.3以上)`);
+
+  // 奇跡の手: 行動後に最もHPの低い味方を自動回復
+  {
+    const h = mk(lilia);
+    h.hp = Math.round(h.base.maxHP * 0.5);
+    const enemies = makeEnemies([GOBLIN]);
+    enemies[0].base.maxHP = enemies[0].hp = 999999;
+    const eng = new BattleEngine([h], enemies, 0);
+    let st = eng.advance(); eng.drainEvents();
+    while (st !== 'awaitInput' && !eng.over) { st = eng.advance(); eng.drainEvents(); }
+    eng.executePlayerCommand({ type: 'attack', targetIndex: 0, boostLevel: 0 });
+    const healed = eng.drainEvents().some((e) => e.kind === 'heal' && e.target === h);
+    check(healed, '奇跡の手: 行動後に自動回復が発動');
+  }
+
+  // 影舞踊: アッシュの回避率+20%
+  const ash = CHARACTERS.find((c) => c.id === 'ash')!;
+  const ashC = new Combatant({ isPlayer: true, name: ash.name, characterId: 'ash', stats: { ...ash.baseStats } });
+  check(Math.abs(ashC.dodgeBonus - 0.20) < 1e-9, '影舞踊: アッシュの回避率+20%');
+}
+
 console.log(failures === 0 ? '\nALL OK' : `\n${failures} FAILURES`);
 process.exit(failures === 0 ? 0 : 1);

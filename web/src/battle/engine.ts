@@ -18,6 +18,7 @@ import { STATUS_DISPLAY_NAME } from '../core/types';
 import { battleRandom as rnd } from '../core/rng';
 import type { RelicBattleState } from './relicHooks';
 import { getBoostUpgrade, type BoostUpgrade } from './boost';
+import * as T from './traits';
 
 const BREAK_STUN_TURNS = 2;
 
@@ -43,6 +44,8 @@ export class Combatant {
   enemyDef?: EnemyDef;
   skills: SkillDef[];
   passives: Set<string>;
+  /** キャラ固有トレイト (Unity版 CharacterData.Traits) */
+  traits: Set<T.TraitId>;
 
   hp: number;
   mp: number;
@@ -80,6 +83,7 @@ export class Combatant {
     this.enemyDef = opts.enemyDef;
     this.skills = opts.skills ?? [];
     this.passives = opts.passives ?? new Set();
+    this.traits = opts.isPlayer ? T.traitsFor(opts.characterId) : new Set();
     this.hp = opts.initialHP ?? this.base.maxHP;
     this.mp = this.base.maxMP;
     if (!opts.isPlayer) {
@@ -145,9 +149,10 @@ export class Combatant {
     return Math.max(0, Math.min(100, a));
   }
 
-  /** 回避率 (プレイヤーのみ) — 流麗回避 + 残影 */
+  /** 回避率 (プレイヤーのみ) — 影舞踊 + 流麗回避 + 残影 */
   get dodgeBonus(): number {
     let d = 0;
+    if (this.traits.has('ShadowDance')) d += T.SHADOW_DODGE_BONUS;
     if (this.passives.has('SKL_A_Passive_FluidEvasion')) d += 0.15;
     return d;
   }
@@ -527,18 +532,18 @@ export class BattleEngine {
       for (const h of this.heroes) if (h.isAlive) h.addBP(gain);
     }
 
-    // 自動慈愛 (リリア): 毎アクション後、最もHP%が低い味方を回復
-    const compassion = this.heroes.find(
-      (h) => h.isAlive && h.passives.has('SKL_L2_Passive_AutoCompassion'));
-    if (compassion) {
-      const injured = this.heroes
-        .filter((h) => h.isAlive && h.hp < h.base.maxHP)
-        .sort((a, b) => a.hpRatio - b.hpRatio)[0];
-      if (injured) {
-        const amount = Math.max(1, Math.round(compassion.matk * 0.30));
-        const healed = injured.heal(amount);
-        if (healed > 0) this.emit({ kind: 'heal', target: injured, amount: healed });
-      }
+    // 奇跡の手 (リリア固有トレイト) / 自動慈愛 (習得パッシブ・同じ効果):
+    // 毎アクション後、最もHP%が低い味方を魔攻×0.30回復 (BattleManager.TryLiliaAutoCompassion)。
+    // 両方あっても1回だけ
+    for (const healer of this.heroes) {
+      if (!healer.isAlive) continue;
+      if (!healer.traits.has('MiracleHands') && !healer.passives.has('SKL_L2_Passive_AutoCompassion')) continue;
+      const lowest = this.heroes.filter((h) => h.isAlive).sort((a, b) => a.hpRatio - b.hpRatio)[0];
+      if (!lowest || lowest.hpRatio >= T.MIRACLE_AUTO_HEAL_THRESHOLD) continue;
+      let amount = Math.round(healer.matk * T.MIRACLE_AUTO_HEAL_MULT);
+      if (healer.traits.has('PureheartHealer')) amount = Math.round(amount * (1 + T.PUREHEART_HEAL_BONUS));
+      const healed = lowest.heal(Math.max(1, amount));
+      if (healed > 0) this.emit({ kind: 'heal', target: lowest, amount: healed });
     }
   }
 
@@ -584,6 +589,14 @@ export class BattleEngine {
         cost = Math.max(0, cost - 2);
       }
       if (this.relics) cost = this.relics.modifySkillMPCost(cost);
+      // 魔獣の書の主: 吸収技のMP-1 (最小1)
+      if (skill.fromGrimoire && user.traits.has('GrimoireMaster')) {
+        cost = Math.max(1, cost - T.GRIMOIRE_MP_DISCOUNT);
+      }
+      // 暗黒の意志: HP50%以下でMP-3 (最小1)
+      if (user.traits.has('DarkWill') && user.hpRatio <= T.DARKWILL_LOW_HP) {
+        cost = Math.max(1, cost - T.DARKWILL_MP_REDUCTION);
+      }
       if (user.mp < cost) return;
       var mpRatioBefore = user.mpRatio;   // 魔力爆発のスケーリングは支払い前
       user.mp -= cost;
@@ -636,6 +649,16 @@ export class BattleEngine {
         t.hp = Math.max(1, Math.round(t.base.maxHP * revivePct));
         this.emit({ kind: 'message', text: `${t.name} が蘇った！` });
         this.emit({ kind: 'heal', target: t, amount: t.hp });
+        // 清心の治癒師: 蘇生のたびに術者もHP20%回復
+        if (user.traits.has('PureheartHealer')) {
+          const selfHealed = user.heal(Math.max(1, Math.round(user.base.maxHP * T.PUREHEART_SELF_HEAL_AFTER_REVIVE)));
+          if (selfHealed > 0) this.emit({ kind: 'heal', target: user, amount: selfHealed });
+        }
+        // 奇跡の手: 完全蘇生 (HP100%) なら蘇った味方にリジェネ3T
+        if (user.traits.has('MiracleHands') && skill.revive.pct >= 1) {
+          t.applyStatus({ type: 'Regen', duration: T.MIRACLE_FULL_REVIVE_REGEN_TURNS, value: 0.05 }, 1);
+          this.emit({ kind: 'status', target: t, status: 'Regen', applied: true });
+        }
       }
     }
 
@@ -654,10 +677,11 @@ export class BattleEngine {
         } else {
           amount = Math.round((skill.healPower + user.matk * 0.5) * healMult);
         }
-        // 癒しの心得: 回復量+25%
-        if (user.passives.has('SKL_L2_Passive_HealingMastery')) {
-          amount = Math.round(amount * 1.25);
-        }
+        // 癒しの心得 (習得パッシブ) +25% / 清心の治癒師 (固有トレイト) +30%。両方で合計+55%
+        let healBonus = 0;
+        if (user.passives.has('SKL_L2_Passive_HealingMastery')) healBonus += 0.25;
+        if (user.traits.has('PureheartHealer')) healBonus += T.PUREHEART_HEAL_BONUS;
+        if (healBonus > 0) amount = Math.round(amount * (1 + healBonus));
         const healed = t.heal(amount);
         if (healed > 0) this.emit({ kind: 'heal', target: t, amount: healed });
         // ブースト: 回復と同時に状態異常も全解除 (治癒×2/全体治癒×2 など)
@@ -688,7 +712,8 @@ export class BattleEngine {
       for (const t of targets) {
         t.applyStatus({
           type: 'RegenFlat',
-          duration: skill.regenFlat.duration + (boost.buffDurationBonus ?? 0),
+          duration: skill.regenFlat.duration + (boost.buffDurationBonus ?? 0)
+            + (user.traits.has('PureheartHealer') ? T.PUREHEART_REGEN_DURATION_BONUS : 0),
           value: perTurn,
         }, 1);
         this.emit({ kind: 'status', target: t, status: 'RegenFlat', applied: true });
@@ -802,6 +827,11 @@ export class BattleEngine {
         mpMult = skill.mpScaling.min + (skill.mpScaling.max - skill.mpScaling.min) * mpRatioBefore;
       }
 
+      // 吸収技の威力倍率 (GrimoireSystem.SkillPowerScale 0.90、魔獣の書の主で+0.10)
+      const grimoireScale = skill.fromGrimoire
+        ? T.GRIMOIRE_SKILL_POWER_SCALE + (user.traits.has('GrimoireMaster') ? T.GRIMOIRE_ABSORBED_POWER_BONUS : 0)
+        : 1;
+
       // Shadow State威力加算
       let shadowBonus = 0;
       let extraHits = 0;
@@ -829,7 +859,7 @@ export class BattleEngine {
             const lastHitCrit = (hit === hits - 1 && boost.lastHitGuaranteedCrit) ? 100 : 0;
             this.dealHit(
               user, target,
-              (skill.basePower + shadowBonus) * boostPowerMult * convergeMult * mpMult,
+              (skill.basePower + shadowBonus) * boostPowerMult * convergeMult * mpMult * grimoireScale,
               skill.damageType, element,
               (skill.critBonus ?? 0) + boostCrit + lastHitCrit,
               ignoreDef,
@@ -837,8 +867,10 @@ export class BattleEngine {
             );
             if (boost.drainPct) drained += Math.round(this.lastHitDealt * boost.drainPct);
             if (skill.canBreak) {
-              this.tryBreakShield(user, target, element,
-                (skill.shieldDamage ?? 1) + (boost.extraShieldDamage ?? 0), true);
+              let shieldDmg = (skill.shieldDamage ?? 1) + (boost.extraShieldDamage ?? 0);
+              // 聖光の加護: アンデッドのシールドは2倍削る
+              if (user.traits.has('HolyGrace') && target.enemyDef?.isUndead) shieldDmg *= T.HOLY_UNDEAD_BREAK_MULTIPLE;
+              this.tryBreakShield(user, target, element, shieldDmg, true);
             } else {
               this.tryBreakShield(user, target, element, 1 + (boost.extraShieldDamage ?? 0));
             }
@@ -895,6 +927,15 @@ export class BattleEngine {
           if (user.passives.has('SKL_Z_Passive_CurseMastery')) {
             chance += 0.20;
             status.duration += 1;
+          }
+          // 呪詛増幅: 付与率+25% (上限100%)、持続+1T
+          if (user.traits.has('CurseAmplifier')) {
+            chance = Math.min(1, chance + T.CURSE_STATUS_CHANCE_BONUS);
+            status.duration += T.CURSE_DEBUFF_DURATION_BONUS;
+          }
+          // 清心の治癒師: リジェネ持続+1T
+          if ((status.type === 'Regen' || status.type === 'RegenFlat') && user.traits.has('PureheartHealer')) {
+            status.duration += T.PUREHEART_REGEN_DURATION_BONUS;
           }
           const applied = target.applyStatus(status, chance);
           this.emit({ kind: 'status', target, status: status.type, applied });
@@ -1094,6 +1135,8 @@ export class BattleEngine {
     // HP消費 (吸収の代価: 半減 / ブースト: 倍率)
     let hpCost = Math.round(user.base.maxHP * ab.hpCostPct * (boost.absorbHPCostMult ?? 1));
     if (user.passives.has('SKL_Z_Passive_PriceOfAbsorption')) hpCost = Math.round(hpCost * 0.5);
+    // 魔獣の書の主: HP消費-25%
+    if (user.traits.has('GrimoireMaster')) hpCost = Math.round(hpCost * (1 - T.GRIMOIRE_ABSORB_HP_COST_REDUCTION));
     if (hpCost > 0) {
       user.hp = Math.max(1, user.hp - hpCost);
       this.emit({ kind: 'damage', target: user, amount: hpCost, isCrit: false, isWeak: false });
@@ -1111,7 +1154,9 @@ export class BattleEngine {
     let chance = ab.baseChance + ab.maxBonus * (1 - target.hpRatio);
     if (rank === 'Elite') chance *= ab.eliteMult ?? 1;
     if (rank === 'Normal' && ab.instantNormal) chance = 1;
-    chance = Math.min(1, chance + (boost.absorbChanceBonus ?? 0));
+    // 暗黒の意志: HP25%以下で吸収率+30%
+    const darkWillBonus = user.traits.has('DarkWill') && user.hpRatio <= T.DARKWILL_CRIT_HP ? T.DARKWILL_ABSORB_BONUS : 0;
+    chance = Math.min(1, chance + (boost.absorbChanceBonus ?? 0) + darkWillBonus);
 
     if (rnd.value() < chance) {
       // 吸収成功: 敵の技を1つ獲得して敵は消滅
@@ -1120,7 +1165,7 @@ export class BattleEngine {
       target.hp = 0;
       this.emit({ kind: 'message', text: `${target.name} の魂を喰らった！` });
       if (pick && !user.skills.some((s) => s.id === pick.skill.id)) {
-        user.skills = [...user.skills, { ...pick.skill, mpCost: Math.max(4, pick.skill.mpCost || 8) }];
+        user.skills = [...user.skills, { ...pick.skill, mpCost: Math.max(4, pick.skill.mpCost || 8), fromGrimoire: true }];
         this.absorbedThisBattle.push(pick.skill.id);
         this.emit({ kind: 'absorb', skillId: pick.skill.id, skillName: pick.skill.name });
         this.emit({ kind: 'message', text: `「${pick.skill.name}」をグリモワールに刻んだ！` });
@@ -1172,7 +1217,7 @@ export class BattleEngine {
         // 流麗回避: 回避でBP+1
         if (target.passives.has('SKL_A_Passive_FluidEvasion')) target.addBP(1);
         // アッシュ: 回避成功でShadow State
-        if (target.characterId === 'ash' && !target.shadowState) {
+        if (target.traits.has('ShadowDance') && !target.shadowState) {
           target.shadowState = true;
           this.emit({ kind: 'shadow', target, active: true });
         }
@@ -1223,11 +1268,29 @@ export class BattleEngine {
 
     // Shadow State: 攻撃全般+30% (Trait_ShadowDance)
     let shadowMult = 1;
-    if (attacker.shadowState && attacker.characterId === 'ash') shadowMult = 1.30;
+    if (attacker.shadowState && attacker.traits.has('ShadowDance')) shadowMult = 1.30;
+
+    // 聖光の加護: 光属性+40%、アンデッドにはさらに×1.5 (ComputeRawDamage の Light 分岐)
+    let holyMult = 1;
+    if (element === 'Light' && attacker.traits.has('HolyGrace')) {
+      holyMult = 1 + T.HOLY_DAMAGE_BONUS;
+      if (target.enemyDef?.isUndead) holyMult *= T.HOLY_UNDEAD_EXTRA_MULT;
+    }
+
+    // 呪詛増幅: 敵にかかっている状態異常1種につき+15% (最大4種)
+    let curseMult = 1;
+    if (!target.isPlayer && attacker.traits.has('CurseAmplifier')) {
+      curseMult += Math.min(target.statuses.length, T.CURSE_MAX_DEBUFF_STACKS) * T.CURSE_DMG_BONUS_PER_DEBUFF;
+    }
+
+    // 暗黒の意志: HP10%以下で与ダメージ+50%
+    const darkWillMult = attacker.traits.has('DarkWill') && attacker.hpRatio <= T.DARKWILL_DESPERATE_HP
+      ? 1 + T.DARKWILL_DEBUFF_AMPLIFY : 1;
 
     const atk = dmgType === 'Physical' ? attacker.patk : attacker.matk;
     let raw = Math.max(1, Math.round(
-      atk * power * critMult * elemMult * extraMult * shadowMult * rnd.float(0.9, 1.1),
+      atk * power * critMult * elemMult * extraMult * shadowMult * holyMult * curseMult * darkWillMult
+        * rnd.float(0.9, 1.1),
     ));
 
     // レリック: 与ダメ補正 (ヒーロー→敵) / 被ダメ補正 (敵→ヒーロー)

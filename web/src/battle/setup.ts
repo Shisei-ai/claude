@@ -53,7 +53,7 @@ export function buildHero(run: RunState): Combatant {
   for (const id of run.absorbedSkillIds) {
     const sk = findEnemySkillById(id);
     if (sk && !skills.some((s) => s.id === sk.id)) {
-      skills.push({ ...sk, mpCost: Math.max(4, sk.mpCost || 8) });
+      skills.push({ ...sk, mpCost: Math.max(4, sk.mpCost || 8), fromGrimoire: true });
     }
   }
 

@@ -12,6 +12,7 @@ import { generateMap } from '../core/mapgen';
 import type { BlessingType } from '../core/types';
 import { hasArt } from './PreloadScene';
 import { charPortraitKey } from '../data/assets';
+import { CHARACTER_TRAITS, TRAIT_INFO } from '../battle/traits';
 
 export class RunSetupScene extends Phaser.Scene {
   private selectedChar = 0;
@@ -86,9 +87,9 @@ export class RunSetupScene extends Phaser.Scene {
     });
 
     // ── 説明パネル ──
-    this.add.rectangle(width / 2, 578, width - 160, 76, 0x0e0a18, 0.9)
+    this.add.rectangle(width / 2, 584, width - 160, 96, 0x0e0a18, 0.9)
       .setStrokeStyle(1, COLORS.border);
-    this.infoText = this.add.text(width / 2, 578, '', textStyle(14, COLORS.textDim, {
+    this.infoText = this.add.text(width / 2, 584, '', textStyle(14, COLORS.textDim, {
       wordWrap: { width: width - 220 }, align: 'center',
     })).setOrigin(0.5);
 
@@ -114,8 +115,14 @@ export class RunSetupScene extends Phaser.Scene {
     const c = CHARACTERS[this.selectedChar];
     const b = BLESSINGS[this.selectedBlessing];
     const d = DIFFICULTY_TIERS[this.selectedDifficulty];
+    // 固有トレイト (習得パッシブとは別に最初から有効)
+    const traits = CHARACTER_TRAITS[c.id] ?? [];
+    const traitLine = traits.length
+      ? `固有特性: ${traits.map((t) => TRAIT_INFO[t].name).join('・')}\n`
+      : '';
     this.infoText.setText(
       `${c.name}（${c.jobName}） HP${c.baseStats.maxHP} / MP${c.baseStats.maxMP}\n` +
+      traitLine +
       `${b.name}: ${b.desc}\n` +
       `${d.displayName}: ${d.description}（開始ゴールド ${d.startingGold}G）`,
     );
