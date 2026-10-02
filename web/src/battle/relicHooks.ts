@@ -364,6 +364,16 @@ export class RelicBattleState {
   }
 
   // ── 復活判定 (TryRevive) ───────────────────────────────────────────
+  /** 茨帷子の切れ端: ヒーローが受けたダメージの一部を攻撃者へ反射 (RelicManager.GetThornsReflectDamage) */
+  thornsReflectDamage(dealtToHero: number): number {
+    return this.has('ThornsReflect') ? Math.max(1, Math.round(dealtToHero * this.sum('ThornsReflect') / 100)) : 0;
+  }
+
+  /** 連撃の護符: 2撃目以降のダメージ倍率加算 (RelicManager.GetMultiHitBonus) */
+  multiHitBonus(hitIndex: number): number {
+    return hitIndex > 0 && this.has('MultiHitBonus') ? this.sum('MultiHitBonus') / 100 : 0;
+  }
+
   tryRevive(hero: Combatant): boolean {
     if (this.reviveUsed || !this.has('ReviveOnce')) return false;
     this.reviveUsed = true;

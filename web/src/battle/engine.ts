@@ -574,7 +574,9 @@ export class BattleEngine {
     const hitCount = 1 + boostLevel;
     for (let hit = 0; hit < hitCount; hit++) {
       if (!target.isAlive) break;
-      this.dealHit(attacker, target, 1.0, 'Physical', element, 0, 0);
+      // 連撃の護符: 2撃目以降+15%
+      const multi = attacker.isPlayer ? (this.relics?.multiHitBonus(hit) ?? 0) : 0;
+      this.dealHit(attacker, target, 1.0 * (1 + multi), 'Physical', element, 0, 0);
       this.tryBreakShield(attacker, target, element, 1);
     }
     this.consumeShadowState(attacker);
@@ -857,9 +859,10 @@ export class BattleEngine {
           for (let hit = 0; hit < hits; hit++) {
             if (!target.isAlive) break;
             const lastHitCrit = (hit === hits - 1 && boost.lastHitGuaranteedCrit) ? 100 : 0;
+            const multi = user.isPlayer ? (this.relics?.multiHitBonus(hit) ?? 0) : 0;   // 連撃の護符
             this.dealHit(
               user, target,
-              (skill.basePower + shadowBonus) * boostPowerMult * convergeMult * mpMult * grimoireScale,
+              (skill.basePower + shadowBonus) * boostPowerMult * convergeMult * mpMult * grimoireScale * (1 + multi),
               skill.damageType, element,
               (skill.critBonus ?? 0) + boostCrit + lastHitCrit,
               ignoreDef,
@@ -1358,6 +1361,16 @@ export class BattleEngine {
     }
 
     this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak, element });
+
+    // 茨帷子の切れ端: 受けたダメージの一部を攻撃者 (敵) に反射
+    if (this.relics && target.isPlayer && dealt > 0 && !attacker.isPlayer && attacker.isAlive) {
+      const thorns = this.relics.thornsReflectDamage(dealt);
+      if (thorns > 0) {
+        const reflected = attacker.takeDamage(thorns, 'True');
+        this.emit({ kind: 'damage', target: attacker, amount: reflected, isCrit: false, isWeak: false });
+        if (!attacker.isAlive) this.handleDefeat(attacker);
+      }
+    }
 
     // レリック: 与ダメ確定後の効果 (吸血・出血/麻痺付与)
     if (this.relics && attacker.isPlayer && !target.isPlayer) {
