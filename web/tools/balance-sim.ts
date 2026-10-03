@@ -496,6 +496,20 @@ function playRun(charId: string, seed: number, blessingIdx: number): RunResult {
 
 // ── 墓標の強化を全解放した状態 (createRun が localStorage のメタを読む) ──
 if (SCENARIO === 'meta') {
+  // 比較用: META_SCALE で墓標の能力値ボーナス (%・会心・MP) を一律に縮める / META_NO=型,型 で特定の効果を外す
+  const k = Number(process.env.META_SCALE ?? 1);
+  const scaled = new Set(['MaxHPPercent', 'PhysAtkPercent', 'MagAtkPercent', 'PhysDefPercent', 'MagDefPercent', 'CritRateFlat', 'MaxMPFlat']);
+  const off = new Set((process.env.META_NO ?? '').split(',').filter(Boolean));
+  // META_ECON: 所持金・割引の倍率 / META_DROP: 外すノードのID (効果を消す)
+  const econ = Number(process.env.META_ECON ?? 1);
+  const drop = new Set((process.env.META_DROP ?? '').split(',').filter(Boolean));
+  for (const n of META_NODES) {
+    if (drop.has(n.id)) n.bonuses = [];
+    n.bonuses = n.bonuses.map((b) => b.type === 'StartingGold' || b.type === 'ShopDiscount' ? { ...b, value: b.value * econ } : b);
+  }
+  for (const n of META_NODES) {
+    n.bonuses = n.bonuses.filter((b) => !off.has(b.type)).map((b) => scaled.has(b.type) ? { ...b, value: b.value * k } : b);
+  }
   const meta = { totalEpitaphs: 0, totalRuns: 0, totalWins: 0, maxFloor: 0, unlockedNodes: META_NODES.map((n) => n.id) };
   (globalThis as any).localStorage = { getItem: () => JSON.stringify(meta), setItem: () => {}, removeItem: () => {} };
 }
