@@ -11,7 +11,7 @@ import { pickEncounter, buildHeroes, buildEnemies, computeRewards } from '../src
 import { RelicBattleState } from '../src/battle/relicHooks';
 import {
   createRun, getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip, equipItem,
-  createPartyMember, partyUnits, addMaxHP, equippedIds, restAtCampfire, type RunState, type UnitState,
+  createPartyMember, partyUnits, addMaxHP, equippedIds, restAtCampfire, getMaxMP, healMP, fullRestore, type RunState, type UnitState,
 } from '../src/core/run';
 import { addExp, addJP, MAX_CHARACTER_LEVEL } from '../src/core/level';
 import { generateMap, getAvailableNodes, getStartNodes, getNode } from '../src/core/mapgen';
@@ -118,6 +118,8 @@ const gainRelic = (run: RunState, relic: RelicDef | null | undefined) => { if (r
 /** BattleScene と同じ準備で戦い、勝敗と戦闘後の状態をランへ反映 */
 function battle(run: RunState, nodeType: NodeType, seed: number, coffin = false): boolean {
   const defs = pickEncounter(run, nodeType, seed);
+  // 比較用: MP_CARRY=0 で以前の「戦闘ごとにMP全回復」に戻す
+  if (process.env.MP_CARRY === '0') for (const u of partyUnits(run)) u.currentMP = getMaxMP(run, u);
   const heroes = buildHeroes(run);
   const hero = heroes[0];
   const isFirstCombat = run.battlesWon === 0;
@@ -149,7 +151,8 @@ function battle(run: RunState, nodeType: NodeType, seed: number, coffin = false)
 
   // ── BattleScene.onVictory ──
   run.currentHP = Math.max(1, hero.hp);
-  run.partyMembers.forEach((m, i) => { const c = heroes[i + 1]; if (c) m.currentHP = c.hp; });
+  run.currentMP = hero.mp;
+  run.partyMembers.forEach((m, i) => { const c = heroes[i + 1]; if (c) { m.currentHP = c.hp; m.currentMP = c.mp; } });
   run.battlesWon++; run.totalRoomsCleared++; run.enemiesKilled += defs.length;
   const units = partyUnits(run);
   for (const { skillId, user } of eng.absorbedBy) {
@@ -244,14 +247,17 @@ function shop(run: RunState, rng: Rng): void {
   if (hasEffect(run, 'BlackMarket')) relicSlot(true);
   const hurt = mostHurt(run);
   const hurtR = hurt.currentHP / getEffectiveMaxHP(run, hurt);
+  const drained = [...partyUnits(run)].sort((a, b) => a.currentMP / Math.max(1, getMaxMP(run, a)) - b.currentMP / Math.max(1, getMaxMP(run, b)))[0];
+  const drainedR = drained.currentMP / Math.max(1, getMaxMP(run, drained));
   const potion = (pct: number) => () => { const u = mostHurt(run); healRun(run, modifyHealAmount(run, Math.round(getEffectiveMaxHP(run, u) * pct)), u); };
   const pool = [
     { kind: 'potion', value: hurtR < 0.6 ? 4 : 0, buy: potion(0.30) },
     { kind: 'bigpotion', value: hurtR < 0.45 ? 6 : 0, buy: potion(0.60) },
     { kind: 'charm', value: run.sanity < 0 ? 1 : 0, buy: () => addSanity(run, 1) },
     { kind: 'elixir', value: 1.5, buy: () => { addMaxHP(run, 10); } },
+    { kind: 'mana', value: drainedR < 0.4 ? 4 : 0, buy: () => { healMP(run, Math.round(getMaxMP(run, drained) * 0.5), drained); } },
   ];
-  const idx = [0, 1, 2, 3];
+  const idx = [0, 1, 2, 3, 4];
   for (let i = 0; i < 2; i++) { const p = idx.splice(rng.int(idx.length), 1)[0]; items.push({ ...pool[p], price: price(40) }); }
   const equipCount = rng.range(1, 3);
   const owned = new Set([...run.equipmentInventory, ...equippedIds(run)]);
@@ -330,7 +336,7 @@ function event(run: RunState, rng: Rng): 'ok' | 'dead' | { battle: NodeType; see
   const choice = [...ev.choices].sort((a, b) => scoreChoice(run, b) - scoreChoice(run, a))[0];
   const r = choice.result;
   if (choice.goldCost) run.gold = Math.max(0, run.gold - choice.goldCost);
-  if (r.fullHeal) for (const u of partyUnits(run)) u.currentHP = getEffectiveMaxHP(run, u);
+  if (r.fullHeal) for (const u of partyUnits(run)) fullRestore(run, u);
   else if (r.hpPct) {
     for (const u of partyUnits(run)) {
       if (u.currentHP <= 0) continue;
@@ -364,7 +370,7 @@ function event(run: RunState, rng: Rng): 'ok' | 'dead' | { battle: NodeType; see
 function nodeScore(run: RunState, type: NodeType): number {
   const hpR = run.currentHP / getEffectiveMaxHP(run);
   switch (type) {
-    case 'RestSite': return hpR < 0.6 ? 10 : 1;
+    case 'RestSite': return hpR < 0.6 || run.currentMP / Math.max(1, getMaxMP(run)) < 0.35 ? 10 : 1;
     case 'Shop': return run.gold >= 150 ? 6 : 1;
     case 'Treasure': return 7;
     case 'EliteBattle': return hpR > 0.75 ? 5 : hpR > 0.5 ? 1 : -10;
@@ -473,7 +479,7 @@ function playRun(charId: string, seed: number, blessingIdx: number): RunResult {
         run.characterLevel++; run.maxHPBase += ch.growthRates.maxHP;
       }
       run.soloVow = true;   // 孤高の誓い
-      run.currentHP = getEffectiveMaxHP(run);
+      fullRestore(run);
       run.phantomEventDone = true;
     }
     if (wasFloor0 && !run.phantomEventDone) {
@@ -494,6 +500,7 @@ function playRun(charId: string, seed: number, blessingIdx: number): RunResult {
       const max = getEffectiveMaxHP(run, u);
       const pct = u === run ? heroPct : heroPct - (run.metaFloorClearExtraHeal ? 0.05 : 0);
       u.currentHP = Math.min(max, u.currentHP + Math.round(max * pct));
+      healMP(run, Math.round(getMaxMP(run, u) * pct), u);
     }
   }
 

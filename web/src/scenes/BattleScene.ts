@@ -6,7 +6,7 @@ import { pickEncounter, buildHeroes, buildEnemies, computeRewards } from '../bat
 import { loadRun, saveRun, clearRun, loadMeta, recordWeakness, recordEnemiesSeen, recordEnemyKills, recordGrimoire } from '../core/save';
 import { notifyAchievements } from './ToastScene';
 import type { RunState } from '../core/run';
-import { getEffectiveMaxHP, partyUnits } from '../core/run';
+import { getEffectiveMaxHP, partyUnits, getMaxMP, healMP } from '../core/run';
 import { addExp, addJP } from '../core/level';
 import type { ElementType, EnemyDef, NodeType, SkillDef } from '../core/types';
 import { STATUS_DISPLAY_NAME } from '../core/types';
@@ -1111,10 +1111,11 @@ export class BattleScene extends Phaser.Scene {
     const run = this.run;
     // 主人公が倒れていてもパーティ勝利ならHP1で生還
     run.currentHP = Math.max(1, this.hero.hp);
+    run.currentMP = this.hero.mp;   // MPは次の戦闘へ持ち越す
     // 仲間のHPを永続化 (戦闘不能は0のまま — 蘇生スキルか焚き火で復帰)
     run.partyMembers.forEach((m, i) => {
       const c = this.heroes[i + 1];
-      if (c) m.currentHP = c.hp;
+      if (c) { m.currentHP = c.hp; m.currentMP = c.mp; }
     });
     const units = partyUnits(run);
     run.battlesWon++;
@@ -1262,7 +1263,8 @@ export class BattleScene extends Phaser.Scene {
       { width: 220, height: 40, fontSize: 14 }).setDepth(82);
   }
 
-  /** フロアクリア回復。仲間は墓標「回復の章」の+5%を除いた割合で回復し、戦闘不能でも起き上がる */
+  /** フロアクリア回復。仲間は墓標「回復の章」の+5%を除いた割合で回復し、戦闘不能でも起き上がる。
+   *  MPもHPと同じ割合で回復する */
   private floorClearHeal(heroPct: number): void {
     const run = this.run;
     const memberPct = heroPct - (run.metaFloorClearExtraHeal ? 0.05 : 0);
@@ -1270,6 +1272,7 @@ export class BattleScene extends Phaser.Scene {
       const max = getEffectiveMaxHP(run, unit);
       const pct = unit === run ? heroPct : memberPct;
       unit.currentHP = Math.min(max, unit.currentHP + Math.round(max * pct));
+      healMP(run, Math.round(getMaxMP(run, unit) * pct), unit);
     }
   }
 

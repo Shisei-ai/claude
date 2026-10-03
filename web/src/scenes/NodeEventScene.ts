@@ -15,7 +15,7 @@ import { loadRun, saveRun } from '../core/save';
 import type { RunState, UnitState } from '../core/run';
 import {
   getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip, addMaxHP, partyUnits, equippedIds,
-  restAtCampfire, REST_HEAL_PCT, REST_REVIVE_HP,
+  restAtCampfire, REST_HEAL_PCT, REST_REVIVE_HP, REST_MP_PCT, fullRestore, healMP, getMaxMP,
   type ShopSpec,
 } from '../core/run';
 import type { NodeType } from '../core/types';
@@ -164,10 +164,11 @@ export class NodeEventScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const maxHP = getEffectiveMaxHP(this.run);
     // 仲間がいれば各自のHPも並べる
+    const mp = (u: UnitState) => `MP ${u.currentMP}/${getMaxMP(this.run, u)}`;
     const members = this.run.partyMembers.map((m) => `${shortName(getCharacter(m.characterId).name)} ` +
-      (m.currentHP > 0 ? `${m.currentHP}/${getEffectiveMaxHP(this.run, m)}` : '戦闘不能')).join('　');
+      (m.currentHP > 0 ? `${m.currentHP}/${getEffectiveMaxHP(this.run, m)}・${mp(m)}` : '戦闘不能')).join('　');
     const t = this.add.text(width / 2, height - 120,
-      `HP ${this.run.currentHP}/${maxHP}${members ? `　${members}` : ''}　　◈ ${this.run.gold} G　　正気度 ${this.run.sanity >= 0 ? '+' : ''}${this.run.sanity}`,
+      `HP ${this.run.currentHP}/${maxHP}・${mp(this.run)}${members ? `　${members}` : ''}　　◈ ${this.run.gold} G　　正気度 ${this.run.sanity >= 0 ? '+' : ''}${this.run.sanity}`,
       textStyle(15, COLORS.textDim)).setOrigin(0.5).setDepth(2);
     const b = t.getBounds();
     const a = above?.setDepth(2).getBounds();
@@ -208,14 +209,15 @@ export class NodeEventScene extends Phaser.Scene {
     }
 
     // 羽毛の毛布/聖者の遺骨/涸れの呪い: 回復量補正 (RelicManager.ModifyHealAmount)。
-    // 全員が自分の最大HPの25%回復し、戦闘不能の仲間は HP100 で起き上がる
+    // 全員が自分の最大HPの25%回復し、戦闘不能の仲間は HP100 で起き上がる。MPは全員50%回復
     const pct = Math.round(REST_HEAL_PCT * 100);
+    const mpPct = Math.round(REST_MP_PCT * 100);
     // 主人公は墓標「焚き火の心得」の分も上乗せ
     const healAmount = modifyHealAmount(this.run, Math.round(getEffectiveMaxHP(this.run) * (REST_HEAL_PCT + this.run.metaRestHealBonus)));
     const hasParty = this.run.partyMembers.length > 0;
     const someoneDown = this.run.partyMembers.some((m) => m.currentHP <= 0);
-    const restLabel = !hasParty ? `休息する (+${healAmount} HP)`
-      : someoneDown ? `休息する (全員HP${pct}%・倒れた仲間はHP${REST_REVIVE_HP})` : `休息する (全員 HP${pct}%回復)`;
+    const restLabel = !hasParty ? `休息する (HP+${healAmount}・MP${mpPct}%)`
+      : someoneDown ? `休息する (全員HP${pct}%・MP${mpPct}%・倒れた仲間はHP${REST_REVIVE_HP})` : `休息する (全員 HP${pct}%・MP${mpPct}%回復)`;
     const quote = this.heroQuote('rest');
     if (quote) {
       // 背景画像があれば焚き火の絵を隠さないよう少し上に置く
@@ -226,14 +228,14 @@ export class NodeEventScene extends Phaser.Scene {
     }
 
     this.statusLine();
-    makeButton(this, width / 2 - (someoneDown ? 190 : 150), height - 64, restLabel, () => {
+    makeButton(this, width / 2 - (someoneDown ? 120 : 140), height - 64, restLabel, () => {
       restAtCampfire(this.run);
       addSanity(this.run, 1);
       this.finish();
       saveRun(this.run);
       this.scene.start('Map');
-    }, someoneDown ? { width: 400, fontSize: 15 } : { width: 280 });
-    makeButton(this, width / 2 + (someoneDown ? 200 : 160), height - 64, '先を急ぐ', () => {
+    }, someoneDown ? { width: 470, fontSize: 15 } : { width: 340, fontSize: hasParty ? 15 : undefined });
+    makeButton(this, width / 2 + (someoneDown ? 250 : 180), height - 64, '先を急ぐ', () => {
       this.finish();
       saveRun(this.run);
       this.scene.start('Map');
@@ -322,7 +324,7 @@ export class NodeEventScene extends Phaser.Scene {
     return specs;
   }
 
-  /** 消耗品の候補 (Web版適応: 即時使用型4種) */
+  /** 消耗品の候補 (Web版適応: 即時使用型5種) */
   private consumablePool(): Array<Omit<ShopEntry, 'price' | 'sold' | 'tag' | 'tagColor'>> {
     const run = this.run;
     return [
@@ -339,7 +341,21 @@ export class NodeEventScene extends Phaser.Scene {
         target: {},
         buy: (u) => { addMaxHP(run, 10, u); return `${this.who(u)}最大HPが 10 上がった`; },
       },
+      // Web版追加: MPは戦闘をまたいで持ち越すため、MPの回復薬も並ぶ (保存済みの在庫番号を変えないよう末尾に置く)
+      this.manaPotion('魔力の霊薬', 0.50),
     ];
+  }
+
+  /** 魔力の霊薬: 1人のMPを最大MPの pct 回復 */
+  private manaPotion(name: string, pct: number): Omit<ShopEntry, 'price' | 'sold' | 'tag' | 'tagColor'> {
+    const run = this.run;
+    const drained = (u: UnitState) => u.currentMP < getMaxMP(run, u);
+    return {
+      name, desc: `MPを${Math.round(pct * 100)}%回復する`,
+      canBuy: () => partyUnits(run).some(drained),
+      target: { filter: drained },
+      buy: (u) => `${this.who(u)}MPが ${healMP(run, Math.round(getMaxMP(run, u) * pct), u)} 回復した`,
+    };
   }
 
   /** 回復薬: 1人のHPを最大HPの pct 回復 (戦闘不能の仲間にも使え、起き上がる) */
@@ -705,8 +721,8 @@ export class NodeEventScene extends Phaser.Scene {
     const party = partyUnits(run);
     const hasParty = party.length > 1;
     if (r.fullHeal) {
-      for (const u of party) u.currentHP = getEffectiveMaxHP(run, u);
-      outcomes.push(hasParty ? '全員のHPが完全に回復した' : 'HPが完全に回復した');
+      for (const u of party) fullRestore(run, u);
+      outcomes.push(hasParty ? '全員のHP・MPが完全に回復した' : 'HP・MPが完全に回復した');
     } else if (r.hpPct) {
       const pct = r.hpPct;
       const changes = party.filter((u) => u.currentHP > 0).map((u) => {

@@ -75,7 +75,7 @@ export class Combatant {
   constructor(opts: {
     isPlayer: boolean; name: string; stats: CharacterStats;
     enemyDef?: EnemyDef; skills?: SkillDef[]; passives?: Set<string>;
-    initialHP?: number; shields?: number; characterId?: string;
+    initialHP?: number; initialMP?: number; shields?: number; characterId?: string;
   }) {
     this.isPlayer = opts.isPlayer;
     this.characterId = opts.characterId;
@@ -86,7 +86,7 @@ export class Combatant {
     this.passives = opts.passives ?? new Set();
     this.traits = opts.isPlayer ? T.traitsFor(opts.characterId) : new Set();
     this.hp = opts.initialHP ?? this.base.maxHP;
-    this.mp = this.base.maxMP;
+    this.mp = Math.max(0, Math.min(opts.initialMP ?? this.base.maxMP, this.base.maxMP));
     if (!opts.isPlayer) {
       this.maxShields = opts.shields ?? 0;
       this.currentShields = this.maxShields;

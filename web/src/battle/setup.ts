@@ -67,6 +67,8 @@ export function buildHero(run: RunState, unit: UnitState = run): Combatant {
     skills,
     passives: getPassiveIds(unit),
     initialHP: Math.max(0, Math.min(unit.currentHP, stats.maxHP)),
+    // MPは前の戦闘から持ち越す (満月の聖杯などの効果は開戦時に別途)
+    initialMP: unit.currentMP,
   });
 
   // 装備効果: 武器属性 + 蘇生の護符

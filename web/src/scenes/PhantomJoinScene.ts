@@ -7,7 +7,7 @@
 import Phaser from 'phaser';
 import { COLORS, makeButton, textStyle, addVignette, addAmbientMotes } from '../ui/theme';
 import { loadRun, saveRun } from '../core/save';
-import { createPartyMember, getEffectiveMaxHP, SOLO_VOW_BONUS } from '../core/run';
+import { createPartyMember, fullRestore, SOLO_VOW_BONUS } from '../core/run';
 import { CHARACTERS, getCharacter } from '../data/characters';
 import { MAX_CHARACTER_LEVEL } from '../core/level';
 import { Rng } from '../core/rng';
@@ -88,9 +88,9 @@ export class PhantomJoinScene extends Phaser.Scene {
         run.characterLevel++;
         run.maxHPBase += char.growthRates.maxHP;
       }
-      // 孤高の誓い: 仲間を持たない代わりに主人公が大きく強くなる。誓いを立てた時点でHPは満ちる
+      // 孤高の誓い: 仲間を持たない代わりに主人公が大きく強くなる。誓いを立てた時点でHP・MPは満ちる
       run.soloVow = true;
-      run.currentHP = getEffectiveMaxHP(run);
+      fullRestore(run);
       run.phantomEventDone = true;
       saveRun(run);
       this.scene.start('Map');

@@ -5,7 +5,7 @@ import Phaser from 'phaser';
 import { COLORS, makeButton, textStyle, drawSceneBackground, drawBar, titleStyle, latinStyle, drawPanel } from '../ui/theme';
 import { loadRun, saveRun, clearRun } from '../core/save';
 import type { RunState } from '../core/run';
-import { getEffectiveMaxHP } from '../core/run';
+import { getEffectiveMaxHP, getMaxMP } from '../core/run';
 import { getAvailableNodes, getNode, generateMap, MAP_ROWS, MAP_COLUMNS } from '../core/mapgen';
 import type { MapNode, NodeType } from '../core/types';
 import { FLOORS } from '../data/enemies';
@@ -129,11 +129,16 @@ export class MapScene extends Phaser.Scene {
       this.add.text(nameText.x + nameText.width + 14, 92, '◆孤高の誓い', textStyle(12, COLORS.textGold));
     }
 
+    // HPとMP (MPは戦闘をまたいで持ち越す)
+    const maxMP = getMaxMP(run);
     const g = this.add.graphics();
-    drawBar(g, width / 2 - 100, 90, 200, 14, run.currentHP / maxHP,
+    drawBar(g, width / 2 - 100, 81, 200, 14, run.currentHP / maxHP,
       run.currentHP / maxHP > 0.3 ? COLORS.hpBar : COLORS.hpBarLow);
-    this.add.text(width / 2, 97, `${run.currentHP} / ${maxHP}`,
+    this.add.text(width / 2, 88, `${run.currentHP} / ${maxHP}`,
       latinStyle(11, '#ffffff')).setOrigin(0.5);
+    drawBar(g, width / 2 - 100, 99, 200, 12, maxMP > 0 ? run.currentMP / maxMP : 0, COLORS.mpBar);
+    this.add.text(width / 2, 105, `MP ${run.currentMP} / ${maxMP}`,
+      latinStyle(10, '#ffffff')).setOrigin(0.5);
 
     this.add.text(width - 320, 90, `◈ ${run.gold} G`, textStyle(15, COLORS.textGold));
     const sanityStr = run.sanity > 0 ? `+${run.sanity}` : `${run.sanity}`;
@@ -149,7 +154,7 @@ export class MapScene extends Phaser.Scene {
       const partyStr = run.partyMembers.map((m) => {
         const name = getCharacter(m.characterId).name.split('・')[0];
         return m.currentHP > 0
-          ? `${name} Lv.${m.characterLevel} ${m.currentHP}/${getEffectiveMaxHP(run, m)}`
+          ? `${name} Lv.${m.characterLevel} HP ${m.currentHP}/${getEffectiveMaxHP(run, m)} MP ${m.currentMP}/${getMaxMP(run, m)}`
           : `${name} Lv.${m.characterLevel} (戦闘不能)`;
       }).join('　');
       this.add.text(width - 560, 122, `仲間: ${partyStr}`, textStyle(11, COLORS.textBlue));

@@ -2,7 +2,7 @@
 import type { RunState, UnitState } from './run';
 import type { SkillDef } from './types';
 import { getCharacter } from '../data/characters';
-import { getEffectiveMaxHP } from './run';
+import { getEffectiveMaxHP, getMaxMP } from './run';
 
 export const MAX_CHARACTER_LEVEL = 50;
 export const MAX_JOB_LEVEL = 12;
@@ -29,6 +29,7 @@ export function addExp(run: RunState, expGained: number, unit: UnitState = run):
   if (unit === run) run.totalExpGained += expGained;
   const levelsGained: number[] = [];
   let hpGained = 0;
+  const mpBefore = getMaxMP(run, unit);
 
   while (unit.characterLevel < MAX_CHARACTER_LEVEL) {
     const needed = expToNextLevel(unit.characterLevel);
@@ -43,6 +44,9 @@ export function addExp(run: RunState, expGained: number, unit: UnitState = run):
     hpGained += hpUp;
     if (unit.currentHP > 0) unit.currentHP = Math.min(unit.currentHP + hpUp, getEffectiveMaxHP(run, unit));
   }
+
+  // 増えた最大MPの分だけ現在MPも増やす (Web版: MPは戦闘をまたいで持ち越すため。HPと同じく戦闘不能なら増えない)
+  if (levelsGained.length > 0 && unit.currentHP > 0) unit.currentMP += Math.max(0, getMaxMP(run, unit) - mpBefore);
 
   // 最大レベル: 余剰EXPは 10EXP → 1G
   if (unit.characterLevel >= MAX_CHARACTER_LEVEL && unit.currentEXP > 0) {

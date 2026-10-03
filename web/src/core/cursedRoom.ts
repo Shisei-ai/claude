@@ -3,7 +3,7 @@
 // レリックが出るのはこの型だけ (出る確率は低め)。どの型も立ち去ることができる。
 // 部屋と数値はノードの contentSeed から決まるので、中断・再開しても同じ部屋になる。
 import type { RunState, UnitState } from './run';
-import { getEffectiveMaxHP, damageRun, earnGold, addSanity, partyUnits } from './run';
+import { getEffectiveMaxHP, damageRun, earnGold, addSanity, partyUnits, fullRestore } from './run';
 import { addJP, jpToNextJobLevel, MAX_JOB_LEVEL } from './level';
 import { hasEffect, riskRewardMultiplier, drawRelic, addRelicToRun, randomCurse, CURSE_INFO } from './relics';
 import type { Rng } from './rng';
@@ -124,7 +124,7 @@ export function cursedRoomLabel(run: RunState, offer: CursedRoomOffer): string {
     case 'sealedCoffin':
       return '強敵と戦う';
     case 'taintedSpring':
-      return `全員HP全回復 / 正気度${SPRING_SANITY}`;
+      return `全員HP・MP全回復 / 正気度${SPRING_SANITY}`;
     case 'deadBargain':
       return hasParty ? `1人の最大HP-${Math.round(BARGAIN_MAXHP_PCT * 100)}% / +${offer.gold}G`
         : `最大HP-${bargainLoss(run)} / +${offer.gold}G`;
@@ -138,7 +138,7 @@ export function cursedRoomDetail(offer: CursedRoomOffer): string {
     case 'cursedAltar': return '主人公が最大HPの15%を失う。代わりにレアのレリックを1つ得る。';
     case 'whisperMirror': return '呪いを1つ受ける。代わりに1人の職Lvが1上がり、その段階の技を覚える。';
     case 'sealedCoffin': return '棺から出てくる強敵と戦う。勝てば戦闘のゴールドが1.5倍になり、装備を1つ得る（レリックは出ない）。';
-    case 'taintedSpring': return '全員のHPが完全に回復し、倒れた仲間も起き上がる。代わりに正気度が2下がる。';
+    case 'taintedSpring': return '全員のHPとMPが完全に回復し、倒れた仲間も起き上がる。代わりに正気度が2下がる。';
     case 'deadBargain': return '1人の最大HPが10%減る。代わりに多めの金貨を得る。';
   }
 }
@@ -192,9 +192,9 @@ export function applyCursedRoom(run: RunState, offer: CursedRoomOffer, unit: Uni
     case 'sealedCoffin':
       return { lines, battle: true };
     case 'taintedSpring': {
-      for (const u of partyUnits(run)) u.currentHP = getEffectiveMaxHP(run, u);
+      for (const u of partyUnits(run)) fullRestore(run, u);
       addSanity(run, SPRING_SANITY);
-      lines.push(`${run.partyMembers.length > 0 ? '全員のHPが完全に回復した' : 'HPが完全に回復した'}　正気度 ${SPRING_SANITY}`);
+      lines.push(`${run.partyMembers.length > 0 ? '全員のHP・MPが完全に回復した' : 'HP・MPが完全に回復した'}　正気度 ${SPRING_SANITY}`);
       break;
     }
     case 'deadBargain': {

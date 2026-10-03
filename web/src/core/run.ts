@@ -47,6 +47,8 @@ export interface RunState {
   // Resources
   currentHP: number;
   maxHPBase: number;         // ベース最大HP(レベル成長込み・メタ倍率適用前)
+  /** 戦闘をまたいで持ち越すMP (Web版: 焚き火・全回復・階層クリアなどで回復) */
+  currentMP: number;
   gold: number;
   sanity: number;            // -3 〜 +3
 
@@ -140,6 +142,7 @@ export interface UnitState {
   equippedAccessory: string | null;
   currentHP: number;
   maxHPBase: number;            // レベル成長込みの最大HP (主人公のみ、ここに墓標・加護の倍率が掛かる)
+  currentMP: number;
 }
 
 export type PartyMember = UnitState;
@@ -166,8 +169,10 @@ export function createPartyMember(run: RunState, characterId: string, level: num
     equippedAccessory: null,
     currentHP: 0,
     maxHPBase: char.baseStats.maxHP + char.growthRates.maxHP * (level - 1),
+    currentMP: 0,
   };
   member.currentHP = getEffectiveMaxHP(run, member);
+  member.currentMP = getMaxMP(run, member);
   return member;
 }
 
@@ -194,6 +199,7 @@ export function createRun(
 
     currentHP: 0,
     maxHPBase: char.baseStats.maxHP,
+    currentMP: 0,
     gold: diff.startingGold,
     sanity: 0,
 
@@ -290,6 +296,7 @@ export function createRun(
   if (run.metaStartJP > 0) addJP(run, run.metaStartJP);
 
   run.currentHP = getEffectiveMaxHP(run);
+  run.currentMP = getMaxMP(run);
   return run;
 }
 
@@ -391,8 +398,9 @@ export function equipItem(run: RunState, equipId: string, unit: UnitState = run)
   const idx = run.equipmentInventory.indexOf(equipId);
   if (idx >= 0) run.equipmentInventory.splice(idx, 1);
   unit[slotKey] = equipId;
-  // 最大HP変化後のクランプ
+  // 最大HP・MP変化後のクランプ
   unit.currentHP = Math.min(unit.currentHP, buildBattleStats(run, unit).maxHP);
+  unit.currentMP = Math.min(unit.currentMP, getMaxMP(run, unit));
   return true;
 }
 
@@ -404,6 +412,7 @@ export function unequipSlot(run: RunState, slot: 'Weapon' | 'Armor' | 'Accessory
   run.equipmentInventory.push(cur);
   unit[slotKey] = null;
   unit.currentHP = Math.min(unit.currentHP, buildBattleStats(run, unit).maxHP);
+  unit.currentMP = Math.min(unit.currentMP, getMaxMP(run, unit));
 }
 
 /** 全員が装備している物 (所持品と合わせて「持っている装備」) */
@@ -423,15 +432,37 @@ export function damageRun(run: RunState, amount: number, unit: UnitState = run):
   unit.currentHP = Math.max(0, unit.currentHP - amount);
 }
 
+// ── MP (Web版: 戦闘ごとに全回復せず持ち越す) ─────────────────────────────
+/** 最大MP (レベル・墓標・装備込み) */
+export function getMaxMP(run: RunState, unit: UnitState = run): number {
+  return buildBattleStats(run, unit).maxMP;
+}
+
+/** MPを回復する。戻り値は実際の回復量 */
+export function healMP(run: RunState, amount: number, unit: UnitState = run): number {
+  const healed = Math.max(0, Math.min(amount, getMaxMP(run, unit) - unit.currentMP));
+  unit.currentMP += healed;
+  return healed;
+}
+
+/** HPとMPを完全に回復する (戦闘不能の仲間も起き上がる)。全回復の効果はすべてこれを通す */
+export function fullRestore(run: RunState, unit: UnitState = run): void {
+  unit.currentHP = getEffectiveMaxHP(run, unit);
+  unit.currentMP = getMaxMP(run, unit);
+}
+
 // ── 焚き火 (RestSiteController。Web版: 回復30%→25%、仲間対応) ───────────
 export const REST_HEAL_PCT = 0.25;
 /** 戦闘不能の仲間が焚き火で起き上がるときのHP */
 export const REST_REVIVE_HP = 100;
+/** 焚き火で回復するMPの割合 (倒れていた仲間も同じ) */
+export const REST_MP_PCT = 0.5;
 
 /** 焚き火で休む: 生きている者は最大HPの25% (レリック補正あり)、倒れた仲間はHP100で起き上がる。
- *  戻り値は各自の回復量 */
+ *  全員MPも最大MPの50%回復する。戻り値は各自のHP回復量 */
 export function restAtCampfire(run: RunState): number[] {
   return partyUnits(run).map((u) => {
+    healMP(run, Math.round(getMaxMP(run, u) * REST_MP_PCT), u);
     const max = getEffectiveMaxHP(run, u);
     if (u.currentHP <= 0) {
       u.currentHP = Math.min(max, REST_REVIVE_HP);

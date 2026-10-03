@@ -65,7 +65,7 @@ export class EquipScene extends Phaser.Scene {
       `HP ${unit.currentHP}/${Math.min(stats.maxHP, getEffectiveMaxHP(run, unit))}`,
       textStyle(14, COLORS.text)).setOrigin(0.5);
     this.add.text(width / 2, top + 22,
-      `MP ${stats.maxMP}　物攻 ${stats.physicalAttack}　魔攻 ${stats.magicAttack}　` +
+      `MP ${Math.min(unit.currentMP, stats.maxMP)}/${stats.maxMP}　物攻 ${stats.physicalAttack}　魔攻 ${stats.magicAttack}　` +
       `物防 ${stats.physicalDefense}　魔防 ${stats.magicDefense}　速度 ${stats.speed}　会心 ${stats.criticalRate}%`,
       textStyle(13, COLORS.textDim)).setOrigin(0.5);
 
