@@ -272,14 +272,20 @@ export class Combatant {
 export type BattleEvent =
   | { kind: 'message'; text: string }
   | { kind: 'damage'; target: Combatant; amount: number; isCrit: boolean; isWeak: boolean;
-      /** 攻撃の属性 (弱点を突いたときに画面側で弱点を開示するため) */
-      element?: ElementType }
+      /** 攻撃の属性 (弱点を突いたときに画面側で弱点を開示するため。演出の種類にも使う) */
+      element?: ElementType;
+      /** 魔法攻撃か (演出の出し分け用) */
+      magical?: boolean }
   | { kind: 'heal'; target: Combatant; amount: number }
   | { kind: 'status'; target: Combatant; status: StatusEffectType; applied: boolean }
   | { kind: 'break'; target: Combatant }
   | { kind: 'shieldHit'; target: Combatant }
   | { kind: 'defeat'; target: Combatant }
-  | { kind: 'skillUse'; user: Combatant; skillName: string }
+  | { kind: 'skillUse'; user: Combatant; skillName: string;
+      /** 使った技 (通常攻撃は無し)。画面側が属性・回復などに合わせた演出を出すため */
+      skill?: SkillDef;
+      /** ブーストの段階 */
+      boost?: number }
   | { kind: 'dot'; target: Combatant; amount: number }
   | { kind: 'absorb'; skillId: string; skillName: string }
   | { kind: 'shadow'; target: Combatant; active: boolean }
@@ -571,7 +577,7 @@ export class BattleEngine {
     if (!target?.isAlive) target = foes.find((f) => f.isAlive)!;
     if (!target) return;
 
-    this.emit({ kind: 'skillUse', user: attacker, skillName: '攻撃' });
+    this.emit({ kind: 'skillUse', user: attacker, skillName: '攻撃', boost: boostLevel });
     // 武器属性があれば通常攻撃に乗る (EquipmentData.WeaponElement)
     const element: ElementType = attacker.weaponElement !== 'None' ? attacker.weaponElement : 'Physical';
     const hitCount = 1 + boostLevel;
@@ -614,7 +620,7 @@ export class BattleEngine {
     const boost = getBoostUpgrade(skill, boostLevel);
     const boostPowerMult = boost.powerMult ?? 1;
     const healMult = boost.healPowerMult ?? boostPowerMult;
-    this.emit({ kind: 'skillUse', user, skillName: skill.name });
+    this.emit({ kind: 'skillUse', user, skillName: skill.name, skill, boost: boostLevel });
     if (boostLevel > 0 && boost.flavor) {
       this.emit({ kind: 'message', text: `【ブースト×${boostLevel}】${boost.flavor}` });
     }
@@ -1352,7 +1358,7 @@ export class BattleEngine {
         target.passives.has('SKL_Passive_IndomitableWill') && !target.indomitableUsed) {
       target.indomitableUsed = true;
       target.hp = 1;
-      this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak, element });
+      this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak, element, magical: dmgType === 'Magical' });
       this.emit({ kind: 'message', text: `${target.name} は踏みとどまった！` });
       return isCrit;
     }
@@ -1361,19 +1367,19 @@ export class BattleEngine {
     if (!target.isAlive && target.isPlayer && target.revivalAmuletAvailable) {
       target.revivalAmuletAvailable = false;
       target.hp = 1;
-      this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak, element });
+      this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak, element, magical: dmgType === 'Magical' });
       this.emit({ kind: 'message', text: `蘇生の護符が砕け、${target.name} を死の淵から引き戻した！` });
       return isCrit;
     }
 
     // 不死鳥の綿羽: 1ランに1回HP1で復活
     if (!target.isAlive && target.isPlayer && this.relics?.tryRevive(target)) {
-      this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak, element });
+      this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak, element, magical: dmgType === 'Magical' });
       this.emit({ kind: 'message', text: `不死鳥の綿羽が燃え上がり、${target.name} は蘇った！` });
       return isCrit;
     }
 
-    this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak, element });
+    this.emit({ kind: 'damage', target, amount: dealt, isCrit, isWeak, element, magical: dmgType === 'Magical' });
 
     // 茨帷子の切れ端: 受けたダメージの一部を攻撃者 (敵) に反射
     if (this.relics && target.isPlayer && dealt > 0 && !attacker.isPlayer && attacker.isAlive) {
@@ -1536,7 +1542,7 @@ export class BattleEngine {
       // 自己回復系 (亡者の意地)
       if (skill.healAmountFlat && skill.healAmountFlat > 0) {
         const healed = enemy.heal(skill.healAmountFlat);
-        this.emit({ kind: 'skillUse', user: enemy, skillName: skill.name });
+        this.emit({ kind: 'skillUse', user: enemy, skillName: skill.name, skill });
         this.emit({ kind: 'heal', target: enemy, amount: healed });
         continue;
       }
@@ -1545,14 +1551,14 @@ export class BattleEngine {
       if (skill.clearsOwnStatus) {
         if (enemy.statuses.length === 0) continue;   // 解除対象がなければ空振り
         enemy.statuses = [];
-        this.emit({ kind: 'skillUse', user: enemy, skillName: skill.name });
+        this.emit({ kind: 'skillUse', user: enemy, skillName: skill.name, skill });
         this.emit({ kind: 'message', text: `${enemy.name} は状態異常を解除した！` });
         continue;
       }
 
       // 味方バフ系 (死霊鼓舞)
       if (skill.buff && skill.basePower === 0 && !skill.appliedStatus) {
-        this.emit({ kind: 'skillUse', user: enemy, skillName: skill.name });
+        this.emit({ kind: 'skillUse', user: enemy, skillName: skill.name, skill });
         for (const ally of this.enemies.filter((e) => e.isAlive)) {
           for (const b of skill.buff) {
             ally.applyStatus({ type: b.type, duration: b.duration, value: b.value }, 1);
@@ -1569,7 +1575,7 @@ export class BattleEngine {
         ? livingHeroes
         : [livingHeroes[rnd.range(0, livingHeroes.length)]];
 
-      this.emit({ kind: 'skillUse', user: enemy, skillName: skill.name });
+      this.emit({ kind: 'skillUse', user: enemy, skillName: skill.name, skill });
       for (const target of targets) {
         if (!target.isAlive) continue;
         if (skill.basePower > 0) {

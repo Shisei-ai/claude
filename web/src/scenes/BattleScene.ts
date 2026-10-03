@@ -26,6 +26,7 @@ import {
 import { RARITY_LABEL, RARITY_COLOR, getRelic, type RelicDef } from '../data/relics';
 import { LINES, pickLine, shortName, type CharLines } from '../data/dialogue';
 import { ELEMENT_BADGE } from '../ui/elements';
+import { BattleFx, ELEMENT_FX_COLOR } from '../ui/battleFx';
 
 interface BattleInit { nodeType: NodeType; contentSeed: number }
 
@@ -51,6 +52,12 @@ export class BattleScene extends Phaser.Scene {
   private commandContainer: Phaser.GameObjects.Container | null = null;
   private boostLevel = 0;
   private processing = false;
+  private fx!: BattleFx;
+  /** 画面に出しているHP (実際のHPへ少しずつ近づけ、ダメージが減っていく様子を見せる) */
+  private shownHp = new Map<Combatant, number>();
+  private hpTween: Phaser.Tweens.Tween | null = null;
+  /** 吸収した直後の撃破は、魂が使い手へ流れる演出にする */
+  private pendingAbsorb = false;
   /** タッチ操作で「1回目のタップ」を受けたコマンド (2回目で決定) */
   private armedCommand = -1;
 
@@ -231,8 +238,10 @@ export class BattleScene extends Phaser.Scene {
     this.hudG = this.add.graphics();
     this.refreshDisplay();
 
+    this.fx = new BattleFx(this, (ms) => this.spd(ms));
+
     // 開始
-    this.time.delayedCall(700, () => this.progress());
+    this.time.delayedCall(900, () => this.progress());
   }
 
   // ── エンジン進行 → イベント再生 → 入力待ち/決着 ──────────────────────
@@ -277,34 +286,83 @@ export class BattleScene extends Phaser.Scene {
     const step = () => {
       if (i >= events.length) { this.refreshDisplay(); onDone(); return; }
       const e = events[i++];
-      const delay = this.renderEvent(e);
-      this.refreshDisplay();
+      let delay = this.renderEvent(e);
+      // 多段・全体攻撃のように当たりが続くときは、2発目以降の間を詰める
+      if (e.kind === 'damage' && events[i]?.kind === 'damage') delay = Math.round(delay * 0.6);
+      // HPなどの表示は、着弾の演出が届いてから変える
+      this.time.delayedCall(this.spd(140), () => this.refreshDisplay());
       this.time.delayedCall(this.spd(delay), step);
     };
     step();
+  }
+
+  /** 体の中心と大きさ (演出の位置合わせ用。踏み込み中でも元の位置) */
+  private centerOf(c: Combatant): { x: number; y: number; h: number; w: number } | null {
+    if (c.isPlayer) {
+      const s = this.heroSpriteOf(c);
+      if (!s) return null;
+      return { x: (s.getData('homeX') as number) ?? s.x, y: s.y, h: s.displayHeight, w: s.displayWidth };
+    }
+    const s = this.findEnemySprite(c);
+    if (!s) return null;
+    return { x: s.getData('homeX') as number, y: s.y, h: s.getData('bodyH') as number, w: s.getData('bodyW') as number };
   }
 
   private renderEvent(e: BattleEvent): number {
     switch (e.kind) {
       case 'message':
         this.msgText.setText(e.text);
-        if (e.text.includes('回避')) playSfx('miss');
+        if (e.text.includes('回避')) {
+          playSfx('miss');
+          const actor = this.engine.activeCombatant;
+          const foe = actor ? (actor.isPlayer ? this.engine.enemies : this.heroes).find((f) => e.text.includes(f.name)) : undefined;
+          const at = foe && this.centerOf(foe);
+          if (at) this.spawnMiss(at.x, at.y - at.h * 0.3);
+        }
         this.sayForMessage(e.text);
-        return 550;
-      case 'skillUse':
+        return 800;
+      case 'skillUse': {
         this.msgText.setText(`${e.user.name} の ${e.skillName}！`);
+        const at = this.centerOf(e.user);
+        const sk = e.skill;
+        const support = !!sk && (sk.isHeal || !!sk.revive || !!sk.regenFlat || !!sk.buff || !!sk.barrier || !!sk.cleanse)
+          && !(sk.basePower > 0);
+        let windup = 620;
+        if (at && (e.boost ?? 0) > 0) {
+          this.fx.boostAura(at.x, at.y, e.boost!);
+          windup += 220;
+        }
+        if (at) {
+          const feetY = at.y + at.h / 2 - 4;
+          if (support) {
+            this.fx.castCircle(at.x, feetY, sk!.isHeal || sk!.revive || sk!.regenFlat ? 0x6ade8a : 0xffd88a);
+          } else if (sk && sk.damageType === 'Magical') {
+            this.fx.castCircle(at.x, feetY, ELEMENT_FX_COLOR[sk.element] ?? 0xc89aff);
+          } else if (sk && sk.basePower <= 0) {
+            this.fx.castCircle(at.x, feetY, sk.debuff || sk.appliedStatus ? 0xb070e0 : 0xd0c8e0);
+          } else {
+            // 物理の構え: 武器がきらめいてから踏み込む
+            this.fx.glint(at.x + (e.user.isPlayer ? at.w * 0.3 : -at.w * 0.3), at.y - at.h * 0.2);
+          }
+        }
         this.lunge(e.user);
         if (e.skillName !== '攻撃') {
           playSfx('skill');
           if (e.user.isPlayer) this.sayForSkill(e.user, e.skillName);
         }
-        return 420;
+        return windup;
+      }
       case 'damage': {
+        const at = this.centerOf(e.target);
+        if (at && e.amount > 0) {
+          this.fx.impact(at.x, at.y, e.element, !!e.magical, e.isCrit, !e.target.isPlayer);
+        }
         this.spawnDamageNumber(e.target, e.amount,
           e.isCrit ? '#ffd24a' : '#ffffff', e.isCrit, e.isWeak);
         this.flashCombatant(e.target);
         if (e.amount > 0) {
-          this.shake(e.target, e.isCrit ? 9 : 6);
+          this.shake(e.target, e.isCrit ? 11 : 7);
+          if (e.isCrit) this.cameras.main.shake(this.spd(160), 0.004);
           playSfx(e.isWeak ? 'weak' : e.isCrit ? 'crit' : 'hit');
         }
         if (e.isWeak && e.element && !e.target.isPlayer) this.revealWeakness(e.target, e.element);
@@ -312,42 +370,56 @@ export class BattleScene extends Phaser.Scene {
           const actor = this.engine.activeCombatant;
           if (actor?.isPlayer) this.say(actor, this.linesOf(actor)?.crit, { chance: 0.6 });
         }
-        return e.isCrit ? 480 : 320;
+        return e.isCrit ? 900 : 680;
       }
-      case 'dot':
+      case 'dot': {
+        const at = this.centerOf(e.target);
+        if (at) this.fx.status(at.x, at.y, at.h, 'Poison');
         this.spawnDamageNumber(e.target, e.amount, '#b070e0', false, false);
-        return 350;
-      case 'heal':
+        this.shake(e.target, 4);
+        return 600;
+      }
+      case 'heal': {
+        const at = this.centerOf(e.target);
+        if (at) this.fx.heal(at.x, at.y, at.h);
         this.spawnDamageNumber(e.target, e.amount, '#6ade8a', false, false, '+');
-        this.healRing(e.target);
         playSfx('heal');
-        return 350;
+        return 650;
+      }
       case 'status':
         if (e.applied) {
+          const at = this.centerOf(e.target);
+          if (at) this.fx.status(at.x, at.y, at.h, e.status);
           this.msgText.setText(`${e.target.name} に ${STATUS_DISPLAY_NAME[e.status]}`);
           playSfx(BUFF_STATUSES.has(e.status) ? 'buff' : 'debuff');
-          return 380;
+          return 650;
         }
-        return 60;
-      case 'shieldHit':
-        return 160;
+        return 80;
+      case 'shieldHit': {
+        const at = this.centerOf(e.target);
+        if (at) this.fx.shieldSpark(at.x, at.y - at.h * 0.2);
+        return 220;
+      }
       case 'shadow': {
         if (e.target.isPlayer) {
           this.heroSpriteOf(e.target)?.setAlpha(e.active ? 0.55 : 1);
           if (e.active) {
+            const at = this.centerOf(e.target);
+            if (at) this.fx.status(at.x, at.y, at.h, 'Blind');
             this.msgText.setText(`${e.target.name} は影に溶けた…`);
             this.say(e.target, this.linesOf(e.target)?.shadow);
           }
         }
-        return e.active ? 420 : 100;
+        return e.active ? 700 : 120;
       }
       case 'absorb':
         this.msgText.setText(`「${e.skillName}」をグリモワールに刻んだ！`);
+        this.pendingAbsorb = true;
         {
           const actor = this.engine.activeCombatant;
           if (actor?.isPlayer) this.say(actor, this.linesOf(actor)?.absorbSuccess, { force: true });
         }
-        return 700;
+        return 900;
       case 'break': {
         this.msgText.setText(`⚡ ${e.target.name} を Break！`);
         this.cameras.main.shake(this.spd(240), 0.01);
@@ -357,33 +429,41 @@ export class BattleScene extends Phaser.Scene {
           const actor = this.engine.activeCombatant;
           if (actor?.isPlayer) this.say(actor, this.linesOf(actor)?.breakEnemy);
         }
-        return 700;
+        return 1000;
       }
       case 'defeat': {
         const sprite = this.findEnemySprite(e.target);
-        if (sprite) {
+        const at = this.centerOf(e.target);
+        if (sprite && at) {
+          // 吸収なら魂が使い手へ流れ、そうでなければ塵になって昇る
+          const actor = this.engine.activeCombatant;
+          const to = this.pendingAbsorb && actor ? this.centerOf(actor) : null;
+          if (to) this.fx.absorb(at.x, at.y, to.x, to.y);
+          else this.fx.dissolve(at.x, at.y, at.w, at.h, e.target.enemyDef?.tint ?? 0x9a8abd);
+          this.pendingAbsorb = false;
           // 沈みながら消える
           this.tweens.add({
             targets: sprite, alpha: 0, y: sprite.y + 18, scale: 0.92,
-            duration: this.spd(420), ease: 'Quad.easeIn',
+            duration: this.spd(700), ease: 'Quad.easeIn',
           });
           playSfx('defeat');
         }
         if (e.target.isPlayer) {
+          if (at) this.fx.dissolve(at.x, at.y, at.w * 0.6, at.h * 0.6, 0x5a4a7a);
           this.heroSpriteOf(e.target)?.setAlpha(0.25);
           this.msgText.setText(`${e.target.name} は倒れた…`);
-          return 600;
+          return 900;
         }
         this.msgText.setText(`${e.target.name} を倒した！`);
-        return 500;
+        return 800;
       }
       case 'victory':
         this.msgText.setText('勝利！');
         playSfx('victory');
-        return 600;
+        return 900;
       case 'defeat_party':
         this.msgText.setText(`${this.hero.name} は倒れた…`);
-        return 900;
+        return 1200;
     }
   }
 
@@ -509,9 +589,9 @@ export class BattleScene extends Phaser.Scene {
         textStyle(13, isWeak ? '#ffd88a' : '#ffe9a8', { stroke: '#120a06', strokeThickness: 4 })).setOrigin(0.5).setDepth(50)
       : null;
     const parts = tag ? [txt, tag] : [txt];
-    this.tweens.add({ targets: parts, scale: { from: isCrit ? 1.6 : 1.3, to: 1 }, duration: this.spd(160), ease: 'Back.easeOut' });
+    this.tweens.add({ targets: parts, scale: { from: isCrit ? 1.7 : 1.35, to: 1 }, duration: this.spd(200), ease: 'Back.easeOut' });
     this.tweens.add({
-      targets: parts, y: '-=46', alpha: 0, delay: this.spd(220), duration: this.spd(760),
+      targets: parts, y: '-=46', alpha: 0, delay: this.spd(450), duration: this.spd(900),
       ease: 'Cubic.easeIn',
       onComplete: () => parts.forEach((o) => o.destroy()),
     });
@@ -567,11 +647,16 @@ export class BattleScene extends Phaser.Scene {
     const obj = this.bodyOf(c);
     const homeX = obj?.getData('homeX') as number | undefined;
     if (!obj || homeX === undefined) return;
-    const dx = c.isPlayer ? 36 : -36;
+    const dx = c.isPlayer ? 54 : -54;
+    // 踏み込んで一瞬止まり、ゆっくり戻る
     this.tweens.addCounter({
-      from: 0, to: 1, duration: this.spd(110), yoyo: true, ease: 'Quad.easeOut',
+      from: 0, to: 1, duration: this.spd(190), ease: 'Quad.easeOut',
       onUpdate: (tw) => { obj.x = homeX + dx * (tw.getValue() ?? 0); },
-      onComplete: () => { obj.x = homeX; },
+      onComplete: () => this.tweens.addCounter({
+        from: 1, to: 0, delay: this.spd(160), duration: this.spd(260), ease: 'Sine.easeInOut',
+        onUpdate: (tw) => { obj.x = homeX + dx * (tw.getValue() ?? 0); },
+        onComplete: () => { obj.x = homeX; },
+      }),
     });
   }
 
@@ -590,15 +675,11 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
-  /** 回復時の光の輪 */
-  private healRing(c: Combatant): void {
-    const obj = this.bodyOf(c);
-    if (!obj) return;
-    const ring = this.add.circle(obj.x, obj.y, 26, 0x6ade8a, 0.35).setStrokeStyle(2, 0x9affb8).setDepth(40);
-    this.tweens.add({
-      targets: ring, scale: 3, alpha: 0, duration: this.spd(520), ease: 'Quad.easeOut',
-      onComplete: () => ring.destroy(),
-    });
+  /** 回避されたときの「MISS」 */
+  private spawnMiss(x: number, y: number): void {
+    const t = this.add.text(x, y, 'MISS', latinStyle(24, '#c8c0d8', true, { stroke: '#120a06', strokeThickness: 5 }))
+      .setOrigin(0.5).setDepth(50).setLetterSpacing(3);
+    this.tweens.add({ targets: t, x: x + 26, alpha: 0, delay: this.spd(300), duration: this.spd(600), ease: 'Quad.easeIn', onComplete: () => t.destroy() });
   }
 
   /** Break の演出: 「BREAK!」の文字と、シールドの破片が飛び散る */
@@ -687,7 +768,31 @@ export class BattleScene extends Phaser.Scene {
   }
 
   // ── HUD更新 ────────────────────────────────────────────────────────
+  /** 表示を最新にする。HPは数値もバーも、実際の値へ0.5秒ほどかけて近づける */
   private refreshDisplay(): void {
+    const all = [...this.heroes, ...this.engine.enemies];
+    const from = new Map(all.map((c) => [c, this.hpOf(c)]));
+    if (all.some((c) => from.get(c) !== c.hp)) {
+      this.hpTween?.stop();
+      this.hpTween = this.tweens.addCounter({
+        from: 0, to: 1, duration: this.spd(520), ease: 'Quad.easeOut',
+        onUpdate: (tw) => {
+          const v = tw.getValue() ?? 0;
+          for (const c of all) this.shownHp.set(c, Math.round(from.get(c)! + (c.hp - from.get(c)!) * v));
+          this.drawHud();
+        },
+        onComplete: () => { for (const c of all) this.shownHp.set(c, c.hp); this.drawHud(); },
+      });
+    }
+    this.drawHud();
+  }
+
+  /** 画面に出すHP */
+  private hpOf(c: Combatant): number {
+    return this.shownHp.get(c) ?? c.hp;
+  }
+
+  private drawHud(): void {
     this.drawTurnOrder();
     this.checkLowLines();
     const { width, height } = this.scale;
@@ -703,10 +808,11 @@ export class BattleScene extends Phaser.Scene {
 
     this.hudTexts.push(this.add.text(px + 16, py + 8,
       `${h.name}`, titleStyle(16, COLORS.textGold)));
-    drawBar(this.hudG, px + 14, py + 34, 240, 14, h.hp / h.base.maxHP,
-      h.hp / h.base.maxHP > 0.3 ? COLORS.hpBar : COLORS.hpBarLow);
+    const hHp = this.hpOf(h);
+    drawBar(this.hudG, px + 14, py + 34, 240, 14, hHp / h.base.maxHP,
+      hHp / h.base.maxHP > 0.3 ? COLORS.hpBar : COLORS.hpBarLow);
     this.hudTexts.push(this.add.text(px + 262, py + 31,
-      `${h.hp}/${h.base.maxHP}`, latinStyle(12)));
+      `${hHp}/${h.base.maxHP}`, latinStyle(12)));
     drawBar(this.hudG, px + 14, py + 56, 240, 10, h.mp / Math.max(1, h.base.maxMP), COLORS.mpBar);
     this.hudTexts.push(this.add.text(px + 262, py + 51,
       `MP ${h.mp}/${h.base.maxMP}`, latinStyle(11, COLORS.textBlue)));
@@ -737,10 +843,11 @@ export class BattleScene extends Phaser.Scene {
       this.hudTexts.push(this.add.text(mx + 10, my + 5,
         m.isAlive ? m.name.split('・')[0] : `${m.name.split('・')[0]} (戦闘不能)`,
         textStyle(12, m.isAlive ? COLORS.text : '#77445a')));
-      drawBar(this.hudG, mx + 10, my + 24, 128, 9, m.hp / m.base.maxHP,
-        m.hp / m.base.maxHP > 0.3 ? COLORS.hpBar : COLORS.hpBarLow);
+      const mHp = this.hpOf(m);
+      drawBar(this.hudG, mx + 10, my + 24, 128, 9, mHp / m.base.maxHP,
+        mHp / m.base.maxHP > 0.3 ? COLORS.hpBar : COLORS.hpBarLow);
       this.hudTexts.push(this.add.text(mx + 146, my + 20,
-        `${m.hp}/${m.base.maxHP}`, latinStyle(10)));
+        `${mHp}/${m.base.maxHP}`, latinStyle(10)));
       // 仲間もスキルを使うので MP も出す
       drawBar(this.hudG, mx + 10, my + 37, 128, 5, m.mp / Math.max(1, m.base.maxMP), COLORS.mpBar);
       this.hudTexts.push(this.add.text(mx + 146, my + 33,
@@ -758,7 +865,7 @@ export class BattleScene extends Phaser.Scene {
       const c = sprite.getData('combatant') as Combatant;
       const hpText = sprite.getData('hpText') as Phaser.GameObjects.Text;
       const shieldText = sprite.getData('shieldText') as Phaser.GameObjects.Text;
-      hpText.setText(c.isAlive ? `HP ${c.hp}/${c.base.maxHP}` : '');
+      hpText.setText(c.isAlive ? `HP ${this.hpOf(c)}/${c.base.maxHP}` : '');
       if (c.maxShields > 0 && c.isAlive) {
         shieldText.setText(c.isBroken ? 'BREAK!' : '🛡'.repeat(c.currentShields));
         shieldText.setColor(c.isBroken ? '#ffd24a' : '#8fc2ee');
