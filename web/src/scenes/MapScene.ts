@@ -1,11 +1,12 @@
 // ノードマップ — Unity版 Roguelike/Map/NodeMapUI.cs 相当
-// 15行×最大7列のSlay the Spire型マップを描画し、進行先を選ぶ
+// 15行×最大7列のSlay the Spire型マップを描画し、進行先を選ぶ。
+// 左 (開始) から右 (ボス) へ進む横長の図で、ドラッグ・ホイール・左右の矢印でスクロールする
 import Phaser from 'phaser';
 import { COLORS, makeButton, textStyle, drawSceneBackground, drawBar, titleStyle, latinStyle, drawPanel } from '../ui/theme';
 import { loadRun, saveRun, clearRun } from '../core/save';
 import type { RunState } from '../core/run';
 import { getEffectiveMaxHP } from '../core/run';
-import { getAvailableNodes, getNode, generateMap } from '../core/mapgen';
+import { getAvailableNodes, getNode, generateMap, MAP_ROWS, MAP_COLUMNS } from '../core/mapgen';
 import type { MapNode, NodeType } from '../core/types';
 import { FLOORS } from '../data/enemies';
 import { getCharacter } from '../data/characters';
@@ -21,6 +22,14 @@ const NODE_ICONS: Record<NodeType, string> = {
   RestSite: '火', RandomEvent: '？', Treasure: '宝', CursedRoom: '呪', Start: '·',
 };
 
+/** 横長マップの寸法 */
+const ROW_GAP = 150;          // 段 (開始→ボス) の間隔 = 横方向
+const MAP_MARGIN_X = 110;     // 左右の余白
+const MAP_TOP = 178;          // 列 0 の高さ (HUD・レリック行の下)
+const MAP_BOTTOM = 628;       // 列 6 の高さ (下のボタンの上)
+/** この幅以上指が動いたらドラッグとみなし、ノードには入らない */
+const DRAG_THRESHOLD = 10;
+
 const NODE_LABELS: Record<NodeType, string> = {
   Battle: '戦闘', EliteBattle: '強敵', Boss: 'ボス', Shop: '商人',
   RestSite: '焚き火', RandomEvent: '未知', Treasure: '宝箱', CursedRoom: '呪われた間', Start: '開始',
@@ -31,6 +40,12 @@ export class MapScene extends Phaser.Scene {
   /** タッチ操作で1回目のタップを受けたノード (2回目で進む) */
   private armedNodeId = -1;
   private tipTimer: Phaser.Time.TimerEvent | null = null;
+  /** スクロールするマップ本体 (HUD・ボタンは動かさない) */
+  private mapLayer!: Phaser.GameObjects.Container;
+  private minScrollX = 0;
+  private arrows: Phaser.GameObjects.Container[] = [];
+  /** ドラッグ中の状態 (押した位置とその時のマップ位置、ドラッグと判定したか) */
+  private drag: { startX: number; layerX: number; moved: boolean } | null = null;
 
   constructor() { super('Map'); }
 
@@ -189,31 +204,31 @@ export class MapScene extends Phaser.Scene {
   }
 
   private drawMap(): void {
-    const { width, height } = this.scale;
+    const { width } = this.scale;
     const map = this.run.map!;
     const available = new Set(getAvailableNodes(map, this.run.currentNodeId).map((n) => n.id));
+    const layer = this.mapLayer = this.add.container(0, 0).setDepth(5);
 
-    // 最下段 (開始) と最上段 (ボス) の位置。ボスはHUDの下端 (レリック行 y≈135) より下に置く
-    // (以前はボス行が y=140 でHUDと重なっていた)
-    const topY = height - 72;
-    const bossY = 166;
-    const rowGap = (topY - bossY) / 14;
-    const colGap = (width - 300) / 6;
-    const nodeX = (col: number) => 150 + col * colGap;
-    const nodeY = (row: number) => topY - row * rowGap;
+    // 段は左→右、列は上→下に並べる
+    const colGap = (MAP_BOTTOM - MAP_TOP) / (MAP_COLUMNS - 1);
+    const nodeX = (row: number) => MAP_MARGIN_X + row * ROW_GAP;
+    const nodeY = (col: number) => MAP_TOP + col * colGap;
+    const contentW = MAP_MARGIN_X * 2 + (MAP_ROWS - 1) * ROW_GAP;
+    this.minScrollX = Math.min(0, width - contentW);
 
     // エッジ描画。背景画像の上でも道筋が追えるよう、暗い縁取りの上に明るめの線を重ねる
     const shadow = this.add.graphics();
     const g = this.add.graphics();
+    layer.add([shadow, g]);
     for (const node of map.nodes) {
       for (const nextId of node.nextIDs) {
         const next = getNode(map, nextId)!;
         const visited = node.visited && next.visited;
         const reachable = node.id === this.run.currentNodeId && available.has(nextId);
-        const x1 = nodeX(node.column), y1 = nodeY(node.row);
-        const x2 = nodeX(next.column), y2 = nodeY(next.row);
-        const w = reachable ? 2.5 : visited ? 2 : 1.5;
-        shadow.lineStyle(w + 3, 0x000000, 0.55).lineBetween(x1, y1, x2, y2);
+        const x1 = nodeX(node.row), y1 = nodeY(node.column);
+        const x2 = nodeX(next.row), y2 = nodeY(next.column);
+        const w = reachable ? 3.5 : visited ? 3 : 2;
+        shadow.lineStyle(w + 4, 0x000000, 0.55).lineBetween(x1, y1, x2, y2);
         g.lineStyle(w,
           visited ? 0x9a8abd : reachable ? 0xd9c66b : 0x8a7fa8,
           visited || reachable ? 0.95 : 0.7);
@@ -223,42 +238,45 @@ export class MapScene extends Phaser.Scene {
 
     // ノード描画
     for (const node of map.nodes) {
-      const x = nodeX(node.column);
-      const y = nodeY(node.row);
+      const x = nodeX(node.row);
+      const y = nodeY(node.column);
       const isAvailable = available.has(node.id);
       const isCurrent = node.id === this.run.currentNodeId;
 
-      const radius = node.type === 'Boss' ? 22 : node.type === 'EliteBattle' ? 16 : 13;
+      const radius = node.type === 'Boss' ? 38 : node.type === 'EliteBattle' ? 28 : 24;
       const fill = isCurrent ? 0xd9c66b
         : node.visited ? 0x3a3050
         : isAvailable ? 0x2a2140
         : 0x171226;
-      const stroke = isAvailable ? 0xd9c66b : node.visited ? 0x6a5a8a : 0x2a2440;
+      const stroke = isAvailable ? 0xd9c66b : node.visited ? 0x6a5a8a : 0x4a3f62;
 
       // ボスは紅い外輪、進める場所は古金の輪が脈打つ
       if (node.type === 'Boss') {
-        this.add.circle(x, y, radius + 5).setStrokeStyle(2, 0x9a2a36, 0.9);
+        layer.add(this.add.circle(x, y, radius + 7).setStrokeStyle(3, 0x9a2a36, 0.9));
       }
       if (isAvailable) {
-        const ring = this.add.circle(x, y, radius + 3).setStrokeStyle(2, COLORS.trimBright, 0.9);
-        this.tweens.add({ targets: ring, scale: 1.45, alpha: 0, duration: 1300, repeat: -1, ease: 'Sine.easeOut' });
+        const ring = this.add.circle(x, y, radius + 4).setStrokeStyle(2.5, COLORS.trimBright, 0.9);
+        layer.add(ring);
+        this.tweens.add({ targets: ring, scale: 1.4, alpha: 0, duration: 1300, repeat: -1, ease: 'Sine.easeOut' });
       }
       const circle = this.add.circle(x, y, radius, fill)
-        .setStrokeStyle(isAvailable ? 2 : 1, stroke);
+        .setStrokeStyle(isAvailable ? 3 : 1.5, stroke);
+      layer.add(circle);
 
       const iconColor = node.type === 'Boss' ? '#ffd24a'
         : node.type === 'EliteBattle' ? '#e08a5a'
         : node.type === 'CursedRoom' ? '#c05a7a'
         : node.type === 'RestSite' ? '#e0a05a'
         : '#d8d0e8';
-      this.add.text(x, y, NODE_ICONS[node.type], textStyle(radius, iconColor))
-        .setOrigin(0.5).setAlpha(node.visited && !isCurrent ? 0.5 : 1);
+      layer.add(this.add.text(x, y, NODE_ICONS[node.type], textStyle(Math.round(radius * 0.95), isCurrent ? '#2a1a08' : iconColor))
+        .setOrigin(0.5).setAlpha(node.visited && !isCurrent ? 0.5 : 1));
 
       if (isAvailable) {
         circle.setInteractive({ useHandCursor: true })
           .on('pointerover', (pointer: Phaser.Input.Pointer) => {
-            circle.setScale(1.25);
-            this.showTooltip(x, y, node, pointer.wasTouch);   // タッチなら案内文つき
+            if (this.drag?.moved) return;
+            circle.setScale(1.15);
+            this.showTooltip(x, y - radius, node, pointer.wasTouch);   // タッチなら案内文つき
           })
           .on('pointerout', () => {
             // タッチで1回目のタップを受けたノードは、指を離しても名前を出したままにする
@@ -266,32 +284,97 @@ export class MapScene extends Phaser.Scene {
             circle.setScale(1);
             this.hideTooltip();
           })
-          .on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+          // 指を離したときに決める (押したままマップを動かした場合は進まない)
+          .on('pointerup', (pointer: Phaser.Input.Pointer) => {
+            if (this.drag?.moved) return;
             if (pointer.wasTouch && this.armedNodeId !== node.id) {
               this.armedNodeId = node.id;
-              this.showTooltip(x, y, node, true);
+              this.showTooltip(x, y - radius, node, true);
               return;
             }
             this.enterNode(node);
           });
 
         this.tweens.add({
-          targets: circle, alpha: { from: 1, to: 0.6 },
+          targets: circle, alpha: { from: 1, to: 0.65 },
           duration: 800, yoyo: true, repeat: -1,
         });
       }
     }
+
+    this.setupScrolling();
+    // 今いる段 (未選択なら開始の段) が左寄りに見える位置から始める
+    const cur = this.run.currentNodeId >= 0 ? getNode(map, this.run.currentNodeId) : undefined;
+    this.scrollTo(width * 0.3 - nodeX(cur?.row ?? 0), false);
+  }
+
+  /** ドラッグ・ホイール・左右の矢印でマップを横に動かす */
+  private setupScrolling(): void {
+    const { width } = this.scale;
+    const inMapBand = (p: Phaser.Input.Pointer) => p.y > MAP_TOP - 50 && p.y < MAP_BOTTOM + 40;
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      this.drag = inMapBand(p) ? { startX: p.x, layerX: this.mapLayer.x, moved: false } : null;
+    });
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      if (!this.drag || !p.isDown) return;
+      const dx = p.x - this.drag.startX;
+      if (!this.drag.moved && Math.abs(dx) < DRAG_THRESHOLD) return;
+      if (!this.drag.moved) { this.drag.moved = true; this.hideTooltip(); this.armedNodeId = -1; }
+      this.scrollTo(this.drag.layerX + dx, false);
+    });
+    // ノードの pointerup より後に片付ける (ドラッグ直後のクリックを無視するため)
+    this.input.on('pointerup', () => this.time.delayedCall(0, () => { this.drag = null; }));
+    this.input.on('wheel', (_p: Phaser.Input.Pointer, _o: unknown, dx: number, dy: number) => {
+      this.hideTooltip();
+      this.scrollTo(this.mapLayer.x - (Math.abs(dx) > Math.abs(dy) ? dx : dy), false);
+    });
+
+    // 左右の矢印 (まだ先がある側だけ出す)
+    const midY = (MAP_TOP + MAP_BOTTOM) / 2;
+    this.arrows = [-1, 1].map((dir) => {
+      const x = dir < 0 ? 28 : width - 28;
+      const bg = this.add.circle(0, 0, 22, 0x0c0912, 0.85).setStrokeStyle(1.5, COLORS.trim, 0.9);
+      const label = this.add.text(0, 0, dir < 0 ? '◀' : '▶', textStyle(18, COLORS.textGold)).setOrigin(0.5);
+      bg.setInteractive({ useHandCursor: true }).on('pointerup', () => {
+        this.hideTooltip();
+        this.scrollTo(this.mapLayer.x - dir * width * 0.55, true);
+      });
+      return this.add.container(x, midY, [bg, label]).setDepth(20);
+    });
+    this.updateArrows();
+  }
+
+  private scrollTo(x: number, animate: boolean): void {
+    const target = Phaser.Math.Clamp(x, this.minScrollX, 0);
+    this.tweens.killTweensOf(this.mapLayer);
+    if (animate) {
+      this.tweens.add({ targets: this.mapLayer, x: target, duration: 350, ease: 'Cubic.easeOut',
+        onUpdate: () => this.updateArrows(), onComplete: () => this.updateArrows() });
+    } else {
+      this.mapLayer.x = target;
+      this.updateArrows();
+    }
+  }
+
+  private updateArrows(): void {
+    if (this.arrows.length < 2) return;
+    this.arrows[0].setVisible(this.mapLayer.x < -1);
+    this.arrows[1].setVisible(this.mapLayer.x > this.minScrollX + 1);
   }
 
   private tooltip: Phaser.GameObjects.Container | null = null;
 
+  /** ノードの名前 (x, y はマップ上の位置。ノードの上端を渡す) */
   private showTooltip(x: number, y: number, node: MapNode, touchHint = false): void {
     this.hideTooltip();
     const text = touchHint ? `${NODE_LABELS[node.type]}（もう一度タップで進む）` : NODE_LABELS[node.type];
-    const label = this.add.text(0, 0, text, textStyle(13)).setOrigin(0.5);
-    const bg = this.add.rectangle(0, 0, label.width + 20, 26, 0x000000, 0.85)
+    const label = this.add.text(0, 0, text, textStyle(14)).setOrigin(0.5);
+    const bg = this.add.rectangle(0, 0, label.width + 22, 28, 0x000000, 0.85)
       .setStrokeStyle(1, COLORS.border);
-    this.tooltip = this.add.container(x, y - 34, [bg, label]).setDepth(100);
+    // 画面からはみ出さない位置に出す (マップはスクロールしているので画面上の位置に直す)
+    const { width } = this.scale;
+    const sx = Phaser.Math.Clamp(this.mapLayer.x + x, bg.width / 2 + 8, width - bg.width / 2 - 8);
+    this.tooltip = this.add.container(sx, y - 22, [bg, label]).setDepth(100);
   }
 
   private hideTooltip(): void {
