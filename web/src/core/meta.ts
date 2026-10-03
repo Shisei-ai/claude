@@ -97,7 +97,7 @@ export const META_NODES: MetaNode[] = [
     { type: 'ShopDiscount', value: 0.04 }),
   N('luck_3', '幸運の星', '商才', 'ランスタート時のゴールドがさらに20増加する。', 30, ['luck_2'], false,
     { type: 'StartingGold', value: 20 }),
-  N('luck_4', '幸運の星', '鑑定眼', '戦闘勝利後のレリック選択肢が1つ増える。', 40, ['luck_3'], false,
+  N('luck_4', '幸運の星', '鑑定眼', '強敵・ボス撃破後のレリック選択肢が1つ増える。', 40, ['luck_3'], false,
     { type: 'ExtraRelicChoices', value: 1 }),
   N('luck_5', '幸運の星', '★ 運命の寵児', 'ランスタート時のゴールドが40増加し、コモンレリックを1つ携えてランを始める。', 60, ['luck_4'], false,
     { type: 'StartingGold', value: 40 }, { type: 'StartWithCommonRelic', value: 1 }),

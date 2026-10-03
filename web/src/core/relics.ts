@@ -169,11 +169,12 @@ export function grantRandomCommonRelic(run: RunState): RelicDef | null {
 // スキルプールが Web 版に存在しないため、Unity版で「レリックが出る確率」
 // だった枠のみレリック候補として提示する (スキル枠は出現しない)。
 /** 通常戦の報酬にレリックが出る確率の倍率 (Web版の難易度調整) */
-export const NORMAL_BATTLE_RELIC_RATE = 0.5;
 
 export function buildBattleLoot(
   run: RunState, isElite: boolean, isBoss: boolean,
 ): RelicDef[] {
+  // Web版の調整: 通常戦闘ではレリックを出さない (強敵・ボスのみ。魂の吊灯籠など、レリック自身の効果は別)
+  if (!isElite && !isBoss) return [];
   const used = new Set<string>();
   const choices: RelicDef[] = [];
   const sanity = run.sanity;
@@ -182,8 +183,8 @@ export function buildBattleLoot(
   if (isElite && hasEffect(run, 'EliteReward')) count += 1;
   if (isElite && sanity >= 3) count += 1;
   count += run.metaExtraRelicChoices;
-  // 知識の欠片: 最初の戦闘後、選択肢+1 (Unity版はスキル選択肢+1)
-  if (run.blessingFirstCombatSkillBonus > 0 && run.battlesWon <= 1) {
+  // 知識の欠片: 最初のレリック報酬 (強敵かボス) で選択肢+1 (Unity版は最初の戦闘後のスキル選択肢+1)
+  if (run.blessingFirstCombatSkillBonus > 0) {
     count += run.blessingFirstCombatSkillBonus;
     run.blessingFirstCombatSkillBonus = 0;
   }
@@ -197,9 +198,8 @@ export function buildBattleLoot(
   const remaining = count - choices.length;
   for (let i = 0; i < remaining; i++) {
     // Web版の調整: 通常戦はレリックの出る確率を半分に (エリート・ボスはUnity版のまま)
-    const normalBattleRate = isElite || isBoss ? 1 : NORMAL_BATTLE_RELIC_RATE;
     const offerRelic = isElite ||
-      rnd.value() < (0.25 + run.currentFloor * 0.1 + sanity * 0.05) * normalBattleRate;
+      rnd.value() < 0.25 + run.currentFloor * 0.1 + sanity * 0.05;
     if (!offerRelic) continue;   // Unity版ではこの枠はスキル候補だった
     const rarity = rollRelicRarity(sanity, isElite);
     const relic = drawRelic(run, rarity, used);

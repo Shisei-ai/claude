@@ -11,7 +11,8 @@ import type { MapNode, NodeType } from '../core/types';
 import { FLOORS } from '../data/enemies';
 import { getCharacter } from '../data/characters';
 import { heldRelics, hasEffect } from '../core/relics';
-import { RARITY_COLOR } from '../data/relics';
+import { RARITY_COLOR, RARITY_LABEL } from '../data/relics';
+import { CURSE_INFO } from '../core/relics';
 import { playBgm } from '../audio/bgm';
 import { FIELD_LINES, shortName } from '../data/dialogue';
 import { showDialogue } from '../ui/dialogue';
@@ -48,6 +49,8 @@ export class MapScene extends Phaser.Scene {
   private arrows: Phaser.GameObjects.Container[] = [];
   /** ドラッグ中の状態 (押した位置とその時のマップ位置、ドラッグと判定したか) */
   private drag: { startX: number; layerX: number; moved: boolean } | null = null;
+  /** レリック一覧を開いている間は、マップのスクロールを止める */
+  private relicList: { layer: Phaser.GameObjects.Container; list: Phaser.GameObjects.Container; minY: number } | null = null;
 
   constructor() { super('Map'); }
 
@@ -88,19 +91,23 @@ export class MapScene extends Phaser.Scene {
     this.drawHUD();
     this.drawMap();
 
-    makeButton(this, 100, height - 36, 'メニューへ', () => {
+    makeButton(this, 90, height - 36, 'メニューへ', () => {
       this.scene.start('MainMenu');
-    }, { width: 160, height: 40, fontSize: 15 });
+    }, { width: 140, height: 40, fontSize: 15 });
 
-    makeButton(this, width - 100, height - 36, '装備', () => {
+    makeButton(this, width - 85, height - 36, '装備', () => {
       this.scene.start('Equip');
-    }, { width: 160, height: 40, fontSize: 15 });
+    }, { width: 130, height: 40, fontSize: 15 });
 
-    makeButton(this, width - 280, height - 36, '設定', () => {
+    makeButton(this, width - 225, height - 36, '設定', () => {
       this.scene.start('Settings', { from: 'Map' });
-    }, { width: 160, height: 40, fontSize: 15 });
+    }, { width: 130, height: 40, fontSize: 15 });
 
-    this.drawLegend(width / 2 - 90, height - 36);
+    makeButton(this, width - 365, height - 36, `レリック ${this.run.relics.length}`, () => {
+      this.openRelicList();
+    }, { width: 130, height: 40, fontSize: 15 });
+
+    this.drawLegend((170 + width - 430) / 2, height - 36);
 
     playBgm(this, `floor${Math.min(this.run.currentFloor, 3)}`);
     // 所持金・レリック数などの実績 (イベントや商人での変化もここで拾う)
@@ -331,9 +338,10 @@ export class MapScene extends Phaser.Scene {
     const { width } = this.scale;
     const inMapBand = (p: Phaser.Input.Pointer) => p.y > MAP_TOP - 50 && p.y < MAP_BOTTOM + 40;
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      this.drag = inMapBand(p) ? { startX: p.x, layerX: this.mapLayer.x, moved: false } : null;
+      this.drag = inMapBand(p) && !this.relicList ? { startX: p.x, layerX: this.mapLayer.x, moved: false } : null;
     });
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      if (this.relicList) { this.dragRelicList(p); return; }
       if (!this.drag || !p.isDown) return;
       const dx = p.x - this.drag.startX;
       if (!this.drag.moved && Math.abs(dx) < DRAG_THRESHOLD) return;
@@ -343,6 +351,7 @@ export class MapScene extends Phaser.Scene {
     // ノードの pointerup より後に片付ける (ドラッグ直後のクリックを無視するため)
     this.input.on('pointerup', () => this.time.delayedCall(0, () => { this.drag = null; }));
     this.input.on('wheel', (_p: Phaser.Input.Pointer, _o: unknown, dx: number, dy: number) => {
+      if (this.relicList) { this.scrollRelicList(this.relicList.list.y - dy); return; }
       this.hideTooltip();
       this.scrollTo(this.mapLayer.x - (Math.abs(dx) > Math.abs(dy) ? dx : dy), false);
     });
@@ -381,6 +390,86 @@ export class MapScene extends Phaser.Scene {
   }
 
   private tooltip: Phaser.GameObjects.Container | null = null;
+
+  // ── 所持レリックの一覧 ─────────────────────────────────────────────
+  private relicDrag: { startY: number; listY: number } | null = null;
+
+  private openRelicList(): void {
+    if (this.relicList) return;
+    this.hideTooltip();
+    const { width, height } = this.scale;
+    const run = this.run;
+    const layer = this.add.container(0, 0).setDepth(300);
+    // 下の画面を押せないよう全面を覆う。外側を押しても閉じる
+    const shade = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7).setInteractive();
+    layer.add(shade);
+    const pw = 1000, ph = 580, top = height / 2 - ph / 2;
+    layer.add(drawPanel(this, width / 2, height / 2, pw, ph, { alpha: 0.97 }));
+
+    // 同じレリックはまとめて個数を出す (強欲の合わせ鏡で重複することがある)
+    const counts = new Map<string, number>();
+    for (const id of run.relics) counts.set(id, (counts.get(id) ?? 0) + 1);
+    const relics = heldRelics(run).filter((r, i, a) => a.findIndex((x) => x.id === r.id) === i);
+    layer.add(this.add.text(width / 2, top + 30, `所持レリック　${run.relics.length}`, titleStyle(24)).setOrigin(0.5));
+
+    // 一覧 (枠の中だけ見せ、ドラッグ・ホイールで縦にスクロール)
+    const viewTop = top + 62, viewBottom = top + ph - 64;
+    const list = this.add.container(0, 0);
+    layer.add(list);
+    const mask = this.make.graphics({}, false).fillRect(width / 2 - pw / 2 + 10, viewTop, pw - 20, viewBottom - viewTop);
+    list.setMask(mask.createGeometryMask());
+    const left = width / 2 - pw / 2 + 40;
+    let y = viewTop + 8;
+    const row = (name: string, color: string, desc: string) => {
+      const n = this.add.text(left, y, name, textStyle(14, color, { wordWrap: { width: 300 } }));
+      const d = this.add.text(left + 320, y + 1, desc, textStyle(13, COLORS.textDim, { wordWrap: { width: pw - 400 } }));
+      const h = Math.max(n.height, d.height);
+      list.add([n, d, this.add.rectangle(width / 2, y + h + 7, pw - 80, 1, COLORS.trim, 0.25)]);
+      y += h + 15;
+    };
+    if (relics.length === 0) {
+      list.add(this.add.text(width / 2, y + 40, 'まだレリックを持っていない。\n強敵やボスを倒すと手に入る。',
+        textStyle(15, COLORS.textDim, { align: 'center' })).setOrigin(0.5, 0));
+      y += 110;
+    }
+    for (const r of relics) {
+      const n = counts.get(r.id) ?? 1;
+      row(`【${RARITY_LABEL[r.rarity]}】${r.name}${n > 1 ? `　×${n}` : ''}`, RARITY_COLOR[r.rarity], r.description);
+    }
+    if (run.curses.length > 0) {
+      y += 10;
+      list.add(this.add.text(left, y, `◆ 受けている呪い　${run.curses.length}`, textStyle(15, COLORS.textRed)));
+      y += 30;
+      for (const c of run.curses) {
+        const info = CURSE_INFO[c as keyof typeof CURSE_INFO];
+        if (info) row(`【呪い】${info.name}`, COLORS.textRed, info.desc);
+      }
+    }
+    const minY = Math.min(0, viewBottom - (y + 8));
+    if (minY < 0) {
+      layer.add(this.add.text(width / 2 + pw / 2 - 30, top + 30, 'ドラッグ・ホイールでスクロール', textStyle(11, COLORS.textDim)).setOrigin(1, 0.5));
+    }
+
+    const close = () => { layer.destroy(); mask.destroy(); this.relicList = null; this.relicDrag = null; };
+    layer.add(makeButton(this, width / 2, top + ph - 32, '閉じる', close, { width: 200, height: 40, fontSize: 15 }));
+    shade.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      // 枠の外を押したら閉じる。枠の中ならスクロールの起点にする
+      if (Math.abs(p.x - width / 2) > pw / 2 || Math.abs(p.y - height / 2) > ph / 2) { close(); return; }
+      this.relicDrag = { startY: p.y, listY: list.y };
+    });
+    shade.on('pointerup', () => { this.relicDrag = null; });
+    this.relicList = { layer, list, minY };
+  }
+
+  private dragRelicList(p: Phaser.Input.Pointer): void {
+    if (!this.relicDrag || !p.isDown) return;
+    this.scrollRelicList(this.relicDrag.listY + (p.y - this.relicDrag.startY));
+  }
+
+  private scrollRelicList(y: number): void {
+    if (!this.relicList) return;
+    this.relicList.list.y = Phaser.Math.Clamp(y, this.relicList.minY, 0);
+  }
 
   /** ノードの名前 (x, y はマップ上の位置。ノードの上端を渡す) */
   private showTooltip(x: number, y: number, node: MapNode, touchHint = false): void {
