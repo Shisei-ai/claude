@@ -7,7 +7,10 @@
 // Unity同様一律 ConsumablePrice=40)。価格式・枠数・BlackMarket・装備6回抽選は
 // ShopController.cs に忠実。
 import Phaser from 'phaser';
-import { COLORS, makeButton, textStyle, titleStyle, drawSceneBackground, drawPanel, drawOrnamentLine } from '../ui/theme';
+import {
+  COLORS, makeButton, textStyle, titleStyle, drawSceneBackground, drawPanel, drawOrnamentLine, addAmbientMotes,
+} from '../ui/theme';
+import { hasArt, bgArtKey } from '../data/assets';
 import { loadRun, saveRun } from '../core/save';
 import type { RunState } from '../core/run';
 import { getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip, type ShopSpec } from '../core/run';
@@ -74,6 +77,11 @@ export class NodeEventScene extends Phaser.Scene {
     }
   }
 
+  /** 背景画像が置かれているか (あれば焚き火・宝箱などの記号は絵に任せる) */
+  private hasBgArt(): boolean {
+    return hasArt(this, bgArtKey(this.bgKey()));
+  }
+
   create(): void {
     playBgm(this, `floor${Math.min(this.run.currentFloor, 3)}`);
     drawSceneBackground(this, undefined, this.bgKey());
@@ -106,12 +114,18 @@ export class NodeEventScene extends Phaser.Scene {
       .setDepth(text.depth - 1);
   }
 
-  private statusLine(): void {
+  /** 下部の状態表示。above (台詞など) を渡すと同じ下地にまとめる */
+  private statusLine(above?: Phaser.GameObjects.Text): void {
     const { width, height } = this.scale;
     const maxHP = getEffectiveMaxHP(this.run);
-    this.add.text(width / 2, height - 120,
+    const t = this.add.text(width / 2, height - 120,
       `HP ${this.run.currentHP}/${maxHP}　　◈ ${this.run.gold} G　　正気度 ${this.run.sanity >= 0 ? '+' : ''}${this.run.sanity}`,
-      textStyle(15, COLORS.textDim)).setOrigin(0.5);
+      textStyle(15, COLORS.textDim)).setOrigin(0.5).setDepth(2);
+    const b = t.getBounds();
+    const a = above?.setDepth(2).getBounds();
+    const top = Math.min(b.top, a?.top ?? b.top), bottom = b.bottom;
+    drawPanel(this, width / 2, (top + bottom) / 2, Math.max(b.width, a?.width ?? 0) + 90, bottom - top + 22,
+      { alpha: 0.72, ornate: false }).setDepth(1);
   }
 
   private leave(label = 'マップへ戻る'): void {
@@ -137,18 +151,24 @@ export class NodeEventScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.header('焚き火', '暖かな火が、束の間の安らぎをくれる');
 
-    // 焚き火の簡易描画
-    const fire = this.add.text(width / 2, height / 2 - 60, '🔥', { fontSize: '72px' }).setOrigin(0.5);
-    this.tweens.add({ targets: fire, scale: { from: 1, to: 1.15 }, duration: 600, yoyo: true, repeat: -1 });
+    if (this.hasBgArt()) {
+      addAmbientMotes(this, 22, 0xff9a40, 1);   // 火の粉
+    } else {
+      // 背景画像が無いときの焚き火の簡易描画
+      const fire = this.add.text(width / 2, height / 2 - 60, '🔥', { fontSize: '72px' }).setOrigin(0.5);
+      this.tweens.add({ targets: fire, scale: { from: 1, to: 1.15 }, duration: 600, yoyo: true, repeat: -1 });
+    }
 
     const maxHP = getEffectiveMaxHP(this.run);
     // 羽毛の毛布/聖者の遺骨/涸れの呪い: 回復量補正 (RelicManager.ModifyHealAmount)
     const healAmount = modifyHealAmount(this.run, Math.round(maxHP * 0.30));
     const quote = this.heroQuote('rest');
     if (quote) {
-      this.add.text(width / 2, height / 2 + 50, quote, textStyle(17, COLORS.text, {
+      // 背景画像があれば焚き火の絵を隠さないよう少し上に置く
+      const q = this.add.text(width / 2, height / 2 + (this.hasBgArt() ? -20 : 50), quote, textStyle(17, COLORS.text, {
         align: 'center', wordWrap: { width: width - 300 },
-      })).setOrigin(0.5);
+      })).setOrigin(0.5).setDepth(2);
+      this.backPanel(q, 40, 16);
     }
 
     this.statusLine();
@@ -406,12 +426,10 @@ export class NodeEventScene extends Phaser.Scene {
     });
 
     const quote = this.shopQuote ??= this.heroQuote('shop') ?? '';
-    if (quote) {
-      this.add.text(width / 2, height - 158, quote, textStyle(15, COLORS.textDim, {
-        align: 'center', wordWrap: { width: width - 300 },
-      })).setOrigin(0.5);
-    }
-    this.statusLine();
+    const quoteText = quote ? this.add.text(width / 2, height - 156, quote, textStyle(15, COLORS.text, {
+      align: 'center', wordWrap: { width: width - 300 },
+    })).setOrigin(0.5) : undefined;
+    this.statusLine(quoteText);
     this.leave('店を出る');
   }
 
@@ -420,7 +438,7 @@ export class NodeEventScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.header('宝箱', '埃を被った箱が静かに佇んでいる');
     // 見つけた物の説明が複数行になるので、箱は上寄せにする
-    this.add.text(width / 2, 210, '▣', textStyle(64, COLORS.textGold)).setOrigin(0.5);
+    if (!this.hasBgArt()) this.add.text(width / 2, 210, '▣', textStyle(64, COLORS.textGold)).setOrigin(0.5);
 
     const floor = FLOORS[Math.min(this.run.currentFloor, FLOORS.length - 1)];
     let gold = floor.baseGoldReward + this.rng.range(10, 41);
@@ -465,8 +483,10 @@ export class NodeEventScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.header('呪われた間', '空気が重い。何かがこちらを見ている——');
     // 「閉じる/エラー」の✖に見えないよう、焚き火の🔥と同じく絵文字で示す
-    const skull = this.add.text(width / 2, height / 2 - 60, '💀', { fontSize: '68px' }).setOrigin(0.5);
-    this.tweens.add({ targets: skull, alpha: { from: 1, to: 0.65 }, duration: 1400, yoyo: true, repeat: -1 });
+    if (!this.hasBgArt()) {
+      const skull = this.add.text(width / 2, height / 2 - 60, '💀', { fontSize: '68px' }).setOrigin(0.5);
+      this.tweens.add({ targets: skull, alpha: { from: 1, to: 0.65 }, duration: 1400, yoyo: true, repeat: -1 });
+    }
 
     const maxHP = getEffectiveMaxHP(this.run);
     // 罠師の知識 (アッシュ): トラップダメージ50%軽減
@@ -476,9 +496,10 @@ export class NodeEventScene extends Phaser.Scene {
     const gold = Math.round((60 + this.rng.range(0, 41)) * riskRewardMultiplier(this.run));
 
     if (hasTrapMastery) {
-      this.add.text(width / 2, height / 2 + 10,
+      const tip = this.add.text(width / 2, height / 2 + 10,
         '【罠師の知識】トラップの仕掛けが見える。ダメージを半減できる。',
-        textStyle(13, COLORS.textGreen)).setOrigin(0.5);
+        textStyle(13, COLORS.textGreen)).setOrigin(0.5).setDepth(2);
+      this.backPanel(tip, 30, 12);
     }
 
     this.statusLine();

@@ -35,14 +35,49 @@ export { FONT_BODY, FONT_DISPLAY, FONT_LATIN };
 /** 文字の影 (背景画像の上でも読めるように) */
 const SOFT_SHADOW = { offsetX: 0, offsetY: 1, color: '#000000', blur: 3, fill: true, stroke: false };
 
+// 行頭に置かない文字 (句読点・閉じ括弧・小書き仮名・長音・ダッシュ) と、行末に残さない開き括弧
+const NO_LINE_START = '、。，．・：；？！ー―—…‥）」』】〕〉》’”ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ々〜～!?),.:;%';
+const NO_LINE_END = '（「『【〔〈《‘“(';
+
+/** 禁則処理つきの折り返し。句読点などは前の行へぶら下げ、開き括弧は次の行へ送る。英数字の並びは分けない */
+function wrapJapanese(text: string, ctx: CanvasRenderingContext2D, maxWidth: number): string[] {
+  const out: string[] = [];
+  for (const para of text.split('\n')) {
+    let line = '';
+    for (const tok of para.match(/[A-Za-z0-9+\-.%/]+|./gu) ?? []) {
+      if (line && ctx.measureText(line + tok).width > maxWidth) {
+        if (NO_LINE_START.includes(tok[0])) { line += tok; continue; }
+        let carry = '';
+        while (line.length > 1 && NO_LINE_END.includes(line[line.length - 1])) {
+          carry = line[line.length - 1] + carry;
+          line = line.slice(0, -1);
+        }
+        out.push(line);
+        line = carry + tok;
+        continue;
+      }
+      line += tok;
+    }
+    out.push(line);
+  }
+  return out;
+}
+
 export function textStyle(
   size: number,
   color: string = COLORS.text,
   extra: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {},
 ): Phaser.Types.GameObjects.Text.TextStyle {
-  // 日本語はスペース区切りがないため、wordWrap指定時は常に文字単位折り返しにする
-  if (extra.wordWrap?.width && extra.wordWrap.useAdvancedWrap === undefined) {
-    extra = { ...extra, wordWrap: { ...extra.wordWrap, useAdvancedWrap: true } };
+  // 日本語はスペース区切りがないため、wordWrap指定時は禁則処理つきの文字単位折り返しにする
+  if (extra.wordWrap?.width && !extra.wordWrap.callback) {
+    const maxWidth = extra.wordWrap.width;
+    extra = {
+      ...extra,
+      wordWrap: {
+        ...extra.wordWrap,
+        callback: (t: string, obj: Phaser.GameObjects.Text) => wrapJapanese(t, obj.context, maxWidth),
+      },
+    };
   }
   return {
     // 大きな文字 (画面タイトル・見出し) は古活字風の見出し書体にする
