@@ -26,6 +26,8 @@ export interface PendingEncounter {
   reward?: { lines: string[]; loot: string[]; isBoss: boolean };
   /** ショップ: 確定した在庫と購入済みの枠番号 */
   shop?: { stock: ShopSpec[]; sold: number[] };
+  /** 呪われた間「封じられた棺」の強敵戦: 勝てばゴールド増量と装備1つ、レリックは出ない */
+  coffin?: boolean;
 }
 
 export interface RunState {

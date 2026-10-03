@@ -21,12 +21,15 @@ import { hasArt } from './PreloadScene';
 import { charFullKey, enemyArtKey, bgArtKey, ENDING_BG_STEM, artFrame } from '../data/assets';
 import {
   buildBattleLoot, addRelicToRun, modifyGoldDrop, hasEffect, sumEffect,
-  drawRelic, rollRelicRarity,
+  drawRelic, rollRelicRarity, riskRewardMultiplier,
 } from '../core/relics';
 import { RARITY_LABEL, RARITY_COLOR, getRelic, type RelicDef } from '../data/relics';
 import { LINES, pickLine, shortName, type CharLines } from '../data/dialogue';
 import { ELEMENT_BADGE } from '../ui/elements';
 import { BattleFx, ELEMENT_FX_COLOR } from '../ui/battleFx';
+import { COFFIN_GOLD_MULT } from '../core/cursedRoom';
+import { drawEquipmentForFloor, EQUIP_RARITY_LABEL } from '../data/equipment';
+import { Rng } from '../core/rng';
 
 interface BattleInit { nodeType: NodeType; contentSeed: number }
 
@@ -1131,8 +1134,13 @@ export class BattleScene extends Phaser.Scene {
     const rewards = computeRewards(this.enemyDefs);
     let gold = modifyGoldDrop(run, rewards.gold);
     if (isElite && hasEffect(run, 'EliteHunter')) gold *= 2;
+    // 封じられた棺 (呪われた間): ゴールド増量 (悪魔の帳簿でさらに2倍) と副葬品の装備1つ
+    const coffin = !!run.pendingEncounter?.coffin;
+    if (coffin) gold = Math.round(gold * COFFIN_GOLD_MULT * riskRewardMultiplier(run));
     run.gold += gold;
     run.goldEarned += gold;
+    const coffinEquip = coffin ? drawEquipmentForFloor(run.currentFloor, new Rng(this.contentSeed ^ 0x5eed)) : null;
+    if (coffinEquip) run.equipmentInventory.push(coffinEquip.id);
 
     const levelResult = addExp(run, rewards.exp);
     const newSkills = addJP(run, rewards.jp);
@@ -1145,7 +1153,7 @@ export class BattleScene extends Phaser.Scene {
     }));
 
     // レリック報酬抽選 (LootSystem.BuildChoices 準拠)
-    const lootChoices = buildBattleLoot(run, isElite, isBoss);
+    const lootChoices = coffin ? [] : buildBattleLoot(run, isElite, isBoss);
     // 魂の吊灯籠: 10体撃破ごとにレリック1つ確定
     for (let i = 0; i < this.engine.soulSiphonRewards; i++) {
       const bonus = drawRelic(run, rollRelicRarity(run.sanity, false));
@@ -1153,6 +1161,7 @@ export class BattleScene extends Phaser.Scene {
     }
 
     const lines = [`◈ ${gold} G　　EXP +${rewards.exp}　　JP +${rewards.jp}`];
+    if (coffinEquip) lines.push(`副葬品: ${EQUIP_RARITY_LABEL[coffinEquip.rarity]}「${coffinEquip.name}」(装備画面で装備できる)`);
     if (levelResult.levelsGained.length > 0) {
       lines.push(`レベルアップ！ → Lv.${run.characterLevel}（最大HP +${levelResult.hpGained}）`);
     }
@@ -1187,8 +1196,14 @@ export class BattleScene extends Phaser.Scene {
   private showVictoryPanel(lines: string[], loot: RelicDef[], isBoss: boolean): void {
     const { width, height } = this.scale;
     const hasLoot = loot.length > 0;
-    const panelH = hasLoot ? 420 : 240;
+    // 報酬の行 (レベルアップ・副葬品・台詞など) の数に合わせてパネルを伸ばす
+    const body = this.add.text(width / 2, 0, lines.join('\n'),
+      textStyle(15, COLORS.text, { align: 'center', lineSpacing: 8 }))
+      .setOrigin(0.5, 0).setDepth(81);
+    const panelH = hasLoot ? Math.max(420, body.height + 400) : Math.max(240, body.height + 170);
     const cy = height / 2;
+    const top = cy - panelH / 2;
+    body.setY(top + 76);
 
     const done = () => {
       this.run.pendingEncounter = null;   // このノードは完了
@@ -1198,12 +1213,9 @@ export class BattleScene extends Phaser.Scene {
     };
 
     drawPanel(this, width / 2, cy, Math.max(620, loot.length * 200 + 60), panelH, { alpha: 0.97, depth: 80 });
-    this.add.text(width / 2, cy - panelH / 2 + 34, 'VICTORY', latinStyle(30, COLORS.textGold, true))
+    this.add.text(width / 2, top + 34, 'VICTORY', latinStyle(30, COLORS.textGold, true))
       .setOrigin(0.5).setDepth(81).setLetterSpacing(8);
-    drawOrnamentLine(this, width / 2, cy - panelH / 2 + 58, 320).setDepth(81);
-    this.add.text(width / 2, cy - panelH / 2 + 88, lines.join('\n'),
-      textStyle(15, COLORS.text, { align: 'center', lineSpacing: 8 }))
-      .setOrigin(0.5).setDepth(81);
+    drawOrnamentLine(this, width / 2, top + 58, 320).setDepth(81);
 
     if (!hasLoot) {
       makeButton(this, width / 2, cy + panelH / 2 - 44, isBoss ? '先へ進む' : 'マップへ戻る',
@@ -1211,14 +1223,16 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
 
-    this.add.text(width / 2, cy - 44, '遺物を1つ選べ', textStyle(17, COLORS.textGold))
+    // 遺物のカードは下端から積む (行が増えても文字と重ならない)
+    const cardY = cy + panelH / 2 - 76 - 90;
+    this.add.text(width / 2, cardY - 104, '遺物を1つ選べ', textStyle(17, COLORS.textGold))
       .setOrigin(0.5).setDepth(81);
 
     const cardW = 190;
     const startX = width / 2 - ((loot.length - 1) * (cardW + 12)) / 2;
     loot.forEach((relic, i) => {
       const x = startX + i * (cardW + 12);
-      const y = cy + 60;
+      const y = cardY;
       const rarityColor = Phaser.Display.Color.HexStringToColor(RARITY_COLOR[relic.rarity]).color;
       const card = this.add.rectangle(x, y, cardW, 180, 0x150f20, 0.98)
         .setStrokeStyle(1, COLORS.trim).setDepth(81)

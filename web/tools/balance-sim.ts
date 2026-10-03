@@ -26,6 +26,7 @@ import { CHARACTERS, getCharacter } from '../src/data/characters';
 import { BLESSINGS } from '../src/data/blessings';
 import { FLOORS } from '../src/data/enemies';
 import { Rng } from '../src/core/rng';
+import { rollCursedRoom, applyCursedRoom, canReceive, COFFIN_GOLD_MULT } from '../src/core/cursedRoom';
 import { META_NODES, grimoireCarrySlots } from '../src/core/meta';
 import { GRIMOIRE_SKILLS, isCarryableGrimoireSkill } from '../src/data/codex';
 import type { NodeType, SkillDef } from '../src/core/types';
@@ -115,7 +116,7 @@ const NO_RANDOM = SCENARIO === 'norandom';
 const gainRelic = (run: RunState, relic: RelicDef | null | undefined) => { if (relic && !NO_RANDOM) addRelicToRun(run, relic); };
 
 /** BattleScene と同じ準備で戦い、勝敗と戦闘後の状態をランへ反映 */
-function battle(run: RunState, nodeType: NodeType, seed: number): boolean {
+function battle(run: RunState, nodeType: NodeType, seed: number, coffin = false): boolean {
   const defs = pickEncounter(run, nodeType, seed);
   const heroes = buildHeroes(run);
   const hero = heroes[0];
@@ -160,14 +161,16 @@ function battle(run: RunState, nodeType: NodeType, seed: number): boolean {
   const rewards = computeRewards(defs);
   let gold = modifyGoldDrop(run, rewards.gold);
   if (isElite && hasEffect(run, 'EliteHunter')) gold *= 2;
+  if (coffin) gold = Math.round(gold * COFFIN_GOLD_MULT * riskRewardMultiplier(run));
   run.gold += gold; run.goldEarned += gold;
+  if (coffin) run.equipmentInventory.push(drawEquipmentForFloor(run.currentFloor, new Rng(seed ^ 0x5eed)).id);
   // 比較用: MEMBER_GAIN で仲間の EXP/JP の割合を変えられる
   const mg = Number(process.env.MEMBER_GAIN ?? 1);
   for (const u of units) {
     const k = u === run ? 1 : mg;
     addExp(run, Math.round(rewards.exp * k), u); addJP(run, Math.round(rewards.jp * k), u);
   }
-  const loot = buildBattleLoot(run, isElite, isBoss);
+  const loot = coffin ? [] : buildBattleLoot(run, isElite, isBoss);
   for (let i = 0; i < eng.soulSiphonRewards; i++) {
     const bonus = drawRelic(run, rollRelicRarity(run.sanity, false));
     if (bonus) loot.push(bonus);
@@ -419,12 +422,23 @@ function playRun(charId: string, seed: number, blessingIdx: number): RunResult {
       } else if (t === 'Shop') shop(run, r2);
       else if (t === 'Treasure') treasure(run, r2);
       else if (t === 'CursedRoom') {
-        if (run.currentHP > getEffectiveMaxHP(run) * 0.6) {
-          const trap = partyUnits(run).some((u) => u.unlockedSkillIds.includes('SKL_A_TrapMastery'));
-          for (const u of partyUnits(run)) if (u.currentHP > 0) damageRun(run, Math.round(getEffectiveMaxHP(run, u) * 0.10 * (trap ? 0.5 : 1)), u);
-          addSanity(run, -1);
-          earnGold(run, Math.round((60 + r2.range(0, 41)) * riskRewardMultiplier(run)));
+        // NodeEventScene.createCursedRoom: 部屋の型ごとに受けるか決める
+        const offer = rollCursedRoom(run, r2);
+        const hpR = run.currentHP / getEffectiveMaxHP(run);
+        const someoneDown = run.partyMembers.some((m) => m.currentHP <= 0);
+        const take: Record<string, UnitState | null> = {
+          bloodAltar: hpR > 0.6 ? run : null,
+          cursedAltar: hpR > 0.5 && !NO_RANDOM ? run : null,
+          whisperMirror: run.curses.length < 2 ? partyUnits(run).filter((u) => canReceive(offer, u)).sort((a, b) => a.jobLevel - b.jobLevel)[0] ?? null : null,
+          sealedCoffin: hpR > 0.75 ? run : null,
+          taintedSpring: hpR < 0.6 || someoneDown ? run : null,
+          deadBargain: run.gold < 150 ? [...partyUnits(run)].sort((a, b) => b.maxHPBase - a.maxHPBase)[0] : null,
+        };
+        const unit = take[offer.room.id];
+        if (unit) {
+          const out = applyCursedRoom(run, offer, unit);
           if (run.currentHP <= 0) { diedAt = `F${run.currentFloor + 1} 呪われた間`; return result(false); }
+          if (out.battle && !battle(run, 'EliteBattle', r2.int(0x7fffffff), true)) { diedAt = `F${run.currentFloor + 1} 封じられた棺`; return result(false); }
         }
       } else {
         const ev = event(run, r2);

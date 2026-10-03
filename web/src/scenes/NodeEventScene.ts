@@ -23,7 +23,7 @@ import { Rng } from '../core/rng';
 import { FLOORS } from '../data/enemies';
 import {
   modifyHealAmount, modifyShopPrice, modifyEventGold, modifyGoldDrop,
-  eventMasterBonus, riskRewardMultiplier, hasEffect, drawRelic,
+  eventMasterBonus, hasEffect, drawRelic,
   rollRelicRarity, addRelicToRun, randomCurse, CURSE_INFO,
 } from '../core/relics';
 import { RARITY_LABEL, RARITY_COLOR, getRelic, type RelicRarity } from '../data/relics';
@@ -34,6 +34,9 @@ import { playBgm } from '../audio/bgm';
 import { getCharacter } from '../data/characters';
 import { LINES, pickLine, shortName, type CharLines } from '../data/dialogue';
 import { drawEquipmentForFloor, getEquipment, EQUIP_RARITY_LABEL, EQUIP_RARITY_COLOR, SLOT_LABEL } from '../data/equipment';
+import {
+  rollCursedRoom, applyCursedRoom, cursedRoomLabel, cursedRoomDetail, canReceive, hasTrapMastery,
+} from '../core/cursedRoom';
 
 interface NodeEventInit { nodeType: NodeType; contentSeed: number }
 
@@ -534,51 +537,62 @@ export class NodeEventScene extends Phaser.Scene {
     this.resultAndLeave(message, COLORS.textGold);
   }
 
-  // ── 呪われた間 ──────────────────────────────────────────────────────
+  // ── 呪われた間 (6つの部屋の型から抽選。core/cursedRoom.ts) ─────────────
   private createCursedRoom(): void {
     const { width, height } = this.scale;
-    this.header('呪われた間', '空気が重い。何かがこちらを見ている——');
+    const run = this.run;
+    const offer = rollCursedRoom(run, this.rng);
+    const room = offer.room;
+    this.header(room.title, '― 呪われた間 ―');
     // 「閉じる/エラー」の✖に見えないよう、焚き火の🔥と同じく絵文字で示す
     if (!this.hasBgArt()) {
-      const skull = this.add.text(width / 2, height / 2 - 60, '💀', { fontSize: '68px' }).setOrigin(0.5);
+      const skull = this.add.text(width / 2, 200, '💀', { fontSize: '56px' }).setOrigin(0.5);
       this.tweens.add({ targets: skull, alpha: { from: 1, to: 0.65 }, duration: 1400, yoyo: true, repeat: -1 });
     }
 
-    // 罠師の知識 (アッシュ): トラップダメージ50%軽減
-    const hasTrapMastery = this.partyHasSkill('SKL_A_TrapMastery');
-    // 罠は生きている全員が自分の最大HPの10%を受ける
-    const damageOf = (u: UnitState) => Math.round(getEffectiveMaxHP(this.run, u) * 0.10 * (hasTrapMastery ? 0.5 : 1));
-    const damage = damageOf(this.run);
-    const hasParty = this.run.partyMembers.length > 0;
-    // 悪魔の帳簿: 呪われた間の報酬2倍
-    const gold = Math.round((60 + this.rng.range(0, 41)) * riskRewardMultiplier(this.run));
+    const story = this.add.text(width / 2, height / 2 - 40, room.narrative,
+      textStyle(17, COLORS.text, { align: 'center', lineSpacing: 12, wordWrap: { width: width - 300 } }))
+      .setOrigin(0.5).setDepth(2);
+    this.backPanel(story, 60, 30);
+    const detail = this.add.text(width / 2, story.getBounds().bottom + 52, cursedRoomDetail(offer),
+      textStyle(14, '#d8a0b8', { align: 'center', wordWrap: { width: width - 360 } })).setOrigin(0.5).setDepth(2);
+    this.backPanel(detail, 30, 10);
 
-    if (hasTrapMastery) {
-      const tip = this.add.text(width / 2, height / 2 + 10,
+    // 罠師の知識 (アッシュ): HPを削る部屋はダメージ半減
+    if (room.trap && hasTrapMastery(run)) {
+      const tip = this.add.text(width / 2, detail.getBounds().bottom + 30,
         '【罠師の知識】トラップの仕掛けが見える。ダメージを半減できる。',
         textStyle(13, COLORS.textGreen)).setOrigin(0.5).setDepth(2);
-      this.backPanel(tip, 30, 12);
+      this.backPanel(tip, 30, 10);
     }
 
     this.statusLine();
-    makeButton(this, width / 2 - 170, height - 64,
-      hasParty ? `祭壇に触れる (全員 HP-${hasTrapMastery ? 5 : 10}% / +${gold}G)` : `祭壇に触れる (HP-${damage} / +${gold}G)`, () => {
-      for (const u of partyUnits(this.run)) if (u.currentHP > 0) damageRun(this.run, damageOf(u), u);
-      addSanity(this.run, -1);
-      earnGold(this.run, gold);
-      this.finish();
-      saveRun(this.run);
-      if (this.run.currentHP <= 0) {
-        this.scene.start('Result', { won: false });
+    const accept = (unit: UnitState) => {
+      const single = room.single && run.partyMembers.length > 0;
+      const outcome = applyCursedRoom(run, offer, unit, single ? this.who(unit) : '');
+      if (outcome.battle) {
+        // 封じられた棺: 強敵戦を進行中にして保存 (再開しても戦闘を飛ばせない)
+        run.pendingEncounter = { scene: 'Battle', nodeType: 'EliteBattle', contentSeed: this.rng.int(0x7fffffff), coffin: true };
       } else {
-        this.scene.start('Map');
+        this.finish();
       }
-    }, { width: 340 });
-    makeButton(this, width / 2 + 180, height - 64, '立ち去る', () => {
+      saveRun(run);
+      if (run.currentHP <= 0) { this.scene.start('Result', { won: false }); return; }
+      this.showEventResult({ narrative: room.resultNarrative, battle: outcome.battle }, outcome.lines);
+    };
+    const anyone = partyUnits(run).some((u) => canReceive(offer, u));
+    makeButton(this, width / 2 - 130, height - 64, `${room.verb} (${cursedRoomLabel(run, offer)})`, () => {
+      if (room.single) {
+        this.pickUnit('誰が受ける？', cursedRoomDetail(offer), (u) => canReceive(offer, u), accept);
+      } else {
+        accept(run);
+      }
+    }, { width: 460, fontSize: 15, disabled: !anyone, color: COLORS.textRed });
+    makeButton(this, width / 2 + 260, height - 64, '立ち去る', () => {
       this.finish();
-      saveRun(this.run);
+      saveRun(run);
       this.scene.start('Map');
-    }, { width: 240 });
+    }, { width: 220 });
   }
 
   // ── ランダムイベント (EventFactory.cs 全50種の移植) ────────────────
@@ -831,9 +845,11 @@ export class NodeEventScene extends Phaser.Scene {
       .setOrigin(0.5).setDepth(2);
     this.backPanel(story, 60, 26);
     if (outcomes.length > 0) {
-      this.add.text(width / 2, height / 2 + 40, outcomes.join('\n'),
+      // 背景画像の上でも読めるよう下地を敷く
+      const out = this.add.text(width / 2, height / 2 + 40, outcomes.join('\n'),
         textStyle(15, COLORS.textGold, { align: 'center', lineSpacing: 8, wordWrap: { width: width - 300 } }))
-        .setOrigin(0.5);
+        .setOrigin(0.5).setDepth(2);
+      this.backPanel(out, 40, 16);
     }
     this.statusLine();
 
