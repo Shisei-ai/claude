@@ -87,7 +87,8 @@ export function buildHeroes(run: RunState): Combatant[] {
   return [buildHero(run), ...run.partyMembers.map((m) => buildHero(run, m))];
 }
 
-/** 敵の基礎ステータスの底上げ (Web版の難易度調整: 最大HP・物攻・魔攻・物防・魔防を+33%。速さ・命中・会心はそのまま) */
+/** 敵の基礎ステータスの底上げ (Web版の難易度調整: 第2層以降の最大HP・物攻・魔攻・物防・魔防を+33%。
+ *  第1層と、速さ・命中・会心はそのまま) */
 export const ENEMY_STAT_MULT = 1.33;
 
 /** 層ごとの敵の強化率 (第1層=0、第2層=+1段…最終層=+4段)。難易度の倍率に掛け合わせる */
@@ -105,6 +106,7 @@ export function buildEnemies(
   const depth = Math.min(run.currentFloor, 4);
   const depthHP = 1 + DEPTH_HP_PER_FLOOR * depth;
   const depthAtk = 1 + DEPTH_ATK_PER_FLOOR * depth;
+  const statMult = run.currentFloor >= 1 ? ENEMY_STAT_MULT : 1;
 
   return defs.map((def) => {
     const hpMult = diff.enemyHPMult * scale * depthHP;
@@ -124,11 +126,11 @@ export function buildEnemies(
       enemyDef: def,
       stats: {
         ...def.stats,
-        maxHP: Math.round(def.stats.maxHP * hpMult * ENEMY_STAT_MULT),
-        physicalAttack: Math.round(def.stats.physicalAttack * dmgMult * ENEMY_STAT_MULT),
-        magicAttack: Math.round(def.stats.magicAttack * dmgMult * ENEMY_STAT_MULT),
-        physicalDefense: Math.round(def.stats.physicalDefense * ENEMY_STAT_MULT),
-        magicDefense: Math.round(def.stats.magicDefense * ENEMY_STAT_MULT),
+        maxHP: Math.round(def.stats.maxHP * hpMult * statMult),
+        physicalAttack: Math.round(def.stats.physicalAttack * dmgMult * statMult),
+        magicAttack: Math.round(def.stats.magicAttack * dmgMult * statMult),
+        physicalDefense: Math.round(def.stats.physicalDefense * statMult),
+        magicDefense: Math.round(def.stats.magicDefense * statMult),
       },
       shields,
     });
