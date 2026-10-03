@@ -1,8 +1,8 @@
 // 幻影との邂逅 — Unity版 UI/PhantomJoinUI.cs + RoguelikeManager.PhantomJoinEvent
 // Floor 0 クリア時に一度だけ発生する二択イベント
-//   受け入れる: 主人公以外から現れた2名のうち、選んだ1名が Lv4 で加入
-//               (Unity版は2名とも加入・スキルなし。Web版は1名で、主人公と同じ職レベルまでのスキルと
-//                初期武器を持ち、以後は主人公と同じく成長・装備する)
+//   受け入れる: 主人公以外から現れた2名のうち、選んだ1名が加入
+//               (Unity版は2名とも Lv4・スキルなし。Web版は1名が Lv1・職Lv1 で初期武器を持って加わり、
+//                以後は主人公と同じく成長・装備する)
 //   拒む:       主人公のレベル+2
 import Phaser from 'phaser';
 import { COLORS, makeButton, textStyle, addVignette, addAmbientMotes } from '../ui/theme';
@@ -14,7 +14,8 @@ import { Rng } from '../core/rng';
 import { hasArt } from './PreloadScene';
 import { charFullKey, artFrame } from '../data/assets';
 
-const JOIN_LEVEL = 4;
+const JOIN_LEVEL = 1;
+const JOIN_JOB_LEVEL = 1;
 
 export class PhantomJoinScene extends Phaser.Scene {
   constructor() { super('PhantomJoin'); }
@@ -66,14 +67,14 @@ export class PhantomJoinScene extends Phaser.Scene {
         this.add.rectangle(x, feetY - 52, 84, 104, c.themeColor, 0.85).setStrokeStyle(2, 0xd8e8f4, 0.5);
       }
       this.add.text(x, feetY + 16, c.name, textStyle(14, '#eee0c7')).setOrigin(0.5);
-      this.add.text(x, feetY + 38, `Lv. ${JOIN_LEVEL}　職Lv. ${run.jobLevel}　${c.jobName}`,
+      this.add.text(x, feetY + 38, `Lv. ${JOIN_LEVEL}　職Lv. ${JOIN_JOB_LEVEL}　${c.jobName}`,
         textStyle(12, '#99cc99')).setOrigin(0.5);
     });
     refreshChoice();
 
     // 受け入れる
     makeButton(this, width / 2 - 220, height * 0.82, '選んだ幻影を受け入れる\n（1人が仲間に加入）', () => {
-      run.partyMembers.push(createPartyMember(run, joinPool[chosen].id, JOIN_LEVEL, run.jobLevel));
+      run.partyMembers.push(createPartyMember(run, joinPool[chosen].id, JOIN_LEVEL, JOIN_JOB_LEVEL));
       run.phantomEventDone = true;
       saveRun(run);
       this.scene.start('Map');

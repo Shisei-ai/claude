@@ -161,7 +161,12 @@ function battle(run: RunState, nodeType: NodeType, seed: number): boolean {
   let gold = modifyGoldDrop(run, rewards.gold);
   if (isElite && hasEffect(run, 'EliteHunter')) gold *= 2;
   run.gold += gold; run.goldEarned += gold;
-  for (const u of units) { addExp(run, rewards.exp, u); addJP(run, rewards.jp, u); }
+  // 比較用: MEMBER_GAIN で仲間の EXP/JP の割合を変えられる
+  const mg = Number(process.env.MEMBER_GAIN ?? 1);
+  for (const u of units) {
+    const k = u === run ? 1 : mg;
+    addExp(run, Math.round(rewards.exp * k), u); addJP(run, Math.round(rewards.jp * k), u);
+  }
   const loot = buildBattleLoot(run, isElite, isBoss);
   for (let i = 0; i < eng.soulSiphonRewards; i++) {
     const bonus = drawRelic(run, rollRelicRarity(run.sanity, false));
@@ -447,7 +452,7 @@ function playRun(charId: string, seed: number, blessingIdx: number): RunResult {
     if (shieldPct > 0) run.shieldBarrier += Math.round(maxHP * shieldPct);
     const wasFloor0 = run.currentFloor === 0;
     run.currentFloor++;
-    // PhantomJoin: 現れた2名のうち1名を受け入れる (Lv4 加入)
+    // PhantomJoin: 現れた2名のうち1名を受け入れる (Lv1・職Lv1 で加入)
     if (wasFloor0 && !run.phantomEventDone && SCENARIO === 'nophantom') {
       const ch = getCharacter(run.characterId);
       for (let i = 0; i < 2 && run.characterLevel < MAX_CHARACTER_LEVEL; i++) {
@@ -459,7 +464,10 @@ function playRun(charId: string, seed: number, blessingIdx: number): RunResult {
       const others = CHARACTERS.filter((c) => c.id !== run.characterId);
       const prng = new Rng(run.seed + 0x5a17);
       for (let i = others.length - 1; i > 0; i--) { const j = prng.range(0, i + 1); [others[i], others[j]] = [others[j], others[i]]; }
-      for (const c of others.slice(0, 1)) run.partyMembers.push(createPartyMember(run, c.id, 4, run.jobLevel));
+      // 比較用: JOIN_LV / JOIN_JOB (数値 or hero) で加入時のレベルを変えられる
+      const joinLv = Number(process.env.JOIN_LV ?? 1);
+      const joinJob = process.env.JOIN_JOB === 'hero' ? run.jobLevel : Number(process.env.JOIN_JOB ?? 1);
+      for (const c of others.slice(0, 1)) run.partyMembers.push(createPartyMember(run, c.id, joinLv, joinJob));
       run.phantomEventDone = true;
     }
   }

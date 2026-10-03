@@ -88,8 +88,9 @@ export function buildHeroes(run: RunState): Combatant[] {
 }
 
 /** 層ごとの敵の強化率 (第1層=0、第2層=+1段…最終層=+4段)。難易度の倍率に掛け合わせる */
-export const DEPTH_HP_PER_FLOOR = 0.80;
-export const DEPTH_ATK_PER_FLOOR = 0.30;
+// 仲間が主人公と同じく成長・装備するようになった分、第2層以降の強化を上げた (旧: HP0.80 / 攻撃0.30)
+export const DEPTH_HP_PER_FLOOR = 1.30;
+export const DEPTH_ATK_PER_FLOOR = 0.60;
 
 export function buildEnemies(
   run: RunState, defs: EnemyDef[], nodeType: NodeType, isFirstCombat: boolean,
