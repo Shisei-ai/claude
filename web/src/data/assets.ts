@@ -84,8 +84,13 @@ export const BG_ART: Record<string, string[]> = Object.fromEntries(
 const BGM_KEYS: string[] = [
   'title',                                  // タイトル・メニュー
   'floor0', 'floor1', 'floor2', 'floor3',   // 各層の探索 (マップ・イベント)
-  'battle', 'boss',                         // 通常戦 / ボス戦
-  'finale',                                 // 最終層
+  'battle', 'boss',                         // 通常戦 / ボス戦 (boss は第1層ボス兼、層別ボス曲が無いときの代わり)
+  'finale',                                 // 最終層 (導入画面。最終ボス曲が無いときは戦闘にも)
+  // Unity版準拠の追加枠 (FloorData.BossBGM / RestSiteController._campfireBGM)。無ければ上の曲で代用
+  'campfire',                               // 焚き火
+  'boss_floor1', 'boss_floor2', 'boss_floor3',
+  // 最終ボス (エンディング分岐ごと)。無ければ finale で代用
+  'final_demon_king', 'final_abyss_god', 'final_time_wraith', 'final_cursed_king', 'final_true_core',
 ];
 export const BGM_ART: Record<string, string> = Object.fromEntries(
   BGM_KEYS.map((k) => [k, `assets/audio/${k}.mp3`]),

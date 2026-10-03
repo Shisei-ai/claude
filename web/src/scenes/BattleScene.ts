@@ -81,7 +81,10 @@ export class BattleScene extends Phaser.Scene {
     this.bubble = null;
     this.saidOnce = new Set();
 
-    playBgm(this, this.run.currentFloor >= 4 ? 'finale' : this.nodeType === 'Boss' ? 'boss' : 'battle');
+    // 最終層はエンディングごとの最終ボス曲、各層のボスは層別のボス曲 (無ければ共通の曲)
+    const finalStem = this.run.activeEnding ? ENDING_BG_STEM[this.run.activeEnding] : undefined;
+    playBgm(this, this.run.currentFloor >= 4 ? [...(finalStem ? [`final_${finalStem}`] : []), 'finale']
+      : this.nodeType === 'Boss' ? [`boss_floor${this.run.currentFloor}`, 'boss'] : 'battle');
 
     // 背景: 画像があれば全面表示、無ければフロアごとの色味
     const floorTints = [0x0d0a16, 0x08120a, 0x160810, 0x14100a];

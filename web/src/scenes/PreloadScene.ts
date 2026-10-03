@@ -48,7 +48,8 @@ export class PreloadScene extends Phaser.Scene {
     for (const [key, urls] of Object.entries(BG_ART)) {
       queue(bgArtKey(key), urls.find((u) => present.has(u)) ?? urls[0], 'image');
     }
-    for (const [key, url] of Object.entries(BGM_ART)) queue(bgmKey(key), url, 'audio');
+    // BGM は置かれているかだけ確かめる (読み込みは初めて流すとき。audio/bgm.ts)
+    for (const [key, url] of Object.entries(BGM_ART)) if (!present.has(url)) MISSING_ART.add(bgmKey(key));
   }
 
   create(): void {

@@ -124,7 +124,8 @@ export class NodeEventScene extends Phaser.Scene {
   }
 
   create(): void {
-    playBgm(this, `floor${Math.min(this.run.currentFloor, 3)}`);
+    const floorBgm = `floor${Math.min(this.run.currentFloor, 3)}`;
+    playBgm(this, this.nodeType === 'RestSite' ? ['campfire', floorBgm] : floorBgm);
     drawSceneBackground(this, undefined, this.bgKey());
     switch (this.nodeType) {
       case 'RestSite': this.createRestSite(); break;

@@ -24,8 +24,12 @@ id: bernhard / lavinia / ash / lilia / zeno
 
 ## BGM (public/assets/audio/)
 - `<key>.mp3` … ループ再生される曲。置かなければ無音 (効果音は合成音で常に鳴る)。
-- key: title (タイトル・メニュー) / floor0〜floor3 (各層の探索) /
-  battle (通常戦) / boss (ボス戦) / finale (最終層)
+  起動時には読まず、その曲を初めて流す場面で読み込む。
+- 必須: title (タイトル・メニュー) / floor0〜floor3 (各層の探索) /
+  battle (通常戦) / boss (第1層ボス・層別ボス曲の代用) / finale (最終層の導入・最終ボス曲の代用)
+- 推奨 (Unity版準拠): campfire (焚き火。無ければその層の曲) / boss_floor1〜boss_floor3 (各層のボス。無ければ boss)
+- 任意: final_demon_king / final_abyss_god / final_time_wraith / final_cursed_king / final_true_core
+  (エンディング分岐ごとの最終ボス。無ければ finale)
 
 ## 反映の仕組み
 - src/data/assets.ts に宣言済みのパスのうち、実在するファイルだけを PreloadScene が起動時に読み込む
