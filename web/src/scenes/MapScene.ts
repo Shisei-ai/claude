@@ -101,9 +101,12 @@ export class MapScene extends Phaser.Scene {
 
     drawPanel(this, width / 2, 98, width - 80, 44, { alpha: 0.88 });
 
-    this.add.text(70, 90,
+    const nameText = this.add.text(70, 90,
       `${char.name}　Lv.${run.characterLevel}　職Lv.${run.jobLevel}`,
       textStyle(15));
+    if (run.soloVow) {
+      this.add.text(nameText.x + nameText.width + 14, 92, '◆孤高の誓い', textStyle(12, COLORS.textGold));
+    }
 
     const g = this.add.graphics();
     drawBar(g, width / 2 - 100, 90, 200, 14, run.currentHP / maxHP,

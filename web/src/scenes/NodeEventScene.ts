@@ -15,6 +15,7 @@ import { loadRun, saveRun } from '../core/save';
 import type { RunState, UnitState } from '../core/run';
 import {
   getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip, addMaxHP, partyUnits, equippedIds,
+  restAtCampfire, REST_HEAL_PCT, REST_REVIVE_HP,
   type ShopSpec,
 } from '../core/run';
 import type { NodeType } from '../core/types';
@@ -203,10 +204,13 @@ export class NodeEventScene extends Phaser.Scene {
     }
 
     // 羽毛の毛布/聖者の遺骨/涸れの呪い: 回復量補正 (RelicManager.ModifyHealAmount)。
-    // 全員が自分の最大HPの30%回復し、戦闘不能の仲間も起き上がる
-    const healOf = (u: UnitState) => modifyHealAmount(this.run, Math.round(getEffectiveMaxHP(this.run, u) * 0.30));
-    const healAmount = healOf(this.run);
+    // 全員が自分の最大HPの25%回復し、戦闘不能の仲間は HP100 で起き上がる
+    const pct = Math.round(REST_HEAL_PCT * 100);
+    const healAmount = modifyHealAmount(this.run, Math.round(getEffectiveMaxHP(this.run) * REST_HEAL_PCT));
     const hasParty = this.run.partyMembers.length > 0;
+    const someoneDown = this.run.partyMembers.some((m) => m.currentHP <= 0);
+    const restLabel = !hasParty ? `休息する (+${healAmount} HP)`
+      : someoneDown ? `休息する (全員HP${pct}%・倒れた仲間はHP${REST_REVIVE_HP})` : `休息する (全員 HP${pct}%回復)`;
     const quote = this.heroQuote('rest');
     if (quote) {
       // 背景画像があれば焚き火の絵を隠さないよう少し上に置く
@@ -217,14 +221,14 @@ export class NodeEventScene extends Phaser.Scene {
     }
 
     this.statusLine();
-    makeButton(this, width / 2 - 150, height - 64, hasParty ? '休息する (全員 HP30%回復)' : `休息する (+${healAmount} HP)`, () => {
-      for (const u of partyUnits(this.run)) healRun(this.run, healOf(u), u);
+    makeButton(this, width / 2 - (someoneDown ? 190 : 150), height - 64, restLabel, () => {
+      restAtCampfire(this.run);
       addSanity(this.run, 1);
       this.finish();
       saveRun(this.run);
       this.scene.start('Map');
-    }, { width: 280 });
-    makeButton(this, width / 2 + 160, height - 64, '先を急ぐ', () => {
+    }, someoneDown ? { width: 400, fontSize: 15 } : { width: 280 });
+    makeButton(this, width / 2 + (someoneDown ? 200 : 160), height - 64, '先を急ぐ', () => {
       this.finish();
       saveRun(this.run);
       this.scene.start('Map');

@@ -11,7 +11,7 @@ import { pickEncounter, buildHeroes, buildEnemies, computeRewards } from '../src
 import { RelicBattleState } from '../src/battle/relicHooks';
 import {
   createRun, getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip, equipItem,
-  createPartyMember, partyUnits, addMaxHP, equippedIds, type RunState, type UnitState,
+  createPartyMember, partyUnits, addMaxHP, equippedIds, restAtCampfire, type RunState, type UnitState,
 } from '../src/core/run';
 import { addExp, addJP, MAX_CHARACTER_LEVEL } from '../src/core/level';
 import { generateMap, getAvailableNodes, getStartNodes, getNode } from '../src/core/mapgen';
@@ -414,7 +414,7 @@ function playRun(charId: string, seed: number, blessingIdx: number): RunResult {
         if (!battle(run, t, node.contentSeed)) { diedAt = `F${run.currentFloor + 1} ${t}`; return result(false); }
         if (t === 'Boss') bossCleared = true;
       } else if (t === 'RestSite') {
-        for (const u of partyUnits(run)) healRun(run, modifyHealAmount(run, Math.round(getEffectiveMaxHP(run, u) * 0.30)), u);
+        restAtCampfire(run);
         addSanity(run, 1);
       } else if (t === 'Shop') shop(run, r2);
       else if (t === 'Treasure') treasure(run, r2);
@@ -456,8 +456,10 @@ function playRun(charId: string, seed: number, blessingIdx: number): RunResult {
     if (wasFloor0 && !run.phantomEventDone && SCENARIO === 'nophantom') {
       const ch = getCharacter(run.characterId);
       for (let i = 0; i < 2 && run.characterLevel < MAX_CHARACTER_LEVEL; i++) {
-        run.characterLevel++; run.maxHPBase += ch.growthRates.maxHP; run.currentHP += ch.growthRates.maxHP;
+        run.characterLevel++; run.maxHPBase += ch.growthRates.maxHP;
       }
+      run.soloVow = true;   // 孤高の誓い
+      run.currentHP = getEffectiveMaxHP(run);
       run.phantomEventDone = true;
     }
     if (wasFloor0 && !run.phantomEventDone) {
@@ -506,7 +508,7 @@ if (process.env.TRACE) {
 }
 const N = Number(process.argv[2] ?? 200);
 const pct = (n: number, d: number) => `${((n / d) * 100).toFixed(0).padStart(3)}%`;
-const LABEL: Record<string, string> = { full: 'ランダム強化あり (標準)', norandom: 'レリック・装備なし', meta: '墓標の強化を全解放', nophantom: '幻影を拒んでLv+2' };
+const LABEL: Record<string, string> = { full: 'ランダム強化あり (標準)', norandom: 'レリック・装備なし', meta: '墓標の強化を全解放', nophantom: '幻影を拒む (Lv+2・孤高の誓い)' };
 console.log(`\n■ ${LABEL[SCENARIO]} — 各キャラ ${N} ラン (難易度: 標準 / 加護: ランダム)`);
 console.log('キャラ          踏破率  第2層到達 第3層到達 第4層到達 最終層到達  平均Lv  平均レリック  主な敗因');
 const ALL = { n: 0, won: 0, f1: 0 };

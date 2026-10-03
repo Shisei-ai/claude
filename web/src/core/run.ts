@@ -4,7 +4,7 @@ import type { BlessingType, CharacterStats, MapData, NodeType } from './types';
 import { getCharacter } from '../data/characters';
 import { getDifficulty } from '../data/difficulty';
 import { applyMetaBonuses } from './meta';
-import { grantRandomCommonRelic, randomCurse, hasEffect, sumEffect } from './relics';
+import { grantRandomCommonRelic, randomCurse, hasEffect, sumEffect, modifyHealAmount } from './relics';
 import { getEquipment as getEquipmentDef } from '../data/equipment';
 
 /** ショップ在庫1枠の保存形式。入店時に確定し、再開しても引き直さない */
@@ -76,6 +76,8 @@ export interface RunState {
   // Party (RunData.PartyMembers — Floor0→1の幻影加入)
   partyMembers: PartyMember[];
   phantomEventDone: boolean;    // 幻影イベント消化済みか
+  /** 孤高の誓い: 幻影を拒んで1人で進む見返り (この旅の間、主人公の最大HP・攻撃・防御+50%) */
+  soloVow: boolean;
   /** 進行中のノード。完了するまで残し、中断→再開時はここから再開する
    *  (戦闘を飛ばせる・ボス戦中断で進めなくなる不具合の対策) */
   pendingEncounter: PendingEncounter | null;
@@ -212,6 +214,7 @@ export function createRun(
 
     partyMembers: [],
     phantomEventDone: false,
+    soloVow: false,
     pendingEncounter: null,
     floorIntroSeen: [],
     dailyDate: null,
@@ -279,9 +282,13 @@ export function createRun(
   return run;
 }
 
-/** メタ倍率適用後の最大HP (墓標・加護の倍率は主人公のみ) */
+/** 孤高の誓いで上乗せする割合 (墓標の倍率に足す) */
+export const SOLO_VOW_BONUS = 0.5;
+
+/** メタ倍率適用後の最大HP (墓標・加護・孤高の誓いの倍率は主人公のみ) */
 export function getEffectiveMaxHP(run: RunState, unit: UnitState = run): number {
-  return unit === run ? Math.round(run.maxHPBase * run.metaMaxHPMult) : unit.maxHPBase;
+  if (unit !== run) return unit.maxHPBase;
+  return Math.round(run.maxHPBase * (run.metaMaxHPMult + (run.soloVow ? SOLO_VOW_BONUS : 0)));
 }
 
 /** 墓標・加護の補正。仲間には掛けない */
@@ -290,6 +297,16 @@ const NO_META = {
   metaMaxMPBonus: 0, metaCritRateBonus: 0,
 };
 
+/** 主人公に掛かる補正 (墓標・加護 + 孤高の誓い) */
+function heroMeta(run: RunState): typeof NO_META {
+  const v = run.soloVow ? SOLO_VOW_BONUS : 0;
+  return {
+    metaPhysAtkMult: run.metaPhysAtkMult + v, metaMagAtkMult: run.metaMagAtkMult + v,
+    metaPhysDefMult: run.metaPhysDefMult + v, metaMagDefMult: run.metaMagDefMult + v,
+    metaMaxMPBonus: run.metaMaxMPBonus, metaCritRateBonus: run.metaCritRateBonus,
+  };
+}
+
 /** レベル・メタ・レリック補正込みの戦闘用ステータスを構築
  *  (RelicManager.GetGoldToHPBonus / GetAncientCurseStatMultiplier /
  *   GetMirrorCurseHPPenalty / BerserkerRage 防御-50% 相当) */
@@ -297,7 +314,7 @@ export function buildBattleStats(run: RunState, unit: UnitState = run): Characte
   const char = getCharacter(unit.characterId);
   const g = char.growthRates;
   const levels = unit.characterLevel - 1;
-  const meta = unit === run ? run : NO_META;
+  const meta = unit === run ? heroMeta(run) : NO_META;
 
   // レリック由来のステータス補正
   const ancientCurse = hasEffect(run, 'AncientCurse') ? 0.30 : 0;      // 全ステ+30%
@@ -393,6 +410,24 @@ export function healRun(run: RunState, amount: number, unit: UnitState = run): n
 
 export function damageRun(run: RunState, amount: number, unit: UnitState = run): void {
   unit.currentHP = Math.max(0, unit.currentHP - amount);
+}
+
+// ── 焚き火 (RestSiteController。Web版: 回復30%→25%、仲間対応) ───────────
+export const REST_HEAL_PCT = 0.25;
+/** 戦闘不能の仲間が焚き火で起き上がるときのHP */
+export const REST_REVIVE_HP = 100;
+
+/** 焚き火で休む: 生きている者は最大HPの25% (レリック補正あり)、倒れた仲間はHP100で起き上がる。
+ *  戻り値は各自の回復量 */
+export function restAtCampfire(run: RunState): number[] {
+  return partyUnits(run).map((u) => {
+    const max = getEffectiveMaxHP(run, u);
+    if (u.currentHP <= 0) {
+      u.currentHP = Math.min(max, REST_REVIVE_HP);
+      return u.currentHP;
+    }
+    return healRun(run, modifyHealAmount(run, Math.round(max * REST_HEAL_PCT)), u);
+  });
 }
 
 /** 1人の最大HPを増減する (生命の霊薬・イベント) */

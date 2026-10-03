@@ -174,6 +174,7 @@ export function loadRun(): RunState | null {
       return member;
     });
     run.phantomEventDone ??= false;
+    run.soloVow ??= false;
     run.pendingEncounter ??= null;
     run.floorIntroSeen ??= [];
     run.dailyDate ??= null;

@@ -3,11 +3,11 @@
 //   受け入れる: 主人公以外から現れた2名のうち、選んだ1名が加入
 //               (Unity版は2名とも Lv4・スキルなし。Web版は1名が Lv1・職Lv1 で初期武器を持って加わり、
 //                以後は主人公と同じく成長・装備する)
-//   拒む:       主人公のレベル+2
+//   拒む:       主人公のレベル+2 (Web版: さらに「孤高の誓い」— この旅の間、最大HP・攻撃・防御+50%)
 import Phaser from 'phaser';
 import { COLORS, makeButton, textStyle, addVignette, addAmbientMotes } from '../ui/theme';
 import { loadRun, saveRun } from '../core/save';
-import { createPartyMember } from '../core/run';
+import { createPartyMember, getEffectiveMaxHP, SOLO_VOW_BONUS } from '../core/run';
 import { CHARACTERS, getCharacter } from '../data/characters';
 import { MAX_CHARACTER_LEVEL } from '../core/level';
 import { Rng } from '../core/rng';
@@ -81,17 +81,25 @@ export class PhantomJoinScene extends Phaser.Scene {
     }, { width: 380, height: 72, fontSize: 17, color: COLORS.textBlue });
 
     // 拒む
-    makeButton(this, width / 2 + 220, height * 0.82, '拒み、力を求める\n（自分のレベル+2）', () => {
+    makeButton(this, width / 2 + 220, height * 0.82, '拒み、孤高を誓う\n（レベル+2・孤高の誓い）', () => {
       const char = getCharacter(run.characterId);
       for (let i = 0; i < 2; i++) {
         if (run.characterLevel >= MAX_CHARACTER_LEVEL) break;
         run.characterLevel++;
         run.maxHPBase += char.growthRates.maxHP;
-        run.currentHP += char.growthRates.maxHP;
       }
+      // 孤高の誓い: 仲間を持たない代わりに主人公が大きく強くなる。誓いを立てた時点でHPは満ちる
+      run.soloVow = true;
+      run.currentHP = getEffectiveMaxHP(run);
       run.phantomEventDone = true;
       saveRun(run);
       this.scene.start('Map');
     }, { width: 380, height: 72, fontSize: 17, color: COLORS.textRed });
+    this.add.text(width / 2 + 220, height * 0.82 + 52,
+      `孤高の誓い: この旅の間、最大HP・攻撃・防御 +${Math.round(SOLO_VOW_BONUS * 100)}%`,
+      textStyle(13, COLORS.textDim)).setOrigin(0.5);
+    this.add.text(width / 2 - 220, height * 0.82 + 52,
+      'Lv1から共に育ち、装備やスキルで支えてくれる',
+      textStyle(13, COLORS.textDim)).setOrigin(0.5);
   }
 }
