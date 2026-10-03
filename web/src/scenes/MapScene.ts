@@ -16,10 +16,12 @@ import { playBgm } from '../audio/bgm';
 import { FIELD_LINES, shortName } from '../data/dialogue';
 import { showDialogue } from '../ui/dialogue';
 import { notifyAchievements } from './ToastScene';
+import { ensureNodeIcons, nodeIconKey } from '../ui/nodeIcons';
 
-const NODE_ICONS: Record<NodeType, string> = {
-  Battle: '戦', EliteBattle: '強', Boss: '王', Shop: '商',
-  RestSite: '火', RandomEvent: '？', Treasure: '宝', CursedRoom: '呪', Start: '·',
+/** ノード記号の色 (白で描いたアイコンに掛ける) */
+const ICON_TINT: Record<NodeType, number> = {
+  Battle: 0xd8d0e8, EliteBattle: 0xe08a5a, Boss: 0xffd24a, Shop: 0xe2c27a,
+  RestSite: 0xf0a85a, RandomEvent: 0x9ab8ff, Treasure: 0xe2c27a, CursedRoom: 0xc05a7a, Start: 0xd8d0e8,
 };
 
 /** 横長マップの寸法 */
@@ -82,6 +84,7 @@ export class MapScene extends Phaser.Scene {
       titleStyle(28, COLORS.textGold)).setOrigin(0.5).setLetterSpacing(3);
     this.add.text(width / 2, 60, floor.floorSubtitle, textStyle(14, COLORS.textDim)).setOrigin(0.5);
 
+    ensureNodeIcons(this);
     this.drawHUD();
     this.drawMap();
 
@@ -97,10 +100,7 @@ export class MapScene extends Phaser.Scene {
       this.scene.start('Settings', { from: 'Map' });
     }, { width: 160, height: 40, fontSize: 15 });
 
-    // 記号の凡例 (下端中央)
-    const legend = ([['戦', '戦闘'], ['強', '強敵'], ['？', '未知'], ['宝', '宝箱'], ['商', '商人'], ['火', '焚き火'], ['呪', '呪われた間'], ['王', '主']] as const)
-      .map(([k, v]) => `${k} ${v}`).join('　');
-    this.add.text(width / 2 - 90, height - 36, legend, textStyle(12, COLORS.textDim)).setOrigin(0.5);
+    this.drawLegend(width / 2 - 90, height - 36);
 
     playBgm(this, `floor${Math.min(this.run.currentFloor, 3)}`);
     // 所持金・レリック数などの実績 (イベントや商人での変化もここで拾う)
@@ -203,6 +203,26 @@ export class MapScene extends Phaser.Scene {
     this.tooltip = this.add.container(x, y, [bg, label]).setDepth(100);
   }
 
+  /** 記号の凡例 (アイコン + 名前を横に並べ、cx を中心に置く) */
+  private drawLegend(cx: number, y: number): void {
+    const entries: [NodeType, string][] = [
+      ['Battle', '戦闘'], ['EliteBattle', '強敵'], ['RandomEvent', '未知'], ['Treasure', '宝箱'],
+      ['Shop', '商人'], ['RestSite', '焚き火'], ['CursedRoom', '呪われた間'], ['Boss', '主'],
+    ];
+    const parts = entries.map(([type, label]) => ({
+      icon: this.add.image(0, y, nodeIconKey(type)).setDisplaySize(22, 22).setTint(ICON_TINT[type]),
+      text: this.add.text(0, y, label, textStyle(12, COLORS.textDim)).setOrigin(0, 0.5),
+    }));
+    const gap = 14;
+    const total = parts.reduce((w, pt) => w + 22 + 4 + pt.text.width, 0) + gap * (parts.length - 1);
+    let x = cx - total / 2;
+    for (const pt of parts) {
+      pt.icon.setX(x + 11);
+      pt.text.setX(x + 26);
+      x += 26 + pt.text.width + gap;
+    }
+  }
+
   private drawMap(): void {
     const { width } = this.scale;
     const map = this.run.map!;
@@ -263,13 +283,11 @@ export class MapScene extends Phaser.Scene {
         .setStrokeStyle(isAvailable ? 3 : 1.5, stroke);
       layer.add(circle);
 
-      const iconColor = node.type === 'Boss' ? '#ffd24a'
-        : node.type === 'EliteBattle' ? '#e08a5a'
-        : node.type === 'CursedRoom' ? '#c05a7a'
-        : node.type === 'RestSite' ? '#e0a05a'
-        : '#d8d0e8';
-      layer.add(this.add.text(x, y, NODE_ICONS[node.type], textStyle(Math.round(radius * 0.95), isCurrent ? '#2a1a08' : iconColor))
-        .setOrigin(0.5).setAlpha(node.visited && !isCurrent ? 0.5 : 1));
+      // 記号は円の中に収まる大きさで (今いる場所は金の円の上に暗い色で)
+      const iconSize = radius * 1.5;
+      layer.add(this.add.image(x, y, nodeIconKey(node.type)).setDisplaySize(iconSize, iconSize)
+        .setTint(isCurrent ? 0x2a1a08 : ICON_TINT[node.type])
+        .setAlpha(node.visited && !isCurrent ? 0.5 : 1));
 
       if (isAvailable) {
         circle.setInteractive({ useHandCursor: true })
