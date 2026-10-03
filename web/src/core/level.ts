@@ -1,5 +1,5 @@
 // レベル/ジョブレベル — Unity版 Roguelike/LevelSystem.cs の移植
-import type { RunState } from './run';
+import type { RunState, UnitState } from './run';
 import type { SkillDef } from './types';
 import { getCharacter } from '../data/characters';
 import { getEffectiveMaxHP } from './run';
@@ -22,67 +22,69 @@ export interface LevelUpResult {
   hpGained: number;
 }
 
-export function addExp(run: RunState, expGained: number): LevelUpResult {
-  const char = getCharacter(run.characterId);
-  run.currentEXP += expGained;
-  run.totalExpGained += expGained;
+/** EXP を得る。unit を省くと主人公 (仲間も主人公と同じ量を個別に得る) */
+export function addExp(run: RunState, expGained: number, unit: UnitState = run): LevelUpResult {
+  const char = getCharacter(unit.characterId);
+  unit.currentEXP += expGained;
+  if (unit === run) run.totalExpGained += expGained;
   const levelsGained: number[] = [];
   let hpGained = 0;
 
-  while (run.characterLevel < MAX_CHARACTER_LEVEL) {
-    const needed = expToNextLevel(run.characterLevel);
-    if (run.currentEXP < needed) break;
-    run.currentEXP -= needed;
-    run.characterLevel++;
-    levelsGained.push(run.characterLevel);
+  while (unit.characterLevel < MAX_CHARACTER_LEVEL) {
+    const needed = expToNextLevel(unit.characterLevel);
+    if (unit.currentEXP < needed) break;
+    unit.currentEXP -= needed;
+    unit.characterLevel++;
+    levelsGained.push(unit.characterLevel);
 
-    // GrowthRates.MaxHP 分だけ最大HPと現在HPを増加
+    // GrowthRates.MaxHP 分だけ最大HPと現在HPを増加 (戦闘不能の仲間は起き上がらない)
     const hpUp = char.growthRates.maxHP;
-    run.maxHPBase += hpUp;
+    unit.maxHPBase += hpUp;
     hpGained += hpUp;
-    run.currentHP = Math.min(run.currentHP + hpUp, getEffectiveMaxHP(run));
+    if (unit.currentHP > 0) unit.currentHP = Math.min(unit.currentHP + hpUp, getEffectiveMaxHP(run, unit));
   }
 
   // 最大レベル: 余剰EXPは 10EXP → 1G
-  if (run.characterLevel >= MAX_CHARACTER_LEVEL && run.currentEXP > 0) {
-    run.gold += Math.floor(run.currentEXP / 10);
-    run.currentEXP = 0;
+  if (unit.characterLevel >= MAX_CHARACTER_LEVEL && unit.currentEXP > 0) {
+    run.gold += Math.floor(unit.currentEXP / 10);
+    unit.currentEXP = 0;
   }
 
   return { levelsGained, hpGained };
 }
 
-export function addJP(run: RunState, jpGained: number): SkillDef[] {
-  const char = getCharacter(run.characterId);
-  run.currentJobJP += jpGained;
-  run.totalJPGained += jpGained;
+/** JP を得る。unit を省くと主人公 */
+export function addJP(run: RunState, jpGained: number, unit: UnitState = run): SkillDef[] {
+  const char = getCharacter(unit.characterId);
+  unit.currentJobJP += jpGained;
+  if (unit === run) run.totalJPGained += jpGained;
   const unlocked: SkillDef[] = [];
 
-  while (run.jobLevel < MAX_JOB_LEVEL) {
-    const needed = jpToNextJobLevel(run.jobLevel);
-    if (run.currentJobJP < needed) break;
-    run.currentJobJP -= needed;
-    run.jobLevel++;
+  while (unit.jobLevel < MAX_JOB_LEVEL) {
+    const needed = jpToNextJobLevel(unit.jobLevel);
+    if (unit.currentJobJP < needed) break;
+    unit.currentJobJP -= needed;
+    unit.jobLevel++;
 
     for (const entry of char.learnableSkills) {
-      if (entry.jobLevel !== run.jobLevel) continue;
-      if (run.unlockedSkillIds.includes(entry.skill.id)) continue;
-      run.unlockedSkillIds.push(entry.skill.id);
+      if (entry.jobLevel !== unit.jobLevel) continue;
+      if (unit.unlockedSkillIds.includes(entry.skill.id)) continue;
+      unit.unlockedSkillIds.push(entry.skill.id);
       unlocked.push(entry.skill);
     }
   }
 
   // 最大ジョブレベル: 余剰JPは 5JP → 1G
-  if (run.jobLevel >= MAX_JOB_LEVEL && run.currentJobJP > 0) {
-    run.gold += Math.floor(run.currentJobJP / 5);
-    run.currentJobJP = 0;
+  if (unit.jobLevel >= MAX_JOB_LEVEL && unit.currentJobJP > 0) {
+    run.gold += Math.floor(unit.currentJobJP / 5);
+    unit.currentJobJP = 0;
   }
 
   return unlocked;
 }
 
 /** 現在解放済みのアクティブスキル一覧 (パッシブ除く) */
-export function getActiveSkills(run: RunState): SkillDef[] {
+export function getActiveSkills(run: UnitState): SkillDef[] {
   const char = getCharacter(run.characterId);
   const seen = new Set<string>();
   const out: SkillDef[] = [];
@@ -97,7 +99,7 @@ export function getActiveSkills(run: RunState): SkillDef[] {
 }
 
 /** 解放済みパッシブのID集合 */
-export function getPassiveIds(run: RunState): Set<string> {
+export function getPassiveIds(run: UnitState): Set<string> {
   const char = getCharacter(run.characterId);
   const out = new Set<string>();
   for (const entry of char.learnableSkills) {

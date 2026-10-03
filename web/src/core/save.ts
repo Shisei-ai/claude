@@ -1,5 +1,6 @@
 // localStorage セーブ — Unity版 PlayerPrefs / RunSaveSystem 相当
-import type { RunState } from './run';
+import type { RunState, UnitState } from './run';
+import { createPartyMember, equippedIds, partyUnits } from './run';
 import { getCharacter } from '../data/characters';
 
 const META_KEY = 'dc_meta_v1';
@@ -94,9 +95,7 @@ function recordOwnedItems(run: RunState): void {
   };
   run.relics.forEach((id) => add(meta.seenRelics, id));
   run.equipmentInventory.forEach((id) => add(meta.seenEquipment, id));
-  add(meta.seenEquipment, run.equippedWeapon);
-  add(meta.seenEquipment, run.equippedArmor);
-  add(meta.seenEquipment, run.equippedAccessory);
+  equippedIds(run).forEach((id) => add(meta.seenEquipment, id));
   if (changed) saveMeta(meta);
 }
 
@@ -164,15 +163,27 @@ export function loadRun(): RunState | null {
     run.equippedAccessory ??= null;
     run.equipmentInventory ??= [];
     run.partyMembers ??= [];
+    // 旧形式の仲間 (レベル固定・スキルなし) を、主人公と同じく成長・装備する形へ。
+    // 職レベルは主人公に揃え、初期武器を持たせ、HPの減り具合は引き継ぐ
+    run.partyMembers = run.partyMembers.map((m) => {
+      if ('characterLevel' in m) return m;
+      const old = m as unknown as { characterId: string; level: number; currentHP: number; maxHP: number };
+      const member = createPartyMember(run, old.characterId, old.level ?? 4, run.jobLevel ?? 1);
+      member.currentHP = old.currentHP > 0
+        ? Math.max(1, Math.round(member.maxHPBase * old.currentHP / Math.max(1, old.maxHP))) : 0;
+      return member;
+    });
     run.phantomEventDone ??= false;
     run.pendingEncounter ??= null;
     run.floorIntroSeen ??= [];
     run.dailyDate ??= null;
     // 職レベル以下で覚えるはずのスキルを補う (LevelSystem.RestoreSkillsToJobLevel。
     // 習得レベルを前倒ししたスキル — ゼノの吸収など — を進行中のセーブにも反映する)
-    for (const entry of getCharacter(run.characterId).learnableSkills) {
-      if (entry.jobLevel <= run.jobLevel && !run.unlockedSkillIds.includes(entry.skill.id)) {
-        run.unlockedSkillIds.push(entry.skill.id);
+    for (const unit of partyUnits(run) as UnitState[]) {
+      for (const entry of getCharacter(unit.characterId).learnableSkills) {
+        if (entry.jobLevel <= unit.jobLevel && !unit.unlockedSkillIds.includes(entry.skill.id)) {
+          unit.unlockedSkillIds.push(entry.skill.id);
+        }
       }
     }
     return run;

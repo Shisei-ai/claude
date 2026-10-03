@@ -59,10 +59,10 @@ export class RelicBattleState {
     const bp = Math.round(this.sum('StartWithBP'));
     if (bp > 0) for (const h of heroes) h.addBP(bp);
 
-    // HealAtBattleStart
+    // HealAtBattleStart (Web版: 仲間にも効く)
     const healPct = this.sum('HealAtBattleStart');
-    if (healPct > 0 && hero) {
-      hero.heal(Math.round(hero.base.maxHP * healPct));
+    if (healPct > 0) {
+      for (const h of heroes) if (h.isAlive) h.heal(Math.round(h.base.maxHP * healPct));
     }
 
     // 状態異常オーラ
@@ -96,12 +96,14 @@ export class RelicBattleState {
       }
     }
 
-    // 生贄の祭壇石: HP-30% / 戦闘中+60%
+    // 生贄の祭壇石: HP-30% / 戦闘中+60% (Web版: 与ダメ上昇が全員に乗るので、代償も全員が払う)
     if (this.has('SacrificialPact') && hero) {
-      const cost = Math.round(hero.base.maxHP * 0.30);
-      hero.hp = Math.max(1, hero.hp - cost);
+      for (const h of heroes) {
+        if (!h.isAlive) continue;
+        h.hp = Math.max(1, h.hp - Math.round(h.base.maxHP * 0.30));
+      }
       this.sacrificialBonusActive = true;
-      msgs.push(`祭壇が血を要求した… (HP-${cost})`);
+      msgs.push('祭壇が血を要求した… (全員 HP-30%)');
     }
 
     // 両面のコイン
@@ -112,7 +114,7 @@ export class RelicBattleState {
     }
 
     if (this.has('JumpStart')) this.jumpStartAvailable = true;
-    if (this.has('StartWithFullMP') && hero) hero.mp = hero.base.maxMP;
+    if (this.has('StartWithFullMP')) for (const h of heroes) if (h.isAlive) h.mp = h.base.maxMP;
 
     return msgs;
   }
@@ -340,13 +342,17 @@ export class RelicBattleState {
 
   // ── 敵撃破時 (OnCharacterDefeated) ─────────────────────────────────
   // 戻り値: soulSiphonレリック獲得の要求
-  onEnemyKilled(heroes: Combatant[]): { heal: number; soulReward: boolean } {
-    let heal = 0;
+  onEnemyKilled(heroes: Combatant[]): { heals: { target: Combatant; amount: number }[]; soulReward: boolean } {
+    // 喰屍鬼の歯 (Web版: 仲間にも効く)
+    const heals: { target: Combatant; amount: number }[] = [];
     const healPct = this.sum('OnKillHeal');
-    const hero = heroes[0];
-    if (healPct > 0 && hero?.isAlive) {
-      heal = Math.max(1, Math.round(hero.base.maxHP * healPct));
-      hero.heal(heal);
+    if (healPct > 0) {
+      for (const h of heroes) {
+        if (!h.isAlive) continue;
+        const amount = Math.max(1, Math.round(h.base.maxHP * healPct));
+        h.heal(amount);
+        heals.push({ target: h, amount });
+      }
     }
     if (this.has('OnKillBP')) {
       for (const h of heroes) if (h.isAlive) h.addBP(1);
@@ -360,7 +366,7 @@ export class RelicBattleState {
         soulReward = true;
       }
     }
-    return { heal, soulReward };
+    return { heals, soulReward };
   }
 
   // ── 復活判定 (TryRevive) ───────────────────────────────────────────

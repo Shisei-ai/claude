@@ -6,7 +6,7 @@ import { pickEncounter, buildHeroes, buildEnemies, computeRewards } from '../bat
 import { loadRun, saveRun, clearRun, loadMeta, recordWeakness, recordEnemiesSeen, recordEnemyKills, recordGrimoire } from '../core/save';
 import { notifyAchievements } from './ToastScene';
 import type { RunState } from '../core/run';
-import { getEffectiveMaxHP } from '../core/run';
+import { getEffectiveMaxHP, partyUnits } from '../core/run';
 import { addExp, addJP } from '../core/level';
 import type { ElementType, EnemyDef, NodeType, SkillDef } from '../core/types';
 import { STATUS_DISPLAY_NAME } from '../core/types';
@@ -730,18 +730,24 @@ export class BattleScene extends Phaser.Scene {
     this.heroes.slice(1).forEach((m, i) => {
       const mx = px + 372;
       const my = py + i * 62;
-      paintPanel(this.hudG, mx, my, 250, 56, { alpha: 0.9, ornate: false });
+      paintPanel(this.hudG, mx, my, 214, 56, { alpha: 0.9, ornate: false });
       this.hudTexts.push(this.add.text(mx + 10, my + 5,
         m.isAlive ? m.name.split('・')[0] : `${m.name.split('・')[0]} (戦闘不能)`,
         textStyle(12, m.isAlive ? COLORS.text : '#77445a')));
-      drawBar(this.hudG, mx + 10, my + 28, 160, 10, m.hp / m.base.maxHP,
+      drawBar(this.hudG, mx + 10, my + 24, 128, 9, m.hp / m.base.maxHP,
         m.hp / m.base.maxHP > 0.3 ? COLORS.hpBar : COLORS.hpBarLow);
-      this.hudTexts.push(this.add.text(mx + 178, my + 23,
+      this.hudTexts.push(this.add.text(mx + 146, my + 20,
         `${m.hp}/${m.base.maxHP}`, latinStyle(10)));
+      // 仲間もスキルを使うので MP も出す
+      drawBar(this.hudG, mx + 10, my + 37, 128, 5, m.mp / Math.max(1, m.base.maxMP), COLORS.mpBar);
+      this.hudTexts.push(this.add.text(mx + 146, my + 33,
+        `MP ${m.mp}`, latinStyle(9, COLORS.textBlue)));
       for (let b = 0; b < 5; b++) {
         this.hudG.fillStyle(b < m.bp ? COLORS.bpBar : 0x201a2c, 1)
-          .fillCircle(mx + 16 + b * 16, my + 47, 5);
+          .fillCircle(mx + 15 + b * 14, my + 49, 4);
       }
+      const st = m.statuses.map((s) => STATUS_DISPLAY_NAME[s.type]).join(' ');
+      if (st) this.hudTexts.push(this.add.text(mx + 90, my + 44, st, textStyle(9, COLORS.textRed)));
     });
 
     // 敵HP・シールド更新
@@ -893,7 +899,9 @@ export class BattleScene extends Phaser.Scene {
         '【沈黙】スキル使用不可', textStyle(12, COLORS.textRed)));
     }
 
-    this.commandContainer = this.add.container(width / 2, height - 20 - panelH / 2, items).setDepth(60);
+    // 仲間がいるときは右に寄せ、左下の仲間パネル (HP・MP) を隠さない
+    const menuX = this.heroes.length > 1 ? width - 24 - panelW / 2 : width / 2;
+    this.commandContainer = this.add.container(menuX, height - 20 - panelH / 2, items).setDepth(60);
   }
 
   private skillNeedsEnemyTarget(skill: SkillDef): boolean {
@@ -964,18 +972,20 @@ export class BattleScene extends Phaser.Scene {
     const run = this.run;
     // 主人公が倒れていてもパーティ勝利ならHP1で生還
     run.currentHP = Math.max(1, this.hero.hp);
-    // 仲間のHPを永続化 (戦闘不能は0のまま — 蘇生スキルでのみ復帰)
+    // 仲間のHPを永続化 (戦闘不能は0のまま — 蘇生スキルか焚き火で復帰)
     run.partyMembers.forEach((m, i) => {
       const c = this.heroes[i + 1];
       if (c) m.currentHP = c.hp;
     });
+    const units = partyUnits(run);
     run.battlesWon++;
     run.totalRoomsCleared++;
     run.enemiesKilled += this.enemyDefs.length;
 
-    // ゼノ: このバトルで吸収したスキルをランに永続化
-    for (const id of this.engine.absorbedThisBattle) {
-      if (!run.absorbedSkillIds.includes(id)) run.absorbedSkillIds.push(id);
+    // ゼノ: このバトルで吸収したスキルを、刻んだ本人のグリモワールに永続化
+    for (const { skillId, user } of this.engine.absorbedBy) {
+      const unit = units[this.heroes.indexOf(user)] ?? run;
+      if (!unit.absorbedSkillIds.includes(skillId)) unit.absorbedSkillIds.push(skillId);
     }
 
     const isElite = this.nodeType === 'EliteBattle';
@@ -990,6 +1000,13 @@ export class BattleScene extends Phaser.Scene {
 
     const levelResult = addExp(run, rewards.exp);
     const newSkills = addJP(run, rewards.jp);
+    // 仲間も主人公と同じ量の EXP・JP を個別に得る (戦闘不能でも得る)
+    const memberGains = run.partyMembers.map((m) => ({
+      name: shortName(getCharacter(m.characterId).name),
+      level: addExp(run, rewards.exp, m),
+      skills: addJP(run, rewards.jp, m),
+      unit: m,
+    }));
 
     // レリック報酬抽選 (LootSystem.BuildChoices 準拠)
     const lootChoices = buildBattleLoot(run, isElite, isBoss);
@@ -1005,6 +1022,12 @@ export class BattleScene extends Phaser.Scene {
     }
     if (newSkills.length > 0) {
       lines.push(`新スキル習得: ${newSkills.map((s: SkillDef) => s.name).join('、')}`);
+    }
+    for (const g of memberGains) {
+      const parts: string[] = [];
+      if (g.level.levelsGained.length > 0) parts.push(`Lv.${g.unit.characterLevel}`);
+      if (g.skills.length > 0) parts.push(`新スキル ${g.skills.map((sk) => sk.name).join('、')}`);
+      if (parts.length > 0) lines.push(`${g.name}: ${parts.join('　')}`);
     }
     // 主人公のひとこと (レベルアップ時はその台詞を優先)
     const heroLines = this.linesOf(this.hero);
@@ -1089,6 +1112,17 @@ export class BattleScene extends Phaser.Scene {
       { width: 220, height: 40, fontSize: 14 }).setDepth(82);
   }
 
+  /** フロアクリア回復。仲間は墓標「回復の章」の+5%を除いた割合で回復し、戦闘不能でも起き上がる */
+  private floorClearHeal(heroPct: number): void {
+    const run = this.run;
+    const memberPct = heroPct - (run.metaFloorClearExtraHeal ? 0.05 : 0);
+    for (const unit of partyUnits(run)) {
+      const max = getEffectiveMaxHP(run, unit);
+      const pct = unit === run ? heroPct : memberPct;
+      unit.currentHP = Math.min(max, unit.currentHP + Math.round(max * pct));
+    }
+  }
+
   private onFloorClear(): void {
     const run = this.run;
 
@@ -1110,8 +1144,7 @@ export class BattleScene extends Phaser.Scene {
         let healPct0 = 0.30;
         if (run.metaFloorClearExtraHeal) healPct0 += 0.05;
         healPct0 += sumEffect(run, 'FloorClearHeal');
-        const max0 = getEffectiveMaxHP(run);
-        run.currentHP = Math.min(max0, run.currentHP + Math.round(max0 * healPct0));
+        this.floorClearHeal(healPct0);
         saveRun(run);
         this.scene.start('Finale');
       } else {
@@ -1125,8 +1158,8 @@ export class BattleScene extends Phaser.Scene {
     let healPct = 0.30;
     if (run.metaFloorClearExtraHeal) healPct += 0.05;
     healPct += sumEffect(run, 'FloorClearHeal');
+    this.floorClearHeal(healPct);
     const maxHP = getEffectiveMaxHP(run);
-    run.currentHP = Math.min(maxHP, run.currentHP + Math.round(maxHP * healPct));
 
     // 巡礼者の礎石: フロアクリアごとにバリア蓄積 (RelicManager.NotifyFloorCleared)
     const shieldPct = sumEffect(run, 'ShieldPerFloor');

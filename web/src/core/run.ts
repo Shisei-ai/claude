@@ -115,11 +115,51 @@ export interface RunState {
   metaCurseHPReductionImmune: boolean;
 }
 
-export interface PartyMember {
+/** 主人公と仲間に共通する、1人ぶんの成長・装備・HP。
+ *  主人公はこれらを RunState に直接持ち (RunState 自身がこの形を満たす)、仲間は PartyMember として持つ。
+ *  Web版の拡張: Unity版の仲間はレベル固定・スキルなしだったが、主人公と同じく成長・装備する */
+export interface UnitState {
   characterId: string;
-  level: number;
+  characterLevel: number;
+  currentEXP: number;
+  jobLevel: number;
+  currentJobJP: number;
+  unlockedSkillIds: string[];
+  absorbedSkillIds: string[];   // ゼノ: グリモワールに刻んだ敵スキル
+  equippedWeapon: string | null;
+  equippedArmor: string | null;
+  equippedAccessory: string | null;
   currentHP: number;
-  maxHP: number;
+  maxHPBase: number;            // レベル成長込みの最大HP (主人公のみ、ここに墓標・加護の倍率が掛かる)
+}
+
+export type PartyMember = UnitState;
+
+/** 主人公 → 仲間の順に全員 */
+export function partyUnits(run: RunState): UnitState[] {
+  return [run, ...run.partyMembers];
+}
+
+/** 仲間を作る (幻影の加入)。指定の職レベルまでのスキルを覚え、初期武器を持つ */
+export function createPartyMember(run: RunState, characterId: string, level: number, jobLevel: number): PartyMember {
+  const char = getCharacter(characterId);
+  const member: PartyMember = {
+    characterId,
+    characterLevel: level,
+    currentEXP: 0,
+    jobLevel,
+    currentJobJP: 0,
+    unlockedSkillIds: char.learnableSkills.filter((e) => e.jobLevel <= jobLevel).map((e) => e.skill.id)
+      .filter((id, i, a) => a.indexOf(id) === i),
+    absorbedSkillIds: [],
+    equippedWeapon: char.starterWeapon ?? null,
+    equippedArmor: null,
+    equippedAccessory: null,
+    currentHP: 0,
+    maxHPBase: char.baseStats.maxHP + char.growthRates.maxHP * (level - 1),
+  };
+  member.currentHP = getEffectiveMaxHP(run, member);
+  return member;
 }
 
 /** ランスタート (RoguelikeManager.MainFlow 冒頭 + PendingRunConfig 消費に相当) */
@@ -239,18 +279,25 @@ export function createRun(
   return run;
 }
 
-/** メタ倍率適用後の最大HP */
-export function getEffectiveMaxHP(run: RunState): number {
-  return Math.round(run.maxHPBase * run.metaMaxHPMult);
+/** メタ倍率適用後の最大HP (墓標・加護の倍率は主人公のみ) */
+export function getEffectiveMaxHP(run: RunState, unit: UnitState = run): number {
+  return unit === run ? Math.round(run.maxHPBase * run.metaMaxHPMult) : unit.maxHPBase;
 }
+
+/** 墓標・加護の補正。仲間には掛けない */
+const NO_META = {
+  metaPhysAtkMult: 1, metaMagAtkMult: 1, metaPhysDefMult: 1, metaMagDefMult: 1,
+  metaMaxMPBonus: 0, metaCritRateBonus: 0,
+};
 
 /** レベル・メタ・レリック補正込みの戦闘用ステータスを構築
  *  (RelicManager.GetGoldToHPBonus / GetAncientCurseStatMultiplier /
  *   GetMirrorCurseHPPenalty / BerserkerRage 防御-50% 相当) */
-export function buildBattleStats(run: RunState): CharacterStats {
-  const char = getCharacter(run.characterId);
+export function buildBattleStats(run: RunState, unit: UnitState = run): CharacterStats {
+  const char = getCharacter(unit.characterId);
   const g = char.growthRates;
-  const levels = run.characterLevel - 1;
+  const levels = unit.characterLevel - 1;
+  const meta = unit === run ? run : NO_META;
 
   // レリック由来のステータス補正
   const ancientCurse = hasEffect(run, 'AncientCurse') ? 0.30 : 0;      // 全ステ+30%
@@ -259,31 +306,31 @@ export function buildBattleStats(run: RunState): CharacterStats {
   const berserkDef = hasEffect(run, 'BerserkerRage') ? 0.5 : 1;        // 防御-50%
   const statMult = 1 + ancientCurse;
 
-  let maxHP = Math.round(getEffectiveMaxHP(run) * statMult * (1 - Math.min(0.9, mirrorPenalty))) + goldToHP;
+  let maxHP = Math.round(getEffectiveMaxHP(run, unit) * statMult * (1 - Math.min(0.9, mirrorPenalty))) + goldToHP;
   maxHP = Math.max(1, maxHP);
 
   // 装備ボーナス (RunData.EquipmentBonusStats)
-  const eq = equipmentBonusStats(run);
+  const eq = equipmentBonusStats(unit);
 
   return {
     maxHP: Math.max(1, maxHP + (eq.maxHP ?? 0)),
-    maxMP: Math.round(char.baseStats.maxMP + g.maxMP * levels) + run.metaMaxMPBonus + (eq.maxMP ?? 0),
-    physicalAttack: Math.max(1, Math.round((char.baseStats.physicalAttack + g.physicalAttack * levels) * run.metaPhysAtkMult * statMult) + (eq.physicalAttack ?? 0)),
-    magicAttack: Math.max(1, Math.round((char.baseStats.magicAttack + g.magicAttack * levels) * run.metaMagAtkMult * statMult) + (eq.magicAttack ?? 0)),
-    physicalDefense: Math.max(0, Math.round((char.baseStats.physicalDefense + g.physicalDefense * levels) * run.metaPhysDefMult * statMult * berserkDef) + (eq.physicalDefense ?? 0)),
-    magicDefense: Math.max(0, Math.round((char.baseStats.magicDefense + g.magicDefense * levels) * run.metaMagDefMult * statMult * berserkDef) + (eq.magicDefense ?? 0)),
+    maxMP: Math.round(char.baseStats.maxMP + g.maxMP * levels) + meta.metaMaxMPBonus + (eq.maxMP ?? 0),
+    physicalAttack: Math.max(1, Math.round((char.baseStats.physicalAttack + g.physicalAttack * levels) * meta.metaPhysAtkMult * statMult) + (eq.physicalAttack ?? 0)),
+    magicAttack: Math.max(1, Math.round((char.baseStats.magicAttack + g.magicAttack * levels) * meta.metaMagAtkMult * statMult) + (eq.magicAttack ?? 0)),
+    physicalDefense: Math.max(0, Math.round((char.baseStats.physicalDefense + g.physicalDefense * levels) * meta.metaPhysDefMult * statMult * berserkDef) + (eq.physicalDefense ?? 0)),
+    magicDefense: Math.max(0, Math.round((char.baseStats.magicDefense + g.magicDefense * levels) * meta.metaMagDefMult * statMult * berserkDef) + (eq.magicDefense ?? 0)),
     speed: char.baseStats.speed + g.speed * levels + (eq.speed ?? 0),
     luck: char.baseStats.luck + g.luck * levels + Math.round(sumEffect(run, 'LuckUp')) + (eq.luck ?? 0),
-    criticalRate: Math.min(100, char.baseStats.criticalRate + run.metaCritRateBonus + Math.round(sumEffect(run, 'CritRateUp')) + (eq.criticalRate ?? 0)),
+    criticalRate: Math.min(100, char.baseStats.criticalRate + meta.metaCritRateBonus + Math.round(sumEffect(run, 'CritRateUp')) + (eq.criticalRate ?? 0)),
     accuracyRate: char.baseStats.accuracyRate,
   };
 }
 
 // ── 装備 (RunData.Equip/CanEquip/EquipmentBonusStats の移植) ────────────
 
-export function equipmentBonusStats(run: RunState): Partial<CharacterStats> {
+export function equipmentBonusStats(unit: UnitState): Partial<CharacterStats> {
   const out: Partial<CharacterStats> = {};
-  for (const id of [run.equippedWeapon, run.equippedArmor, run.equippedAccessory]) {
+  for (const id of [unit.equippedWeapon, unit.equippedArmor, unit.equippedAccessory]) {
     if (!id) continue;
     const eq = getEquipmentDef(id);
     if (!eq) continue;
@@ -294,10 +341,10 @@ export function equipmentBonusStats(run: RunState): Partial<CharacterStats> {
   return out;
 }
 
-export function canEquip(run: RunState, equipId: string): boolean {
+export function canEquip(unit: UnitState, equipId: string): boolean {
   const eq = getEquipmentDef(equipId);
   if (!eq) return false;
-  const char = getCharacter(run.characterId);
+  const char = getCharacter(unit.characterId);
   switch (eq.slot) {
     case 'Weapon': return !!eq.weaponCategory && char.allowedWeapons.includes(eq.weaponCategory);
     case 'Armor': return !!eq.armorCategory && char.allowedArmors.includes(eq.armorCategory);
@@ -305,59 +352,54 @@ export function canEquip(run: RunState, equipId: string): boolean {
   }
 }
 
-export function equipItem(run: RunState, equipId: string): boolean {
+/** 装備する。所持品はパーティ共有、装備枠は1人ずつ */
+export function equipItem(run: RunState, equipId: string, unit: UnitState = run): boolean {
   const eq = getEquipmentDef(equipId);
-  if (!eq || !canEquip(run, equipId)) return false;
+  if (!eq || !canEquip(unit, equipId)) return false;
   const slotKey = eq.slot === 'Weapon' ? 'equippedWeapon'
     : eq.slot === 'Armor' ? 'equippedArmor' : 'equippedAccessory';
-  const old = run[slotKey];
+  const old = unit[slotKey];
   if (old) run.equipmentInventory.push(old);
   const idx = run.equipmentInventory.indexOf(equipId);
   if (idx >= 0) run.equipmentInventory.splice(idx, 1);
-  run[slotKey] = equipId;
+  unit[slotKey] = equipId;
   // 最大HP変化後のクランプ
-  run.currentHP = Math.min(run.currentHP, buildBattleStats(run).maxHP);
+  unit.currentHP = Math.min(unit.currentHP, buildBattleStats(run, unit).maxHP);
   return true;
 }
 
-/** 仲間のステータス構築 (RoguelikeManager.BuildPartyMemberStats) */
-export function buildPartyMemberStats(characterId: string, level: number): CharacterStats {
-  const char = getCharacter(characterId);
-  const g = char.growthRates;
-  const levels = level - 1;
-  return {
-    maxHP: char.baseStats.maxHP + g.maxHP * levels,
-    maxMP: char.baseStats.maxMP + g.maxMP * levels,
-    physicalAttack: char.baseStats.physicalAttack + g.physicalAttack * levels,
-    magicAttack: char.baseStats.magicAttack + g.magicAttack * levels,
-    physicalDefense: char.baseStats.physicalDefense + g.physicalDefense * levels,
-    magicDefense: char.baseStats.magicDefense + g.magicDefense * levels,
-    speed: char.baseStats.speed + g.speed * levels,
-    luck: char.baseStats.luck + g.luck * levels,
-    criticalRate: char.baseStats.criticalRate,
-    accuracyRate: char.baseStats.accuracyRate,
-  };
-}
-
-export function unequipSlot(run: RunState, slot: 'Weapon' | 'Armor' | 'Accessory'): void {
+export function unequipSlot(run: RunState, slot: 'Weapon' | 'Armor' | 'Accessory', unit: UnitState = run): void {
   const slotKey = slot === 'Weapon' ? 'equippedWeapon'
     : slot === 'Armor' ? 'equippedArmor' : 'equippedAccessory';
-  const cur = run[slotKey];
+  const cur = unit[slotKey];
   if (!cur) return;
   run.equipmentInventory.push(cur);
-  run[slotKey] = null;
-  run.currentHP = Math.min(run.currentHP, buildBattleStats(run).maxHP);
+  unit[slotKey] = null;
+  unit.currentHP = Math.min(unit.currentHP, buildBattleStats(run, unit).maxHP);
 }
 
-export function healRun(run: RunState, amount: number): number {
-  const max = getEffectiveMaxHP(run);
-  const healed = Math.min(amount, max - run.currentHP);
-  run.currentHP += healed;
+/** 全員が装備している物 (所持品と合わせて「持っている装備」) */
+export function equippedIds(run: RunState): string[] {
+  return partyUnits(run).flatMap((u) => [u.equippedWeapon, u.equippedArmor, u.equippedAccessory])
+    .filter((id): id is string => !!id);
+}
+
+export function healRun(run: RunState, amount: number, unit: UnitState = run): number {
+  const max = getEffectiveMaxHP(run, unit);
+  const healed = Math.max(0, Math.min(amount, max - unit.currentHP));
+  unit.currentHP += healed;
   return healed;
 }
 
-export function damageRun(run: RunState, amount: number): void {
-  run.currentHP = Math.max(0, run.currentHP - amount);
+export function damageRun(run: RunState, amount: number, unit: UnitState = run): void {
+  unit.currentHP = Math.max(0, unit.currentHP - amount);
+}
+
+/** 1人の最大HPを増減する (生命の霊薬・イベント) */
+export function addMaxHP(run: RunState, delta: number, unit: UnitState = run): void {
+  unit.maxHPBase = Math.max(1, unit.maxHPBase + delta);
+  if (delta > 0 && unit.currentHP > 0) healRun(run, delta, unit);
+  unit.currentHP = Math.min(unit.currentHP, getEffectiveMaxHP(run, unit));
 }
 
 export function earnGold(run: RunState, amount: number): void {

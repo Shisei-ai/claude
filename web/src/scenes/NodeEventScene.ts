@@ -12,8 +12,11 @@ import {
 } from '../ui/theme';
 import { hasArt, bgArtKey } from '../data/assets';
 import { loadRun, saveRun } from '../core/save';
-import type { RunState } from '../core/run';
-import { getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip, type ShopSpec } from '../core/run';
+import type { RunState, UnitState } from '../core/run';
+import {
+  getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip, addMaxHP, partyUnits, equippedIds,
+  type ShopSpec,
+} from '../core/run';
 import type { NodeType } from '../core/types';
 import { Rng } from '../core/rng';
 import { FLOORS } from '../data/enemies';
@@ -39,7 +42,9 @@ interface ShopEntry {
   name: string; desc: string;
   price: number; sold: boolean;
   canBuy: () => boolean;
-  buy: () => string;
+  /** 1人向けの品。仲間がいれば購入時に誰に使うかを選ぶ (filter で選べる人を絞る) */
+  target?: { filter?: (u: UnitState) => boolean };
+  buy: (unit: UnitState) => string;
 }
 
 export class NodeEventScene extends Phaser.Scene {
@@ -82,6 +87,41 @@ export class NodeEventScene extends Phaser.Scene {
     return hasArt(this, bgArtKey(this.bgKey()));
   }
 
+  /** パーティの誰かが覚えているスキル (仲間のアッシュの鍵開けなども効く) */
+  private partyHasSkill(skillId: string): boolean {
+    return partyUnits(this.run).some((u) => u.unlockedSkillIds.includes(skillId));
+  }
+
+  /** 仲間がいるとき、結果の文に誰のことかを添える */
+  private who(unit: UnitState): string {
+    return this.run.partyMembers.length > 0 ? `${shortName(getCharacter(unit.characterId).name)}: ` : '';
+  }
+
+  /** 1人向けの効果を誰に使うか選ぶ。仲間がいなければすぐ主人公に決まる */
+  private pickUnit(title: string, detail: string, filter: (u: UnitState) => boolean, onPick: (u: UnitState) => void): void {
+    const units = partyUnits(this.run);
+    if (units.length === 1) { onPick(units[0]); return; }
+    const { width, height } = this.scale;
+    const layer: Phaser.GameObjects.GameObject[] = [];
+    const close = () => layer.forEach((o) => o.destroy());
+    // 下の画面を押せないよう全面を覆う
+    layer.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6).setDepth(200).setInteractive());
+    const h = 170 + units.length * 58;
+    const top = height / 2 - h / 2;
+    layer.push(drawPanel(this, width / 2, height / 2, 600, h, { alpha: 0.97 }).setDepth(201));
+    layer.push(this.add.text(width / 2, top + 36, title, titleStyle(22)).setOrigin(0.5).setDepth(202));
+    layer.push(this.add.text(width / 2, top + 66, detail, textStyle(13, COLORS.textDim)).setOrigin(0.5).setDepth(202));
+    units.forEach((u, i) => {
+      const max = getEffectiveMaxHP(this.run, u);
+      const name = shortName(getCharacter(u.characterId).name);
+      const hp = u.currentHP > 0 ? `HP ${u.currentHP}/${max}` : '戦闘不能';
+      const label = `${i === 0 ? '' : '仲間 '}${name}　Lv.${u.characterLevel}　職Lv.${u.jobLevel}　${hp}`;
+      layer.push(makeButton(this, width / 2, top + 116 + i * 58, label, () => { close(); onPick(u); },
+        { width: 520, height: 48, fontSize: 14, disabled: !filter(u) }).setDepth(202));
+    });
+    layer.push(makeButton(this, width / 2, top + h - 36, 'やめる', close, { width: 200, height: 40, fontSize: 14 }).setDepth(202));
+  }
+
   create(): void {
     playBgm(this, `floor${Math.min(this.run.currentFloor, 3)}`);
     drawSceneBackground(this, undefined, this.bgKey());
@@ -118,8 +158,11 @@ export class NodeEventScene extends Phaser.Scene {
   private statusLine(above?: Phaser.GameObjects.Text): void {
     const { width, height } = this.scale;
     const maxHP = getEffectiveMaxHP(this.run);
+    // 仲間がいれば各自のHPも並べる
+    const members = this.run.partyMembers.map((m) => `${shortName(getCharacter(m.characterId).name)} ` +
+      (m.currentHP > 0 ? `${m.currentHP}/${getEffectiveMaxHP(this.run, m)}` : '戦闘不能')).join('　');
     const t = this.add.text(width / 2, height - 120,
-      `HP ${this.run.currentHP}/${maxHP}　　◈ ${this.run.gold} G　　正気度 ${this.run.sanity >= 0 ? '+' : ''}${this.run.sanity}`,
+      `HP ${this.run.currentHP}/${maxHP}${members ? `　${members}` : ''}　　◈ ${this.run.gold} G　　正気度 ${this.run.sanity >= 0 ? '+' : ''}${this.run.sanity}`,
       textStyle(15, COLORS.textDim)).setOrigin(0.5).setDepth(2);
     const b = t.getBounds();
     const a = above?.setDepth(2).getBounds();
@@ -159,9 +202,11 @@ export class NodeEventScene extends Phaser.Scene {
       this.tweens.add({ targets: fire, scale: { from: 1, to: 1.15 }, duration: 600, yoyo: true, repeat: -1 });
     }
 
-    const maxHP = getEffectiveMaxHP(this.run);
-    // 羽毛の毛布/聖者の遺骨/涸れの呪い: 回復量補正 (RelicManager.ModifyHealAmount)
-    const healAmount = modifyHealAmount(this.run, Math.round(maxHP * 0.30));
+    // 羽毛の毛布/聖者の遺骨/涸れの呪い: 回復量補正 (RelicManager.ModifyHealAmount)。
+    // 全員が自分の最大HPの30%回復し、戦闘不能の仲間も起き上がる
+    const healOf = (u: UnitState) => modifyHealAmount(this.run, Math.round(getEffectiveMaxHP(this.run, u) * 0.30));
+    const healAmount = healOf(this.run);
+    const hasParty = this.run.partyMembers.length > 0;
     const quote = this.heroQuote('rest');
     if (quote) {
       // 背景画像があれば焚き火の絵を隠さないよう少し上に置く
@@ -172,8 +217,8 @@ export class NodeEventScene extends Phaser.Scene {
     }
 
     this.statusLine();
-    makeButton(this, width / 2 - 150, height - 64, `休息する (+${healAmount} HP)`, () => {
-      healRun(this.run, healAmount);
+    makeButton(this, width / 2 - 150, height - 64, hasParty ? '休息する (全員 HP30%回復)' : `休息する (+${healAmount} HP)`, () => {
+      for (const u of partyUnits(this.run)) healRun(this.run, healOf(u), u);
       addSanity(this.run, 1);
       this.finish();
       saveRun(this.run);
@@ -249,15 +294,12 @@ export class NodeEventScene extends Phaser.Scene {
 
     // 装備枠 1-2 (CanEquip を満たすまで最大6回抽選 / 価格 = equip.Value)
     const equipCount = this.rng.range(1, 3);
-    const ownedOrStocked = new Set<string>([
-      ...run.equipmentInventory,
-      run.equippedWeapon ?? '', run.equippedArmor ?? '', run.equippedAccessory ?? '',
-    ]);
+    const ownedOrStocked = new Set<string>([...run.equipmentInventory, ...equippedIds(run)]);
     for (let i = 0; i < equipCount; i++) {
       let equip = null as ReturnType<typeof drawEquipmentForFloor> | null;
       for (let attempt = 0; attempt < 6; attempt++) {
         const cand = drawEquipmentForFloor(floor, this.rng);
-        if (canEquip(run, cand.id) && !ownedOrStocked.has(cand.id)) { equip = cand; break; }
+        if (partyUnits(run).some((u) => canEquip(u, cand.id)) && !ownedOrStocked.has(cand.id)) { equip = cand; break; }
       }
       if (!equip) continue;
       ownedOrStocked.add(equip.id);
@@ -275,24 +317,8 @@ export class NodeEventScene extends Phaser.Scene {
   private consumablePool(): Array<Omit<ShopEntry, 'price' | 'sold' | 'tag' | 'tagColor'>> {
     const run = this.run;
     return [
-      {
-        name: '回復薬', desc: 'HPを30%回復する',
-        canBuy: () => run.currentHP < getEffectiveMaxHP(run),
-        buy: () => {
-          const heal = modifyHealAmount(run, Math.round(getEffectiveMaxHP(run) * 0.30));
-          healRun(run, heal);
-          return `HPが ${heal} 回復した`;
-        },
-      },
-      {
-        name: '大回復薬', desc: 'HPを60%回復する',
-        canBuy: () => run.currentHP < getEffectiveMaxHP(run),
-        buy: () => {
-          const heal = modifyHealAmount(run, Math.round(getEffectiveMaxHP(run) * 0.60));
-          healRun(run, heal);
-          return `HPが ${heal} 回復した`;
-        },
-      },
+      this.healPotion('回復薬', 0.30),
+      this.healPotion('大回復薬', 0.60),
       {
         name: '聖なる護符', desc: '正気度+1',
         canBuy: () => run.sanity < 3,
@@ -301,9 +327,34 @@ export class NodeEventScene extends Phaser.Scene {
       {
         name: '生命の霊薬', desc: '最大HP+10 (このランの間)',
         canBuy: () => true,
-        buy: () => { run.maxHPBase += 10; healRun(run, 10); return '最大HPが 10 上がった'; },
+        target: {},
+        buy: (u) => { addMaxHP(run, 10, u); return `${this.who(u)}最大HPが 10 上がった`; },
       },
     ];
+  }
+
+  /** 回復薬: 1人のHPを最大HPの pct 回復 (戦闘不能の仲間にも使え、起き上がる) */
+  private healPotion(name: string, pct: number): Omit<ShopEntry, 'price' | 'sold' | 'tag' | 'tagColor'> {
+    const run = this.run;
+    const hurt = (u: UnitState) => u.currentHP < getEffectiveMaxHP(run, u);
+    return {
+      name, desc: `HPを${Math.round(pct * 100)}%回復する`,
+      canBuy: () => partyUnits(run).some(hurt),
+      target: { filter: hurt },
+      buy: (u) => {
+        const wasDown = u.currentHP <= 0;
+        const heal = healRun(run, modifyHealAmount(run, Math.round(getEffectiveMaxHP(run, u) * pct)), u);
+        return `${this.who(u)}${wasDown ? '起き上がった。' : ''}HPが ${heal} 回復した`;
+      },
+    };
+  }
+
+  /** JPを得る (修練の書・スキル強化・イベント) */
+  private gainJP(u: UnitState, jp: number): string {
+    const unlocked = addJP(this.run, jp, u);
+    return unlocked.length > 0
+      ? `${this.who(u)}JP+${jp}　新スキル習得: ${unlocked.map((s) => s.name).join('、')}`
+      : `${this.who(u)}JP+${jp} を得た`;
   }
 
   /** 保存した在庫1枠から、表示と購入処理を組み立てる */
@@ -316,12 +367,8 @@ export class NodeEventScene extends Phaser.Scene {
           name: '修練の書', desc: '読み解くと職業の理解が深まる (JP+25)',
           price: spec.price, sold: false,
           canBuy: () => true,
-          buy: () => {
-            const unlocked = addJP(run, 25);
-            return unlocked.length > 0
-              ? `JP+25　新スキル習得: ${unlocked.map((s) => s.name).join('、')}`
-              : 'JP+25 を得た';
-          },
+          target: {},
+          buy: (u) => this.gainJP(u, 25),
         };
       case 'relic': {
         const relic = getRelic(spec.id)!;
@@ -374,12 +421,8 @@ export class NodeEventScene extends Phaser.Scene {
           name: 'スキル強化', desc: '実戦の型を教わり、職業の理解が大きく深まる (JP+50)',
           price: spec.price, sold: false,
           canBuy: () => true,
-          buy: () => {
-            const unlocked = addJP(run, 50);
-            return unlocked.length > 0
-              ? `JP+50　新スキル習得: ${unlocked.map((s) => s.name).join('、')}`
-              : 'JP+50 を得た';
-          },
+          target: {},
+          buy: (u) => this.gainJP(u, 50),
         };
     }
   }
@@ -415,12 +458,19 @@ export class NodeEventScene extends Phaser.Scene {
       } else {
         makeButton(this, x + 235, y, item.price > 0 ? `${item.price} G` : '無料', () => {
           if (item.sold || this.run.gold < item.price || !item.canBuy()) return;
-          this.run.gold -= item.price;
-          this.shopMessage = `「${item.name}」— ${item.buy()}`;
-          item.sold = true;
-          this.run.pendingEncounter?.shop?.sold.push(i);
-          saveRun(this.run);
-          this.renderShop();
+          const complete = (unit: UnitState) => {
+            this.run.gold -= item.price;
+            this.shopMessage = `「${item.name}」— ${item.buy(unit)}`;
+            item.sold = true;
+            this.run.pendingEncounter?.shop?.sold.push(i);
+            saveRun(this.run);
+            this.renderShop();
+          };
+          if (item.target) {
+            this.pickUnit(`${item.name}を誰に使う？`, item.desc, item.target.filter ?? (() => true), complete);
+          } else {
+            complete(this.run);
+          }
         }, { width: 110, height: 36, fontSize: 13, disabled: !affordable });
       }
     });
@@ -445,7 +495,7 @@ export class NodeEventScene extends Phaser.Scene {
     let message = `${gold} G を手に入れた！`;
 
     // 鍵師の手 (アッシュ): 秘密の宝箱を追加発見
-    if (this.run.unlockedSkillIds.includes('SKL_A_Lockpicking')) {
+    if (this.partyHasSkill('SKL_A_Lockpicking')) {
       const secret = 30 + this.rng.range(0, 31);
       gold += secret;
       message += `\n【鍵師の手】隠し宝箱を発見！ 追加で ${secret} G`;
@@ -488,10 +538,12 @@ export class NodeEventScene extends Phaser.Scene {
       this.tweens.add({ targets: skull, alpha: { from: 1, to: 0.65 }, duration: 1400, yoyo: true, repeat: -1 });
     }
 
-    const maxHP = getEffectiveMaxHP(this.run);
     // 罠師の知識 (アッシュ): トラップダメージ50%軽減
-    const hasTrapMastery = this.run.unlockedSkillIds.includes('SKL_A_TrapMastery');
-    const damage = Math.round(maxHP * 0.10 * (hasTrapMastery ? 0.5 : 1));
+    const hasTrapMastery = this.partyHasSkill('SKL_A_TrapMastery');
+    // 罠は生きている全員が自分の最大HPの10%を受ける
+    const damageOf = (u: UnitState) => Math.round(getEffectiveMaxHP(this.run, u) * 0.10 * (hasTrapMastery ? 0.5 : 1));
+    const damage = damageOf(this.run);
+    const hasParty = this.run.partyMembers.length > 0;
     // 悪魔の帳簿: 呪われた間の報酬2倍
     const gold = Math.round((60 + this.rng.range(0, 41)) * riskRewardMultiplier(this.run));
 
@@ -503,8 +555,9 @@ export class NodeEventScene extends Phaser.Scene {
     }
 
     this.statusLine();
-    makeButton(this, width / 2 - 170, height - 64, `祭壇に触れる (HP-${damage} / +${gold}G)`, () => {
-      damageRun(this.run, damage);
+    makeButton(this, width / 2 - 170, height - 64,
+      hasParty ? `祭壇に触れる (全員 HP-${hasTrapMastery ? 5 : 10}% / +${gold}G)` : `祭壇に触れる (HP-${damage} / +${gold}G)`, () => {
+      for (const u of partyUnits(this.run)) if (u.currentHP > 0) damageRun(this.run, damageOf(u), u);
       addSanity(this.run, -1);
       earnGold(this.run, gold);
       this.finish();
@@ -608,28 +661,45 @@ export class NodeEventScene extends Phaser.Scene {
   }
 
   // ── 選択結果の適用 (RandomEventManager.ApplyResult の移植) ──────────
-  private resolveChoice(choice: EventChoiceDef): void {
+  private resolveChoice(choice: EventChoiceDef, target?: UnitState): void {
     const run = this.run;
     const r = choice.result;
     const outcomes: string[] = [];
 
+    // 最大HP・JP の増減は1人向け。仲間がいれば先に誰が受けるかを選ぶ (やめれば選択肢に戻る)
+    if (!target && (r.maxHP || r.skillDraft || r.removeSkill) && run.partyMembers.length > 0) {
+      const parts: string[] = [];
+      if (r.maxHP) parts.push(`最大HP ${r.maxHP > 0 ? '+' : ''}${r.maxHP}`);
+      if (r.skillDraft) parts.push(`JP +${r.skillDraft * 25}`);
+      if (r.removeSkill) parts.push('JP -50');
+      this.pickUnit('誰が受ける？', parts.join('　'), () => true, (u) => this.resolveChoice(choice, u));
+      return;
+    }
+    const unit = target ?? run;
+
     // コスト減算
     if (choice.goldCost) run.gold = Math.max(0, run.gold - choice.goldCost);
 
-    // HP変化 (回復はレリック補正 / ダメージはそのまま)
+    // HP変化 (回復はレリック補正 / ダメージはそのまま)。全員がそれぞれの最大HP比で受ける。
+    // 全回復は戦闘不能の仲間も起き上がり、割合回復・ダメージは生きている者だけ
+    const party = partyUnits(run);
+    const hasParty = party.length > 1;
     if (r.fullHeal) {
-      run.currentHP = getEffectiveMaxHP(run);
-      outcomes.push('HPが完全に回復した');
+      for (const u of party) u.currentHP = getEffectiveMaxHP(run, u);
+      outcomes.push(hasParty ? '全員のHPが完全に回復した' : 'HPが完全に回復した');
     } else if (r.hpPct) {
-      const delta = Math.round(getEffectiveMaxHP(run) * r.hpPct);
-      if (delta > 0) {
-        const healed = Math.min(modifyHealAmount(run, delta), getEffectiveMaxHP(run) - run.currentHP);
-        healRun(run, modifyHealAmount(run, delta));
-        outcomes.push(`HP +${Math.max(0, healed)}`);
-      } else {
-        damageRun(run, -delta);
-        outcomes.push(`HP ${delta}`);
-      }
+      const pct = r.hpPct;
+      const changes = party.filter((u) => u.currentHP > 0).map((u) => {
+        const delta = Math.round(getEffectiveMaxHP(run, u) * pct);
+        if (delta > 0) return { u, d: healRun(run, modifyHealAmount(run, delta), u) };
+        const before = u.currentHP;
+        damageRun(run, -delta, u);
+        return { u, d: u.currentHP - before };
+      });
+      const fmt = (d: number) => (d >= 0 ? `HP +${d}` : `HP ${d}`);
+      outcomes.push(hasParty
+        ? changes.map((c) => `${shortName(getCharacter(c.u.characterId).name)} ${fmt(c.d)}${c.u.currentHP <= 0 ? ' (戦闘不能)' : ''}`).join('　')
+        : fmt(changes[0]?.d ?? 0));
     }
 
     // ゴールド (-9999 = 全財産)
@@ -648,9 +718,8 @@ export class NodeEventScene extends Phaser.Scene {
 
     // 最大HP
     if (r.maxHP) {
-      run.maxHPBase = Math.max(1, run.maxHPBase + r.maxHP);
-      run.currentHP = Math.min(run.currentHP, getEffectiveMaxHP(run));
-      outcomes.push(`最大HP ${r.maxHP > 0 ? '+' : ''}${r.maxHP}`);
+      addMaxHP(run, r.maxHP, unit);
+      outcomes.push(`${this.who(unit)}最大HP ${r.maxHP > 0 ? '+' : ''}${r.maxHP}`);
     }
 
     // 正気度
@@ -687,15 +756,15 @@ export class NodeEventScene extends Phaser.Scene {
     // スキルドラフト → JP獲得 (Web版適応: デッキ構築が存在しないため)
     if (r.skillDraft) {
       const jp = r.skillDraft * 25;
-      const unlocked = addJP(run, jp);
-      outcomes.push(`修練が進んだ (JP +${jp})`);
+      const unlocked = addJP(run, jp, unit);
+      outcomes.push(`${this.who(unit)}修練が進んだ (JP +${jp})`);
       if (unlocked.length > 0) {
         outcomes.push(`新スキル習得: ${unlocked.map((s) => s.name).join('、')}`);
       }
     }
     // スキル売却 → JP消費 (Web版適応)
     if (r.removeSkill) {
-      run.currentJobJP = Math.max(0, run.currentJobJP - 50);
+      unit.currentJobJP = Math.max(0, unit.currentJobJP - 50);
     }
 
     // エンディング分岐: 証印レリック + ActiveEnding + 予兆演出

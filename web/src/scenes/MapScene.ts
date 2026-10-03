@@ -150,7 +150,9 @@ export class MapScene extends Phaser.Scene {
     if (run.partyMembers.length > 0) {
       const partyStr = run.partyMembers.map((m) => {
         const name = getCharacter(m.characterId).name.split('・')[0];
-        return m.currentHP > 0 ? `${name} ${m.currentHP}/${m.maxHP}` : `${name} (戦闘不能)`;
+        return m.currentHP > 0
+          ? `${name} Lv.${m.characterLevel} ${m.currentHP}/${getEffectiveMaxHP(run, m)}`
+          : `${name} Lv.${m.characterLevel} (戦闘不能)`;
       }).join('　');
       this.add.text(width - 560, 122, `仲間: ${partyStr}`, textStyle(11, COLORS.textBlue));
     }

@@ -323,6 +323,8 @@ export class BattleEngine {
   private lastHitDealt = 0;
   /** このバトルで吸収したスキルID (ラン永続化用) */
   absorbedThisBattle: string[] = [];
+  /** 誰が刻んだか (仲間のゼノの吸収は、その仲間のグリモワールに残す) */
+  absorbedBy: { skillId: string; user: Combatant }[] = [];
   /** 魂の吊灯籠: このバトルでレリック獲得権が発生したか */
   soulSiphonRewards = 0;
   relics: RelicBattleState | null;
@@ -1173,6 +1175,7 @@ export class BattleEngine {
       if (pick && !user.skills.some((s) => s.id === pick.skill.id)) {
         user.skills = [...user.skills, toGrimoireSkill(pick.skill)];
         this.absorbedThisBattle.push(pick.skill.id);
+        this.absorbedBy.push({ skillId: pick.skill.id, user });
         this.emit({ kind: 'absorb', skillId: pick.skill.id, skillName: pick.skill.name });
         this.emit({ kind: 'message', text: `「${pick.skill.name}」をグリモワールに刻んだ！` });
       }
@@ -1473,8 +1476,8 @@ export class BattleEngine {
 
     // レリック: 撃破時効果 (喰屍鬼の歯・魂鳴りの角笛・魂の吊灯籠)
     if (!target.isPlayer && this.relics) {
-      const { heal, soulReward } = this.relics.onEnemyKilled(this.heroes);
-      if (heal > 0) this.emit({ kind: 'heal', target: this.heroes[0], amount: heal });
+      const { heals, soulReward } = this.relics.onEnemyKilled(this.heroes);
+      for (const h of heals) this.emit({ kind: 'heal', target: h.target, amount: h.amount });
       if (soulReward) {
         this.soulSiphonRewards++;
         this.emit({ kind: 'message', text: '魂の吊灯籠が満ちた… 宝の在り処が視える！' });

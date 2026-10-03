@@ -2,8 +2,8 @@
 // Unity版 RoguelikeManager のエンカウント選択 + EnemyScaling を移植
 import { Combatant } from './engine';
 import type { EnemyDef, NodeType } from '../core/types';
-import type { RunState } from '../core/run';
-import { buildBattleStats, buildPartyMemberStats } from '../core/run';
+import type { RunState, UnitState } from '../core/run';
+import { buildBattleStats } from '../core/run';
 import { getCharacter } from '../data/characters';
 import { getDifficulty } from '../data/difficulty';
 import { FLOORS, findEnemySkillById, type EncounterGroup } from '../data/enemies';
@@ -45,13 +45,14 @@ export function pickEncounter(
   return groups[groups.length - 1].enemies;
 }
 
-export function buildHero(run: RunState): Combatant {
-  const char = getCharacter(run.characterId);
-  const stats = buildBattleStats(run);
+/** 1人ぶんの戦闘者を作る。unit を省くと主人公 (仲間も同じ規則でスキル・装備・レリック補正が付く) */
+export function buildHero(run: RunState, unit: UnitState = run): Combatant {
+  const char = getCharacter(unit.characterId);
+  const stats = buildBattleStats(run, unit);
 
   // ゼノ: グリモワールに刻んだ敵スキルをコマンドに追加
-  const skills = [...getActiveSkills(run)];
-  for (const id of run.absorbedSkillIds) {
+  const skills = [...getActiveSkills(unit)];
+  for (const id of unit.absorbedSkillIds) {
     const sk = findEnemySkillById(id);
     if (sk && !skills.some((s) => s.id === sk.id)) {
       skills.push(toGrimoireSkill(sk));
@@ -61,43 +62,29 @@ export function buildHero(run: RunState): Combatant {
   const hero = new Combatant({
     isPlayer: true,
     name: char.name,
-    characterId: run.characterId,
+    characterId: unit.characterId,
     stats,
     skills,
-    passives: getPassiveIds(run),
-    initialHP: Math.min(run.currentHP, stats.maxHP),
+    passives: getPassiveIds(unit),
+    initialHP: Math.max(0, Math.min(unit.currentHP, stats.maxHP)),
   });
 
   // 装備効果: 武器属性 + 蘇生の護符
-  if (run.equippedWeapon) {
-    const weapon = getEquipmentDefById(run.equippedWeapon);
+  if (unit.equippedWeapon) {
+    const weapon = getEquipmentDefById(unit.equippedWeapon);
     if (weapon) hero.weaponElement = weapon.weaponElement;
   }
-  if (run.equippedAccessory === 'Equip_RevivalAmulet') {
+  if (unit.equippedAccessory === 'Equip_RevivalAmulet') {
     hero.revivalAmuletAvailable = true;
   }
 
   return hero;
 }
 
-/** 主人公 + 仲間 (幻影) のパーティを構築
- *  Unity版準拠: 仲間はスキルなし (通常攻撃+ブーストのみ)、レベル固定 */
+/** 主人公 + 仲間 (幻影) のパーティを構築。heroes[i] は partyUnits(run)[i] に対応する
+ *  (Unity版の仲間はスキルなし・レベル固定。Web版は主人公と同じくスキル・装備を持つ) */
 export function buildHeroes(run: RunState): Combatant[] {
-  const heroes = [buildHero(run)];
-  for (const member of run.partyMembers) {
-    const char = getCharacter(member.characterId);
-    const stats = buildPartyMemberStats(member.characterId, member.level);
-    heroes.push(new Combatant({
-      isPlayer: true,
-      name: char.name,
-      characterId: member.characterId,
-      stats,
-      skills: [],   // Unity版: heroSkillList.Add(new List<SkillData>())
-      passives: new Set(),
-      initialHP: Math.max(0, Math.min(member.currentHP, stats.maxHP)),
-    }));
-  }
-  return heroes;
+  return [buildHero(run), ...run.partyMembers.map((m) => buildHero(run, m))];
 }
 
 /** 層ごとの敵の強化率 (第1層=0、第2層=+1段…最終層=+4段)。難易度の倍率に掛け合わせる */

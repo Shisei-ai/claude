@@ -11,7 +11,7 @@ import { pickEncounter, buildHeroes, buildEnemies, computeRewards } from '../src
 import { RelicBattleState } from '../src/battle/relicHooks';
 import {
   createRun, getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip, equipItem,
-  buildPartyMemberStats, type RunState,
+  createPartyMember, partyUnits, addMaxHP, equippedIds, type RunState, type UnitState,
 } from '../src/core/run';
 import { addExp, addJP, MAX_CHARACTER_LEVEL } from '../src/core/level';
 import { generateMap, getAvailableNodes, getStartNodes, getNode } from '../src/core/mapgen';
@@ -150,15 +150,18 @@ function battle(run: RunState, nodeType: NodeType, seed: number): boolean {
   run.currentHP = Math.max(1, hero.hp);
   run.partyMembers.forEach((m, i) => { const c = heroes[i + 1]; if (c) m.currentHP = c.hp; });
   run.battlesWon++; run.totalRoomsCleared++; run.enemiesKilled += defs.length;
-  for (const id of eng.absorbedThisBattle) if (!run.absorbedSkillIds.includes(id)) run.absorbedSkillIds.push(id);
+  const units = partyUnits(run);
+  for (const { skillId, user } of eng.absorbedBy) {
+    const u = units[heroes.indexOf(user)] ?? run;
+    if (!u.absorbedSkillIds.includes(skillId)) u.absorbedSkillIds.push(skillId);
+  }
   const isElite = nodeType === 'EliteBattle';
   const isBoss = nodeType === 'Boss';
   const rewards = computeRewards(defs);
   let gold = modifyGoldDrop(run, rewards.gold);
   if (isElite && hasEffect(run, 'EliteHunter')) gold *= 2;
   run.gold += gold; run.goldEarned += gold;
-  addExp(run, rewards.exp);
-  addJP(run, rewards.jp);
+  for (const u of units) { addExp(run, rewards.exp, u); addJP(run, rewards.jp, u); }
   const loot = buildBattleLoot(run, isElite, isBoss);
   for (let i = 0; i < eng.soulSiphonRewards; i++) {
     const bonus = drawRelic(run, rollRelicRarity(run.sanity, false));
@@ -175,7 +178,7 @@ function pickRelic(choices: RelicDef[]): RelicDef | undefined {
 }
 
 // ── 装備: 手に入れたら、その枠で強ければ付け替える ──────────────────────
-function equipScore(run: RunState, id: string): number {
+function equipScore(run: UnitState, id: string): number {
   const e = getEquipment(id); if (!e) return 0;
   const c = getCharacter(run.characterId);
   const magic = c.baseStats.magicAttack > c.baseStats.physicalAttack;
@@ -185,14 +188,30 @@ function equipScore(run: RunState, id: string): number {
     + (s.physicalDefense ?? 0) + (s.magicDefense ?? 0) + (s.speed ?? 0) * 1.5
     + (s.criticalRate ?? 0) + (s.luck ?? 0) * 0.3;
 }
+const slotOf = (u: UnitState, slot: string) => slot === 'Weapon' ? u.equippedWeapon : slot === 'Armor' ? u.equippedArmor : u.equippedAccessory;
+/** 装備の伸びが一番大きい人 (主人公優先) */
+function bestHolder(run: RunState, id: string): { u: UnitState; gain: number } | null {
+  const e = getEquipment(id); if (!e) return null;
+  let best: { u: UnitState; gain: number } | null = null;
+  for (const u of partyUnits(run)) {
+    if (!canEquip(u, id)) continue;
+    const cur = slotOf(u, e.slot);
+    const gain = equipScore(u, id) - (cur ? equipScore(u, cur) : 0);
+    if (!best || gain > best.gain) best = { u, gain };
+  }
+  return best;
+}
 function autoEquip(run: RunState): void {
   if (NO_RANDOM) return;
   for (const id of [...run.equipmentInventory]) {
-    const e = getEquipment(id); if (!e || !canEquip(run, id)) continue;
-    const cur = e.slot === 'Weapon' ? run.equippedWeapon : e.slot === 'Armor' ? run.equippedArmor : run.equippedAccessory;
-    if (!cur || equipScore(run, id) > equipScore(run, cur)) equipItem(run, id);
+    const b = bestHolder(run, id);
+    if (b && b.gain > 0) equipItem(run, id, b.u);
   }
 }
+/** 一番HPの割合が低い人 (戦闘不能を含む) */
+const mostHurt = (run: RunState) => [...partyUnits(run)].sort((a, b) => a.currentHP / getEffectiveMaxHP(run, a) - b.currentHP / getEffectiveMaxHP(run, b))[0];
+/** JP を渡す相手: 職レベルが一番低い人 (同じなら主人公) */
+const jpTarget = (run: RunState) => [...partyUnits(run)].sort((a, b) => a.jobLevel - b.jobLevel)[0];
 
 // ── 商人 (NodeEventScene.buildShopSpecs + shopEntry) ────────────────────
 function shop(run: RunState, rng: Rng): void {
@@ -202,7 +221,7 @@ function shop(run: RunState, rng: Rng): void {
   const items: Item[] = [];
   const skillCount = rng.range(3, 5);
   const skillPrice = price(Math.round(75 * (1 + floor * 0.3)));
-  for (let i = 0; i < skillCount; i++) items.push({ kind: 'skill', price: skillPrice, value: 1, buy: () => { addJP(run, 25); } });
+  for (let i = 0; i < skillCount; i++) items.push({ kind: 'skill', price: skillPrice, value: 1, buy: () => { addJP(run, 25, jpTarget(run)); } });
   const BASE: Partial<Record<RelicRarity, number>> = { Common: 80, Uncommon: 150, Rare: 250, Cursed: 50 };
   const used = new Set<string>();
   const relicSlot = (cursed: boolean) => {
@@ -215,24 +234,25 @@ function shop(run: RunState, rng: Rng): void {
   const relicCount = rng.range(2, 4);
   for (let i = 0; i < relicCount; i++) relicSlot(false);
   if (hasEffect(run, 'BlackMarket')) relicSlot(true);
-  const maxHP = getEffectiveMaxHP(run);
+  const hurt = mostHurt(run);
+  const hurtR = hurt.currentHP / getEffectiveMaxHP(run, hurt);
+  const potion = (pct: number) => () => { const u = mostHurt(run); healRun(run, modifyHealAmount(run, Math.round(getEffectiveMaxHP(run, u) * pct)), u); };
   const pool = [
-    { kind: 'potion', value: run.currentHP < maxHP * 0.6 ? 4 : 0, buy: () => healRun(run, modifyHealAmount(run, Math.round(getEffectiveMaxHP(run) * 0.30))) },
-    { kind: 'bigpotion', value: run.currentHP < maxHP * 0.45 ? 6 : 0, buy: () => healRun(run, modifyHealAmount(run, Math.round(getEffectiveMaxHP(run) * 0.60))) },
+    { kind: 'potion', value: hurtR < 0.6 ? 4 : 0, buy: potion(0.30) },
+    { kind: 'bigpotion', value: hurtR < 0.45 ? 6 : 0, buy: potion(0.60) },
     { kind: 'charm', value: run.sanity < 0 ? 1 : 0, buy: () => addSanity(run, 1) },
-    { kind: 'elixir', value: 1.5, buy: () => { run.maxHPBase += 10; healRun(run, 10); } },
+    { kind: 'elixir', value: 1.5, buy: () => { addMaxHP(run, 10); } },
   ];
   const idx = [0, 1, 2, 3];
   for (let i = 0; i < 2; i++) { const p = idx.splice(rng.int(idx.length), 1)[0]; items.push({ ...pool[p], price: price(40) }); }
   const equipCount = rng.range(1, 3);
-  const owned = new Set([...run.equipmentInventory, run.equippedWeapon ?? '', run.equippedArmor ?? '', run.equippedAccessory ?? '']);
+  const owned = new Set([...run.equipmentInventory, ...equippedIds(run)]);
   for (let i = 0; i < equipCount; i++) {
     for (let a = 0; a < 6; a++) {
       const cand = drawEquipmentForFloor(floor, rng);
-      if (canEquip(run, cand.id) && !owned.has(cand.id)) {
+      if (partyUnits(run).some((u) => canEquip(u, cand.id)) && !owned.has(cand.id)) {
         owned.add(cand.id);
-        const cur = cand.slot === 'Weapon' ? run.equippedWeapon : cand.slot === 'Armor' ? run.equippedArmor : run.equippedAccessory;
-        const gain = equipScore(run, cand.id) - (cur ? equipScore(run, cur) : 0);
+        const gain = bestHolder(run, cand.id)?.gain ?? 0;
         items.push({ kind: 'equip', price: price(cand.value), value: gain > 5 ? 3 + gain / 20 : 0,
           buy: () => { run.equipmentInventory.push(cand.id); autoEquip(run); } });
         break;
@@ -240,7 +260,7 @@ function shop(run: RunState, rng: Rng): void {
     }
   }
   items.push({ kind: 'purge', price: hasEffect(run, 'FreeRemove') ? 0 : price(100), value: run.curses.length > 0 ? 3 : 0, buy: () => { run.curses.pop(); } });
-  items.push({ kind: 'upgrade', price: price(120), value: 1.2, buy: () => { addJP(run, 50); } });
+  items.push({ kind: 'upgrade', price: price(120), value: 1.2, buy: () => { addJP(run, 50, jpTarget(run)); } });
   // 価値の高い順に、買えるだけ買う (修練は所持金に余裕があるときだけ)
   items.sort((a, b) => b.value / Math.max(20, b.price) - a.value / Math.max(20, a.price));
   for (const it of items) {
@@ -255,7 +275,7 @@ function shop(run: RunState, rng: Rng): void {
 function treasure(run: RunState, rng: Rng): void {
   const floor = FLOORS[Math.min(run.currentFloor, FLOORS.length - 1)];
   let gold = floor.baseGoldReward + rng.range(10, 41);
-  if (run.unlockedSkillIds.includes('SKL_A_Lockpicking')) gold += 30 + rng.range(0, 31);
+  if (partyUnits(run).some((u) => u.unlockedSkillIds.includes('SKL_A_Lockpicking'))) gold += 30 + rng.range(0, 31);
   if (rng.next() < 0.40) { run.equipmentInventory.push(drawEquipmentForFloor(run.currentFloor, rng).id); autoEquip(run); }
   let rarity = rollRelicRarity(run.sanity, false);
   if (hasEffect(run, 'TreasureNose')) {
@@ -302,21 +322,24 @@ function event(run: RunState, rng: Rng): 'ok' | 'dead' | { battle: NodeType; see
   const choice = [...ev.choices].sort((a, b) => scoreChoice(run, b) - scoreChoice(run, a))[0];
   const r = choice.result;
   if (choice.goldCost) run.gold = Math.max(0, run.gold - choice.goldCost);
-  if (r.fullHeal) run.currentHP = getEffectiveMaxHP(run);
+  if (r.fullHeal) for (const u of partyUnits(run)) u.currentHP = getEffectiveMaxHP(run, u);
   else if (r.hpPct) {
-    const delta = Math.round(getEffectiveMaxHP(run) * r.hpPct);
-    if (delta > 0) healRun(run, modifyHealAmount(run, delta)); else damageRun(run, -delta);
+    for (const u of partyUnits(run)) {
+      if (u.currentHP <= 0) continue;
+      const delta = Math.round(getEffectiveMaxHP(run, u) * r.hpPct);
+      if (delta > 0) healRun(run, modifyHealAmount(run, delta), u); else damageRun(run, -delta, u);
+    }
   }
   if (r.gold) {
     if (r.gold > 0) earnGold(run, modifyEventGold(run, modifyGoldDrop(run, r.gold)));
     else run.gold = Math.max(0, run.gold - (r.gold === -9999 ? run.gold : -r.gold));
   }
-  if (r.maxHP) { run.maxHPBase = Math.max(1, run.maxHPBase + r.maxHP); run.currentHP = Math.min(run.currentHP, getEffectiveMaxHP(run)); }
+  if (r.maxHP) addMaxHP(run, r.maxHP);
   if (r.sanity) addSanity(run, r.sanity);
   if (r.relicPool) gainRelic(run, drawRelic(run, r.relicPool === 'Event' ? 'Rare' : r.relicPool));
   if (r.curse) run.curses.push(randomCurse());
   if (r.removeCurse && run.curses.length) { const n = r.removeCurse >= 99 ? run.curses.length : Math.min(r.removeCurse, run.curses.length); for (let i = 0; i < n; i++) run.curses.pop(); }
-  if (r.skillDraft) addJP(run, r.skillDraft * 25);
+  if (r.skillDraft) addJP(run, r.skillDraft * 25, jpTarget(run));
   if (r.removeSkill) run.currentJobJP = Math.max(0, run.currentJobJP - 50);
   if (r.endingPath) {
     run.activeEnding = r.endingPath;
@@ -386,13 +409,14 @@ function playRun(charId: string, seed: number, blessingIdx: number): RunResult {
         if (!battle(run, t, node.contentSeed)) { diedAt = `F${run.currentFloor + 1} ${t}`; return result(false); }
         if (t === 'Boss') bossCleared = true;
       } else if (t === 'RestSite') {
-        healRun(run, modifyHealAmount(run, Math.round(getEffectiveMaxHP(run) * 0.30))); addSanity(run, 1);
+        for (const u of partyUnits(run)) healRun(run, modifyHealAmount(run, Math.round(getEffectiveMaxHP(run, u) * 0.30)), u);
+        addSanity(run, 1);
       } else if (t === 'Shop') shop(run, r2);
       else if (t === 'Treasure') treasure(run, r2);
       else if (t === 'CursedRoom') {
         if (run.currentHP > getEffectiveMaxHP(run) * 0.6) {
-          const trap = run.unlockedSkillIds.includes('SKL_A_TrapMastery');
-          damageRun(run, Math.round(getEffectiveMaxHP(run) * 0.10 * (trap ? 0.5 : 1)));
+          const trap = partyUnits(run).some((u) => u.unlockedSkillIds.includes('SKL_A_TrapMastery'));
+          for (const u of partyUnits(run)) if (u.currentHP > 0) damageRun(run, Math.round(getEffectiveMaxHP(run, u) * 0.10 * (trap ? 0.5 : 1)), u);
           addSanity(run, -1);
           earnGold(run, Math.round((60 + r2.range(0, 41)) * riskRewardMultiplier(run)));
           if (run.currentHP <= 0) { diedAt = `F${run.currentFloor + 1} 呪われた間`; return result(false); }
@@ -410,15 +434,15 @@ function playRun(charId: string, seed: number, blessingIdx: number): RunResult {
     if (run.currentFloor >= FLOORS.length - 1) {
       if (!run.activeEnding) return result(true);   // 証印なし: ヴァルゴット撃破でデフォルトエンディング
       run.currentFloor = 4;
-      let pct = 0.30 + (run.metaFloorClearExtraHeal ? 0.05 : 0) + sumEffect(run, 'FloorClearHeal');
-      healRun(run, Math.round(getEffectiveMaxHP(run) * pct));
+      const pct = 0.30 + (run.metaFloorClearExtraHeal ? 0.05 : 0) + sumEffect(run, 'FloorClearHeal');
+      floorHeal(pct);
       // 最終層はボス1戦のみ (FinaleScene)
       if (!battle(run, 'Boss', rng.int(0x7fffffff))) { diedAt = 'F5 最終ボス'; return result(false); }
       return result(true);
     }
-    let pct = 0.30 + (run.metaFloorClearExtraHeal ? 0.05 : 0) + sumEffect(run, 'FloorClearHeal');
+    const pct = 0.30 + (run.metaFloorClearExtraHeal ? 0.05 : 0) + sumEffect(run, 'FloorClearHeal');
+    floorHeal(pct);
     const maxHP = getEffectiveMaxHP(run);
-    run.currentHP = Math.min(maxHP, run.currentHP + Math.round(maxHP * pct));
     const shieldPct = sumEffect(run, 'ShieldPerFloor');
     if (shieldPct > 0) run.shieldBarrier += Math.round(maxHP * shieldPct);
     const wasFloor0 = run.currentFloor === 0;
@@ -435,11 +459,17 @@ function playRun(charId: string, seed: number, blessingIdx: number): RunResult {
       const others = CHARACTERS.filter((c) => c.id !== run.characterId);
       const prng = new Rng(run.seed + 0x5a17);
       for (let i = others.length - 1; i > 0; i--) { const j = prng.range(0, i + 1); [others[i], others[j]] = [others[j], others[i]]; }
-      for (const c of others.slice(0, 1)) {
-        const s = buildPartyMemberStats(c.id, 4);
-        run.partyMembers.push({ characterId: c.id, level: 4, currentHP: s.maxHP, maxHP: s.maxHP });
-      }
+      for (const c of others.slice(0, 1)) run.partyMembers.push(createPartyMember(run, c.id, 4, run.jobLevel));
       run.phantomEventDone = true;
+    }
+  }
+
+  /** BattleScene.floorClearHeal と同じ (仲間は墓標の+5%なし・戦闘不能でも起き上がる) */
+  function floorHeal(heroPct: number): void {
+    for (const u of partyUnits(run)) {
+      const max = getEffectiveMaxHP(run, u);
+      const pct = u === run ? heroPct : heroPct - (run.metaFloorClearExtraHeal ? 0.05 : 0);
+      u.currentHP = Math.min(max, u.currentHP + Math.round(max * pct));
     }
   }
 
