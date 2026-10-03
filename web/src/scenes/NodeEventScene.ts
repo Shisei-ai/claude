@@ -207,7 +207,8 @@ export class NodeEventScene extends Phaser.Scene {
     // 羽毛の毛布/聖者の遺骨/涸れの呪い: 回復量補正 (RelicManager.ModifyHealAmount)。
     // 全員が自分の最大HPの25%回復し、戦闘不能の仲間は HP100 で起き上がる
     const pct = Math.round(REST_HEAL_PCT * 100);
-    const healAmount = modifyHealAmount(this.run, Math.round(getEffectiveMaxHP(this.run) * REST_HEAL_PCT));
+    // 主人公は墓標「焚き火の心得」の分も上乗せ
+    const healAmount = modifyHealAmount(this.run, Math.round(getEffectiveMaxHP(this.run) * (REST_HEAL_PCT + this.run.metaRestHealBonus)));
     const hasParty = this.run.partyMembers.length > 0;
     const someoneDown = this.run.partyMembers.some((m) => m.currentHP <= 0);
     const restLabel = !hasParty ? `休息する (+${healAmount} HP)`

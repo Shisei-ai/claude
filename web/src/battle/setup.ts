@@ -87,6 +87,9 @@ export function buildHeroes(run: RunState): Combatant[] {
   return [buildHero(run), ...run.partyMembers.map((m) => buildHero(run, m))];
 }
 
+/** 敵の基礎ステータスの底上げ (Web版の難易度調整: 最大HP・物攻・魔攻・物防・魔防を+33%。速さ・命中・会心はそのまま) */
+export const ENEMY_STAT_MULT = 1.33;
+
 /** 層ごとの敵の強化率 (第1層=0、第2層=+1段…最終層=+4段)。難易度の倍率に掛け合わせる */
 // 仲間が主人公と同じく成長・装備するようになった分、第2層以降の強化を上げた (旧: HP0.80 / 攻撃0.30)
 export const DEPTH_HP_PER_FLOOR = 1.30;
@@ -121,9 +124,11 @@ export function buildEnemies(
       enemyDef: def,
       stats: {
         ...def.stats,
-        maxHP: Math.round(def.stats.maxHP * hpMult),
-        physicalAttack: Math.round(def.stats.physicalAttack * dmgMult),
-        magicAttack: Math.round(def.stats.magicAttack * dmgMult),
+        maxHP: Math.round(def.stats.maxHP * hpMult * ENEMY_STAT_MULT),
+        physicalAttack: Math.round(def.stats.physicalAttack * dmgMult * ENEMY_STAT_MULT),
+        magicAttack: Math.round(def.stats.magicAttack * dmgMult * ENEMY_STAT_MULT),
+        physicalDefense: Math.round(def.stats.physicalDefense * ENEMY_STAT_MULT),
+        magicDefense: Math.round(def.stats.magicDefense * ENEMY_STAT_MULT),
       },
       shields,
     });

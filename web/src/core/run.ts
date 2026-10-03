@@ -6,6 +6,7 @@ import { getDifficulty } from '../data/difficulty';
 import { applyMetaBonuses } from './meta';
 import { grantRandomCommonRelic, randomCurse, hasEffect, sumEffect, modifyHealAmount } from './relics';
 import { getEquipment as getEquipmentDef } from '../data/equipment';
+import { addJP } from './level';
 
 /** ショップ在庫1枠の保存形式。入店時に確定し、再開しても引き直さない */
 export type ShopSpec =
@@ -115,6 +116,10 @@ export interface RunState {
   metaFloorClearExtraHeal: boolean;
   metaStartWithCommonRelic: boolean;
   metaCurseHPReductionImmune: boolean;
+  // 彼方の墓標・深層 (Web版で追加)
+  metaRestHealBonus: number;     // 焚き火の回復 +最大HP比
+  metaStartJP: number;           // 旅立ち時のJP
+  metaExtraStartRelics: number;  // 旅立ち時に追加で携えるコモンレリック
 }
 
 /** 主人公と仲間に共通する、1人ぶんの成長・装備・HP。
@@ -237,6 +242,7 @@ export function createRun(
     metaShopDiscount: 0, metaCurseDmgReduction: 0,
     metaFloorClearExtraHeal: false, metaStartWithCommonRelic: false,
     metaCurseHPReductionImmune: false,
+    metaRestHealBonus: 0, metaStartJP: 0, metaExtraStartRelics: 0,
   };
 
   // メタ強化 → 加護 の順に適用 (Unity版 MainFlow と同順)
@@ -264,6 +270,7 @@ export function createRun(
 
   // メタ「運命の寵児」: コモンレリック1つ所持で開始
   if (run.metaStartWithCommonRelic) pendingCommonRelics++;
+  pendingCommonRelics += run.metaExtraStartRelics;   // 墓標「星の導き」
 
   // 深淵難易度: 呪いを1つ背負って開始 (DifficultyTier.StartWithCurse)
   if (diff.startWithCurse) run.curses.push(randomCurse());
@@ -275,8 +282,10 @@ export function createRun(
     }
   }
 
-  // 開始レリック付与 (加護「鉄の意志」/ メタ「運命の寵児」)
+  // 開始レリック付与 (加護「鉄の意志」/ メタ「運命の寵児」「星の導き」)
   for (let i = 0; i < pendingCommonRelics; i++) grantRandomCommonRelic(run);
+  // 墓標「修練の記憶」: 旅立ち時にJP
+  if (run.metaStartJP > 0) addJP(run, run.metaStartJP);
 
   run.currentHP = getEffectiveMaxHP(run);
   return run;
@@ -426,7 +435,9 @@ export function restAtCampfire(run: RunState): number[] {
       u.currentHP = Math.min(max, REST_REVIVE_HP);
       return u.currentHP;
     }
-    return healRun(run, modifyHealAmount(run, Math.round(max * REST_HEAL_PCT)), u);
+    // 墓標「焚き火の心得」は主人公のみ (墓標の強化は主人公に効く)
+    const pct = REST_HEAL_PCT + (u === run ? run.metaRestHealBonus : 0);
+    return healRun(run, modifyHealAmount(run, Math.round(max * pct)), u);
   });
 }
 

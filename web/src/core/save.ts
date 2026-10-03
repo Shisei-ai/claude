@@ -175,6 +175,9 @@ export function loadRun(): RunState | null {
     });
     run.phantomEventDone ??= false;
     run.soloVow ??= false;
+    run.metaRestHealBonus ??= 0;
+    run.metaStartJP ??= 0;
+    run.metaExtraStartRelics ??= 0;
     run.pendingEncounter ??= null;
     run.floorIntroSeen ??= [];
     run.dailyDate ??= null;

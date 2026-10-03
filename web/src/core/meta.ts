@@ -1,5 +1,6 @@
 // メタ進行「彼方の墓標」— Unity版 Meta/MetaUpgradeTree.cs +
 // SkillUpgradeSystem.cs の MetaProgression を移植 (PlayerPrefs → localStorage)
+// Web版の調整: 各道を10段 (魔獣の書は4段) に伸ばし、費用を Unity版の2倍 + 深層 (6段目以降) は80〜200碑文に
 import { loadMeta, saveMeta } from './save';
 import type { RunState } from './run';
 
@@ -10,7 +11,11 @@ export type MetaBonusType =
   | 'ExtraRelicChoices' | 'StartBP'
   | 'FloorClearExtraHeal' | 'StartWithCommonRelic'
   | 'CurseDmgReduction' | 'CurseHPReductionImmune'
-  | 'GrimoireCarrySlot';   // Web版で追加: ゼノが旅立ちに持ち込める吸収技の枠
+  | 'GrimoireCarrySlot'    // Web版で追加: ゼノが旅立ちに持ち込める吸収技の枠
+  // Web版で追加 (深層の段)
+  | 'RestHealPercent'      // 焚き火の回復量 +%
+  | 'StartJP'              // 旅立ち時に JP を得る
+  | 'StartRelicExtra';     // 旅立ち時にコモンレリックを追加で携える
 
 export interface MetaBonus { type: MetaBonusType; value: number }
 
@@ -36,71 +41,137 @@ const N = (
 
 export const META_NODES: MetaNode[] = [
   // PATH 1 : 鉄の意志 (HP/防御)
-  N('iron_1', '鉄の意志', '強靭な体', '最大HPが5%増加する。', 5, [], false,
+  N('iron_1', '鉄の意志', '強靭な体', '最大HPが5%増加する。', 10, [], false,
     { type: 'MaxHPPercent', value: 0.05 }),
-  N('iron_2', '鉄の意志', '護りの盾', '物理防御が8%増加する。', 10, ['iron_1'], false,
+  N('iron_2', '鉄の意志', '護りの盾', '物理防御が8%増加する。', 20, ['iron_1'], false,
     { type: 'PhysDefPercent', value: 0.08 }),
-  N('iron_3', '鉄の意志', '不屈の肉体', '最大HPがさらに10%増加する。', 15, ['iron_2'], false,
+  N('iron_3', '鉄の意志', '不屈の肉体', '最大HPがさらに10%増加する。', 30, ['iron_2'], false,
     { type: 'MaxHPPercent', value: 0.10 }),
-  N('iron_4', '鉄の意志', '回復の章', 'フロアクリア時に最大HPの5%を追加回復する。', 20, ['iron_3'], false,
+  N('iron_4', '鉄の意志', '回復の章', 'フロアクリア時に最大HPの5%を追加回復する。', 40, ['iron_3'], false,
     { type: 'FloorClearExtraHeal', value: 1 }),
-  N('iron_5', '鉄の意志', '★ 鋼鉄の城', '最大HPが15%増加し、魔法防御も8%増加する。', 30, ['iron_4'], true,
+  N('iron_5', '鉄の意志', '★ 鋼鉄の城', '最大HPが15%増加し、魔法防御も8%増加する。', 60, ['iron_4'], false,
     { type: 'MaxHPPercent', value: 0.15 }, { type: 'MagDefPercent', value: 0.08 }),
 
+  // 深層
+  N('iron_6', '鉄の意志', '古傷の記憶', '魔法防御が8%増加する。', 80, ['iron_5'], false,
+    { type: 'MagDefPercent', value: 0.08 }),
+  N('iron_7', '鉄の意志', '鉄壁', '物理防御が10%増加する。', 100, ['iron_6'], false,
+    { type: 'PhysDefPercent', value: 0.10 }),
+  N('iron_8', '鉄の意志', '命の器', '最大HPが10%増加する。', 130, ['iron_7'], false,
+    { type: 'MaxHPPercent', value: 0.10 }),
+  N('iron_9', '鉄の意志', '城壁の守り', '物理防御・魔法防御が8%増加する。', 160, ['iron_8'], false,
+    { type: 'PhysDefPercent', value: 0.08 }, { type: 'MagDefPercent', value: 0.08 }),
+  N('iron_10', '鉄の意志', '★★ 不落の砦', '最大HPが15%増加し、物理防御・魔法防御が10%増加する。', 200, ['iron_9'], true,
+    { type: 'MaxHPPercent', value: 0.15 }, { type: 'PhysDefPercent', value: 0.10 }, { type: 'MagDefPercent', value: 0.10 }),
+
   // PATH 2 : 刃の覚醒 (攻撃)
-  N('blade_1', '刃の覚醒', '鋭き刃', '物理攻撃が5%増加する。', 5, [], false,
+  N('blade_1', '刃の覚醒', '鋭き刃', '物理攻撃が5%増加する。', 10, [], false,
     { type: 'PhysAtkPercent', value: 0.05 }),
-  N('blade_2', '刃の覚醒', '急所の眼', '会心率が5ポイント増加する。', 10, ['blade_1'], false,
+  N('blade_2', '刃の覚醒', '急所の眼', '会心率が5ポイント増加する。', 20, ['blade_1'], false,
     { type: 'CritRateFlat', value: 5 }),
-  N('blade_3', '刃の覚醒', '魔力の刃', '魔法攻撃が5%増加する。', 15, ['blade_2'], false,
+  N('blade_3', '刃の覚醒', '魔力の刃', '魔法攻撃が5%増加する。', 30, ['blade_2'], false,
     { type: 'MagAtkPercent', value: 0.05 }),
-  N('blade_4', '刃の覚醒', '闘志', 'バトル開始時にBPを1つ獲得する。', 20, ['blade_3'], false,
+  N('blade_4', '刃の覚醒', '闘志', 'バトル開始時にBPを1つ獲得する。', 40, ['blade_3'], false,
     { type: 'StartBP', value: 1 }),
-  N('blade_5', '刃の覚醒', '★ 覇王の一撃', '物理・魔法攻撃が10%増加し、会心率がさらに5ポイント増加する。', 30, ['blade_4'], true,
+  N('blade_5', '刃の覚醒', '★ 覇王の一撃', '物理・魔法攻撃が10%増加し、会心率がさらに5ポイント増加する。', 60, ['blade_4'], false,
     { type: 'PhysAtkPercent', value: 0.10 }, { type: 'MagAtkPercent', value: 0.10 },
     { type: 'CritRateFlat', value: 5 }),
 
+  // 深層
+  N('blade_6', '刃の覚醒', '研ぎ澄ます', '物理攻撃が8%増加する。', 80, ['blade_5'], false,
+    { type: 'PhysAtkPercent', value: 0.08 }),
+  N('blade_7', '刃の覚醒', '魔刃', '魔法攻撃が8%増加する。', 100, ['blade_6'], false,
+    { type: 'MagAtkPercent', value: 0.08 }),
+  N('blade_8', '刃の覚醒', '必殺の眼', '会心率が5ポイント増加する。', 130, ['blade_7'], false,
+    { type: 'CritRateFlat', value: 5 }),
+  N('blade_9', '刃の覚醒', '戦意昂揚', 'バトル開始時のBPがさらに1つ増える。', 160, ['blade_8'], false,
+    { type: 'StartBP', value: 1 }),
+  N('blade_10', '刃の覚醒', '★★ 万象断ち', '物理・魔法攻撃が12%増加し、会心率がさらに5ポイント増加する。', 200, ['blade_9'], true,
+    { type: 'PhysAtkPercent', value: 0.12 }, { type: 'MagAtkPercent', value: 0.12 }, { type: 'CritRateFlat', value: 5 }),
+
   // PATH 3 : 幸運の星 (経済)
-  N('luck_1', '幸運の星', '行商の知恵', 'ランスタート時のゴールドが30増加する。', 5, [], false,
+  N('luck_1', '幸運の星', '行商の知恵', 'ランスタート時のゴールドが30増加する。', 10, [], false,
     { type: 'StartingGold', value: 30 }),
-  N('luck_2', '幸運の星', '交渉術', 'ショップの全品価格が10%低下する。', 10, ['luck_1'], false,
+  N('luck_2', '幸運の星', '交渉術', 'ショップの全品価格が10%低下する。', 20, ['luck_1'], false,
     { type: 'ShopDiscount', value: 0.10 }),
-  N('luck_3', '幸運の星', '商才', 'ランスタート時のゴールドがさらに50増加する。', 15, ['luck_2'], false,
+  N('luck_3', '幸運の星', '商才', 'ランスタート時のゴールドがさらに50増加する。', 30, ['luck_2'], false,
     { type: 'StartingGold', value: 50 }),
-  N('luck_4', '幸運の星', '鑑定眼', '戦闘勝利後のレリック選択肢が1つ増える。', 20, ['luck_3'], false,
+  N('luck_4', '幸運の星', '鑑定眼', '戦闘勝利後のレリック選択肢が1つ増える。', 40, ['luck_3'], false,
     { type: 'ExtraRelicChoices', value: 1 }),
-  N('luck_5', '幸運の星', '★ 運命の寵児', 'ランスタート時のゴールドが100増加し、コモンレリックを1つ携えてランを始める。', 30, ['luck_4'], true,
+  N('luck_5', '幸運の星', '★ 運命の寵児', 'ランスタート時のゴールドが100増加し、コモンレリックを1つ携えてランを始める。', 60, ['luck_4'], false,
     { type: 'StartingGold', value: 100 }, { type: 'StartWithCommonRelic', value: 1 }),
 
-  // PATH 4 : 古代の知識 (MP/スキル)
-  N('arcane_1', '古代の知識', '秘術の素養', '最大MPが15増加する。', 5, [], false,
-    { type: 'MaxMPFlat', value: 15 }),
-  N('arcane_2', '古代の知識', '魔力の泉', '最大MPがさらに20増加する。', 10, ['arcane_1'], false,
-    { type: 'MaxMPFlat', value: 20 }),
-  N('arcane_3', '古代の知識', '技の研鑽', '物理・魔法攻撃が5%増加する（スキル威力の底上げ）。', 15, ['arcane_2'], false,
-    { type: 'PhysAtkPercent', value: 0.05 }, { type: 'MagAtkPercent', value: 0.05 }),
-  N('arcane_4', '古代の知識', '値切り上手', 'ショップの全品価格がさらに10%低下する。', 20, ['arcane_3'], false,
+  // 深層
+  N('luck_6', '幸運の星', '貯えの才', 'ランスタート時のゴールドがさらに60増加する。', 80, ['luck_5'], false,
+    { type: 'StartingGold', value: 60 }),
+  N('luck_7', '幸運の星', '値踏み', 'ショップの全品価格がさらに10%低下する。', 100, ['luck_6'], false,
     { type: 'ShopDiscount', value: 0.10 }),
-  N('arcane_5', '古代の知識', '★ 秘術の極み', '最大MPが25増加し、物理・魔法攻撃がさらに5%増加する。', 30, ['arcane_4'], true,
+  N('luck_8', '幸運の星', '宝の嗅覚', '戦闘勝利後のレリック選択肢がさらに1つ増える。', 130, ['luck_7'], false,
+    { type: 'ExtraRelicChoices', value: 1 }),
+  N('luck_9', '幸運の星', '豪商', 'ランスタート時のゴールドがさらに120増加する。', 160, ['luck_8'], false,
+    { type: 'StartingGold', value: 120 }),
+  N('luck_10', '幸運の星', '★★ 星の導き', 'コモンレリックをさらに1つ携えてランを始め、ショップの価格がさらに5%低下する。', 200, ['luck_9'], true,
+    { type: 'StartRelicExtra', value: 1 }, { type: 'ShopDiscount', value: 0.05 }),
+
+  // PATH 4 : 古代の知識 (MP/スキル)
+  N('arcane_1', '古代の知識', '秘術の素養', '最大MPが15増加する。', 10, [], false,
+    { type: 'MaxMPFlat', value: 15 }),
+  N('arcane_2', '古代の知識', '魔力の泉', '最大MPがさらに20増加する。', 20, ['arcane_1'], false,
+    { type: 'MaxMPFlat', value: 20 }),
+  N('arcane_3', '古代の知識', '技の研鑽', '物理・魔法攻撃が5%増加する（スキル威力の底上げ）。', 30, ['arcane_2'], false,
+    { type: 'PhysAtkPercent', value: 0.05 }, { type: 'MagAtkPercent', value: 0.05 }),
+  N('arcane_4', '古代の知識', '値切り上手', 'ショップの全品価格がさらに10%低下する。', 40, ['arcane_3'], false,
+    { type: 'ShopDiscount', value: 0.10 }),
+  N('arcane_5', '古代の知識', '★ 秘術の極み', '最大MPが25増加し、物理・魔法攻撃がさらに5%増加する。', 60, ['arcane_4'], false,
     { type: 'MaxMPFlat', value: 25 },
     { type: 'PhysAtkPercent', value: 0.05 }, { type: 'MagAtkPercent', value: 0.05 }),
 
+  // 深層
+  N('arcane_6', '古代の知識', '魔力の器', '最大MPが20増加する。', 80, ['arcane_5'], false,
+    { type: 'MaxMPFlat', value: 20 }),
+  N('arcane_7', '古代の知識', '叡智', '物理・魔法攻撃が5%増加する。', 100, ['arcane_6'], false,
+    { type: 'PhysAtkPercent', value: 0.05 }, { type: 'MagAtkPercent', value: 0.05 }),
+  N('arcane_8', '古代の知識', '魔力の奔流', '最大MPが30増加する。', 130, ['arcane_7'], false,
+    { type: 'MaxMPFlat', value: 30 }),
+  N('arcane_9', '古代の知識', '修練の記憶', '旅立ち時にJPを50得る。', 160, ['arcane_8'], false,
+    { type: 'StartJP', value: 50 }),
+  N('arcane_10', '古代の知識', '★★ 叡智の極北', '最大MPが30増加し、物理・魔法攻撃が8%増加する。', 200, ['arcane_9'], true,
+    { type: 'MaxMPFlat', value: 30 }, { type: 'PhysAtkPercent', value: 0.08 }, { type: 'MagAtkPercent', value: 0.08 }),
+
   // PATH 5 : 荒野の知恵 (呪い耐性)
-  N('wild_1', '荒野の知恵', '呪いへの慣れ', '呪いによるダメージ増加効果が15%軽減される。', 5, [], false,
+  N('wild_1', '荒野の知恵', '呪いへの慣れ', '呪いによるダメージ増加効果が15%軽減される。', 10, [], false,
     { type: 'CurseDmgReduction', value: 0.15 }),
-  N('wild_2', '荒野の知恵', '穢れ払い', '呪いによるダメージ増加がさらに15%軽減される。', 10, ['wild_1'], false,
+  N('wild_2', '荒野の知恵', '穢れ払い', '呪いによるダメージ増加がさらに15%軽減される。', 20, ['wild_1'], false,
     { type: 'CurseDmgReduction', value: 0.15 }),
-  N('wild_3', '荒野の知恵', '盾の守護', '物理防御が8%増加する。', 15, ['wild_2'], false,
+  N('wild_3', '荒野の知恵', '盾の守護', '物理防御が8%増加する。', 30, ['wild_2'], false,
     { type: 'PhysDefPercent', value: 0.08 }),
-  N('wild_4', '荒野の知恵', '呪縛解放', '呪いによるダメージ増加がさらに20%軽減される。', 20, ['wild_3'], false,
+  N('wild_4', '荒野の知恵', '呪縛解放', '呪いによるダメージ増加がさらに20%軽減される。', 40, ['wild_3'], false,
     { type: 'CurseDmgReduction', value: 0.20 }),
-  N('wild_5', '荒野の知恵', '★ 不死身の旅人', '「衰弱」呪いによる最大HP低下を完全に無効化する。', 30, ['wild_4'], true,
+  N('wild_5', '荒野の知恵', '★ 不死身の旅人', '「衰弱」呪いによる最大HP低下を完全に無効化する。', 60, ['wild_4'], false,
     { type: 'CurseHPReductionImmune', value: 1 }),
 
+  // 深層
+  N('wild_6', '荒野の知恵', '荒野の守り', '魔法防御が8%増加する。', 80, ['wild_5'], false,
+    { type: 'MagDefPercent', value: 0.08 }),
+  N('wild_7', '荒野の知恵', '穢れの浄化', '呪いによるダメージ増加がさらに15%軽減される。', 100, ['wild_6'], false,
+    { type: 'CurseDmgReduction', value: 0.15 }),
+  N('wild_8', '荒野の知恵', '旅慣れ', '最大HPが8%増加する。', 130, ['wild_7'], false,
+    { type: 'MaxHPPercent', value: 0.08 }),
+  N('wild_9', '荒野の知恵', '焚き火の心得', '焚き火での回復量が最大HPの5%ぶん増える。', 160, ['wild_8'], false,
+    { type: 'RestHealPercent', value: 0.05 }),
+  N('wild_10', '荒野の知恵', '★★ 荒野の覇者', '呪いによるダメージ増加がさらに15%軽減され、最大HPが10%、物理・魔法防御が5%増加する。', 200, ['wild_9'], true,
+    { type: 'CurseDmgReduction', value: 0.15 }, { type: 'MaxHPPercent', value: 0.10 },
+    { type: 'PhysDefPercent', value: 0.05 }, { type: 'MagDefPercent', value: 0.05 }),
+
   // PATH 6 : 魔獣の書 (Web版で追加 — ゼノの吸収技の持ち越し)
-  N('grimoire_1', '魔獣の書', '書に残る記憶', 'ゼノで旅立つとき、これまでに刻んだ技を1つ持ち込める。', 15, [], false,
+  N('grimoire_1', '魔獣の書', '書に残る記憶', 'ゼノで旅立つとき、これまでに刻んだ技を1つ持ち込める。', 30, [], false,
     { type: 'GrimoireCarrySlot', value: 1 }),
-  N('grimoire_2', '魔獣の書', '★ 深淵の蔵書', '持ち込める技がさらに1つ増える。', 30, ['grimoire_1'], true,
+  N('grimoire_2', '魔獣の書', '★ 深淵の蔵書', '持ち込める技がさらに1つ増える。', 60, ['grimoire_1'], false,
+    { type: 'GrimoireCarrySlot', value: 1 }),
+  // 深層
+  N('grimoire_3', '魔獣の書', '禁書の頁', '持ち込める技がさらに1つ増える。', 120, ['grimoire_2'], false,
+    { type: 'GrimoireCarrySlot', value: 1 }),
+  N('grimoire_4', '魔獣の書', '★★ 万魔の書', '持ち込める技がさらに1つ増える。', 200, ['grimoire_3'], true,
     { type: 'GrimoireCarrySlot', value: 1 }),
 ];
 
@@ -161,6 +232,9 @@ export function applyMetaBonuses(run: RunState): void {
         case 'CurseDmgReduction':   run.metaCurseDmgReduction += b.value; break;
         case 'CurseHPReductionImmune': run.metaCurseHPReductionImmune = true; break;
         case 'GrimoireCarrySlot':   break;   // 旅立ちの画面で使う (grimoireCarrySlots)
+        case 'RestHealPercent':     run.metaRestHealBonus += b.value; break;
+        case 'StartJP':             run.metaStartJP += Math.round(b.value); break;
+        case 'StartRelicExtra':     run.metaExtraStartRelics += Math.round(b.value); break;
       }
     }
   }
