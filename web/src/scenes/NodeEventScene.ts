@@ -554,7 +554,7 @@ export class NodeEventScene extends Phaser.Scene {
       textStyle(17, COLORS.text, { align: 'center', lineSpacing: 12, wordWrap: { width: width - 300 } }))
       .setOrigin(0.5).setDepth(2);
     this.backPanel(story, 60, 30);
-    const detail = this.add.text(width / 2, story.getBounds().bottom + 52, cursedRoomDetail(offer),
+    const detail = this.add.text(width / 2, story.getBounds().bottom + 66, cursedRoomDetail(offer),
       textStyle(14, '#d8a0b8', { align: 'center', wordWrap: { width: width - 360 } })).setOrigin(0.5).setDepth(2);
     this.backPanel(detail, 30, 10);
 
