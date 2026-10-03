@@ -49,9 +49,9 @@ export class ResultScene extends Phaser.Scene {
         : DEFAULT_ENDING_TEXT;
       const epilogue = getCharacterEpilogue(run.characterId, this.won);
 
-      // エンディング一枚絵があれば全面表示、無ければ従来の色板
+      // 一枚絵はボスの最期を描くため勝利時のみ。敗北時は最終層アリーナ、どちらも無ければ従来の色板
       const endStem = run.activeEnding ? ENDING_BG_STEM[run.activeEnding] : undefined;
-      const endKey = endStem ? `ending_${endStem}` : undefined;
+      const endKey = endStem ? `${this.won ? 'ending' : 'arena'}_${endStem}` : undefined;
       if (endKey && hasArt(this, bgArtKey(endKey))) {
         const img = this.add.image(width / 2, height / 2, bgArtKey(endKey));
         img.setScale(Math.max(width / img.width, height / img.height));
