@@ -28,7 +28,7 @@ const ICON_TINT: Record<NodeType, number> = {
 /** 横長マップの寸法 */
 const ROW_GAP = 150;          // 段 (開始→ボス) の間隔 = 横方向
 const MAP_MARGIN_X = 110;     // 左右の余白
-const MAP_TOP = 178;          // 列 0 の高さ (HUD・レリック行の下)
+const MAP_TOP = 178;          // 列 0 の高さ (HUD・仲間行の下)
 const MAP_BOTTOM = 628;       // 列 6 の高さ (下のボタンの上)
 /** この幅以上指が動いたらドラッグとみなし、ノードには入らない */
 const DRAG_THRESHOLD = 10;
@@ -42,7 +42,6 @@ export class MapScene extends Phaser.Scene {
   private run!: RunState;
   /** タッチ操作で1回目のタップを受けたノード (2回目で進む) */
   private armedNodeId = -1;
-  private tipTimer: Phaser.Time.TimerEvent | null = null;
   /** スクロールするマップ本体 (HUD・ボタンは動かさない) */
   private mapLayer!: Phaser.GameObjects.Container;
   private minScrollX = 0;
@@ -141,32 +140,6 @@ export class MapScene extends Phaser.Scene {
     this.add.text(width - 180, 90, `正気度 ${sanityStr}`, textStyle(15,
       run.sanity < 0 ? COLORS.textRed : COLORS.textBlue));
 
-    // 所持レリック一覧 (ホバーで詳細)
-    const relics = heldRelics(run);
-    if (relics.length > 0) {
-      const shown = relics.slice(0, 8);
-      let x = 70;
-      const y = 122;
-      for (const r of shown) {
-        const label = this.add.text(x, y, `◆${r.name}`, textStyle(11, RARITY_COLOR[r.rarity]))
-          .setInteractive({ useHandCursor: true })
-          .on('pointerover', () => this.showRelicTip(label.x + 40, y - 8, `${r.name}\n${r.description}`))
-          // タッチは指を離すと pointerout が来るため、タッチ由来では消さない (タイマーで消す)
-          .on('pointerout', (pointer: Phaser.Input.Pointer) => { if (!pointer.wasTouch) this.hideTooltip(); })
-          .on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-            // タッチではホバーが無いので、タップで説明を出して数秒後に消す
-            if (!pointer.wasTouch) return;
-            this.showRelicTip(label.x + 40, y + 150, `${r.name}\n${r.description}`);
-            this.tipTimer?.remove();
-            this.tipTimer = this.time.delayedCall(3000, () => this.hideTooltip());
-          });
-        x += label.width + 14;
-        if (x > this.scale.width - 200) break;
-      }
-      if (relics.length > shown.length) {
-        this.add.text(x, y, `…他${relics.length - shown.length}`, textStyle(11, COLORS.textDim));
-      }
-    }
     if (run.curses.length > 0) {
       this.add.text(width - 180, 122, `呪い ×${run.curses.length}`, textStyle(11, COLORS.textRed));
     }
@@ -198,16 +171,6 @@ export class MapScene extends Phaser.Scene {
       line = line.replace('{ALLY}', shortName(getCharacter(ally.characterId).name));
     }
     showDialogue(this, { characterId: run.characterId, lines: [line] });
-  }
-
-  private showRelicTip(x: number, y: number, text: string): void {
-    this.hideTooltip();
-    const label = this.add.text(0, 0, text, textStyle(12, COLORS.text, {
-      wordWrap: { width: 300 }, align: 'left',
-    })).setOrigin(0, 1);
-    const bg = this.add.rectangle(-8, 8, label.width + 16, label.height + 16, 0x000000, 0.92)
-      .setStrokeStyle(1, COLORS.border).setOrigin(0, 1);
-    this.tooltip = this.add.container(x, y, [bg, label]).setDepth(100);
   }
 
   /** 記号の凡例 (アイコン + 名前を横に並べ、cx を中心に置く) */
