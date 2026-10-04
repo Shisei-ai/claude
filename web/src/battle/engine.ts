@@ -68,6 +68,9 @@ export class Combatant {
   critStacks = 0;              // 会心強化スタック (アッシュ, 最大3)
   lastElement: ElementType = 'None'; // 元素収束用 (ラヴィニア)
 
+  /** 撃破を処理済みか (同じ相手の撃破を二度処理しない。蘇生で戻る) */
+  defeatHandled = false;
+
   // 装備由来
   weaponElement: ElementType = 'None'; // 武器属性 (通常攻撃に乗る)
   revivalAmuletAvailable = false;      // 蘇生の護符: 1戦闘1回の致死無効
@@ -316,6 +319,13 @@ interface ChainLink {
 
 // ── エンジン本体 ────────────────────────────────────────────────────────
 
+/** 画面に出す1人分の状態 (イベントが起きた瞬間の値) */
+export interface UnitSnapshot {
+  hp: number; mp: number; bp: number;
+  shields: number; broken: boolean;
+  statuses: StatusEffectType[];
+}
+
 export class BattleEngine {
   heroes: Combatant[];
   enemies: Combatant[];
@@ -351,7 +361,27 @@ export class BattleEngine {
 
   get all(): Combatant[] { return [...this.heroes, ...this.enemies]; }
 
-  private emit(e: BattleEvent): void { this.events.push(e); }
+  /** true にすると、各イベントの時点の全員の状態を記録する (画面がHPなどを行動ごとに反映するため) */
+  recordSnapshots = false;
+  private snapshots = new WeakMap<BattleEvent, Map<Combatant, UnitSnapshot>>();
+
+  private emit(e: BattleEvent): void {
+    this.events.push(e);
+    if (this.recordSnapshots) this.snapshots.set(e, this.snapshot());
+  }
+
+  /** 今の全員の状態 */
+  snapshot(): Map<Combatant, UnitSnapshot> {
+    return new Map(this.all.map((c) => [c, {
+      hp: c.hp, mp: c.mp, bp: c.bp, shields: c.currentShields, broken: c.isBroken,
+      statuses: c.statuses.map((st) => st.type),
+    }]));
+  }
+
+  /** イベントが起きた時点の全員の状態 (recordSnapshots が有効なときだけ) */
+  snapshotAt(e: BattleEvent): Map<Combatant, UnitSnapshot> | undefined {
+    return this.snapshots.get(e);
+  }
 
   drainEvents(): BattleEvent[] {
     const out = this.events;
@@ -481,9 +511,7 @@ export class BattleEngine {
           if (selfDamage > 0) this.emit({ kind: 'dot', target: actor, amount: selfDamage });
           // LifeDrainで敵が死んでいる可能性
           for (const e of this.enemies) {
-            if (!e.isAlive && !this.events.some((ev) => ev.kind === 'defeat' && ev.target === e)) {
-              this.handleDefeat(e);
-            }
+            if (!e.isAlive && !e.defeatHandled) this.handleDefeat(e);
           }
           if (this.checkEnd()) return 'over';
         }
@@ -658,6 +686,7 @@ export class BattleEngine {
       const revivePct = Math.min(1, skill.revive.pct * healMult);
       for (const t of targets) {
         t.hp = Math.max(1, Math.round(t.base.maxHP * revivePct));
+        t.defeatHandled = false;
         this.emit({ kind: 'message', text: `${t.name} が蘇った！` });
         this.emit({ kind: 'heal', target: t, amount: t.hp });
         // 清心の治癒師: 蘇生のたびに術者もHP20%回復
@@ -1478,6 +1507,9 @@ export class BattleEngine {
   }
 
   private handleDefeat(target: Combatant): void {
+    // すでに倒れている相手への追撃 (多段・全体攻撃・連鎖・反射など) で、撃破を何度も起こさない
+    if (target.isAlive || target.defeatHandled) return;
+    target.defeatHandled = true;
     this.emit({ kind: 'defeat', target });
 
     // レリック: 撃破時効果 (喰屍鬼の歯・魂鳴りの角笛・魂の吊灯籠)

@@ -371,5 +371,50 @@ for (const boss of [MORVA, F1_BOSS_GRISELDA, F2_BOSS_SANGUINA]) {
   check(Math.abs(ashC.dodgeBonus - 0.20) < 1e-9, '影舞踊: アッシュの回避率+20%');
 }
 
+// 撃破は1体につき1回だけ / 画面用の状態はイベントの時点の値 (レリックありの複数戦)
+import { RelicBattleState } from './src/battle/relicHooks';
+import { createRun } from './src/core/run';
+{
+  const check = (ok: boolean, label: string) => {
+    if (ok) console.log(`✓ ${label}`);
+    else { console.error(`✗ ${label}`); failures++; }
+  };
+  for (let trial = 0; trial < 30; trial++) {
+    const run = createRun('bernhard', 1, 'VitalGuard');
+    const char = CHARACTERS.find((c) => c.id === 'bernhard')!;
+    const hero = new Combatant({ isPlayer: true, name: char.name, characterId: 'bernhard', stats: { ...char.baseStats, maxHP: 5000 } });
+    const enemies = makeEnemies([GOBLIN, GOBLIN, ROTTING_ZOMBIE]);
+    const eng = new BattleEngine([hero], enemies, 0, new RelicBattleState(run));
+    eng.recordSnapshots = true;
+    const defeats = new Map<Combatant, number>();
+    let snapOk = true;
+    let heroHpOk = true;
+    let st = eng.advance();
+    for (let guard = 0; guard < 400 && !eng.over; guard++) {
+      let evs;
+      if (st === 'awaitInput') {
+        const before = hero.hp;
+        st = eng.executePlayerCommand({ type: 'attack', targetIndex: enemies.findIndex((e) => e.isAlive), boostLevel: 0 });
+        evs = eng.drainEvents();
+        // 自分の攻撃が当たった時点では、まだ自分のHPは減っていない
+        const firstHit = evs.find((e) => e.kind === 'damage' && !e.target.isPlayer);
+        if (firstHit && eng.snapshotAt(firstHit)!.get(hero)!.hp !== before) heroHpOk = false;
+      } else {
+        st = eng.advance();
+        evs = eng.drainEvents();
+      }
+      for (const e of evs) {
+        if (e.kind === 'defeat') defeats.set(e.target, (defeats.get(e.target) ?? 0) + 1);
+        const sn = eng.snapshotAt(e);
+        if (!sn || sn.size !== 4) snapOk = false;
+      }
+    }
+    if (![...defeats.values()].every((n) => n === 1)) check(false, `撃破は1体につき1回 (試行${trial})`);
+    if (!snapOk) check(false, '各イベントに全員の状態が記録される');
+    if (!heroHpOk) check(false, '自分の攻撃の時点では自分のHPは減っていない');
+  }
+  check(true, '撃破の重複なし・行動時点の状態の記録 (30戦)');
+}
+
 console.log(failures === 0 ? '\nALL OK' : `\n${failures} FAILURES`);
 process.exit(failures === 0 ? 0 : 1);

@@ -1,7 +1,7 @@
 // バトルシーン — Unity版 UI/BattleUI.cs 相当の簡易UI + BattleEngine 駆動
 import Phaser from 'phaser';
 import { COLORS, makeButton, textStyle, titleStyle, latinStyle, drawBar, drawPanel, paintPanel, drawOrnamentLine } from '../ui/theme';
-import { BattleEngine, Combatant, type BattleEvent, type PlayerCommand } from '../battle/engine';
+import { BattleEngine, Combatant, type BattleEvent, type PlayerCommand, type UnitSnapshot } from '../battle/engine';
 import { pickEncounter, buildHeroes, buildEnemies, computeRewards } from '../battle/setup';
 import { loadRun, saveRun, clearRun, loadMeta, recordWeakness, recordEnemiesSeen, recordEnemyKills, recordGrimoire } from '../core/save';
 import { notifyAchievements } from './ToastScene';
@@ -59,6 +59,12 @@ export class BattleScene extends Phaser.Scene {
   /** 画面に出しているHP (実際のHPへ少しずつ近づけ、ダメージが減っていく様子を見せる) */
   private shownHp = new Map<Combatant, number>();
   private hpTween: Phaser.Tweens.Tween | null = null;
+  /** 再生済みのイベントの時点の全員の状態。エンジンは敵の手番まで先に計算し終えているため、
+   *  HP・MP・BP・状態異常はこれで「その行動が見えた時点」の値を出す (null なら実際の値) */
+  private view: Map<Combatant, UnitSnapshot> | null = null;
+  /** 遅れて届く表示更新が、新しい状態を古い状態で上書きしないための通し番号 */
+  private viewSeq = 0;
+  private viewApplied = 0;
   /** 吸収した直後の撃破は、魂が使い手へ流れる演出にする */
   private pendingAbsorb = false;
   /** いま技を出している者 (演出の向き・魔法の発射元。イベント再生中はエンジンの手番より遅れるため自前で持つ) */
@@ -142,6 +148,8 @@ export class BattleScene extends Phaser.Scene {
     recordEnemiesSeen(this.enemyDefs.map((d) => d.id));
     const relicState = new RelicBattleState(this.run);
     this.engine = new BattleEngine(this.heroes, enemies, this.run.metaStartBP, relicState);
+    this.engine.recordSnapshots = true;
+    this.view = null;
 
     // ヒーロー描画 (左側・最大3人)。足元を地面線にそろえ、名前は頭上に表示
     const groundY = groundLineY - 2;   // 足元の位置
@@ -291,13 +299,28 @@ export class BattleScene extends Phaser.Scene {
   private playEvents(events: BattleEvent[], onDone: () => void): void {
     let i = 0;
     const step = () => {
-      if (i >= events.length) { this.refreshDisplay(); onDone(); return; }
+      if (i >= events.length) {
+        // 再生し終えたら実際の値にそろえる
+        this.view = null;
+        this.viewApplied = ++this.viewSeq;
+        this.refreshDisplay();
+        onDone();
+        return;
+      }
       const e = events[i++];
       let delay = this.renderEvent(e);
       // 多段・全体攻撃のように当たりが続くときは、2発目以降の間を詰める
       if (e.kind === 'damage' && events[i]?.kind === 'damage') delay = Math.round(delay * 0.6);
-      // HPなどの表示は、着弾の演出が届いてから変える
-      this.time.delayedCall(this.spd(140 + this.landDelay), () => this.refreshDisplay());
+      // HPなどの表示は、着弾の演出が届いてから、そのイベントの時点の値に変える
+      // (味方のHPは敵の攻撃が見えたときに減る。こちらの攻撃と同時には減らない)
+      const snap = this.engine.snapshotAt(e);
+      const seq = ++this.viewSeq;
+      this.time.delayedCall(this.spd(140 + this.landDelay), () => {
+        if (seq < this.viewApplied) return;
+        this.viewApplied = seq;
+        if (snap) this.view = snap;
+        this.refreshDisplay();
+      });
       this.landDelay = 0;
       this.time.delayedCall(this.spd(delay), step);
     };
@@ -576,7 +599,8 @@ export class BattleScene extends Phaser.Scene {
   private checkLowLines(): void {
     if (!this.engine || this.engine.over) return;
     this.heroes.forEach((c, i) => {
-      if (!c.isAlive) return;
+      const v = this.viewOf(c);
+      if (v.hp <= 0) return;
       const L = this.linesOf(c);
       if (!L) return;
       const once = (key: string, list: string[] | undefined) => {
@@ -584,9 +608,9 @@ export class BattleScene extends Phaser.Scene {
         if (!list || this.saidOnce.has(k)) return;
         if (this.say(c, list)) this.saidOnce.add(k);
       };
-      if (c.hp / c.base.maxHP < 0.3) once('lowHP', L.lowHP);
-      if (c.base.maxMP > 0 && c.mp / c.base.maxMP < 0.2) once('lowMP', L.lowMP);
-      const allyDown = this.heroes.some((o) => o !== c && o.isAlive && o.hp / o.base.maxHP < 0.3);
+      if (v.hp / c.base.maxHP < 0.3) once('lowHP', L.lowHP);
+      if (c.base.maxMP > 0 && v.mp / c.base.maxMP < 0.2) once('lowMP', L.lowMP);
+      const allyDown = this.heroes.some((o) => { const ov = this.viewOf(o); return o !== c && ov.hp > 0 && ov.hp / o.base.maxHP < 0.3; });
       if (allyDown) once('lowAlly', L.lowAlly);
     });
   }
@@ -806,16 +830,17 @@ export class BattleScene extends Phaser.Scene {
   private refreshDisplay(): void {
     const all = [...this.heroes, ...this.engine.enemies];
     const from = new Map(all.map((c) => [c, this.hpOf(c)]));
-    if (all.some((c) => from.get(c) !== c.hp)) {
+    const to = new Map(all.map((c) => [c, this.viewOf(c).hp]));
+    if (all.some((c) => from.get(c) !== to.get(c))) {
       this.hpTween?.stop();
       this.hpTween = this.tweens.addCounter({
         from: 0, to: 1, duration: this.spd(520), ease: 'Quad.easeOut',
         onUpdate: (tw) => {
           const v = tw.getValue() ?? 0;
-          for (const c of all) this.shownHp.set(c, Math.round(from.get(c)! + (c.hp - from.get(c)!) * v));
+          for (const c of all) this.shownHp.set(c, Math.round(from.get(c)! + (to.get(c)! - from.get(c)!) * v));
           this.drawHud();
         },
-        onComplete: () => { for (const c of all) this.shownHp.set(c, c.hp); this.drawHud(); },
+        onComplete: () => { for (const c of all) this.shownHp.set(c, to.get(c)!); this.drawHud(); },
       });
     }
     this.drawHud();
@@ -823,7 +848,15 @@ export class BattleScene extends Phaser.Scene {
 
   /** 画面に出すHP */
   private hpOf(c: Combatant): number {
-    return this.shownHp.get(c) ?? c.hp;
+    return this.shownHp.get(c) ?? this.viewOf(c).hp;
+  }
+
+  /** 画面に出す状態 (再生済みのイベントの時点。再生中でなければ実際の値) */
+  private viewOf(c: Combatant): UnitSnapshot {
+    return this.view?.get(c) ?? {
+      hp: c.hp, mp: c.mp, bp: c.bp, shields: c.currentShields, broken: c.isBroken,
+      statuses: c.statuses.map((st) => st.type),
+    };
   }
 
   private drawHud(): void {
@@ -847,14 +880,15 @@ export class BattleScene extends Phaser.Scene {
       hHp / h.base.maxHP > 0.3 ? COLORS.hpBar : COLORS.hpBarLow);
     this.hudTexts.push(this.add.text(px + 262, py + 31,
       `${hHp}/${h.base.maxHP}`, latinStyle(12)));
-    drawBar(this.hudG, px + 14, py + 56, 240, 10, h.mp / Math.max(1, h.base.maxMP), COLORS.mpBar);
+    const hv = this.viewOf(h);
+    drawBar(this.hudG, px + 14, py + 56, 240, 10, hv.mp / Math.max(1, h.base.maxMP), COLORS.mpBar);
     this.hudTexts.push(this.add.text(px + 262, py + 51,
-      `MP ${h.mp}/${h.base.maxMP}`, latinStyle(11, COLORS.textBlue)));
+      `MP ${hv.mp}/${h.base.maxMP}`, latinStyle(11, COLORS.textBlue)));
 
     // BP
     // BP は菱形の宝石で表す
     for (let i = 0; i < 5; i++) {
-      const filled = i < h.bp;
+      const filled = i < hv.bp;
       const gx = px + 26 + i * 26, gy = py + 86;
       const gem = [{ x: gx, y: gy - 10 }, { x: gx + 8, y: gy }, { x: gx, y: gy + 10 }, { x: gx - 8, y: gy }];
       this.hudG.fillStyle(filled ? COLORS.bpBar : 0x221a2e, 1).fillPoints(gem, true);
@@ -864,7 +898,7 @@ export class BattleScene extends Phaser.Scene {
     this.hudTexts.push(this.add.text(px + 160, py + 78, `BP`, textStyle(12, COLORS.textGold)));
 
     // ステータスアイコン
-    const statusStr = h.statuses.map((s) => STATUS_DISPLAY_NAME[s.type]).join(' ');
+    const statusStr = hv.statuses.map((st) => STATUS_DISPLAY_NAME[st]).join(' ');
     if (statusStr) {
       this.hudTexts.push(this.add.text(px + 200, py + 78, statusStr, textStyle(11, COLORS.textRed)));
     }
@@ -874,23 +908,25 @@ export class BattleScene extends Phaser.Scene {
       const mx = px + 372;
       const my = py + i * 62;
       paintPanel(this.hudG, mx, my, 214, 56, { alpha: 0.9, ornate: false });
+      const mv = this.viewOf(m);
+      const mAlive = mv.hp > 0;
       this.hudTexts.push(this.add.text(mx + 10, my + 5,
-        m.isAlive ? m.name.split('・')[0] : `${m.name.split('・')[0]} (戦闘不能)`,
-        textStyle(12, m.isAlive ? COLORS.text : '#77445a')));
+        mAlive ? m.name.split('・')[0] : `${m.name.split('・')[0]} (戦闘不能)`,
+        textStyle(12, mAlive ? COLORS.text : '#77445a')));
       const mHp = this.hpOf(m);
       drawBar(this.hudG, mx + 10, my + 24, 128, 9, mHp / m.base.maxHP,
         mHp / m.base.maxHP > 0.3 ? COLORS.hpBar : COLORS.hpBarLow);
       this.hudTexts.push(this.add.text(mx + 146, my + 20,
         `${mHp}/${m.base.maxHP}`, latinStyle(10)));
       // 仲間もスキルを使うので MP も出す
-      drawBar(this.hudG, mx + 10, my + 37, 128, 5, m.mp / Math.max(1, m.base.maxMP), COLORS.mpBar);
+      drawBar(this.hudG, mx + 10, my + 37, 128, 5, mv.mp / Math.max(1, m.base.maxMP), COLORS.mpBar);
       this.hudTexts.push(this.add.text(mx + 146, my + 33,
-        `MP ${m.mp}`, latinStyle(9, COLORS.textBlue)));
+        `MP ${mv.mp}`, latinStyle(9, COLORS.textBlue)));
       for (let b = 0; b < 5; b++) {
-        this.hudG.fillStyle(b < m.bp ? COLORS.bpBar : 0x201a2c, 1)
+        this.hudG.fillStyle(b < mv.bp ? COLORS.bpBar : 0x201a2c, 1)
           .fillCircle(mx + 15 + b * 14, my + 49, 4);
       }
-      const st = m.statuses.map((s) => STATUS_DISPLAY_NAME[s.type]).join(' ');
+      const st = mv.statuses.map((x) => STATUS_DISPLAY_NAME[x]).join(' ');
       if (st) this.hudTexts.push(this.add.text(mx + 90, my + 44, st, textStyle(9, COLORS.textRed)));
     });
 
@@ -899,14 +935,15 @@ export class BattleScene extends Phaser.Scene {
       const c = sprite.getData('combatant') as Combatant;
       const hpText = sprite.getData('hpText') as Phaser.GameObjects.Text;
       const shieldText = sprite.getData('shieldText') as Phaser.GameObjects.Text;
-      hpText.setText(c.isAlive ? `HP ${this.hpOf(c)}/${c.base.maxHP}` : '');
-      if (c.maxShields > 0 && c.isAlive) {
-        shieldText.setText(c.isBroken ? 'BREAK!' : '🛡'.repeat(c.currentShields));
-        shieldText.setColor(c.isBroken ? '#ffd24a' : '#8fc2ee');
+      const cv = this.viewOf(c);
+      hpText.setText(cv.hp > 0 ? `HP ${this.hpOf(c)}/${c.base.maxHP}` : '');
+      if (c.maxShields > 0 && cv.hp > 0) {
+        shieldText.setText(cv.broken ? 'BREAK!' : '🛡'.repeat(cv.shields));
+        shieldText.setColor(cv.broken ? '#ffd24a' : '#8fc2ee');
       } else {
         shieldText.setText('');
       }
-      const statusLine = c.statuses.map((s) => STATUS_DISPLAY_NAME[s.type]).join(' ');
+      const statusLine = cv.statuses.map((x) => STATUS_DISPLAY_NAME[x]).join(' ');
       let st = sprite.getData('statusText') as Phaser.GameObjects.Text | undefined;
       if (!st) {
         st = this.add.text(0, (sprite.getData('labelTop') as number) - 17,
