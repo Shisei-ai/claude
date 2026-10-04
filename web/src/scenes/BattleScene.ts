@@ -36,6 +36,11 @@ interface BattleInit { nodeType: NodeType; contentSeed: number }
 interface WeakSlot { el: ElementType; box: Phaser.GameObjects.Rectangle; text: Phaser.GameObjects.Text }
 
 /** 付与されたときに上昇音を鳴らす状態 (それ以外は下降音) */
+/** 戦闘画面のキャラの大きさの倍率 (味方・敵とも。旧: 主人公230px・通常の敵190px) */
+const CHAR_SCALE = 1.3;
+/** 敵の頭上の表示 (弱点枠・状態異常) がこれより上に出ないようにする (行動順の帯の下) */
+const ENEMY_LABEL_MIN_Y = 122;
+
 const BUFF_STATUSES = new Set(['AtkUp', 'MatkUp', 'DefUp', 'SpdUp', 'Regen', 'RegenFlat', 'CritUp', 'Afterimage', 'Barrier']);
 
 export class BattleScene extends Phaser.Scene {
@@ -157,7 +162,8 @@ export class BattleScene extends Phaser.Scene {
       textStyle(size, color, { stroke: '#000000', strokeThickness: 3 });
     this.heroSprites = [];
     this.heroes.forEach((h, i) => {
-      const x = 220 - i * 10 + (i > 0 ? (i === 1 ? -90 : 90) : 0);
+      // 仲間は主人公の左奥・右奥 (絵を大きくした分、間隔も広げる)
+      const x = 240 + (i > 0 ? (i === 1 ? -120 : 115) : 0);
       const feetY = groundY - (i > 0 ? 40 : 0);   // 仲間は一歩奥
       const id = h.characterId ?? this.run.characterId;
       const color = getCharacter(id).themeColor;
@@ -167,13 +173,13 @@ export class BattleScene extends Phaser.Scene {
       let bodyH: number;
       const key = charFullKey(id);
       if (hasArt(this, key)) {
-        bodyH = i === 0 ? 230 : 168;
+        bodyH = Math.round((i === 0 ? 230 : 168) * CHAR_SCALE);
         const img = this.add.image(x, feetY - bodyH / 2, key, artFrame(this, key)).setOrigin(0.5, 0.5);
         img.setScale(bodyH / img.height);
         sprite = img;
       } else {
-        bodyH = i === 0 ? 110 : 88;
-        sprite = this.add.rectangle(x, feetY - bodyH / 2, i === 0 ? 72 : 58, bodyH, color, 0.95)
+        bodyH = Math.round((i === 0 ? 110 : 88) * CHAR_SCALE);
+        sprite = this.add.rectangle(x, feetY - bodyH / 2, Math.round((i === 0 ? 72 : 58) * CHAR_SCALE), bodyH, color, 0.95)
           .setStrokeStyle(2, 0xd8d0e8);
       }
       sprite.setDepth(i === 0 ? 5 : 4);   // 主人公を手前に
@@ -187,30 +193,33 @@ export class BattleScene extends Phaser.Scene {
     // 敵描画 (右側)。足元を地面線にそろえ、名前・HP・シールドは頭上にまとめる
     const knownWeak = loadMeta().knownWeaknesses;
     enemies.forEach((e, i) => {
-      const x = width - 200 - i * 180;
+      const x = width - 200 - i * 210;
       const rank = e.enemyDef!.rank;
       const ekey = enemyArtKey(e.enemyDef!.id);
       let rect: Phaser.GameObjects.Rectangle | Phaser.GameObjects.Image;
       let bodyH: number;
       let bodyW: number;
       if (hasArt(this, ekey)) {
-        // 主人公(230px)と釣り合う高さ: 通常190 / エリート235 / ボス300。
+        // 主人公と釣り合う高さ: 通常190 / エリート235 / ボス300 (それぞれ CHAR_SCALE 倍)。
         // 横長の敵 (狼など) が隣と重ならないよう横幅にも上限を設ける
         const isBoss = rank === 'Boss' || rank === 'TrueFinalBoss';
-        const targetH = isBoss ? 300 : rank === 'Elite' ? 235 : 190;
-        const maxW = isBoss ? 320 : 170;
+        const targetH = (isBoss ? 300 : rank === 'Elite' ? 235 : 190) * CHAR_SCALE;
+        const maxW = (isBoss ? 320 : 170) * CHAR_SCALE;
         const img = this.add.image(0, 0, ekey, artFrame(this, ekey)).setOrigin(0.5, 0.5);
         img.setScale(Math.min(targetH / img.height, maxW / img.width));
         bodyH = img.displayHeight;
         bodyW = img.displayWidth;
         rect = img;
       } else {
-        bodyH = rank === 'Boss' || rank === 'TrueFinalBoss' ? 130 : rank === 'Elite' ? 100 : 76;
+        bodyH = (rank === 'Boss' || rank === 'TrueFinalBoss' ? 130 : rank === 'Elite' ? 100 : 76) * CHAR_SCALE;
         bodyW = bodyH * 0.7;
         rect = this.add.rectangle(0, 0, bodyW, bodyH, e.enemyDef!.tint, 0.95)
           .setStrokeStyle(2, 0x000000);
       }
-      const top = -bodyH / 2;
+      // 頭上の表示の基準。背の高いボスは、名前・HP・弱点枠が画面上部の帯にかからないよう絵の上に重ねる
+      const labelsHeight = (e.enemyDef!.elementWeaknesses.length > 0 ? 64 : 45) + 17;
+      const overflow = ENEMY_LABEL_MIN_Y - (groundY - bodyH - labelsHeight);
+      const top = -bodyH / 2 + Math.max(0, overflow);
       const hpText = this.add.text(0, top - 10, '', labelStyle(11, COLORS.textDim)).setOrigin(0.5);
       const nameText = this.add.text(0, top - 27, e.name, labelStyle(12)).setOrigin(0.5);
       const shieldText = this.add.text(0, top - 45, '', labelStyle(13, '#8fc2ee')).setOrigin(0.5);
@@ -1117,7 +1126,7 @@ export class BattleScene extends Phaser.Scene {
     for (const { e, i } of living) {
       const sprite = this.findEnemySprite(e);
       if (!sprite) continue;
-      const markerY = sprite.y + (sprite.getData('labelTop') as number) - 40;
+      const markerY = Math.max(ENEMY_LABEL_MIN_Y - 10, sprite.y + (sprite.getData('labelTop') as number) - 40);
       const marker = this.add.text(sprite.x, markerY, '▼', textStyle(26, COLORS.textGold))
         .setOrigin(0.5).setDepth(70)
         .setInteractive({ useHandCursor: true })
