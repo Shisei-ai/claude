@@ -37,7 +37,9 @@ interface WeakSlot { el: ElementType; box: Phaser.GameObjects.Rectangle; text: P
 
 /** 付与されたときに上昇音を鳴らす状態 (それ以外は下降音) */
 /** 戦闘画面のキャラの大きさの倍率 (味方・敵とも。旧: 主人公230px・通常の敵190px) */
-const CHAR_SCALE = 1.3;
+const CHAR_SCALE = 1.6;
+/** 敵のHPバーの色 (残りが減ると黄→赤) */
+const enemyHpColor = (ratio: number): number => (ratio > 0.5 ? 0x5fbf5a : ratio > 0.25 ? 0xd9b13c : 0xd2453f);
 /** コマンド欄の1ページに並べる技の数 (攻撃は別に常に出す) */
 const COMMAND_PAGE_SIZE = 3;
 /** 敵の頭上の表示 (弱点枠・状態異常) がこれより上に出ないようにする (行動順の帯の下) */
@@ -130,8 +132,8 @@ export class BattleScene extends Phaser.Scene {
       this.add.rectangle(width / 2, height / 2, width, height,
         floorTints[Math.min(this.run.currentFloor, 3)]);
     }
-    // 地面線。コマンド欄 (3行時の上端 = 画面下から202px) に足元が隠れない高さ
-    const groundLineY = height - 202;
+    // 地面線。コマンド欄 (高さ166px・上端は画面下から178px) に足元が隠れない高さ
+    const groundLineY = height - 184;
     this.add.rectangle(width / 2, groundLineY, width, 2, 0x3a3050);
 
     // 勝利後の遺物選択の途中で中断していた場合: 戦闘はやり直さず、選択画面から再開
@@ -168,7 +170,7 @@ export class BattleScene extends Phaser.Scene {
     this.heroSprites = [];
     this.heroes.forEach((h, i) => {
       // 仲間は主人公の左奥・右奥 (絵を大きくした分、間隔も広げる)
-      const x = 240 + (i > 0 ? (i === 1 ? -120 : 115) : 0);
+      const x = 270 + (i > 0 ? (i === 1 ? -140 : 135) : 0);
       const feetY = groundY - (i > 0 ? 40 : 0);   // 仲間は一歩奥
       const id = h.characterId ?? this.run.characterId;
       const color = getCharacter(id).themeColor;
@@ -197,8 +199,10 @@ export class BattleScene extends Phaser.Scene {
 
     // 敵描画 (右側)。足元を地面線にそろえ、名前・HP・シールドは頭上にまとめる
     const knownWeak = loadMeta().knownWeaknesses;
+    // 3体なら220px、2体なら250px間隔。1体なら絵の幅に合わせて画面内に収める
+    const spacing = enemies.length >= 3 ? 220 : 250;
     enemies.forEach((e, i) => {
-      const x = width - 200 - i * 210;
+      let x = width - 200 - i * spacing;
       const rank = e.enemyDef!.rank;
       const ekey = enemyArtKey(e.enemyDef!.id);
       let rect: Phaser.GameObjects.Rectangle | Phaser.GameObjects.Image;
@@ -209,7 +213,8 @@ export class BattleScene extends Phaser.Scene {
         // 横長の敵 (狼など) が隣と重ならないよう横幅にも上限を設ける
         const isBoss = rank === 'Boss' || rank === 'TrueFinalBoss';
         const targetH = (isBoss ? 300 : rank === 'Elite' ? 235 : 190) * CHAR_SCALE;
-        const maxW = (isBoss ? 320 : 170) * CHAR_SCALE;
+        // 複数並ぶときは隣と重ならない幅まで
+        const maxW = enemies.length > 1 ? Math.min((isBoss ? 320 : 170) * CHAR_SCALE, spacing - 12) : (isBoss ? 340 : 190) * CHAR_SCALE;
         const img = this.add.image(0, 0, ekey, artFrame(this, ekey)).setOrigin(0.5, 0.5);
         img.setScale(Math.min(targetH / img.height, maxW / img.width));
         bodyH = img.displayHeight;
@@ -222,13 +227,20 @@ export class BattleScene extends Phaser.Scene {
           .setStrokeStyle(2, 0x000000);
       }
       // 頭上の表示の基準。背の高いボスは、名前・HP・弱点枠が画面上部の帯にかからないよう絵の上に重ねる
-      const labelsHeight = (e.enemyDef!.elementWeaknesses.length > 0 ? 64 : 45) + 17;
+      const labelsHeight = (e.enemyDef!.elementWeaknesses.length > 0 ? 68 : 48) + 17;
       const overflow = ENEMY_LABEL_MIN_Y - (groundY - bodyH - labelsHeight);
       const top = -bodyH / 2 + Math.max(0, overflow);
-      const hpText = this.add.text(0, top - 10, '', labelStyle(11, COLORS.textDim)).setOrigin(0.5);
-      const nameText = this.add.text(0, top - 27, e.name, labelStyle(12)).setOrigin(0.5);
-      const shieldText = this.add.text(0, top - 45, '', labelStyle(13, '#8fc2ee')).setOrigin(0.5);
-      const container = this.add.container(x, groundY - bodyH / 2, [rect, hpText, nameText, shieldText]);
+      // 右端の大きな敵は画面の外にはみ出さないよう内側へ
+      x = Math.min(x, width - 16 - bodyW / 2);
+      // HPはバーで示す (数値は出さない)。削った分は少し遅れて減る (refreshDisplay の表示HP)
+      const hpBarW = Math.round(Phaser.Math.Clamp(bodyW * 0.6, 110, 170));
+      const hpBar = this.add.graphics();
+      hpBar.setPosition(0, top - 12);
+      hpBar.setData('w', hpBarW);
+      const hpText = this.add.text(0, top - 10, '', labelStyle(11, COLORS.textDim)).setOrigin(0.5).setVisible(false);
+      const nameText = this.add.text(0, top - 30, e.name, labelStyle(13)).setOrigin(0.5);
+      const shieldText = this.add.text(0, top - 48, '', labelStyle(13, '#8fc2ee')).setOrigin(0.5);
+      const container = this.add.container(x, groundY - bodyH / 2, [rect, hpBar, hpText, nameText, shieldText]);
 
       // 弱点枠: 弱点の数だけ「?」を並べ、弱点を突くと属性を開示する (オクトパストラベラー式)。
       // 一度見つけた弱点はランをまたいで記憶する。鑑定士の片眼鏡を持っていれば最初から全開示
@@ -236,9 +248,9 @@ export class BattleScene extends Phaser.Scene {
       const revealAll = hasEffect(this.run, 'WeaknessReveal');
       const known = new Set(knownWeak[e.enemyDef!.id] ?? []);
       const weakSlots: WeakSlot[] = [];
-      let labelTop = top - 45;
+      let labelTop = top - 48;
       if (weaknesses.length > 0) {
-        labelTop = top - 64;
+        labelTop = top - 68;
         const gap = 22;
         weaknesses.forEach((el, wi) => {
           const sx = (wi - (weaknesses.length - 1) / 2) * gap;
@@ -250,7 +262,7 @@ export class BattleScene extends Phaser.Scene {
           if (revealAll || known.has(el)) this.showWeakSlot(slot, false);
         });
       }
-      container.setData({ combatant: e, rect, hpText, shieldText, bodyH, bodyW, labelTop, weakSlots, homeX: x });
+      container.setData({ combatant: e, rect, hpText, hpBar, shieldText, bodyH, bodyW, labelTop, weakSlots, homeX: x });
       this.enemySprites.push(container);
     });
 
@@ -566,7 +578,8 @@ export class BattleScene extends Phaser.Scene {
     // 頭上の名前ラベル (頭の12px上) より上に置く
     const headY = sprite.y - sprite.displayHeight / 2;
     const x = Phaser.Math.Clamp(sprite.getData('homeX') as number, w / 2 + 8, this.scale.width - w / 2 - 8);
-    const bubble = this.add.container(x, headY - 26 - 10 - h / 2, [g, txt]).setDepth(60);
+    // 背の高い立ち絵でも、上部の行動順の帯に重ならない高さまで下げる (頭に少しかかってもよい)
+    const bubble = this.add.container(x, Math.max(ENEMY_LABEL_MIN_Y + 8 + h / 2, headY - 26 - 10 - h / 2), [g, txt]).setDepth(60);
     this.bubble = bubble;
     bubble.setScale(0.85).setAlpha(0);
     this.tweens.add({ targets: bubble, scale: 1, alpha: 1, duration: 140, ease: 'Back.easeOut' });
@@ -950,7 +963,19 @@ export class BattleScene extends Phaser.Scene {
       const hpText = sprite.getData('hpText') as Phaser.GameObjects.Text;
       const shieldText = sprite.getData('shieldText') as Phaser.GameObjects.Text;
       const cv = this.viewOf(c);
-      hpText.setText(cv.hp > 0 ? `HP ${this.hpOf(c)}/${c.base.maxHP}` : '');
+      hpText.setText('');
+      // HPバー: 暗い溝 + 残りの色 (緑→黄→赤) + 細い縁
+      const bar = sprite.getData('hpBar') as Phaser.GameObjects.Graphics;
+      bar.clear();
+      if (cv.hp > 0) {
+        const bw = bar.getData('w') as number;
+        const ratio = Phaser.Math.Clamp(this.hpOf(c) / c.base.maxHP, 0, 1);
+        bar.fillStyle(0x000000, 0.75).fillRect(-bw / 2 - 2, -6, bw + 4, 12);
+        bar.fillStyle(0x2a1e2e, 1).fillRect(-bw / 2, -4, bw, 8);
+        bar.fillStyle(enemyHpColor(ratio), 1).fillRect(-bw / 2, -4, Math.max(ratio > 0 ? 2 : 0, bw * ratio), 8);
+        bar.fillStyle(0xffffff, 0.18).fillRect(-bw / 2, -4, bw * ratio, 3);   // 上側のつや
+        bar.lineStyle(1, 0xc8b88a, 0.7).strokeRect(-bw / 2 - 2, -6, bw + 4, 12);
+      }
       if (c.maxShields > 0 && cv.hp > 0) {
         shieldText.setText(cv.broken ? 'BREAK!' : '🛡'.repeat(cv.shields));
         shieldText.setColor(cv.broken ? '#ffd24a' : '#8fc2ee');
