@@ -381,7 +381,9 @@ export class BattleScene extends Phaser.Scene {
           if (e.amount > 0) {
             this.shake(e.target, e.isCrit ? 11 : 7);
             if (e.isCrit) this.cameras.main.shake(this.spd(160), 0.004);
-            playSfx(e.isWeak ? 'weak' : e.isCrit ? 'crit' : 'hit');
+            playSfx(e.isWeak ? 'weak' : e.isCrit ? 'crit' : 'hit', {
+              element: e.element, magical: !!e.magical, claw: !!attacker && !attacker.isPlayer && !e.magical,
+            });
           } else {
             this.flashCombatant(e.target);
           }
@@ -407,6 +409,7 @@ export class BattleScene extends Phaser.Scene {
         if (at) this.fx.status(at.x, at.y, at.h, 'Poison');
         this.spawnDamageNumber(e.target, e.amount, '#b070e0', false, false);
         this.shake(e.target, 4);
+        playSfx('dot');
         return 600;
       }
       case 'heal': {
@@ -428,6 +431,7 @@ export class BattleScene extends Phaser.Scene {
       case 'shieldHit': {
         const at = this.centerOf(e.target);
         if (at) this.fx.shieldSpark(at.x, at.y - at.h * 0.2);
+        playSfx('shield');
         return 220;
       }
       case 'shadow': {
@@ -492,6 +496,7 @@ export class BattleScene extends Phaser.Scene {
         return 900;
       case 'defeat_party':
         this.msgText.setText(`${this.hero.name} は倒れた…`);
+        playSfx('toll');
         return 1200;
     }
   }

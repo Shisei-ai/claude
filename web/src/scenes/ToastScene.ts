@@ -20,7 +20,7 @@ export class ToastScene extends Phaser.Scene {
     const a = this.queue.shift();
     if (!a) { this.busy = false; return; }
     this.busy = true;
-    playSfx('buff');
+    playSfx('chime');
 
     const { width } = this.scale;
     const w = 340, h = 76;

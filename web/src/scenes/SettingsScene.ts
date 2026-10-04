@@ -2,13 +2,24 @@
 import Phaser from 'phaser';
 import { COLORS, makeButton, textStyle, drawSceneBackground, drawBar, drawOrnamentLine } from '../ui/theme';
 import { getSettings, updateSettings, BATTLE_SPEEDS } from '../core/settings';
-import { playSfx } from '../audio/sfx';
+import { playSfx, type Sfx, type SfxOptions } from '../audio/sfx';
 import { applyBgmVolume } from '../audio/bgm';
 
 interface SettingsInit { from?: string }
 
+/** 「効果音を試す」で順に鳴らす音 */
+const SFX_SAMPLES: [string, Sfx, SfxOptions?][] = [
+  ['斬撃', 'hit'], ['会心の一撃', 'crit'], ['弱点', 'weak'], ['獣の爪', 'hit', { claw: true }],
+  ['炎の魔法', 'hit', { element: 'Fire', magical: true }], ['氷の魔法', 'hit', { element: 'Ice', magical: true }],
+  ['雷の魔法', 'hit', { element: 'Lightning', magical: true }], ['風の魔法', 'hit', { element: 'Wind', magical: true }],
+  ['闇の魔法', 'hit', { element: 'Dark', magical: true }], ['光の魔法', 'hit', { element: 'Light', magical: true }],
+  ['技の構え', 'skill'], ['回避', 'miss'], ['ブレイク', 'break'], ['回復', 'heal'], ['強化', 'buff'], ['弱体', 'debuff'],
+  ['毒', 'dot'], ['障壁', 'shield'], ['敵を倒す', 'defeat'], ['勝利', 'victory'], ['全滅', 'toll'], ['実績', 'chime'],
+];
+
 export class SettingsScene extends Phaser.Scene {
   private from = 'MainMenu';
+  private sampleIndex = 0;
 
   constructor() { super('Settings'); }
 
@@ -58,7 +69,14 @@ export class SettingsScene extends Phaser.Scene {
     this.add.text(width / 2 + 125, 404, '戦闘中も右上のボタンで切り替えられます',
       textStyle(12, COLORS.textDim)).setOrigin(0.5);
 
-    makeButton(this, width / 2, 500, '効果音を試す', () => playSfx('crit'), { width: 220, height: 42, fontSize: 15 });
+    // 押すたびに戦闘の効果音を順に鳴らす
+    const caption = this.add.text(width / 2, 540, '', textStyle(13, COLORS.textDim)).setOrigin(0.5);
+    makeButton(this, width / 2, 500, '効果音を試す', () => {
+      const [label, kind, opts] = SFX_SAMPLES[this.sampleIndex % SFX_SAMPLES.length];
+      this.sampleIndex++;
+      playSfx(kind, opts);
+      caption.setText(`♪ ${label}　(${(this.sampleIndex - 1) % SFX_SAMPLES.length + 1}/${SFX_SAMPLES.length})`);
+    }, { width: 220, height: 42, fontSize: 15 });
 
     makeButton(this, width / 2, height - 70, '戻る', () => {
       this.scene.start(this.from);
