@@ -121,7 +121,7 @@ export class CodexScene extends Phaser.Scene {
     progress: string,
   ): void {
     const { width } = this.scale;
-    this.keep(this.add.text(width / 2, 70, progress, textStyle(15, COLORS.textDim)).setOrigin(0.5));
+    this.keep(this.add.text(width / 2, 76, progress, textStyle(15, COLORS.text)).setOrigin(0.5));
 
     const pages = Math.max(1, Math.ceil(items.length / PER_PAGE));
     this.page = Phaser.Math.Clamp(this.page, 0, pages - 1);

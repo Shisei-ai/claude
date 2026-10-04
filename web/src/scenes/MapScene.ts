@@ -84,7 +84,7 @@ export class MapScene extends Phaser.Scene {
     this.add.text(width / 2, 30,
       `第${this.run.currentFloor + 1}層　${floor.floorName}`,
       titleStyle(28, COLORS.textGold)).setOrigin(0.5).setLetterSpacing(3);
-    this.add.text(width / 2, 60, floor.floorSubtitle, textStyle(14, COLORS.textDim)).setOrigin(0.5);
+    this.add.text(width / 2, 61, floor.floorSubtitle, textStyle(15, '#d8cfe6')).setOrigin(0.5);
 
     ensureNodeIcons(this);
     this.drawHUD();
@@ -138,7 +138,7 @@ export class MapScene extends Phaser.Scene {
       latinStyle(11, '#ffffff')).setOrigin(0.5);
     drawBar(g, width / 2 - 100, 99, 200, 12, maxMP > 0 ? run.currentMP / maxMP : 0, COLORS.mpBar);
     this.add.text(width / 2, 105, `MP ${run.currentMP} / ${maxMP}`,
-      latinStyle(10, '#ffffff')).setOrigin(0.5);
+      latinStyle(11, '#ffffff')).setOrigin(0.5);
 
     this.add.text(width - 320, 90, `◈ ${run.gold} G`, textStyle(15, COLORS.textGold));
     const sanityStr = run.sanity > 0 ? `+${run.sanity}` : `${run.sanity}`;

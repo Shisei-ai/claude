@@ -61,8 +61,8 @@ export class RunSetupScene extends Phaser.Scene {
       } else {
         this.add.rectangle(x, y - 26, 44, 44, c.themeColor, 0.9).setStrokeStyle(1, 0x000000);
       }
-      this.add.text(x, y + 14, c.name, textStyle(14)).setOrigin(0.5);
-      this.add.text(x, y + 38, c.jobName, textStyle(12, COLORS.textDim)).setOrigin(0.5);
+      this.add.text(x, y + 22, c.name, textStyle(14)).setOrigin(0.5);
+      this.add.text(x, y + 44, c.jobName, textStyle(13, COLORS.textDim)).setOrigin(0.5);
     });
 
     // ── 加護選択 ──
@@ -75,7 +75,7 @@ export class RunSetupScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => { this.selectedBlessing = i; this.refresh(); });
       this.blessMarks.push(card);
-      this.add.text(x, y - 16, `${b.icon} ${b.name}`, textStyle(14, COLORS.textGold)).setOrigin(0.5);
+      this.add.text(x, y, `${b.icon} ${b.name}`, textStyle(16, COLORS.textGold)).setOrigin(0.5);
     });
 
     // ── 難易度選択 ──
@@ -94,8 +94,8 @@ export class RunSetupScene extends Phaser.Scene {
 
     // ── 説明パネル ──
     drawPanel(this, width / 2, 584, width - 160, 96, { alpha: 0.9 });
-    this.infoText = this.add.text(width / 2, 584, '', textStyle(14, COLORS.textDim, {
-      wordWrap: { width: width - 220 }, align: 'center',
+    this.infoText = this.add.text(width / 2, 584, '', textStyle(15, COLORS.text, {
+      wordWrap: { width: width - 220 }, align: 'center', lineSpacing: 4,
     })).setOrigin(0.5);
 
     // ── ボタン ──

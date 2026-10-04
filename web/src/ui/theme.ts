@@ -13,12 +13,13 @@ export const COLORS = {
   borderBright: 0x9a7cc8,
   trim: 0x7d6235,           // 古金の飾り線
   trimBright: 0xd8b56a,
-  text: '#e4dac6',          // 羊皮紙色
-  textDim: '#958aa8',
-  textGold: '#e2c27a',
-  textRed: '#e0636b',
-  textGreen: '#7fd99a',
-  textBlue: '#7fb2e6',
+  // 文字色は暗い背景・背景画像の上でも読めるよう明るめにする (旧: #e4dac6 / #958aa8 / #e2c27a …)
+  text: '#f0e7d4',          // 羊皮紙色
+  textDim: '#b8aecb',       // 補足 (くすんだ藤色。暗くしすぎない)
+  textGold: '#f0d38c',
+  textRed: '#f27c84',
+  textGreen: '#8fe6aa',
+  textBlue: '#9ccaf2',
   accent: 0xd8b56a,
   hpBar: 0x4fae5c,
   hpBarLow: 0xc8423f,
@@ -33,7 +34,15 @@ export const FONT_SANS = FONT_BODY;
 export { FONT_BODY, FONT_DISPLAY, FONT_LATIN };
 
 /** 文字の影 (背景画像の上でも読めるように) */
-const SOFT_SHADOW = { offsetX: 0, offsetY: 1, color: '#000000', blur: 3, fill: true, stroke: false };
+const SOFT_SHADOW = { offsetX: 0, offsetY: 1, color: '#000000', blur: 4, fill: true, stroke: false };
+
+/** 小さな文字ほど少し大きくする (細い明朝体は小さいと潰れて読みにくいため)。16px 以上はそのまま */
+export function readableSize(size: number): number {
+  return size >= 16 ? size : Math.round((size + (16 - size) * 0.3) * 2) / 2;
+}
+
+/** 本文の太さ。明朝体の細い線が背景に溶けないよう、見出し未満の大きさは少し太くする */
+const bodyWeight = (size: number): string => (size < 22 ? '600' : '400');
 
 // 行頭に置かない文字 (句読点・閉じ括弧・小書き仮名・長音・ダッシュ) と、行末に残さない開き括弧
 const NO_LINE_START = '、。，．・：；？！ー―—…‥）」』】〕〉》’”ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ々〜～!?),.:;%';
@@ -79,10 +88,12 @@ export function textStyle(
       },
     };
   }
+  const px = readableSize(size);
   return {
     // 大きな文字 (画面タイトル・見出し) は古活字風の見出し書体にする
     fontFamily: size >= 24 ? FONT_DISPLAY : FONT_BODY,
-    fontSize: `${size}px`,
+    fontSize: `${px}px`,
+    fontStyle: size >= 24 ? '400' : bodyWeight(px),
     color,
     ...(extra.stroke ? {} : { shadow: SOFT_SHADOW }),
     ...extra,
@@ -110,7 +121,7 @@ export function latinStyle(
 ): Phaser.Types.GameObjects.Text.TextStyle {
   return {
     fontFamily: FONT_LATIN,
-    fontSize: `${size}px`,
+    fontSize: `${readableSize(size)}px`,
     fontStyle: bold ? '700' : '500',
     color,
     ...(extra.stroke ? {} : { shadow: SOFT_SHADOW }),

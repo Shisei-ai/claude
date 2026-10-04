@@ -8,8 +8,8 @@ import { META_NODES, isNodeUnlocked, canUnlockNode, tryUnlockNode, type MetaNode
 import { loadMeta } from '../core/save';
 import { notifyAchievements } from './ToastScene';
 
-const CARD_H = 88;
-const ROW_GAP = 98;
+const CARD_H = 104;
+const ROW_GAP = 114;
 /** 5段目と6段目の間に「深層」の見出しを挟む */
 const DEEP_FROM = 5;
 const DEEP_GAP = 40;
@@ -43,9 +43,11 @@ export class MetaScene extends Phaser.Scene {
 
     this.add.text(width / 2, 36, '彼方の墓標', textStyle(34, COLORS.textGold)).setOrigin(0.5).setDepth(10);
     drawOrnamentLine(this, width / 2, 56, 320).setDepth(10);
-    this.add.text(width / 2, 74,
+    const info = this.add.text(width / 2, 76,
       `刻まれた碑文: ${meta.totalEpitaphs}　　解放 ${owned} / ${total}　　倒れた旅人の記憶が、次の旅人の力になる`,
-      textStyle(15, COLORS.textDim)).setOrigin(0.5).setDepth(10);
+      textStyle(15, COLORS.text)).setOrigin(0.5).setDepth(10);
+    // 背景画像の明るい所でも読めるよう、薄い下地を敷く
+    this.add.rectangle(width / 2, 76, info.width + 40, info.height + 6, 0x07050d, 0.6).setDepth(9);
 
     const viewBottom = this.viewBottom = height - 76;
     this.tree = this.add.container(0, 0);
@@ -55,7 +57,7 @@ export class MetaScene extends Phaser.Scene {
 
     const paths = [...new Set(META_NODES.map((n) => n.pathName))];
     const colW = (width - 120) / paths.length;
-    const firstY = VIEW_TOP + 70;
+    const firstY = VIEW_TOP + 86;   // 道の名前がスクロール範囲の上端で切れないように
     const rowY = (ni: number) => firstY + ni * ROW_GAP + (ni >= DEEP_FROM ? DEEP_GAP : 0);
     let deepestRow = 0;
 
@@ -112,10 +114,10 @@ export class MetaScene extends Phaser.Scene {
     this.tree.add(bg);
 
     // 未解放でも読める明るさにする
-    const nameColor = unlocked ? COLORS.textGold : canUnlock ? COLORS.text : '#a79cc0';
-    const descColor = unlocked || canUnlock ? COLORS.textDim : '#8a7fa0';
-    this.tree.add(this.add.text(x, y - CARD_H / 2 + 14, node.displayName, textStyle(14, nameColor)).setOrigin(0.5));
-    this.tree.add(this.add.text(x, y - CARD_H / 2 + 28, node.description, textStyle(10.5, descColor, {
+    const nameColor = unlocked ? COLORS.textGold : canUnlock ? COLORS.text : '#c4b9d8';
+    const descColor = unlocked || canUnlock ? COLORS.textDim : '#a99ebd';
+    this.tree.add(this.add.text(x, y - CARD_H / 2 + 15, node.displayName, textStyle(15, nameColor)).setOrigin(0.5));
+    this.tree.add(this.add.text(x, y - CARD_H / 2 + 30, node.description, textStyle(11, descColor, {
       wordWrap: { width: colW - 32 }, align: 'center', lineSpacing: 1,
     })).setOrigin(0.5, 0));
 
@@ -127,15 +129,15 @@ export class MetaScene extends Phaser.Scene {
       costColor = COLORS.textGold;
     } else if (!prereqMet) {
       costLabel = `前の段階が必要　碑文 ${node.epitaphCost}`;
-      costColor = '#8a7fa0';
+      costColor = '#a99ebd';
     } else if (epitaphs < node.epitaphCost) {
       costLabel = `碑文 ${node.epitaphCost}（あと ${node.epitaphCost - epitaphs}）`;
-      costColor = '#d98a8a';
+      costColor = '#f09a9a';
     } else {
       costLabel = `碑文 ${node.epitaphCost}　解放できる`;
       costColor = COLORS.textGold;
     }
-    this.tree.add(this.add.text(x, y + CARD_H / 2 - 11, costLabel, textStyle(10.5, costColor)).setOrigin(0.5));
+    this.tree.add(this.add.text(x, y + CARD_H / 2 - 12, costLabel, textStyle(11, costColor)).setOrigin(0.5));
 
     if (canUnlock) {
       bg.setInteractive({ useHandCursor: true })

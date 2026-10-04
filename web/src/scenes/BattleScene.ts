@@ -921,16 +921,16 @@ export class BattleScene extends Phaser.Scene {
       const mAlive = mv.hp > 0;
       this.hudTexts.push(this.add.text(mx + 10, my + 5,
         mAlive ? m.name.split('・')[0] : `${m.name.split('・')[0]} (戦闘不能)`,
-        textStyle(12, mAlive ? COLORS.text : '#77445a')));
+        textStyle(13, mAlive ? COLORS.text : '#a0607a')));
       const mHp = this.hpOf(m);
       drawBar(this.hudG, mx + 10, my + 24, 128, 9, mHp / m.base.maxHP,
         mHp / m.base.maxHP > 0.3 ? COLORS.hpBar : COLORS.hpBarLow);
       this.hudTexts.push(this.add.text(mx + 146, my + 20,
-        `${mHp}/${m.base.maxHP}`, latinStyle(10)));
+        `${mHp}/${m.base.maxHP}`, latinStyle(11)));
       // 仲間もスキルを使うので MP も出す
       drawBar(this.hudG, mx + 10, my + 37, 128, 5, mv.mp / Math.max(1, m.base.maxMP), COLORS.mpBar);
       this.hudTexts.push(this.add.text(mx + 146, my + 33,
-        `MP ${mv.mp}`, latinStyle(9, COLORS.textBlue)));
+        `MP ${mv.mp}`, latinStyle(10, COLORS.textBlue)));
       for (let b = 0; b < 5; b++) {
         this.hudG.fillStyle(b < mv.bp ? COLORS.bpBar : 0x201a2c, 1)
           .fillCircle(mx + 15 + b * 14, my + 49, 4);
@@ -1090,7 +1090,8 @@ export class BattleScene extends Phaser.Scene {
     }
 
     // 仲間がいるときは右に寄せ、左下の仲間パネル (HP・MP) を隠さない
-    const menuX = this.heroes.length > 1 ? width - 24 - panelW / 2 : width / 2;
+    // 左下の主人公の情報 (と仲間の小パネル) に重ならないよう、常に右下に寄せる
+    const menuX = width - 24 - panelW / 2;
     this.commandContainer = this.add.container(menuX, height - 20 - panelH / 2, items).setDepth(60);
   }
 

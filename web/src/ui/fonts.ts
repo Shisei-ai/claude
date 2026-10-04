@@ -4,9 +4,12 @@
 //   欧文・数字: Cinzel … ローマ碑文の大文字。タイトルロゴ・ダメージ数字・HP表示に
 // いずれも SIL Open Font License (@fontsource 経由で同梱)
 // 日本語と基本ラテン文字の分だけを読み込む (キリル文字などは使わないため)。
-// 和文は1書体あたり約1.9MBあるため、本文の太字は和文を持たない (欧文のみ太字を同梱)
+// 和文は1書体あたり約1.9MB。本文の小さな文字は読みやすさのため 600 (やや太字) を使うので、
+// 和文は 400 と 600 を同梱する (700 は欧文のみ)
 import '@fontsource/zen-old-mincho/japanese-400.css';
+import '@fontsource/zen-old-mincho/japanese-600.css';
 import '@fontsource/zen-old-mincho/latin-400.css';
+import '@fontsource/zen-old-mincho/latin-600.css';
 import '@fontsource/zen-old-mincho/latin-700.css';
 import '@fontsource/zen-antique/japanese-400.css';
 import '@fontsource/zen-antique/latin-400.css';
@@ -23,6 +26,7 @@ export async function loadFonts(onProgress?: (done: number, total: number) => vo
   if (!('fonts' in document)) return;
   const jobs = [
     '400 24px "Zen Old Mincho"',
+    '600 24px "Zen Old Mincho"',
     '400 24px "Zen Antique"',
     '500 24px "Cinzel"',
     '700 24px "Cinzel"',

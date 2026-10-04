@@ -156,11 +156,11 @@ export class ResultScene extends Phaser.Scene {
       ['訪れた出来事', `${run.eventsVisited}`],
     ];
 
-    drawPanel(this, width / 2, height * 0.5, 520, 250, { alpha: 0.94 });
+    drawPanel(this, width / 2, height * 0.5 + 4, 540, 262, { alpha: 0.94 });
     stats.forEach(([label, value], i) => {
-      const y = height * 0.5 - 95 + i * 40;
-      this.add.text(width / 2 - 220, y, label, textStyle(15, COLORS.textDim));
-      this.add.text(width / 2 + 220, y, value, textStyle(15)).setOrigin(1, 0);
+      const y = height * 0.5 - 104 + i * 38;
+      this.add.text(width / 2 - 230, y, label, textStyle(16, COLORS.textDim));
+      this.add.text(width / 2 + 230, y, value, textStyle(16)).setOrigin(1, 0);
     });
 
     // 碑文獲得
@@ -169,7 +169,7 @@ export class ResultScene extends Phaser.Scene {
       textStyle(24, COLORS.textGold)).setOrigin(0.5);
     this.add.text(width / 2, height * 0.72 + 32,
       '「彼方の墓標」で碑文を力に変えられる',
-      textStyle(13, COLORS.textDim)).setOrigin(0.5);
+      textStyle(14, COLORS.textDim)).setOrigin(0.5);
     if (run.dailyDate) {
       this.add.text(width / 2, height * 0.72 + 56,
         `デイリー挑戦 ${run.dailyDate} の記録を残した`, textStyle(13, COLORS.textGold)).setOrigin(0.5);

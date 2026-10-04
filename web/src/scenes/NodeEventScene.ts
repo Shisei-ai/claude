@@ -149,7 +149,7 @@ export class NodeEventScene extends Phaser.Scene {
     const { width } = this.scale;
     this.add.text(width / 2, 84, title, titleStyle(36, COLORS.textGold)).setOrigin(0.5).setLetterSpacing(4);
     drawOrnamentLine(this, width / 2, 112, 360);
-    this.add.text(width / 2, 134, subtitle, textStyle(15, COLORS.textDim)).setOrigin(0.5);
+    this.add.text(width / 2, 136, subtitle, textStyle(16, '#d8cfe6')).setOrigin(0.5);
   }
 
   /** 文章の後ろに羊皮紙のような暗い板を敷く (背景画像の上でも読めるように) */
@@ -670,7 +670,7 @@ export class NodeEventScene extends Phaser.Scene {
           return;
         }
         this.resolveChoice(choice);
-      }, { width: btnW, height: 52, fontSize: 14, disabled: !affordable });
+      }, { width: btnW, height: 52, fontSize: 16, disabled: !affordable });
 
       if (choice.tooltip) {
         const bg = btn.list[0] as Phaser.GameObjects.Rectangle;
