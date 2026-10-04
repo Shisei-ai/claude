@@ -38,6 +38,8 @@ interface WeakSlot { el: ElementType; box: Phaser.GameObjects.Rectangle; text: P
 /** 付与されたときに上昇音を鳴らす状態 (それ以外は下降音) */
 /** 戦闘画面のキャラの大きさの倍率 (味方・敵とも。旧: 主人公230px・通常の敵190px) */
 const CHAR_SCALE = 1.3;
+/** コマンド欄の1ページに並べる技の数 (攻撃は別に常に出す) */
+const COMMAND_PAGE_SIZE = 3;
 /** 敵の頭上の表示 (弱点枠・状態異常) がこれより上に出ないようにする (行動順の帯の下) */
 const ENEMY_LABEL_MIN_Y = 122;
 
@@ -70,6 +72,8 @@ export class BattleScene extends Phaser.Scene {
   /** 遅れて届く表示更新が、新しい状態を古い状態で上書きしないための通し番号 */
   private viewSeq = 0;
   private viewApplied = 0;
+  /** コマンド欄で開いている技のページ (ヒーローごとに覚えておく) */
+  private commandPage = new Map<Combatant, number>();
   /** 吸収した直後の撃破は、魂が使い手へ流れる演出にする */
   private pendingAbsorb = false;
   /** いま技を出している者 (演出の向き・魔法の発射元。イベント再生中はエンジンの手番より遅れるため自前で持つ) */
@@ -105,6 +109,7 @@ export class BattleScene extends Phaser.Scene {
     this.processing = false;
     this.bubble = null;
     this.saidOnce = new Set();
+    this.commandPage = new Map();
 
     // 最終層はエンディングごとの最終ボス曲、各層のボスは層別のボス曲 (無ければ共通の曲)
     const finalStem = this.run.activeEnding ? ENDING_BG_STEM[this.run.activeEnding] : undefined;
@@ -964,7 +969,9 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  // ── コマンドメニュー (2列 / 多スキル対応 / 手番のヒーロー用) ────────
+  // ── コマンドメニュー (手番のヒーロー用) ─────────────────────────────
+  // 欄は小さく、文字は大きく。「攻撃」は常に左上に出し、技は1ページ COMMAND_PAGE_SIZE 個ずつ (2列×2段)、
+  // 欄の下の ◀ ▶ でページを切り替える (レベルアップで技が増えても欄の大きさは変わらない)
   private showCommandMenu(): void {
     this.hideCommandMenu();
     this.armedCommand = -1;
@@ -973,25 +980,36 @@ export class BattleScene extends Phaser.Scene {
     const items: Phaser.GameObjects.GameObject[] = [];
 
     const entries = h.skills.filter((s) => !s.isPassive);
-    const rows = Math.max(3, Math.ceil((entries.length + 1) / 2));
-    const panelH = 76 + rows * 30 + 16;
-    const panelW = 620;
+    const pageCount = Math.max(1, Math.ceil(entries.length / COMMAND_PAGE_SIZE));
+    const page = Phaser.Math.Clamp(this.commandPage.get(h) ?? 0, 0, pageCount - 1);
+    this.commandPage.set(h, page);
+
+    const panelW = 460;
+    const rowH = 42;
+    const headerH = 40;
+    const tabH = 36;
+    const panelH = headerH + rowH * 2 + tabH + 8;   // 166px: 敵の足元 (地面線) にかからない高さ
+    const cellW = (panelW - 24) / 2;
+    const left = -panelW / 2;
+    const top = -panelH / 2;
 
     const bg = this.add.rectangle(0, 0, panelW, panelH, 0x000000, 0.001);
     const frame = this.add.graphics();
-    paintPanel(frame, -panelW / 2, -panelH / 2, panelW, panelH, { alpha: 0.96 });
+    paintPanel(frame, left, top, panelW, panelH, { alpha: 0.96 });
+    // 見出しと一覧、一覧とページ切り替えの区切り線
+    frame.lineStyle(1, COLORS.trim, 0.45)
+      .lineBetween(left + 14, top + headerH, left + panelW - 14, top + headerH)
+      .lineBetween(left + 14, top + panelH - tabH - 6, left + panelW - 14, top + panelH - tabH - 6);
     items.push(frame, bg);
-    const topY = -panelH / 2 + 18;
 
     // 手番表示 + ブースト選択
-    items.push(this.add.text(-panelW / 2 + 20, topY - 2, `▶ ${h.name}`,
-      textStyle(15, COLORS.textGold)));
-    items.push(this.add.text(-panelW / 2 + 200, topY, `ブースト (BP ${h.bp})`,
-      textStyle(14, COLORS.textGold)));
+    const headY = top + headerH / 2;
+    items.push(this.add.text(left + 18, headY, `▶ ${shortName(h.name)}`, textStyle(18, COLORS.textGold)).setOrigin(0, 0.5));
+    items.push(this.add.text(left + 214, headY, `BP ${h.bp}`, textStyle(15, COLORS.textGold)).setOrigin(0, 0.5));
     for (let lv = 0; lv <= 3; lv++) {
       const canUse = lv <= Math.min(h.bp, 3);
-      const btn = this.add.text(80 + lv * 56, topY + 8, `×${lv}`, textStyle(15,
-        lv === this.boostLevel ? COLORS.textGold : canUse ? COLORS.text : '#443d55'))
+      const btn = this.add.text(left + 292 + lv * 44, headY, `×${lv}`, textStyle(18,
+        lv === this.boostLevel ? COLORS.textGold : canUse ? COLORS.text : '#5a5070'))
         .setOrigin(0.5);
       if (canUse) {
         btn.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
@@ -1003,18 +1021,24 @@ export class BattleScene extends Phaser.Scene {
       items.push(btn);
     }
 
-    // コマンド一覧: 通常攻撃 + スキル (2列)
-    const colX = [-panelW / 2 + 20, 16];
-    const listTop = topY + 36;
-
+    const commandTexts: Phaser.GameObjects.Text[] = [];
+    // マス目: 0=左上(攻撃) 1=右上 2=左下 3=右下
     const addCommand = (
-      index: number, label: string, color: string, enabled: boolean,
+      cell: number, label: string, cost: string, color: string, enabled: boolean,
       skill: SkillDef | null, onPick: () => void,
     ) => {
-      const col = index % 2;
-      const row = Math.floor(index / 2);
-      const btn = this.add.text(colX[col], listTop + row * 30, label,
-        textStyle(14, enabled ? color : '#554d66'));
+      const cx = left + 12 + (cell % 2) * cellW;
+      const y = top + headerH + rowH * Math.floor(cell / 2) + rowH / 2;
+      const id = cell === 0 ? -2 : page * COMMAND_PAGE_SIZE + cell;   // タッチの「1回目のタップ」の目印
+      const shownColor = enabled ? color : '#5f566f';
+      const hl = this.add.rectangle(cx + cellW / 2, y, cellW - 6, rowH - 6, 0x3a2c52, 0).setOrigin(0.5);
+      const btn = this.add.text(cx + 10, y, label, textStyle(19, shownColor)).setOrigin(0, 0.5);
+      const costText = cost
+        ? this.add.text(cx + cellW - 10, y, cost, latinStyle(14, enabled ? COLORS.textBlue : '#5f566f')).setOrigin(1, 0.5)
+        : null;
+      // 長い技名は、消費MPと重ならないよう縮める
+      const room = cellW - 20 - (costText ? costText.width + 8 : 0);
+      if (btn.width > room) btn.setScale(room / btn.width, 1);
       const describe = () => {
         if (skill) {
           // ブースト選択中はスキル別の強化内容 (BoostSkillResolver) を表示
@@ -1026,54 +1050,60 @@ export class BattleScene extends Phaser.Scene {
           this.msgText.setText('武器で攻撃する。');
         }
       };
+      const highlight = (on: boolean) => {
+        hl.setFillStyle(0x3a2c52, on ? 0.85 : 0);
+        btn.setColor(on ? COLORS.textGold : shownColor);
+      };
       if (enabled) {
-        btn.setInteractive({ useHandCursor: true })
-          .on('pointerover', (pointer: Phaser.Input.Pointer) => {
-            if (pointer.wasTouch) return;   // タッチはタップ側で説明を出す (案内文を上書きしない)
-            describe();
-            btn.setColor(COLORS.textGold);
-          })
-          .on('pointerout', () => { if (this.armedCommand !== index) btn.setColor(color); })
+        // 行全体を押せるようにする (文字の外でも反応する)
+        btn.setInteractive(new Phaser.Geom.Rectangle(-8, -8, (cellW - 8) / btn.scaleX, btn.height + 16), Phaser.Geom.Rectangle.Contains);
+        btn.input!.cursor = 'pointer';
+        btn.on('pointerover', (pointer: Phaser.Input.Pointer) => {
+          if (pointer.wasTouch) return;   // タッチはタップ側で説明を出す (案内文を上書きしない)
+          describe();
+          highlight(true);
+        })
+          .on('pointerout', () => { if (this.armedCommand !== id) highlight(false); })
           .on('pointerdown', (pointer: Phaser.Input.Pointer) => {
             // タッチではホバーが無いので、1回目のタップで説明を出し、2回目で決定する
-            if (pointer.wasTouch && this.armedCommand !== index) {
-              this.armedCommand = index;
+            if (pointer.wasTouch && this.armedCommand !== id) {
+              this.armedCommand = id;
               describe();
               this.msgText.setText(`${this.msgText.text}\n（もう一度タップで決定）`);
-              for (const t of commandTexts) t.setColor(t === btn ? COLORS.textGold : (t.getData('baseColor') as string));
+              for (const t of commandTexts) (t.getData('highlight') as (on: boolean) => void)(t === btn);
               return;
             }
             onPick();
           });
       }
-      btn.setData('baseColor', enabled ? color : '#554d66');
+      btn.setData('highlight', highlight);
       commandTexts.push(btn);
-      items.push(btn);
+      items.push(hl, btn);
+      if (costText) items.push(costText);
     };
-    const commandTexts: Phaser.GameObjects.Text[] = [];
 
-    addCommand(0, '⚔ 攻撃', COLORS.text, true, null, () => {
+    addCommand(0, '⚔ 攻撃', '', COLORS.text, true, null, () => {
       this.selectTarget((idx) => {
         this.submitCommandWithBoost({ type: 'attack', targetIndex: idx, boostLevel: this.boostLevel });
       });
     });
 
     const livingEnemies = this.engine.enemies.filter((e) => e.isAlive).length;
-    entries.forEach((skill, i) => {
+    entries.slice(page * COMMAND_PAGE_SIZE, (page + 1) * COMMAND_PAGE_SIZE).forEach((skill, i) => {
       let enabled = h.mp >= skill.mpCost && !h.isSilenced;
       let note = '';
       // 蘇生: 戦闘不能の味方がいなければ使用不可
       if (skill.revive && !this.engine.heroes.some((x: Combatant) => !x.isAlive)) {
         enabled = false;
-        note = ' (対象なし)';
+        note = '対象なし';
       }
       // 因果の鎖(2体版): 敵が2体未満なら不可
       if (skill.causalChain && !skill.causalChain.all && livingEnemies < 2) {
         enabled = false;
-        note = ' (対象不足)';
+        note = '対象不足';
       }
-      const label = `${skill.name} ${skill.mpCost > 0 ? `MP${skill.mpCost}` : ''}${note}`;
-      addCommand(i + 1, label, COLORS.text, enabled, skill, () => {
+      // 使えない理由は消費MPの位置に出す
+      addCommand(i + 1, skill.name, note || (skill.mpCost > 0 ? `MP ${skill.mpCost}` : ''), COLORS.text, enabled, skill, () => {
         if (this.skillNeedsEnemyTarget(skill)) {
           this.selectTarget((idx) => {
             this.submitCommandWithBoost({ type: 'skill', skill, targetIndex: idx, boostLevel: this.boostLevel });
@@ -1084,15 +1114,36 @@ export class BattleScene extends Phaser.Scene {
       });
     });
 
+    // ページ切り替え (◀ 技 1/2 ▶)。沈黙中はここに知らせる
+    const tabY = top + panelH - tabH / 2 - 4;
     if (h.isSilenced) {
-      items.push(this.add.text(-panelW / 2 + 20, panelH / 2 - 24,
-        '【沈黙】スキル使用不可', textStyle(12, COLORS.textRed)));
+      items.push(this.add.text(0, tabY, '【沈黙】スキル使用不可', textStyle(15, COLORS.textRed)).setOrigin(0.5));
+    } else if (entries.length === 0) {
+      items.push(this.add.text(0, tabY, '技はまだ覚えていない', textStyle(14, COLORS.textDim)).setOrigin(0.5));
+    } else {
+      items.push(this.add.text(0, tabY, `技 ${page + 1} / ${pageCount}`, textStyle(16, COLORS.textDim)).setOrigin(0.5));
+      const arrow = (dir: -1 | 1) => {
+        const enabled = pageCount > 1 && (dir < 0 ? page > 0 : page < pageCount - 1);
+        const x = dir < 0 ? -110 : 110;
+        const box = this.add.rectangle(x, tabY, 64, 30, 0x1b1427, enabled ? 0.95 : 0.4)
+          .setStrokeStyle(1, enabled ? COLORS.trim : COLORS.border, enabled ? 0.9 : 0.5);
+        const t = this.add.text(x, tabY, dir < 0 ? '◀' : '▶', textStyle(18, enabled ? COLORS.textGold : '#4a4258')).setOrigin(0.5);
+        if (enabled) {
+          box.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
+            playSfx('select');
+            this.commandPage.set(h, page + dir);
+            this.showCommandMenu();
+          });
+        }
+        items.push(box, t);
+      };
+      arrow(-1);
+      arrow(1);
     }
 
-    // 仲間がいるときは右に寄せ、左下の仲間パネル (HP・MP) を隠さない
     // 左下の主人公の情報 (と仲間の小パネル) に重ならないよう、常に右下に寄せる
     const menuX = width - 24 - panelW / 2;
-    this.commandContainer = this.add.container(menuX, height - 20 - panelH / 2, items).setDepth(60);
+    this.commandContainer = this.add.container(menuX, height - 12 - panelH / 2, items).setDepth(60);
   }
 
   private skillNeedsEnemyTarget(skill: SkillDef): boolean {
