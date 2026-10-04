@@ -45,7 +45,11 @@ const COMMAND_PAGE_SIZE = 3;
 /** 敵の頭上の表示 (弱点枠・状態異常) がこれより上に出ないようにする (上の帯の下)。
  *  ボス戦は画面上部にボスの名前とHPを大きく出すので、その下まで */
 const ENEMY_LABEL_MIN_Y = 94;
-const ENEMY_LABEL_MIN_Y_BOSS = 150;
+const ENEMY_LABEL_MIN_Y_BOSS = 180;
+/** ボス戦の上部表示: 名前 / HPバー / 弱点枠と盾 の高さ */
+const BANNER_NAME_Y = 102;
+const BANNER_BAR_Y = 122;
+const BANNER_ROW_Y = 158;
 /** 行動順に並べる数 (いま行動中 + 次の4人) */
 const TURN_ORDER_COUNT = 5;
 const isBossRank = (c: Combatant): boolean => c.enemyDef?.rank === 'Boss' || c.enemyDef?.rank === 'TrueFinalBoss';
@@ -210,7 +214,7 @@ export class BattleScene extends Phaser.Scene {
     const knownWeak = loadMeta().knownWeaknesses;
     // 3体なら220px、2体なら250px間隔。1体なら絵の幅に合わせて画面内に収める
     const spacing = enemies.length >= 3 ? 220 : 250;
-    // ボスは名前とHPを画面上部に大きく出し、頭上には盾と弱点枠だけを残す
+    // ボスは名前・HP・盾・弱点枠を画面上部にまとめて大きく出す (頭上には状態異常だけ)
     const bannerBoss = enemies.find(isBossRank) ?? null;
     this.labelMinY = bannerBoss ? ENEMY_LABEL_MIN_Y_BOSS : ENEMY_LABEL_MIN_Y;
     enemies.forEach((e, i) => {
@@ -241,7 +245,7 @@ export class BattleScene extends Phaser.Scene {
       // 頭上の表示の基準。背の高いボスは、名前・HP・弱点枠が画面上部の帯にかからないよう絵の上に重ねる
       const bannered = e === bannerBoss;
       const nameH = bannered ? 0 : 34;   // 頭上の名前とHPバーの分 (ボスは上部に出すので無し)
-      const labelsHeight = (e.enemyDef!.elementWeaknesses.length > 0 ? 34 : 14) + nameH + 17;
+      const labelsHeight = bannered ? 17 : (e.enemyDef!.elementWeaknesses.length > 0 ? 34 : 14) + nameH + 17;
       const overflow = this.labelMinY - (groundY - bodyH - labelsHeight);
       const top = -bodyH / 2 + Math.max(0, overflow);
       // 右端の大きな敵は画面の外にはみ出さないよう内側へ
@@ -253,8 +257,11 @@ export class BattleScene extends Phaser.Scene {
       hpBar.setData('w', hpBarW);
       const hpText = this.add.text(0, top - 10, '', labelStyle(11, COLORS.textDim)).setOrigin(0.5).setVisible(false);
       const nameText = this.add.text(0, top - 30, e.name, labelStyle(13)).setOrigin(0.5).setVisible(!bannered);
-      const shieldText = this.add.text(0, top - 14 - nameH, '', labelStyle(13, '#8fc2ee')).setOrigin(0.5);
-      const container = this.add.container(x, groundY - bodyH / 2, [rect, hpBar, hpText, nameText, shieldText]);
+      // ボスの盾は上部の表示の右側 (コンテナの外)
+      const shieldText = bannered
+        ? this.add.text(width / 2 + 136, BANNER_ROW_Y, '', labelStyle(17, '#8fc2ee')).setOrigin(0, 0.5).setDepth(55)
+        : this.add.text(0, top - 14 - nameH, '', labelStyle(13, '#8fc2ee')).setOrigin(0.5);
+      const container = this.add.container(x, groundY - bodyH / 2, bannered ? [rect, hpBar, hpText, nameText] : [rect, hpBar, hpText, nameText, shieldText]);
 
       // 弱点枠: 弱点の数だけ「?」を並べ、弱点を突くと属性を開示する (オクトパストラベラー式)。
       // 一度見つけた弱点はランをまたいで記憶する。鑑定士の片眼鏡を持っていれば最初から全開示
@@ -262,15 +269,18 @@ export class BattleScene extends Phaser.Scene {
       const revealAll = hasEffect(this.run, 'WeaknessReveal');
       const known = new Set(knownWeak[e.enemyDef!.id] ?? []);
       const weakSlots: WeakSlot[] = [];
-      let labelTop = top - 14 - nameH;
+      let labelTop = bannered ? top - 4 : top - 14 - nameH;
       if (weaknesses.length > 0) {
-        labelTop = top - 34 - nameH;
-        const gap = 22;
+        if (!bannered) labelTop = top - 34 - nameH;
+        // ボスの弱点枠は上部の表示の左側に大きめに並べる (コンテナの外)
+        const gap = bannered ? 30 : 22;
+        const size = bannered ? 25 : 19;
         weaknesses.forEach((el, wi) => {
-          const sx = (wi - (weaknesses.length - 1) / 2) * gap;
-          const box = this.add.rectangle(sx, labelTop, 19, 19, 0x000000, 0.65).setStrokeStyle(1, 0x6a5a8a);
-          const text = this.add.text(sx, labelTop, '?', labelStyle(12, '#9a90b0')).setOrigin(0.5);
-          container.add([box, text]);
+          const sx = bannered ? width / 2 - 226 + wi * gap : (wi - (weaknesses.length - 1) / 2) * gap;
+          const sy = bannered ? BANNER_ROW_Y : labelTop;
+          const box = this.add.rectangle(sx, sy, size, size, 0x000000, 0.7).setStrokeStyle(1, 0x6a5a8a);
+          const text = this.add.text(sx, sy, '?', labelStyle(bannered ? 15 : 12, '#9a90b0')).setOrigin(0.5);
+          if (bannered) { box.setDepth(55); text.setDepth(56); } else container.add([box, text]);
           const slot = { el, box, text };
           weakSlots.push(slot);
           if (revealAll || known.has(el)) this.showWeakSlot(slot, false);
@@ -283,10 +293,18 @@ export class BattleScene extends Phaser.Scene {
     // ボス戦: 画面上部にボスの名前とHPバーを大きく出す (旧: 行動順の帯の場所)
     this.bossBanner = null;
     if (bannerBoss) {
-      this.add.text(width / 2, 104, bannerBoss.name, titleStyle(24, COLORS.textGold, {
+      this.add.text(width / 2, BANNER_NAME_Y, bannerBoss.name, titleStyle(24, COLORS.textGold, {
         stroke: '#000000', strokeThickness: 4,
       })).setOrigin(0.5).setDepth(55);
-      this.bossBanner = { c: bannerBoss, bar: this.add.graphics().setDepth(55) };
+      this.bossBanner = { c: bannerBoss, bar: this.add.graphics().setDepth(54) };
+      // 下段: 左に弱点枠、右に盾 (見出しの文字)
+      const rowStyle = textStyle(14, COLORS.textDim, { stroke: '#000000', strokeThickness: 3 });
+      if (bannerBoss.enemyDef!.elementWeaknesses.length > 0) {
+        this.add.text(width / 2 - 280, BANNER_ROW_Y, '弱点', rowStyle).setOrigin(0, 0.5).setDepth(55);
+      }
+      if (bannerBoss.maxShields > 0) {
+        this.add.text(width / 2 + 104, BANNER_ROW_Y, '盾', rowStyle).setOrigin(0, 0.5).setDepth(55);
+      }
     }
 
     // メッセージ帯
@@ -989,11 +1007,14 @@ export class BattleScene extends Phaser.Scene {
       const bw = 560;
       const ratio = Phaser.Math.Clamp(this.hpOf(c) / c.base.maxHP, 0, 1);
       bar.clear();
-      bar.fillStyle(0x000000, 0.8).fillRect(sw / 2 - bw / 2 - 3, 122, bw + 6, 18);
-      bar.fillStyle(0x2a1e2e, 1).fillRect(sw / 2 - bw / 2, 125, bw, 12);
-      bar.fillStyle(enemyHpColor(ratio), 1).fillRect(sw / 2 - bw / 2, 125, bw * ratio, 12);
-      bar.fillStyle(0xffffff, 0.2).fillRect(sw / 2 - bw / 2, 125, bw * ratio, 4);
-      bar.lineStyle(1, COLORS.trimBright, 0.8).strokeRect(sw / 2 - bw / 2 - 3, 122, bw + 6, 18);
+      const by = BANNER_BAR_Y;
+      // 下段 (弱点枠・盾) の暗い下地も一緒に描く
+      bar.fillStyle(0x07050d, 0.55).fillRoundedRect(sw / 2 - bw / 2 - 3, BANNER_ROW_Y - 17, bw + 6, 34, 6);
+      bar.fillStyle(0x000000, 0.8).fillRect(sw / 2 - bw / 2 - 3, by, bw + 6, 18);
+      bar.fillStyle(0x2a1e2e, 1).fillRect(sw / 2 - bw / 2, by + 3, bw, 12);
+      bar.fillStyle(enemyHpColor(ratio), 1).fillRect(sw / 2 - bw / 2, by + 3, bw * ratio, 12);
+      bar.fillStyle(0xffffff, 0.2).fillRect(sw / 2 - bw / 2, by + 3, bw * ratio, 4);
+      bar.lineStyle(1, COLORS.trimBright, 0.8).strokeRect(sw / 2 - bw / 2 - 3, by, bw + 6, 18);
       bar.setVisible(this.viewOf(c).hp > 0);
     }
 
