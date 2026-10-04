@@ -42,8 +42,13 @@ const CHAR_SCALE = 1.6;
 const enemyHpColor = (ratio: number): number => (ratio > 0.5 ? 0x5fbf5a : ratio > 0.25 ? 0xd9b13c : 0xd2453f);
 /** コマンド欄の1ページに並べる技の数 (攻撃は別に常に出す) */
 const COMMAND_PAGE_SIZE = 3;
-/** 敵の頭上の表示 (弱点枠・状態異常) がこれより上に出ないようにする (行動順の帯の下) */
-const ENEMY_LABEL_MIN_Y = 122;
+/** 敵の頭上の表示 (弱点枠・状態異常) がこれより上に出ないようにする (上の帯の下)。
+ *  ボス戦は画面上部にボスの名前とHPを大きく出すので、その下まで */
+const ENEMY_LABEL_MIN_Y = 94;
+const ENEMY_LABEL_MIN_Y_BOSS = 150;
+/** 行動順に並べる数 (いま行動中 + 次の4人) */
+const TURN_ORDER_COUNT = 5;
+const isBossRank = (c: Combatant): boolean => c.enemyDef?.rank === 'Boss' || c.enemyDef?.rank === 'TrueFinalBoss';
 
 const BUFF_STATUSES = new Set(['AtkUp', 'MatkUp', 'DefUp', 'SpdUp', 'Regen', 'RegenFlat', 'CritUp', 'Afterimage', 'Barrier']);
 
@@ -76,6 +81,10 @@ export class BattleScene extends Phaser.Scene {
   private viewApplied = 0;
   /** コマンド欄で開いている技のページ (ヒーローごとに覚えておく) */
   private commandPage = new Map<Combatant, number>();
+  /** 敵の頭上の表示・吹き出しの上限 (ボス戦は上部の大きな表示の下) */
+  private labelMinY = ENEMY_LABEL_MIN_Y;
+  /** ボス戦の上部表示 (名前とHPバー) */
+  private bossBanner: { c: Combatant; bar: Phaser.GameObjects.Graphics } | null = null;
   /** 吸収した直後の撃破は、魂が使い手へ流れる演出にする */
   private pendingAbsorb = false;
   /** いま技を出している者 (演出の向き・魔法の発射元。イベント再生中はエンジンの手番より遅れるため自前で持つ) */
@@ -201,6 +210,9 @@ export class BattleScene extends Phaser.Scene {
     const knownWeak = loadMeta().knownWeaknesses;
     // 3体なら220px、2体なら250px間隔。1体なら絵の幅に合わせて画面内に収める
     const spacing = enemies.length >= 3 ? 220 : 250;
+    // ボスは名前とHPを画面上部に大きく出し、頭上には盾と弱点枠だけを残す
+    const bannerBoss = enemies.find(isBossRank) ?? null;
+    this.labelMinY = bannerBoss ? ENEMY_LABEL_MIN_Y_BOSS : ENEMY_LABEL_MIN_Y;
     enemies.forEach((e, i) => {
       let x = width - 200 - i * spacing;
       const rank = e.enemyDef!.rank;
@@ -227,8 +239,10 @@ export class BattleScene extends Phaser.Scene {
           .setStrokeStyle(2, 0x000000);
       }
       // 頭上の表示の基準。背の高いボスは、名前・HP・弱点枠が画面上部の帯にかからないよう絵の上に重ねる
-      const labelsHeight = (e.enemyDef!.elementWeaknesses.length > 0 ? 68 : 48) + 17;
-      const overflow = ENEMY_LABEL_MIN_Y - (groundY - bodyH - labelsHeight);
+      const bannered = e === bannerBoss;
+      const nameH = bannered ? 0 : 34;   // 頭上の名前とHPバーの分 (ボスは上部に出すので無し)
+      const labelsHeight = (e.enemyDef!.elementWeaknesses.length > 0 ? 34 : 14) + nameH + 17;
+      const overflow = this.labelMinY - (groundY - bodyH - labelsHeight);
       const top = -bodyH / 2 + Math.max(0, overflow);
       // 右端の大きな敵は画面の外にはみ出さないよう内側へ
       x = Math.min(x, width - 16 - bodyW / 2);
@@ -238,8 +252,8 @@ export class BattleScene extends Phaser.Scene {
       hpBar.setPosition(0, top - 12);
       hpBar.setData('w', hpBarW);
       const hpText = this.add.text(0, top - 10, '', labelStyle(11, COLORS.textDim)).setOrigin(0.5).setVisible(false);
-      const nameText = this.add.text(0, top - 30, e.name, labelStyle(13)).setOrigin(0.5);
-      const shieldText = this.add.text(0, top - 48, '', labelStyle(13, '#8fc2ee')).setOrigin(0.5);
+      const nameText = this.add.text(0, top - 30, e.name, labelStyle(13)).setOrigin(0.5).setVisible(!bannered);
+      const shieldText = this.add.text(0, top - 14 - nameH, '', labelStyle(13, '#8fc2ee')).setOrigin(0.5);
       const container = this.add.container(x, groundY - bodyH / 2, [rect, hpBar, hpText, nameText, shieldText]);
 
       // 弱点枠: 弱点の数だけ「?」を並べ、弱点を突くと属性を開示する (オクトパストラベラー式)。
@@ -248,9 +262,9 @@ export class BattleScene extends Phaser.Scene {
       const revealAll = hasEffect(this.run, 'WeaknessReveal');
       const known = new Set(knownWeak[e.enemyDef!.id] ?? []);
       const weakSlots: WeakSlot[] = [];
-      let labelTop = top - 48;
+      let labelTop = top - 14 - nameH;
       if (weaknesses.length > 0) {
-        labelTop = top - 68;
+        labelTop = top - 34 - nameH;
         const gap = 22;
         weaknesses.forEach((el, wi) => {
           const sx = (wi - (weaknesses.length - 1) / 2) * gap;
@@ -262,9 +276,18 @@ export class BattleScene extends Phaser.Scene {
           if (revealAll || known.has(el)) this.showWeakSlot(slot, false);
         });
       }
-      container.setData({ combatant: e, rect, hpText, hpBar, shieldText, bodyH, bodyW, labelTop, weakSlots, homeX: x });
+      container.setData({ combatant: e, rect, hpText, hpBar, shieldText, bodyH, bodyW, labelTop, weakSlots, homeX: x, bannered });
       this.enemySprites.push(container);
     });
+
+    // ボス戦: 画面上部にボスの名前とHPバーを大きく出す (旧: 行動順の帯の場所)
+    this.bossBanner = null;
+    if (bannerBoss) {
+      this.add.text(width / 2, 104, bannerBoss.name, titleStyle(24, COLORS.textGold, {
+        stroke: '#000000', strokeThickness: 4,
+      })).setOrigin(0.5).setDepth(55);
+      this.bossBanner = { c: bannerBoss, bar: this.add.graphics().setDepth(55) };
+    }
 
     // メッセージ帯
     drawPanel(this, width / 2, 60, width - 60, 46, { alpha: 0.8 });
@@ -579,7 +602,7 @@ export class BattleScene extends Phaser.Scene {
     const headY = sprite.y - sprite.displayHeight / 2;
     const x = Phaser.Math.Clamp(sprite.getData('homeX') as number, w / 2 + 8, this.scale.width - w / 2 - 8);
     // 背の高い立ち絵でも、上部の行動順の帯に重ならない高さまで下げる (頭に少しかかってもよい)
-    const bubble = this.add.container(x, Math.max(ENEMY_LABEL_MIN_Y + 8 + h / 2, headY - 26 - 10 - h / 2), [g, txt]).setDepth(60);
+    const bubble = this.add.container(x, Math.max(this.labelMinY + 8 + h / 2, headY - 26 - 10 - h / 2), [g, txt]).setDepth(60);
     this.bubble = bubble;
     bubble.setScale(0.85).setAlpha(0);
     this.tweens.add({ targets: bubble, scale: 1, alpha: 1, duration: 140, ease: 'Back.easeOut' });
@@ -813,15 +836,15 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
-  // ── 行動順 (画面上部。先頭=いま行動中、以降は予測) ───────────────────
+  // ── 行動順 (左下の味方の情報の上。先頭=いま行動中、以降は予測) ───────────
   private drawTurnOrder(): void {
     this.turnStrip?.destroy();
     this.turnStrip = null;
     if (!this.engine || this.engine.over) return;
-    const { width } = this.scale;
+    const { height } = this.scale;
     const current = this.engine.activeCombatant;
-    const upcoming = this.engine.predictTurnOrder(current?.isAlive ? 7 : 8);
-    const order = current?.isAlive ? [current, ...upcoming] : upcoming;
+    const upcoming = this.engine.predictTurnOrder(current?.isAlive ? TURN_ORDER_COUNT - 1 : TURN_ORDER_COUNT);
+    const order = (current?.isAlive ? [current, ...upcoming] : upcoming).slice(0, TURN_ORDER_COUNT);
 
     // 同名の敵は A/B/C で区別する
     const shortName = (c: Combatant): string => {
@@ -831,23 +854,25 @@ export class BattleScene extends Phaser.Scene {
       return same.length > 1 ? `${base}${'ABCD'[same.indexOf(c)]}` : base;
     };
 
-    const chipW = 86;
-    const gap = 6;
-    const y = 104;
-    const totalW = order.length * chipW + (order.length - 1) * gap;
-    const startX = width / 2 - totalW / 2 + chipW / 2;
+    // 地面線と味方のパネルの間 (パネルの上端 = 画面下から150px)
+    const chipW = 96;
+    const gap = 8;
+    const y = height - 166;
+    const startX = 40 + 62 + chipW / 2;
     const items: Phaser.GameObjects.GameObject[] = [
-      this.add.text(startX - chipW / 2 - 10, y, '行動順', textStyle(12, COLORS.textDim)).setOrigin(1, 0.5),
+      this.add.text(40, y, '行動順', textStyle(13, COLORS.textDim, { stroke: '#000000', strokeThickness: 3 })).setOrigin(0, 0.5),
     ];
     order.forEach((c, i) => {
       const x = startX + i * (chipW + gap);
       const isNow = i === 0 && c === current;
-      const box = this.add.rectangle(x, y, chipW, 22, c.isPlayer ? 0x17223a : 0x2c121b, 0.88)
+      const box = this.add.rectangle(x, y, chipW, 24, c.isPlayer ? 0x17223a : 0x2c121b, 0.92)
         .setStrokeStyle(isNow ? 2 : 1, isNow ? COLORS.trimBright : c.isPlayer ? 0x4f6a96 : 0x8a3f4f);
-      const label = this.add.text(x, y, shortName(c), textStyle(11,
-        isNow ? COLORS.textGold : c.isPlayer ? '#b8d0f0' : '#f0b8c0')).setOrigin(0.5);
+      const label = this.add.text(x, y, shortName(c), textStyle(13,
+        isNow ? COLORS.textGold : c.isPlayer ? '#c4daf4' : '#f4c4cb')).setOrigin(0.5);
       if (label.width > chipW - 8) label.setScale((chipW - 8) / label.width);
       items.push(box, label);
+      // 次の人への矢印
+      if (i < order.length - 1) items.push(this.add.text(x + chipW / 2 + gap / 2, y, '›', textStyle(13, COLORS.textDim)).setOrigin(0.5));
     });
     this.turnStrip = this.add.container(0, 0, items).setDepth(55);
   }
@@ -957,6 +982,21 @@ export class BattleScene extends Phaser.Scene {
       if (st) this.hudTexts.push(this.add.text(mx + 90, my + 44, st, textStyle(9, COLORS.textRed)));
     });
 
+    // ボス戦の上部のHPバー
+    if (this.bossBanner) {
+      const { c, bar } = this.bossBanner;
+      const { width: sw } = this.scale;
+      const bw = 560;
+      const ratio = Phaser.Math.Clamp(this.hpOf(c) / c.base.maxHP, 0, 1);
+      bar.clear();
+      bar.fillStyle(0x000000, 0.8).fillRect(sw / 2 - bw / 2 - 3, 122, bw + 6, 18);
+      bar.fillStyle(0x2a1e2e, 1).fillRect(sw / 2 - bw / 2, 125, bw, 12);
+      bar.fillStyle(enemyHpColor(ratio), 1).fillRect(sw / 2 - bw / 2, 125, bw * ratio, 12);
+      bar.fillStyle(0xffffff, 0.2).fillRect(sw / 2 - bw / 2, 125, bw * ratio, 4);
+      bar.lineStyle(1, COLORS.trimBright, 0.8).strokeRect(sw / 2 - bw / 2 - 3, 122, bw + 6, 18);
+      bar.setVisible(this.viewOf(c).hp > 0);
+    }
+
     // 敵HP・シールド更新
     for (const sprite of this.enemySprites) {
       const c = sprite.getData('combatant') as Combatant;
@@ -967,7 +1007,7 @@ export class BattleScene extends Phaser.Scene {
       // HPバー: 暗い溝 + 残りの色 (緑→黄→赤) + 細い縁
       const bar = sprite.getData('hpBar') as Phaser.GameObjects.Graphics;
       bar.clear();
-      if (cv.hp > 0) {
+      if (cv.hp > 0 && !sprite.getData('bannered')) {
         const bw = bar.getData('w') as number;
         const ratio = Phaser.Math.Clamp(this.hpOf(c) / c.base.maxHP, 0, 1);
         bar.fillStyle(0x000000, 0.75).fillRect(-bw / 2 - 2, -6, bw + 4, 12);
@@ -1203,7 +1243,7 @@ export class BattleScene extends Phaser.Scene {
     for (const { e, i } of living) {
       const sprite = this.findEnemySprite(e);
       if (!sprite) continue;
-      const markerY = Math.max(ENEMY_LABEL_MIN_Y - 10, sprite.y + (sprite.getData('labelTop') as number) - 40);
+      const markerY = Math.max(this.labelMinY - 10, sprite.y + (sprite.getData('labelTop') as number) - 40);
       const marker = this.add.text(sprite.x, markerY, '▼', textStyle(26, COLORS.textGold))
         .setOrigin(0.5).setDepth(70)
         .setInteractive({ useHandCursor: true })
