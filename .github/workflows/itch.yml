@@ -1,0 +1,60 @@
+# Web版 (web/) を組み立てて itch.io へ自動で反映する。
+# ブランチに web/ の変更がプッシュされるたびに動き、Actions 画面から手動でも実行できる。
+# 必要なもの: リポジトリの Secrets に BUTLER_API_KEY (itch.io の API キー)
+name: Deploy web build to itch.io
+
+on:
+  push:
+    branches:
+      - claude/vibrant-cori-NH6zm
+    paths:
+      - 'web/**'
+      - '.github/workflows/itch.yml'
+  workflow_dispatch:
+
+# 続けてプッシュしたときは、古い方の反映を取り消して最新だけを送る
+concurrency:
+  group: itch-deploy
+  cancel-in-progress: true
+
+env:
+  ITCH_TARGET: Shisei2616/dark-chronicle:html5
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+          # 配布に要らないもの (素材の置き場所の説明・空フォルダの印)
+          rm -f dist/assets/README.md
+          find dist -name .gitkeep -delete
+
+      - name: Install butler
+        run: |
+          curl -sSfL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip -d butler
+          chmod +x butler/butler
+          ./butler/butler -V
+
+      - name: Push to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          if [ -z "$BUTLER_API_KEY" ]; then
+            echo "::error::BUTLER_API_KEY が Secrets に登録されていません"
+            exit 1
+          fi
+          ./butler/butler push web/dist "$ITCH_TARGET" --userversion "$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}"
