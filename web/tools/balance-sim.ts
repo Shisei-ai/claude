@@ -27,7 +27,9 @@ import { BLESSINGS } from '../src/data/blessings';
 import { FLOORS } from '../src/data/enemies';
 import { Rng } from '../src/core/rng';
 import { rollCursedRoom, applyCursedRoom, canReceive, COFFIN_GOLD_MULT } from '../src/core/cursedRoom';
-import { META_NODES, grimoireCarrySlots } from '../src/core/meta';
+import { META_NODES, grimoireCarrySlots, canUnlockNode, tryUnlockNode, recordRunEnd } from '../src/core/meta';
+import { loadMeta, recordGrimoire } from '../src/core/save';
+import { findEnemySkillById } from '../src/data/enemies';
 import { GRIMOIRE_SKILLS, isCarryableGrimoireSkill } from '../src/data/codex';
 import type { NodeType, SkillDef } from '../src/core/types';
 
@@ -113,6 +115,8 @@ const stats = { battleTurns: 0, battles: 0 };
 /** シナリオ: full=全要素 / norandom=レリック・装備なし / meta=墓標全解放 / nophantom=幻影を拒む */
 const SCENARIO = process.argv[3] ?? 'full';
 const NO_RANDOM = SCENARIO === 'norandom';
+/** 周回: 碑文を貯めて墓標を解放し、ゼノは刻んだ技を次の旅へ持ち込みながら、同じキャラで旅を続ける */
+const CAMPAIGN = SCENARIO === 'campaign';
 const gainRelic = (run: RunState, relic: RelicDef | null | undefined) => { if (relic && !NO_RANDOM) addRelicToRun(run, relic); };
 
 /** BattleScene と同じ準備で戦い、勝敗と戦闘後の状態をランへ反映 */
@@ -147,6 +151,8 @@ function battle(run: RunState, nodeType: NodeType, seed: number, coffin = false)
   }
   stats.battleTurns += t; stats.battles++;
   if (process.env.TRACE) console.log(`  F${run.currentFloor + 1} ${nodeType.padEnd(11)} ${defs.map((d) => d.name).join('+').padEnd(40)} turns ${String(t).padStart(3)} HP ${heroes[0].hp}/${heroes[0].base.maxHP} party ${heroes.length} ${eng.over} Lv${run.characterLevel} relics ${run.relics.length}`);
+  // 刻んだ技は勝敗に関係なく記録 (BattleScene.onBattleEnd と同じ)
+  if (CAMPAIGN && eng.absorbedThisBattle.length > 0) recordGrimoire(eng.absorbedThisBattle);
   if (eng.over !== 'victory') { run.currentHP = 0; return false; }
 
   // ── BattleScene.onVictory ──
@@ -395,6 +401,14 @@ function playRun(charId: string, seed: number, blessingIdx: number): RunResult {
       .sort((a, b) => b.basePower * b.hitCount * (b.hitsAllEnemies ? 1.5 : 1) - a.basePower * a.hitCount * (a.hitsAllEnemies ? 1.5 : 1))
       .slice(0, grimoireCarrySlots()).map((s) => s.id);
   }
+  // 周回: これまでに刻んだ技から、持ち込める数だけ強い順に選ぶ (旅立ちの画面で選ぶのと同じ)
+  if (CAMPAIGN && charId === 'zeno') {
+    run.absorbedSkillIds = loadMeta().grimoireArchive
+      .map((id) => findEnemySkillById(id)).filter((sk): sk is SkillDef => !!sk && isCarryableGrimoireSkill(sk.id) && sk.basePower > 0)
+      .sort((a, b) => b.basePower * b.hitCount * (b.hitsAllEnemies ? 1.5 : 1) - a.basePower * a.hitCount * (a.hitsAllEnemies ? 1.5 : 1))
+      .slice(0, grimoireCarrySlots()).map((sk) => sk.id);
+    campaignCarried = run.absorbedSkillIds.length;
+  }
   let diedAt = '';
   const nodeRng = (s: number) => new Rng(s);
 
@@ -511,6 +525,7 @@ function playRun(charId: string, seed: number, blessingIdx: number): RunResult {
       console.log('relics:', [...cnt.entries()].sort((a, b) => b[1] - a[1]).map(([id, n]) => `${getRelic(id)?.name}(${getRelic(id)?.effect} ${getRelic(id)?.value})×${n}`).join(', '));
       console.log('relicsFound', run.relicsFound, 'distinct', cnt.size);
     }
+    if (CAMPAIGN) recordRunEnd(run, won);
     return { won, floor: run.currentFloor, diedAt, level: run.characterLevel, relics: run.relics.length, ending: run.activeEnding };
   }
 }
@@ -533,6 +548,48 @@ if (SCENARIO === 'meta') {
   }
   const meta = { totalEpitaphs: 0, totalRuns: 0, totalWins: 0, maxFloor: 0, unlockedNodes: META_NODES.map((n) => n.id) };
   (globalThis as any).localStorage = { getItem: () => JSON.stringify(meta), setItem: () => {}, removeItem: () => {} };
+}
+
+// ── 周回 (campaign): キャラごとに、まっさらな記録から R 回続けて旅をする。これを C 回くり返して平均する ──
+let campaignCarried = 0;
+if (CAMPAIGN) {
+  const pctC = (x: number, d: number) => `${((x / Math.max(1, d)) * 100).toFixed(0).padStart(3)}%`;
+  const R = Number(process.argv[2] ?? 30);
+  const C = Number(process.env.CAMPAIGNS ?? 20);
+  // ゼノが「魔獣の書」を優先して解放するか (ZENO_GRIM=0 で他のキャラと同じく安い順)
+  const zenoGrimFirst = process.env.ZENO_GRIM !== '0';
+  const step = Math.max(1, Math.round(R / 6));
+  const windows = Array.from({ length: Math.ceil(R / step) }, (_, i) => [i * step, Math.min(R, (i + 1) * step)]);
+  console.log(`\n■ 周回 — 各キャラ ${R} 回の旅 × ${C} 通り (まっさらな記録から。碑文が貯まるたびに墓標を解放)`);
+  console.log('キャラ        ' + windows.map(([a, b]) => `${a + 1}-${b}回目`.padStart(8)).join(' ') + '   全体   最後の解放数  持ち込み技');
+  for (const ch of CHARACTERS) {
+    const winsBy = windows.map(() => 0);
+    const n = windows.map(() => 0);
+    let total = 0, unlockedSum = 0, carriedSum = 0, archiveSum = 0;
+    for (let c = 0; c < C; c++) {
+      const store = new Map<string, string>();
+      (globalThis as any).localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v); }, removeItem: (k: string) => { store.delete(k); } };
+      campaignCarried = 0;
+      for (let r = 0; r < R; r++) {
+        const res = playRun(ch.id, 50000 + c * 104729 + r * 7919, (c + r) % BLESSINGS.length);
+        const w = windows.findIndex(([a, b]) => r >= a && r < b);
+        if (w >= 0) { n[w]++; if (res.won) winsBy[w]++; }
+        if (res.won) total++;
+        // 旅の後: 解放できる墓標を解放する (ゼノは魔獣の書を優先、ほかは安い順)
+        for (;;) {
+          const cands = META_NODES.filter((m) => canUnlockNode(m.id))
+            .sort((a, b) => (zenoGrimFirst && ch.id === 'zeno' ? (a.pathName === '魔獣の書' ? -1000 : 0) - (b.pathName === '魔獣の書' ? -1000 : 0) : 0) + a.epitaphCost - b.epitaphCost);
+          if (cands.length === 0 || !tryUnlockNode(cands[0].id)) break;
+        }
+      }
+      unlockedSum += loadMeta().unlockedNodes.length;
+      if (ch.id === 'zeno') archiveSum += loadMeta().grimoireArchive.filter((id) => isCarryableGrimoireSkill(id)).length;
+      carriedSum += campaignCarried;
+    }
+    console.log(`${ch.name.split('・')[0].padEnd(8, '　')} ` + windows.map((_, i) => pctC(winsBy[i], n[i]).padStart(8)).join(' ')
+      + `   ${pctC(total, R * C)}      ${(unlockedSum / C).toFixed(1).padStart(4)}       ${ch.id === 'zeno' ? `${(carriedSum / C).toFixed(1)} (刻んだ技 ${(archiveSum / C).toFixed(1)})` : '-'}`);
+  }
+  process.exit(0);
 }
 
 // ── 集計 ─────────────────────────────────────────────────────────────
