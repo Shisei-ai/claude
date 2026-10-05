@@ -18,6 +18,7 @@ import { loadMeta } from '../core/save';
 import { findEnemySkillById } from '../data/enemies';
 import { enemyUsingSkill, isCarryableGrimoireSkill } from '../data/codex';
 import { ELEMENT_BADGE } from '../ui/elements';
+import { openCharacterSheet } from '../ui/characterSheet';
 
 export class RunSetupScene extends Phaser.Scene {
   private selectedChar = 0;
@@ -62,6 +63,15 @@ export class RunSetupScene extends Phaser.Scene {
         this.add.rectangle(x, y - 26, 44, 44, c.themeColor, 0.9).setStrokeStyle(1, 0x000000);
       }
       this.add.text(x, y + 22, c.name, textStyle(14)).setOrigin(0.5);
+      // 右上の「詳細」でステータス・スキル (パッシブ込み) を見る
+      const info = this.add.rectangle(x + 72, y - 44, 44, 24, 0x2a2140, 0.95).setStrokeStyle(1, COLORS.trim)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerup', () => {
+          this.selectedChar = i;
+          this.refresh();
+          openCharacterSheet(this, { characterId: c.id });
+        });
+      this.add.text(info.x, info.y, '詳細', textStyle(12, COLORS.textGold)).setOrigin(0.5);
       this.add.text(x, y + 44, c.jobName, textStyle(13, COLORS.textDim)).setOrigin(0.5);
     });
 

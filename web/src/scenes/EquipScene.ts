@@ -2,6 +2,7 @@
 // 3スロット (武器/防具/装飾品) + 所持品リスト。職業制限あり。
 // 所持品はパーティ共有、装備枠は1人ずつ。上のタブで主人公と仲間を切り替える。
 import Phaser from 'phaser';
+import { openCharacterSheet } from '../ui/characterSheet';
 import { COLORS, makeButton, textStyle, drawSceneBackground } from '../ui/theme';
 import { loadRun, saveRun } from '../core/save';
 import type { RunState, UnitState } from '../core/run';
@@ -60,10 +61,13 @@ export class EquipScene extends Phaser.Scene {
     // ── 現在のステータス ──
     const stats = buildBattleStats(run, unit);
     const jpNext = unit.jobLevel >= MAX_JOB_LEVEL ? '最大' : `${unit.currentJobJP}/${jpToNextJobLevel(unit.jobLevel)}`;
+    // 名前の行を押すと能力表 (ステータス・スキル) を開く
     this.add.text(width / 2, top,
       `${getCharacter(unit.characterId).name}　Lv.${unit.characterLevel}　職Lv.${unit.jobLevel} (JP ${jpNext})　` +
-      `HP ${unit.currentHP}/${Math.min(stats.maxHP, getEffectiveMaxHP(run, unit))}`,
-      textStyle(14, COLORS.text)).setOrigin(0.5);
+      `HP ${unit.currentHP}/${Math.min(stats.maxHP, getEffectiveMaxHP(run, unit))}　ⓘ`,
+      textStyle(14, COLORS.text)).setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerup', () => openCharacterSheet(this, { characterId: unit.characterId, run, unit }));
     this.add.text(width / 2, top + 22,
       `MP ${Math.min(unit.currentMP, stats.maxMP)}/${stats.maxMP}　物攻 ${stats.physicalAttack}　魔攻 ${stats.magicAttack}　` +
       `物防 ${stats.physicalDefense}　魔防 ${stats.magicDefense}　速度 ${stats.speed}　会心 ${stats.criticalRate}%`,

@@ -18,6 +18,7 @@ import { FIELD_LINES, shortName } from '../data/dialogue';
 import { showDialogue } from '../ui/dialogue';
 import { notifyAchievements } from './ToastScene';
 import { ensureNodeIcons, nodeIconKey } from '../ui/nodeIcons';
+import { openCharacterSheet, isSheetOpen } from '../ui/characterSheet';
 
 /** ノード記号の色 (白で描いたアイコンに掛ける) */
 const ICON_TINT: Record<NodeType, number> = {
@@ -122,9 +123,11 @@ export class MapScene extends Phaser.Scene {
 
     drawPanel(this, width / 2, 98, width - 80, 44, { alpha: 0.88 });
 
+    // 名前を押すと能力表 (ステータス・スキル) を開く
     const nameText = this.add.text(70, 90,
       `${char.name}　Lv.${run.characterLevel}　職Lv.${run.jobLevel}`,
-      textStyle(15));
+      textStyle(15)).setInteractive({ useHandCursor: true })
+      .on('pointerup', () => { if (!this.relicList) openCharacterSheet(this, { characterId: run.characterId, run, unit: run }); });
     if (run.soloVow) {
       this.add.text(nameText.x + nameText.width + 14, 92, '◆孤高の誓い', textStyle(12, COLORS.textGold));
     }
@@ -157,7 +160,10 @@ export class MapScene extends Phaser.Scene {
           ? `${name} Lv.${m.characterLevel} HP ${m.currentHP}/${getEffectiveMaxHP(run, m)} MP ${m.currentMP}/${getMaxMP(run, m)}`
           : `${name} Lv.${m.characterLevel} (戦闘不能)`;
       }).join('　');
-      this.add.text(width - 560, 122, `仲間: ${partyStr}`, textStyle(11, COLORS.textBlue));
+      const m = run.partyMembers[0];
+      this.add.text(width - 560, 122, `仲間: ${partyStr}`, textStyle(11, COLORS.textBlue))
+        .setInteractive({ useHandCursor: true })
+        .on('pointerup', () => { if (!this.relicList) openCharacterSheet(this, { characterId: m.characterId, run, unit: m }); });
     }
   }
 
@@ -306,7 +312,7 @@ export class MapScene extends Phaser.Scene {
     const { width } = this.scale;
     const inMapBand = (p: Phaser.Input.Pointer) => p.y > MAP_TOP - 50 && p.y < MAP_BOTTOM + 40;
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      this.drag = inMapBand(p) && !this.relicList ? { startX: p.x, layerX: this.mapLayer.x, moved: false } : null;
+      this.drag = inMapBand(p) && !this.relicList && !isSheetOpen(this) ? { startX: p.x, layerX: this.mapLayer.x, moved: false } : null;
     });
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
       if (this.relicList) { this.dragRelicList(p); return; }
@@ -320,6 +326,7 @@ export class MapScene extends Phaser.Scene {
     this.input.on('pointerup', () => this.time.delayedCall(0, () => { this.drag = null; }));
     this.input.on('wheel', (_p: Phaser.Input.Pointer, _o: unknown, dx: number, dy: number) => {
       if (this.relicList) { this.scrollRelicList(this.relicList.list.y - dy); return; }
+      if (isSheetOpen(this)) return;
       this.hideTooltip();
       this.scrollTo(this.mapLayer.x - (Math.abs(dx) > Math.abs(dy) ? dx : dy), false);
     });

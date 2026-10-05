@@ -27,6 +27,7 @@ import { RARITY_LABEL, RARITY_COLOR, getRelic, type RelicDef } from '../data/rel
 import { LINES, pickLine, shortName, type CharLines } from '../data/dialogue';
 import { ELEMENT_BADGE } from '../ui/elements';
 import { BattleFx, ELEMENT_FX_COLOR } from '../ui/battleFx';
+import { openCharacterSheet } from '../ui/characterSheet';
 import { COFFIN_GOLD_MULT } from '../core/cursedRoom';
 import { drawEquipmentForFloor, EQUIP_RARITY_LABEL } from '../data/equipment';
 import { Rng } from '../core/rng';
@@ -204,8 +205,8 @@ export class BattleScene extends Phaser.Scene {
       }
       sprite.setDepth(i === 0 ? 5 : 4);   // 主人公を手前に
       sprite.setData('homeX', x);
-      this.add.text(x, feetY - bodyH - 12, h.name.split('・')[0], labelStyle(i === 0 ? 14 : 12))
-        .setOrigin(0.5).setDepth(6);
+      this.sheetLink(this.add.text(x, feetY - bodyH - 12, h.name.split('・')[0], labelStyle(i === 0 ? 14 : 12))
+        .setOrigin(0.5).setDepth(6), h);
       if (!h.isAlive) sprite.setAlpha(0.25);
       this.heroSprites.push(sprite);
     });
@@ -895,6 +896,17 @@ export class BattleScene extends Phaser.Scene {
     this.turnStrip = this.add.container(0, 0, items).setDepth(55);
   }
 
+  /** 名前の文字を押すと、そのキャラの能力表を開くようにする */
+  private sheetLink(t: Phaser.GameObjects.Text, c: Combatant): Phaser.GameObjects.Text {
+    t.setInteractive({ useHandCursor: true }).on('pointerup', () => {
+      const unit = partyUnits(this.run)[this.heroes.indexOf(c)];
+      if (!unit) return;
+      const v = this.viewOf(c);
+      openCharacterSheet(this, { characterId: unit.characterId, run: this.run, unit, live: { hp: v.hp, mp: v.mp } });
+    });
+    return t;
+  }
+
   // ── HUD更新 ────────────────────────────────────────────────────────
   /** 表示を最新にする。HPは数値もバーも、実際の値へ0.5秒ほどかけて近づける */
   private refreshDisplay(): void {
@@ -943,8 +955,9 @@ export class BattleScene extends Phaser.Scene {
     paintPanel(this.hudG, px, py, 360, panelH, { alpha: 0.92 });
     const h = this.hero;
 
-    this.hudTexts.push(this.add.text(px + 16, py + 8,
-      `${h.name}`, titleStyle(16, COLORS.textGold)));
+    // 名前を押すと能力表 (ステータス・スキル) を開く
+    this.hudTexts.push(this.sheetLink(this.add.text(px + 16, py + 8,
+      `${h.name}`, titleStyle(16, COLORS.textGold)), h));
     const hHp = this.hpOf(h);
     drawBar(this.hudG, px + 14, py + 34, 240, 14, hHp / h.base.maxHP,
       hHp / h.base.maxHP > 0.3 ? COLORS.hpBar : COLORS.hpBarLow);
@@ -980,9 +993,9 @@ export class BattleScene extends Phaser.Scene {
       paintPanel(this.hudG, mx, my, 214, 56, { alpha: 0.9, ornate: false });
       const mv = this.viewOf(m);
       const mAlive = mv.hp > 0;
-      this.hudTexts.push(this.add.text(mx + 10, my + 5,
+      this.hudTexts.push(this.sheetLink(this.add.text(mx + 10, my + 5,
         mAlive ? m.name.split('・')[0] : `${m.name.split('・')[0]} (戦闘不能)`,
-        textStyle(13, mAlive ? COLORS.text : '#a0607a')));
+        textStyle(13, mAlive ? COLORS.text : '#a0607a')), m));
       const mHp = this.hpOf(m);
       drawBar(this.hudG, mx + 10, my + 24, 128, 9, mHp / m.base.maxHP,
         mHp / m.base.maxHP > 0.3 ? COLORS.hpBar : COLORS.hpBarLow);
