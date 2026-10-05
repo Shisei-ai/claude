@@ -1,10 +1,10 @@
-// 能力表 — キャラのステータス・固有特性・スキル (パッシブ込み) を一覧する重ね表示。
+// 能力表 — キャラのステータス・スキル (キャラLvで解放されるパッシブ込み) を一覧する重ね表示。
 // 戦闘・マップ・装備画面で名前を押したとき、旅の支度でキャラを選ぶときに開く。
 // 旅の途中なら今のレベル・装備込みの値と習得済みのスキル、旅立ち前なら初期値と習得予定のスキルを出す。
 import Phaser from 'phaser';
 import { COLORS, textStyle, titleStyle, latinStyle, drawPanel, makeButton } from './theme';
 import { getCharacter } from '../data/characters';
-import { CHARACTER_TRAITS, TRAIT_INFO } from '../battle/traits';
+import { levelPassivesOf } from '../data/levelPassives';
 import { buildBattleStats, getEffectiveMaxHP, getMaxMP, type RunState, type UnitState } from '../core/run';
 import { getEquipment, EQUIP_RARITY_COLOR } from '../data/equipment';
 import { findEnemySkillById } from '../data/enemies';
@@ -76,7 +76,7 @@ export function openCharacterSheet(scene: Phaser.Scene, src: SheetSource): void 
   // パネルの上は押しても閉じない
   add(scene.add.rectangle(width / 2, height / 2, panelW, panelH, 0x000000, 0.001).setDepth(DEPTH + 1).setInteractive());
 
-  // ── 左列: 顔・名前・レベル・ステータス・固有特性・装備 ──
+  // ── 左列: 顔・名前・レベル・ステータス・装備 ──
   const lx = left + 36;
   const pkey = charPortraitKey(char.id);
   const fkey = charFullKey(char.id);
@@ -124,19 +124,6 @@ export function openCharacterSheet(scene: Phaser.Scene, src: SheetSource): void 
     y += 14;
   }
 
-  const traits = CHARACTER_TRAITS[char.id] ?? [];
-  if (traits.length > 0) {
-    add(scene.add.text(lx, y, '◆ 固有特性（最初から有効）', textStyle(16, COLORS.textGold)).setDepth(DEPTH + 2));
-    y += 28;
-    for (const t of traits) {
-      const info = TRAIT_INFO[t];
-      const txt = add(scene.add.text(lx, y, `${info.name}：${info.desc}`, textStyle(13, COLORS.text, {
-        wordWrap: { width: 400 }, lineSpacing: 2,
-      })).setDepth(DEPTH + 2));
-      y += txt.height + 8;
-    }
-  }
-
   if (inRun) {
     y += 4;
     add(scene.add.text(lx, y, '◆ 装備', textStyle(16, COLORS.textGold)).setDepth(DEPTH + 2));
@@ -170,14 +157,15 @@ export function openCharacterSheet(scene: Phaser.Scene, src: SheetSource): void 
     list.add(scene.add.text(rx, ly, label, textStyle(17, COLORS.textGold)));
     ly += 30;
   };
-  const row = (sk: SkillDef, jobLevel: number | null, have: boolean) => {
+  // req: 習得の条件 (例「職Lv3」「キャラLv2」)。null なら条件を出さない
+  const row = (sk: SkillDef, req: string | null, have: boolean) => {
     const nameColor = have ? COLORS.text : '#8f86a3';
     const mark = have ? '◆' : '◇';
     list.add(scene.add.text(rx, ly, `${mark} ${sk.name}`, textStyle(16, nameColor)));
     const right: string[] = [];
     if (!sk.isPassive && sk.mpCost > 0) right.push(`MP ${sk.mpCost}`);
-    if (jobLevel !== null && !have) right.push(`職Lv${jobLevel}で習得`);
-    if (jobLevel !== null && have && !inRun) right.push('初期習得');
+    if (req !== null && !have) right.push(`${req}で習得`);
+    if (req !== null && have && !inRun) right.push('初期習得');
     if (right.length) list.add(scene.add.text(rx + rw, ly + 2, right.join('　'), textStyle(13, have ? COLORS.textBlue : '#8f86a3')).setOrigin(1, 0));
     const tags = skillTags(sk);
     const desc = scene.add.text(rx + 18, ly + 24, `${tags ? tags + '　' : ''}${sk.description}`, textStyle(13, have ? COLORS.textDim : '#7d758f', {
@@ -189,14 +177,15 @@ export function openCharacterSheet(scene: Phaser.Scene, src: SheetSource): void 
   // 旅立ち前は「職Lv1 で最初から覚えている」ものを習得済みとして見せる
   const has = (e: { skill: SkillDef; jobLevel: number }) => inRun ? learned(e.skill.id) : e.jobLevel <= 1;
   section(`アクティブスキル（${actives.filter(has).length} / ${actives.length}）`);
-  actives.forEach((e) => row(e.skill, e.jobLevel, has(e)));
+  actives.forEach((e) => row(e.skill, `職Lv${e.jobLevel}`, has(e)));
   ly += 6;
-  section(`パッシブスキル（${passives.filter(has).length} / ${passives.length}）`);
-  if (passives.length === 0) {
-    list.add(scene.add.text(rx, ly, 'なし', textStyle(14, COLORS.textDim)));
-    ly += 28;
-  }
-  passives.forEach((e) => row(e.skill, e.jobLevel, has(e)));
+  // パッシブ: キャラLv2・4・6で解放される固有のもの → 職Lvで覚えるもの
+  const levelPassives = levelPassivesOf(char.id);
+  const level = inRun ? unit!.characterLevel : 1;
+  const passiveHave = levelPassives.filter((p) => level >= p.level).length + passives.filter(has).length;
+  section(`パッシブスキル（${passiveHave} / ${levelPassives.length + passives.length}）`);
+  levelPassives.forEach((p) => row(p.skill, `キャラLv${p.level}`, level >= p.level));
+  passives.forEach((e) => row(e.skill, `職Lv${e.jobLevel}`, has(e)));
   // ゼノ: グリモワールに刻んだ敵の技
   const absorbed = inRun ? unit!.absorbedSkillIds.map((id) => findEnemySkillById(id)).filter((s): s is SkillDef => !!s) : [];
   if (absorbed.length > 0) {

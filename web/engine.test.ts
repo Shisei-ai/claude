@@ -416,5 +416,58 @@ import { createRun } from './src/core/run';
   check(true, '撃破の重複なし・行動時点の状態の記録 (30戦)');
 }
 
+// 固有のパッシブ: キャラLv2・4・6で解放 / 元素共鳴 / 鷲の目
+import { buildHero } from './src/battle/setup';
+import { LAVINIA_SKILLS } from './src/data/skills';
+import { RESONANCE_PASSIVE_ID } from './src/data/levelPassives';
+{
+  const check = (ok: boolean, label: string) => {
+    if (ok) console.log(`✓ ${label}`);
+    else { console.error(`✗ ${label}`); failures++; }
+  };
+  const run = createRun('lilia', 1, 'VitalGuard');
+  check(buildHero(run).traits.size === 0, 'リリアLv1: 固有のパッシブはまだ無い');
+  run.characterLevel = 4;
+  const t4 = buildHero(run).traits;
+  check(t4.has('MiracleHands') && t4.has('PureheartHealer') && !t4.has('HolyGrace'), 'リリアLv4: 奇跡の手・清心の治癒師');
+  run.characterLevel = 6;
+  check(buildHero(run).traits.size === 3, 'リリアLv6: 3つすべて');
+  const b = createRun('bernhard', 1, 'VitalGuard');
+  check(!buildHero(b).passives.has('SKL_Passive_IronConstitution'), 'ベルンハルトLv1: 鋼の肉体なし');
+  b.characterLevel = 2;
+  check(buildHero(b).passives.has('SKL_Passive_IronConstitution'), 'ベルンハルトLv2: 鋼の肉体');
+  const a = createRun('ash', 1, 'VitalGuard');
+  a.characterLevel = 6;
+  check(buildHero(a).passives.has('SKL_A_DarkVision'), 'アッシュLv6: 盗賊の技で暗視術 (盲目無効) も有効');
+
+  // 元素共鳴: 炎 → 氷 で蒸気爆発 (+80%)、同じ属性を続けるとボーナスなし
+  const lav = CHARACTERS.find((c) => c.id === 'lavinia')!;
+  const mk = (withRes: boolean) => {
+    const h = new Combatant({ isPlayer: true, name: lav.name, characterId: 'lavinia',
+      stats: { ...lav.baseStats, maxMP: 999, speed: 999, criticalRate: 0 }, skills: [LAVINIA_SKILLS.fireBolt, LAVINIA_SKILLS.iceSpike],
+      passives: new Set(withRes ? [RESONANCE_PASSIVE_ID] : []) });
+    h.mp = 999;
+    return h;
+  };
+  const dmgOf = (withRes: boolean) => {
+    const h = mk(withRes);
+    const target = makeEnemies([GARM])[0];
+    target.base.maxHP = target.hp = 999999;
+    const eng = new BattleEngine([h], [target], 0);
+    let st = eng.advance(); eng.drainEvents();
+    eng.executePlayerCommand({ type: 'skill', skill: LAVINIA_SKILLS.fireBolt, targetIndex: 0, boostLevel: 0 });
+    eng.drainEvents();
+    while (!eng.activeCombatant?.isPlayer && !eng.over) { st = eng.advance(); eng.drainEvents(); }
+    const before = target.hp;
+    eng.executePlayerCommand({ type: 'skill', skill: LAVINIA_SKILLS.iceSpike, targetIndex: 0, boostLevel: 0 });
+    const evs = eng.drainEvents();
+    return { dealt: before - target.hp, msg: evs.some((e) => e.kind === 'message' && e.text.includes('蒸気爆発')) };
+  };
+  let withSum = 0, withoutSum = 0, msg = false;
+  for (let i = 0; i < 20; i++) { const w = dmgOf(true); withSum += w.dealt; msg ||= w.msg; withoutSum += dmgOf(false).dealt; }
+  check(msg, '元素共鳴: 炎→氷で「蒸気爆発」');
+  check(withSum > withoutSum * 1.5, `元素共鳴: 威力が上がる (${withoutSum} → ${withSum})`);
+}
+
 console.log(failures === 0 ? '\nALL OK' : `\n${failures} FAILURES`);
 process.exit(failures === 0 ? 0 : 1);

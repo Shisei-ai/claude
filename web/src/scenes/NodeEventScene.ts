@@ -29,7 +29,7 @@ import {
 import { RARITY_LABEL, RARITY_COLOR, getRelic, type RelicRarity } from '../data/relics';
 import { RANDOM_EVENTS, ENDING_RELIC_ID, type RandomEventDef, type EventChoiceDef, type EventResult } from '../data/events';
 import { getEnding } from '../data/endings';
-import { addJP } from '../core/level';
+import { addJP, unitHasSkill } from '../core/level';
 import { playBgm } from '../audio/bgm';
 import { getCharacter } from '../data/characters';
 import { LINES, pickLine, shortName, type CharLines } from '../data/dialogue';
@@ -93,7 +93,7 @@ export class NodeEventScene extends Phaser.Scene {
 
   /** パーティの誰かが覚えているスキル (仲間のアッシュの鍵開けなども効く) */
   private partyHasSkill(skillId: string): boolean {
-    return partyUnits(this.run).some((u) => u.unlockedSkillIds.includes(skillId));
+    return partyUnits(this.run).some((u) => unitHasSkill(u, skillId));
   }
 
   /** 仲間がいるとき、結果の文に誰のことかを添える */

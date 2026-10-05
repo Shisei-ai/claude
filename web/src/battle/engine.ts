@@ -20,6 +20,7 @@ import type { RelicBattleState } from './relicHooks';
 import { getBoostUpgrade, type BoostUpgrade } from './boost';
 import * as T from './traits';
 import { toGrimoireSkill } from './traits';
+import { RESONANCE_PASSIVE_ID } from '../data/levelPassives';
 
 const BREAK_STUN_TURNS = 2;
 
@@ -36,6 +37,26 @@ export interface ActiveStatus {
   value: number;
   remainingTurns: number;
 }
+
+// ── 元素共鳴 (Unity版 ElementalResonanceSystem.cs の定数) ─────────────────
+const RESONANCE_DIFFERENT_BONUS = 0.30;     // 別属性: +30%
+const RESONANCE_FORBIDDEN_HP = 0.05;        // 禁忌共鳴のHPコスト (最大HPの5%)
+const RESONANCE_DECAY_TURNS = 2;            // 2手番使わないと消える
+const RESONANCE_REACTIONS: Record<string, { name: string; bonus: number; forbidden?: boolean }> = (() => {
+  const t: Record<string, { name: string; bonus: number; forbidden?: boolean }> = {};
+  const pair = (a: ElementType, b: ElementType, name: string, bonus: number, forbidden = false) => {
+    t[`${a}>${b}`] = { name, bonus, forbidden };
+    t[`${b}>${a}`] = { name, bonus, forbidden };
+  };
+  pair('Fire', 'Ice', '蒸気爆発', 0.50);
+  pair('Ice', 'Lightning', '帯電氷', 0.50);
+  pair('Lightning', 'Fire', '超過熱', 0.50);
+  pair('Dark', 'Light', '禁忌共鳴', 0.80, true);
+  pair('Wind', 'Fire', '熱風', 0.20);
+  pair('Wind', 'Ice', '吹雪増幅', 0.20);
+  pair('Wind', 'Lightning', '雷嵐', 0.20);
+  return t;
+})();
 
 export class Combatant {
   isPlayer: boolean;
@@ -70,6 +91,9 @@ export class Combatant {
 
   /** 撃破を処理済みか (同じ相手の撃破を二度処理しない。蘇生で戻る) */
   defeatHandled = false;
+  /** 元素共鳴 (ラヴィニアのキャラLv6パッシブ): 直前に使った魔法の属性と、それからの自分の手番数 */
+  resonanceElement: ElementType = 'None';
+  resonanceAge = 0;
 
   // 装備由来
   weaponElement: ElementType = 'None'; // 武器属性 (通常攻撃に乗る)
@@ -79,6 +103,8 @@ export class Combatant {
     isPlayer: boolean; name: string; stats: CharacterStats;
     enemyDef?: EnemyDef; skills?: SkillDef[]; passives?: Set<string>;
     initialHP?: number; initialMP?: number; shields?: number; characterId?: string;
+    /** 固有トレイト (省くとそのキャラの全トレイト。ゲームではキャラLvで解放済みのものを渡す) */
+    traits?: Set<T.TraitId>;
   }) {
     this.isPlayer = opts.isPlayer;
     this.characterId = opts.characterId;
@@ -87,7 +113,7 @@ export class Combatant {
     this.enemyDef = opts.enemyDef;
     this.skills = opts.skills ?? [];
     this.passives = opts.passives ?? new Set();
-    this.traits = opts.isPlayer ? T.traitsFor(opts.characterId) : new Set();
+    this.traits = opts.traits ?? (opts.isPlayer ? T.traitsFor(opts.characterId) : new Set());
     this.hp = opts.initialHP ?? this.base.maxHP;
     this.mp = Math.max(0, Math.min(opts.initialMP ?? this.base.maxMP, this.base.maxMP));
     if (!opts.isPlayer) {
@@ -446,6 +472,12 @@ export class BattleEngine {
         this.handleDefeat(actor);
         if (this.checkEnd()) return 'over';
         continue;
+      }
+
+      // 元素共鳴: 自分の手番が2回来るまでに次の魔法を使わないと共鳴は消える (ElementalResonanceSystem.OnTurnEnd)
+      if (actor.resonanceElement !== 'None' && ++actor.resonanceAge >= RESONANCE_DECAY_TURNS) {
+        actor.resonanceElement = 'None';
+        actor.resonanceAge = 0;
       }
 
       // DoT/HoT
@@ -859,6 +891,12 @@ export class BattleEngine {
           element = user.lastElement;
           convergeMult = 1.5;
         }
+      }
+
+      // 元素共鳴 (ラヴィニアのキャラLv6パッシブ): 直前と違う属性の魔法で威力アップ
+      if (user.isPlayer && !skill.isConverge && skill.damageType === 'Magical' && skill.basePower > 0
+        && user.passives.has(RESONANCE_PASSIVE_ID) && element !== 'None' && element !== 'Physical') {
+        convergeMult *= this.evaluateResonance(user, element);
       }
 
       // 魔力爆発: MP残量スケーリング
@@ -1286,6 +1324,8 @@ export class BattleEngine {
 
     // 会心率 (魔法の極意: MagATK/5 加算 / レリック: 連鎖の照準器)
     let critRate = attacker.crit + critBonus;
+    // 鷲の目 (アッシュのキャラLv4パッシブ): 運の1/4を会心率に加算 (Trait_EagleEye.LuckToCritDivisor)
+    if (attacker.passives.has('SKL_A_Passive_CritEnhance')) critRate += Math.round(attacker.base.luck / 4);
     if (dmgType === 'Magical' && attacker.passives.has('SKL_L_Passive_ArcaneMastery')) {
       critRate += Math.floor(attacker.matk / 5);
     }
@@ -1504,6 +1544,27 @@ export class BattleEngine {
       this.emit({ kind: 'break', target });
       this.emit({ kind: 'message', text: `${target.name} をBreakした！` });
     }
+  }
+
+  /** 元素共鳴の判定と記録。威力の倍率を返す (ElementalResonanceSystem.EvaluateAndRecord) */
+  private evaluateResonance(user: Combatant, element: ElementType): number {
+    let mult = 1;
+    const last = user.resonanceElement;
+    if (last !== 'None' && last !== element) {
+      mult += RESONANCE_DIFFERENT_BONUS;
+      const reaction = RESONANCE_REACTIONS[`${last}>${element}`];
+      if (reaction) {
+        mult += reaction.bonus;
+        // 禁忌共鳴: 自分のHPを5%失う (倒れはしない)
+        if (reaction.forbidden) user.hp = Math.max(1, user.hp - Math.max(1, Math.round(user.base.maxHP * RESONANCE_FORBIDDEN_HP)));
+        this.emit({ kind: 'message', text: `元素共鳴【${reaction.name}】！ 威力+${Math.round((mult - 1) * 100)}%` });
+      } else {
+        this.emit({ kind: 'message', text: `元素共鳴！ 威力+${Math.round((mult - 1) * 100)}%` });
+      }
+    }
+    user.resonanceElement = element;
+    user.resonanceAge = 0;
+    return mult;
   }
 
   private handleDefeat(target: Combatant): void {

@@ -4,7 +4,7 @@
 // 部屋と数値はノードの contentSeed から決まるので、中断・再開しても同じ部屋になる。
 import type { RunState, UnitState } from './run';
 import { getEffectiveMaxHP, damageRun, earnGold, addSanity, partyUnits, fullRestore } from './run';
-import { addJP, jpToNextJobLevel, MAX_JOB_LEVEL } from './level';
+import { addJP, jpToNextJobLevel, MAX_JOB_LEVEL, unitHasSkill } from './level';
 import { hasEffect, riskRewardMultiplier, drawRelic, addRelicToRun, randomCurse, CURSE_INFO } from './relics';
 import type { Rng } from './rng';
 
@@ -92,7 +92,8 @@ export function rollCursedRoom(run: RunState, rng: Rng): CursedRoomOffer {
 
 /** 罠師の知識 (アッシュ): トラップダメージ50%軽減 */
 export function hasTrapMastery(run: RunState): boolean {
-  return partyUnits(run).some((u) => u.unlockedSkillIds.includes('SKL_A_TrapMastery'));
+  // アッシュの「盗賊の技」(キャラLv6) で得る
+  return partyUnits(run).some((u) => unitHasSkill(u, 'SKL_A_TrapMastery'));
 }
 
 function trapDamage(run: RunState, unit: UnitState, pct: number): number {

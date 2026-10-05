@@ -12,7 +12,7 @@ import { generateMap } from '../core/mapgen';
 import type { BlessingType } from '../core/types';
 import { hasArt } from './PreloadScene';
 import { charPortraitKey } from '../data/assets';
-import { CHARACTER_TRAITS, TRAIT_INFO } from '../battle/traits';
+import { levelPassivesOf } from '../data/levelPassives';
 import { grimoireCarrySlots } from '../core/meta';
 import { loadMeta } from '../core/save';
 import { findEnemySkillById } from '../data/enemies';
@@ -130,14 +130,11 @@ export class RunSetupScene extends Phaser.Scene {
     const c = CHARACTERS[this.selectedChar];
     const b = BLESSINGS[this.selectedBlessing];
     const d = DIFFICULTY_TIERS[this.selectedDifficulty];
-    // 固有トレイト (習得パッシブとは別に最初から有効)
-    const traits = CHARACTER_TRAITS[c.id] ?? [];
-    const traitLine = traits.length
-      ? `固有特性: ${traits.map((t) => TRAIT_INFO[t].name).join('・')}\n`
-      : '';
+    // キャラLv2・4・6で覚える固有のパッシブ
+    const passiveLine = `固有パッシブ: ${levelPassivesOf(c.id).map((p) => `${p.skill.name}(Lv${p.level})`).join('・')}\n`;
     this.infoText.setText(
       `${c.name}（${c.jobName}） HP${c.baseStats.maxHP} / MP${c.baseStats.maxMP}\n` +
-      traitLine +
+      passiveLine +
       `${b.name}: ${b.desc}\n` +
       `${d.displayName}: ${d.description}（開始ゴールド ${d.startingGold}G）`,
     );

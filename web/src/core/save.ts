@@ -1,6 +1,7 @@
 // localStorage セーブ — Unity版 PlayerPrefs / RunSaveSystem 相当
 import type { RunState, UnitState } from './run';
 import { createPartyMember, equippedIds, partyUnits, getMaxMP } from './run';
+import { MOVED_TO_LEVEL_PASSIVES } from '../data/levelPassives';
 import { getCharacter } from '../data/characters';
 
 const META_KEY = 'dc_meta_v1';
@@ -184,6 +185,8 @@ export function loadRun(): RunState | null {
     // 職レベル以下で覚えるはずのスキルを補う (LevelSystem.RestoreSkillsToJobLevel。
     // 習得レベルを前倒ししたスキル — ゼノの吸収など — を進行中のセーブにも反映する)
     for (const unit of partyUnits(run) as UnitState[]) {
+      // 固有特性をキャラLvで解放するようにしたので、職Lvで覚えていた分を外す (キャラLvが届いていれば自動で有効)
+      unit.unlockedSkillIds = unit.unlockedSkillIds.filter((id) => !MOVED_TO_LEVEL_PASSIVES.includes(id));
       // MPを持ち越すようになる前のセーブは満タンで始める
       if (typeof unit.currentMP !== 'number') unit.currentMP = getMaxMP(run, unit);
       for (const entry of getCharacter(unit.characterId).learnableSkills) {

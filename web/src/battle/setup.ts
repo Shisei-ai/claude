@@ -9,7 +9,7 @@ import { getDifficulty } from '../data/difficulty';
 import { FLOORS, findEnemySkillById, type EncounterGroup } from '../data/enemies';
 import { getEnding } from '../data/endings';
 import { getEquipment as getEquipmentDefById } from '../data/equipment';
-import { getActiveSkills, getPassiveIds } from '../core/level';
+import { getActiveSkills, getPassiveIds, unitTraits } from '../core/level';
 import { toGrimoireSkill } from './traits';
 import { Rng } from '../core/rng';
 
@@ -66,6 +66,8 @@ export function buildHero(run: RunState, unit: UnitState = run): Combatant {
     stats,
     skills,
     passives: getPassiveIds(unit),
+    // 固有特性はキャラLv2・4・6で解放したものだけ
+    traits: unitTraits(unit),
     initialHP: Math.max(0, Math.min(unit.currentHP, stats.maxHP)),
     // MPは前の戦闘から持ち越す (満月の聖杯などの効果は開戦時に別途)
     initialMP: unit.currentMP,

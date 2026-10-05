@@ -1371,10 +1371,15 @@ export class BattleScene extends Phaser.Scene {
     if (newSkills.length > 0) {
       lines.push(`新スキル習得: ${newSkills.map((s: SkillDef) => s.name).join('、')}`);
     }
+    // キャラLv2・4・6で解放される固有のパッシブスキル
+    if (levelResult.passivesUnlocked.length > 0) {
+      lines.push(`パッシブ習得: ${levelResult.passivesUnlocked.map((s) => s.name).join('、')}`);
+    }
     for (const g of memberGains) {
       const parts: string[] = [];
       if (g.level.levelsGained.length > 0) parts.push(`Lv.${g.unit.characterLevel}`);
       if (g.skills.length > 0) parts.push(`新スキル ${g.skills.map((sk) => sk.name).join('、')}`);
+      if (g.level.passivesUnlocked.length > 0) parts.push(`パッシブ ${g.level.passivesUnlocked.map((sk) => sk.name).join('、')}`);
       if (parts.length > 0) lines.push(`${g.name}: ${parts.join('　')}`);
     }
     // 主人公のひとこと (レベルアップ時はその台詞を優先)

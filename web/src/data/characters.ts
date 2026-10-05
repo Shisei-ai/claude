@@ -7,6 +7,7 @@ import {
 
 const B = BERNHARD_SKILLS;
 
+// 固有特性 (鋼の肉体・過負荷詠唱・鷲の目・盗賊の技など) は職Lvでなく、キャラLv2・4・6で解放する (data/levelPassives.ts)
 export const CHARACTERS: CharacterDef[] = [
   {
     id: 'bernhard',
@@ -29,17 +30,14 @@ export const CHARACTERS: CharacterDef[] = [
     learnableSkills: [
       { jobLevel: 1,  skill: B.doubleSlash, jpCost: 0 },
       { jobLevel: 2,  skill: B.shieldBash, jpCost: 50 },
-      { jobLevel: 2,  skill: B.passiveIronConstitution, jpCost: 120 },
       { jobLevel: 3,  skill: B.defensiveStance, jpCost: 60 },
       { jobLevel: 4,  skill: B.warCry, jpCost: 100 },
       { jobLevel: 5,  skill: B.heavyStrike, jpCost: 120 },
       { jobLevel: 6,  skill: B.whirlwind, jpCost: 150 },
-      { jobLevel: 6,  skill: B.passiveBattleHardened, jpCost: 180 },
       { jobLevel: 7,  skill: B.flameBlade, jpCost: 180 },
       { jobLevel: 8,  skill: B.rapidBarrage, jpCost: 200 },
       { jobLevel: 9,  skill: B.thunderEdge, jpCost: 220 },
       { jobLevel: 10, skill: B.sovereignBlade, jpCost: 350 },
-      { jobLevel: 10, skill: B.passiveIndomitableWill, jpCost: 300 },
       { jobLevel: 11, skill: B.earthBastion, jpCost: 280 },
     ],
     starterWeapon: 'Equip_RustedSword',
@@ -70,11 +68,9 @@ export const CHARACTERS: CharacterDef[] = [
       { jobLevel: 3,  skill: LAVINIA_SKILLS.manaAcceleration, jpCost: 80 },
       { jobLevel: 4,  skill: LAVINIA_SKILLS.curseOfSilence, jpCost: 100 },
       { jobLevel: 5,  skill: LAVINIA_SKILLS.blizzard, jpCost: 150 },
-      { jobLevel: 5,  skill: LAVINIA_SKILLS.passiveOverloadedCasting, jpCost: 160 },
       { jobLevel: 6,  skill: LAVINIA_SKILLS.chainLightning, jpCost: 180 },
       { jobLevel: 7,  skill: LAVINIA_SKILLS.galeBlade, jpCost: 200 },
       { jobLevel: 8,  skill: LAVINIA_SKILLS.inferno, jpCost: 250 },
-      { jobLevel: 8,  skill: LAVINIA_SKILLS.passiveArcaneMastery, jpCost: 280 },
       { jobLevel: 9,  skill: LAVINIA_SKILLS.darkWave, jpCost: 240 },
       { jobLevel: 10, skill: LAVINIA_SKILLS.holyBlaze, jpCost: 280 },
       { jobLevel: 11, skill: LAVINIA_SKILLS.arcaneBurst, jpCost: 320 },
@@ -105,18 +101,14 @@ export const CHARACTERS: CharacterDef[] = [
     learnableSkills: [
       { jobLevel: 1,  skill: ASH_SKILLS.shadowArrow, jpCost: 0 },
       { jobLevel: 2,  skill: ASH_SKILLS.poisonArrow, jpCost: 60 },
-      { jobLevel: 3,  skill: ASH_SKILLS.lockpicking, jpCost: 70 },
       { jobLevel: 3,  skill: ASH_SKILLS.afterimage, jpCost: 80 },
       { jobLevel: 4,  skill: ASH_SKILLS.eagleEye, jpCost: 100 },
       { jobLevel: 5,  skill: ASH_SKILLS.doubleShot, jpCost: 130 },
       { jobLevel: 5,  skill: ASH_SKILLS.passiveFluidEvasion, jpCost: 150 },
       { jobLevel: 6,  skill: ASH_SKILLS.setTrap, jpCost: 160 },
-      { jobLevel: 6,  skill: ASH_SKILLS.trapMastery, jpCost: 140 },
       { jobLevel: 7,  skill: ASH_SKILLS.smokeScreen, jpCost: 180 },
       { jobLevel: 8,  skill: ASH_SKILLS.deathmarkShot, jpCost: 220 },
-      { jobLevel: 8,  skill: ASH_SKILLS.passiveCritEnhancement, jpCost: 260 },
       { jobLevel: 9,  skill: ASH_SKILLS.arrowRain, jpCost: 240 },
-      { jobLevel: 9,  skill: ASH_SKILLS.darkVision, jpCost: 180 },
       { jobLevel: 10, skill: ASH_SKILLS.shadowArrowPlus, jpCost: 260 },
       { jobLevel: 10, skill: ASH_SKILLS.shadowStitch, jpCost: 240 },
       { jobLevel: 11, skill: ASH_SKILLS.danceOfDeath, jpCost: 340 },

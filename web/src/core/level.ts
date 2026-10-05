@@ -3,6 +3,8 @@ import type { RunState, UnitState } from './run';
 import type { SkillDef } from './types';
 import { getCharacter } from '../data/characters';
 import { getEffectiveMaxHP, getMaxMP } from './run';
+import { levelPassivesOf, type LevelPassive } from '../data/levelPassives';
+import type { TraitId } from '../battle/traits';
 
 export const MAX_CHARACTER_LEVEL = 50;
 export const MAX_JOB_LEVEL = 12;
@@ -20,6 +22,8 @@ export function jpToNextJobLevel(jobLevel: number): number {
 export interface LevelUpResult {
   levelsGained: number[];
   hpGained: number;
+  /** このレベルアップでキャラLv2・4・6に届いて覚えたパッシブスキル */
+  passivesUnlocked: SkillDef[];
 }
 
 /** EXP を得る。unit を省くと主人公 (仲間も主人公と同じ量を個別に得る) */
@@ -29,6 +33,7 @@ export function addExp(run: RunState, expGained: number, unit: UnitState = run):
   if (unit === run) run.totalExpGained += expGained;
   const levelsGained: number[] = [];
   let hpGained = 0;
+  const levelBefore = unit.characterLevel;
   const mpBefore = getMaxMP(run, unit);
 
   while (unit.characterLevel < MAX_CHARACTER_LEVEL) {
@@ -54,7 +59,9 @@ export function addExp(run: RunState, expGained: number, unit: UnitState = run):
     unit.currentEXP = 0;
   }
 
-  return { levelsGained, hpGained };
+  const passivesUnlocked = levelPassivesOf(unit.characterId)
+    .filter((p) => p.level > levelBefore && p.level <= unit.characterLevel).map((p) => p.skill);
+  return { levelsGained, hpGained, passivesUnlocked };
 }
 
 /** JP を得る。unit を省くと主人公 */
@@ -102,7 +109,12 @@ export function getActiveSkills(run: UnitState): SkillDef[] {
   return out;
 }
 
-/** 解放済みパッシブのID集合 */
+/** キャラLvで解放済みのパッシブ (キャラLv2・4・6) */
+export function unlockedLevelPassives(unit: UnitState): LevelPassive[] {
+  return levelPassivesOf(unit.characterId).filter((p) => unit.characterLevel >= p.level);
+}
+
+/** 解放済みパッシブのID集合 (職Lvで覚えたもの + キャラLvで解放されたもの・それに付く効果) */
 export function getPassiveIds(run: UnitState): Set<string> {
   const char = getCharacter(run.characterId);
   const out = new Set<string>();
@@ -111,5 +123,20 @@ export function getPassiveIds(run: UnitState): Set<string> {
       out.add(entry.skill.id);
     }
   }
+  for (const p of unlockedLevelPassives(run)) {
+    out.add(p.skill.id);
+    for (const g of p.grants ?? []) out.add(g);
+  }
   return out;
+}
+
+/** 戦闘で効く固有トレイト (キャラLvで解放済みのもの) */
+export function unitTraits(unit: UnitState): Set<TraitId> {
+  return new Set(unlockedLevelPassives(unit).map((p) => p.trait).filter((t): t is TraitId => !!t));
+}
+
+/** そのスキルの効果を持っているか (職Lvで覚えた / キャラLvのパッシブで得た。鍵師の手・罠師の知識など) */
+export function unitHasSkill(unit: UnitState, skillId: string): boolean {
+  return unit.unlockedSkillIds.includes(skillId)
+    || unlockedLevelPassives(unit).some((p) => p.skill.id === skillId || (p.grants ?? []).includes(skillId));
 }

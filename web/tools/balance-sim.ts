@@ -13,7 +13,7 @@ import {
   createRun, getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip, equipItem,
   createPartyMember, partyUnits, addMaxHP, equippedIds, restAtCampfire, getMaxMP, healMP, fullRestore, type RunState, type UnitState,
 } from '../src/core/run';
-import { addExp, addJP, MAX_CHARACTER_LEVEL } from '../src/core/level';
+import { addExp, addJP, MAX_CHARACTER_LEVEL, unitHasSkill } from '../src/core/level';
 import { generateMap, getAvailableNodes, getStartNodes, getNode } from '../src/core/mapgen';
 import {
   buildBattleLoot, addRelicToRun, modifyGoldDrop, hasEffect, sumEffect, drawRelic, rollRelicRarity,
@@ -289,7 +289,7 @@ function shop(run: RunState, rng: Rng): void {
 function treasure(run: RunState, rng: Rng): void {
   const floor = FLOORS[Math.min(run.currentFloor, FLOORS.length - 1)];
   let gold = floor.baseGoldReward + rng.range(10, 41);
-  if (partyUnits(run).some((u) => u.unlockedSkillIds.includes('SKL_A_Lockpicking'))) gold += 30 + rng.range(0, 31);
+  if (partyUnits(run).some((u) => unitHasSkill(u, 'SKL_A_Lockpicking'))) gold += 30 + rng.range(0, 31);
   if (rng.next() < 0.40) { run.equipmentInventory.push(drawEquipmentForFloor(run.currentFloor, rng).id); autoEquip(run); }
   let rarity = rollRelicRarity(run.sanity, false);
   if (hasEffect(run, 'TreasureNose')) {
