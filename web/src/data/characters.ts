@@ -7,7 +7,7 @@ import {
 
 const B = BERNHARD_SKILLS;
 
-// 固有特性 (鋼の肉体・過負荷詠唱・鷲の目・盗賊の技など) は職Lvでなく、キャラLv2・4・6で解放する (data/levelPassives.ts)
+// パッシブスキルは職Lvでは覚えない。各キャラ3つを、キャラLv1・3・5で解放する (data/levelPassives.ts)
 export const CHARACTERS: CharacterDef[] = [
   {
     id: 'bernhard',
@@ -104,7 +104,6 @@ export const CHARACTERS: CharacterDef[] = [
       { jobLevel: 3,  skill: ASH_SKILLS.afterimage, jpCost: 80 },
       { jobLevel: 4,  skill: ASH_SKILLS.eagleEye, jpCost: 100 },
       { jobLevel: 5,  skill: ASH_SKILLS.doubleShot, jpCost: 130 },
-      { jobLevel: 5,  skill: ASH_SKILLS.passiveFluidEvasion, jpCost: 150 },
       { jobLevel: 6,  skill: ASH_SKILLS.setTrap, jpCost: 160 },
       { jobLevel: 7,  skill: ASH_SKILLS.smokeScreen, jpCost: 180 },
       { jobLevel: 8,  skill: ASH_SKILLS.deathmarkShot, jpCost: 220 },
@@ -141,14 +140,12 @@ export const CHARACTERS: CharacterDef[] = [
       { jobLevel: 2,  skill: LILIA_SKILLS.holyBolt, jpCost: 60 },
       { jobLevel: 3,  skill: LILIA_SKILLS.guardianPrayer, jpCost: 80 },
       { jobLevel: 4,  skill: LILIA_SKILLS.holyCure, jpCost: 100 },
-      { jobLevel: 4,  skill: LILIA_SKILLS.passiveHealingMastery, jpCost: 120 },
       { jobLevel: 5,  skill: LILIA_SKILLS.revive, jpCost: 150 },
       { jobLevel: 5,  skill: LILIA_SKILLS.regenLight, jpCost: 130 },
       { jobLevel: 6,  skill: LILIA_SKILLS.curePlus, jpCost: 160 },
       { jobLevel: 6,  skill: LILIA_SKILLS.holyBoltPlus, jpCost: 180 },
       { jobLevel: 7,  skill: LILIA_SKILLS.curaga, jpCost: 200 },
       { jobLevel: 8,  skill: LILIA_SKILLS.divinePunishment, jpCost: 240 },
-      { jobLevel: 8,  skill: LILIA_SKILLS.passiveAutoCompassion, jpCost: 260 },
       { jobLevel: 9,  skill: LILIA_SKILLS.sanctuary, jpCost: 280 },
       { jobLevel: 9,  skill: LILIA_SKILLS.guardianPrayerPlus, jpCost: 240 },
       { jobLevel: 10, skill: LILIA_SKILLS.fullRevive, jpCost: 320 },
@@ -190,13 +187,11 @@ export const CHARACTERS: CharacterDef[] = [
       { jobLevel: 3,  skill: ZENO_SKILLS.evilEye, jpCost: 90 },
 
       { jobLevel: 5,  skill: ZENO_SKILLS.soulShackle, jpCost: 130 },
-      { jobLevel: 5,  skill: ZENO_SKILLS.passiveCurseMastery, jpCost: 140 },
       { jobLevel: 6,  skill: ZENO_SKILLS.curseFog, jpCost: 160 },
       { jobLevel: 6,  skill: ZENO_SKILLS.bindCursePlus, jpCost: 150 },
       { jobLevel: 6,  skill: ZENO_SKILLS.absorbPlus, jpCost: 170 },
       { jobLevel: 7,  skill: ZENO_SKILLS.causalChain, jpCost: 200 },
       { jobLevel: 8,  skill: ZENO_SKILLS.soulFeast, jpCost: 220 },
-      { jobLevel: 8,  skill: ZENO_SKILLS.passivePriceOfAbsorption, jpCost: 250 },
       { jobLevel: 9,  skill: ZENO_SKILLS.deathSentence, jpCost: 240 },
       { jobLevel: 9,  skill: ZENO_SKILLS.evilEyePlus, jpCost: 200 },
       { jobLevel: 9,  skill: ZENO_SKILLS.causalChainPlus, jpCost: 260 },

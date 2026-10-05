@@ -419,26 +419,29 @@ import { createRun } from './src/core/run';
 // 固有のパッシブ: キャラLv2・4・6で解放 / 元素共鳴 / 鷲の目
 import { buildHero } from './src/battle/setup';
 import { LAVINIA_SKILLS } from './src/data/skills';
-import { RESONANCE_PASSIVE_ID } from './src/data/levelPassives';
+import { RESONANCE_PASSIVE_ID, levelPassivesOf } from './src/data/levelPassives';
 {
   const check = (ok: boolean, label: string) => {
     if (ok) console.log(`✓ ${label}`);
     else { console.error(`✗ ${label}`); failures++; }
   };
   const run = createRun('lilia', 1, 'VitalGuard');
-  check(buildHero(run).traits.size === 0, 'リリアLv1: 固有のパッシブはまだ無い');
-  run.characterLevel = 4;
-  const t4 = buildHero(run).traits;
-  check(t4.has('MiracleHands') && t4.has('PureheartHealer') && !t4.has('HolyGrace'), 'リリアLv4: 奇跡の手・清心の治癒師');
-  run.characterLevel = 6;
-  check(buildHero(run).traits.size === 3, 'リリアLv6: 3つすべて');
+  const t1 = buildHero(run).traits;
+  check(t1.size === 1 && t1.has('MiracleHands'), 'リリアLv1: 奇跡の手だけ');
+  run.characterLevel = 3;
+  const t3 = buildHero(run).traits;
+  check(t3.has('MiracleHands') && t3.has('PureheartHealer') && !t3.has('HolyGrace'), 'リリアLv3: 奇跡の手・清心の治癒師');
+  run.characterLevel = 5;
+  check(buildHero(run).traits.size === 3, 'リリアLv5: 3つすべて');
   const b = createRun('bernhard', 1, 'VitalGuard');
-  check(!buildHero(b).passives.has('SKL_Passive_IronConstitution'), 'ベルンハルトLv1: 鋼の肉体なし');
-  b.characterLevel = 2;
-  check(buildHero(b).passives.has('SKL_Passive_IronConstitution'), 'ベルンハルトLv2: 鋼の肉体');
+  const bp = buildHero(b).passives;
+  check(bp.has('SKL_Passive_IronConstitution') && !bp.has('SKL_Passive_BattleHardened'), 'ベルンハルトLv1: 鋼の肉体だけ');
   const a = createRun('ash', 1, 'VitalGuard');
-  a.characterLevel = 6;
-  check(buildHero(a).passives.has('SKL_A_DarkVision'), 'アッシュLv6: 盗賊の技で暗視術 (盲目無効) も有効');
+  a.characterLevel = 5;
+  check(buildHero(a).passives.has('SKL_A_DarkVision'), 'アッシュLv5: 盗賊の技で暗視術 (盲目無効) も有効');
+  // 職Lvでパッシブを覚えることはない
+  check(CHARACTERS.every((c) => c.learnableSkills.every((e) => !e.skill.isPassive)), '職Lvで覚えるパッシブは無い');
+  check(CHARACTERS.every((c) => levelPassivesOf(c.id).length === 3), '全キャラ、キャラLvのパッシブは3つ');
 
   // 元素共鳴: 炎 → 氷 で蒸気爆発 (+80%)、同じ属性を続けるとボーナスなし
   const lav = CHARACTERS.find((c) => c.id === 'lavinia')!;
