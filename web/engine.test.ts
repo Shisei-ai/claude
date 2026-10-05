@@ -443,6 +443,14 @@ import { RESONANCE_PASSIVE_ID, levelPassivesOf } from './src/data/levelPassives'
   check(CHARACTERS.every((c) => c.learnableSkills.every((e) => !e.skill.isPassive)), '職Lvで覚えるパッシブは無い');
   check(CHARACTERS.every((c) => levelPassivesOf(c.id).length === 3), '全キャラ、キャラLvのパッシブは3つ');
 
+  // 呪いの刻印: 戦闘開始時に敵全員へ攻撃ダウン・魔攻ダウン
+  {
+    const z = createRun('zeno', 1, 'VitalGuard');
+    const zh = buildHero(z);
+    const foes = makeEnemies([GOBLIN, ROTTING_ZOMBIE]);
+    new BattleEngine([zh], foes, 0);
+    check(foes.every((f) => f.hasStatus('AtkDown') && f.hasStatus('MatkDown')), 'ゼノLv1: 呪いの刻印で敵全員の攻撃・魔攻ダウン');
+  }
   // 元素共鳴: 炎 → 氷 で蒸気爆発 (+80%)、同じ属性を続けるとボーナスなし
   const lav = CHARACTERS.find((c) => c.id === 'lavinia')!;
   const mk = (withRes: boolean) => {

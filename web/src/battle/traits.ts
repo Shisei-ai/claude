@@ -59,7 +59,8 @@ export const CURSE_MAX_DEBUFF_STACKS = 4;
 
 export const GRIMOIRE_ABSORB_HP_COST_REDUCTION = 0.25; // Trait_GrimoireMaster
 export const GRIMOIRE_MP_DISCOUNT = 1;
-export const GRIMOIRE_SKILL_POWER_SCALE = 0.90;    // GrimoireSystem.SkillPowerScale (吸収技は威力10%ダウン)
+// Unity版 GrimoireSystem.SkillPowerScale は 0.90 (吸収技は威力10%ダウン)。Web版の調整で目減りをなくした
+export const GRIMOIRE_SKILL_POWER_SCALE = 1.0;
 export const GRIMOIRE_ABSORBED_POWER_BONUS = 0.10;
 
 export const DARKWILL_LOW_HP = 0.50;               // Trait_DarkWill

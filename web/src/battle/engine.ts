@@ -20,7 +20,7 @@ import type { RelicBattleState } from './relicHooks';
 import { getBoostUpgrade, type BoostUpgrade } from './boost';
 import * as T from './traits';
 import { toGrimoireSkill } from './traits';
-import { RESONANCE_PASSIVE_ID } from '../data/levelPassives';
+import { RESONANCE_PASSIVE_ID, CURSE_BRAND_ID, CURSE_BRAND } from '../data/levelPassives';
 
 const BREAK_STUN_TURNS = 2;
 
@@ -383,6 +383,18 @@ export class BattleEngine {
       }
     }
     for (const h of heroes) h.addBP(startBP);
+    // 呪いの刻印 (ゼノのパッシブ): 戦闘開始時、敵全員の攻撃・魔攻を下げる (状態異常として数える)
+    for (const h of heroes) {
+      if (!h.isAlive || !h.passives.has(CURSE_BRAND_ID)) continue;
+      this.emit({ kind: 'message', text: `${h.name.split('・')[0]} の呪いの刻印が敵を蝕む！` });
+      for (const e of enemies) {
+        if (!e.isAlive) continue;
+        for (const type of ['AtkDown', 'MatkDown'] as const) {
+          e.applyStatus({ type, value: CURSE_BRAND.atkDown, duration: CURSE_BRAND.turns }, 1);
+          this.emit({ kind: 'status', target: e, status: type, applied: true });
+        }
+      }
+    }
   }
 
   get all(): Combatant[] { return [...this.heroes, ...this.enemies]; }
@@ -905,7 +917,7 @@ export class BattleEngine {
         mpMult = skill.mpScaling.min + (skill.mpScaling.max - skill.mpScaling.min) * mpRatioBefore;
       }
 
-      // 吸収技の威力倍率 (GrimoireSystem.SkillPowerScale 0.90、魔獣の書の主で+0.10)
+      // 吸収技の威力倍率 (Web版は目減りなしの1.0、魔獣の書の主で+0.10)
       const grimoireScale = skill.fromGrimoire
         ? T.GRIMOIRE_SKILL_POWER_SCALE + (user.traits.has('GrimoireMaster') ? T.GRIMOIRE_ABSORBED_POWER_BONUS : 0)
         : 1;
