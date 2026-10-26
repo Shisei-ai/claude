@@ -217,7 +217,7 @@ export class NodeEventScene extends Phaser.Scene {
     const hasParty = this.run.partyMembers.length > 0;
     const someoneDown = this.run.partyMembers.some((m) => m.currentHP <= 0);
     const restLabel = !hasParty ? `休息する (HP+${healAmount}・MP${mpPct}%)`
-      : someoneDown ? `休息する (全員HP${pct}%・MP${mpPct}%・倒れた仲間はHP${REST_REVIVE_HP})` : `休息する (全員 HP${pct}%・MP${mpPct}%回復)`;
+      : someoneDown ? `休息する（HP${pct}%・MP${mpPct}%）` : `休息する (全員 HP${pct}%・MP${mpPct}%回復)`;
     const quote = this.heroQuote('rest');
     if (quote) {
       // 背景画像があれば焚き火の絵を隠さないよう少し上に置く
@@ -336,7 +336,7 @@ export class NodeEventScene extends Phaser.Scene {
         buy: () => { addSanity(run, 1); return '心が少し軽くなった (正気度+1)'; },
       },
       {
-        name: '生命の霊薬', desc: '最大HP+10 (このランの間)',
+        name: '生命の霊薬', desc: '最大HP+10',
         canBuy: () => true,
         target: {},
         buy: (u) => { addMaxHP(run, 10, u); return `${this.who(u)}最大HPが 10 上がった`; },
@@ -351,7 +351,7 @@ export class NodeEventScene extends Phaser.Scene {
     const run = this.run;
     const drained = (u: UnitState) => u.currentMP < getMaxMP(run, u);
     return {
-      name, desc: `MPを${Math.round(pct * 100)}%回復する`,
+      name, desc: `MP${Math.round(pct * 100)}%回復`,
       canBuy: () => partyUnits(run).some(drained),
       target: { filter: drained },
       buy: (u) => `${this.who(u)}MPが ${healMP(run, Math.round(getMaxMP(run, u) * pct), u)} 回復した`,
@@ -363,7 +363,7 @@ export class NodeEventScene extends Phaser.Scene {
     const run = this.run;
     const hurt = (u: UnitState) => u.currentHP < getEffectiveMaxHP(run, u);
     return {
-      name, desc: `HPを${Math.round(pct * 100)}%回復する`,
+      name, desc: `HP${Math.round(pct * 100)}%回復`,
       canBuy: () => partyUnits(run).some(hurt),
       target: { filter: hurt },
       buy: (u) => {
@@ -389,7 +389,7 @@ export class NodeEventScene extends Phaser.Scene {
       case 'skill':
         return {
           tag: '【修練】', tagColor: COLORS.textBlue,
-          name: '修練の書', desc: '読み解くと職業の理解が深まる (JP+25)',
+          name: '修練の書', desc: 'JP+25',
           price: spec.price, sold: false,
           canBuy: () => true,
           target: {},
@@ -432,7 +432,7 @@ export class NodeEventScene extends Phaser.Scene {
       case 'purge':
         return {
           tag: '【サービス】', tagColor: COLORS.textGold,
-          name: '呪い解除', desc: '身に宿った呪いを1つ祓ってもらう',
+          name: '呪い解除', desc: '呪いを1つ祓う',
           price: spec.price, sold: false,
           canBuy: () => run.curses.length > 0,
           buy: () => {
@@ -443,7 +443,7 @@ export class NodeEventScene extends Phaser.Scene {
       case 'upgrade':
         return {
           tag: '【サービス】', tagColor: COLORS.textGold,
-          name: 'スキル強化', desc: '実戦の型を教わり、職業の理解が大きく深まる (JP+50)',
+          name: 'スキル強化', desc: 'JP+50',
           price: spec.price, sold: false,
           canBuy: () => true,
           target: {},
@@ -531,7 +531,7 @@ export class NodeEventScene extends Phaser.Scene {
       // パーティの誰かが装備できる物だけ
       const equip = drawEquipmentForFloor(this.run.currentFloor, this.rng, undefined, (eq) => partyCanEquip(this.run, eq.id));
       this.run.equipmentInventory.push(equip.id);
-      message += `\n${EQUIP_RARITY_LABEL[equip.rarity]}「${equip.name}」を見つけた！ (装備画面で装備できる)`;
+      message += `\n「${equip.name}」を見つけた！`;
     }
 
     // レリック入手 (財宝羅針盤: レアリティ1段階UP)
@@ -578,7 +578,7 @@ export class NodeEventScene extends Phaser.Scene {
     // 罠師の知識 (アッシュ): HPを削る部屋はダメージ半減
     if (room.trap && hasTrapMastery(run)) {
       const tip = this.add.text(width / 2, detail.getBounds().bottom + 30,
-        '【罠師の知識】トラップの仕掛けが見える。ダメージを半減できる。',
+        '【罠師の知識】罠のダメージ半減。',
         textStyle(13, COLORS.textGreen)).setOrigin(0.5).setDepth(2);
       this.backPanel(tip, 30, 10);
     }

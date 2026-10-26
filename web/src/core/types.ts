@@ -24,14 +24,14 @@ export type StatusEffectType =
 export const STATUS_DISPLAY_NAME: Record<StatusEffectType, string> = {
   Poison: '毒', Bleed: '出血', Burn: '炎上', Freeze: '凍結',
   Paralysis: '麻痺', Sleep: '睡眠', Blind: '暗闇', Silence: '沈黙',
-  AtkUp: '物理攻撃UP', AtkDown: '物理攻撃DOWN',
-  MatkUp: '魔法攻撃UP', MatkDown: '魔法攻撃DOWN',
-  DefUp: '防御UP', DefDown: '防御DOWN',
-  SpdUp: '速度UP', SpdDown: '速度DOWN',
-  Regen: '再生', ActionSeal: '行動封じ',
-  CritUp: '会心UP', AccDown: '命中DOWN', Fear: '恐怖',
-  Afterimage: '残影', RegenFlat: '再生', Barrier: '祝福の障壁',
-  DeathSentence: '死の宣告',
+  AtkUp: '物攻↑', AtkDown: '物攻↓',
+  MatkUp: '魔攻↑', MatkDown: '魔攻↓',
+  DefUp: '防御↑', DefDown: '防御↓',
+  SpdUp: '速度↑', SpdDown: '速度↓',
+  Regen: '再生', ActionSeal: '封印',
+  CritUp: '会心↑', AccDown: '命中↓', Fear: '恐怖',
+  Afterimage: '残影', RegenFlat: '再生', Barrier: '障壁',
+  DeathSentence: '宣告',
 };
 
 export interface CharacterStats {

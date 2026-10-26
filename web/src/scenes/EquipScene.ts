@@ -109,7 +109,7 @@ export class EquipScene extends Phaser.Scene {
     const inv = run.equipmentInventory;
 
     if (inv.length === 0) {
-      this.add.text(width / 2, listTop + 110, '装備品を持っていない。\nショップや宝箱で手に入る。',
+      this.add.text(width / 2, listTop + 110, '装備品はまだない。',
         textStyle(14, COLORS.textDim, { align: 'center' })).setOrigin(0.5);
     }
 

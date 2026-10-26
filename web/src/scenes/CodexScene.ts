@@ -188,7 +188,7 @@ export class CodexScene extends Phaser.Scene {
     const floorLabel = enemyFloor(e.id) >= 4 ? '最終層' : `第${enemyFloor(e.id) + 1}層`;
     if (!known) {
       y = this.line(y, '？？？', 22, COLORS.textDim);
-      this.line(y, `${floorLabel}に棲む${RANK_LABEL[e.rank]}の魔物。まだ出会っていない。`, 14, COLORS.textDim);
+      this.line(y, `${floorLabel}の${RANK_LABEL[e.rank]}。未遭遇。`, 14, COLORS.textDim);
       return;
     }
 
@@ -241,7 +241,7 @@ export class CodexScene extends Phaser.Scene {
     this.renderGrid(GRIMOIRE_SKILLS,
       (s) => ({ label: s.name, color: ELEMENT_BADGE[s.element].color, known: got.has(s.id) }),
       (s) => this.grimoireDetail(s, got.has(s.id)),
-      `刻んだ技 ${known} / ${GRIMOIRE_SKILLS.length}　（ゼノの簒奪で記録。「魔獣の書」を解放すると旅立ちに持ち込める）`);
+      `刻んだ技 ${known} / ${GRIMOIRE_SKILLS.length}`);
   }
 
   private grimoireDetail(s: SkillDef, known: boolean): void {

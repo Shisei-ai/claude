@@ -18,20 +18,20 @@ function atk(p: Partial<SkillDef> & Pick<SkillDef, 'id' | 'name' | 'description'
 export const BERNHARD_SKILLS = {
   doubleSlash: atk({
     id: 'SKL_DoubleSlash', name: '二段斬り',
-    description: '素早く2回斬りかかる。シンプルだが確実な技。',
+    description: '素早く2回斬る。',
     basePower: 0.80, hitCount: 2, mpCost: 4,
   }),
   shieldBash: atk({
     id: 'SKL_ShieldBash', name: '盾砕き',
     // Web版の調整: 弱点を問わず削れるので、削る数を2 → 1 に
-    description: '盾で強打し、敵の防御体制を崩す（60%）。弱点でなくてもシールドを1つ削る。30%で麻痺（2ターン）。',
+    description: '弱点を問わずシールドを1削る。30%で麻痺。',
     basePower: 0.60, mpCost: 5, canBreak: true, shieldDamage: 1,
     statusChance: 0.30,
     appliedStatus: { type: 'Paralysis', duration: 2, value: 0 },
   }),
   defensiveStance: atk({
     id: 'SKL_DefStance', name: '守りの構え',
-    description: '防御態勢を取る。物理防御+40%、速度-20%（2ターン）。',
+    description: '物理防御+40%、速度-20%（2ターン）。',
     basePower: 0, mpCost: 6,
     buff: [
       { type: 'DefUp', value: 0.40, duration: 2, toSelf: true },
@@ -40,35 +40,35 @@ export const BERNHARD_SKILLS = {
   }),
   warCry: atk({
     id: 'SKL_WarCry', name: '雄叫び',
-    description: '気合いの一喝で味方全員の物理攻撃力を3ターン+25%。',
+    description: '味方全員の物理攻撃+25%（3ターン）。',
     basePower: 0, mpCost: 10, hitsAllAllies: true,
     buff: [{ type: 'AtkUp', value: 0.25, duration: 3, toAllAllies: true }],
   }),
   heavyStrike: atk({
     id: 'SKL_HeavyStrike', name: '強撃',
-    description: '力を溜めた一撃。220%の高威力。クリティカル率+20%。',
+    description: '会心率+20%。',
     basePower: 2.20, mpCost: 12, critBonus: 20,
   }),
   whirlwind: atk({
     id: 'SKL_Whirlwind', name: '旋風斬',
-    description: '剣を大きく振り回し、全敵を90%の威力で斬りつける。Break効果あり。',
+    description: 'シールドを削る。',
     basePower: 0.90, mpCost: 14, hitsAllEnemies: true, canBreak: true,
   }),
   flameBlade: atk({
     id: 'SKL_FlameBlade', name: '炎の刃',
-    description: '剣に炎を纏わせた一撃。150%の炎属性ダメージ。25%で炎上付与。',
+    description: '25%で炎上。',
     element: 'Fire', basePower: 1.50, mpCost: 16,
     statusChance: 0.25,
     appliedStatus: { type: 'Burn', duration: 2, value: 0.06 },
   }),
   rapidBarrage: atk({
     id: 'SKL_RapidBarrage', name: '百烈斬',
-    description: '休みなく5連撃を叩き込む。各ヒットがBreakに有効。',
+    description: '各ヒットがシールドを削る。',
     basePower: 0.55, hitCount: 5, mpCost: 18, canBreak: true,
   }),
   thunderEdge: atk({
     id: 'SKL_ThunderEdge', name: '雷迸り',
-    description: '雷光を帯びた横薙ぎ。全敵に110%の雷属性魔法ダメージ、40%で麻痺。',
+    description: '40%で麻痺。',
     element: 'Lightning', damageType: 'Magical',
     basePower: 1.10, mpCost: 20, hitsAllEnemies: true,
     statusChance: 0.40,
@@ -76,7 +76,7 @@ export const BERNHARD_SKILLS = {
   }),
   sovereignBlade: atk({
     id: 'SKL_SovereignBlade', name: '覇剣',
-    description: '魂を込めた一太刀。350%の真実ダメージ（防御無視）。',
+    description: '防御無視。',
     damageType: 'True', basePower: 3.50, mpCost: 28,
   }),
   earthBastion: atk({
@@ -89,17 +89,17 @@ export const BERNHARD_SKILLS = {
   // パッシブ
   passiveIronConstitution: atk({
     id: 'SKL_Passive_IronConstitution', name: '鋼の肉体',
-    description: '【パッシブ】毒・出血によるダメージを30%軽減する。',
+    description: '毒・出血のダメージ-30%。',
     basePower: 0, isPassive: true,
   }),
   passiveBattleHardened: atk({
     id: 'SKL_Passive_BattleHardened', name: '歴戦の鎧',
-    description: '【パッシブ】攻撃を受けるたびに物理防御+3%（最大5スタック、戦闘ごとにリセット）。',
+    description: '被弾ごとに物理防御+3%（最大5回）。',
     basePower: 0, isPassive: true,
   }),
   passiveIndomitableWill: atk({
     id: 'SKL_Passive_IndomitableWill', name: '不撓不屈',
-    description: '【パッシブ】1戦闘に1回だけ、致死ダメージを受けてもHP1で踏みとどまる。',
+    description: '1戦闘に1回、致死ダメージをHP1で耐える。',
     basePower: 0, isPassive: true,
   }),
 };
@@ -111,7 +111,7 @@ export const BERNHARD_SKILLS = {
 export const LAVINIA_SKILLS = {
   fireBolt: atk({
     id: 'SKL_L_FireBolt', name: '火炎弾',
-    description: '標準的な炎の弾を放つ。130%の炎属性魔法ダメージ。15%で炎上。',
+    description: '15%で炎上。',
     element: 'Fire', damageType: 'Magical', basePower: 1.30, mpCost: 8,
     canBreak: true,
     statusChance: 0.15,
@@ -119,14 +119,14 @@ export const LAVINIA_SKILLS = {
   }),
   iceSpike: atk({
     id: 'SKL_L_IceSpike', name: '氷棘',
-    description: '鋭い氷柱を放つ。140%の氷属性ダメージ、20%で凍結。',
+    description: '20%で凍結。',
     element: 'Ice', damageType: 'Magical', basePower: 1.40, mpCost: 10,
     statusChance: 0.20,
     appliedStatus: { type: 'Freeze', duration: 2, value: 0 },
   }),
   manaAcceleration: atk({
     id: 'SKL_L_ManaAccel', name: '魔力加速',
-    description: '自分の速度+40%、魔法会心率+20%（3ターン）。詠唱の流れを加速する。',
+    description: '自分の速度+40%、会心率+20%（3ターン）。',
     basePower: 0, damageType: 'Magical', mpCost: 12,
     buff: [
       { type: 'SpdUp', value: 0.40, duration: 3, toSelf: true },
@@ -135,14 +135,14 @@ export const LAVINIA_SKILLS = {
   }),
   curseOfSilence: atk({
     id: 'SKL_L_CurseOfSilence', name: '沈黙の呪詛',
-    description: '1体の敵に沈黙を付与する（3ターン）。85%の高確率で命中しスキルを封じる。',
+    description: '85%で沈黙（3ターン）。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 14,
     statusChance: 0.85,
     appliedStatus: { type: 'Silence', duration: 3, value: 0 },
   }),
   blizzard: atk({
     id: 'SKL_L_Blizzard', name: '氷嵐',
-    description: '吹雪で全敵を包む。全体に100%の氷属性ダメージ、15%で凍結。',
+    description: '15%で凍結。',
     element: 'Ice', damageType: 'Magical', basePower: 1.00, mpCost: 18,
     hitsAllEnemies: true,
     statusChance: 0.15,
@@ -150,7 +150,7 @@ export const LAVINIA_SKILLS = {
   }),
   chainLightning: atk({
     id: 'SKL_L_ChainLightning', name: '連鎖雷撃',
-    description: '雷を走らせ敵から敵へ連鎖する。2体を180%で貫通。25%で麻痺。',
+    description: '2体を貫く。25%で麻痺。',
     element: 'Lightning', damageType: 'Magical', basePower: 1.80, mpCost: 16,
     canBreak: true, chainCount: 2,
     statusChance: 0.25,
@@ -158,13 +158,13 @@ export const LAVINIA_SKILLS = {
   }),
   galeBlade: atk({
     id: 'SKL_L_GaleBlade', name: '風刃嵐',
-    description: '風の刃で全敵を切り刻む。全体に90%×2ヒット、命中率が高い。',
+    description: '命中しやすい。',
     element: 'Wind', damageType: 'Magical', basePower: 0.90, hitCount: 2,
     mpCost: 20, hitsAllEnemies: true, canBreak: true,
   }),
   inferno: atk({
     id: 'SKL_L_Inferno', name: '業火',
-    description: 'すべての魔力を凝縮した炎の柱。300%の炎属性ダメージ。60%で炎上。',
+    description: '60%で炎上。',
     element: 'Fire', damageType: 'Magical', basePower: 3.00, mpCost: 32,
     canBreak: true,
     statusChance: 0.60,
@@ -172,36 +172,36 @@ export const LAVINIA_SKILLS = {
   }),
   darkWave: atk({
     id: 'SKL_L_DarkWave', name: '暗黒波',
-    description: '絶対に外れない闇の波動。200%の闇属性ダメージ。必中。',
+    description: '必中。',
     element: 'Dark', damageType: 'Magical', basePower: 2.00, mpCost: 22,
     canBreak: true, neverMiss: true,
   }),
   holyBlaze: atk({
     id: 'SKL_L_HolyBlaze', name: '聖光閃',
-    description: '清浄な光で単体を焼く。160%の光属性ダメージ。アンデッド系に1.5倍。',
+    description: 'アンデッドに×1.5。',
     element: 'Light', damageType: 'Magical', basePower: 1.60, mpCost: 20,
     canBreak: true, undeadMult: 1.50,
   }),
   arcaneBurst: atk({
     id: 'SKL_L_ArcaneBurst', name: '魔力爆発',
-    description: '純粋な魔力の爆発。防御10%無視の280%真実ダメージ。残MPが多いほど威力上昇（0.7〜1.3倍）。',
+    description: '防御を一部無視。残りMPが多いほど強い。',
     damageType: 'True', basePower: 2.80, mpCost: 30,
     ignoreDefPct: 0.10, mpScaling: { min: 0.70, max: 1.30 },
   }),
   elementalConverge: atk({
     id: 'SKL_L_Converge', name: '元素収束',
-    description: '直前に放った属性と反応する魔法を収束させる。220%。属性反応（炎→氷/氷→雷/雷→炎）で威力1.5倍+50%。',
+    description: '直前の属性と反応すると威力が跳ね上がる。',
     damageType: 'Magical', basePower: 2.20, mpCost: 26, isConverge: true,
   }),
   // パッシブ
   passiveOverloadedCasting: atk({
     id: 'SKL_L_Passive_Overloaded', name: '過負荷詠唱',
-    description: '【パッシブ】MP60%以上: 全魔法コスト-2・速度+10%。MP40%以下: 魔法攻撃力+25%。',
+    description: 'MP60%以上で消費-2・速度+10%。40%以下で魔攻+25%。',
     basePower: 0, isPassive: true,
   }),
   passiveArcaneMastery: atk({
     id: 'SKL_L_Passive_ArcaneMastery', name: '魔法の極意',
-    description: '【パッシブ】魔法会心倍率+100%（1.5→2.5倍）。魔法攻撃力/5が会心率に加算される。',
+    description: '魔法の会心ダメージ×2.5。魔攻に応じて会心率UP。',
     basePower: 0, isPassive: true,
   }),
 };
@@ -213,42 +213,42 @@ export const LAVINIA_SKILLS = {
 export const ASH_SKILLS = {
   shadowArrow: atk({
     id: 'SKL_A_ShadowArrow', name: '影矢',
-    description: '影を纏った一矢（130%）。Shadow State中は威力が大幅に上昇する（+40%）。',
+    description: '影状態なら威力+40%。',
     element: 'Dark', basePower: 1.30, mpCost: 4, shadowPowerBonus: 0.40,
   }),
   poisonArrow: atk({
     id: 'SKL_A_PoisonArrow', name: '毒矢',
-    description: '毒を塗った矢（70%）。80%の確率で毒を付与する（3ターン）。',
+    description: '80%で毒。',
     basePower: 0.70, mpCost: 6,
     statusChance: 0.80,
     appliedStatus: { type: 'Poison', duration: 3, value: 0.05 },
   }),
   afterimage: atk({
     id: 'SKL_A_Afterimage', name: '残影',
-    description: '2ターン間、単体攻撃を75%の確率で回避する。回避時に50%の反撃。',
+    description: '2ターン、単体攻撃を75%で回避し反撃する。',
     basePower: 0, mpCost: 8,
     buff: [{ type: 'Afterimage', value: 0.75, duration: 2, toSelf: true }],
   }),
   eagleEye: atk({
     id: 'SKL_A_EagleEye', name: '鷹の目',
-    description: '2ターン間、命中を必中にし、会心率を35%上昇させる。',
+    description: '2ターン必中、会心率+35%。',
     basePower: 0, mpCost: 8,
     buff: [{ type: 'CritUp', value: 35, duration: 2, toSelf: true }],
   }),
   doubleShot: atk({
     id: 'SKL_A_DoubleShot', name: '二連射',
-    description: '素早い2連続攻撃（各85%）。Shadow State中は3連射。各ヒット独立で会心判定。',
+    description: '影状態なら3連射。',
     basePower: 0.85, hitCount: 2, mpCost: 12, shadowExtraHits: 1,
   }),
   setTrap: atk({
     id: 'SKL_A_SetTrap', name: '罠設置',
-    description: '次に行動した敵に230%の爆発ダメージ＋50%スタン。設置後にShadow Stateを得る。',
+    description: '次に動いた敵に爆発(230%)、50%でスタン。影状態になる。',
     basePower: 0, mpCost: 10, grantsShadowState: true,
     trap: { power: 2.30, stunChance: 0.50 },
   }),
   smokeScreen: atk({
     id: 'SKL_A_SmokeScreen', name: 'スモーク',
-    description: '煙幕で全敵の命中-25%・速度-15%（2ターン）。使用者にShadow Stateを付与。',
+    description: '全敵の命中・速度を下げ、影状態になる。',
     basePower: 0, mpCost: 14, hitsAllEnemies: true, grantsShadowState: true,
     debuff: [
       { type: 'AccDown', value: 0.25, duration: 2 },
@@ -257,57 +257,57 @@ export const ASH_SKILLS = {
   }),
   deathmarkShot: atk({
     id: 'SKL_A_DeathmarkShot', name: '必殺狙撃',
-    description: '急所を狙った必殺の一矢（300%）。HP35%以下の敵に30%で即死。Shadow State中は350%。',
+    description: 'HP35%以下の敵を30%で即死。影状態なら350%。',
     basePower: 3.00, mpCost: 20,
     executeChance: 0.30, executeThreshold: 0.35, shadowPowerBonus: 0.50,
   }),
   arrowRain: atk({
     id: 'SKL_A_ArrowRain', name: '矢の雨',
-    description: '敵全体に3ヒットの矢を降らせる（各65%）。ブレイクゲージを削りやすい。',
+    description: 'シールドを削りやすい。',
     basePower: 0.65, hitCount: 3, mpCost: 22, hitsAllEnemies: true, canBreak: true,
   }),
   shadowArrowPlus: atk({
     id: 'SKL_A_ShadowArrowPlus', name: '影矢＋',
-    description: '暗影を凝縮した一矢（175%）。Shadow State中は威力+55%、会心も確定する。',
+    description: '影状態なら威力+55%・会心確定。',
     element: 'Dark', basePower: 1.75, mpCost: 4, shadowPowerBonus: 0.55,
   }),
   shadowStitch: atk({
     id: 'SKL_A_ShadowStitch', name: '影縫い',
-    description: '影で縫い付け（100%）、次ターン必ず行動不能にする（必中）。',
+    description: '必中。次のターン行動不能。',
     basePower: 1.00, mpCost: 16, neverMiss: true,
     debuff: [{ type: 'ActionSeal', value: 0, duration: 1 }],
   }),
   danceOfDeath: atk({
     id: 'SKL_A_DanceOfDeath', name: '死の踊り',
-    description: 'ランダムに敵を5連打（110%×5）。会心時にそのヒットが追加1ヒットを生む（最大10ヒット）。',
+    description: 'ランダムな敵を5連打。会心で追撃。',
     basePower: 1.10, hitCount: 5, mpCost: 28,
     randomTargets: true, critExtraHit: true,
   }),
   // フィールドスキル
   lockpicking: atk({
     id: 'SKL_A_Lockpicking', name: '鍵師の手',
-    description: '【フィールド】宝箱ノードで追加の秘密宝箱を1つ発見する。',
+    description: '【探索】宝箱で隠し宝箱を見つける。',
     basePower: 0, isPassive: true, isFieldSkill: true,
   }),
   trapMastery: atk({
     id: 'SKL_A_TrapMastery', name: '罠師の知識',
-    description: '【フィールド】呪われた部屋のトラップダメージを50%軽減する。',
+    description: '【探索】罠のダメージ半減。',
     basePower: 0, isPassive: true, isFieldSkill: true,
   }),
   darkVision: atk({
     id: 'SKL_A_DarkVision', name: '暗視術',
-    description: '【バトル】盲目状態を無効化する。【フィールド】暗闇でも視界を確保できる。',
+    description: '盲目にならない。',
     basePower: 0, isPassive: true, isFieldSkill: true,
   }),
   // パッシブ
   passiveFluidEvasion: atk({
     id: 'SKL_A_Passive_FluidEvasion', name: '流麗回避',
-    description: '【パッシブ】基本回避率を15%上昇させる。攻撃を回避するたびにBPを1獲得する。',
+    description: '回避率+15%。回避でBP+1。',
     basePower: 0, isPassive: true,
   }),
   passiveCritEnhancement: atk({
     id: 'SKL_A_Passive_CritEnhance', name: '会心強化',
-    description: '【パッシブ】会心ダメージ倍率が×2.5になる。会心ヒット時、次の攻撃の会心率+10%（最大3スタック）。',
+    description: '会心ダメージ×2.5。会心で次の会心率が上がる。',
     basePower: 0, isPassive: true,
   }),
 };
@@ -319,74 +319,74 @@ export const ASH_SKILLS = {
 export const LILIA_SKILLS = {
   cure: atk({
     id: 'SKL_L2_Cure', name: '治癒',
-    description: '一人の味方のHPを回復する（回復力70）。',
+    description: '味方1人を回復（70）。',
     basePower: 0, mpCost: 6, isHeal: true, healPower: 70,
   }),
   purify: atk({
     id: 'SKL_L2_Purify', name: '清浄',
-    description: '一人の味方のすべての状態異常を取り除く。',
+    description: '味方1人の状態異常を治す。',
     basePower: 0, mpCost: 8, cleanse: 'target',
   }),
   holyBolt: atk({
     id: 'SKL_L2_HolyBolt', name: '聖光弾',
-    description: '聖なる光弾を放つ（120%）。アンデッド系に×2.0の追加ダメージ。',
+    description: 'アンデッドに×2。',
     element: 'Light', damageType: 'Magical', basePower: 1.20, mpCost: 10,
     undeadMult: 2.00,
   }),
   guardianPrayer: atk({
     id: 'SKL_L2_GuardianPrayer', name: '守護の祈り',
-    description: '一人の味方を守護する。物理防御+30%、魔法防御+30%（3ターン）。',
+    description: '味方1人の物防・魔防+30%（3ターン）。',
     basePower: 0, mpCost: 10,
     buff: [{ type: 'DefUp', value: 0.30, duration: 3, toSelf: true }],
   }),
   holyCure: atk({
     id: 'SKL_L2_HolyCure', name: '聖癒',
-    description: '強力な回復魔法（回復力175）。HP大幅回復。',
+    description: '味方1人を大きく回復（175）。',
     basePower: 0, mpCost: 16, isHeal: true, healPower: 175,
   }),
   revive: atk({
     id: 'SKL_L2_Revive', name: '蘇生',
-    description: '戦闘不能の味方一人をHP50%で蘇生させる。',
+    description: '倒れた味方1人をHP50%で蘇生。',
     basePower: 0, mpCost: 20, revive: { pct: 0.50, all: false },
   }),
   regenLight: atk({
     id: 'SKL_L2_RegenLight', name: '再生の光',
-    description: '味方全員にリジェネを付与する（5ターン間、毎ターンMagATK×0.30回復）。',
+    description: '味方全員にリジェネ（5ターン）。',
     basePower: 0, mpCost: 14,
     regenFlat: { duration: 5, matkMult: 0.30, toAllAllies: true },
   }),
   curePlus: atk({
     id: 'SKL_L2_CurePlus', name: '治癒＋',
-    description: 'より強力な回復（回復力115）。同時に小さな状態異常を1つ解除する。',
+    description: '味方1人を回復（115）し、状態異常を1つ治す。',
     basePower: 0, mpCost: 8, isHeal: true, healPower: 115, cleanse: 'target',
   }),
   holyBoltPlus: atk({
     id: 'SKL_L2_HolyBoltPlus', name: '聖光弾＋',
-    description: '強力な光弾（200%）。アンデッド系に×2.5の追加ダメージ。',
+    description: 'アンデッドに×2.5。',
     element: 'Light', damageType: 'Magical', basePower: 2.00, mpCost: 12,
     undeadMult: 2.50,
   }),
   curaga: atk({
     id: 'SKL_L2_Curaga', name: '全体治癒',
-    description: '味方全員のHPを回復する（回復力95）。',
+    description: '味方全員を回復（95）。',
     basePower: 0, mpCost: 22, isHeal: true, healPower: 95, hitsAllAllies: true,
   }),
   divinePunishment: atk({
     id: 'SKL_L2_DivinePunishment', name: '神罰',
-    description: '聖なる裁きが敵全体を3回打つ（100%×3）。アンデッド系に×2.5の特効。ブレイクゲージを削る。',
+    description: 'アンデッドに×2.5。シールドを削る。',
     element: 'Light', damageType: 'Magical', basePower: 1.00, hitCount: 3,
     mpCost: 26, hitsAllEnemies: true, canBreak: true, undeadMult: 2.50,
   }),
   sanctuary: atk({
     id: 'SKL_L2_Sanctuary', name: '聖域',
-    description: '味方全員の状態異常を回復し、リジェネ（5ターン）＋魔法防御+30%（3ターン）を付与する。',
+    description: '味方全員の状態異常を治し、リジェネと魔防+30%。',
     basePower: 0, mpCost: 30, hitsAllAllies: true, cleanse: 'allAllies',
     regenFlat: { duration: 5, matkMult: 0.30, toAllAllies: true },
     buff: [{ type: 'DefUp', value: 0.30, duration: 3, toAllAllies: true }],
   }),
   guardianPrayerPlus: atk({
     id: 'SKL_L2_GuardianPrayerPlus', name: '守護の祈り＋',
-    description: 'より強固な守護。物理防御+40%、魔法防御+40%、速度+10%（4ターン）。',
+    description: '味方1人の物防・魔防+40%、速度+10%（4ターン）。',
     basePower: 0, mpCost: 12,
     buff: [
       { type: 'DefUp', value: 0.40, duration: 4, toSelf: true },
@@ -395,23 +395,23 @@ export const LILIA_SKILLS = {
   }),
   fullRevive: atk({
     id: 'SKL_L2_FullRevive', name: '完全蘇生',
-    description: '戦闘不能の味方全員をHP100%で蘇生させる。大いなる奇跡。',
+    description: '倒れた味方全員をHP100%で蘇生。',
     basePower: 0, mpCost: 38, revive: { pct: 1.00, all: true },
   }),
   revivePlus: atk({
     id: 'SKL_L2_RevivePlus', name: '蘇生＋',
-    description: '戦闘不能の味方一人をHP80%で蘇生させる。リジェネも付与する。',
+    description: '倒れた味方1人をHP80%で蘇生し、リジェネ。',
     basePower: 0, mpCost: 22, revive: { pct: 0.80, all: false },
     regenFlat: { duration: 3, matkMult: 0.30, toAllAllies: false },
   }),
   holyCurePlus: atk({
     id: 'SKL_L2_HolyCurePlus', name: '聖癒＋',
-    description: '極めて強力な回復（回復力250）。状態異常も全回復する。',
+    description: '味方1人を大きく回復（250）し、状態異常も治す。',
     basePower: 0, mpCost: 18, isHeal: true, healPower: 250, cleanse: 'target',
   }),
   miracleBlessing: atk({
     id: 'SKL_L2_MiracleBlessing', name: '奇跡の祝福',
-    description: '全員のHPを完全回復し、すべての状態異常を除去。魔法防御+50%（2ターン）＋次の被ダメ1回を50%軽減するバリアを付与。',
+    description: '全員を全快・状態異常を治し、魔防UPと被ダメ半減の加護。',
     basePower: 0, mpCost: 44, hitsAllAllies: true,
     fullHeal: true, cleanse: 'allAllies', barrier: true,
     buff: [{ type: 'DefUp', value: 0.50, duration: 2, toAllAllies: true }],
@@ -419,12 +419,12 @@ export const LILIA_SKILLS = {
   // パッシブ
   passiveHealingMastery: atk({
     id: 'SKL_L2_Passive_HealingMastery', name: '癒しの心得',
-    description: '【パッシブ】すべての回復魔法の効果量が25%上昇する。',
+    description: '回復量+25%。',
     basePower: 0, isPassive: true,
   }),
   passiveAutoCompassion: atk({
     id: 'SKL_L2_Passive_AutoCompassion', name: '自動慈愛',
-    description: '【パッシブ】毎ターン終了時、最もHP残量の少ない味方にMagATK×0.30の回復を自動で行う。',
+    description: '毎ターン、最もHPの低い味方を少し回復。',
     basePower: 0, isPassive: true,
   }),
 };
@@ -437,19 +437,19 @@ export const ZENO_SKILLS = {
   // Web版で追加: デバフを重ねて爆ぜさせる攻撃手段 (Unity版のゼノは攻撃技を持たない)
   curseBurst: atk({
     id: 'SKL_Z_CurseBurst', name: '呪詛解放',
-    description: '敵1体に刻まれた呪いを爆ぜさせる闇魔法（80%）。対象の状態異常1種につき威力+40%（最大4種）。',
+    description: '敵の状態異常1種ごとに威力+40%。',
     element: 'Dark', damageType: 'Magical', basePower: 0.8, mpCost: 10,
     powerPerStatus: 0.4,
   }),
   bindCurse: atk({
     id: 'SKL_Z_BindCurse', name: '呪縛',
-    description: '一体の敵の速度を-40%にする（2ターン）。',
+    description: '速度-40%（2ターン）。',
     element: 'Dark', damageType: 'Magical', basePower: 0.5, mpCost: 6,
     debuff: [{ type: 'SpdDown', value: 0.40, duration: 2 }],
   }),
   poisonMist: atk({
     id: 'SKL_Z_PoisonMist', name: '毒霧',
-    description: '全敵に80%の確率で毒を付与する（3ターン）。',
+    description: '全敵に80%で毒。',
     element: 'None', damageType: 'Magical', basePower: 0, mpCost: 10,
     hitsAllEnemies: true,
     statusChance: 0.80,
@@ -457,7 +457,7 @@ export const ZENO_SKILLS = {
   }),
   terror: atk({
     id: 'SKL_Z_Terror', name: '恐怖の叫び',
-    description: '単体を恐怖状態にする（2ターン。物理攻撃不可）。物理攻撃力-30%。80%で命中。',
+    description: '80%で恐怖（物理攻撃不可）、物攻-30%。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 10,
     statusChance: 0.80,
     appliedStatus: { type: 'Fear', duration: 2, value: 0 },
@@ -465,7 +465,7 @@ export const ZENO_SKILLS = {
   }),
   evilEye: atk({
     id: 'SKL_Z_EvilEye', name: '呪いの眼差し',
-    description: '単体の全ステータス（攻撃・防御・速度）を-20%する（3ターン）。',
+    description: '攻撃・防御・速度-20%（3ターン）。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 14,
     debuff: [
       { type: 'AtkDown', value: 0.20, duration: 3 },
@@ -477,33 +477,33 @@ export const ZENO_SKILLS = {
   // Web版で追加: 与えたダメージの半分を自分のHPにする闇魔法。HPを削って戦うゼノの命綱
   drain: atk({
     id: 'SKL_Z_Drain', name: '吸収',
-    description: '敵1体の生命を闇で啜る。与えたダメージの50%だけ自分のHPを回復する。',
+    description: '与えたダメージの半分を回復。',
     element: 'Dark', damageType: 'Magical', basePower: 1.0, mpCost: 8,
     drainPct: 0.5,
   }),
   // 旧「吸収」。敵の技を奪う方は「簒奪」と呼ぶ (IDは古いセーブのため旧名のまま)
   absorb: atk({
     id: 'SKL_Z_Absorb', name: '簒奪',
-    description: '敵1体の魂を確率で奪って消滅させ、その技をグリモワールに刻む（基本25%、敵HPが低いほど+最大50%、状態異常1種につき+5%）。エリートには確率×70%、ボスには無効。術者HP-15%。刻んだ技はゼノの魔法攻撃力で放つ。',
+    description: '敵の魂を奪い技を刻む。弱らせ・呪うほど成功しやすい。HP-15%。ボス不可。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 16,
     absorb: { baseChance: 0.25, maxBonus: 0.50, hpCostPct: 0.15, eliteMult: 0.70, perStatus: 0.05 },
   }),
   soulShackle: atk({
     id: 'SKL_Z_SoulShackle', name: '魂縛',
-    description: '単体を必中で次ターン行動不能にする（1ターン）。',
+    description: '必中。次のターン行動不能。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 14, neverMiss: true,
     debuff: [{ type: 'ActionSeal', value: 0, duration: 1 }],
   }),
   curseFog: atk({
     id: 'SKL_Z_CurseFog', name: '呪詛の霧',
-    description: '全敵にランダムなデバフ1種（-25%）と、ランダムな状態異常を40%で付与する（2ターン）。',
+    description: '全敵にランダムな弱体と状態異常。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 16,
     hitsAllEnemies: true,
     randomDebuff: { count: 1, amount: 0.25, statusChance: 0.40, duration: 2 },
   }),
   bindCursePlus: atk({
     id: 'SKL_Z_BindCursePlus', name: '呪縛＋',
-    description: '速度-50%（3ターン）＋物理攻撃力も-20%。',
+    description: '速度-50%・物攻-20%（3ターン）。',
     element: 'Dark', damageType: 'Magical', basePower: 0.5, mpCost: 8,
     debuff: [
       { type: 'SpdDown', value: 0.50, duration: 3 },
@@ -512,37 +512,37 @@ export const ZENO_SKILLS = {
   }),
   absorbPlus: atk({
     id: 'SKL_Z_AbsorbPlus', name: '簒奪＋',
-    description: '簒奪の強化版（基本35%、敵HPが低いほど+最大50%、状態異常1種につき+5%）。HP消費10%。エリートには確率×85%。',
+    description: '簒奪の強化版。成功しやすくHP-10%。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 16,
     absorb: { baseChance: 0.35, maxBonus: 0.50, hpCostPct: 0.10, eliteMult: 0.85, perStatus: 0.05 },
   }),
   drainPlus: atk({
     id: 'SKL_Z_DrainPlus', name: '吸収＋',
-    description: '吸収の強化版。与えたダメージの50%だけ自分のHPを回復する。',
+    description: '与えたダメージの半分を回復。',
     element: 'Dark', damageType: 'Magical', basePower: 1.5, mpCost: 14,
     drainPct: 0.5,
   }),
   causalChain: atk({
     id: 'SKL_Z_CausalChain', name: '因果の鎖',
-    description: '2体の敵を鎖で繋ぐ（2ターン）。一体がダメージを受けるとその50%がもう一体にも伝わる。',
+    description: '2体を鎖で繋ぎ、ダメージの50%を伝える。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 18,
     causalChain: { pct: 0.50, duration: 2, all: false },
   }),
   soulFeast: atk({
     id: 'SKL_Z_SoulFeast', name: '魂喰い',
-    description: '簒奪の最上位（基本45%、敵HPが低いほど+最大50%、状態異常1種につき+5%）。HP消費20%。エリートにも確率そのままで通じる。',
+    description: '簒奪の最上位。強敵にもよく通じる。HP-20%。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 20,
     absorb: { baseChance: 0.45, maxBonus: 0.50, hpCostPct: 0.20, eliteMult: 1, perStatus: 0.05 },
   }),
   deathSentence: atk({
     id: 'SKL_Z_DeathSentence', name: '死の宣告',
-    description: '単体に死の刻印を刻む。3ターン後に必ず即死（ボスにはMaxHPの50%ダメージ）。',
+    description: '3ターン後に即死（ボスは最大HPの50%）。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 20,
     deathSentence: { delay: 3, bossDmgPct: 0.50 },
   }),
   evilEyePlus: atk({
     id: 'SKL_Z_EvilEyePlus', name: '呪いの眼差し＋',
-    description: '全ステータス-25%（4ターン）。',
+    description: '攻撃・防御・速度-25%（4ターン）。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 16,
     debuff: [
       { type: 'AtkDown', value: 0.25, duration: 4 },
@@ -553,13 +553,13 @@ export const ZENO_SKILLS = {
   }),
   causalChainPlus: atk({
     id: 'SKL_Z_CausalChainPlus', name: '因果の鎖＋',
-    description: '全敵を連結（3ターン）。一体へのダメージが全体に30%伝播する。',
+    description: '全敵を繋ぎ、ダメージの30%を伝える。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 20,
     causalChain: { pct: 0.30, duration: 3, all: true },
   }),
   chaosCurse: atk({
     id: 'SKL_Z_ChaosCurse', name: '混沌の呪い',
-    description: '全敵の全ステータスを-20%し、毒・出血のいずれかを75%で付与する（3ターン）。',
+    description: '全敵の能力-20%、75%で毒か出血。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 28,
     hitsAllEnemies: true,
     debuff: [
@@ -572,13 +572,13 @@ export const ZENO_SKILLS = {
   }),
   deathSentencePlus: atk({
     id: 'SKL_Z_DeathSentencePlus', name: '死の宣告＋',
-    description: '発動まで2ターン。ボスへのダメージがMaxHPの70%に増加。',
+    description: '2ターン後に即死（ボスは最大HPの70%）。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 20,
     deathSentence: { delay: 2, bossDmgPct: 0.70 },
   }),
   gateOfUnderworld: atk({
     id: 'SKL_Z_GateOfUnderworld', name: '冥界の扉',
-    description: '通常敵を100%の確率で簒奪し消滅させる。エリートには60%（敵HPが低いほど+最大30%）。全デバフの持続を+1ターン延長する。',
+    description: '通常敵は必ず簒奪、強敵は60%〜。全弱体を1ターン延長。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 34,
     absorb: { baseChance: 0.60, maxBonus: 0.30, hpCostPct: 0, eliteMult: 1, instantNormal: true },
     extendDebuffs: 1,
@@ -586,12 +586,12 @@ export const ZENO_SKILLS = {
   // パッシブ
   passiveCurseMastery: atk({
     id: 'SKL_Z_Passive_CurseMastery', name: '呪術の心得',
-    description: '【パッシブ】すべての状態異常付与確率が20%上昇し、持続ターンが1増加する。',
+    description: '状態異常の付与率+20%・持続+1。',
     basePower: 0, isPassive: true,
   }),
   passivePriceOfAbsorption: atk({
     id: 'SKL_Z_Passive_PriceOfAbsorption', name: '簒奪の代価',
-    description: '【パッシブ】簒奪スキルのHP消費を50%軽減する。簒奪に成功すると、奪った技を即座に1回MPなしで放つ。',
+    description: '簒奪のHP消費半減。成功すると奪った技を即座に放つ。',
     basePower: 0, isPassive: true,
   }),
 };

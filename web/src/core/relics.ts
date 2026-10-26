@@ -13,10 +13,10 @@ export type CurseType =
   | 'WeakenedHeal';  // 回復量半減
 
 export const CURSE_INFO: Record<CurseType, { name: string; desc: string }> = {
-  FragileHP:   { name: '脆弱の呪い', desc: '受けるダメージが10%増える。' },
-  GoldReduced: { name: '貧困の呪い', desc: '得られるゴールドが半分になる。' },
-  SkillCostUp: { name: '重詠唱の呪い', desc: '全スキルのMP消費+1。' },
-  WeakenedHeal:{ name: '涸れの呪い', desc: '回復量が半分になる。' },
+  FragileHP:   { name: '脆弱の呪い', desc: '被ダメ+10%。' },
+  GoldReduced: { name: '貧困の呪い', desc: 'ゴールド半減。' },
+  SkillCostUp: { name: '重詠唱の呪い', desc: 'MP消費+1。' },
+  WeakenedHeal:{ name: '涸れの呪い', desc: '回復半減。' },
 };
 
 export function randomCurse(): CurseType {

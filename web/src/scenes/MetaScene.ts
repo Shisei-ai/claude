@@ -44,7 +44,7 @@ export class MetaScene extends Phaser.Scene {
     this.add.text(width / 2, 36, '彼方の墓標', textStyle(34, COLORS.textGold)).setOrigin(0.5).setDepth(10);
     drawOrnamentLine(this, width / 2, 56, 320).setDepth(10);
     const info = this.add.text(width / 2, 76,
-      `刻まれた碑文: ${meta.totalEpitaphs}　　解放 ${owned} / ${total}　　倒れた旅人の記憶が、次の旅人の力になる`,
+      `碑文 ${meta.totalEpitaphs}　　解放 ${owned} / ${total}`,
       textStyle(15, COLORS.text)).setOrigin(0.5).setDepth(10);
     // 背景画像の明るい所でも読めるよう、薄い下地を敷く
     this.add.rectangle(width / 2, 76, info.width + 40, info.height + 6, 0x07050d, 0.6).setDepth(9);

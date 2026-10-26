@@ -9,10 +9,10 @@ export interface BlessingInfo {
 }
 
 export const BLESSINGS: BlessingInfo[] = [
-  { type: 'None',             name: 'なし',         desc: '加護を受けずに旅立つ。', icon: '·' },
-  { type: 'VitalGuard',       name: '守護の護符',   desc: '最大HPが25%増加する。長い旅路を生き抜け。', icon: '❤' },
-  { type: 'GoldenCompass',    name: '黄金の羅針盤', desc: '150ゴールドを持って旅を始める。', icon: '◈' },
-  { type: 'IronWill',         name: '鉄の意志',     desc: '追加のコモンレリックを1つ所持して始まる。', icon: '⬡' },
-  { type: 'AncientKnowledge', name: '知識の欠片',   desc: '最初に強敵かボスを倒したとき、レリックの選択肢が1つ多くなる。', icon: '✦' },
-  { type: 'ShadowVeil',       name: '影の帳',       desc: '最初の戦闘の開始時、全ての敵のシールドが1枚少ない。', icon: '◆' },
+  { type: 'None',             name: 'なし',         desc: '加護なし。', icon: '·' },
+  { type: 'VitalGuard',       name: '守護の護符',   desc: '最大HP+25%。', icon: '❤' },
+  { type: 'GoldenCompass',    name: '黄金の羅針盤', desc: '150Gを持って旅立つ。', icon: '◈' },
+  { type: 'IronWill',         name: '鉄の意志',     desc: '一般レリックを1つ持って旅立つ。', icon: '⬡' },
+  { type: 'AncientKnowledge', name: '知識の欠片',   desc: '最初のレリック報酬の選択肢+1。', icon: '✦' },
+  { type: 'ShadowVeil',       name: '影の帳',       desc: '最初の戦闘で敵のシールド-1。', icon: '◆' },
 ];

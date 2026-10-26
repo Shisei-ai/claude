@@ -136,7 +136,7 @@ export class ResultScene extends Phaser.Scene {
     this.add.text(width / 2, height * 0.16 + 56,
       this.won
         ? `${char.name}は、廃墟の王国の深淵を踏破した。`
-        : `${char.name}の旅はここで潰えた。だが、その足跡は碑文となり残る。`,
+        : `${char.name}の旅はここで潰えた。`,
       textStyle(16, COLORS.textDim)).setOrigin(0.5);
 
     // 倒れたときの最後のひとこと

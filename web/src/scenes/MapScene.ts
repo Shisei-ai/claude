@@ -403,7 +403,7 @@ export class MapScene extends Phaser.Scene {
       y += h + 15;
     };
     if (relics.length === 0) {
-      list.add(this.add.text(width / 2, y + 40, 'まだレリックを持っていない。\n強敵やボスを倒すと手に入る。',
+      list.add(this.add.text(width / 2, y + 40, 'レリックはまだない。',
         textStyle(15, COLORS.textDim, { align: 'center' })).setOrigin(0.5, 0));
       y += 110;
     }

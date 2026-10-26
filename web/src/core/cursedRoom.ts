@@ -135,12 +135,12 @@ export function cursedRoomLabel(run: RunState, offer: CursedRoomOffer): string {
 /** 部屋の効果の詳しい説明 (物語の下に出す) */
 export function cursedRoomDetail(offer: CursedRoomOffer): string {
   switch (offer.room.id) {
-    case 'bloodAltar': return '生きている全員が最大HPの10%を失い、正気度が1下がる。代わりに金貨を得る。';
-    case 'cursedAltar': return '主人公が最大HPの15%を失う。代わりにレアのレリックを1つ得る。';
-    case 'whisperMirror': return '呪いを1つ受ける。代わりに1人の職Lvが1上がり、その段階の技を覚える。';
-    case 'sealedCoffin': return '棺から出てくる強敵と戦う。勝てば戦闘のゴールドが1.5倍になり、装備を1つ得る（レリックは出ない）。';
-    case 'taintedSpring': return '全員のHPとMPが完全に回復し、倒れた仲間も起き上がる。代わりに正気度が2下がる。';
-    case 'deadBargain': return '1人の最大HPが10%減る。代わりに多めの金貨を得る。';
+    case 'bloodAltar': return '全員のHPと正気度を捧げ、金貨を得る。';
+    case 'cursedAltar': return '血を流し、遺物を得る。';
+    case 'whisperMirror': return '呪いと引き換えに、技を授かる。';
+    case 'sealedCoffin': return '中の強敵を倒せば、副葬品が手に入る。';
+    case 'taintedSpring': return '傷は癒える。心は濁る。';
+    case 'deadBargain': return '命を削り、金貨を得る。';
   }
 }
 

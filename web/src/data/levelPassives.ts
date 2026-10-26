@@ -24,7 +24,7 @@ export interface LevelPassive {
 }
 
 const passive = (id: string, name: string, description: string): SkillDef => ({
-  id, name, description: `【パッシブ】${description}`,
+  id, name, description,
   element: 'None', damageType: 'Physical', mpCost: 0, basePower: 0, hitCount: 1,
   hitsAllEnemies: false, hitsAllAllies: false, canBreak: false, isHeal: false, healPower: 0,
   isPassive: true,
@@ -51,8 +51,7 @@ export const LEVEL_PASSIVES: Record<string, LevelPassive[]> = {
     {
       level: 5,
       skill: passive(RESONANCE_PASSIVE_ID, '元素共鳴',
-        '直前 (2ターン以内) と違う属性の魔法を使うと威力+30%。炎・氷・雷の組み合わせは「元素反応」でさらに+50%、' +
-        '風と炎・氷・雷は+20%、闇と光は「禁忌共鳴」で+80% (自分のHPを5%失う)。同じ属性を続けると共鳴は途切れる。'),
+        '直前と違う属性の魔法で威力+30%。組み合わせ次第でさらに上がる。'),
     },
   ],
   // 流麗回避 (旧・職Lv5) は回避率上昇が影舞踊と重なるため外した
@@ -61,12 +60,12 @@ export const LEVEL_PASSIVES: Record<string, LevelPassive[]> = {
     {
       level: 3,
       skill: { ...A.passiveCritEnhancement, name: '鷲の目',
-        description: '【パッシブ】会心ダメージ倍率が×2.5になり、運の1/4が会心率に加わる。会心ヒット時、次の攻撃の会心率+10%（最大3スタック）。' },
+        description: '会心ダメージ×2.5。運が高いほど会心しやすい。' },
     },
     {
       level: 5,
       skill: passive(ROGUES_CRAFT_ID, '盗賊の技',
-        '宝箱ノードで隠し宝箱を1つ見つける。呪われた間の罠のダメージを50%減らす。盲目状態にならない。'),
+        '隠し宝箱を見つける。罠のダメージ半減。盲目にならない。'),
       grants: ['SKL_A_Lockpicking', 'SKL_A_TrapMastery', 'SKL_A_DarkVision'],
     },
   ],
@@ -84,7 +83,7 @@ export const LEVEL_PASSIVES: Record<string, LevelPassive[]> = {
     {
       level: 1,
       skill: passive(CURSE_BRAND_ID, '呪いの刻印',
-        `戦闘開始時、敵全員の攻撃力と魔法攻撃力を${Math.round(CURSE_BRAND.atkDown * 100)}%下げる (${CURSE_BRAND.turns}ターン)。`),
+        `開戦時、敵全員の物攻・魔攻-${Math.round(CURSE_BRAND.atkDown * 100)}%（${CURSE_BRAND.turns}ターン）。`),
     },
     { level: 3, skill: fromTrait('CurseAmplifier'), trait: 'CurseAmplifier' },
     { level: 5, skill: Z.passivePriceOfAbsorption },

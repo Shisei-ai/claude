@@ -36,7 +36,7 @@ const STAT_ROWS: [keyof CharacterStats, string][] = [
 ];
 
 /** 技の性質を短く (属性・威力・対象) */
-function skillTags(sk: SkillDef): string {
+export function skillTags(sk: SkillDef): string {
   const parts: string[] = [];
   if (sk.element && sk.element !== 'None') parts.push(`【${ELEMENT_BADGE[sk.element].label}】`);
   if (sk.basePower > 0) parts.push(`威力${Math.round(sk.basePower * 100)}%${sk.hitCount > 1 ? `×${sk.hitCount}` : ''}`);

@@ -27,7 +27,7 @@ import { RARITY_LABEL, RARITY_COLOR, getRelic, type RelicDef } from '../data/rel
 import { LINES, pickLine, shortName, type CharLines } from '../data/dialogue';
 import { ELEMENT_BADGE } from '../ui/elements';
 import { BattleFx, ELEMENT_FX_COLOR } from '../ui/battleFx';
-import { openCharacterSheet } from '../ui/characterSheet';
+import { openCharacterSheet, skillTags } from '../ui/characterSheet';
 import { COFFIN_GOLD_MULT } from '../core/cursedRoom';
 import { drawEquipmentForFloor, EQUIP_RARITY_LABEL } from '../data/equipment';
 import { Rng } from '../core/rng';
@@ -155,7 +155,7 @@ export class BattleScene extends Phaser.Scene {
     const pendingReward = this.run.pendingEncounter?.reward;
     if (pendingReward) {
       drawPanel(this, width / 2, 60, width - 60, 46, { alpha: 0.8 });
-      this.msgText = this.add.text(width / 2, 60, '戦いの余韻が残っている…', textStyle(17)).setOrigin(0.5);
+      this.msgText = this.makeMsgText('戦いの余韻が残っている…');
       const loot = pendingReward.loot
         .map((id) => getRelic(id))
         .filter((r): r is RelicDef => !!r && !this.run.relics.includes(r.id));
@@ -310,8 +310,7 @@ export class BattleScene extends Phaser.Scene {
 
     // メッセージ帯
     drawPanel(this, width / 2, 60, width - 60, 46, { alpha: 0.8 });
-    this.msgText = this.add.text(width / 2, 60, `${this.enemyDefs.map((d) => d.name).join('、')} が現れた！`,
-      textStyle(17)).setOrigin(0.5);
+    this.msgText = this.makeMsgText(`${this.enemyDefs.map((d) => d.name).join('、')} が現れた！`);
     this.createSpeedToggle();
 
     // 開幕の台詞 (危険域の台詞はこれが消えてから)
@@ -341,6 +340,18 @@ export class BattleScene extends Phaser.Scene {
         this.showCommandMenu();
       }
     });
+  }
+
+  /** 上部のメッセージ帯の文字。帯 (幅 画面-60・高さ46) に収まらない文は縮めて収める */
+  private makeMsgText(text: string): Phaser.GameObjects.Text {
+    const t = this.add.text(this.scale.width / 2, 60, '', textStyle(17)).setOrigin(0.5);
+    const setText = t.setText.bind(t);
+    t.setText = (value: string | string[]) => {
+      setText(value);
+      t.setScale(Math.min(1, (this.scale.width - 90) / Math.max(1, t.width), 42 / Math.max(1, t.height)));
+      return t;
+    };
+    return t.setText(text);
   }
 
   private submitCommand(cmd: PlayerCommand): void {
@@ -1142,9 +1153,10 @@ export class BattleScene extends Phaser.Scene {
         if (skill) {
           // ブースト選択中はスキル別の強化内容 (BoostSkillResolver) を表示
           const preview = this.boostLevel > 0
-            ? `\n【ブースト×${this.boostLevel}】${getBoostPreview(skill, this.boostLevel)}`
+            ? `\n【×${this.boostLevel}】${getBoostPreview(skill, this.boostLevel)}`
             : '';
-          this.msgText.setText(skill.description + preview);
+          const tags = skillTags(skill);
+          this.msgText.setText(`${tags ? tags + '　' : ''}${skill.description}${preview}`);
         } else {
           this.msgText.setText('武器で攻撃する。');
         }
@@ -1366,7 +1378,7 @@ export class BattleScene extends Phaser.Scene {
     }
 
     const lines = [`◈ ${gold} G　　EXP +${rewards.exp}　　JP +${rewards.jp}`];
-    if (coffinEquip) lines.push(`副葬品: ${EQUIP_RARITY_LABEL[coffinEquip.rarity]}「${coffinEquip.name}」(装備画面で装備できる)`);
+    if (coffinEquip) lines.push(`副葬品: 「${coffinEquip.name}」`);
     if (levelResult.levelsGained.length > 0) {
       lines.push(`レベルアップ！ → Lv.${run.characterLevel}（最大HP +${levelResult.hpGained}）`);
     }

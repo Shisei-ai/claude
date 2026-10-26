@@ -130,13 +130,10 @@ export class RunSetupScene extends Phaser.Scene {
     const c = CHARACTERS[this.selectedChar];
     const b = BLESSINGS[this.selectedBlessing];
     const d = DIFFICULTY_TIERS[this.selectedDifficulty];
-    // キャラLv2・4・6で覚える固有のパッシブ
-    const passiveLine = `固有パッシブ: ${levelPassivesOf(c.id).map((p) => `${p.skill.name}(Lv${p.level})`).join('・')}\n`;
     this.infoText.setText(
       `${c.name}（${c.jobName}） HP${c.baseStats.maxHP} / MP${c.baseStats.maxMP}\n` +
-      passiveLine +
       `${b.name}: ${b.desc}\n` +
-      `${d.displayName}: ${d.description}（開始ゴールド ${d.startingGold}G）`,
+      `${d.displayName}: ${d.description}（${d.startingGold}G）`,
     );
   }
 
@@ -172,7 +169,7 @@ export class RunSetupScene extends Phaser.Scene {
     const render = () => {
       body.forEach((o) => o.destroy());
       body = [];
-      info.setText(`これまでに刻んだ通常の敵の技から ${slots} つまで選べる（選択中 ${selected.length} / ${slots}）　強敵・ボスの技は持ち込めない`);
+      info.setText(`持ち込む技を選ぶ（${selected.length} / ${slots}）`);
       archive.slice(page * perPage, page * perPage + perPage).forEach((id, k) => {
         const sk = findEnemySkillById(id)!;
         const x = width / 2 + (k % 2 === 0 ? -240 : 240);
