@@ -6,7 +6,7 @@ import { pickEncounter, buildHeroes, buildEnemies, computeRewards } from '../bat
 import { loadRun, saveRun, clearRun, loadMeta, recordWeakness, recordEnemiesSeen, recordEnemyKills, recordGrimoire } from '../core/save';
 import { notifyAchievements } from './ToastScene';
 import type { RunState } from '../core/run';
-import { getEffectiveMaxHP, partyUnits, getMaxMP, healMP } from '../core/run';
+import { getEffectiveMaxHP, partyUnits, getMaxMP, healMP, partyCanEquip } from '../core/run';
 import { addExp, addJP } from '../core/level';
 import type { ElementType, EnemyDef, NodeType, SkillDef } from '../core/types';
 import { STATUS_DISPLAY_NAME } from '../core/types';
@@ -90,7 +90,7 @@ export class BattleScene extends Phaser.Scene {
   private labelMinY = ENEMY_LABEL_MIN_Y;
   /** ボス戦の上部表示 (名前とHPバー) */
   private bossBanner: { c: Combatant; bar: Phaser.GameObjects.Graphics } | null = null;
-  /** 吸収した直後の撃破は、魂が使い手へ流れる演出にする */
+  /** 簒奪した直後の撃破は、魂が使い手へ流れる演出にする */
   private pendingAbsorb = false;
   /** いま技を出している者 (演出の向き・魔法の発射元。イベント再生中はエンジンの手番より遅れるため自前で持つ) */
   private actor: Combatant | null = null;
@@ -560,7 +560,7 @@ export class BattleScene extends Phaser.Scene {
         const sprite = this.findEnemySprite(e.target);
         const at = this.centerOf(e.target);
         if (sprite && at) {
-          // 吸収なら魂が使い手へ流れ、そうでなければ塵になって昇る
+          // 簒奪なら魂が使い手へ流れ、そうでなければ塵になって昇る
           const to = this.pendingAbsorb && this.actor ? this.centerOf(this.actor) : null;
           if (to) this.fx.absorb(at.x, at.y, to.x, to.y);
           else this.fx.dissolve(at.x, at.y, at.w, at.h, e.target.enemyDef?.tint ?? 0x9a8abd, this.bodySpriteOf(e.target));
@@ -657,7 +657,7 @@ export class BattleScene extends Phaser.Scene {
     } else if (text.includes('踏みとどまった')) {
       const who = this.heroes.find((h) => text.startsWith(h.name));
       if (who) this.say(who, this.linesOf(who)?.indomitable, { force: true });
-    } else if (text.includes('吸収に失敗') && actor?.isPlayer) {
+    } else if (text.includes('簒奪に失敗') && actor?.isPlayer) {
       this.say(actor, this.linesOf(actor)?.absorbFail, { force: true });
     } else if (text.includes('元素が共鳴') && actor?.isPlayer) {
       this.say(actor, this.linesOf(actor)?.resonance, { force: true });
@@ -1324,7 +1324,7 @@ export class BattleScene extends Phaser.Scene {
     run.totalRoomsCleared++;
     run.enemiesKilled += this.enemyDefs.length;
 
-    // ゼノ: このバトルで吸収したスキルを、刻んだ本人のグリモワールに永続化
+    // ゼノ: このバトルで簒奪したスキルを、刻んだ本人のグリモワールに永続化
     for (const { skillId, user } of this.engine.absorbedBy) {
       const unit = units[this.heroes.indexOf(user)] ?? run;
       if (!unit.absorbedSkillIds.includes(skillId)) unit.absorbedSkillIds.push(skillId);
@@ -1342,7 +1342,9 @@ export class BattleScene extends Phaser.Scene {
     if (coffin) gold = Math.round(gold * COFFIN_GOLD_MULT * riskRewardMultiplier(run));
     run.gold += gold;
     run.goldEarned += gold;
-    const coffinEquip = coffin ? drawEquipmentForFloor(run.currentFloor, new Rng(this.contentSeed ^ 0x5eed)) : null;
+    const coffinEquip = coffin
+      ? drawEquipmentForFloor(run.currentFloor, new Rng(this.contentSeed ^ 0x5eed), undefined, (eq) => partyCanEquip(run, eq.id))
+      : null;
     if (coffinEquip) run.equipmentInventory.push(coffinEquip.id);
 
     const levelResult = addExp(run, rewards.exp);

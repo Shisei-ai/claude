@@ -183,7 +183,7 @@ export function loadRun(): RunState | null {
     run.floorIntroSeen ??= [];
     run.dailyDate ??= null;
     // 職レベル以下で覚えるはずのスキルを補う (LevelSystem.RestoreSkillsToJobLevel。
-    // 習得レベルを前倒ししたスキル — ゼノの吸収など — を進行中のセーブにも反映する)
+    // 習得レベルを前倒ししたスキル — ゼノの簒奪など — を進行中のセーブにも反映する)
     for (const unit of partyUnits(run) as UnitState[]) {
       // 固有特性をキャラLvで解放するようにしたので、職Lvで覚えていた分を外す (キャラLvが届いていれば自動で有効)
       unit.unlockedSkillIds = unit.unlockedSkillIds.filter((id) => !MOVED_TO_LEVEL_PASSIVES.includes(id));

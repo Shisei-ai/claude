@@ -29,22 +29,23 @@ export const CHARACTER_TRAITS: Record<string, TraitId[]> = {
 /** 表示用の名前と説明 (Unity版 GetCurrentBonusText / クラスコメント準拠) */
 export const TRAIT_INFO: Record<TraitId, { name: string; desc: string }> = {
   ShadowDance: { name: '影舞踊', desc: '回避率+20%。回避するとShadow State、次の攻撃が会心確定＋威力+30%' },
-  PureheartHealer: { name: '清心の治癒師', desc: '回復量+30% / 蘇生時に自分もHP20%回復 / リジェネ持続+1T' },
-  MiracleHands: { name: '奇跡の手', desc: '行動のたびに最もHPの低い味方を魔攻×0.30回復 / 完全蘇生でリジェネ3T' },
+  PureheartHealer: { name: '清心の治癒師', desc: '回復量+20% / 蘇生時に自分もHP20%回復 / リジェネ持続+1T' },
+  MiracleHands: { name: '奇跡の手', desc: '行動のたびに最もHPの低い味方を魔攻×0.25回復 / 完全蘇生でリジェネ3T' },
   HolyGrace: { name: '聖光の加護', desc: '光属性ダメージ+40%、アンデッドに追加×1.5 / アンデッドのシールド削り×2' },
   CurseAmplifier: { name: '呪詛増幅', desc: '状態異常の付与率+25%・持続+1T / 敵の状態異常1種につきダメージ+15%（最大+60%）' },
-  GrimoireMaster: { name: '魔獣の書の主', desc: '吸収のHP消費-25% / 吸収した技のMP-1・威力+10%' },
-  DarkWill: { name: '暗黒の意志', desc: 'HP50%以下でMP消費-3 / 25%以下で吸収率+30% / 10%以下で与ダメージ+50%' },
+  GrimoireMaster: { name: '魔獣の書の主', desc: '簒奪のHP消費-25% / 奪った技のMP-1・威力+10%' },
+  DarkWill: { name: '暗黒の意志', desc: 'HP50%以下でMP消費-3 / 25%以下で簒奪率+30% / 10%以下で与ダメージ+50%' },
 };
 
 // ── 定数 (Unity版の各トレイトクラスの const) ─────────────────────────
 export const SHADOW_DODGE_BONUS = 0.20;            // Trait_ShadowDance.DodgeRateBonus
 
-export const PUREHEART_HEAL_BONUS = 0.30;          // Trait_PureheartHealer.HealBonus
+// Web版の調整: 回復が強すぎたため、清心の治癒師は回復量+30% → +20%、奇跡の手は魔攻×0.30 → ×0.25
+export const PUREHEART_HEAL_BONUS = 0.20;          // Trait_PureheartHealer.HealBonus (Unity版 0.30)
 export const PUREHEART_SELF_HEAL_AFTER_REVIVE = 0.20;
 export const PUREHEART_REGEN_DURATION_BONUS = 1;
 
-export const MIRACLE_AUTO_HEAL_MULT = 0.30;        // Trait_MiracleHands: Matk × 0.30
+export const MIRACLE_AUTO_HEAL_MULT = 0.25;        // Trait_MiracleHands: Matk × 0.30 (Unity版)
 export const MIRACLE_AUTO_HEAL_THRESHOLD = 0.99;   // HP99%以上の味方には発動しない
 export const MIRACLE_FULL_REVIVE_REGEN_TURNS = 3;
 

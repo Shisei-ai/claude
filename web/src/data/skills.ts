@@ -23,8 +23,9 @@ export const BERNHARD_SKILLS = {
   }),
   shieldBash: atk({
     id: 'SKL_ShieldBash', name: '盾砕き',
-    description: '盾で強打し、敵の防御体制を崩す。シールドを2つ削る。',
-    basePower: 0.60, mpCost: 5, canBreak: true, shieldDamage: 2,
+    // Web版の調整: 弱点を問わず削れるので、削る数を2 → 1 に
+    description: '盾で強打し、敵の防御体制を崩す（60%）。弱点でなくてもシールドを1つ削る。30%で麻痺（2ターン）。',
+    basePower: 0.60, mpCost: 5, canBreak: true, shieldDamage: 1,
     statusChance: 0.30,
     appliedStatus: { type: 'Paralysis', duration: 2, value: 0 },
   }),
@@ -318,8 +319,8 @@ export const ASH_SKILLS = {
 export const LILIA_SKILLS = {
   cure: atk({
     id: 'SKL_L2_Cure', name: '治癒',
-    description: '一人の味方のHPを回復する（回復力80）。',
-    basePower: 0, mpCost: 6, isHeal: true, healPower: 80,
+    description: '一人の味方のHPを回復する（回復力70）。',
+    basePower: 0, mpCost: 6, isHeal: true, healPower: 70,
   }),
   purify: atk({
     id: 'SKL_L2_Purify', name: '清浄',
@@ -340,8 +341,8 @@ export const LILIA_SKILLS = {
   }),
   holyCure: atk({
     id: 'SKL_L2_HolyCure', name: '聖癒',
-    description: '強力な回復魔法（回復力200）。HP大幅回復。',
-    basePower: 0, mpCost: 16, isHeal: true, healPower: 200,
+    description: '強力な回復魔法（回復力175）。HP大幅回復。',
+    basePower: 0, mpCost: 16, isHeal: true, healPower: 175,
   }),
   revive: atk({
     id: 'SKL_L2_Revive', name: '蘇生',
@@ -350,14 +351,14 @@ export const LILIA_SKILLS = {
   }),
   regenLight: atk({
     id: 'SKL_L2_RegenLight', name: '再生の光',
-    description: '味方全員にリジェネを付与する（5ターン間、毎ターンMagATK×0.35回復）。',
+    description: '味方全員にリジェネを付与する（5ターン間、毎ターンMagATK×0.30回復）。',
     basePower: 0, mpCost: 14,
-    regenFlat: { duration: 5, matkMult: 0.35, toAllAllies: true },
+    regenFlat: { duration: 5, matkMult: 0.30, toAllAllies: true },
   }),
   curePlus: atk({
     id: 'SKL_L2_CurePlus', name: '治癒＋',
-    description: 'より強力な回復（回復力130）。同時に小さな状態異常を1つ解除する。',
-    basePower: 0, mpCost: 8, isHeal: true, healPower: 130, cleanse: 'target',
+    description: 'より強力な回復（回復力115）。同時に小さな状態異常を1つ解除する。',
+    basePower: 0, mpCost: 8, isHeal: true, healPower: 115, cleanse: 'target',
   }),
   holyBoltPlus: atk({
     id: 'SKL_L2_HolyBoltPlus', name: '聖光弾＋',
@@ -367,8 +368,8 @@ export const LILIA_SKILLS = {
   }),
   curaga: atk({
     id: 'SKL_L2_Curaga', name: '全体治癒',
-    description: '味方全員のHPを回復する（回復力110）。',
-    basePower: 0, mpCost: 22, isHeal: true, healPower: 110, hitsAllAllies: true,
+    description: '味方全員のHPを回復する（回復力95）。',
+    basePower: 0, mpCost: 22, isHeal: true, healPower: 95, hitsAllAllies: true,
   }),
   divinePunishment: atk({
     id: 'SKL_L2_DivinePunishment', name: '神罰',
@@ -380,7 +381,7 @@ export const LILIA_SKILLS = {
     id: 'SKL_L2_Sanctuary', name: '聖域',
     description: '味方全員の状態異常を回復し、リジェネ（5ターン）＋魔法防御+30%（3ターン）を付与する。',
     basePower: 0, mpCost: 30, hitsAllAllies: true, cleanse: 'allAllies',
-    regenFlat: { duration: 5, matkMult: 0.35, toAllAllies: true },
+    regenFlat: { duration: 5, matkMult: 0.30, toAllAllies: true },
     buff: [{ type: 'DefUp', value: 0.30, duration: 3, toAllAllies: true }],
   }),
   guardianPrayerPlus: atk({
@@ -401,12 +402,12 @@ export const LILIA_SKILLS = {
     id: 'SKL_L2_RevivePlus', name: '蘇生＋',
     description: '戦闘不能の味方一人をHP80%で蘇生させる。リジェネも付与する。',
     basePower: 0, mpCost: 22, revive: { pct: 0.80, all: false },
-    regenFlat: { duration: 3, matkMult: 0.35, toAllAllies: false },
+    regenFlat: { duration: 3, matkMult: 0.30, toAllAllies: false },
   }),
   holyCurePlus: atk({
     id: 'SKL_L2_HolyCurePlus', name: '聖癒＋',
-    description: '極めて強力な回復（回復力280）。状態異常も全回復する。',
-    basePower: 0, mpCost: 18, isHeal: true, healPower: 280, cleanse: 'target',
+    description: '極めて強力な回復（回復力250）。状態異常も全回復する。',
+    basePower: 0, mpCost: 18, isHeal: true, healPower: 250, cleanse: 'target',
   }),
   miracleBlessing: atk({
     id: 'SKL_L2_MiracleBlessing', name: '奇跡の祝福',
@@ -449,7 +450,7 @@ export const ZENO_SKILLS = {
   poisonMist: atk({
     id: 'SKL_Z_PoisonMist', name: '毒霧',
     description: '全敵に80%の確率で毒を付与する（3ターン）。',
-    element: 'Poison', damageType: 'Magical', basePower: 0, mpCost: 10,
+    element: 'None', damageType: 'Magical', basePower: 0, mpCost: 10,
     hitsAllEnemies: true,
     statusChance: 0.80,
     appliedStatus: { type: 'Poison', duration: 3, value: 0.05 },
@@ -473,11 +474,19 @@ export const ZENO_SKILLS = {
       { type: 'SpdDown', value: 0.20, duration: 3 },
     ],
   }),
+  // Web版で追加: 与えたダメージの半分を自分のHPにする闇魔法。HPを削って戦うゼノの命綱
+  drain: atk({
+    id: 'SKL_Z_Drain', name: '吸収',
+    description: '敵1体の生命を闇で啜る。与えたダメージの50%だけ自分のHPを回復する。',
+    element: 'Dark', damageType: 'Magical', basePower: 1.0, mpCost: 8,
+    drainPct: 0.5,
+  }),
+  // 旧「吸収」。敵の技を奪う方は「簒奪」と呼ぶ (IDは古いセーブのため旧名のまま)
   absorb: atk({
-    id: 'SKL_Z_Absorb', name: '吸収',
-    description: '敵1体を確率で吸収しその技をグリモワールに記録する（基本25%、敵HPが低いほど+最大50%）。術者HP-15%。ボスには無効。刻んだ技はゼノの魔法攻撃力で放つ。',
+    id: 'SKL_Z_Absorb', name: '簒奪',
+    description: '敵1体の魂を確率で奪って消滅させ、その技をグリモワールに刻む（基本25%、敵HPが低いほど+最大50%、状態異常1種につき+5%）。エリートには確率×70%、ボスには無効。術者HP-15%。刻んだ技はゼノの魔法攻撃力で放つ。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 16,
-    absorb: { baseChance: 0.25, maxBonus: 0.50, hpCostPct: 0.15, eliteMult: 0 },
+    absorb: { baseChance: 0.25, maxBonus: 0.50, hpCostPct: 0.15, eliteMult: 0.70, perStatus: 0.05 },
   }),
   soulShackle: atk({
     id: 'SKL_Z_SoulShackle', name: '魂縛',
@@ -502,10 +511,16 @@ export const ZENO_SKILLS = {
     ],
   }),
   absorbPlus: atk({
-    id: 'SKL_Z_AbsorbPlus', name: '吸収＋',
-    description: 'HP消費-10%に軽減。吸収確率+10%ボーナス。',
+    id: 'SKL_Z_AbsorbPlus', name: '簒奪＋',
+    description: '簒奪の強化版（基本35%、敵HPが低いほど+最大50%、状態異常1種につき+5%）。HP消費10%。エリートには確率×85%。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 16,
-    absorb: { baseChance: 0.35, maxBonus: 0.50, hpCostPct: 0.10, eliteMult: 0 },
+    absorb: { baseChance: 0.35, maxBonus: 0.50, hpCostPct: 0.10, eliteMult: 0.85, perStatus: 0.05 },
+  }),
+  drainPlus: atk({
+    id: 'SKL_Z_DrainPlus', name: '吸収＋',
+    description: '吸収の強化版。与えたダメージの50%だけ自分のHPを回復する。',
+    element: 'Dark', damageType: 'Magical', basePower: 1.5, mpCost: 14,
+    drainPct: 0.5,
   }),
   causalChain: atk({
     id: 'SKL_Z_CausalChain', name: '因果の鎖',
@@ -515,9 +530,9 @@ export const ZENO_SKILLS = {
   }),
   soulFeast: atk({
     id: 'SKL_Z_SoulFeast', name: '魂喰い',
-    description: '吸収の強化版（基本45%）。HP消費20%。エリートにも使用可能（確率×40%）。',
+    description: '簒奪の最上位（基本45%、敵HPが低いほど+最大50%、状態異常1種につき+5%）。HP消費20%。エリートにも確率そのままで通じる。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 20,
-    absorb: { baseChance: 0.45, maxBonus: 0.50, hpCostPct: 0.20, eliteMult: 0.40 },
+    absorb: { baseChance: 0.45, maxBonus: 0.50, hpCostPct: 0.20, eliteMult: 1, perStatus: 0.05 },
   }),
   deathSentence: atk({
     id: 'SKL_Z_DeathSentence', name: '死の宣告',
@@ -563,9 +578,9 @@ export const ZENO_SKILLS = {
   }),
   gateOfUnderworld: atk({
     id: 'SKL_Z_GateOfUnderworld', name: '冥界の扉',
-    description: '通常敵を100%確率で吸収し消滅させる。エリートには60%。全デバフの持続を+1ターン延長する。',
+    description: '通常敵を100%の確率で簒奪し消滅させる。エリートには60%（敵HPが低いほど+最大30%）。全デバフの持続を+1ターン延長する。',
     element: 'Dark', damageType: 'Magical', basePower: 0, mpCost: 34,
-    absorb: { baseChance: 0.60, maxBonus: 0, hpCostPct: 0, eliteMult: 1, instantNormal: true },
+    absorb: { baseChance: 0.60, maxBonus: 0.30, hpCostPct: 0, eliteMult: 1, instantNormal: true },
     extendDebuffs: 1,
   }),
   // パッシブ
@@ -575,8 +590,8 @@ export const ZENO_SKILLS = {
     basePower: 0, isPassive: true,
   }),
   passivePriceOfAbsorption: atk({
-    id: 'SKL_Z_Passive_PriceOfAbsorption', name: '吸収の代価',
-    description: '【パッシブ】吸収スキルのHP消費を50%軽減する。吸収に成功すると、その技を即座に1回MPなしで放つ。',
+    id: 'SKL_Z_Passive_PriceOfAbsorption', name: '簒奪の代価',
+    description: '【パッシブ】簒奪スキルのHP消費を50%軽減する。簒奪に成功すると、奪った技を即座に1回MPなしで放つ。',
     basePower: 0, isPassive: true,
   }),
 };

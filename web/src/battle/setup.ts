@@ -76,7 +76,10 @@ export function buildHero(run: RunState, unit: UnitState = run): Combatant {
   // 装備効果: 武器属性 + 蘇生の護符
   if (unit.equippedWeapon) {
     const weapon = getEquipmentDefById(unit.equippedWeapon);
-    if (weapon) hero.weaponElement = weapon.weaponElement;
+    if (weapon) {
+      hero.weaponElement = weapon.weaponElement;
+      hero.weaponPoison = weapon.weaponPoison ?? 0;
+    }
   }
   if (unit.equippedAccessory === 'Equip_RevivalAmulet') {
     hero.revivalAmuletAvailable = true;

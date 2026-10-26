@@ -14,7 +14,7 @@ import { hasArt, bgArtKey } from '../data/assets';
 import { loadRun, saveRun } from '../core/save';
 import type { RunState, UnitState } from '../core/run';
 import {
-  getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip, addMaxHP, partyUnits, equippedIds,
+  getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip, partyCanEquip, addMaxHP, partyUnits, equippedIds,
   restAtCampfire, REST_HEAL_PCT, REST_REVIVE_HP, REST_MP_PCT, fullRestore, healMP, getMaxMP,
   type ShopSpec,
 } from '../core/run';
@@ -309,8 +309,8 @@ export class NodeEventScene extends Phaser.Scene {
     for (let i = 0; i < equipCount; i++) {
       let equip = null as ReturnType<typeof drawEquipmentForFloor> | null;
       for (let attempt = 0; attempt < 6; attempt++) {
-        const cand = drawEquipmentForFloor(floor, this.rng);
-        if (partyUnits(run).some((u) => canEquip(u, cand.id)) && !ownedOrStocked.has(cand.id)) { equip = cand; break; }
+        const cand = drawEquipmentForFloor(floor, this.rng, undefined, (eq) => partyCanEquip(run, eq.id));
+        if (!ownedOrStocked.has(cand.id)) { equip = cand; break; }
       }
       if (!equip) continue;
       ownedOrStocked.add(equip.id);
@@ -528,7 +528,8 @@ export class NodeEventScene extends Phaser.Scene {
 
     // 装備品ドロップ (40%)
     if (this.rng.next() < 0.40) {
-      const equip = drawEquipmentForFloor(this.run.currentFloor, this.rng);
+      // パーティの誰かが装備できる物だけ
+      const equip = drawEquipmentForFloor(this.run.currentFloor, this.rng, undefined, (eq) => partyCanEquip(this.run, eq.id));
       this.run.equipmentInventory.push(equip.id);
       message += `\n${EQUIP_RARITY_LABEL[equip.rarity]}「${equip.name}」を見つけた！ (装備画面で装備できる)`;
     }

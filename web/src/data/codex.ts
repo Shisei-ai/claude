@@ -19,7 +19,7 @@ export function enemyUsingSkill(skillId: string): EnemyDef | undefined {
   return CODEX_ENEMIES.find((e) => e.actions.some((a) => a.skill.id === skillId));
 }
 
-/** ゼノが吸収で刻める敵の技 (ボス以外の敵の、攻撃か状態異常を伴う技。重複なし) */
+/** ゼノが簒奪で刻める敵の技 (ボス以外の敵の、攻撃か状態異常を伴う技。重複なし) */
 export const GRIMOIRE_SKILLS: SkillDef[] = (() => {
   const seen = new Set<string>();
   const out: SkillDef[] = [];

@@ -30,7 +30,7 @@ const VARNA_MALAK: EnemyDef = {
     criticalRate: 10, accuracyRate: 94,
   },
   shieldPoints: 4, isUndead: false,
-  elementWeaknesses: ['Light'],
+  elementWeaknesses: ['Light', 'Ice'],
   actions: [
     { skill: bossSkill({ id: 'f4b_dk_blade', name: '魔剣・滅国',
         description: '王国を滅ぼした魔剣が一体を両断する。', basePower: 1.8 }),
@@ -63,7 +63,7 @@ const WORM_ABYSS: EnemyDef = {
     criticalRate: 8, accuracyRate: 96,
   },
   shieldPoints: 3, isUndead: false,
-  elementWeaknesses: ['Light', 'Fire'],
+  elementWeaknesses: ['Fire', 'Lightning'],
   actions: [
     { skill: bossSkill({ id: 'f4b_ag_gaze', name: '深淵の凝視',
         description: '神の視線が一体の存在を圧し潰す。',
@@ -96,7 +96,7 @@ const EON_WRAITH: EnemyDef = {
     criticalRate: 15, accuracyRate: 96,
   },
   shieldPoints: 3, isUndead: false,
-  elementWeaknesses: ['Light', 'Lightning'],
+  elementWeaknesses: ['Lightning', 'Wind'],
   actions: [
     { skill: bossSkill({ id: 'f4b_tw_timeslash', name: '時斬り',
         description: '止まった時間の隙間から刃が届く。', basePower: 1.4 }),
@@ -128,7 +128,7 @@ const ALDRIC_CURSED: EnemyDef = {
     criticalRate: 10, accuracyRate: 92,
   },
   shieldPoints: 5, isUndead: true,
-  elementWeaknesses: ['Light', 'Fire'],
+  elementWeaknesses: ['Fire', 'Wind'],
   actions: [
     { skill: bossSkill({ id: 'f4b_ck_kingblade', name: '呪剣・王権',
         description: '王権の重みを乗せた一撃が一体を打ち砕く。', basePower: 1.8 }),

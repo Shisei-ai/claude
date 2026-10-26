@@ -26,7 +26,7 @@ export const GOBLIN: EnemyDef = {
     criticalRate: 5, accuracyRate: 90,
   },
   shieldPoints: 1, isUndead: false,
-  elementWeaknesses: ['Fire', 'Physical'],
+  elementWeaknesses: ['Physical', 'Wind'],
   actions: [
     {
       skill: enemySkill({
@@ -59,7 +59,7 @@ export const ROTTING_ZOMBIE: EnemyDef = {
     criticalRate: 3, accuracyRate: 85,
   },
   shieldPoints: 0, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light', 'Physical'],
+  elementWeaknesses: ['Fire', 'Physical'],
   actions: [
     {
       skill: enemySkill({
@@ -92,7 +92,7 @@ export const SKELETON_ARCHER: EnemyDef = {
     criticalRate: 8, accuracyRate: 92,
   },
   shieldPoints: 0, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light', 'Physical'],
+  elementWeaknesses: ['Lightning', 'Physical'],
   actions: [
     {
       skill: enemySkill({
@@ -123,7 +123,7 @@ export const UNDEAD_MAGE: EnemyDef = {
     criticalRate: 5, accuracyRate: 90,
   },
   shieldPoints: 1, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light', 'Physical'],
+  elementWeaknesses: ['Ice', 'Physical'],
   actions: [
     {
       skill: enemySkill({
@@ -161,7 +161,7 @@ export const GARM: EnemyDef = {
     criticalRate: 8, accuracyRate: 90,
   },
   shieldPoints: 3, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Lightning', 'Fire'],
   actions: [
     {
       skill: enemySkill({
@@ -211,7 +211,7 @@ export const RUINED_SORCERER: EnemyDef = {
     criticalRate: 5, accuracyRate: 92,
   },
   shieldPoints: 1, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Physical', 'Ice'],
   actions: [
     {
       skill: enemySkill({
@@ -253,7 +253,7 @@ export const CHAIN_SOLDIER: EnemyDef = {
     criticalRate: 5, accuracyRate: 88,
   },
   shieldPoints: 2, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Fire', 'Wind'],
   actions: [
     {
       skill: enemySkill({
@@ -294,7 +294,7 @@ export const RAMBARD: EnemyDef = {
     criticalRate: 5, accuracyRate: 88,
   },
   shieldPoints: 4, isUndead: false,
-  elementWeaknesses: ['Lightning'],
+  elementWeaknesses: ['Lightning', 'Ice'],
   actions: [
     {
       skill: enemySkill({
@@ -350,7 +350,7 @@ export const F0_BOSS_MORVA: EnemyDef = {
     criticalRate: 6, accuracyRate: 92,
   },
   shieldPoints: 3, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Light', 'Wind'],
   actions: [
     // ── Phase 1 (常時) ──
     {

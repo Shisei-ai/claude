@@ -32,7 +32,7 @@ export class RelicBattleState {
   private sacrificialBonusActive = false;
   private doubleOrNothingMult = 1;
   private randomSkillBuffArmed = false;
-  private turnCount = 0;
+  private heroTurns = new Map<Combatant, number>();
   private lastBoostLevel = 0;
   private breakSealActive = false;
 
@@ -122,7 +122,7 @@ export class RelicBattleState {
   // ── ヒーローのターン開始時 (OnTurnStart) ──────────────────────────
   // 戻り値: [heal, selfDamage, enemyDrainTotal]
   onHeroTurnStart(hero: Combatant, enemies: Combatant[]): { heal: number; selfDamage: number } {
-    this.turnCount++;
+    this.heroTurns.set(hero, (this.heroTurns.get(hero) ?? 0) + 1);
     this.randomSkillBuffArmed = this.has('RandomSkillBuff');
 
     let heal = 0;
@@ -159,7 +159,7 @@ export class RelicBattleState {
   // ── 与ダメージ補正 (ModifyOutgoingDamage) ─────────────────────────
   modifyOutgoingDamage(
     hero: Combatant, target: Combatant, rawDamage: number, element: ElementType,
-    activeSkillCount: number,
+    activeSkillCount: number, isWeak = false,
   ): number {
     let mult = 1;
     rawDamage += Math.round(this.sum('FlatDamageUp'));
@@ -175,21 +175,28 @@ export class RelicBattleState {
     if (this.has('BerserkerRage')) mult += (1 - hpRatio) * 1.5;
     if (this.has('ForbiddenGrimoire')) mult *= 2;
 
-    // 属性ボーナス
+    // 属性ボーナス (毒・出血は属性ではなく状態異常なので dotMultiplier 側)
     const elemEffect: Partial<Record<ElementType, Parameters<typeof sumEffect>[1]>> = {
       Fire: 'FireDamageUp', Ice: 'IceDamageUp', Lightning: 'LightningDamageUp',
-      Dark: 'DarkDamageUp', Light: 'LightDamageUp', Poison: 'PoisonDamageUp',
-      Bleed: 'BleedDamageUp',
+      Wind: 'WindDamageUp', Dark: 'DarkDamageUp', Light: 'LightDamageUp',
     };
     const ee = elemEffect[element];
     if (ee) mult += this.sum(ee) / 100;
+    // 鍛冶師の刻印: 物理属性 (武器・技) のダメージ
+    if (element === 'Physical') mult += this.sum('PhysicalDamageUp') / 100;
+    // 看破の石: 弱点を突いたとき
+    if (isWeak) mult += this.sum('WeaknessAmp') / 100;
+    // 聖別の釘: アンデッド / 英雄殺しの紋章: 強敵・ボス
+    if (target.enemyDef?.isUndead) mult += this.sum('UndeadSlayer') / 100;
+    if (target.enemyDef && target.enemyDef.rank !== 'Normal') mult += this.sum('EliteSlayer') / 100;
 
     if (target.isBroken) {
       mult += this.sum('BonusDamageOnBreak') / 100;
       mult += this.sum('BreakDamageBonus') / 100;
     }
 
-    if (this.turnCount <= 1 && this.has('FirstTurnBoost')) mult += 0.50;
+    // 決闘者の白手袋: 各キャラの最初の手番 (Web版: 仲間それぞれの1ターン目に効く)
+    if ((this.heroTurns.get(hero) ?? 0) <= 1 && this.has('FirstTurnBoost')) mult += 0.50;
 
     if (this.has('StackingRage')) {
       mult += this.stackingRageStacks * 0.03;
@@ -337,6 +344,12 @@ export class RelicBattleState {
       msgs.push('破砕者の勲章が輝く！ BP+2');
     }
     if (this.has('BreakSeal')) this.breakSealActive = true;
+    // 砕盾の聖印: Breakさせると全員のHPを回復
+    const breakHeal = this.sum('BreakHeal');
+    if (breakHeal > 0) {
+      for (const h of heroes) if (h.isAlive) h.heal(Math.max(1, Math.round(h.base.maxHP * breakHeal)));
+      msgs.push('砕盾の聖印が癒しの光を放つ');
+    }
     return msgs;
   }
 
@@ -345,7 +358,8 @@ export class RelicBattleState {
   onEnemyKilled(heroes: Combatant[]): { heals: { target: Combatant; amount: number }[]; soulReward: boolean } {
     // 喰屍鬼の歯 (Web版: 仲間にも効く)
     const heals: { target: Combatant; amount: number }[] = [];
-    const healPct = this.sum('OnKillHeal');
+    // 血月の杯: 撃破ごとに10% (喰屍鬼の歯と合算)
+    const healPct = this.sum('OnKillHeal') + this.sum('BloodChalice');
     if (healPct > 0) {
       for (const h of heroes) {
         if (!h.isAlive) continue;
@@ -357,6 +371,9 @@ export class RelicBattleState {
     if (this.has('OnKillBP')) {
       for (const h of heroes) if (h.isAlive) h.addBP(1);
     }
+    // 魂の器: 撃破ごとに全員MP回復
+    const mpGain = Math.round(this.sum('MPOnKill'));
+    if (mpGain > 0) for (const h of heroes) if (h.isAlive) h.mp = Math.min(h.base.maxMP, h.mp + mpGain);
 
     let soulReward = false;
     if (this.has('SoulSiphon')) {
@@ -487,12 +504,32 @@ export class RelicBattleState {
   }
 
   // ── 回避系 ─────────────────────────────────────────────────────────
-  evasionBonus(): number {
+  /** 回避率の加算。黒猫の骨鈴は避ける本人の運×0.3% (最大+15%) */
+  evasionBonus(luck = 0): number {
     let e = this.sum('EvasionUp') / 100;
-    if (this.has('LuckyDodge')) {
-      e += Math.max(0, Math.min(30, Math.round(sumEffect(this.run, 'LuckUp')))) * 0.003;
-    }
+    if (this.has('LuckyDodge')) e += Math.min(0.15, Math.max(0, luck) * 0.003);
     return e;
+  }
+
+  /** 状態異常の付与率加算 (呪術師の髑髏) */
+  statusChanceBonus(): number { return this.sum('StatusChanceUp') / 100; }
+  /** 敵に付ける状態異常・弱体の持続加算 (鈍色の砂) */
+  debuffDurationBonus(): number { return Math.round(this.sum('DebuffExtend')); }
+
+  /** 回復量の倍率 (聖者の遺骨 +25% / 涸れの呪い ×0.5) */
+  healMultiplier(): number {
+    let m = 1 + this.sum('HealingFactor') / 100;
+    if (this.has('BloodChalice')) m *= 0.5;   // 血月の杯の代償
+    if (hasCurse(this.run, 'WeakenedHeal')) m *= 0.5;
+    return m;
+  }
+
+  /** 敵が受ける継続ダメージの倍率 (毒蛇の牙瓶: 毒 / 錆びた鉤爪: 出血 / 燠火の指輪: 炎上) */
+  dotMultiplier(type: StatusEffectType): number {
+    if (type === 'Poison') return 1 + this.sum('PoisonDamageUp') / 100;
+    if (type === 'Bleed') return 1 + this.sum('BleedDamageUp') / 100;
+    if (type === 'Burn') return 1 + this.sum('FireDamageUp') / 100;
+    return 1;
   }
 
   // ── BP / ブースト系 ────────────────────────────────────────────────

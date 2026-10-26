@@ -1,4 +1,4 @@
-// レリック定義 (全130種)
+// レリック定義
 //
 // 【重要】効果の種類(RelicEffectType 130種)と効果処理は Unity版
 // Roguelike/Relics/RelicData.cs + RelicManager.cs の忠実移植。
@@ -15,10 +15,13 @@ export type RelicEffectType =
   | 'BonusDamageOnBreak' | 'FireDamageUp' | 'IceDamageUp' | 'LightningDamageUp'
   | 'DarkDamageUp' | 'LightDamageUp' | 'PoisonDamageUp' | 'BleedDamageUp'
   | 'MultiHitBonus' | 'LastStandDamage'
+  // Web版で追加
+  | 'WindDamageUp' | 'PhysicalDamageUp' | 'WeaknessAmp' | 'UndeadSlayer' | 'EliteSlayer'
+  | 'MPOnKill' | 'BreakHeal' | 'StatusChanceUp' | 'DebuffExtend' | 'BloodChalice'
   // Combat: Defense
   | 'FlatDefenseUp' | 'PercentDamageReduction' | 'ThornsReflect' | 'FirstHitImmune'
   | 'ReviveOnce' | 'HealAtBattleStart' | 'RegenEachTurn' | 'ShieldPerFloor'
-  | 'StatusImmunity' | 'BreakImmunity'
+  | 'StatusImmunity'
   // Boost / BP
   | 'StartWithBP' | 'BPGainUp' | 'BoostFree' | 'BoostDamageMultiplier' | 'MaxBPUp'
   // Break
@@ -32,7 +35,7 @@ export type RelicEffectType =
   // Luck / RNG
   | 'LuckyDodge' | 'LuckyGold' | 'CursedButPowerful' | 'MiracleChance' | 'RiskRewardMaster'
   // Floor / Stage
-  | 'EliteReward' | 'BossShield' | 'FloorClearHeal' | 'ShortcutKey' | 'RestEfficiencyUp'
+  | 'EliteReward' | 'BossShield' | 'FloorClearHeal' | 'RestEfficiencyUp'
   // Cursed
   | 'VampiricBlade' | 'BerserkerRage' | 'ForbiddenGrimoire' | 'DeathMark'
   | 'SoulSiphon' | 'AncientCurse' | 'PhilosophersStone'
@@ -50,12 +53,12 @@ export type RelicEffectType =
   // Break Extended
   | 'QuickBreak' | 'BreakRegen' | 'BreakSeal'
   // Skill and Deck Extended
-  | 'ManaOverflow' | 'SkillCopy' | 'JumpStart' | 'DeckPurify' | 'ChainBonus'
+  | 'ManaOverflow' | 'SkillCopy' | 'JumpStart' | 'ChainBonus'
   | 'CurseWeaver' | 'SpecializedDeck'
   // Exploration
   | 'EliteHunter' | 'TreasureNose' | 'EventMaster' | 'BlackMarket' | 'GoldShield'
   // Economy and Tactics
-  | 'CompoundInterest' | 'Recycler' | 'MirrorImage' | 'BattleRhythm'
+  | 'CompoundInterest' | 'MirrorImage' | 'BattleRhythm'
   // Special
   | 'SurgeProtection' | 'AoEShieldDamage'
   // Cursed Extended
@@ -111,7 +114,7 @@ export const RELICS: RelicDef[] = [
   R('hammer_of_ruin', '破城槌の破片', 'Uncommon', 'BonusDamageOnBreak', 30,
     'Break中の敵への与ダメージ+30%。', '崩れた城門に、慈悲は要らない。'),
   R('ember_ring', '燠火の指輪', 'Common', 'FireDamageUp', 20,
-    '炎属性ダメージ+20%。', '消えない燠火が、指先で静かに脈打つ。'),
+    '炎属性ダメージ+20%。敵が受ける炎上の継続ダメージも+20%。', '消えない燠火が、指先で静かに脈打つ。'),
   R('frost_ring', '霜刃の指輪', 'Common', 'IceDamageUp', 20,
     '氷属性ダメージ+20%。', '触れれば指先から凍る。慣れれば心地よい。'),
   R('storm_ring', '雷鳴の指輪', 'Common', 'LightningDamageUp', 20,
@@ -120,10 +123,11 @@ export const RELICS: RelicDef[] = [
     '闇属性ダメージ+20%。', '覗き込むな。指輪もまた、こちらを覗いている。'),
   R('dawn_ring', '暁光の指輪', 'Common', 'LightDamageUp', 20,
     '光属性ダメージ+20%。', '最も暗い夜に、最も強く輝く。'),
-  R('venom_vial', '毒蛇の牙瓶', 'Common', 'PoisonDamageUp', 20,
-    '毒属性ダメージ+20%。', '一滴で井戸が死ぬ。瓶には、まだ半分残っている。'),
-  R('rusted_hook', '錆びた鉤爪', 'Common', 'BleedDamageUp', 20,
-    '出血属性ダメージ+20%。', '傷口は塞がらない。それがこの鉤の呪いだ。'),
+  // Web版の修正: 毒・出血は属性ではないので、敵が受ける継続ダメージを増やす効果にした
+  R('venom_vial', '毒蛇の牙瓶', 'Common', 'PoisonDamageUp', 50,
+    '敵が受ける毒の継続ダメージ+50%。', '一滴で井戸が死ぬ。瓶には、まだ半分残っている。'),
+  R('rusted_hook', '錆びた鉤爪', 'Common', 'BleedDamageUp', 50,
+    '敵が受ける出血の継続ダメージ+50%。', '傷口は塞がらない。それがこの鉤の呪いだ。'),
   R('flurry_charm', '連撃の護符', 'Uncommon', 'MultiHitBonus', 15,
     '連続ヒットの2撃目以降のダメージ+15%。', '「二の太刀こそ本命」と刻まれている。'),
   R('last_oath', '今際の誓い', 'Rare', 'LastStandDamage', 50,
@@ -152,9 +156,6 @@ export const RELICS: RelicDef[] = [
   R('iron_will_chain', '不動の鎖', 'Uncommon', 'StatusImmunity', 0,
     '麻痺状態を無効化する。', '雷神すら、この鎖の主を縛れなかった。',
     { immuneStatus: 'Paralysis' }),
-  R('titan_anchor', '巨人の錨', 'Boss', 'BreakImmunity', 1,
-    '(敵専用効果のため効果なし — 収集用)', '深海に沈んだ巨人が、最後まで手放さなかったもの。',
-    { inPool: false }),
 
   // ══════════ Boss Relics (ボス撃破報酬) ══════════
   R('kings_scepter', '廃王の王笏', 'Boss', 'PercentDamageUp', 25,
@@ -194,8 +195,7 @@ export const RELICS: RelicDef[] = [
   R('guild_seal', '商業組合の印章', 'Uncommon', 'ShopDiscount', 20,
     'ショップの価格-20%。', 'この印章を見せれば、どの店主も渋い顔で頷く。'),
   R('eraser_quill', '忘却の羽根ペン', 'Uncommon', 'FreeRemove', 1,
-    '(スキル削除システム実装後に有効化)', '書いた文字も、覚えた技も、静かに消してくれる。',
-    { inPool: false }),
+    'ショップの呪い解除が無料になる。', '書いた文字も、刻まれた呪いも、静かに消してくれる。'),
   R('golden_heart', '黄金の心臓', 'Rare', 'GoldToHP', 1,
     '所持ゴールド50Gごとに最大HP+1。', '富める者は、その分だけ死ににくい。皮肉な話だ。'),
   R('clover_press', '四葉の押し花', 'Common', 'LuckUp', 3,
@@ -221,7 +221,7 @@ export const RELICS: RelicDef[] = [
 
   // ══════════ Luck / RNG ══════════
   R('cat_bone_charm', '黒猫の骨鈴', 'Uncommon', 'LuckyDodge', 1,
-    'LUCKに応じて回避率が上がる (LUCK×0.3%)。', '猫は九回死ぬ。この鈴は、そのうち一回分。'),
+    '避ける本人の運×0.3%だけ回避率が上がる (最大+15%)。', '猫は九回死ぬ。この鈴は、そのうち一回分。'),
   R('midas_thumb', 'ミダスの親指', 'Uncommon', 'LuckyGold', 1,
     'イベントで得るゴールドが1.5倍。', '触れたものを黄金に変えた王の、最後に残った指。'),
   R('pact_of_thorns', '茨の契約書', 'Cursed', 'CursedButPowerful', 30,
@@ -238,25 +238,22 @@ export const RELICS: RelicDef[] = [
     'ボス戦開始時、最大HP15%分のバリアを得る。', '王を守れなかった盾は、次の持ち主に尽くす。'),
   R('spring_of_respite', '安息の泉石', 'Uncommon', 'FloorClearHeal', 0.30,
     'フロアクリア時、追加で最大HPの30%を回復する。', '石の窪みに溜まる水は、汲んでも汲んでも尽きない。'),
-  R('phantom_key', '幻影の鍵', 'Rare', 'ShortcutKey', 1,
-    '(マップスキップ機能実装後に有効化)', 'どんな扉も開く。ただし一度きり。',
-    { inPool: false }),
   R('down_blanket', '羽毛の毛布', 'Common', 'RestEfficiencyUp', 30,
     '焚き火での回復量+30%。', '戦場で最も貴重な装備は、良い眠りだ。'),
 
   // ══════════ Cursed ══════════
   R('vampiric_blade', '吸血鬼の短剣', 'Cursed', 'VampiricBlade', 0.20,
-    '与ダメージの20%を吸収する。ただし最大HP-20%。', '刃が血を啜るたび、柄を握る手も細くなる。'),
+    '与ダメージの20%だけHPを回復する。ただし主人公の最大HP-20%。', '刃が血を啜るたび、柄を握る手も細くなる。'),
   R('berserker_mask', '狂戦士の面', 'Cursed', 'BerserkerRage', 1,
     'HPが低いほど与ダメージUP (最大+150%)。ただし防御-50%。', '面の下で笑っているのは、もう自分ではない。'),
   R('forbidden_grimoire', '禁断の魔導書', 'Cursed', 'ForbiddenGrimoire', 2,
     '与える全ダメージ2倍。ただしMP消費も2倍。', '頁をめくる音が、誰かの悲鳴に聞こえる。'),
   R('death_mark_brand', '死印の烙印', 'Cursed', 'DeathMark', 1,
-    '戦闘開始時、敵1体に死の宣告(2ターン)。ただし被ダメージ+25%。', '死神に貸しを作った代償は、利子付きで返ってくる。'),
+    '戦闘開始時、通常敵1体に死の刻印 (2ターン後に塵と化す)。ただし被ダメージ+25%。', '死神に貸しを作った代償は、利子付きで返ってくる。'),
   R('soul_lantern', '魂の吊灯籠', 'Rare', 'SoulSiphon', 10,
     '敵を10体倒すごとにレリックを1つ得る。', '灯りに引き寄せられた魂が、宝の在り処を囁く。'),
   R('ancient_curse_idol', '古の呪像', 'Cursed', 'AncientCurse', 0.30,
-    '全ステータス+30%。ただし部屋に入るたびHP5%を失う。', '力を与える神は、供物を欠かさず要求する。'),
+    '主人公の全ステータス+30%。ただし部屋に入るたびHP5%を失う。', '力を与える神は、供物を欠かさず要求する。'),
   R('philosophers_stone', '賢者の石', 'Cursed', 'PhilosophersStone', 2,
     '得るゴールドが2倍。ただし入手時に呪いを1つ受ける。', '黄金より重いものを、錬金術師は最後に知った。'),
 
@@ -337,9 +334,6 @@ export const RELICS: RelicDef[] = [
     '1戦闘に1回、スキル使用後にもう一度無料で発動する。', '呪文は一度。声はふたつ。'),
   R('spark_plug_stone', '起動石', 'Common', 'JumpStart', 1,
     '各戦闘の最初のスキルのMP消費が0になる。', '最初の火花は、いつだってタダだ。'),
-  R('purifier_blade', '浄化の小刀', 'Uncommon', 'DeckPurify', 0.03,
-    '(スキル削除システム実装後に有効化)', '削ぎ落とすほどに、残った刃は鋭くなる。',
-    { inPool: false }),
   R('metronome_of_war', '戦のメトロノーム', 'Rare', 'ChainBonus', 2,
     '3ターン連続でスキルを使うと、次のスキルが2倍ダメージ。', '拍子が揃ったとき、戦場は演奏会になる。'),
   R('curse_loom', '呪いの織機', 'Rare', 'CurseWeaver', 0.10,
@@ -362,9 +356,6 @@ export const RELICS: RelicDef[] = [
   // ══════════ Economy and Tactics ══════════
   R('interest_ledger', '複利の台帳', 'Uncommon', 'CompoundInterest', 0.01,
     '所持100Gごとに敵のゴールドドロップ+1% (最大+10%)。', '金が金を呼ぶ。帳簿は嘘をつかない。'),
-  R('scrap_dealer_cart', '屑鉄商の荷車', 'Uncommon', 'Recycler', 30,
-    '(スキル削除システム実装後に有効化)', '「動かない技も、鉄くずにすりゃ値がつくぜ」',
-    { inPool: false }),
   R('mirror_shard_pauldron', '鏡片の肩当て', 'Rare', 'MirrorImage', 0.25,
     '受けたダメージの25%を蓄積し、次の攻撃に上乗せする。', '割れた鏡は、受けた痛みを覚えている。'),
   R('war_lyre', '戦場の竪琴', 'Rare', 'BattleRhythm', 0.50,
@@ -392,9 +383,31 @@ export const RELICS: RelicDef[] = [
   R('two_faced_coin', '両面のコイン', 'Cursed', 'DoubleOrNothing', 2,
     '戦闘開始時にコインを投げる。表なら与ダメ2倍、裏なら0.5倍。', '表も裏も、笑っているのが不気味だ。'),
   R('leech_crown', '蛭の王冠', 'Cursed', 'LifeDrain', 0.01,
-    '毎ターン、生存する全敵からHP1%ずつ吸収する。', '被った者は飢えを知らない。外し方も知らない。'),
+    '自分のターン開始時、生存する全敵の最大HP1%ずつを奪って回復する。', '被った者は飢えを知らない。外し方も知らない。'),
   R('corrupted_core', '穢れた核', 'Cursed', 'CorruptedCore', 0.50,
     '与ダメージ+50%。ただしスキルを使うたびHP5を失う。', '力の源は、ゆっくりと持ち主を溶かしている。'),
+
+  // ══════════ Web版で追加 ══════════
+  R('gale_ring', '疾風の指輪', 'Common', 'WindDamageUp', 20,
+    '風属性ダメージ+20%。', '指を離れた風は、二度と同じ道を通らない。'),
+  R('smith_mark', '鍛冶師の刻印', 'Common', 'PhysicalDamageUp', 15,
+    '物理属性 (武器・剣技・弓技) のダメージ+15%。', '名もなき鍛冶師が、最高の一振りにだけ刻んだ印。'),
+  R('insight_stone', '看破の石', 'Uncommon', 'WeaknessAmp', 25,
+    '弱点を突いたときのダメージ+25%。', '石を通して見れば、どんな鎧にも綻びがある。'),
+  R('consecrated_nail', '聖別の釘', 'Uncommon', 'UndeadSlayer', 25,
+    'アンデッドへの与ダメージ+25%。', '聖者の棺を閉じた釘。死者はこれを何より恐れる。'),
+  R('hero_crest', '英雄殺しの紋章', 'Rare', 'EliteSlayer', 20,
+    '強敵・ボスへの与ダメージ+20%。', '大物ばかりを狙った狩人の紋章。最後の獲物は竜だったという。'),
+  R('soul_vessel', '魂の器', 'Common', 'MPOnKill', 5,
+    '敵を倒すたびに全員のMP+5。', '空の器は、散った魂の欠片で少しずつ満ちていく。'),
+  R('shieldbreak_seal', '砕盾の聖印', 'Uncommon', 'BreakHeal', 0.05,
+    '敵をBreakさせるたびに全員のHPを最大HPの5%回復する。', '砕いた盾の破片が、光の粒になって降り注ぐ。'),
+  R('hex_skull', '呪術師の髑髏', 'Uncommon', 'StatusChanceUp', 15,
+    '敵に状態異常を付与する確率+15%。', '眼窩の奥で、まだ誰かが呪文を唱えている。'),
+  R('leaden_sand', '鈍色の砂', 'Rare', 'DebuffExtend', 1,
+    '敵に付けた状態異常・弱体の持続+1ターン。', '指の間から零れる砂は、時を重く引きずる。'),
+  R('blood_moon_chalice', '血月の杯', 'Cursed', 'BloodChalice', 0.10,
+    '敵を倒すたびに全員のHPを最大HPの10%回復する。ただし回復スキル・自動回復の回復量が半分になる。', '血でしか満たされない杯。注いだ分だけ、渇きも増す。'),
 
   // ══════════ Ending Path (イベント/ボス限定・抽選外) ══════════
   R('ending_demon_king', '魔王の証印', 'Event', 'EndingPath_DemonKing', 1,

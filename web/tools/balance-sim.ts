@@ -10,7 +10,7 @@ import { BattleEngine, Combatant } from '../src/battle/engine';
 import { pickEncounter, buildHeroes, buildEnemies, computeRewards } from '../src/battle/setup';
 import { RelicBattleState } from '../src/battle/relicHooks';
 import {
-  createRun, getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip, equipItem,
+  createRun, getEffectiveMaxHP, healRun, damageRun, earnGold, addSanity, canEquip, partyCanEquip, equipItem,
   createPartyMember, partyUnits, addMaxHP, equippedIds, restAtCampfire, getMaxMP, healMP, fullRestore, type RunState, type UnitState,
 } from '../src/core/run';
 import { addExp, addJP, MAX_CHARACTER_LEVEL, unitHasSkill } from '../src/core/level';
@@ -35,8 +35,8 @@ import type { NodeType, SkillDef } from '../src/core/types';
 
 // ── 戦闘の操作方針 ──────────────────────────────────────────────────────
 // 回復 (HP40%未満) > 状態異常を入れる (付与系の技・未付与の敵) > 弱点を突く > 最大威力。
-// Break中の敵や BP 満タン時にブースト。ゼノは弱った通常敵に吸収を試す。
-// 行動ごとの期待値 (与えるダメージ・毒の総量・吸収で消せるHP など) を見積もり、最大のものを選ぶ。
+// Break中の敵や BP 満タン時にブースト。ゼノは弱った敵に簒奪を試す。
+// 行動ごとの期待値 (与えるダメージ・毒の総量・簒奪で消せるHP など) を見積もり、最大のものを選ぶ。
 // 回復が必要なとき (HP40%未満の味方 / 戦闘不能の味方) は回復・蘇生を優先する。
 type Foe = BattleEngine['enemies'][number];
 function hitValue(h: Combatant, e: Foe, power: number, dmgType: string, element: string, hits: number, undeadMult = 1): number {
@@ -67,15 +67,20 @@ function skillValue(h: Combatant, s: SkillDef, e: Foe, foes: Foe[]): number {
     if (s.debuff) v += s.debuff.reduce((a, d) => a + Math.max(t.patk, t.matk) * d.value * d.duration * 0.5, 0);
     if (s.deathSentence) v += t.enemyDef?.rank === 'Boss' || t.enemyDef?.rank === 'TrueFinalBoss' ? t.base.maxHP * s.deathSentence.bossDmgPct * 0.5 : t.hp * 0.6;
   }
+  // 吸収: 与ダメージの一部を回復。減っているHPの分だけ価値がある
+  if (s.drainPct) v += Math.min(h.base.maxHP - h.hp, v * s.drainPct) * 0.8;
   if (s.absorb) {
     const rank = e.enemyDef?.rank ?? 'Normal';
     const mult = rank === 'Normal' ? 1 : rank === 'Elite' ? (s.absorb.eliteMult ?? 0) : 0;
-    const chance = Math.min(1, (s.absorb.baseChance + s.absorb.maxBonus * (1 - e.hpRatio)) * mult);
-    // 吸収は投資: 持っていない攻撃技を覚えられるなら、その分の価値を上乗せ
+    const chance = Math.min(1, (s.absorb.baseChance + s.absorb.maxBonus * (1 - e.hpRatio)
+      + (s.absorb.perStatus ?? 0) * Math.min(4, e.statuses.length)) * mult);
+    // 簒奪は投資: 持っていない攻撃技を覚えられるなら、その分の価値を上乗せ
     const newSkill = (e.enemyDef?.actions ?? []).some((a) => a.skill.basePower > 0 && !h.skills.some((x) => x.id === a.skill.id));
     const grimoireSize = h.skills.filter((x) => x.fromGrimoire).length;
     const invest = newSkill ? Math.max(0, 90 - grimoireSize * 20) : 0;
     v = chance * (e.hp * 1.3 + invest) - h.base.maxHP * s.absorb.hpCostPct * 0.4;
+    // 強敵への分の悪い賭け (成功率50%未満) はしない — 人の遊び方に寄せる
+    if (rank === 'Elite' && chance < 0.5) v *= 0.3;
   }
   return v;
 }
@@ -172,7 +177,7 @@ function battle(run: RunState, nodeType: NodeType, seed: number, coffin = false)
   if (isElite && hasEffect(run, 'EliteHunter')) gold *= 2;
   if (coffin) gold = Math.round(gold * COFFIN_GOLD_MULT * riskRewardMultiplier(run));
   run.gold += gold; run.goldEarned += gold;
-  if (coffin) run.equipmentInventory.push(drawEquipmentForFloor(run.currentFloor, new Rng(seed ^ 0x5eed)).id);
+  if (coffin) run.equipmentInventory.push(drawEquipmentForFloor(run.currentFloor, new Rng(seed ^ 0x5eed), undefined, (eq) => partyCanEquip(run, eq.id)).id);
   // 比較用: MEMBER_GAIN で仲間の EXP/JP の割合を変えられる
   const mg = Number(process.env.MEMBER_GAIN ?? 1);
   for (const u of units) {
@@ -269,7 +274,7 @@ function shop(run: RunState, rng: Rng): void {
   const owned = new Set([...run.equipmentInventory, ...equippedIds(run)]);
   for (let i = 0; i < equipCount; i++) {
     for (let a = 0; a < 6; a++) {
-      const cand = drawEquipmentForFloor(floor, rng);
+      const cand = drawEquipmentForFloor(floor, rng, undefined, (eq) => partyCanEquip(run, eq.id));
       if (partyUnits(run).some((u) => canEquip(u, cand.id)) && !owned.has(cand.id)) {
         owned.add(cand.id);
         const gain = bestHolder(run, cand.id)?.gain ?? 0;
@@ -296,7 +301,7 @@ function treasure(run: RunState, rng: Rng): void {
   const floor = FLOORS[Math.min(run.currentFloor, FLOORS.length - 1)];
   let gold = floor.baseGoldReward + rng.range(10, 41);
   if (partyUnits(run).some((u) => unitHasSkill(u, 'SKL_A_Lockpicking'))) gold += 30 + rng.range(0, 31);
-  if (rng.next() < 0.40) { run.equipmentInventory.push(drawEquipmentForFloor(run.currentFloor, rng).id); autoEquip(run); }
+  if (rng.next() < 0.40) { run.equipmentInventory.push(drawEquipmentForFloor(run.currentFloor, rng, undefined, (eq) => partyCanEquip(run, eq.id)).id); autoEquip(run); }
   let rarity = rollRelicRarity(run.sanity, false);
   if (hasEffect(run, 'TreasureNose')) {
     const bump: Record<string, RelicRarity> = { Common: 'Uncommon', Uncommon: 'Rare', Rare: 'Rare', Cursed: 'Rare' };

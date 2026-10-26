@@ -38,7 +38,7 @@ export interface BoostUpgrade {
   hitsAllEnemies?: boolean;      // 全体化 (攻撃/因果の鎖)
   hitsAllAllies?: boolean;       // 全体化 (回復/バフ/蘇生)
   splashToAdjacent?: boolean;    // 他の敵2体に50%威力スプラッシュ
-  gainBP?: number;               // 使用後BP回復 (吸収系は成功時)
+  gainBP?: number;               // 使用後BP回復 (簒奪系は成功時)
   instantKillOnBrokenChance?: number; // Break中の敵への即死確率
   grantShadowState?: boolean;    // 使用後Shadow State付与
   executeChanceBonus?: number;   // 即死確率+ (必殺狙撃)
@@ -50,10 +50,10 @@ export interface BoostUpgrade {
   healRemovesAllStatus?: boolean;// 回復対象の状態異常を全解除
   undeadBonusMult?: number;      // アンデッド特効倍率+ (聖光弾/神罰)
   debuffAmplify?: number;        // デバフ量増幅 (加算 / 因果の鎖は連鎖率+)
-  drainPct?: number;             // 与ダメージのN%をHP吸収 (暗黒波)
+  drainPct?: number;             // 与ダメージのN%をHP吸収 (暗黒波・吸収。スキル側と加算)
   randomDebuffCountBonus?: number; // ランダムデバフ種数+ (呪詛の霧)
-  absorbChanceBonus?: number;    // 吸収成功率+
-  absorbHPCostMult?: number;     // 吸収HP消費倍率 (0=無消費)
+  absorbChanceBonus?: number;    // 簒奪成功率+
+  absorbHPCostMult?: number;     // 簒奪HP消費倍率 (0=無消費)
   delayReduction?: number;       // 死の宣告カウント短縮
 }
 
@@ -71,9 +71,9 @@ const BERNHARD: Table = {
   ],
   盾砕き: [
     { flavor: 'シールドダメージ+1', extraShieldDamage: 1 },
-    { flavor: 'シールドダメージ+2 / 威力×1.3', extraShieldDamage: 2, powerMult: 1.3 },
-    { flavor: 'シールドダメージ+3 / 威力×1.5 / 残シールドを無視してBreak',
-      extraShieldDamage: 3, powerMult: 1.5, forceBreakIfShielded: true },
+    { flavor: 'シールドダメージ+1 / 威力×1.3', extraShieldDamage: 1, powerMult: 1.3 },
+    { flavor: 'シールドダメージ+2 / 威力×1.5 / 残シールドを無視してBreak',
+      extraShieldDamage: 2, powerMult: 1.5, forceBreakIfShielded: true },
   ],
   雄叫び: [
     { flavor: 'バフ持続+1ターン', buffDurationBonus: 1 },
@@ -383,9 +383,14 @@ const ZENO: Table = {
       debuffAmplify: 0.15, buffDurationBonus: 3, hitsAllEnemies: true },
   ],
   吸収: [
-    { flavor: '吸収確率+15%', absorbChanceBonus: 0.15 },
-    { flavor: '吸収確率+25% / HP消費-50%', absorbChanceBonus: 0.25, absorbHPCostMult: 0.5 },
-    { flavor: '吸収確率+35% / HP消費なし / 吸収成功時BP+1',
+    { flavor: '威力×1.4', powerMult: 1.4 },
+    { flavor: '威力×1.7 / 回復量+25%', powerMult: 1.7, drainPct: 0.25 },
+    { flavor: '威力×2.0 / 全体化 / 回復量+50%', powerMult: 2.0, hitsAllEnemies: true, drainPct: 0.50 },
+  ],
+  簒奪: [
+    { flavor: '簒奪確率+15%', absorbChanceBonus: 0.15 },
+    { flavor: '簒奪確率+25% / HP消費-50%', absorbChanceBonus: 0.25, absorbHPCostMult: 0.5 },
+    { flavor: '簒奪確率+35% / HP消費なし / 簒奪成功時BP+1',
       absorbChanceBonus: 0.35, absorbHPCostMult: 0, gainBP: 1 },
   ],
   魂縛: [
@@ -409,9 +414,9 @@ const ZENO: Table = {
       buffDurationBonus: 3, debuffAmplify: 0.50, hitsAllEnemies: true },
   ],
   魂喰い: [
-    { flavor: '吸収確率+15%', absorbChanceBonus: 0.15 },
-    { flavor: '吸収確率+30% / 成功時BP+1', absorbChanceBonus: 0.30, gainBP: 1 },
-    { flavor: '吸収確率+50% / 成功時BP+2', absorbChanceBonus: 0.50, gainBP: 2 },
+    { flavor: '簒奪確率+15%', absorbChanceBonus: 0.15 },
+    { flavor: '簒奪確率+30% / 成功時BP+1', absorbChanceBonus: 0.30, gainBP: 1 },
+    { flavor: '簒奪確率+50% / 成功時BP+2', absorbChanceBonus: 0.50, gainBP: 2 },
   ],
   死の宣告: [
     { flavor: '発動-1ターン', delayReduction: 1 },
@@ -426,11 +431,11 @@ const ZENO: Table = {
       buffDurationBonus: 3, debuffAmplify: 0.20, statusChanceBonus: 0.20 },
   ],
   冥界の扉: [
-    { flavor: 'エリート吸収確率+10% / フィールドデバフ延長+1',
+    { flavor: 'エリート簒奪確率+10% / フィールドデバフ延長+1',
       absorbChanceBonus: 0.10, buffDurationBonus: 1 },
-    { flavor: 'エリート吸収確率+20% / デバフ延長+2 / BP+1',
+    { flavor: 'エリート簒奪確率+20% / デバフ延長+2 / BP+1',
       absorbChanceBonus: 0.20, buffDurationBonus: 2, gainBP: 1 },
-    { flavor: 'エリート吸収確率+40% / デバフ延長+3 / BP+2',
+    { flavor: 'エリート簒奪確率+40% / デバフ延長+3 / BP+2',
       absorbChanceBonus: 0.40, buffDurationBonus: 3, gainBP: 2 },
   ],
 };

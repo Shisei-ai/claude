@@ -44,8 +44,8 @@ export const EQUIPMENT: EquipmentDef[] = [
     weaponCategory: 'Staff', weaponElement: 'Dark',
     bonusStats: { magicAttack: 60, maxMP: 20 }, value: 210 }),
   E({ id: 'Equip_PoisonBlade', name: '毒刃', slot: 'Weapon', rarity: 'Uncommon',
-    description: '塗られた毒が蝕む。Patk+45、速度+10。毒属性。',
-    weaponCategory: 'Dagger', weaponElement: 'Poison',
+    description: '塗られた毒が蝕む。Patk+45、速度+10。通常攻撃が25%で毒を付与する。',
+    weaponCategory: 'Dagger', weaponElement: 'None', weaponPoison: 0.25,
     bonusStats: { physicalAttack: 45, speed: 10 }, value: 190 }),
   E({ id: 'Equip_CurseTome', name: '呪術書', slot: 'Weapon', rarity: 'Uncommon',
     description: '禁じられた章を含む呪術書。Matk+55、MP+25。闇属性。(Web版追加)',
@@ -80,8 +80,8 @@ export const EQUIPMENT: EquipmentDef[] = [
     weaponCategory: 'Sword', weaponElement: 'Light',
     bonusStats: { physicalAttack: 140 }, value: 580 }),
   E({ id: 'Equip_AncientPoisonFang', name: '古毒の牙刃', slot: 'Weapon', rarity: 'Rare',
-    description: '太古の猛毒を封じた刃。Patk+120、会心+18、毒属性。',
-    weaponCategory: 'Dagger', weaponElement: 'Poison',
+    description: '太古の猛毒を封じた刃。Patk+120、会心+18。通常攻撃が40%で毒を付与する。',
+    weaponCategory: 'Dagger', weaponElement: 'None', weaponPoison: 0.40,
     bonusStats: { physicalAttack: 120, criticalRate: 18 }, value: 560 }),
   E({ id: 'Equip_AncientScepter', name: '古代の笏', slot: 'Weapon', rarity: 'Rare',
     description: '封印の力を解放する杖。Matk+140、MP+60。',
@@ -227,16 +227,25 @@ export function getEquipment(id: string): EquipmentDef | undefined {
   return BY_ID.get(id);
 }
 
-export function drawEquipmentForFloor(floor: number, rng: Rng, slot?: EquipSlot): EquipmentDef {
+/** 層ごとの装備を抽選する。usable を渡すと、それを満たす装備だけから選ぶ
+ *  (Web版: 宝箱・棺の装備はパーティの誰かが装備できる物だけにする)。
+ *  その層に使える物が無ければ下の層 → 装飾品の順に探す */
+export function drawEquipmentForFloor(
+  floor: number, rng: Rng, slot?: EquipSlot, usable?: (eq: EquipmentDef) => boolean,
+): EquipmentDef {
   const f = Math.max(0, Math.min(3, floor));
   const chosen: EquipSlot = slot ?? (() => {
     const v = rng.next();
     return v < 0.40 ? 'Weapon' : v < 0.80 ? 'Armor' : 'Accessory';
   })();
-  const pool = chosen === 'Weapon' ? WEAPONS_BY_FLOOR[f]
-    : chosen === 'Armor' ? ARMORS_BY_FLOOR[f]
-    : ACCESSORIES_BY_FLOOR[f];
-  return BY_ID.get(pool[rng.int(pool.length)])!;
+  const poolOf = (s: EquipSlot, fl: number): EquipmentDef[] =>
+    (s === 'Weapon' ? WEAPONS_BY_FLOOR : s === 'Armor' ? ARMORS_BY_FLOOR : ACCESSORIES_BY_FLOOR)[fl]
+      .map((id) => BY_ID.get(id)!)
+      .filter((eq) => !usable || usable(eq));
+  let pool = poolOf(chosen, f);
+  for (let fl = f - 1; pool.length === 0 && fl >= 0; fl--) pool = poolOf(chosen, fl);
+  if (pool.length === 0) pool = poolOf('Accessory', f);
+  return pool[rng.int(pool.length)];
 }
 
 export const EQUIP_RARITY_LABEL: Record<string, string> = {

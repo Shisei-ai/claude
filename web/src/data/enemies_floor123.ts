@@ -26,7 +26,7 @@ export const DARK_WOLF: EnemyDef = {
     criticalRate: 8, accuracyRate: 90,
   },
   shieldPoints: 0, isUndead: false,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Light', 'Ice'],
   actions: [
     {
       skill: enemySkill({
@@ -59,7 +59,7 @@ export const TOXIC_SPORE_FUNGUS: EnemyDef = {
     criticalRate: 3, accuracyRate: 88,
   },
   shieldPoints: 0, isUndead: false,
-  elementWeaknesses: ['Fire'],
+  elementWeaknesses: ['Fire', 'Wind'],
   actions: [
     {
       skill: enemySkill({
@@ -93,7 +93,7 @@ export const FOREST_SPRITE: EnemyDef = {
     criticalRate: 8, accuracyRate: 92,
   },
   shieldPoints: 0, isUndead: false,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Dark', 'Lightning'],
   actions: [
     {
       skill: enemySkill({
@@ -127,7 +127,7 @@ export const ENTANGLING_VINE: EnemyDef = {
     criticalRate: 3, accuracyRate: 86,
   },
   shieldPoints: 1, isUndead: false,
-  elementWeaknesses: ['Fire'],
+  elementWeaknesses: ['Fire', 'Physical'],
   actions: [
     {
       skill: enemySkill({
@@ -164,7 +164,7 @@ export const RAXEN: EnemyDef = {
     criticalRate: 10, accuracyRate: 90,
   },
   shieldPoints: 2, isUndead: false,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Light', 'Lightning'],
   actions: [
     {
       skill: enemySkill({
@@ -212,7 +212,7 @@ export const DARK_FOREST_MEDIUM: EnemyDef = {
     criticalRate: 5, accuracyRate: 92,
   },
   shieldPoints: 1, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Physical', 'Wind'],
   // ※「影霊召喚」はUnity版でも召喚未実装のプレースホルダーのため除外
   actions: [
     {
@@ -255,7 +255,7 @@ export const SHADOW_SPIRIT: EnemyDef = {
     criticalRate: 5, accuracyRate: 92,
   },
   shieldPoints: 0, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Light', 'Ice'],
   actions: [
     {
       skill: enemySkill({
@@ -297,7 +297,7 @@ export const NAGUL: EnemyDef = {
     criticalRate: 5, accuracyRate: 88,
   },
   shieldPoints: 3, isUndead: false,
-  elementWeaknesses: ['Fire'],
+  elementWeaknesses: ['Fire', 'Ice'],
   actions: [
     {
       skill: enemySkill({
@@ -354,7 +354,7 @@ export const F1_BOSS_GRISELDA: EnemyDef = {
     criticalRate: 8, accuracyRate: 92,
   },
   shieldPoints: 4, isUndead: false,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Fire', 'Physical'],
   actions: [
     // ── Phase 1 (常時) ──
     {
@@ -436,7 +436,7 @@ export const CURSED_GUARD: EnemyDef = {
     criticalRate: 5, accuracyRate: 88,
   },
   shieldPoints: 1, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Lightning', 'Physical'],
   actions: [
     {
       skill: enemySkill({
@@ -468,7 +468,7 @@ export const CURSE_BLOOD_BAT: EnemyDef = {
     criticalRate: 10, accuracyRate: 90,
   },
   shieldPoints: 0, isUndead: false,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Wind', 'Ice'],
   actions: [
     {
       skill: enemySkill({
@@ -501,7 +501,7 @@ export const CASTLE_WRAITH: EnemyDef = {
     criticalRate: 5, accuracyRate: 92,
   },
   shieldPoints: 1, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Light', 'Lightning'],
   actions: [
     {
       skill: enemySkill({
@@ -535,7 +535,7 @@ export const SHADOW_EXECUTIONER: EnemyDef = {
     criticalRate: 8, accuracyRate: 88,
   },
   shieldPoints: 2, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Fire', 'Wind'],
   actions: [
     {
       skill: enemySkill({
@@ -571,7 +571,7 @@ export const GALEN: EnemyDef = {
     criticalRate: 10, accuracyRate: 90,
   },
   shieldPoints: 4, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Lightning', 'Ice'],
   actions: [
     {
       skill: enemySkill({
@@ -618,7 +618,7 @@ export const FERNA: EnemyDef = {
     criticalRate: 5, accuracyRate: 92,
   },
   shieldPoints: 1, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Physical', 'Fire'],
   actions: [
     {
       skill: enemySkill({
@@ -669,7 +669,7 @@ export const CURSED_FAMILIAR: EnemyDef = {
     criticalRate: 8, accuracyRate: 90,
   },
   shieldPoints: 1, isUndead: false,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Light', 'Wind'],
   actions: [
     {
       skill: enemySkill({
@@ -709,7 +709,7 @@ export const VELMON: EnemyDef = {
     criticalRate: 8, accuracyRate: 92,
   },
   shieldPoints: 3, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Fire', 'Ice'],
   actions: [
     // Phase 1 (常時)
     {
@@ -794,7 +794,7 @@ export const F2_BOSS_SANGUINA: EnemyDef = {
     criticalRate: 12, accuracyRate: 94,
   },
   shieldPoints: 5, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Fire', 'Lightning'],
   actions: [
     // ── Phase 1 (常時) ──
     {
@@ -909,7 +909,7 @@ export const POISON_SAND_SERPENT: EnemyDef = {
     criticalRate: 10, accuracyRate: 90,
   },
   shieldPoints: 0, isUndead: false,
-  elementWeaknesses: ['Ice', 'Fire'],
+  elementWeaknesses: ['Ice', 'Physical'],
   actions: [
     {
       skill: enemySkill({
@@ -942,7 +942,7 @@ export const SEALED_WRAITH: EnemyDef = {
     criticalRate: 5, accuracyRate: 92,
   },
   shieldPoints: 1, isUndead: true,
-  elementWeaknesses: ['Fire', 'Light'],
+  elementWeaknesses: ['Light', 'Wind'],
   actions: [
     {
       skill: enemySkill({
@@ -976,7 +976,7 @@ export const ANCIENT_GIANT_SOLDIER: EnemyDef = {
     criticalRate: 5, accuracyRate: 86,
   },
   shieldPoints: 3, isUndead: false,
-  elementWeaknesses: ['Lightning', 'Wind'],
+  elementWeaknesses: ['Ice', 'Lightning'],
   actions: [
     {
       skill: enemySkill({
@@ -1012,7 +1012,7 @@ export const GROM: EnemyDef = {
     criticalRate: 5, accuracyRate: 88,
   },
   shieldPoints: 3, isUndead: false,
-  elementWeaknesses: ['Lightning', 'Fire'],
+  elementWeaknesses: ['Ice', 'Physical'],
   actions: [
     {
       skill: enemySkill({
@@ -1069,7 +1069,7 @@ export const FARUN: EnemyDef = {
     criticalRate: 5, accuracyRate: 92,
   },
   shieldPoints: 1, isUndead: false,
-  elementWeaknesses: ['Fire', 'Wind'],
+  elementWeaknesses: ['Dark', 'Wind'],
   actions: [
     {
       skill: enemySkill({
@@ -1119,7 +1119,7 @@ export const SEAL_GUARDIAN: EnemyDef = {
     criticalRate: 8, accuracyRate: 90,
   },
   shieldPoints: 2, isUndead: false,
-  elementWeaknesses: ['Lightning', 'Fire'],
+  elementWeaknesses: ['Fire', 'Dark'],
   actions: [
     {
       skill: enemySkill({

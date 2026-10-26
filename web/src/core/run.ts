@@ -387,6 +387,11 @@ export function canEquip(unit: UnitState, equipId: string): boolean {
   }
 }
 
+/** パーティ (主人公と仲間) の誰かが装備できるか */
+export function partyCanEquip(run: RunState, equipId: string): boolean {
+  return partyUnits(run).some((u) => canEquip(u, equipId));
+}
+
 /** 装備する。所持品はパーティ共有、装備枠は1人ずつ */
 export function equipItem(run: RunState, equipId: string, unit: UnitState = run): boolean {
   const eq = getEquipmentDef(equipId);

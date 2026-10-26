@@ -10,6 +10,4 @@ export const ELEMENT_BADGE: Record<ElementType, { label: string; color: string }
   Wind: { label: '風', color: '#8aeaa0' },
   Dark: { label: '闇', color: '#c09aff' },
   Light: { label: '光', color: '#fff2a8' },
-  Poison: { label: '毒', color: '#b0e070' },
-  Bleed: { label: '血', color: '#ff6a7a' },
 };

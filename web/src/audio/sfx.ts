@@ -218,11 +218,6 @@ function elementLayer(o: Out, t: number, el: ElementType | undefined, heavy: boo
       noise(o, t, 0.35, 'highpass', 6000, 9000, 0.25, 1, 0.02);
       tone(o, t, 0.15, 'sine', 220, 110, 0.4);
       return true;
-    case 'Poison':
-    case 'Bleed':
-      noise(o, t, 0.2, 'bandpass', 900, 260, 0.7, 4);               // 湿った音
-      tone(o, t, 0.18, 'sine', 210 * v, 80, 0.4);
-      return true;
     default:
       return false;
   }

@@ -71,7 +71,7 @@ for (const char of CHARACTERS) {
   const absorb = actives.find((s) => s.id === 'SKL_Z_Absorb')!;
   engine.executePlayerCommand({ type: 'skill', skill: absorb, targetIndex: 0, boostLevel: 0 });
   const events = engine.drainEvents();
-  const blocked = events.some((e) => e.kind === 'message' && e.text.includes('吸収できない'));
+  const blocked = events.some((e) => e.kind === 'message' && e.text.includes('簒奪できない'));
   if (!blocked && enemies[0].isAlive) { console.error('✗ ボスに吸収が通っている可能性'); failures++; }
   else console.log('✓ ボスへの吸収は無効');
 
@@ -345,8 +345,8 @@ for (const boss of [MORVA, F1_BOSS_GRISELDA, F2_BOSS_SANGUINA]) {
       const eng = new BattleEngine([z], enemies, 0);
       let st = eng.advance(); eng.drainEvents();
       while (st !== 'awaitInput' && !eng.over) { st = eng.advance(); eng.drainEvents(); }
-      eng.executePlayerCommand({ type: 'skill', skill: z.skills.find((s) => s.name === '吸収')!, targetIndex: 0, boostLevel: 0 });
-      freeCast = eng.drainEvents().some((e) => e.kind === 'message' && e.text.startsWith('吸収の代価'));
+      eng.executePlayerCommand({ type: 'skill', skill: z.skills.find((s) => s.name === '簒奪')!, targetIndex: 0, boostLevel: 0 });
+      freeCast = eng.drainEvents().some((e) => e.kind === 'message' && e.text.startsWith('簒奪の代価'));
     }
     check(freeCast, '吸収の代価: 吸収成功後に刻んだ技を即座に放つ');
   }
@@ -478,6 +478,95 @@ import { RESONANCE_PASSIVE_ID, levelPassivesOf } from './src/data/levelPassives'
   for (let i = 0; i < 20; i++) { const w = dmgOf(true); withSum += w.dealt; msg ||= w.msg; withoutSum += dmgOf(false).dealt; }
   check(msg, '元素共鳴: 炎→氷で「蒸気爆発」');
   check(withSum > withoutSum * 1.5, `元素共鳴: 威力が上がる (${withoutSum} → ${withSum})`);
+}
+
+// ── ゼノの吸収 (HP吸収) / 簒奪 (エリート) / レリックの再検証 ──────────────
+import { ZENO_SKILLS } from './src/data/skills';
+import { RELICS } from './src/data/relics';
+import { SHADOW_SPIRIT } from './src/data/enemies_floor123';
+{
+  const check = (ok: boolean, label: string) => {
+    if (ok) console.log(`✓ ${label}`);
+    else { console.error(`✗ ${label}`); failures++; }
+  };
+  const zeno = CHARACTERS.find((c) => c.id === 'zeno')!;
+  check(zeno.learnableSkills.some((e) => e.jobLevel === 1 && e.skill.id === 'SKL_Z_Drain'), 'ゼノ: 吸収を職Lv1で覚える');
+  check(ZENO_SKILLS.absorb.name === '簒奪' && (ZENO_SKILLS.absorb.absorb!.eliteMult ?? 0) > 0, 'ゼノ: 簒奪はエリートにも通じる');
+  // 吸収: 与えたダメージの50%を回復
+  {
+    const z = new Combatant({ isPlayer: true, name: 'Z', characterId: 'zeno',
+      stats: { ...zeno.baseStats, maxMP: 999, speed: 999, criticalRate: 0 }, skills: [ZENO_SKILLS.drain] });
+    z.mp = 999; z.hp = 1;
+    const foe = makeEnemies([GOBLIN])[0];
+    foe.base.maxHP = foe.hp = 99999;
+    const eng = new BattleEngine([z], [foe], 0);
+    let st = eng.advance(); eng.drainEvents();
+    while (st !== 'awaitInput' && !eng.over) { st = eng.advance(); eng.drainEvents(); }
+    const before = foe.hp;
+    eng.executePlayerCommand({ type: 'skill', skill: ZENO_SKILLS.drain, targetIndex: 0, boostLevel: 0 });
+    const dealt = before - foe.hp;
+    check(dealt > 0 && Math.abs((z.hp - 1) - Math.round(dealt * 0.5)) <= 1, `吸収: 与ダメ${dealt}の半分を回復 (+${z.hp - 1})`);
+  }
+  // 簒奪: エリートから技を奪える
+  {
+    let ok = false;
+    for (let i = 0; i < 40 && !ok; i++) {
+      const z = new Combatant({ isPlayer: true, name: 'Z', characterId: 'zeno',
+        stats: { ...zeno.baseStats, maxMP: 999, speed: 999 }, skills: [ZENO_SKILLS.absorb] });
+      z.mp = 999;
+      const foes = makeEnemies([SHADOW_SPIRIT]);
+      foes[0].hp = 1;
+      const eng = new BattleEngine([z], foes, 0);
+      let st = eng.advance(); eng.drainEvents();
+      while (st !== 'awaitInput' && !eng.over) { st = eng.advance(); eng.drainEvents(); }
+      eng.executePlayerCommand({ type: 'skill', skill: ZENO_SKILLS.absorb, targetIndex: 0, boostLevel: 0 });
+      ok = eng.drainEvents().some((e) => e.kind === 'absorb');
+    }
+    check(ok, '簒奪: エリートからも技を奪える');
+  }
+  // 属性の整理: 毒・出血は属性として使われていない
+  {
+    const els = new Set<string>();
+    for (const c of CHARACTERS) for (const e of c.learnableSkills) els.add(e.skill.element);
+    check(!els.has('Poison') && !els.has('Bleed'), '属性: 毒・出血を属性に持つ技はない');
+  }
+  // レリック: 実装済みの効果だけを抽選に入れる / 毒の継続ダメージ増加 / 回復量補正
+  {
+    check(RELICS.filter((r) => r.inPool).every((r) => !r.description.includes('実装後')), 'レリック: 未実装の効果は抽選に出ない');
+    const run = createRun('zeno', 1, 'VitalGuard');
+    const plainMult = new RelicBattleState(run).dotMultiplier('Poison');
+    run.relics.push('venom_vial', 'saint_relic');
+    const rs = new RelicBattleState(run);
+    check(rs.dotMultiplier('Poison') === 1.5 && plainMult === 1, '毒蛇の牙瓶: 毒の継続ダメージ×1.5');
+    check(rs.healMultiplier() === 1.25, '聖者の遺骨: 戦闘中の回復量+25%');
+    const foe = makeEnemies([GOBLIN])[0];
+    foe.base.maxHP = foe.hp = 1000;
+    foe.applyStatus({ type: 'Poison', duration: 3, value: 0.05 }, 1);
+    const [dot] = foe.tickStatuses((t) => rs.dotMultiplier(t));
+    check(dot === 75, `毒の継続ダメージが増える (50 → ${dot})`);
+    run.relics.push('gale_ring');
+    const hero = new Combatant({ isPlayer: true, name: 'Z', characterId: 'zeno', stats: { ...zeno.baseStats } });
+    const tgt = makeEnemies([GOBLIN])[0];
+    check(new RelicBattleState(run).modifyOutgoingDamage(hero, tgt, 100, 'Wind', 5) === 120, '疾風の指輪: 風属性+20%');
+  }
+}
+
+// 装備の入手: パーティの誰かが装備できる物だけ
+import { drawEquipmentForFloor } from './src/data/equipment';
+import { partyCanEquip } from './src/core/run';
+import { Rng } from './src/core/rng';
+{
+  let bad = 0;
+  for (const c of CHARACTERS) {
+    const run = createRun(c.id, 1, 'VitalGuard');
+    const rng = new Rng(7);
+    for (let f = 0; f < 4; f++) for (let i = 0; i < 100; i++) {
+      const eq = drawEquipmentForFloor(f, rng, undefined, (e) => partyCanEquip(run, e.id));
+      if (!partyCanEquip(run, eq.id)) bad++;
+    }
+  }
+  if (bad === 0) console.log('✓ 装備の入手: パーティが装備できる物だけ');
+  else { console.error(`✗ 装備の入手: 装備できない物が${bad}件`); failures++; }
 }
 
 console.log(failures === 0 ? '\nALL OK' : `\n${failures} FAILURES`);

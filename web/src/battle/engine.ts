@@ -97,6 +97,7 @@ export class Combatant {
 
   // 装備由来
   weaponElement: ElementType = 'None'; // 武器属性 (通常攻撃に乗る)
+  weaponPoison = 0;                    // 通常攻撃で毒を付与する確率 (毒刃など)
   revivalAmuletAvailable = false;      // 蘇生の護符: 1戦闘1回の致死無効
 
   constructor(opts: {
@@ -210,7 +211,7 @@ export class Combatant {
   }
 
   /** DoT/HoT を処理して [dot, hot] を返す (DeathSentenceは engine 側で先に処理) */
-  tickStatuses(): [number, number] {
+  tickStatuses(dotMult?: (type: StatusEffectType) => number): [number, number] {
     let dot = 0;
     let hot = 0;
     for (const s of this.statuses) {
@@ -223,6 +224,7 @@ export class Combatant {
           if ((s.type === 'Poison' || s.type === 'Bleed') && this.passives.has('SKL_Passive_IronConstitution')) {
             dmg = Math.max(1, Math.round(dmg * 0.7));
           }
+          if (dotMult) dmg = Math.max(1, Math.round(dmg * dotMult(s.type)));
           dot += dmg;
           break;
         }
@@ -493,7 +495,8 @@ export class BattleEngine {
       }
 
       // DoT/HoT
-      const [dot, hot] = actor.tickStatuses();
+      // 毒蛇の牙瓶 / 錆びた鉤爪: 敵が受ける毒・出血の継続ダメージを増やす
+      const [dot, hot] = actor.tickStatuses(!actor.isPlayer && this.relics ? (t) => this.relics!.dotMultiplier(t) : undefined);
       if (dot > 0) this.emit({ kind: 'dot', target: actor, amount: dot });
       if (hot > 0) this.emit({ kind: 'heal', target: actor, amount: hot });
 
@@ -614,7 +617,7 @@ export class BattleEngine {
     }
 
     // 奇跡の手 (リリア固有トレイト) / 自動慈愛 (習得パッシブ・同じ効果):
-    // 毎アクション後、最もHP%が低い味方を魔攻×0.30回復 (BattleManager.TryLiliaAutoCompassion)。
+    // 毎アクション後、最もHP%が低い味方を魔攻×0.25回復 (BattleManager.TryLiliaAutoCompassion。Unity版の×0.30をWeb版で弱めた)。
     // 両方あっても1回だけ
     for (const healer of this.heroes) {
       if (!healer.isAlive) continue;
@@ -623,6 +626,7 @@ export class BattleEngine {
       if (!lowest || lowest.hpRatio >= T.MIRACLE_AUTO_HEAL_THRESHOLD) continue;
       let amount = Math.round(healer.matk * T.MIRACLE_AUTO_HEAL_MULT);
       if (healer.traits.has('PureheartHealer')) amount = Math.round(amount * (1 + T.PUREHEART_HEAL_BONUS));
+      if (this.relics) amount = Math.round(amount * this.relics.healMultiplier());
       const healed = lowest.heal(Math.max(1, amount));
       if (healed > 0) this.emit({ kind: 'heal', target: lowest, amount: healed });
     }
@@ -659,6 +663,11 @@ export class BattleEngine {
       const multi = attacker.isPlayer ? (this.relics?.multiHitBonus(hit) ?? 0) : 0;
       this.dealHit(attacker, target, 1.0 * (1 + multi), 'Physical', element, 0, 0);
       this.tryBreakShield(attacker, target, element, 1);
+      // 毒刃など: 当たった通常攻撃が確率で毒を付与
+      if (attacker.weaponPoison > 0 && this.lastHitDealt > 0 && target.isAlive && rnd.value() < attacker.weaponPoison
+        && target.applyStatus({ type: 'Poison', duration: 3, value: 0.05 }, 1)) {
+        this.emit({ kind: 'status', target, status: 'Poison', applied: true });
+      }
     }
     this.consumeShadowState(attacker);
   }
@@ -692,12 +701,14 @@ export class BattleEngine {
     const boost = getBoostUpgrade(skill, boostLevel);
     const boostPowerMult = boost.powerMult ?? 1;
     const healMult = boost.healPowerMult ?? boostPowerMult;
+    // 残り香の薫香: ブーストしたスキルのバフ・リジェネを1ターン延長
+    const boostExt = boostLevel > 0 && user.isPlayer ? (this.relics?.boostBuffExtendTurns() ?? 0) : 0;
     this.emit({ kind: 'skillUse', user, skillName: skill.name, skill, boost: boostLevel });
     if (boostLevel > 0 && boost.flavor) {
       this.emit({ kind: 'message', text: `【ブースト×${boostLevel}】${boost.flavor}` });
     }
 
-    // ── 吸収 (グリモワール) ──
+    // ── 簒奪 (グリモワール) ──
     if (skill.absorb) {
       this.executeAbsorb(user, skill, targetIndex, boost);
       if (skill.extendDebuffs) {
@@ -761,11 +772,13 @@ export class BattleEngine {
         } else {
           amount = Math.round((skill.healPower + user.matk * 0.5) * healMult);
         }
-        // 癒しの心得 (習得パッシブ) +25% / 清心の治癒師 (固有トレイト) +30%。両方で合計+55%
+        // 癒しの心得 (習得パッシブ) +25% / 清心の治癒師 (固有トレイト) +20%
         let healBonus = 0;
         if (user.passives.has('SKL_L2_Passive_HealingMastery')) healBonus += 0.25;
         if (user.traits.has('PureheartHealer')) healBonus += T.PUREHEART_HEAL_BONUS;
         if (healBonus > 0) amount = Math.round(amount * (1 + healBonus));
+        // 聖者の遺骨 (回復量+25%) / 涸れの呪い (回復量半減)
+        if (user.isPlayer && this.relics) amount = Math.round(amount * this.relics.healMultiplier());
         const healed = t.heal(amount);
         if (healed > 0) this.emit({ kind: 'heal', target: t, amount: healed });
         // ブースト: 回復と同時に状態異常も全解除 (治癒×2/全体治癒×2 など)
@@ -792,11 +805,12 @@ export class BattleEngine {
       const targets = (skill.regenFlat.toAllAllies || boost.hitsAllAllies)
         ? allies.filter((c) => c.isAlive)
         : [this.lowestHpAlly(allies) ?? user];
-      const perTurn = Math.max(1, Math.round(user.matk * skill.regenFlat.matkMult * healMult));
+      const perTurn = Math.max(1, Math.round(user.matk * skill.regenFlat.matkMult * healMult
+        * (user.isPlayer && this.relics ? this.relics.healMultiplier() : 1)));
       for (const t of targets) {
         t.applyStatus({
           type: 'RegenFlat',
-          duration: skill.regenFlat.duration + (boost.buffDurationBonus ?? 0)
+          duration: skill.regenFlat.duration + (boost.buffDurationBonus ?? 0) + boostExt
             + (user.traits.has('PureheartHealer') ? T.PUREHEART_REGEN_DURATION_BONUS : 0),
           value: perTurn,
         }, 1);
@@ -815,7 +829,7 @@ export class BattleEngine {
 
     // ── バフ ──
     if (skill.buff) {
-      const durBonus = boost.buffDurationBonus ?? boostLevel;
+      const durBonus = (boost.buffDurationBonus ?? boostLevel) + boostExt;
       for (const b of skill.buff) {
         const targets = (b.toAllAllies || boost.hitsAllAllies)
           ? (user.isPlayer ? this.heroes : this.enemies).filter((c) => c.isAlive)
@@ -938,6 +952,8 @@ export class BattleEngine {
       const boostCrit = (boost.critRateBonus ?? 0) + (boost.guaranteedCrit ? 100 : 0);
       const ignoreDef = Math.min(1, (skill.ignoreDefPct ?? 0) + (boost.ignoreDefPct ?? 0));
       let drained = 0;
+      // HP吸収: ゼノの吸収 (スキル) + 暗黒波×3 など (ブースト)
+      const drainPct = (skill.drainPct ?? 0) + (boost.drainPct ?? 0);
 
       for (const target of targets) {
         if (!target.isAlive) continue;
@@ -958,7 +974,7 @@ export class BattleEngine {
               ignoreDef,
               effSkill,
             );
-            if (boost.drainPct) drained += Math.round(this.lastHitDealt * boost.drainPct);
+            if (drainPct > 0) drained += Math.round(this.lastHitDealt * drainPct);
             if (skill.canBreak) {
               let shieldDmg = (skill.shieldDamage ?? 1) + (boost.extraShieldDamage ?? 0);
               // 聖光の加護: アンデッドのシールドは2倍削る
@@ -1016,6 +1032,11 @@ export class BattleEngine {
           let chance = skill.statusChance + (boost.statusChanceBonus ?? boostLevel * 0.1);
           let status = { ...skill.appliedStatus };
           status.duration += boost.statusDurationBonus ?? 0;
+          // 呪術師の髑髏 / 鈍色の砂 (敵に付けるときだけ)
+          if (user.isPlayer && !target.isPlayer && this.relics) {
+            chance += this.relics.statusChanceBonus();
+            status.duration += this.relics.debuffDurationBonus();
+          }
           // 呪術の心得: 確率+20%、持続+1
           if (user.passives.has('SKL_Z_Passive_CurseMastery')) {
             chance += 0.20;
@@ -1039,6 +1060,7 @@ export class BattleEngine {
           for (const d of skill.debuff) {
             let dur = d.duration + (boost.buffDurationBonus ?? 0);
             if (user.passives.has('SKL_Z_Passive_CurseMastery')) dur += 1;
+            if (user.isPlayer && this.relics) dur += this.relics.debuffDurationBonus();
             const value = d.value + (boost.debuffAmplify ?? 0);
             target.applyStatus({ type: d.type, duration: dur, value }, 1);
             this.emit({ kind: 'status', target, status: d.type, applied: true });
@@ -1049,7 +1071,8 @@ export class BattleEngine {
         if (target.isAlive && skill.randomDebuff) {
           const rd = skill.randomDebuff;
           const rdCount = rd.count + (boost.randomDebuffCountBonus ?? 0);
-          const rdDur = rd.duration + (boost.buffDurationBonus ?? 0);
+          const rdDur = rd.duration + (boost.buffDurationBonus ?? 0)
+            + (user.isPlayer && this.relics ? this.relics.debuffDurationBonus() : 0);
           if (rdCount > 0) {
             const pool: StatusEffectType[] = ['AtkDown', 'DefDown', 'SpdDown', 'AccDown'];
             for (let i = 0; i < rdCount; i++) {
@@ -1066,7 +1089,8 @@ export class BattleEngine {
               { type: 'Burn', value: 0.06 }, { type: 'Blind', value: 0 },
             ];
             const st = stPool[rnd.range(0, stPool.length)];
-            let chance = rd.statusChance + (boost.statusChanceBonus ?? 0);
+            let chance = rd.statusChance + (boost.statusChanceBonus ?? 0)
+              + (user.isPlayer && this.relics ? this.relics.statusChanceBonus() : 0);
             let dur = rdDur;
             if (user.passives.has('SKL_Z_Passive_CurseMastery')) { chance += 0.20; dur += 1; }
             const applied = target.applyStatus({ type: st.type, duration: dur, value: st.value }, chance);
@@ -1111,7 +1135,7 @@ export class BattleEngine {
         }
       }
 
-      // ブースト: HP吸収 (暗黒波×3)
+      // HP吸収 (吸収 / 暗黒波×3)
       if (drained > 0) {
         const healed = user.heal(drained);
         if (healed > 0) {
@@ -1212,7 +1236,7 @@ export class BattleEngine {
     }
   }
 
-  // ── 吸収 (ゼノ・グリモワール / ブーストで確率+・HP消費減・成功時BP) ──
+  // ── 簒奪 (ゼノ・グリモワール / ブーストで確率+・HP消費減・成功時BP) ──
   private executeAbsorb(
     user: Combatant, skill: SkillDef, targetIndex: number,
     boost: BoostUpgrade = { flavor: '' },
@@ -1225,7 +1249,7 @@ export class BattleEngine {
     const rank = target.enemyDef?.rank ?? 'Normal';
     const ab = skill.absorb!;
 
-    // HP消費 (吸収の代価: 半減 / ブースト: 倍率)
+    // HP消費 (簒奪の代価: 半減 / ブースト: 倍率)
     let hpCost = Math.round(user.base.maxHP * ab.hpCostPct * (boost.absorbHPCostMult ?? 1));
     if (user.passives.has('SKL_Z_Passive_PriceOfAbsorption')) hpCost = Math.round(hpCost * 0.5);
     // 魔獣の書の主: HP消費-25%
@@ -1236,23 +1260,24 @@ export class BattleEngine {
     }
 
     if (rank === 'Boss' || rank === 'TrueFinalBoss') {
-      this.emit({ kind: 'message', text: `${target.name} の魂は強大すぎる… 吸収できない！` });
+      this.emit({ kind: 'message', text: `${target.name} の魂は強大すぎる… 簒奪できない！` });
       return;
     }
     if (rank === 'Elite' && (!ab.eliteMult || ab.eliteMult <= 0)) {
-      this.emit({ kind: 'message', text: `${target.name} の魂は強い… 吸収できない！` });
+      this.emit({ kind: 'message', text: `${target.name} の魂は強い… 簒奪できない！` });
       return;
     }
 
-    let chance = ab.baseChance + ab.maxBonus * (1 - target.hpRatio);
+    let chance = ab.baseChance + ab.maxBonus * (1 - target.hpRatio)
+      + (ab.perStatus ?? 0) * Math.min(4, target.statuses.length);
     if (rank === 'Elite') chance *= ab.eliteMult ?? 1;
     if (rank === 'Normal' && ab.instantNormal) chance = 1;
-    // 暗黒の意志: HP25%以下で吸収率+30%
+    // 暗黒の意志: HP25%以下で簒奪率+30%
     const darkWillBonus = user.traits.has('DarkWill') && user.hpRatio <= T.DARKWILL_CRIT_HP ? T.DARKWILL_ABSORB_BONUS : 0;
     chance = Math.min(1, chance + (boost.absorbChanceBonus ?? 0) + darkWillBonus);
 
     if (rnd.value() < chance) {
-      // 吸収成功: 敵の技を1つ獲得して敵は消滅
+      // 簒奪成功: 敵の技を1つ獲得して敵は消滅
       const actions = target.enemyDef?.actions.filter((a) => a.skill.basePower > 0 || a.skill.appliedStatus) ?? [];
       const pick = actions.length > 0 ? actions[rnd.range(0, actions.length)] : null;
       target.hp = 0;
@@ -1264,21 +1289,21 @@ export class BattleEngine {
         this.emit({ kind: 'absorb', skillId: pick.skill.id, skillName: pick.skill.name });
         this.emit({ kind: 'message', text: `「${pick.skill.name}」をグリモワールに刻んだ！` });
       }
-      // ブースト: 吸収成功時BP回復 (吸収×3 / 魂喰い×2以上)
+      // ブースト: 簒奪成功時BP回復 (簒奪×3 / 魂喰い×2以上)
       if (boost.gainBP) {
         user.addBP(boost.gainBP);
         this.emit({ kind: 'message', text: `${user.name} のBP+${boost.gainBP}！` });
       }
       this.handleDefeat(target);
 
-      // 吸収の代価: 吸収した技を即座に1回、MPを使わずに放つ (ZenoDesign.Passive_PriceOfAbsorption)
+      // 簒奪の代価: 奪った技を即座に1回、MPを使わずに放つ (ZenoDesign.Passive_PriceOfAbsorption)
       const absorbed = pick ? user.skills.find((s) => s.id === pick.skill.id) : undefined;
       if (absorbed && user.passives.has('SKL_Z_Passive_PriceOfAbsorption') && this.enemies.some((e) => e.isAlive)) {
-        this.emit({ kind: 'message', text: `吸収の代価 — 「${absorbed.name}」を即座に放つ！` });
+        this.emit({ kind: 'message', text: `簒奪の代価 — 「${absorbed.name}」を即座に放つ！` });
         this.executeSkill(user, absorbed, this.enemies.findIndex((e) => e.isAlive), 0, true);
       }
     } else {
-      this.emit({ kind: 'message', text: `吸収に失敗した… (成功率${Math.round(chance * 100)}%)` });
+      this.emit({ kind: 'message', text: `簒奪に失敗した… (成功率${Math.round(chance * 100)}%)` });
     }
   }
 
@@ -1307,7 +1332,7 @@ export class BattleEngine {
       let hitChance = attacker.accuracy / 100;
       if (attacker.hasStatus('Blind')) hitChance -= 0.25;
       let dodge = target.dodgeBonus;
-      if (this.relics) dodge += this.relics.evasionBonus();
+      if (this.relics) dodge += this.relics.evasionBonus(target.base.luck);
       const isSingleTarget = !skill?.hitsAllEnemies;
       const afterimage = target.getStatus('Afterimage');
       if (afterimage && isSingleTarget) dodge += afterimage.value;
@@ -1402,7 +1427,7 @@ export class BattleEngine {
       if (attacker.isPlayer && !target.isPlayer) {
         raw = this.relics.modifyOutgoingDamage(
           attacker, target, raw, element,
-          attacker.skills.filter((s) => !s.isPassive).length);
+          attacker.skills.filter((s) => !s.isPassive).length, isWeak);
       } else if (target.isPlayer && dmgType !== 'True') {
         const result = this.relics.modifyIncomingDamage(target, raw);
         raw = result.damage;

@@ -8,11 +8,11 @@ import type { ElementType, StatusEffectType } from '../core/types';
 /** 属性の色 (主色・明るい芯) */
 export const ELEMENT_FX_COLOR: Record<ElementType, number> = {
   None: 0xe8dcc0, Physical: 0xe8dcc0, Fire: 0xff6a24, Ice: 0x86cfee, Lightning: 0xf2d260,
-  Wind: 0x86dca0, Dark: 0x9a5ae8, Light: 0xf6e2a0, Poison: 0x8acc58, Bleed: 0xc8283a,
+  Wind: 0x86dca0, Dark: 0x9a5ae8, Light: 0xf6e2a0,
 };
 const ELEMENT_CORE: Record<ElementType, number> = {
   None: 0xffffff, Physical: 0xffffff, Fire: 0xffd27a, Ice: 0xeafaff, Lightning: 0xfffbe0,
-  Wind: 0xe6fff0, Dark: 0xe0c8ff, Light: 0xfffbea, Poison: 0xe0ffc0, Bleed: 0xff9aa8,
+  Wind: 0xe6fff0, Dark: 0xe0c8ff, Light: 0xfffbea,
 };
 
 /** 状態異常・強化の色と、良い効果かどうか */
@@ -496,15 +496,6 @@ export class BattleFx {
         });
         break;
       }
-      case 'Poison':
-        this.burst(x, y + 20, { tint: [0x8acc58, 0x5a9a38, 0xc8f090], count: 20, speed: [20, 80], angle: [220, 320], life: 900, scale: [0.15, 0.55], gravity: -100, spread: 20 });
-        this.smoke(x, y, 0x4a7a2a, 7, 30, 0.45);
-        this.glow(x, y, 0x6aaa40, 200, 500, 0.5);
-        break;
-      case 'Bleed':
-        if (enemyClaw) this.claw(x, y, 0xff8090, fromLeft, crit); else this.slash(x, y, 0xffb0b8, fromLeft, crit);
-        this.burst(x, y, { tint: [0xc8283a, 0x7a1020], count: 20, speed: [120, 280], angle: fromLeft ? [-60, 40] : [140, 240], life: 600, scale: [0.32, 0.06], gravity: 600, add: false });
-        break;
       default:
         if (magical) {
           // 無属性の魔法: 光の破裂

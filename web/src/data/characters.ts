@@ -162,7 +162,7 @@ export const CHARACTERS: CharacterDef[] = [
     name: 'ゼノ・ファウスト',
     jobName: '呪術師',
     backstory:
-      '呪骸杖グリムを携える異端の呪術師。敵の技を「吸収」し、己の魔導書に刻む。' +
+      '呪骸杖グリムを携える異端の呪術師。敵の技を「簒奪」し、己の魔導書に刻む。' +
       'その代償として、彼の命は常に削られ続けている。',
     themeColor: 0x6b3d8f,
     baseStats: {
@@ -176,20 +176,24 @@ export const CHARACTERS: CharacterDef[] = [
       criticalRate: 0, accuracyRate: 0,
     },
     learnableSkills: [
-      { jobLevel: 1,  skill: ZENO_SKILLS.bindCurse, jpCost: 0 },
+      // Web版で追加: 与ダメージの半分を回復する闇魔法 (HPを削って戦うゼノの立て直し手段)
+      { jobLevel: 1,  skill: ZENO_SKILLS.drain, jpCost: 0 },
       // Web版で追加: 呪いを重ねて爆ぜさせる攻撃技
       { jobLevel: 1,  skill: ZENO_SKILLS.curseBurst, jpCost: 0 },
-      // Web版の調整: 吸収は職Lv4 → 最初から (Unity版 ZenoSOGenerator では JobLevel=4)
+      { jobLevel: 1,  skill: ZENO_SKILLS.bindCurse, jpCost: 0 },
+      // Web版の調整: 簒奪 (旧・吸収) は職Lv4 → 最初から (Unity版 ZenoSOGenerator では JobLevel=4)
       { jobLevel: 1,  skill: ZENO_SKILLS.absorb, jpCost: 0 },
-      // Web版の調整: 毒霧は職Lv2 → 最初から (呪詛解放と組み合わせる前提)
-      { jobLevel: 1,  skill: ZENO_SKILLS.poisonMist, jpCost: 0 },
+      // 毒霧は Unity版どおり職Lv2 (吸収を最初から覚える代わりに戻した)
+      { jobLevel: 2,  skill: ZENO_SKILLS.poisonMist, jpCost: 60 },
       { jobLevel: 3,  skill: ZENO_SKILLS.terror, jpCost: 80 },
       { jobLevel: 3,  skill: ZENO_SKILLS.evilEye, jpCost: 90 },
 
       { jobLevel: 5,  skill: ZENO_SKILLS.soulShackle, jpCost: 130 },
+      // Web版の調整: 簒奪＋は職Lv6 → 5 (エリートに通じる簒奪を中盤から使えるように)
+      { jobLevel: 5,  skill: ZENO_SKILLS.absorbPlus, jpCost: 150 },
       { jobLevel: 6,  skill: ZENO_SKILLS.curseFog, jpCost: 160 },
       { jobLevel: 6,  skill: ZENO_SKILLS.bindCursePlus, jpCost: 150 },
-      { jobLevel: 6,  skill: ZENO_SKILLS.absorbPlus, jpCost: 170 },
+      { jobLevel: 6,  skill: ZENO_SKILLS.drainPlus, jpCost: 170 },
       { jobLevel: 7,  skill: ZENO_SKILLS.causalChain, jpCost: 200 },
       { jobLevel: 8,  skill: ZENO_SKILLS.soulFeast, jpCost: 220 },
       { jobLevel: 9,  skill: ZENO_SKILLS.deathSentence, jpCost: 240 },

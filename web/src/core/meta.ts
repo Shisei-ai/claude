@@ -12,7 +12,7 @@ export type MetaBonusType =
   | 'ExtraRelicChoices' | 'StartBP'
   | 'FloorClearExtraHeal' | 'StartWithCommonRelic'
   | 'CurseDmgReduction' | 'CurseHPReductionImmune'
-  | 'GrimoireCarrySlot'    // Web版で追加: ゼノが旅立ちに持ち込める吸収技の枠
+  | 'GrimoireCarrySlot'    // Web版で追加: ゼノが旅立ちに持ち込める簒奪技の枠
   // Web版で追加 (深層の段)
   | 'RestHealPercent'      // 焚き火の回復量 +%
   | 'StartJP'              // 旅立ち時に JP を得る
@@ -164,7 +164,7 @@ export const META_NODES: MetaNode[] = [
     { type: 'CurseDmgReduction', value: 0.15 }, { type: 'MaxHPPercent', value: 0.04 },
     { type: 'PhysDefPercent', value: 0.02 }, { type: 'MagDefPercent', value: 0.02 }),
 
-  // PATH 6 : 魔獣の書 (Web版で追加 — ゼノの吸収技の持ち越し)
+  // PATH 6 : 魔獣の書 (Web版で追加 — ゼノの簒奪技の持ち越し)
   N('grimoire_1', '魔獣の書', '書に残る記憶', 'ゼノで旅立つとき、これまでに刻んだ技を1つ持ち込める。', 30, [], false,
     { type: 'GrimoireCarrySlot', value: 1 }),
   N('grimoire_2', '魔獣の書', '★ 深淵の蔵書', '持ち込める技がさらに1つ増える。', 60, ['grimoire_1'], false,
@@ -202,7 +202,7 @@ export function tryUnlockNode(id: string): boolean {
   return true;
 }
 
-/** ゼノが旅立ちに持ち込める吸収技の数 (彼方の墓標「魔獣の書」で解放) */
+/** ゼノが旅立ちに持ち込める簒奪技の数 (彼方の墓標「魔獣の書」で解放) */
 export function grimoireCarrySlots(): number {
   return META_NODES
     .filter((n) => isNodeUnlocked(n.id))

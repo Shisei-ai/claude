@@ -1,8 +1,9 @@
 // ── Unity版 Data/CharacterData.cs からの移植 ────────────────────────────
 
+// Web版の整理: 毒・出血は属性ではなく状態異常 (StatusEffectType) としてだけ扱う
 export type ElementType =
   | 'None' | 'Physical' | 'Fire' | 'Ice' | 'Lightning' | 'Wind'
-  | 'Dark' | 'Light' | 'Poison' | 'Bleed';
+  | 'Dark' | 'Light';
 
 export type DamageType = 'Physical' | 'Magical' | 'True';
 
@@ -111,7 +112,7 @@ export interface SkillDef {
   critBonus?: number;       // このスキル使用時の会心率ボーナス
   isPassive?: boolean;      // パッシブ(コマンドとして出さない)
   isFieldSkill?: boolean;   // フィールドスキル(鍵師の手など。バトル外で効果)
-  fromGrimoire?: boolean;   // ゼノがグリモワールに刻んだ敵の技 (吸収技)
+  fromGrimoire?: boolean;   // ゼノがグリモワールに刻んだ敵の技 (簒奪技)
   shieldRestore?: number;   // 敵専用: シールド回復
   healAmountFlat?: number;  // 敵専用: 固定回復
   clearsOwnStatus?: boolean;// 敵専用: 自身の状態異常を全解除 (封印解除/虚無の浄化)
@@ -139,11 +140,13 @@ export interface SkillDef {
   trap?: { power: number; stunChance: number; poison?: boolean }; // 罠設置
   causalChain?: { pct: number; duration: number; all: boolean };  // 因果の鎖
   deathSentence?: { delay: number; bossDmgPct: number };          // 死の宣告
-  absorb?: {                    // 吸収 (グリモワール)
+  drainPct?: number;            // 与ダメージのN%を自分のHPとして回復 (ゼノの吸収)
+  absorb?: {                    // 簒奪 (グリモワール。内部名は旧称の absorb のまま)
     baseChance: number;         // 基本確率
     maxBonus: number;           // HP0%時の最大ボーナス
     hpCostPct: number;          // 術者MaxHP消費率
     eliteMult?: number;         // エリートへの確率倍率 (0=不可)
+    perStatus?: number;         // 対象の状態異常1種ごとの確率加算 (最大4種)
     instantNormal?: boolean;    // 冥界の扉: 通常敵100%
   };
   extendDebuffs?: number;       // 冥界の扉: 全デバフ持続+Nターン
@@ -194,6 +197,7 @@ export interface EquipmentDef {
   weaponCategory?: WeaponType;
   armorCategory?: ArmorType;
   weaponElement: ElementType;    // 武器属性 (通常攻撃の属性になる)
+  weaponPoison?: number;         // 通常攻撃が毒を付与する確率 (毒刃など)
   bonusStats: Partial<CharacterStats>;
   value: number;                 // ショップ価格
   passiveText?: string;

@@ -5,7 +5,7 @@
 //   ラヴィニア:   LaviniaTraits.cs  (魔法の極意・過負荷詠唱・元素共鳴)
 //   アッシュ:     AshTraits.cs      (影舞踊・鷲の目・盗賊の技)
 //   リリア:       LiliaTraits.cs    (清心の治癒師・奇跡の手・聖光の加護)
-//   ゼノ:         ZenoTraits.cs     (呪詛増幅・魔獣の書の主・暗黒の意志) → 呪いの刻印 (新規)・呪詛増幅・吸収の代価
+//   ゼノ:         ZenoTraits.cs     (呪詛増幅・魔獣の書の主・暗黒の意志) → 呪いの刻印 (新規)・呪詛増幅・簒奪の代価
 // 以前は職Lvで覚えていたもの (鋼の肉体・過負荷詠唱など) や最初から有効だった特性もここへ移した。
 import type { SkillDef } from '../core/types';
 import { BERNHARD_SKILLS as B, LAVINIA_SKILLS as L, ASH_SKILLS as A, ZENO_SKILLS as Z } from './skills';
@@ -79,7 +79,7 @@ export const LEVEL_PASSIVES: Record<string, LevelPassive[]> = {
   // 呪術の心得 (付与率+20%・持続+1) は呪詛増幅とほぼ同じため外した。
   // ゼノは序盤 (第1層のボス) で倒れやすかったため、呪術師らしく「先手で敵を弱らせる」呪いの刻印を新しく作り、
   // 刻印の2つの弱体と呪詛増幅 (状態異常1種につき与ダメ+15%) が噛み合うようにした。
-  // 吸収の代価は吸収の核として残し、魔獣の書の主・暗黒の意志は外した (吸収技の威力の目減りはWeb版でなくした)
+  // 簒奪の代価 (旧・吸収の代価) は簒奪の核として残し、魔獣の書の主・暗黒の意志は外した (奪った技の威力の目減りはWeb版でなくした)
   zeno: [
     {
       level: 1,

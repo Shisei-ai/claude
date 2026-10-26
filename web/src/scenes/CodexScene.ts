@@ -241,7 +241,7 @@ export class CodexScene extends Phaser.Scene {
     this.renderGrid(GRIMOIRE_SKILLS,
       (s) => ({ label: s.name, color: ELEMENT_BADGE[s.element].color, known: got.has(s.id) }),
       (s) => this.grimoireDetail(s, got.has(s.id)),
-      `刻んだ技 ${known} / ${GRIMOIRE_SKILLS.length}　（ゼノの吸収で記録。「魔獣の書」を解放すると旅立ちに持ち込める）`);
+      `刻んだ技 ${known} / ${GRIMOIRE_SKILLS.length}　（ゼノの簒奪で記録。「魔獣の書」を解放すると旅立ちに持ち込める）`);
   }
 
   private grimoireDetail(s: SkillDef, known: boolean): void {
@@ -249,7 +249,7 @@ export class CodexScene extends Phaser.Scene {
     const from = enemyUsingSkill(s.id);
     if (!known) {
       y = this.line(y, '？？？', 22, COLORS.textDim);
-      this.line(y, `${from ? from.name + ' が使う技。' : ''}まだ吸収していない。`, 14, COLORS.textDim);
+      this.line(y, `${from ? from.name + ' が使う技。' : ''}まだ簒奪していない。`, 14, COLORS.textDim);
       return;
     }
     const badge = ELEMENT_BADGE[s.element];
