@@ -203,7 +203,7 @@ export const RELICS: RelicDef[] = [
   R('collector_bag', '蒐集家の鞄', 'Uncommon', 'ExtraLootChoice', 1,
     '戦闘後の報酬選択肢+1。', '「入らないものは無い」が口癖の男の遺品。'),
   R('mirror_of_avarice', '強欲の合わせ鏡', 'Rare', 'DuplicateRelic', 1,
-    'レリック入手時、所持レリックのどれかのコピーも得る。', '鏡の中の宝物は、手を伸ばせば取れる。この鏡に限り。'),
+    'レリック入手時、所持している一般・珍しいレリックのどれかのコピーも得る (1ランに3回まで)。', '鏡の中の宝物は、手を伸ばせば取れる。この鏡に限り。'),
 
   // ══════════ Skill / Deck ══════════
   R('feather_of_focus', '集中の羽飾り', 'Common', 'SkillMPDiscount', 1,

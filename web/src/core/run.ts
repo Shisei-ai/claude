@@ -66,6 +66,7 @@ export interface RunState {
   relics: string[];             // RelicDef.id (重複所持あり = 強欲の合わせ鏡)
   curses: string[];             // CurseType
   soulSiphonCount: number;      // 魂の吊灯籠: 撃破カウント
+  mirrorCopies: number;         // 強欲の合わせ鏡: このランで複製した回数
   shieldBarrier: number;        // 巡礼者の礎石: フロア跨ぎバリア蓄積
 
   // Events / Ending
@@ -215,6 +216,7 @@ export function createRun(
     relics: [],
     curses: [],
     soulSiphonCount: 0,
+    mirrorCopies: 0,
     shieldBarrier: 0,
 
     activeEnding: null,

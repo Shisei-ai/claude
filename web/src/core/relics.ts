@@ -126,6 +126,10 @@ export function drawRelic(
   return chosen;
 }
 
+/** 強欲の合わせ鏡: 複製の上限回数と、複製できるレアリティ (Web版のナーフ) */
+export const MIRROR_MAX_COPIES = 3;
+const MIRROR_COPY_RARITIES: RelicRarity[] = ['Common', 'Uncommon'];
+
 /** レリック入手 (DuplicateRelic・PhilosophersStone・CursedButPowerful の副作用込み) */
 export function addRelicToRun(run: RunState, relic: RelicDef): RelicDef[] {
   const gained: RelicDef[] = [relic];
@@ -142,17 +146,18 @@ export function addRelicToRun(run: RunState, relic: RelicDef): RelicDef[] {
     run.currentHP = Math.min(run.currentHP, run.maxHPBase);
   }
 
-  // 強欲の合わせ鏡: 所持レリックのコピーを1つ得る (今取った物以外)
-  if (hasEffect(run, 'DuplicateRelic') && run.relics.length > 1) {
-    const candidates = run.relics.filter((id) => id !== relic.id);
+  // 強欲の合わせ鏡: 所持している一般・珍しいレリックのコピーを1つ得る (今取った物と鏡自身以外。1ランに3回まで)
+  if (hasEffect(run, 'DuplicateRelic') && run.mirrorCopies < MIRROR_MAX_COPIES) {
+    const candidates = run.relics.filter((id) => {
+      const r = getRelic(id);
+      return id !== relic.id && !!r && r.effect !== 'DuplicateRelic' && MIRROR_COPY_RARITIES.includes(r.rarity);
+    });
     if (candidates.length > 0) {
-      const copyId = candidates[rnd.range(0, candidates.length)];
-      const copy = getRelic(copyId);
-      if (copy) {
-        run.relics.push(copy.id);
-        run.relicsFound++;
-        gained.push(copy);
-      }
+      const copy = getRelic(candidates[rnd.range(0, candidates.length)])!;
+      run.relics.push(copy.id);
+      run.relicsFound++;
+      run.mirrorCopies++;
+      gained.push(copy);
     }
   }
   return gained;

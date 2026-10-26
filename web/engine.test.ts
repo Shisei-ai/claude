@@ -569,5 +569,22 @@ import { Rng } from './src/core/rng';
   else { console.error(`✗ 装備の入手: 装備できない物が${bad}件`); failures++; }
 }
 
+// 強欲の合わせ鏡: 一般・珍しいだけを複製、1ランに3回まで
+import { addRelicToRun } from './src/core/relics';
+import { getRelic } from './src/data/relics';
+{
+  const run = createRun('bernhard', 1, 'VitalGuard');
+  run.relics = [];
+  addRelicToRun(run, getRelic('kings_scepter')!);     // ボス報酬 (複製対象外)
+  addRelicToRun(run, getRelic('mirror_of_avarice')!);
+  const first = run.relics.length;                     // 一般・珍しいが無いので複製なし
+  for (const id of ['whetstone', 'hawk_feather', 'ember_ring', 'frost_ring', 'storm_ring', 'abyss_ring']) addRelicToRun(run, getRelic(id)!);
+  const copies = run.relics.length - first - 6;
+  const scepters = run.relics.filter((id) => id === 'kings_scepter').length;
+  const mirrors = run.relics.filter((id) => id === 'mirror_of_avarice').length;
+  if (first === 2 && copies === 3 && run.mirrorCopies === 3 && scepters === 1 && mirrors === 1) console.log('✓ 強欲の合わせ鏡: 一般・珍しいだけを1ランに3回まで複製');
+  else { console.error(`✗ 強欲の合わせ鏡: first=${first} copies=${copies} scepters=${scepters} mirrors=${mirrors}`); failures++; }
+}
+
 console.log(failures === 0 ? '\nALL OK' : `\n${failures} FAILURES`);
 process.exit(failures === 0 ? 0 : 1);
