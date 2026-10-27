@@ -1369,22 +1369,25 @@ export class BattleEngine {
     if (attacker.isPlayer && this.relics) critRate += this.relics.critRateBonus();
     const isCrit = rnd.range(0, 100) < Math.min(100, critRate);
 
-    // 会心倍率 (物理2.0 / 魔法1.5、会心強化2.5 / 魔法の極意2.5)
+    // 会心倍率 (物理1.6 / 魔法1.4、鷲の目・魔法の極意は2.0)
     let critMult = 1;
     if (isCrit) {
       if (dmgType === 'Magical') {
-        critMult = attacker.passives.has('SKL_L_Passive_ArcaneMastery') ? 2.5 : 1.5;
+        critMult = attacker.passives.has('SKL_L_Passive_ArcaneMastery') ? T.CRIT_MULT_ARCANE : T.CRIT_MULT_MAGICAL;
       } else {
-        critMult = attacker.passives.has('SKL_A_Passive_CritEnhance') ? 2.5 : 2.0;
+        critMult = attacker.passives.has('SKL_A_Passive_CritEnhance') ? T.CRIT_MULT_EAGLE_EYE : T.CRIT_MULT_PHYSICAL;
       }
       if (attacker.isPlayer && this.relics) {
         critMult += this.relics.critDamageBonus();
         this.relics.notifyCriticalHit();
       }
-      // 会心強化: スタック加算
+      // 鷲の目: 会心が続くほど会心率が上がる (最大3段)
       if (attacker.passives.has('SKL_A_Passive_CritEnhance')) {
         attacker.critStacks = Math.min(3, attacker.critStacks + 1);
       }
+    } else {
+      // Web版の修正: 会心しなかったら段は戻る (以前は戦闘中ずっと残っていた)
+      attacker.critStacks = 0;
     }
 
     const isWeak = this.isElementWeak(target, element);
@@ -1394,9 +1397,9 @@ export class BattleEngine {
     let extraMult = 1;
     if (skill?.undeadMult && target.enemyDef?.isUndead) extraMult = skill.undeadMult;
 
-    // Shadow State: 攻撃全般+30% (Trait_ShadowDance)
+    // Shadow State: 攻撃全般+20% (Trait_ShadowDance。Unity版は+30%)
     let shadowMult = 1;
-    if (attacker.shadowState && attacker.traits.has('ShadowDance')) shadowMult = 1.30;
+    if (attacker.shadowState && attacker.traits.has('ShadowDance')) shadowMult = T.SHADOW_DAMAGE_MULT;
 
     // 聖光の加護: 光属性+40%、アンデッドにはさらに×1.5 (ComputeRawDamage の Light 分岐)
     let holyMult = 1;

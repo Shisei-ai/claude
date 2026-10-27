@@ -201,7 +201,7 @@ export const LAVINIA_SKILLS = {
   }),
   passiveArcaneMastery: atk({
     id: 'SKL_L_Passive_ArcaneMastery', name: '魔法の極意',
-    description: '魔法の会心ダメージ×2.5。魔攻に応じて会心率UP。',
+    description: '魔法の会心ダメージ×2.0。魔攻に応じて会心率UP。',
     basePower: 0, isPassive: true,
   }),
 };
@@ -214,7 +214,7 @@ export const ASH_SKILLS = {
   shadowArrow: atk({
     id: 'SKL_A_ShadowArrow', name: '影矢',
     description: '影状態なら威力+40%。',
-    element: 'Dark', basePower: 1.30, mpCost: 4, shadowPowerBonus: 0.40,
+    element: 'Dark', basePower: 1.20, mpCost: 5, shadowPowerBonus: 0.40,
   }),
   poisonArrow: atk({
     id: 'SKL_A_PoisonArrow', name: '毒矢',
@@ -231,20 +231,20 @@ export const ASH_SKILLS = {
   }),
   eagleEye: atk({
     id: 'SKL_A_EagleEye', name: '鷹の目',
-    description: '2ターン必中、会心率+35%。',
+    description: '会心率+25%（2ターン）。',
     basePower: 0, mpCost: 8,
-    buff: [{ type: 'CritUp', value: 35, duration: 2, toSelf: true }],
+    buff: [{ type: 'CritUp', value: 25, duration: 2, toSelf: true }],
   }),
   doubleShot: atk({
     id: 'SKL_A_DoubleShot', name: '二連射',
     description: '影状態なら3連射。',
-    basePower: 0.85, hitCount: 2, mpCost: 12, shadowExtraHits: 1,
+    basePower: 0.80, hitCount: 2, mpCost: 12, shadowExtraHits: 1,
   }),
   setTrap: atk({
     id: 'SKL_A_SetTrap', name: '罠設置',
-    description: '次に動いた敵に爆発(230%)、50%でスタン。影状態になる。',
+    description: '次に動いた敵に爆発(200%)、50%でスタン。影状態になる。',
     basePower: 0, mpCost: 10, grantsShadowState: true,
-    trap: { power: 2.30, stunChance: 0.50 },
+    trap: { power: 2.00, stunChance: 0.50 },
   }),
   smokeScreen: atk({
     id: 'SKL_A_SmokeScreen', name: 'スモーク',
@@ -257,19 +257,19 @@ export const ASH_SKILLS = {
   }),
   deathmarkShot: atk({
     id: 'SKL_A_DeathmarkShot', name: '必殺狙撃',
-    description: 'HP35%以下の敵を30%で即死。影状態なら350%。',
-    basePower: 3.00, mpCost: 20,
+    description: 'HP35%以下の敵を30%で即死。影状態なら威力+50%。',
+    basePower: 2.50, mpCost: 20,
     executeChance: 0.30, executeThreshold: 0.35, shadowPowerBonus: 0.50,
   }),
   arrowRain: atk({
     id: 'SKL_A_ArrowRain', name: '矢の雨',
     description: 'シールドを削りやすい。',
-    basePower: 0.65, hitCount: 3, mpCost: 22, hitsAllEnemies: true, canBreak: true,
+    basePower: 0.55, hitCount: 3, mpCost: 22, hitsAllEnemies: true, canBreak: true,
   }),
   shadowArrowPlus: atk({
     id: 'SKL_A_ShadowArrowPlus', name: '影矢＋',
-    description: '影状態なら威力+55%・会心確定。',
-    element: 'Dark', basePower: 1.75, mpCost: 4, shadowPowerBonus: 0.55,
+    description: '影状態なら威力+45%。',
+    element: 'Dark', basePower: 1.55, mpCost: 8, shadowPowerBonus: 0.45,
   }),
   shadowStitch: atk({
     id: 'SKL_A_ShadowStitch', name: '影縫い',
@@ -280,7 +280,7 @@ export const ASH_SKILLS = {
   danceOfDeath: atk({
     id: 'SKL_A_DanceOfDeath', name: '死の踊り',
     description: 'ランダムな敵を5連打。会心で追撃。',
-    basePower: 1.10, hitCount: 5, mpCost: 28,
+    basePower: 0.85, hitCount: 5, mpCost: 28,
     randomTargets: true, critExtraHit: true,
   }),
   // フィールドスキル
@@ -307,7 +307,7 @@ export const ASH_SKILLS = {
   }),
   passiveCritEnhancement: atk({
     id: 'SKL_A_Passive_CritEnhance', name: '会心強化',
-    description: '会心ダメージ×2.5。会心で次の会心率が上がる。',
+    description: '会心ダメージ×2.0。会心が続くほど会心しやすい。',
     basePower: 0, isPassive: true,
   }),
 };

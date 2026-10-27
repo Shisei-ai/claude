@@ -586,5 +586,28 @@ import { getRelic } from './src/data/relics';
   else { console.error(`✗ 強欲の合わせ鏡: first=${first} copies=${copies} scepters=${scepters} mirrors=${mirrors}`); failures++; }
 }
 
+// 会心倍率 (Web版で弱めた) / 鷲の目の段は会心が途切れると戻る
+import * as TR from './src/battle/traits';
+{
+  const check = (ok: boolean, label: string) => { if (ok) console.log(`✓ ${label}`); else { console.error(`✗ ${label}`); failures++; } };
+  check(TR.CRIT_MULT_PHYSICAL === 1.6 && TR.CRIT_MULT_EAGLE_EYE === 2.0, '会心倍率: 物理1.6・鷲の目2.0');
+  const ash = CHARACTERS.find((c) => c.id === 'ash')!;
+  const mkAsh = (crit: number) => {
+    const h = new Combatant({ isPlayer: true, name: 'A', characterId: 'ash', stats: { ...ash.baseStats, criticalRate: crit, luck: 0, speed: 999 },
+      passives: new Set(['SKL_A_Passive_CritEnhance']) });
+    return h;
+  };
+  const hitOnce = (h: Combatant) => {
+    const foe = makeEnemies([GOBLIN])[0]; foe.base.maxHP = foe.hp = 999999;
+    const eng = new BattleEngine([h], [foe], 0);
+    let st = eng.advance(); eng.drainEvents();
+    while (st !== 'awaitInput' && !eng.over) { st = eng.advance(); eng.drainEvents(); }
+    eng.executePlayerCommand({ type: 'attack', targetIndex: 0, boostLevel: 0 });
+  };
+  const sure = mkAsh(100); hitOnce(sure);
+  const never = mkAsh(-100); never.critStacks = 3; hitOnce(never);
+  check(sure.critStacks >= 1 && never.critStacks === 0, '鷲の目: 会心で段が上がり、会心しないと戻る');
+}
+
 console.log(failures === 0 ? '\nALL OK' : `\n${failures} FAILURES`);
 process.exit(failures === 0 ? 0 : 1);

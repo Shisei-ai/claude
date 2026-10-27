@@ -60,7 +60,7 @@ export const LEVEL_PASSIVES: Record<string, LevelPassive[]> = {
     {
       level: 3,
       skill: { ...A.passiveCritEnhancement, name: '鷲の目',
-        description: '会心ダメージ×2.5。運が高いほど会心しやすい。' },
+        description: '会心ダメージ×2.0。運が高いほど、会心が続くほど会心しやすい。' },
     },
     {
       level: 5,

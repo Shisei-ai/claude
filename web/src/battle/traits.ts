@@ -28,7 +28,7 @@ export const CHARACTER_TRAITS: Record<string, TraitId[]> = {
 
 /** 表示用の名前と説明 (Unity版 GetCurrentBonusText / クラスコメント準拠) */
 export const TRAIT_INFO: Record<TraitId, { name: string; desc: string }> = {
-  ShadowDance: { name: '影舞踊', desc: '回避率+20%。回避すると影状態になり、次の攻撃が会心・威力+30%' },
+  ShadowDance: { name: '影舞踊', desc: '回避率+20%。回避すると影状態になり、次の攻撃の威力+20%' },
   PureheartHealer: { name: '清心の治癒師', desc: '回復量+20%。蘇生すると自分も回復。リジェネ延長' },
   MiracleHands: { name: '奇跡の手', desc: '誰かが行動するたび、最もHPの低い味方を少し回復' },
   HolyGrace: { name: '聖光の加護', desc: '光属性+40%。アンデッドにはさらに強く、シールドも2倍削る' },
@@ -39,6 +39,13 @@ export const TRAIT_INFO: Record<TraitId, { name: string; desc: string }> = {
 
 // ── 定数 (Unity版の各トレイトクラスの const) ─────────────────────────
 export const SHADOW_DODGE_BONUS = 0.20;            // Trait_ShadowDance.DodgeRateBonus
+export const SHADOW_DAMAGE_MULT = 1.20;            // 影状態の与ダメ (Unity版 1.30。Web版で弱めた)
+
+// 会心倍率 (Web版の調整: Unity版の物理2.0 / 魔法1.5 / 会心強化2.5 / 魔法の極意2.5 から下げた)
+export const CRIT_MULT_PHYSICAL = 1.6;
+export const CRIT_MULT_MAGICAL = 1.4;
+export const CRIT_MULT_EAGLE_EYE = 2.0;            // 鷲の目 (アッシュ)
+export const CRIT_MULT_ARCANE = 2.0;               // 魔法の極意 (ラヴィニア)
 
 // Web版の調整: 回復が強すぎたため、清心の治癒師は回復量+30% → +20%、奇跡の手は魔攻×0.30 → ×0.25
 export const PUREHEART_HEAL_BONUS = 0.20;          // Trait_PureheartHealer.HealBonus (Unity版 0.30)
