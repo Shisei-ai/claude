@@ -1,0 +1,49 @@
+// 最終層 (Floor 4) 導入 — Unity版 EndingSystem.CreateFloor4 相当
+// ヴァルゴット撃破後、証印を持つ場合のみ到達する
+import Phaser from 'phaser';
+import { playBgm } from '../audio/bgm';
+import { COLORS, makeButton, textStyle, titleStyle, addVignette, addAmbientMotes, drawOrnamentLine } from '../ui/theme';
+import { loadRun, saveRun } from '../core/save';
+import { getEnding } from '../data/endings';
+import { Rng } from '../core/rng';
+
+export class FinaleScene extends Phaser.Scene {
+  constructor() { super('Finale'); }
+
+  create(): void {
+    const run = loadRun();
+    const ending = getEnding(run?.activeEnding ?? null);
+    if (!run || !ending) { this.scene.start('MainMenu'); return; }
+    playBgm(this, 'finale');
+
+    const { width, height } = this.scale;
+    this.add.rectangle(width / 2, height / 2, width, height, 0x000000);
+    this.add.rectangle(width / 2, height / 2, width, height, ending.tint, 0.5);
+    addVignette(this, 0.9);
+    addAmbientMotes(this, 30, Phaser.Display.Color.IntegerToColor(ending.tint).lighten(40).color);
+
+    this.add.text(width / 2, height * 0.22, `最終層　${ending.floorName}`,
+      titleStyle(42, COLORS.textGold)).setOrigin(0.5).setLetterSpacing(4);
+    drawOrnamentLine(this, width / 2, height * 0.22 + 32, 420);
+    this.add.text(width / 2, height * 0.22 + 52, ending.floorSubtitle,
+      textStyle(17, COLORS.textDim)).setOrigin(0.5);
+
+    this.add.text(width / 2, height * 0.48, ending.floorLore,
+      textStyle(16, COLORS.text, {
+        align: 'center', lineSpacing: 12, wordWrap: { width: width - 340 },
+      })).setOrigin(0.5);
+
+    this.add.text(width / 2, height * 0.66, ending.premonitionText,
+      textStyle(14, COLORS.textRed, {
+        align: 'center', lineSpacing: 8, wordWrap: { width: width - 380 },
+      })).setOrigin(0.5);
+
+    makeButton(this, width / 2, height - 90, '― 最深部へ ―', () => {
+      const contentSeed = new Rng(run.seed + 44444).int(0x7fffffff);
+      // 最終戦も「進行中」として保存 (中断→再開で最終戦に戻る)
+      run.pendingEncounter = { scene: 'Battle', nodeType: 'Boss', contentSeed };
+      saveRun(run);
+      this.scene.start('Battle', { nodeType: 'Boss', contentSeed });
+    }, { width: 320, color: COLORS.textGold });
+  }
+}

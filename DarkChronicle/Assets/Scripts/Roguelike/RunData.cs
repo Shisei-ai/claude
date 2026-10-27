@@ -1,0 +1,250 @@
+using System.Collections.Generic;
+using UnityEngine;
+using DarkChronicle.Data;
+using DarkChronicle.Roguelike.Relics;
+
+namespace DarkChronicle.Roguelike
+{
+    /// <summary>
+    /// All state that persists through one roguelike run.
+    /// Single source of truth passed between every room/floor.
+    /// </summary>
+    [System.Serializable]
+    public class RunData
+    {
+        // ── Identity ───────────────────────────────────────────────────────
+        public CharacterData   SelectedCharacter;
+        public int             Seed;
+        public System.DateTime StartTime;
+
+        // ── Difficulty ─────────────────────────────────────────────────────
+        public int DifficultyLevel = 1;  // DifficultyLevel enum値; 0=物語 〜 5=深淵
+
+        // ── Ending Branch ─────────────────────────────────────────────────
+        public EndingType ActiveEnding = EndingType.None;
+
+        // ── Progress ───────────────────────────────────────────────────────
+        public int  CurrentFloor    = 0;     // 0-based (0=Floor1 廃墟, 1=暗黒の森, 2=呪われた城)
+        public int  CurrentNodeIndex = 0;
+        public int  TotalRoomsCleared = 0;
+        public bool IsRunActive     = false;
+
+        // ── Resources ─────────────────────────────────────────────────────
+        public int  CurrentHP;
+        public int  MaxHP;
+        public int  Gold         = 0;
+        public int  Sanity       = 0;         // -3 to +3; exploration mental state
+
+        // ── Skill Deck ─────────────────────────────────────────────────────
+        // Player drafts skills into their deck as the run progresses.
+        public List<SkillData>  Deck         = new();
+        public List<SkillData>  SkillsRemoved = new();  // purged from deck
+
+        // ── Inventory ─────────────────────────────────────────────────────
+        public List<ItemData>   Inventory    = new();
+
+        // ── Relics ─────────────────────────────────────────────────────────
+        public List<RelicData>  Relics       = new();
+
+        // ── Curses ─────────────────────────────────────────────────────────
+        public List<CurseData>  Curses       = new();
+
+        // ── Equipment ──────────────────────────────────────────────────────
+        public Data.EquipmentData   EquippedWeapon;
+        public Data.EquipmentData   EquippedArmor;
+        public Data.EquipmentData   EquippedAccessory;
+        public List<Data.EquipmentData> EquipmentInventory = new();
+
+        // ── Level / Job Level ──────────────────────────────────────────────
+        public int  CharacterLevel  = 1;
+        public int  CurrentEXP      = 0;
+        public int  JobLevel        = 1;
+        public int  CurrentJobJP    = 0;
+        public int  TotalExpGained  = 0;
+        public int  TotalJPGained   = 0;
+        public List<string> UnlockedSkillNames = new();
+
+        // ── Statistics (for end screen) ────────────────────────────────────
+        public int  DamageDealt    = 0;
+        public int  DamageTaken    = 0;
+        public int  EnemiesKilled  = 0;
+        public int  GoldEarned     = 0;
+        public int  RelicsFound    = 0;
+        public int  EventsVisited  = 0;
+        public int  EpitaphsEarned = 0;  // set by MetaProgression.RecordRunEnd
+
+        // ── Map State ──────────────────────────────────────────────────────
+        public int[]  ChosenPath;            // serialized node choices per floor
+        public NodeType LastNodeType;
+
+        // ── Helpers ────────────────────────────────────────────────────────
+        public float HPRatio => MaxHP > 0 ? (float)CurrentHP / MaxHP : 0f;
+
+        public Data.CharacterStats EquipmentBonusStats
+        {
+            get
+            {
+                var s = new Data.CharacterStats();
+                if (EquippedWeapon    != null) s += EquippedWeapon.BonusStats;
+                if (EquippedArmor     != null) s += EquippedArmor.BonusStats;
+                if (EquippedAccessory != null) s += EquippedAccessory.BonusStats;
+                return s;
+            }
+        }
+
+        public Data.EquipmentData GetEquipment(Data.EquipSlot slot) => slot switch
+        {
+            Data.EquipSlot.Weapon    => EquippedWeapon,
+            Data.EquipSlot.Armor     => EquippedArmor,
+            Data.EquipSlot.Accessory => EquippedAccessory,
+            _                        => null,
+        };
+
+        public bool CanEquip(Data.EquipmentData equip)
+        {
+            if (equip == null) return false;
+            var job = SelectedCharacter?.StarterJob;
+            if (job == null) return true;
+            return equip.Slot switch
+            {
+                Data.EquipSlot.Weapon    => job.AllowedWeapons != null && job.AllowedWeapons.Contains(equip.WeaponCategory),
+                Data.EquipSlot.Armor     => job.AllowedArmors  != null && job.AllowedArmors.Contains(equip.ArmorCategory),
+                Data.EquipSlot.Accessory => true,
+                _                        => false,
+            };
+        }
+
+        public void Equip(Data.EquipmentData equip)
+        {
+            if (equip == null || !CanEquip(equip)) return;
+            var old = GetEquipment(equip.Slot);
+            if (old != null) EquipmentInventory.Add(old);
+            EquipmentInventory.Remove(equip);
+            switch (equip.Slot)
+            {
+                case Data.EquipSlot.Weapon:    EquippedWeapon    = equip; break;
+                case Data.EquipSlot.Armor:     EquippedArmor     = equip; break;
+                case Data.EquipSlot.Accessory: EquippedAccessory = equip; break;
+            }
+        }
+
+        public void Unequip(Data.EquipSlot slot)
+        {
+            var cur = GetEquipment(slot);
+            if (cur == null) return;
+            EquipmentInventory.Add(cur);
+            switch (slot)
+            {
+                case Data.EquipSlot.Weapon:    EquippedWeapon    = null; break;
+                case Data.EquipSlot.Armor:     EquippedArmor     = null; break;
+                case Data.EquipSlot.Accessory: EquippedAccessory = null; break;
+            }
+        }
+
+        public bool HasRelic(RelicEffectType effect) =>
+            Relics.Exists(r => r.PrimaryEffect == effect);
+
+        public int CountRelics(RelicEffectType effect) =>
+            Relics.FindAll(r => r.PrimaryEffect == effect).Count;
+
+        public void AddRelic(RelicData relic)
+        {
+            Relics.Add(relic);
+            RelicsFound++;
+            if (ActiveEnding == EndingType.None)
+            {
+                var ending = EndingSystem.GetEndingType(relic);
+                if (ending != EndingType.None) ActiveEnding = ending;
+            }
+        }
+
+        public void AddCurse(CurseData curse) => Curses.Add(curse);
+
+        public void AddSkill(SkillData skill)
+        {
+            if (!Deck.Contains(skill)) Deck.Add(skill);
+        }
+
+        public bool RemoveSkill(SkillData skill)
+        {
+            if (!Deck.Contains(skill)) return false;
+            Deck.Remove(skill);
+            SkillsRemoved.Add(skill);
+            return true;
+        }
+
+        public void HealHP(int amount) => CurrentHP = Mathf.Min(CurrentHP + amount, MaxHP);
+        public void TakeDamage(int amount) => CurrentHP = Mathf.Max(0, CurrentHP - amount);
+        public bool IsAlive => CurrentHP > 0;
+
+        public void SpendGold(int amount) => Gold = Mathf.Max(0, Gold - amount);
+        public void EarnGold(int amount)  { Gold += amount; GoldEarned += amount; }
+
+        public void AddSanity(int delta) => Sanity = Mathf.Clamp(Sanity + delta, -3, 3);
+
+        // ── Party Members (join at Floor 0→1 transition) ──────────────────────
+        public List<CharacterData> PartyMembers      = new();
+        public List<int>           PartyMemberLevels = new();
+        public List<int>           PartyCurrentHP    = new();
+        public List<int>           PartyMaxHP        = new();
+
+        // ── Blessing Bonuses (consumed on first use) ────────────────────────
+        // AncientKnowledge: 初回戦闘後にスキル選択画面を1枚追加表示する
+        public int  BlessingFirstCombatSkillBonus      = 0;
+        // ShadowVeil: 初回戦闘開始時に全敵のシールドを1枚減らす
+        public bool BlessingFirstCombatShieldReduction = false;
+
+        // ── Meta Upgrade Bonuses (applied at run start by MetaUpgradeTree.ApplyAll) ──
+        // Multiplicative stat bonuses (1.0 = no bonus)
+        public float MetaMaxHPMult   = 1.0f;
+        public float MetaPhysAtkMult = 1.0f;
+        public float MetaMagAtkMult  = 1.0f;
+        public float MetaPhysDefMult = 1.0f;
+        public float MetaMagDefMult  = 1.0f;
+        // Flat bonuses
+        public int   MetaCritRateBonus       = 0;
+        public int   MetaMaxMPBonus          = 0;
+        public int   MetaExtraStartGold      = 0;
+        public int   MetaExtraRelicChoices   = 0;
+        public int   MetaStartBP             = 0;
+        // Fractional discounts / reductions (0.0 = none)
+        public float MetaShopDiscount        = 0f;
+        public float MetaCurseDmgReduction   = 0f;
+        // Boolean flags
+        public bool  MetaFloorClearExtraHeal    = false;
+        public bool  MetaStartWithCommonRelic   = false;
+        public bool  MetaCurseHPReductionImmune = false;
+    }
+
+    // ── Curse Data ─────────────────────────────────────────────────────────
+    [CreateAssetMenu(fileName = "CurseData", menuName = "DarkChronicle/Roguelike/Curse")]
+    public class CurseData : ScriptableObject
+    {
+        public string       CurseName;
+        [TextArea] public string Description;
+        public Sprite       Icon;
+        public CurseEffectType Effect;
+        public float        Magnitude;
+
+        public string DisplayText => $"【呪い】{CurseName}";
+    }
+
+    public enum CurseEffectType
+    {
+        ReduceMaxHP,          // max HPが下がる
+        DoubleEncounterRate,  // エンカウント率2倍
+        GoldReduced,          // 取得ゴールド50%
+        SkillCostUp,          // MP消費+1
+        WeakenedHeal,         // 回復量半減
+        BleedAtStart,         // 戦闘開始時に出血付与
+        ShieldBreakChanceDown,// Break確率-20%
+        SanityDown,           // SANITYが下がる
+        FragileHP,            // 被ダメージ+10%
+        NoBP,                 // BP回収できない
+    }
+
+    public enum NodeType
+    {
+        Battle, EliteBattle, Boss, Shop, RestSite, RandomEvent, Treasure, CursedRoom, Start
+    }
+}
