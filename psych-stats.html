@@ -431,6 +431,13 @@
                 <input type="number" step="any" id="mu0" value="3" placeholder="例: 尺度の中点 3">
             </div>
 
+            <div id="mixedOptions" class="opt-panel">
+                <div class="opt-title">混合計画の設定</div>
+                <span class="label">被験者内要因の名前（表・記述文で使用）</span>
+                <input type="text" id="withinName" value="条件" placeholder="例: 時点、条件">
+                <p class="muted-note">データは1人1行の横長形式（例: 群, 事前, 事後, 追跡 の列）。全水準に値のある人だけを分析します。群の人数が異なっていても分析できます（Type III 平方和）。</p>
+            </div>
+
             <div id="corrOptions" class="opt-panel">
                 <div class="opt-title">相関係数の種類</div>
                 <select id="corrMethod">
@@ -3883,7 +3890,251 @@
                 errorBarColor: greys[j % greys.length], borderColor: greys[j % greys.length], backgroundColor: greys[j % greys.length],
                 borderDash: dashes[j % dashes.length], borderWidth: 2, pointRadius: 5, pointStyle: ['circle', 'rect', 'triangle', 'rectRot', 'star'][j % 5], fill: false, tension: 0
             })) },
-            options: { plugins: { legend: { position: 'bottom' } }, scales: { x: { title: { display: true, text: A }, offset: true }, y: { title: { display: true, text: y } } } }
+            options: { plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, pointStyleWidth: 18 } } }, scales: { x: { title: { display: true, text: A }, offset: true }, y: { title: { display: true, text: y } } } }
+        });
+    }
+
+    // ============================================================
+    // 二要因分散分析（混合計画: 被験者間要因 A × 被験者内要因 B）
+    //   被験者内要因は正規直交対比に変換して計算する（SPSS GLM 反復測定・Type III 平方和と同等）。
+    //   群の人数が異なる（非釣り合い型）場合も扱える。
+    // ============================================================
+    function helmertOrthonormal(k) { // k × (k−1) の正規直交対比行列
+        return Array.from({ length: k }, (_, i) => Array.from({ length: k - 1 }, (_, j) => {
+            const jj = j + 1;
+            return i < jj ? 1 / Math.sqrt(jj * (jj + 1)) : i === jj ? -jj / Math.sqrt(jj * (jj + 1)) : 0;
+        }));
+    }
+    function matTrace(M) { return M.reduce((s, row, i) => s + row[i], 0); }
+    // 対比得点の共分散行列から GG の ε
+    function ggEpsilon(T) {
+        const p = T.length, tr = matTrace(T), tr2 = matTrace(StatsLib.multiply(T, T));
+        return tr2 > 0 ? Math.min(1, tr * tr / (p * tr2)) : 1;
+    }
+
+    function runMixedANOVA(A, conds, out) {
+        conds = [...new Set(conds.filter(Boolean))];
+        if (!A) throw new Error('「被験者間要因（群分け変数）」を指定してください。');
+        if (conds.length < 2) throw new Error('被験者内要因の水準（繰り返し測定した列）を2つ以上指定してください（例: 事前, 事後）。');
+        if (conds.includes(A)) throw new Error('群分け変数を繰り返し測定の列に含めないでください。');
+        requireVars(A, ...conds);
+        const wName = (document.getElementById('withinName').value || '').trim() || '条件';
+        const rows = rawData.filter(d => !isMissing(d[A]) && conds.every(c => isFinite(parseFloat(d[c]))))
+            .map(d => ({ g: String(d[A]).trim(), y: conds.map(c => parseFloat(d[c])) }));
+        const la = orderLevels([...new Set(rows.map(r => r.g))]);
+        const a = la.length, b = conds.length, N = rows.length, p = b - 1;
+        if (a < 2) throw new Error(`被験者間要因「${A}」に2つ以上の水準がありません。`);
+        if (a > 20) throw new Error(`被験者間要因「${A}」の水準が多すぎます（${a} 水準）。量的変数を指定していないか確認してください。`);
+        const groups = la.map(l => rows.filter(r => r.g === l).map(r => r.y));
+        const nj = groups.map(g => g.length);
+        if (nj.some(n => n < 2)) throw new Error('各群に2人以上（全条件に値のある人）が必要です。');
+        const dfSA = N - a;
+        if (dfSA < p) throw new Error('人数が少なすぎて検定できません。');
+        const balanced = nj.every(n => n === nj[0]);
+        const dropped = rawData.length - N;
+
+        // ---- 被験者間: s_i = Σ_k y_ik / √b に対する一元配置 ----
+        const sc = r => r.reduce((s, v) => s + v, 0) / Math.sqrt(b);
+        const sGrand = meanOf(groups.flat().map(sc));
+        const sMeans = groups.map(g => meanOf(g.map(sc)));
+        const ssA = groups.reduce((s, g, j) => s + nj[j] * (sMeans[j] - sGrand) ** 2, 0);
+        const ssSA = groups.reduce((s, g, j) => s + g.reduce((t, r) => t + (sc(r) - sMeans[j]) ** 2, 0), 0);
+        const dfA = a - 1, msSA = ssSA / dfSA;
+
+        // ---- 被験者内: 正規直交対比得点 z（b−1 次元） ----
+        const C = helmertOrthonormal(b);
+        const zOf = r => Array.from({ length: p }, (_, c) => r.reduce((s, v, k) => s + v * C[k][c], 0));
+        const Z = groups.map(g => g.map(zOf));
+        const zMean = Z.map(g => Array.from({ length: p }, (_, c) => meanOf(g.map(z => z[c]))));
+        const zW = Array.from({ length: p }, (_, c) => Z.flat().reduce((s, z) => s + z[c], 0) / N);   // 重み付き平均
+        const zU = Array.from({ length: p }, (_, c) => meanOf(zMean.map(m => m[c])));               // 非重み付き平均（Type III）
+        const E = Array.from({ length: p }, () => new Array(p).fill(0));                            // 群内プールの誤差 SSCP
+        Z.forEach((g, j) => g.forEach(z => {
+            for (let r = 0; r < p; r++) for (let c = 0; c < p; c++) E[r][c] += (z[r] - zMean[j][r]) * (z[c] - zMean[j][c]);
+        }));
+        const ssBSA = matTrace(E);
+        const ssB = zU.reduce((s, v) => s + v * v, 0) / (nj.reduce((s, n) => s + 1 / n, 0) / (a * a));
+        const ssAB = zMean.reduce((s, m, j) => s + nj[j] * m.reduce((t, v, c) => t + (v - zW[c]) ** 2, 0), 0);
+        const dfB = p, dfAB = dfA * p, dfE2 = dfSA * p, msE2 = ssBSA / dfE2;
+
+        // ---- 球面性: Mauchly 検定と ε（群内プールの共分散行列） ----
+        let mauchly = null, gg = 1, hf = 1;
+        if (b >= 3) {
+            const T = E.map(r => r.map(v => v / dfSA));
+            const tr = matTrace(T);
+            const W = StatsLib.det(T) / Math.pow(tr / p, p);
+            const chi = -(dfSA - (2 * p * p + p + 2) / (6 * p)) * Math.log(Math.max(W, 1e-300));
+            const dfM = p * (p + 1) / 2 - 1;
+            mauchly = { W, chi, df: dfM, p: StatsLib.chiSquareP(chi, dfM) };
+            gg = ggEpsilon(T);
+            hf = Math.min(1, (N * p * gg - 2) / (p * (dfSA - p * gg)));
+        }
+        const useGG = !!(mauchly && mauchly.p < .05);
+        const denomG = ssSA + ssBSA; // 一般化 η²（全要因を操作要因とみなす; Olejnik & Algina, 2003）
+        const FA = (ssA / dfA) / msSA, FB = (ssB / dfB) / msE2, FAB = (ssAB / dfAB) / msE2;
+        const tA = { name: A, SS: ssA, df: dfA, dfE: dfSA, F: FA, p: StatsLib.fP(FA, dfA, dfSA), pe2: ssA / (ssA + ssSA), ge2: ssA / (ssA + denomG) };
+        const withinTerm = (name, SS, df, F) => ({ name, SS, df, dfE: dfE2, F,
+            p: StatsLib.fP(F, df, dfE2), pGG: StatsLib.fP(F, df * gg, dfE2 * gg), pHF: StatsLib.fP(F, df * hf, dfE2 * hf),
+            pe2: SS / (SS + ssBSA), ge2: SS / (SS + denomG) });
+        const tB = withinTerm(wName, ssB, dfB, FB), tAB = withinTerm(`${A} × ${wName}`, ssAB, dfAB, FAB);
+        const pUse = t => (t === tA || !useGG) ? t.p : t.pGG;
+        const dfTxt = t => (t === tA || !useGG) ? `${t.df}, ${t.dfE}` : `${apaFmt(t.df * gg, 2)}, ${apaFmt(t.dfE * gg, 2)}`;
+
+        // ---- 記述統計 ----
+        const cellM = groups.map(g => conds.map((_, k) => meanOf(g.map(r => r[k]))));
+        const cellSD = groups.map(g => conds.map((_, k) => sdOf(g.map(r => r[k]))));
+        const margA = groups.map(g => meanOf(g.map(r => meanOf(r))));
+        const margB = conds.map((_, k) => meanOf(cellM.map(m => m[k])));
+
+        // ---- 多重比較のヘルパー（Holm 法） ----
+        const holmRows = list => { adjustP(list.map(q => q.pRaw), 'holm').forEach((pa, i) => { list[i].p = pa; }); return list; };
+        const pairsOf = n => { const out2 = []; for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) out2.push([i, j]); return out2; };
+        // 被験者内水準の比較（非重み付き周辺平均の差・群内プール分散）
+        const withinPairs = () => holmRows(pairsOf(b).map(([k, l]) => {
+            const dj = groups.map(g => meanOf(g.map(r => r[k] - r[l])));
+            const s2 = groups.reduce((s, g, j) => s + g.reduce((t, r) => t + (r[k] - r[l] - dj[j]) ** 2, 0), 0) / dfSA;
+            const diff = meanOf(dj), se = Math.sqrt(s2 * nj.reduce((s, n) => s + 1 / n, 0) / (a * a)), t = diff / se;
+            return { g1: conds[k], g2: conds[l], diff, t, df: dfSA, pRaw: StatsLib.tP(t, dfSA) };
+        }));
+        // 群の比較（被験者平均・MS_S/A）
+        const betweenPairs = () => holmRows(pairsOf(a).map(([i, j]) => {
+            const diff = margA[i] - margA[j], se = Math.sqrt(msSA / b * (1 / nj[i] + 1 / nj[j])), t = diff / se;
+            return { g1: la[i], g2: la[j], diff, t, df: dfSA, pRaw: StatsLib.tP(t, dfSA) };
+        }));
+
+        // ---- 単純主効果（交互作用が有意な場合） ----
+        const simple = [], follow = [];
+        if (pUse(tAB) < .05) {
+            conds.forEach((c, k) => { // 各水準 B=k における A の効果（その水準のデータで一元配置）
+                const smp = groups.map(g => g.map(r => r[k]));
+                const gm = meanOf(smp.flat());
+                const ss = smp.reduce((s, x) => s + x.length * (meanOf(x) - gm) ** 2, 0);
+                const sw = smp.reduce((s, x) => { const m = meanOf(x); return s + x.reduce((t, v) => t + (v - m) ** 2, 0); }, 0);
+                const F = (ss / dfA) / (sw / dfSA), pp = StatsLib.fP(F, dfA, dfSA);
+                simple.push({ label: `${wName} = ${c} における ${A} の効果`, SS: ss, df1: dfA, df2: dfSA, F, p: pp, pJudge: pp, pe2: ss / (ss + sw) });
+                if (pp < .05 && a >= 3) {
+                    const msw = sw / dfSA;
+                    follow.push({ title: `${wName} = ${c} における ${A} の比較`, rows: holmRows(pairsOf(a).map(([i, j]) => {
+                        const diff = meanOf(smp[i]) - meanOf(smp[j]), t = diff / Math.sqrt(msw * (1 / nj[i] + 1 / nj[j]));
+                        return { g1: la[i], g2: la[j], diff, t, df: dfSA, pRaw: StatsLib.tP(t, dfSA) };
+                    })) });
+                }
+            });
+            groups.forEach((g, j) => { // 各群における B の効果（その群のデータで一要因反復測定）
+                const n = g.length, grand = meanOf(g.flat());
+                const cm = conds.map((_, k) => meanOf(g.map(r => r[k])));
+                const ssC = n * cm.reduce((s, m) => s + (m - grand) ** 2, 0);
+                const ssS = b * g.reduce((s, r) => s + (meanOf(r) - grand) ** 2, 0);
+                const ssE = g.flat().reduce((s, v) => s + (v - grand) ** 2, 0) - ssC - ssS;
+                const df1 = p, df2 = (n - 1) * p, F = (ssC / df1) / (ssE / df2);
+                let eps = 1;
+                if (b >= 3) {
+                    const zg = g.map(zOf), zm = Array.from({ length: p }, (_, c) => meanOf(zg.map(z => z[c])));
+                    eps = ggEpsilon(Array.from({ length: p }, (_, r) => Array.from({ length: p }, (_, c) => zg.reduce((s, z) => s + (z[r] - zm[r]) * (z[c] - zm[c]), 0) / (n - 1))));
+                }
+                const pp = StatsLib.fP(F, df1, df2), pGG = StatsLib.fP(F, df1 * eps, df2 * eps);
+                const pJudge = useGG ? pGG : pp;
+                simple.push({ label: `${A} = ${la[j]} における ${wName} の効果`, SS: ssC, df1, df2, F, p: pp, pGG: b >= 3 ? pGG : NaN, eps, pJudge, pe2: ssC / (ssC + ssE) });
+                if (pJudge < .05 && b >= 3) {
+                    follow.push({ title: `${A} = ${la[j]} における ${wName} の比較（対応のある t 検定）`, rows: holmRows(pairsOf(b).map(([k, l]) => {
+                        const d = g.map(r => r[k] - r[l]), t = meanOf(d) / (sdOf(d) / Math.sqrt(n));
+                        return { g1: conds[k], g2: conds[l], diff: meanOf(d), t, df: n - 1, pRaw: StatsLib.tP(t, n - 1) };
+                    })) });
+                }
+            });
+        } else {
+            if (pUse(tA) < .05 && a >= 3) follow.push({ title: `${A} の主効果の多重比較（被験者平均）`, rows: betweenPairs() });
+            if (pUse(tB) < .05 && b >= 3) follow.push({ title: `${wName} の主効果の多重比較（推定周辺平均）`, rows: withinPairs() });
+        }
+
+        // ---- 出力 ----
+        const levRows = conds.map((c, k) => {
+            const lev = StatsLib.levene(groups.map(g => g.map(r => r[k])), 'mean');
+            if (!lev) return '';
+            const ok = lev.p >= .05;
+            return `<tr><td>等分散性 (Levene)</td><td>${escapeHtml(wName)} = ${escapeHtml(c)}</td><td><i>F</i>(${lev.df1}, ${lev.df2}) = ${fmt(lev.F, 2)}</td><td>${sigCell(lev.p)}</td><td><span class="chk ${ok ? 'chk-ok' : 'chk-ng'}">${ok ? '✓ 等分散を仮定できる' : '⚠ 等分散でない'}</span></td></tr>`;
+        }).join('');
+        const levBad = /chk-ng/.test(levRows);
+        const mRow = mauchly ? `<tr><td>球面性 (Mauchly)</td><td>${escapeHtml(wName)}</td><td><i>W</i> = ${fmt(mauchly.W, 3)}，χ²(${mauchly.df}) = ${fmt(mauchly.chi, 2)}<br><small>GG ε = ${fmt(gg, 3)}，HF ε = ${fmt(hf, 3)}</small></td><td>${sigCell(mauchly.p)}</td><td><span class="chk ${useGG ? 'chk-ng' : 'chk-ok'}">${useGG ? '⚠ 球面性の仮定が棄却' : '✓ 球面性を仮定できる'}</span></td></tr>` : '';
+        const advice = [
+            useGG ? '球面性が棄却されたため，被験者内要因と交互作用は <b>Greenhouse-Geisser 補正</b>後の結果を報告してください。' : (mauchly ? '球面性は棄却されませんでした。補正なしの結果を報告できます。' : '被験者内要因が2水準のため，球面性の検定は不要です。'),
+            levBad ? '一部の水準で群間の等分散性が棄却されました。群の人数が大きく異なる場合は被験者間要因の結果の解釈に注意してください。' : ''
+        ].filter(Boolean).join('<br>');
+        const cols = 8;
+        const srcRow = (t, label, hl) => `<tr${hl ? ' class="row-hl"' : ''}><td>${label}</td><td>${fmt(t.SS, 3)}</td><td>${t.df}</td><td>${fmt(t.SS / t.df, 3)}</td><td>${fmt(t.F, 3)}</td><td>${sigCell(t.p)}</td><td>${fmt(t.pe2, 3)} ${esBadge('eta', t.pe2)}</td><td>${fmt(t.ge2, 3)}</td></tr>`;
+        const corrRows = t => b >= 3 ? `
+            <tr${useGG && t.pGG < .05 ? ' class="row-hl"' : ''}><td>　Greenhouse-Geisser 補正</td><td>${fmt(t.SS, 3)}</td><td>${fmt(t.df * gg, 2)}</td><td>${fmt(t.SS / (t.df * gg), 3)}</td><td>${fmt(t.F, 3)}</td><td>${sigCell(t.pGG)}</td><td></td><td></td></tr>
+            <tr><td>　Huynh-Feldt 補正</td><td>${fmt(t.SS, 3)}</td><td>${fmt(t.df * hf, 2)}</td><td>${fmt(t.SS / (t.df * hf), 3)}</td><td>${fmt(t.F, 3)}</td><td>${sigCell(t.pHF)}</td><td></td><td></td></tr>` : '';
+        const secRow = label => `<tr><td colspan="${cols}" style="font-weight:700;background:#f8fafc;text-align:left;">${label}</td></tr>`;
+        // 表番号を出現順に振るため、テンプレート内で呼び出して生成する
+        const followHTML = () => follow.map(f => `${tblCaption(`${escapeHtml(f.title)}（Holm 法）`)}
+            <table class="stats-table apa-table"><thead><tr><th>比較</th><th>平均差</th><th><i>t</i></th><th><i>df</i></th><th><i>p</i><sub>adj</sub></th></tr></thead><tbody>
+            ${f.rows.map(q => `<tr${q.p < .05 ? ' class="row-hl"' : ''}><td>${escapeHtml(q.g1)} − ${escapeHtml(q.g2)}</td><td>${fmt(q.diff, 3)}</td><td>${fmt(q.t, 3)}</td><td>${q.df}</td><td>${sigCell(q.p)}</td></tr>`).join('')}
+            </tbody></table>`).join('');
+        const cId = `mxC_${chartCounter++}`;
+
+        out.innerHTML += `<div class="report-card">
+            ${cardTitle('🔀', `二要因分散分析（混合計画）`, `${escapeHtml(A)}（被験者間・${a} 水準）× ${escapeHtml(wName)}（被験者内・${b} 水準: ${conds.map(escapeHtml).join('，')}）／ N = ${N}${dropped ? `（欠損のある ${dropped} 人を除外）` : ''}${balanced ? '' : '／ 群の人数が異なるため Type III 平方和'}`)}
+            <details class="assume-panel" open><summary>🔎 前提条件のチェック</summary>
+                <table class="stats-table"><thead><tr><th>検定</th><th>対象</th><th>統計量</th><th><i>p</i></th><th>判定</th></tr></thead><tbody>${mRow}${levRows}</tbody></table>
+                <div class="assume-advice">💡 ${advice}</div>
+                <div class="assume-foot">混合計画では，被験者内要因の球面性（Mauchly）と，各水準における群間の等分散性（Levene）を確認します。共分散行列の等質性（Box の M 検定）は本ツールでは算出しません。</div>
+            </details>
+            ${tblCaption('セルごとの平均値（標準偏差）')}
+            <div class="table-scroll"><table class="stats-table apa-table"><thead><tr><th>${escapeHtml(A)} ＼ ${escapeHtml(wName)}</th>${conds.map(c => `<th>${escapeHtml(c)}</th>`).join('')}<th><i>n</i></th><th>周辺平均</th></tr></thead><tbody>
+                ${la.map((l, j) => `<tr><td>${escapeHtml(l)}</td>${conds.map((_, k) => `<td>${fmt(cellM[j][k], 2)} (${fmt(cellSD[j][k], 2)})</td>`).join('')}<td>${nj[j]}</td><td><b>${fmt(margA[j], 2)}</b></td></tr>`).join('')}
+                <tr><td>周辺平均</td>${margB.map(m => `<td><b>${fmt(m, 2)}</b></td>`).join('')}<td>${N}</td><td></td></tr>
+            </tbody></table></div>
+            ${figNote(`${escapeHtml(wName)} の周辺平均は群のセル平均の単純平均（推定周辺平均），${escapeHtml(A)} の周辺平均は各群の被験者平均の平均。`)}
+            ${tblCaption('分散分析表')}
+            <div class="table-scroll"><table class="stats-table apa-table"><thead><tr><th>変動因</th><th><i>SS</i></th><th><i>df</i></th><th><i>MS</i></th><th><i>F</i></th><th><i>p</i></th><th>偏 η²</th><th>一般化 η²</th></tr></thead><tbody>
+                ${secRow('被験者間')}
+                ${srcRow(tA, escapeHtml(A), tA.p < .05)}
+                <tr><td>誤差（被験者 / ${escapeHtml(A)}）</td><td>${fmt(ssSA, 3)}</td><td>${dfSA}</td><td>${fmt(msSA, 3)}</td><td></td><td></td><td></td><td></td></tr>
+                ${secRow('被験者内')}
+                ${srcRow(tB, `${escapeHtml(wName)}${b >= 3 ? '（球面性を仮定）' : ''}`, !useGG && tB.p < .05)}${corrRows(tB)}
+                ${srcRow(tAB, `${escapeHtml(A)} × ${escapeHtml(wName)}${b >= 3 ? '（球面性を仮定）' : ''}`, !useGG && tAB.p < .05)}${corrRows(tAB)}
+                <tr><td>誤差（${escapeHtml(wName)} × 被験者 / ${escapeHtml(A)}）</td><td>${fmt(ssBSA, 3)}</td><td>${dfE2}</td><td>${fmt(msE2, 3)}</td><td></td><td></td><td></td><td></td></tr>
+            </tbody></table></div>
+            ${figNote('被験者内要因は正規直交対比に変換して計算（SPSS の GLM 反復測定と同じ Type III 平方和）。一般化 η² は全要因を操作した要因とみなして算出（Olejnik &amp; Algina, 2003）。')}
+            ${simple.length ? `${tblCaption('単純主効果の検定')}
+                <div class="table-scroll"><table class="stats-table apa-table"><thead><tr><th>効果</th><th><i>SS</i></th><th><i>df</i></th><th><i>F</i></th><th><i>p</i></th><th><i>p</i> (GG 補正)</th><th>偏 η²</th></tr></thead><tbody>
+                ${simple.map(s => `<tr${s.pJudge < .05 ? ' class="row-hl"' : ''}><td>${escapeHtml(s.label)}</td><td>${fmt(s.SS, 3)}</td><td>${s.df1}, ${s.df2}</td><td>${fmt(s.F, 3)}</td><td>${sigCell(s.p)}</td><td>${isFinite(s.pGG) ? `${sigCell(s.pGG)} <small>(ε = ${fmt(s.eps, 2)})</small>` : '—'}</td><td>${fmt(s.pe2, 3)}</td></tr>`).join('')}
+                </tbody></table></div>
+                ${figNote('各水準の単純主効果は，その水準のデータのみを用いて検定した（被験者間要因は一元配置，被験者内要因は一要因反復測定）。検定数が多いため，必要に応じて有意水準を調整して解釈する。')}` : ''}
+            ${followHTML()}
+            ${chartBlock(cId, `${escapeHtml(A)} と ${escapeHtml(wName)} ごとの平均値`, 'エラーバーは各セルの標準誤差（±1 <i>SE</i>）。線が平行でないほど交互作用が大きいことを示す。')}
+            ${(() => {
+                const eff = t => `<i>F</i>(${dfTxt(t)}) = ${apaFmt(t.F, 2)}，<i>p</i> ${apaPfmt(pUse(t))}，偏 η² = ${apaFmt(t.pe2, 2, true)}`;
+                let txt = `${escapeHtml(A)}（${a} 水準：被験者間要因）と ${escapeHtml(wName)}（${b} 水準：被験者内要因）を独立変数とする二要因混合計画の分散分析を実施した（<i>N</i> = ${N}${balanced ? '' : '，Type III 平方和'}）。`;
+                if (mauchly) txt += useGG
+                    ? `Mauchly の検定により球面性の仮定が棄却されたため（<i>W</i> = ${apaFmt(mauchly.W, 2, true)}，<i>p</i> ${apaPfmt(mauchly.p)}），被験者内要因を含む効果には Greenhouse-Geisser の補正（ε = ${apaFmt(gg, 2, true)}）を適用した。`
+                    : `Mauchly の検定では球面性の仮定は棄却されなかった（<i>W</i> = ${apaFmt(mauchly.W, 2, true)}，<i>p</i> ${apaPfmt(mauchly.p)}）。`;
+                txt += `その結果，${escapeHtml(A)} の主効果は${apaSigWord(pUse(tA))}（${eff(tA)}）。${escapeHtml(wName)} の主効果は${apaSigWord(pUse(tB))}（${eff(tB)}）。交互作用は${apaSigWord(pUse(tAB))}（${eff(tAB)}）。`;
+                if (simple.length) {
+                    const sg = simple.filter(s => s.pJudge < .05);
+                    txt += sg.length
+                        ? `交互作用が有意であったため単純主効果の検定を行ったところ，${sg.map(s => `${escapeHtml(s.label)}（<i>F</i>(${s.df1}, ${s.df2}) = ${apaFmt(s.F, 2)}，<i>p</i> ${apaPfmt(s.pJudge)}）`).join('，')}が有意であった。`
+                        : '交互作用が有意であったため単純主効果の検定を行ったが，有意な単純主効果は認められなかった。';
+                }
+                follow.forEach(f => {
+                    const sg = f.rows.filter(q => q.p < .05);
+                    txt += sg.length ? `${escapeHtml(f.title)}（Holm 法）では，${sg.map(q => `${escapeHtml(q.g1)} と ${escapeHtml(q.g2)}`).join('，')} の間に有意差が認められた（${sg.map(q => `<i>p</i> ${apaPfmt(q.p)}`).join('，')}）。` : `${escapeHtml(f.title)}（Holm 法）では有意差は認められなかった。`;
+                });
+                return apaBox(txt);
+            })()}
+        </div>`;
+        const dashes = [[], [6, 4], [2, 3], [10, 3, 2, 3], [1, 1]];
+        const greys = ['#0f172a', '#475569', '#64748b', '#334155', '#94a3b8'];
+        renderChartAsImage(cId, {
+            type: 'line',
+            data: { labels: conds, datasets: la.map((l, j) => ({
+                label: `${A} = ${l}`, data: cellM[j],
+                errorBars: cellM[j].map((m, k) => { const se = cellSD[j][k] / Math.sqrt(nj[j]); return { lo: m - se, hi: m + se }; }),
+                errorBarColor: greys[j % greys.length], borderColor: greys[j % greys.length], backgroundColor: greys[j % greys.length],
+                borderDash: dashes[j % dashes.length], borderWidth: 2, pointRadius: 5, pointStyle: ['circle', 'rect', 'triangle', 'rectRot', 'star'][j % 5], fill: false, tension: 0
+            })) },
+            options: { plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, pointStyleWidth: 18 } } }, scales: { x: { title: { display: true, text: wName }, offset: true }, y: { title: { display: true, text: '平均値' } } } }
         });
     }
 
@@ -4013,10 +4264,15 @@
           f1: { label: '従属変数（量的）', hint: '例: 事後', req: true },
           f2: { label: '要因（群分け変数）', hint: '例: 群（統制群・介入A・介入B）', req: true },
           panels: ['posthocOptions'] },
-        { id: 'anova2', group: '平均値の差', icon: '🧮', name: '二要因分散分析（被験者間）',
+        { id: 'anova2', group: '平均値の差', icon: '🧮', name: '二要因分散分析（被験者間 × 被験者間）', short: '二要因分散分析（被験者間）',
           brief: '2つの要因の主効果と交互作用（組み合わせの効果）を同時に検定します。',
           f1: { label: '従属変数（量的）', hint: '例: 事後', req: true },
           f2: { label: '要因A, 要因B（2つ）', hint: 'カンマ区切りで2つ。例: 群, 性別', multi: true, req: true } },
+        { id: 'anova_mixed', group: '平均値の差', icon: '🔀', name: '二要因分散分析（混合計画: 被験者間 × 被験者内）', short: '二要因分散分析（混合計画）',
+          brief: '群（被験者間要因）と繰り返し測定（被験者内要因）を組み合わせ、主効果と交互作用を検定します。例: 事前→事後の変化が群によって異なるか。',
+          f1: { label: '被験者間要因（群分け変数）', hint: '例: 群', req: true },
+          f2: { label: '被験者内要因の水準（繰り返し測定の列, 2つ以上）', hint: '時間順にカンマ区切り。例: 事前, 事後, 追跡', multi: true, req: true },
+          panels: ['mixedOptions'] },
         { id: 'rmanova', group: '平均値の差', icon: '🔄', name: '反復測定分散分析（一要因・被験者内）',
           brief: '同じ人に3回以上測定した値（例: 事前・事後・追跡）の平均値の変化を検定します。',
           f2: { label: '条件（繰り返し測定の列, 2つ以上）', hint: '時間順にカンマ区切り。例: 事前, 事後, 追跡', multi: true, req: true },
@@ -4150,8 +4406,19 @@
             read: ['<b>交互作用から先に見る</b>: 有意なら、主効果だけで結論づけず<b>単純主効果</b>を確認する。', '<b>単純主効果</b>: 一方の要因の各水準ごとに、もう一方の要因の効果を検定したもの。', '<b>交互作用プロット</b>: 線が平行でないほど交互作用が大きい。交差していれば効果の向きが逆転している。', '<b>偏 η²</b>: その効果と誤差の和に対する、その効果の割合。', '人数の異なる（非釣り合い型）データでは Type III 平方和を用いる（SPSS の既定と同じ）。'],
             effect: '偏 η²: .01 小 ／ .06 中 ／ .14 大',
             report: '群と性別を独立変数とした二要因分散分析の結果，交互作用が有意であった（F(2, 114) = 3.52，p = .033，偏 η² = .06）。単純主効果の検定の結果，女性では群の効果が有意であった。',
-            pitfalls: ['交互作用が有意なのに主効果だけを解釈する', '連続変数を中央値で2群に分けて要因にする（情報が失われる → 回帰の調整効果を検討）'],
+            pitfalls: ['交互作用が有意なのに主効果だけを解釈する', '連続変数を中央値で2群に分けて要因にする（情報が失われる → 回帰の調整効果を検討）', '一方の要因が同じ人の繰り返し測定なのに被験者間計画として分析する（→「二要因分散分析（混合計画）」を使う）'],
             refs: 'Maxwell, S. E., Delaney, H. D., & Kelley, K. (2018). Designing experiments and analyzing data (3rd ed.).'
+        },
+        anova_mixed: {
+            what: '群の違い（被験者間要因）と、同じ人に繰り返し測定した条件や時点（被験者内要因）の2要因について、主効果と交互作用を同時に検定します。介入研究の「群 × 時点」の分析で最もよく使われます。',
+            when: ['介入群と統制群で、事前→事後（→追跡）の変化が異なるかを調べるとき（交互作用が介入効果の検定になる）', '男女など異なる群の人が、全員複数の実験条件を経験する計画'],
+            assume: ['各セルのデータが正規分布に従う', '<b>球面性</b>: 被験者内要因の条件ペアの差得点の分散が等しい（Mauchly の検定で確認。3水準以上のとき）', '各水準で群間の分散が等しい（Levene の検定で確認）', '群ごとの共分散行列が等しい（共分散行列の等質性）'],
+            input: '「被験者間要因」に群分け変数を1つ、「被験者内要因の水準」に繰り返し測定した列を時間順にカンマ区切りで入力（1人1行の横長形式）。設定で被験者内要因の名前（例: 時点）を付けられます。',
+            read: ['<b>交互作用から先に見る</b>: 介入研究では「群 × 時点」の交互作用が「群によって変化の仕方が違う」＝介入効果を意味する。', '<b>分散分析表</b>は被験者間（群の主効果）と被験者内（時点の主効果・交互作用）に分かれ、それぞれ別の誤差項で検定される。', '<b>Mauchly の検定</b>が有意なら、被験者内の効果は <b>Greenhouse-Geisser 補正</b>の行を報告する。', '<b>単純主効果</b>: 交互作用が有意なとき、「各時点での群の差」と「各群での時点による変化」を確認する。', '<b>交互作用プロット</b>: 群ごとの線の傾きの違いが交互作用。'],
+            effect: '偏 η²・一般化 η²: .01 小 ／ .06 中 ／ .14 大（被験者内要因を含む計画では、他研究との比較には一般化 η² が推奨される）',
+            report: '群（3水準）を被験者間要因，時点（事前・事後・追跡）を被験者内要因とする二要因混合計画の分散分析を行った。その結果，群 × 時点の交互作用が有意であった（F(4, 232) = 5.81，p < .001，偏 η² = .09）。単純主効果の検定の結果，介入B では時点の効果が有意であった。',
+            pitfalls: ['事前得点に群差がないことだけを確認し、事後得点だけを t 検定で比べる（変化の違い＝交互作用を検定する）', '群ごとに別々に対応のある t 検定を行い「片方だけ有意だった」ことを群差の根拠にする（交互作用の検定が必要）', '球面性を確認せずに補正なしの結果を報告する'],
+            refs: 'Maxwell, S. E., Delaney, H. D., & Kelley, K. (2018). Designing experiments and analyzing data (3rd ed.). ／ Olejnik, S., & Algina, J. (2003). Generalized eta and omega squared statistics. Psychological Methods.'
         },
         rmanova: {
             what: '同じ人を3回以上測定したときの、条件（時点）による平均値の違いを検定します。個人差を誤差から取り除けるので検定力が高くなります。',
@@ -4279,7 +4546,7 @@
             { label: '1つの平均値と基準値', desc: '例: 尺度の中点 3 より高いか', result: 'ttest_one' },
             { label: '2つの群・条件', desc: '例: 男女、事前と事後', next: 'two' },
             { label: '3つ以上の群・条件', desc: '例: 統制群・介入A・介入B、3時点', next: 'three' },
-            { label: '2つの要因の組み合わせ', desc: '例: 群 × 性別（交互作用を調べたい）', result: 'anova2' }
+            { label: '2つの要因の組み合わせ', desc: '例: 群 × 性別、群 × 時点（交互作用を調べたい）', next: 'two_factor' }
         ] },
         two: { q: '同じ人を2回測っていますか？（対応の有無）', help: '事前・事後のように同じ人の2つの値を比べるなら「対応あり」。', opts: [
             { label: '対応なし（別々の人の2群）', desc: '例: 男性 vs 女性', next: 'two_ind' },
@@ -4300,6 +4567,10 @@
         three_ind: { q: 'データは量的で、極端な偏りや外れ値はありませんか？', opts: [
             { label: 'はい（量的・おおむね正規）', result: 'anova' },
             { label: 'いいえ（順序尺度・強い偏り・小標本）', result: 'kruskal' }
+        ] },
+        two_factor: { q: 'それぞれの要因は「別々の人の群」ですか、「同じ人の繰り返し測定」ですか？', help: '例: 群 × 性別 は両方とも別々の人。群 × 時点（事前・事後）は、時点が同じ人の繰り返し測定。', opts: [
+            { label: '両方とも別々の人の群', desc: '被験者間 × 被験者間（例: 群 × 性別）', result: 'anova2' },
+            { label: '一方は群、もう一方は同じ人の繰り返し測定', desc: '混合計画（例: 群 × 時点）', result: 'anova_mixed' }
         ] },
         rel: { q: 'どんな種類の変数どうしの関連ですか？', opts: [
             { label: '量的変数 × 量的変数', desc: '例: ストレスと抑うつ', next: 'rel_num' },
@@ -4323,6 +4594,7 @@
         ttest_paired: { y: '事前', x: '事後' },
         anova: { y: '事後', x: '群' },
         anova2: { y: '事後', x: '群, 性別' },
+        anova_mixed: { y: '群', x: '事前, 事後, 追跡', wn: '時点' },
         rmanova: { x: '事前, 事後, 追跡' },
         mwu: { y: 'ストレス', x: '性別' },
         wilcoxon: { y: '事前', x: '事後' },
@@ -4401,7 +4673,7 @@
         setField('f1', 'yTarget', m.f1);
         setField('f2', 'xPredictor', m.f2);
         document.getElementById('varsStep').style.display = (m.f1 || m.f2) ? '' : 'none';
-        ['onesampleOptions', 'corrOptions', 'posthocOptions', 'regOptions', 'factorOptions', 'scaleScoreOptions'].forEach(pid => {
+        ['onesampleOptions', 'corrOptions', 'posthocOptions', 'regOptions', 'factorOptions', 'scaleScoreOptions', 'mixedOptions'].forEach(pid => {
             document.getElementById(pid).classList.toggle('show', (m.panels || []).includes(pid));
         });
         // 入力先を自動で切り替え
@@ -4562,6 +4834,7 @@
         document.getElementById('xPredictor').value = ex.x || '';
         if (ex.mu0 !== undefined) document.getElementById('mu0').value = ex.mu0;
         if (ex.ss) document.getElementById('ssDefinitions').value = ex.ss;
+        if (ex.wn) document.getElementById('withinName').value = ex.wn;
         if (id === 'reg') { document.getElementById('dummyVars').value = ''; document.getElementById('moderatorVars').value = ''; }
         switchTab('results');
         execute();
@@ -4637,7 +4910,7 @@
             <div class="gn-group">はじめに</div>
             <button data-target="guide-intro">📖 このガイドについて</button>
             <button data-target="guide-flow">🗺 手法の選び方（早見表）</button>
-            ${groups.map(g => `<div class="gn-group">${g}</div>${METHODS.filter(m => m.group === g).map(m => `<button data-target="guide-${m.id}">${m.icon} ${m.name.replace(/（.*?）/g, '')}</button>`).join('')}`).join('')}
+            ${groups.map(g => `<div class="gn-group">${g}</div>${METHODS.filter(m => m.group === g).map(m => `<button data-target="guide-${m.id}">${m.icon} ${m.short || m.name.replace(/（.*?）/g, '')}</button>`).join('')}`).join('')}
             <div class="gn-group">リファレンス</div>
             <button data-target="guide-es">📏 効果量の目安</button>
             <button data-target="guide-gloss">🔤 用語集</button>
@@ -4645,7 +4918,7 @@
         const flowRows = [
             ['データの特徴を知りたい', ['summary']], ['尺度の構造・信頼性', ['factor', 'alpha', 'scalescores']],
             ['1つの平均と基準値', ['ttest_one']], ['2群（別々の人）', ['ttest_unpaired', 'mwu']], ['2条件（同じ人）', ['ttest_paired', 'wilcoxon']],
-            ['3群以上（別々の人）', ['anova', 'kruskal']], ['3条件以上（同じ人）', ['rmanova']], ['2つの要因の組み合わせ', ['anova2']],
+            ['3群以上（別々の人）', ['anova', 'kruskal']], ['3条件以上（同じ人）', ['rmanova']], ['2つの要因の組み合わせ', ['anova2', 'anova_mixed']],
             ['量的 × 量的の関連', ['corr']], ['カテゴリ × カテゴリの関連', ['chisq']], ['予測・影響・調整効果', ['reg']]
         ];
         const content = `<div class="guide-content">
@@ -4747,7 +5020,7 @@
             <div class="quick"><div class="q-num">STEP 4</div><h3>変数を指定して実行</h3><p>入力欄を選んで変数タグをクリック。<kbd style="color:var(--ink);border-color:#cbd5e1;background:#f8fafc;">Ctrl</kbd> + <kbd style="color:var(--ink);border-color:#cbd5e1;background:#f8fafc;">Enter</kbd> で実行できます。</p></div>
             <div class="quick"><div class="q-num">REPORT</div><h3>論文にそのまま使える出力</h3><p>APA 形式の表・図・記述文を生成。図表は Word に貼り付け、記述文はワンクリックでコピー。印刷・PDF・HTML 保存にも対応。</p></div>
         </div>
-        <div class="feature-list">${['記述統計・正規性検定', 'α / ω 係数', '尺度得点', '探索的因子分析（ML・PAF・ULS × Promax）', '1サンプル / 対応なし / 対応あり t 検定', '一元配置・二要因・反復測定分散分析', 'Tukey / Games–Howell / Holm', 'Mann-Whitney / Wilcoxon / Kruskal-Wallis', 'Pearson / Spearman 相関', 'χ² 検定・残差分析・Fisher', '重回帰（階層・調整効果・単純傾斜）'].map(f => `<span>${f}</span>`).join('')}</div>`;
+        <div class="feature-list">${['記述統計・正規性検定', 'α / ω 係数', '尺度得点', '探索的因子分析（ML・PAF・ULS × Promax）', '1サンプル / 対応なし / 対応あり t 検定', '一元配置・二要因（被験者間／混合計画）・反復測定分散分析', 'Tukey / Games–Howell / Holm', 'Mann-Whitney / Wilcoxon / Kruskal-Wallis', 'Pearson / Spearman 相関', 'χ² 検定・残差分析・Fisher', '重回帰（階層・調整効果・単純傾斜）'].map(f => `<span>${f}</span>`).join('')}</div>`;
     }
     function learnCardHTML(id) {
         const g = GUIDE[id], m = METHOD_MAP[id];
@@ -4843,6 +5116,7 @@
                 case 'ttest_paired': runPairedTTest(y, xs[0], wrap); break;
                 case 'anova': runANOVA(y, xs[0], wrap); break;
                 case 'anova2': runTwoWayANOVA(y, xs, wrap); break;
+                case 'anova_mixed': runMixedANOVA(y, xs, wrap); break;
                 case 'rmanova': runRMANOVA(xs, wrap); break;
                 case 'mwu': runMannWhitney(y, xs[0], wrap); break;
                 case 'wilcoxon': runWilcoxon(y, xs[0], wrap); break;
