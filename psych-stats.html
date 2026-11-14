@@ -103,6 +103,12 @@
         .opt-title { font-size: .74rem; font-weight: 800; color: #c7d2fe; margin-bottom: 6px; }
         .radio-row { display: flex; gap: 14px; margin: 2px 0 8px; }
         .radio-row label { font-size: .82rem; display: flex; align-items: center; cursor: pointer; }
+        .map-preview { margin-top: 8px; font-size: .74rem; }
+        .map-preview table { width: 100%; border-collapse: collapse; }
+        .map-preview th, .map-preview td { border-bottom: 1px solid #2a3756; padding: 3px 6px; text-align: left; color: var(--sb-text); }
+        .map-preview th { color: #c7d2fe; font-weight: 700; }
+        .map-preview .mp-ok { color: #a7f3d0; margin-bottom: 4px; }
+        .map-preview .mp-ng { color: #fca5a5; margin-bottom: 4px; line-height: 1.6; }
         .hint-box { font-size: .74rem; color: var(--sb-muted); background: var(--sb-panel-2); padding: 8px; border-radius: 6px; border-left: 3px solid #d97706; margin-bottom: 8px; line-height: 1.8; }
         .hint-box code { color: #fbbf24; }
 
@@ -166,6 +172,7 @@
         .res-up { color: var(--sig); font-weight: 800; } .res-dn { color: #2563eb; font-weight: 800; }
 
         .sig-text { color: var(--sig); font-weight: 700; }
+        .stats-table .sig-text, .stats-table .ns-text { white-space: nowrap; }
         .ns-text { color: var(--ns); }
         .vif-warn { color: #b91c1c; font-weight: bold; }
         .vif-caution { color: #b45309; font-weight: bold; }
@@ -429,6 +436,14 @@
                 <div class="opt-title">1サンプル t 検定の設定</div>
                 <span class="label">比較する値 μ₀（基準値）</span>
                 <input type="number" step="any" id="mu0" value="3" placeholder="例: 尺度の中点 3">
+            </div>
+
+            <div id="factorialOptions" class="opt-panel">
+                <div class="opt-title">多要因分散分析の設定</div>
+                <span class="label">被験者内要因の定義（1行に1要因。なければ空欄）</span>
+                <textarea id="withinDefs" rows="3" placeholder="形式: 要因名: 水準1, 水準2, …（または 要因名: 水準数）&#10;例:&#10;一致性: 一致, 不一致&#10;負荷: 低, 高" style="font-size:.8rem; line-height:1.6;"></textarea>
+                <p class="muted-note">測定値の列は「上の行の要因ほどゆっくり変わる」順に並べます（例: 一致・低 → 一致・高 → 不一致・低 → 不一致・高）。下の対応表で確認できます。</p>
+                <div id="factorialPreview" class="map-preview"></div>
             </div>
 
             <div id="mixedOptions" class="opt-panel">
@@ -4139,6 +4154,409 @@
     }
 
     // ============================================================
+    // 多要因分散分析（一般計画）: 被験者間要因 q 個 × 被験者内要因 r 個
+    //   被験者内要因は正規直交対比（各要因の Helmert 対比と平均ベクトルのクロネッカー積）で変換し，
+    //   各対比得点に被験者間要因の全要因モデル（効果コーディング）を当てはめて Type III の仮説平方和を求める。
+    //   SPSS の GLM 反復測定，R の afex::aov_car(type = 3) と同じ多変量アプローチ。
+    // ============================================================
+    function kronMat(A, B) {
+        const out = [];
+        A.forEach(ra => B.forEach(rb => { const row = []; ra.forEach(x => rb.forEach(y => row.push(x * y))); out.push(row); }));
+        return out;
+    }
+    // [] を含むすべての部分集合（要素数の少ない順 → 先頭要因から）
+    function subsetsOf(n) {
+        const all = [];
+        for (let m = 0; m < (1 << n); m++) { const s = []; for (let i = 0; i < n; i++) if (m & (1 << i)) s.push(i); all.push(s); }
+        return all.sort((a, b) => a.length - b.length || a.reduce((r, v, i) => r || v - b[i], 0));
+    }
+
+    // d = { betNames, betLevels: [[水準名…]], witNames, witLevels: [[水準名…]], rows: [{ b: [水準番号…], y: [K 個の値] }] }
+    function factorialCore(d) {
+        const q = d.betNames.length, r = d.witNames.length, N = d.rows.length;
+        const K = d.witLevels.reduce((s, l) => s * l.length, 1);
+        // 被験者間セル（全要因の組み合わせ，先頭要因が最も遅く変化）
+        const cellsB = [];
+        (function enumerate(i, cur) {
+            if (i === q) { cellsB.push(cur.slice()); return; }
+            for (let k = 0; k < d.betLevels[i].length; k++) { cur.push(k); enumerate(i + 1, cur); cur.pop(); }
+        })(0, []);
+        const cellIndex = new Map(cellsB.map((t, i) => [t.join('|'), i]));
+        const cellOf = d.rows.map(rw => cellIndex.get(rw.b.join('|')));
+        const nCell = cellsB.map((_, i) => cellOf.filter(c => c === i).length);
+        const cellName = t => t.map((lv, f) => `${d.betNames[f]}=${d.betLevels[f][lv]}`).join('，');
+        const empty = cellsB.filter((_, i) => nCell[i] === 0);
+        if (empty.length) throw new Error(`データのない被験者間セルがあります: ${empty.map(cellName).join(' ／ ')}`);
+        const P = cellsB.length, dfE = N - P;
+        if (dfE < 1) throw new Error('誤差の自由度が 0 です（被験者間セルごとに2人以上のデータが必要です）。');
+
+        // 被験者間の計画行列（効果コーディング・全交互作用）
+        const code = (f, lv) => { const a = d.betLevels[f].length; return Array.from({ length: a - 1 }, (_, j) => lv === j ? 1 : (lv === a - 1 ? -1 : 0)); };
+        const betTerms = subsetsOf(q);
+        const termCols = [];
+        let col = 0;
+        betTerms.forEach(T => { const w = T.reduce((s, f) => s * (d.betLevels[f].length - 1), 1); termCols.push(Array.from({ length: w }, (_, i) => col + i)); col += w; });
+        const X = d.rows.map(rw => {
+            const row = [];
+            betTerms.forEach(T => {
+                let v = [1];
+                T.forEach(f => { const c = code(f, rw.b[f]); const nv = []; v.forEach(x => c.forEach(y => nv.push(x * y))); v = nv; });
+                row.push(...v);
+            });
+            return row;
+        });
+        const Xt = StatsLib.transpose(X);
+        const XtXi = StatsLib.invertMatrix(StatsLib.multiply(Xt, X));
+        if (!XtXi) throw new Error('計画行列が特異です（被験者間要因の水準の組み合わせを確認してください）。');
+
+        // 被験者内の対比
+        const helm = d.witLevels.map(l => helmertOrthonormal(l.length));
+        const avg = d.witLevels.map(l => l.map(() => [1 / Math.sqrt(l.length)]));
+        const Y = d.rows.map(rw => rw.y);
+        const strata = subsetsOf(r).map(S => {
+            let M = [[1]];
+            for (let f = 0; f < r; f++) M = kronMat(M, S.includes(f) ? helm[f] : avg[f]);
+            const dS = M[0].length;
+            const Z = StatsLib.multiply(Y, M);
+            const B = StatsLib.multiply(XtXi, StatsLib.multiply(Xt, Z));
+            const XB = StatsLib.multiply(X, B);
+            const R = Z.map((z, i) => z.map((v, c) => v - XB[i][c]));
+            const E = StatsLib.multiply(StatsLib.transpose(R), R);
+            const SSE = matTrace(E), dfErr = dfE * dS;
+            let sph = null;
+            if (dS >= 2) {
+                const T = E.map(rw => rw.map(v => v / dfE));
+                const tr = matTrace(T);
+                const W = Math.max(0, StatsLib.det(T)) / Math.pow(tr / dS, dS);
+                const chi = -(dfE - (2 * dS * dS + dS + 2) / (6 * dS)) * Math.log(Math.max(W, 1e-300));
+                const dfM = dS * (dS + 1) / 2 - 1;
+                const gg = ggEpsilon(T);
+                sph = { W, chi, df: dfM, p: StatsLib.chiSquareP(chi, dfM), gg, hf: Math.min(1, (N * dS * gg - 2) / (dS * (dfE - dS * gg))) };
+            }
+            const useGG = !!(sph && sph.p < .05);
+            const effects = [];
+            betTerms.forEach((T, ti) => {
+                if (!S.length && !T.length) return; // 切片は報告しない
+                const idx = termCols[ti];
+                const Vi = StatsLib.invertMatrix(idx.map(i => idx.map(j => XtXi[i][j])));
+                const LB = idx.map(i => B[i]);
+                const SS = matTrace(StatsLib.multiply(StatsLib.multiply(StatsLib.transpose(LB), Vi), LB));
+                const df = idx.length * dS, F = (SS / df) / (SSE / dfErr);
+                const gg = sph ? sph.gg : 1, hf = sph ? sph.hf : 1;
+                const e = { T, S, names: [...T.map(f => d.betNames[f]), ...S.map(f => d.witNames[f])],
+                    keys: [...T.map(f => ({ kind: 'b', f })), ...S.map(f => ({ kind: 'w', f }))],
+                    SS, df, dfErr, F, p: StatsLib.fP(F, df, dfErr),
+                    pGG: StatsLib.fP(F, df * gg, dfErr * gg), pHF: StatsLib.fP(F, df * hf, dfErr * hf), gg, hf, corrected: useGG,
+                    pe2: SS / (SS + SSE) };
+                e.pUse = useGG ? e.pGG : e.p;
+                e.label = e.names.join(' × ');
+                effects.push(e);
+            });
+            return { S, dS, SSE, dfErr, sph, useGG, effects };
+        });
+        const totalErr = strata.reduce((s, st) => s + st.SSE, 0);
+        strata.forEach(st => st.effects.forEach(e => { e.ge2 = e.SS / (e.SS + totalErr); }));
+
+        // セル平均（被験者間セル × 被験者内の列）
+        const means = cellsB.map((_, c) => Array.from({ length: K }, (_, k) => meanOf(d.rows.filter((__, i) => cellOf[i] === c).map(rw => rw.y[k]))));
+        const sds = cellsB.map((_, c) => Array.from({ length: K }, (_, k) => sdOf(d.rows.filter((__, i) => cellOf[i] === c).map(rw => rw.y[k]))));
+        const wStride = [];
+        { let s = 1; for (let f = r - 1; f >= 0; f--) { wStride[f] = s; s *= d.witLevels[f].length; } }
+        const wDigits = k => d.witLevels.map((l, f) => Math.floor(k / wStride[f]) % l.length);
+        return { d, q, r, N, K, P, dfE, cellsB, cellOf, nCell, cellName, strata, means, sds, wDigits, totalErr,
+                 effects: strata.flatMap(st => st.effects) };
+    }
+
+    // 推定周辺平均（指定した要因の水準を固定し，残りの要因は非重み付きで平均）。fixed: [{kind,f,level}]
+    function factorialEMM(res, fixed) {
+        const cells = res.cellsB.map((t, c) => c).filter(c => fixed.every(x => x.kind !== 'b' || res.cellsB[c][x.f] === x.level));
+        const cols = Array.from({ length: res.K }, (_, k) => k).filter(k => { const dg = res.wDigits(k); return fixed.every(x => x.kind !== 'w' || dg[x.f] === x.level); });
+        return meanOf(cells.map(c => meanOf(cols.map(k => res.means[c][k]))));
+    }
+    // 被験者ごとの得点（指定した被験者内水準の列の平均）と所属セル
+    function factorialSubjectScores(res, fixed) {
+        const cols = Array.from({ length: res.K }, (_, k) => k).filter(k => { const dg = res.wDigits(k); return fixed.every(x => x.kind !== 'w' || dg[x.f] === x.level); });
+        return res.d.rows.map(rw => meanOf(cols.map(k => rw.y[k])));
+    }
+    // 主効果の多重比較（Holm 法）。被験者間要因は被験者平均，被験者内要因は差得点を，被験者間セル内でプールした分散で検定
+    function factorialPairwise(res, key) {
+        const d = res.d, levels = key.kind === 'b' ? d.betLevels[key.f] : d.witLevels[key.f];
+        const rows = [];
+        const pooled = vals => {
+            const cm = res.cellsB.map((_, c) => meanOf(vals.filter((__, i) => res.cellOf[i] === c)));
+            const s2 = vals.reduce((s, v, i) => s + (v - cm[res.cellOf[i]]) ** 2, 0) / res.dfE;
+            return { cm, s2 };
+        };
+        if (key.kind === 'b') {
+            const { cm, s2 } = pooled(factorialSubjectScores(res, []));
+            for (let u = 0; u < levels.length; u++) for (let v = u + 1; v < levels.length; v++) {
+                const cu = res.cellsB.map((t, c) => c).filter(c => res.cellsB[c][key.f] === u);
+                const cv = res.cellsB.map((t, c) => c).filter(c => res.cellsB[c][key.f] === v);
+                const m = cu.length;
+                const diff = meanOf(cu.map(c => cm[c])) - meanOf(cv.map(c => cm[c]));
+                const se = Math.sqrt(s2 * ([...cu, ...cv].reduce((s, c) => s + 1 / res.nCell[c], 0)) / (m * m));
+                const t = diff / se;
+                rows.push({ g1: levels[u], g2: levels[v], diff, t, df: res.dfE, pRaw: StatsLib.tP(t, res.dfE) });
+            }
+        } else {
+            for (let u = 0; u < levels.length; u++) for (let v = u + 1; v < levels.length; v++) {
+                const su = factorialSubjectScores(res, [{ kind: 'w', f: key.f, level: u }]);
+                const sv = factorialSubjectScores(res, [{ kind: 'w', f: key.f, level: v }]);
+                const { cm, s2 } = pooled(su.map((x, i) => x - sv[i]));
+                const diff = meanOf(cm);
+                const se = Math.sqrt(s2 * res.nCell.reduce((s, n) => s + 1 / n, 0) / (res.P * res.P));
+                const t = diff / se;
+                rows.push({ g1: levels[u], g2: levels[v], diff, t, df: res.dfE, pRaw: StatsLib.tP(t, res.dfE) });
+            }
+        }
+        adjustP(rows.map(x => x.pRaw), 'holm').forEach((pa, i) => { rows[i].p = pa; });
+        return rows;
+    }
+    // ある要因の1水準に限定した部分データ（その要因は計画から外れる）
+    function factorialSubset(d, key, level) {
+        if (key.kind === 'b') {
+            return { betNames: d.betNames.filter((_, i) => i !== key.f), betLevels: d.betLevels.filter((_, i) => i !== key.f),
+                witNames: d.witNames, witLevels: d.witLevels,
+                rows: d.rows.filter(rw => rw.b[key.f] === level).map(rw => ({ b: rw.b.filter((_, i) => i !== key.f), y: rw.y })) };
+        }
+        const K = d.witLevels.reduce((s, l) => s * l.length, 1);
+        const stride = d.witLevels.slice(key.f + 1).reduce((s, l) => s * l.length, 1), nl = d.witLevels[key.f].length;
+        const keep = Array.from({ length: K }, (_, k) => k).filter(k => Math.floor(k / stride) % nl === level);
+        return { betNames: d.betNames, betLevels: d.betLevels,
+            witNames: d.witNames.filter((_, i) => i !== key.f), witLevels: d.witLevels.filter((_, i) => i !== key.f),
+            rows: d.rows.map(rw => ({ b: rw.b, y: keep.map(k => rw.y[k]) })) };
+    }
+    const sameSet = (a, b) => a.length === b.length && a.every(x => b.includes(x));
+    const keyName = (d, k) => k.kind === 'b' ? d.betNames[k.f] : d.witNames[k.f];
+    const keyLevels = (d, k) => k.kind === 'b' ? d.betLevels[k.f] : d.witLevels[k.f];
+
+    // 被験者内要因の定義を解析: 「名前: 水準1, 水準2, …」または「名前: 水準数」
+    function parseWithinDefs(text) {
+        return String(text || '').split('\n').map(s => s.trim()).filter(Boolean).map(line => {
+            const i = line.search(/[:：]/);
+            if (i < 0) throw new Error(`被験者内要因の定義の形式が正しくありません（「名前: 水準1, 水準2」）: ${line}`);
+            const name = line.slice(0, i).trim();
+            const rest = line.slice(i + 1).trim();
+            let levels;
+            if (/^\d+$/.test(rest)) levels = Array.from({ length: parseInt(rest, 10) }, (_, k) => `${name}${k + 1}`);
+            else levels = rest.split(/[,、，]/).map(s => s.trim()).filter(Boolean);
+            if (!name) throw new Error(`被験者内要因の名前がありません: ${line}`);
+            if (levels.length < 2) throw new Error(`被験者内要因「${name}」には2つ以上の水準が必要です。`);
+            if (new Set(levels).size !== levels.length) throw new Error(`被験者内要因「${name}」の水準名が重複しています。`);
+            return { name, levels };
+        });
+    }
+    // 列と被験者内条件の対応（先頭要因が最も遅く変化）
+    function withinCellLabels(wdefs) {
+        let labels = [[]];
+        wdefs.forEach(w => { const nl = []; labels.forEach(l => w.levels.forEach(v => nl.push([...l, v]))); labels = nl; });
+        return labels;
+    }
+
+    function runFactorialANOVA(betRaw, cols, out) {
+        const betNames = [...new Set(parseVarList(betRaw))];
+        cols = [...new Set(cols.filter(Boolean))];
+        const wdefs = parseWithinDefs(document.getElementById('withinDefs').value);
+        if (!betNames.length && !wdefs.length) throw new Error('被験者間要因（群分け変数）または被験者内要因（設定欄で定義）を少なくとも1つ指定してください。');
+        const K = wdefs.reduce((s, w) => s * w.levels.length, 1);
+        if (!cols.length) throw new Error('「測定値の列」を指定してください。');
+        if (cols.length !== K) throw new Error(wdefs.length
+            ? `被験者内要因の条件数は ${K}（${wdefs.map(w => `${w.name} ${w.levels.length}`).join(' × ')}）ですが，測定値の列が ${cols.length} 個指定されています。設定欄の対応表を確認してください。`
+            : '被験者内要因を定義しない場合，測定値の列（従属変数）は1つだけ指定してください。');
+        const allNames = [...betNames, ...wdefs.map(w => w.name)];
+        if (new Set(allNames).size !== allNames.length) throw new Error('要因名が重複しています（被験者内要因には群分け変数と異なる名前を付けてください）。');
+        if (betNames.some(b => cols.includes(b))) throw new Error('群分け変数を測定値の列に含めないでください。');
+        requireVars(...betNames, ...cols);
+        const valid = rawData.filter(dr => betNames.every(b => !isMissing(dr[b])) && cols.every(c => isFinite(parseFloat(dr[c]))));
+        const betLevels = betNames.map(b => orderLevels([...new Set(valid.map(dr => String(dr[b]).trim()))]));
+        betLevels.forEach((l, i) => {
+            if (l.length < 2) throw new Error(`被験者間要因「${betNames[i]}」に2つ以上の水準がありません。`);
+            if (l.length > 20) throw new Error(`被験者間要因「${betNames[i]}」の水準が多すぎます（${l.length}）。量的変数を指定していないか確認してください。`);
+        });
+        const d = { betNames, betLevels, witNames: wdefs.map(w => w.name), witLevels: wdefs.map(w => w.levels),
+            rows: valid.map(dr => ({ b: betNames.map((bn, i) => betLevels[i].indexOf(String(dr[bn]).trim())), y: cols.map(c => parseFloat(dr[c])) })) };
+        const res = factorialCore(d);
+        const dropped = rawData.length - res.N;
+        const allKeys = [...betNames.map((_, f) => ({ kind: 'b', f })), ...wdefs.map((_, f) => ({ kind: 'w', f }))];
+        const nFactors = allKeys.length;
+        const cellLabels = withinCellLabels(wdefs);
+
+        // ---- フォローアップ: 単純主効果・単純交互作用・多重比較 ----
+        const effs = res.effects;
+        const sigEff = effs.filter(e => e.pUse < .05);
+        const inHigherSig = e => sigEff.some(h => h.names.length > e.names.length && e.names.every(n => h.names.includes(n)));
+        const simpleRows = [], follow = [], notes = [];
+        const analyzeSubset = (fixKey, level) => { try { return factorialCore(factorialSubset(d, fixKey, level)); } catch (err) { return null; } };
+        const findEff = (r2, names) => r2 ? r2.effects.find(e => sameSet(e.names, names)) : null;
+        sigEff.filter(e => e.names.length >= 2 && !inHigherSig(e)).slice(0, 4).forEach(e => {
+            if (e.names.length === 2) {
+                e.keys.forEach((fixKey, ii) => {
+                    const target = e.keys[1 - ii], tName = keyName(d, target);
+                    keyLevels(d, fixKey).forEach((lv, li) => {
+                        const sub = analyzeSubset(fixKey, li);
+                        const se = findEff(sub, [tName]);
+                        const label = `${keyName(d, fixKey)} = ${lv} における ${tName} の効果`;
+                        if (!se) { simpleRows.push({ label, na: true }); return; }
+                        simpleRows.push({ ...se, label, family: e.label });
+                        if (se.pUse < .05 && keyLevels(d, target).length >= 3) {
+                            const tKey = sub.d.betNames.includes(tName) ? { kind: 'b', f: sub.d.betNames.indexOf(tName) } : { kind: 'w', f: sub.d.witNames.indexOf(tName) };
+                            follow.push({ title: `${keyName(d, fixKey)} = ${lv} における ${tName} の多重比較`, rows: factorialPairwise(sub, tKey) });
+                        }
+                    });
+                });
+            } else if (e.names.length === 3) {
+                e.keys.forEach(fixKey => {
+                    const others = e.names.filter(n => n !== keyName(d, fixKey));
+                    keyLevels(d, fixKey).forEach((lv, li) => {
+                        const sub = analyzeSubset(fixKey, li);
+                        const se = findEff(sub, others);
+                        const label = `${keyName(d, fixKey)} = ${lv} における ${others.join(' × ')} の交互作用`;
+                        simpleRows.push(se ? { ...se, label, family: e.label } : { label, na: true });
+                    });
+                });
+                notes.push(`3次の交互作用（${e.label}）が有意であったため，単純交互作用（1つの要因の各水準における残り2要因の交互作用）を検定しました。有意な単純交互作用については，その水準に絞ったデータで二要因の分析（単純・単純主効果）を行ってください（前処理のフィルタリングや，列を限定した再分析）。`);
+            } else {
+                notes.push(`4次以上の交互作用（${e.label}）が有意です。解釈のため，いずれかの要因の水準ごとにデータを分けて再分析することを推奨します。`);
+            }
+        });
+        sigEff.filter(e => e.names.length === 1 && !inHigherSig(e) && keyLevels(d, e.keys[0]).length >= 3).forEach(e => {
+            follow.push({ title: `${e.label} の主効果の多重比較（推定周辺平均）`, rows: factorialPairwise(res, e.keys[0]) });
+        });
+
+        // ---- 出力の組み立て ----
+        const designTxt = [betNames.length ? `被験者間: ${betNames.map((b, i) => `${escapeHtml(b)}（${betLevels[i].length}）`).join(' × ')}` : '',
+            wdefs.length ? `被験者内: ${wdefs.map(w => `${escapeHtml(w.name)}（${w.levels.length}）`).join(' × ')}` : ''].filter(Boolean).join(' ／ ');
+        const balanced = res.nCell.every(n => n === res.nCell[0]);
+        const sphRows = res.strata.filter(st => st.sph).map(st => {
+            const nm = st.S.map(f => escapeHtml(d.witNames[f])).join(' × ');
+            return `<tr><td>球面性 (Mauchly)</td><td>${nm}</td><td><i>W</i> = ${fmt(st.sph.W, 3)}，χ²(${st.sph.df}) = ${fmt(st.sph.chi, 2)}<br><small>GG ε = ${fmt(st.sph.gg, 3)}，HF ε = ${fmt(st.sph.hf, 3)}</small></td><td>${sigCell(st.sph.p)}</td><td><span class="chk ${st.useGG ? 'chk-ng' : 'chk-ok'}">${st.useGG ? '⚠ 棄却 → GG 補正を採用' : '✓ 球面性を仮定できる'}</span></td></tr>`;
+        }).join('');
+        const levRows = betNames.length ? cols.map((c, k) => {
+            const lev = StatsLib.levene(res.cellsB.map((_, ci) => d.rows.filter((__, i) => res.cellOf[i] === ci).map(rw => rw.y[k])), 'mean');
+            if (!lev) return '';
+            const ok = lev.p >= .05;
+            return `<tr><td>等分散性 (Levene)</td><td>${escapeHtml(c)}</td><td><i>F</i>(${lev.df1}, ${lev.df2}) = ${fmt(lev.F, 2)}</td><td>${sigCell(lev.p)}</td><td><span class="chk ${ok ? 'chk-ok' : 'chk-ng'}">${ok ? '✓ 等分散を仮定できる' : '⚠ 等分散でない'}</span></td></tr>`;
+        }).join('') : '';
+        const assume = (sphRows || levRows) ? `<details class="assume-panel" open><summary>🔎 前提条件のチェック</summary>
+            <table class="stats-table"><thead><tr><th>検定</th><th>対象</th><th>統計量</th><th><i>p</i></th><th>判定</th></tr></thead><tbody>${sphRows}${levRows}</tbody></table>
+            <div class="assume-advice">💡 ${res.strata.some(st => st.useGG) ? '球面性が棄却された被験者内効果には <b>Greenhouse-Geisser 補正</b>を適用し，その結果を判定と記述文に用いています。' : (sphRows ? '球面性はいずれも棄却されませんでした（2水準の被験者内効果は球面性の検定が不要です）。' : '被験者内要因の効果はすべて自由度 1 のため，球面性の検定は不要です。')}${/chk-ng/.test(levRows) ? '<br>一部の列で被験者間セルの等分散性が棄却されました。セルの人数が大きく異なる場合は被験者間効果の解釈に注意してください。' : ''}</div>
+            <div class="assume-foot">球面性の検定は各被験者内効果（3水準以上を含むもの）ごとに，被験者間セル内でプールした共分散行列から算出しています。</div></details>` : '';
+
+        // セル平均表: 行 = 被験者間セル，列 = 被験者内条件
+        const rowLabel = c => betNames.length ? res.cellsB[c].map((lv, f) => escapeHtml(betLevels[f][lv])).join(' ・ ') : '全体';
+        const cellTable = `<div class="table-scroll"><table class="stats-table apa-table"><thead><tr><th>${betNames.length ? betNames.map(escapeHtml).join(' ・ ') : ''}</th>${cols.map((c, k) => `<th>${wdefs.length ? cellLabels[k].map(escapeHtml).join('・') : escapeHtml(c)}</th>`).join('')}<th><i>n</i></th></tr></thead><tbody>
+            ${res.cellsB.map((_, c) => `<tr><td>${rowLabel(c)}</td>${cols.map((__, k) => `<td>${fmt(res.means[c][k], 2)} (${fmt(res.sds[c][k], 2)})</td>`).join('')}<td>${res.nCell[c]}</td></tr>`).join('')}
+            </tbody></table></div>`;
+        const mapTable = wdefs.length ? `<details class="sub-details"><summary>列と被験者内条件の対応（入力の確認）</summary>
+            <table class="stats-table"><thead><tr><th>列</th>${wdefs.map(w => `<th>${escapeHtml(w.name)}</th>`).join('')}</tr></thead><tbody>
+            ${cols.map((c, k) => `<tr><td>${escapeHtml(c)}</td>${cellLabels[k].map(v => `<td>${escapeHtml(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></details>` : '';
+        const emmTable = `<table class="stats-table apa-table"><thead><tr><th>要因</th><th>水準</th><th>推定周辺平均</th></tr></thead><tbody>
+            ${allKeys.map(k => keyLevels(d, k).map((lv, li) => `<tr><td>${li === 0 ? escapeHtml(keyName(d, k)) : ''}</td><td>${escapeHtml(lv)}</td><td>${fmt(factorialEMM(res, [{ ...k, level: li }]), 2)}</td></tr>`).join('')).join('')}
+            </tbody></table>`;
+
+        const row = (e, label, hl) => `<tr${hl ? ' class="row-hl"' : ''}><td>${label}</td><td>${fmt(e.SS, 3)}</td><td>${e.df}</td><td>${fmt(e.SS / e.df, 3)}</td><td>${fmt(e.F, 3)}</td><td>${sigCell(e.p)}</td><td>${fmt(e.pe2, 3)} ${esBadge('eta', e.pe2)}</td><td>${fmt(e.ge2, 3)}</td></tr>`;
+        const corrRows = (e, st) => st.sph ? `
+            <tr${st.useGG && e.pGG < .05 ? ' class="row-hl"' : ''}><td>　Greenhouse-Geisser 補正</td><td>${fmt(e.SS, 3)}</td><td>${fmt(e.df * e.gg, 2)}</td><td>${fmt(e.SS / (e.df * e.gg), 3)}</td><td>${fmt(e.F, 3)}</td><td>${sigCell(e.pGG)}</td><td></td><td></td></tr>
+            <tr><td>　Huynh-Feldt 補正</td><td>${fmt(e.SS, 3)}</td><td>${fmt(e.df * e.hf, 2)}</td><td>${fmt(e.SS / (e.df * e.hf), 3)}</td><td>${fmt(e.F, 3)}</td><td>${sigCell(e.pHF)}</td><td></td><td></td></tr>` : '';
+        const secRow = label => `<tr><td colspan="8" style="font-weight:700;background:#f8fafc;text-align:left;">${label}</td></tr>`;
+        let anovaRows = '';
+        res.strata.forEach(st => {
+            const wn = st.S.map(f => escapeHtml(d.witNames[f])).join(' × ');
+            if (!st.S.length) {
+                if (!betNames.length) { anovaRows += secRow('被験者間'); anovaRows += `<tr><td>誤差（被験者）</td><td>${fmt(st.SSE, 3)}</td><td>${st.dfErr}</td><td>${fmt(st.SSE / st.dfErr, 3)}</td><td></td><td></td><td></td><td></td></tr>`; return; }
+                anovaRows += secRow('被験者間');
+            } else if (st.S.length && res.strata[res.strata.indexOf(st) - 1] && !res.strata[res.strata.indexOf(st) - 1].S.length) {
+                anovaRows += secRow('被験者内');
+            }
+            st.effects.forEach(e => {
+                anovaRows += row(e, `${escapeHtml(e.label)}${st.sph ? '（球面性を仮定）' : ''}`, !st.useGG && e.p < .05);
+                anovaRows += corrRows(e, st);
+            });
+            anovaRows += `<tr><td>誤差（${st.S.length ? `${wn} × ` : ''}被験者${betNames.length ? ` / ${betNames.map(escapeHtml).join(' × ')}` : ''}）</td><td>${fmt(st.SSE, 3)}</td><td>${st.dfErr}</td><td>${fmt(st.SSE / st.dfErr, 3)}</td><td></td><td></td><td></td><td></td></tr>`;
+        });
+
+        // ---- 交互作用プロット（第1要因 = 横軸，第2要因 = 線，第3要因 = パネル） ----
+        const plotKeys = [...wdefs.map((_, f) => ({ kind: 'w', f })), ...betNames.map((_, f) => ({ kind: 'b', f }))].slice(0, 3);
+        const [xKey, lineKey, panelKey] = plotKeys;
+        const allBetPlotted = betNames.every((_, f) => plotKeys.some(k => k.kind === 'b' && k.f === f));
+        const panelLevels = panelKey ? keyLevels(d, panelKey).slice(0, 6) : [null];
+        const charts = panelLevels.map((pl, pi) => ({ id: `faC_${chartCounter++}`, pl, pi }));
+        const plotVal = fixed => {
+            const m = factorialEMM(res, fixed);
+            if (!allBetPlotted) return { m, se: NaN };
+            const scores = factorialSubjectScores(res, fixed);
+            const pick = scores.filter((_, i) => fixed.every(x => x.kind !== 'b' || d.rows[i].b[x.f] === x.level));
+            return { m, se: pick.length > 1 ? sdOf(pick) / Math.sqrt(pick.length) : NaN };
+        };
+        const figNoteTxt = `${allBetPlotted ? 'エラーバーは各セルの標準誤差（±1 <i>SE</i>）。' : '図示していない被験者間要因について平均した推定周辺平均のため，エラーバーは省略。'}${nFactors > 3 ? '4つ目以降の要因は平均して図示。' : ''}線が平行でないほど交互作用が大きいことを示す。`;
+        const chartHTML = charts.map(ch => chartBlock(ch.id, `${plotKeys.map(k => escapeHtml(keyName(d, k))).join(' × ')} ごとの平均値${panelKey ? `（${escapeHtml(keyName(d, panelKey))} = ${escapeHtml(ch.pl)}）` : ''}`, ch.pi === charts.length - 1 ? figNoteTxt : null)).join('');
+
+        const pTxt = e => `<i>F</i>(${e.corrected ? `${apaFmt(e.df * e.gg, 2)}, ${apaFmt(e.dfErr * e.gg, 2)}` : `${e.df}, ${e.dfErr}`}) = ${apaFmt(e.F, 2)}，<i>p</i> ${apaPfmt(e.pUse)}，偏 η² = ${apaFmt(e.pe2, 2, true)}`;
+        const cId0 = charts[0].id;
+        out.innerHTML += `<div class="report-card">
+            ${cardTitle('🧱', '多要因分散分析（一般計画）', `${designTxt} ／ N = ${res.N}${dropped ? `（欠損のある ${dropped} 人を除外）` : ''}${betNames.length && !balanced ? ' ／ セルの人数が異なるため Type III 平方和' : ''}`)}
+            ${mapTable}
+            ${assume}
+            ${tblCaption('セルごとの平均値（標準偏差）')}${cellTable}
+            ${tblCaption('分散分析表')}
+            <div class="table-scroll"><table class="stats-table apa-table"><thead><tr><th>変動因</th><th><i>SS</i></th><th><i>df</i></th><th><i>MS</i></th><th><i>F</i></th><th><i>p</i></th><th>偏 η²</th><th>一般化 η²</th></tr></thead><tbody>${anovaRows}</tbody></table></div>
+            ${figNote('被験者内要因は正規直交対比に変換し，被験者間要因は効果コーディングの全要因モデルで推定（Type III 平方和；SPSS の GLM 反復測定，R の afex と同じ）。一般化 η² は全要因を操作した要因とみなして算出（Olejnik &amp; Algina, 2003）。')}
+            ${tblCaption('推定周辺平均')}${emmTable}
+            ${figNote('推定周辺平均は，他の要因の水準について非重み付きで平均した値。')}
+            ${simpleRows.length ? `${tblCaption('単純効果の検定')}
+                <div class="table-scroll"><table class="stats-table apa-table"><thead><tr><th>効果</th><th><i>SS</i></th><th><i>df</i></th><th><i>F</i></th><th><i>p</i></th><th>偏 η²</th></tr></thead><tbody>
+                ${simpleRows.map(s => s.na ? `<tr><td>${escapeHtml(s.label)}</td><td colspan="5">算出不可（人数不足）</td></tr>` : `<tr${s.pUse < .05 ? ' class="row-hl"' : ''}><td>${escapeHtml(s.label)}</td><td>${fmt(s.SS, 3)}</td><td>${s.corrected ? `${fmt(s.df * s.gg, 2)}, ${fmt(s.dfErr * s.gg, 2)}` : `${s.df}, ${s.dfErr}`}</td><td>${fmt(s.F, 3)}</td><td>${sigCell(s.pUse)}${s.corrected ? ' <small>(GG)</small>' : ''}</td><td>${fmt(s.pe2, 3)}</td></tr>`).join('')}
+                </tbody></table></div>
+                ${figNote('単純効果は，固定した要因の水準に該当するデータだけを用いて，同じ方法で再分析した結果（その水準専用の誤差項）。検定数が多いため，必要に応じて有意水準を調整して解釈する。')}` : ''}
+            ${notes.map(n => `<div class="callout">${escapeHtml(n)}</div>`).join('')}
+            ${(() => follow.map(f => `${tblCaption(`${escapeHtml(f.title)}（Holm 法）`)}
+                <table class="stats-table apa-table"><thead><tr><th>比較</th><th>平均差</th><th><i>t</i></th><th><i>df</i></th><th><i>p</i><sub>adj</sub></th></tr></thead><tbody>
+                ${f.rows.map(x => `<tr${x.p < .05 ? ' class="row-hl"' : ''}><td>${escapeHtml(x.g1)} − ${escapeHtml(x.g2)}</td><td>${fmt(x.diff, 3)}</td><td>${fmt(x.t, 3)}</td><td>${x.df}</td><td>${sigCell(x.p)}</td></tr>`).join('')}
+                </tbody></table>`).join(''))()}
+            ${chartHTML}
+            ${(() => {
+                let txt = `${[betNames.length ? `${betNames.map((b, i) => `${escapeHtml(b)}（${betLevels[i].length} 水準）`).join('，')}を被験者間要因` : '', wdefs.length ? `${wdefs.map(w => `${escapeHtml(w.name)}（${w.levels.length} 水準）`).join('，')}を被験者内要因` : ''].filter(Boolean).join('，')}とする ${nFactors} 要因分散分析を実施した（<i>N</i> = ${res.N}${betNames.length && !balanced ? '，Type III 平方和' : ''}）。`;
+                const corrected = res.strata.filter(st => st.useGG);
+                if (corrected.length) txt += `Mauchly の検定により球面性の仮定が棄却された効果（${corrected.map(st => st.S.map(f => escapeHtml(d.witNames[f])).join(' × ')).join('，')} を含む効果）には Greenhouse-Geisser の補正を適用した。`;
+                const word = e => e.names.length === 1 ? `${escapeHtml(e.label)} の主効果` : `${escapeHtml(e.label)} の交互作用`;
+                txt += `その結果，${effs.map(e => `${word(e)}は${apaSigWord(e.pUse)}（${pTxt(e)}）`).join('。')}。`;
+                const sgS = simpleRows.filter(s => !s.na && s.pUse < .05);
+                if (simpleRows.length) txt += sgS.length ? `有意な交互作用について単純効果の検定を行ったところ，${sgS.map(s => `${escapeHtml(s.label)}（${pTxt(s)}）`).join('，')}が有意であった。` : '有意な交互作用について単純効果の検定を行ったが，有意な単純効果は認められなかった。';
+                follow.forEach(f => {
+                    const sg = f.rows.filter(x => x.p < .05);
+                    txt += sg.length ? `${escapeHtml(f.title)}（Holm 法）では，${sg.map(x => `${escapeHtml(x.g1)} と ${escapeHtml(x.g2)}`).join('，')} の間に有意差が認められた。` : `${escapeHtml(f.title)}（Holm 法）では有意差は認められなかった。`;
+                });
+                return apaBox(txt);
+            })()}
+        </div>`;
+
+        const dashes = [[], [6, 4], [2, 3], [10, 3, 2, 3], [1, 1], [4, 2]];
+        const greys = ['#0f172a', '#475569', '#64748b', '#334155', '#94a3b8', '#1e293b'];
+        const shapes = ['circle', 'rect', 'triangle', 'rectRot', 'star', 'crossRot'];
+        charts.forEach(ch => {
+            const lineLevels = lineKey ? keyLevels(d, lineKey) : [null];
+            const xLevels = keyLevels(d, xKey);
+            const datasets = lineLevels.map((ll, li) => {
+                const pts = xLevels.map((_, xi) => {
+                    const fixed = [{ ...xKey, level: xi }];
+                    if (lineKey) fixed.push({ ...lineKey, level: li });
+                    if (panelKey) fixed.push({ ...panelKey, level: ch.pi });
+                    return plotVal(fixed);
+                });
+                return { label: lineKey ? `${keyName(d, lineKey)} = ${ll}` : '平均値', data: pts.map(p2 => p2.m),
+                    errorBars: pts.map(p2 => isFinite(p2.se) ? { lo: p2.m - p2.se, hi: p2.m + p2.se } : null),
+                    errorBarColor: greys[li % 6], borderColor: greys[li % 6], backgroundColor: greys[li % 6], borderDash: dashes[li % 6],
+                    pointStyle: shapes[li % 6], borderWidth: 2, pointRadius: 5, fill: false, tension: 0 };
+            });
+            renderChartAsImage(ch.id, {
+                type: 'line', data: { labels: xLevels, datasets },
+                options: { plugins: { legend: { display: !!lineKey, position: 'bottom', labels: { usePointStyle: true, pointStyleWidth: 18 } } },
+                    scales: { x: { title: { display: true, text: keyName(d, xKey) }, offset: true }, y: { title: { display: true, text: '平均値' } } } }
+            });
+        });
+    }
+
+    // ============================================================
     // 一要因反復測定分散分析（被験者内計画）
     // ============================================================
     function runRMANOVA(conds, out) {
@@ -4273,6 +4691,11 @@
           f1: { label: '被験者間要因（群分け変数）', hint: '例: 群', req: true },
           f2: { label: '被験者内要因の水準（繰り返し測定の列, 2つ以上）', hint: '時間順にカンマ区切り。例: 事前, 事後, 追跡', multi: true, req: true },
           panels: ['mixedOptions'] },
+        { id: 'anova_factorial', group: '平均値の差', icon: '🧱', name: '多要因分散分析（一般計画: 被験者内×被験者内・3要因以上）', short: '多要因分散分析（一般計画）',
+          brief: '被験者間要因と被験者内要因を何個でも組み合わせられる分散分析です。被験者内 × 被験者内（2要因の反復測定）や 3要因以上の計画に使います。',
+          f1: { label: '被験者間要因（0個以上）', hint: '群分け変数をカンマ区切りで。被験者内要因だけの計画なら空欄。例: 性別', multi: true, req: false },
+          f2: { label: '測定値の列', hint: '被験者内要因がなければ従属変数を1列。あれば全条件の列を、設定欄の対応表の順に。', multi: true, req: true },
+          panels: ['factorialOptions'] },
         { id: 'rmanova', group: '平均値の差', icon: '🔄', name: '反復測定分散分析（一要因・被験者内）',
           brief: '同じ人に3回以上測定した値（例: 事前・事後・追跡）の平均値の変化を検定します。',
           f2: { label: '条件（繰り返し測定の列, 2つ以上）', hint: '時間順にカンマ区切り。例: 事前, 事後, 追跡', multi: true, req: true },
@@ -4402,7 +4825,7 @@
             what: '2つの要因それぞれの効果（主効果）と、その組み合わせの効果（交互作用）を同時に検定します。',
             when: ['「介入の効果は男女で異なるか」のように、効果が別の要因によって変わるかを調べるとき'],
             assume: ['各セルのデータが正規分布に従う', 'セル間の等分散性', '観測値の独立性', '各セルに2件以上のデータ'],
-            input: '「従属変数」に得点、「要因A, 要因B」に2つの群分け変数をカンマ区切りで入力。',
+            input: '「従属変数」に得点、「要因A, 要因B」に2つの群分け変数をカンマ区切りで入力。3要因以上は「多要因分散分析（一般計画）」を使います。',
             read: ['<b>交互作用から先に見る</b>: 有意なら、主効果だけで結論づけず<b>単純主効果</b>を確認する。', '<b>単純主効果</b>: 一方の要因の各水準ごとに、もう一方の要因の効果を検定したもの。', '<b>交互作用プロット</b>: 線が平行でないほど交互作用が大きい。交差していれば効果の向きが逆転している。', '<b>偏 η²</b>: その効果と誤差の和に対する、その効果の割合。', '人数の異なる（非釣り合い型）データでは Type III 平方和を用いる（SPSS の既定と同じ）。'],
             effect: '偏 η²: .01 小 ／ .06 中 ／ .14 大',
             report: '群と性別を独立変数とした二要因分散分析の結果，交互作用が有意であった（F(2, 114) = 3.52，p = .033，偏 η² = .06）。単純主効果の検定の結果，女性では群の効果が有意であった。',
@@ -4413,12 +4836,23 @@
             what: '群の違い（被験者間要因）と、同じ人に繰り返し測定した条件や時点（被験者内要因）の2要因について、主効果と交互作用を同時に検定します。介入研究の「群 × 時点」の分析で最もよく使われます。',
             when: ['介入群と統制群で、事前→事後（→追跡）の変化が異なるかを調べるとき（交互作用が介入効果の検定になる）', '男女など異なる群の人が、全員複数の実験条件を経験する計画'],
             assume: ['各セルのデータが正規分布に従う', '<b>球面性</b>: 被験者内要因の条件ペアの差得点の分散が等しい（Mauchly の検定で確認。3水準以上のとき）', '各水準で群間の分散が等しい（Levene の検定で確認）', '群ごとの共分散行列が等しい（共分散行列の等質性）'],
-            input: '「被験者間要因」に群分け変数を1つ、「被験者内要因の水準」に繰り返し測定した列を時間順にカンマ区切りで入力（1人1行の横長形式）。設定で被験者内要因の名前（例: 時点）を付けられます。',
+            input: '「被験者間要因」に群分け変数を1つ、「被験者内要因の水準」に繰り返し測定した列を時間順にカンマ区切りで入力（1人1行の横長形式）。設定で被験者内要因の名前（例: 時点）を付けられます。被験者間・被験者内の要因が2つ以上ある場合は「多要因分散分析（一般計画）」を使います。',
             read: ['<b>交互作用から先に見る</b>: 介入研究では「群 × 時点」の交互作用が「群によって変化の仕方が違う」＝介入効果を意味する。', '<b>分散分析表</b>は被験者間（群の主効果）と被験者内（時点の主効果・交互作用）に分かれ、それぞれ別の誤差項で検定される。', '<b>Mauchly の検定</b>が有意なら、被験者内の効果は <b>Greenhouse-Geisser 補正</b>の行を報告する。', '<b>単純主効果</b>: 交互作用が有意なとき、「各時点での群の差」と「各群での時点による変化」を確認する。', '<b>交互作用プロット</b>: 群ごとの線の傾きの違いが交互作用。'],
             effect: '偏 η²・一般化 η²: .01 小 ／ .06 中 ／ .14 大（被験者内要因を含む計画では、他研究との比較には一般化 η² が推奨される）',
             report: '群（3水準）を被験者間要因，時点（事前・事後・追跡）を被験者内要因とする二要因混合計画の分散分析を行った。その結果，群 × 時点の交互作用が有意であった（F(4, 232) = 5.81，p < .001，偏 η² = .09）。単純主効果の検定の結果，介入B では時点の効果が有意であった。',
             pitfalls: ['事前得点に群差がないことだけを確認し、事後得点だけを t 検定で比べる（変化の違い＝交互作用を検定する）', '群ごとに別々に対応のある t 検定を行い「片方だけ有意だった」ことを群差の根拠にする（交互作用の検定が必要）', '球面性を確認せずに補正なしの結果を報告する'],
             refs: 'Maxwell, S. E., Delaney, H. D., & Kelley, K. (2018). Designing experiments and analyzing data (3rd ed.). ／ Olejnik, S., & Algina, J. (2003). Generalized eta and omega squared statistics. Psychological Methods.'
+        },
+        anova_factorial: {
+            what: '被験者間要因と被験者内要因を任意の数だけ組み合わせた分散分析です。被験者内 × 被験者内（2要因の反復測定）や，3要因以上の計画（例: 性別 × 一致性 × 負荷）に対応します。',
+            when: ['全員が複数の条件を組み合わせて経験する実験（例: 一致性 2 × 負荷 2 の被験者内計画）', '3つ以上の要因の交互作用を調べたいとき（例: 介入の効果が時点と性別によって異なるか）'],
+            assume: ['各セルのデータが正規分布に従う', '<b>球面性</b>: 3水準以上の被験者内要因を含む効果ごとに Mauchly の検定で確認', '被験者間要因がある場合は，各条件で群間の分散が等しい（Levene）', '被験者間の全セルにデータがある（空のセルがない）'],
+            input: '「被験者間要因」に群分け変数（0個以上），設定欄に被験者内要因を「名前: 水準1, 水準2」の形で1行ずつ定義し，「測定値の列」に全条件の列を<b>対応表の順</b>に入力します。上の行の要因ほどゆっくり変わる順です（2×2 なら 一致・低 → 一致・高 → 不一致・低 → 不一致・高）。被験者内要因がない場合は従属変数を1列だけ指定します（被験者間だけの多要因分析）。',
+            read: ['<b>高次の交互作用から読む</b>: 3次の交互作用が有意なら，まず単純交互作用（ある要因の水準ごとの2要因の交互作用）を確認する。', '<b>分散分析表</b>は「被験者間」と「被験者内」に分かれ，被験者内の効果はそれぞれ専用の誤差項（効果 × 被験者）で検定される。', '<b>球面性</b>が棄却された効果は Greenhouse-Geisser 補正の行で判断する。2水準だけの被験者内効果は補正不要。', '<b>単純効果</b>: 固定した要因の水準のデータだけで再分析した結果。', '<b>推定周辺平均</b>: 他の要因について平均した各水準の平均値。主効果の解釈に使う。'],
+            effect: '偏 η²・一般化 η²: .01 小 ／ .06 中 ／ .14 大（被験者内要因を含む計画どうしで比較するなら一般化 η²）',
+            report: '性別（被験者間）× 一致性（被験者内）× 負荷（被験者内）の三要因分散分析を行った。その結果，一致性 × 負荷の交互作用が有意であった（F(1, 118) = 42.3，p < .001，偏 η² = .26）。単純効果の検定の結果，一致性の効果は高負荷条件で特に大きかった。',
+            pitfalls: ['列の並び順を対応表と違う順で指定する（結果がまったく変わる）', '要因を増やしすぎる（4要因以上の交互作用は解釈が難しく，検定力も下がる）', '高次の交互作用が有意なのに主効果だけを報告する'],
+            refs: 'Maxwell, S. E., Delaney, H. D., & Kelley, K. (2018). Designing experiments and analyzing data (3rd ed.). ／ Singmann, H., & Kellen, D. (2019). An introduction to mixed models for experimental psychology.'
         },
         rmanova: {
             what: '同じ人を3回以上測定したときの、条件（時点）による平均値の違いを検定します。個人差を誤差から取り除けるので検定力が高くなります。',
@@ -4546,7 +4980,8 @@
             { label: '1つの平均値と基準値', desc: '例: 尺度の中点 3 より高いか', result: 'ttest_one' },
             { label: '2つの群・条件', desc: '例: 男女、事前と事後', next: 'two' },
             { label: '3つ以上の群・条件', desc: '例: 統制群・介入A・介入B、3時点', next: 'three' },
-            { label: '2つの要因の組み合わせ', desc: '例: 群 × 性別、群 × 時点（交互作用を調べたい）', next: 'two_factor' }
+            { label: '2つの要因の組み合わせ', desc: '例: 群 × 性別、群 × 時点（交互作用を調べたい）', next: 'two_factor' },
+            { label: '3つ以上の要因の組み合わせ', desc: '例: 性別 × 一致性 × 負荷（被験者間・被験者内を問わない）', result: 'anova_factorial' }
         ] },
         two: { q: '同じ人を2回測っていますか？（対応の有無）', help: '事前・事後のように同じ人の2つの値を比べるなら「対応あり」。', opts: [
             { label: '対応なし（別々の人の2群）', desc: '例: 男性 vs 女性', next: 'two_ind' },
@@ -4570,7 +5005,8 @@
         ] },
         two_factor: { q: 'それぞれの要因は「別々の人の群」ですか、「同じ人の繰り返し測定」ですか？', help: '例: 群 × 性別 は両方とも別々の人。群 × 時点（事前・事後）は、時点が同じ人の繰り返し測定。', opts: [
             { label: '両方とも別々の人の群', desc: '被験者間 × 被験者間（例: 群 × 性別）', result: 'anova2' },
-            { label: '一方は群、もう一方は同じ人の繰り返し測定', desc: '混合計画（例: 群 × 時点）', result: 'anova_mixed' }
+            { label: '一方は群、もう一方は同じ人の繰り返し測定', desc: '混合計画（例: 群 × 時点）', result: 'anova_mixed' },
+            { label: '両方とも同じ人の繰り返し測定', desc: '被験者内 × 被験者内（例: 一致性 × 負荷）', result: 'anova_factorial' }
         ] },
         rel: { q: 'どんな種類の変数どうしの関連ですか？', opts: [
             { label: '量的変数 × 量的変数', desc: '例: ストレスと抑うつ', next: 'rel_num' },
@@ -4595,6 +5031,7 @@
         anova: { y: '事後', x: '群' },
         anova2: { y: '事後', x: '群, 性別' },
         anova_mixed: { y: '群', x: '事前, 事後, 追跡', wn: '時点' },
+        anova_factorial: { y: '性別', x: '一致_低負荷, 一致_高負荷, 不一致_低負荷, 不一致_高負荷', wdef: '一致性: 一致, 不一致\n負荷: 低, 高' },
         rmanova: { x: '事前, 事後, 追跡' },
         mwu: { y: 'ストレス', x: '性別' },
         wilcoxon: { y: '事前', x: '事後' },
@@ -4673,7 +5110,8 @@
         setField('f1', 'yTarget', m.f1);
         setField('f2', 'xPredictor', m.f2);
         document.getElementById('varsStep').style.display = (m.f1 || m.f2) ? '' : 'none';
-        ['onesampleOptions', 'corrOptions', 'posthocOptions', 'regOptions', 'factorOptions', 'scaleScoreOptions', 'mixedOptions'].forEach(pid => {
+        updateFactorialPreview();
+        ['onesampleOptions', 'corrOptions', 'posthocOptions', 'regOptions', 'factorOptions', 'scaleScoreOptions', 'mixedOptions', 'factorialOptions'].forEach(pid => {
             document.getElementById(pid).classList.toggle('show', (m.panels || []).includes(pid));
         });
         // 入力先を自動で切り替え
@@ -4681,6 +5119,19 @@
         else if (m.f1 && !document.getElementById('yTarget').value.trim()) setActiveInput('yTarget');
         else if (m.f2) setActiveInput('xPredictor');
         else if (m.f1) setActiveInput('yTarget');
+    }
+    // 多要因分散分析: 列と被験者内条件の対応表をサイドバーに表示
+    function updateFactorialPreview() {
+        const box = document.getElementById('factorialPreview');
+        if (!box || document.getElementById('methodIn').value !== 'anova_factorial') return;
+        let wdefs;
+        try { wdefs = parseWithinDefs(document.getElementById('withinDefs').value); }
+        catch (e) { box.innerHTML = `<div class="mp-ng">⚠ ${escapeHtml(e.message)}</div>`; return; }
+        const cols = parseVarList(document.getElementById('xPredictor').value);
+        if (!wdefs.length) { box.innerHTML = `<div class="${cols.length <= 1 ? 'mp-ok' : 'mp-ng'}">${cols.length <= 1 ? '被験者内要因なし: 被験者間要因だけの分析になります（測定値の列 = 従属変数を1つ）。' : '⚠ 被験者内要因を定義しない場合、測定値の列は1つだけにしてください。'}</div>`; return; }
+        const labels = withinCellLabels(wdefs), K = labels.length;
+        const head = cols.length === K ? `<div class="mp-ok">✓ 条件 ${K} 個 ＝ 列 ${K} 個</div>` : `<div class="mp-ng">⚠ 条件は ${K} 個（${wdefs.map(w => `${escapeHtml(w.name)} ${w.levels.length}`).join(' × ')}）。測定値の列は現在 ${cols.length} 個です。</div>`;
+        box.innerHTML = head + `<table><tr><th>#</th>${wdefs.map(w => `<th>${escapeHtml(w.name)}</th>`).join('')}<th>列</th></tr>${labels.map((l, k) => `<tr><td>${k + 1}</td>${l.map(v => `<td>${escapeHtml(v)}</td>`).join('')}<td>${cols[k] ? escapeHtml(cols[k]) : '<span style="color:#fca5a5">（未指定）</span>'}</td></tr>`).join('')}</table>`;
     }
     function setActiveInput(id) {
         activeIn = id;
@@ -4736,6 +5187,7 @@
             el.value = /[,|]\s*$/.test(el.value) ? `${el.value} ${n}` : `${el.value}, ${n}`;
         }
         el.dispatchEvent(new Event('input'));
+        updateFactorialPreview();
         // 単一欄が埋まったら次の欄へ
         if (activeIn === 'yTarget') {
             const m = METHOD_MAP[document.getElementById('methodIn').value];
@@ -4815,6 +5267,13 @@
             });
         }
         // 欠損値をいくつか含める（前処理の練習用）
+        // 反応時間課題（一致性 × 負荷の被験者内 2×2）: 既存列に影響しないよう別系列の乱数で生成
+        s = 77017;
+        rows.forEach(r => {
+            const subj = 45 * rnorm(), fem = r.性別 === '女性';
+            const rt = (incong, high) => Math.round(520 + subj + 32 * incong + 18 * high + 26 * incong * high + (fem ? 6 * incong : 0) + 22 * rnorm());
+            r.一致_低負荷 = rt(0, 0); r.一致_高負荷 = rt(0, 1); r.不一致_低負荷 = rt(1, 0); r.不一致_高負荷 = rt(1, 1);
+        });
         [[5, '自尊2'], [17, 'ストレス'], [42, '追跡'], [77, '不安4'], [101, 'サポート']].forEach(([r, k]) => { rows[r][k] = ''; });
         return rows;
     }
@@ -4835,6 +5294,8 @@
         if (ex.mu0 !== undefined) document.getElementById('mu0').value = ex.mu0;
         if (ex.ss) document.getElementById('ssDefinitions').value = ex.ss;
         if (ex.wn) document.getElementById('withinName').value = ex.wn;
+        if (ex.wdef !== undefined) document.getElementById('withinDefs').value = ex.wdef;
+        updateFactorialPreview();
         if (id === 'reg') { document.getElementById('dummyVars').value = ''; document.getElementById('moderatorVars').value = ''; }
         switchTab('results');
         execute();
@@ -4918,7 +5379,7 @@
         const flowRows = [
             ['データの特徴を知りたい', ['summary']], ['尺度の構造・信頼性', ['factor', 'alpha', 'scalescores']],
             ['1つの平均と基準値', ['ttest_one']], ['2群（別々の人）', ['ttest_unpaired', 'mwu']], ['2条件（同じ人）', ['ttest_paired', 'wilcoxon']],
-            ['3群以上（別々の人）', ['anova', 'kruskal']], ['3条件以上（同じ人）', ['rmanova']], ['2つの要因の組み合わせ', ['anova2', 'anova_mixed']],
+            ['3群以上（別々の人）', ['anova', 'kruskal']], ['3条件以上（同じ人）', ['rmanova']], ['2つの要因の組み合わせ', ['anova2', 'anova_mixed', 'anova_factorial']], ['3つ以上の要因', ['anova_factorial']],
             ['量的 × 量的の関連', ['corr']], ['カテゴリ × カテゴリの関連', ['chisq']], ['予測・影響・調整効果', ['reg']]
         ];
         const content = `<div class="guide-content">
@@ -5020,7 +5481,7 @@
             <div class="quick"><div class="q-num">STEP 4</div><h3>変数を指定して実行</h3><p>入力欄を選んで変数タグをクリック。<kbd style="color:var(--ink);border-color:#cbd5e1;background:#f8fafc;">Ctrl</kbd> + <kbd style="color:var(--ink);border-color:#cbd5e1;background:#f8fafc;">Enter</kbd> で実行できます。</p></div>
             <div class="quick"><div class="q-num">REPORT</div><h3>論文にそのまま使える出力</h3><p>APA 形式の表・図・記述文を生成。図表は Word に貼り付け、記述文はワンクリックでコピー。印刷・PDF・HTML 保存にも対応。</p></div>
         </div>
-        <div class="feature-list">${['記述統計・正規性検定', 'α / ω 係数', '尺度得点', '探索的因子分析（ML・PAF・ULS × Promax）', '1サンプル / 対応なし / 対応あり t 検定', '一元配置・二要因（被験者間／混合計画）・反復測定分散分析', 'Tukey / Games–Howell / Holm', 'Mann-Whitney / Wilcoxon / Kruskal-Wallis', 'Pearson / Spearman 相関', 'χ² 検定・残差分析・Fisher', '重回帰（階層・調整効果・単純傾斜）'].map(f => `<span>${f}</span>`).join('')}</div>`;
+        <div class="feature-list">${['記述統計・正規性検定', 'α / ω 係数', '尺度得点', '探索的因子分析（ML・PAF・ULS × Promax）', '1サンプル / 対応なし / 対応あり t 検定', '一元配置・二要因・多要因（被験者内×被験者内／3要因以上）・反復測定分散分析', 'Tukey / Games–Howell / Holm', 'Mann-Whitney / Wilcoxon / Kruskal-Wallis', 'Pearson / Spearman 相関', 'χ² 検定・残差分析・Fisher', '重回帰（階層・調整効果・単純傾斜）'].map(f => `<span>${f}</span>`).join('')}</div>`;
     }
     function learnCardHTML(id) {
         const g = GUIDE[id], m = METHOD_MAP[id];
@@ -5117,6 +5578,7 @@
                 case 'anova': runANOVA(y, xs[0], wrap); break;
                 case 'anova2': runTwoWayANOVA(y, xs, wrap); break;
                 case 'anova_mixed': runMixedANOVA(y, xs, wrap); break;
+                case 'anova_factorial': runFactorialANOVA(y, xs, wrap); break;
                 case 'rmanova': runRMANOVA(xs, wrap); break;
                 case 'mwu': runMannWhitney(y, xs[0], wrap); break;
                 case 'wilcoxon': runWilcoxon(y, xs[0], wrap); break;
@@ -5150,6 +5612,7 @@
         document.querySelectorAll('input[name="regMethod"]').forEach(radio => radio.addEventListener('change', () => {
             document.getElementById('hierHint').style.display = document.querySelector('input[name="regMethod"]:checked').value === 'hierarchical' ? 'block' : 'none';
         }));
+        ['withinDefs', 'xPredictor'].forEach(id => document.getElementById(id).addEventListener('input', updateFactorialPreview));
         document.getElementById('fileIn').addEventListener('change', e => { readDataFile(e.target.files[0]); e.target.value = ''; });
         const dz = document.getElementById('dropzone');
         ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag'); }));
