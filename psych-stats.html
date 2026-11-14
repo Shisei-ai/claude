@@ -3921,6 +3921,72 @@
         }));
     }
     function matTrace(M) { return M.reduce((s, row, i) => s + row[i], 0); }
+    // 対数行列式（部分ピボット LU）。正定値でなければ NaN
+    function logDet(M) {
+        const n = M.length, a = M.map(r => [...r]);
+        let ld = 0, sign = 1;
+        for (let i = 0; i < n; i++) {
+            let mx = i;
+            for (let k = i + 1; k < n; k++) if (Math.abs(a[k][i]) > Math.abs(a[mx][i])) mx = k;
+            if (Math.abs(a[mx][i]) < 1e-300) return NaN;
+            if (mx !== i) { [a[i], a[mx]] = [a[mx], a[i]]; sign = -sign; }
+            if (a[i][i] < 0) sign = -sign;
+            ld += Math.log(Math.abs(a[i][i]));
+            for (let k = i + 1; k < n; k++) {
+                const f = a[k][i] / a[i][i];
+                for (let j = i; j < n; j++) a[k][j] -= f * a[i][j];
+            }
+        }
+        return sign > 0 ? ld : NaN;
+    }
+    // Box の M 検定（共分散行列の等質性）。groups: 群ごとの観測ベクトルの配列
+    //   F 近似は Box (1949)／SPSS と同じ。χ² 近似も併記する。
+    function boxMTest(groups) {
+        const g = groups.length;
+        if (g < 2) return null;
+        const p = groups[0][0].length;
+        const ns = groups.map(G => G.length), N = ns.reduce((s, n) => s + n, 0);
+        if (p < 2) return null;
+        if (ns.some(n => n <= p)) return { error: `各群の人数が測定値の列の数（${p}）より多くないと算出できません（最小の群: ${Math.min(...ns)} 人）。` };
+        const cov = G => {
+            const m = Array.from({ length: p }, (_, j) => meanOf(G.map(v => v[j])));
+            return Array.from({ length: p }, (_, i) => Array.from({ length: p }, (_, j) => G.reduce((s, v) => s + (v[i] - m[i]) * (v[j] - m[j]), 0) / (G.length - 1)));
+        };
+        const S = groups.map(cov);
+        const Sp = Array.from({ length: p }, (_, i) => Array.from({ length: p }, (_, j) => S.reduce((s, Si, k) => s + (ns[k] - 1) * Si[i][j], 0) / (N - g)));
+        const lSp = logDet(Sp), lSi = S.map(logDet);
+        if (!isFinite(lSp) || lSi.some(v => !isFinite(v))) return { error: '共分散行列が特異（列どうしが完全に相関している等）のため算出できません。' };
+        const M = (N - g) * lSp - lSi.reduce((s, v, k) => s + (ns[k] - 1) * v, 0);
+        const sumInv = ns.reduce((s, n) => s + 1 / (n - 1), 0), sumInv2 = ns.reduce((s, n) => s + 1 / ((n - 1) ** 2), 0);
+        const c1 = (sumInv - 1 / (N - g)) * (2 * p * p + 3 * p - 1) / (6 * (p + 1) * (g - 1));
+        const c2 = (sumInv2 - 1 / ((N - g) ** 2)) * (p - 1) * (p + 2) / (6 * (g - 1));
+        const df1 = p * (p + 1) * (g - 1) / 2;
+        const chi = M * (1 - c1);
+        let F, df2;
+        if (c2 - c1 * c1 > 0) {
+            df2 = (df1 + 2) / (c2 - c1 * c1);
+            F = M / (df1 / (1 - c1 - df1 / df2));
+        } else {
+            df2 = (df1 + 2) / (c1 * c1 - c2);
+            const b = df2 / (1 - c1 + 2 / df2);
+            F = df2 * M / (df1 * (b - M));
+        }
+        return { M, F, df1, df2, p: StatsLib.fP(F, df1, df2), chi, pChi: StatsLib.chiSquareP(chi, df1), g, pvars: p, ns };
+    }
+    // 前提チェック表の Box の M の行
+    function boxMRow(bm, label) {
+        if (!bm) return '';
+        if (bm.error) return `<tr><td>共分散行列の等質性 (Box の M)</td><td>${label}</td><td colspan="2">${escapeHtml(bm.error)}</td><td>—</td></tr>`;
+        const ok = bm.p >= .001;
+        return `<tr><td>共分散行列の等質性 (Box の M)</td><td>${label}</td><td><i>M</i> = ${fmt(bm.M, 2)}，<i>F</i>(${bm.df1}, ${fmt(bm.df2, 1)}) = ${fmt(bm.F, 3)}<br><small>χ²(${bm.df1}) = ${fmt(bm.chi, 2)}，<i>p</i> ${bm.pChi < .001 ? "&lt; .001" : "= " + fmtP(bm.pChi)}</small></td><td>${sigCell(bm.p)}</td><td><span class="chk ${ok ? 'chk-ok' : 'chk-ng'}">${ok ? '✓ 等質性を仮定できる（α = .001）' : '⚠ 等質性が棄却（α = .001）'}</span></td></tr>`;
+    }
+    function boxMAdvice(bm) {
+        if (!bm || bm.error) return '';
+        const equalN = bm.ns.every(n => n === bm.ns[0]);
+        const ratio = Math.max(...bm.ns) / Math.min(...bm.ns);
+        if (bm.p >= .001) return 'Box の M 検定では，群間で共分散行列が等しいという仮定は棄却されませんでした（非常に敏感な検定のため α = .001 で判定）。';
+        return `Box の M 検定により共分散行列の等質性が棄却されました。${equalN ? '群の人数が等しいため，分散分析の F 検定への影響は小さいと考えられます。' : ratio <= 1.5 ? '群の人数の差は小さい（最大/最小 = ' + ratio.toFixed(2) + '）ため，影響は限定的と考えられますが，解釈には注意してください。' : '群の人数の差が大きい（最大/最小 = ' + ratio.toFixed(2) + '）ため，被験者間要因を含む効果の検定が不正確になるおそれがあります。人数をそろえる，または頑健な方法（多変量検定・混合モデル）の利用を検討してください。'}`;
+    }
     // 対比得点の共分散行列から GG の ε
     function ggEpsilon(T) {
         const p = T.length, tr = matTrace(T), tr2 = matTrace(StatsLib.multiply(T, T));
@@ -4070,10 +4136,12 @@
             return `<tr><td>等分散性 (Levene)</td><td>${escapeHtml(wName)} = ${escapeHtml(c)}</td><td><i>F</i>(${lev.df1}, ${lev.df2}) = ${fmt(lev.F, 2)}</td><td>${sigCell(lev.p)}</td><td><span class="chk ${ok ? 'chk-ok' : 'chk-ng'}">${ok ? '✓ 等分散を仮定できる' : '⚠ 等分散でない'}</span></td></tr>`;
         }).join('');
         const levBad = /chk-ng/.test(levRows);
+        const bm = boxMTest(groups);
         const mRow = mauchly ? `<tr><td>球面性 (Mauchly)</td><td>${escapeHtml(wName)}</td><td><i>W</i> = ${fmt(mauchly.W, 3)}，χ²(${mauchly.df}) = ${fmt(mauchly.chi, 2)}<br><small>GG ε = ${fmt(gg, 3)}，HF ε = ${fmt(hf, 3)}</small></td><td>${sigCell(mauchly.p)}</td><td><span class="chk ${useGG ? 'chk-ng' : 'chk-ok'}">${useGG ? '⚠ 球面性の仮定が棄却' : '✓ 球面性を仮定できる'}</span></td></tr>` : '';
         const advice = [
             useGG ? '球面性が棄却されたため，被験者内要因と交互作用は <b>Greenhouse-Geisser 補正</b>後の結果を報告してください。' : (mauchly ? '球面性は棄却されませんでした。補正なしの結果を報告できます。' : '被験者内要因が2水準のため，球面性の検定は不要です。'),
-            levBad ? '一部の水準で群間の等分散性が棄却されました。群の人数が大きく異なる場合は被験者間要因の結果の解釈に注意してください。' : ''
+            levBad ? '一部の水準で群間の等分散性が棄却されました。群の人数が大きく異なる場合は被験者間要因の結果の解釈に注意してください。' : '',
+            boxMAdvice(bm)
         ].filter(Boolean).join('<br>');
         const cols = 8;
         const srcRow = (t, label, hl) => `<tr${hl ? ' class="row-hl"' : ''}><td>${label}</td><td>${fmt(t.SS, 3)}</td><td>${t.df}</td><td>${fmt(t.SS / t.df, 3)}</td><td>${fmt(t.F, 3)}</td><td>${sigCell(t.p)}</td><td>${fmt(t.pe2, 3)} ${esBadge('eta', t.pe2)}</td><td>${fmt(t.ge2, 3)}</td></tr>`;
@@ -4091,9 +4159,9 @@
         out.innerHTML += `<div class="report-card">
             ${cardTitle('🔀', `二要因分散分析（混合計画）`, `${escapeHtml(A)}（被験者間・${a} 水準）× ${escapeHtml(wName)}（被験者内・${b} 水準: ${conds.map(escapeHtml).join('，')}）／ N = ${N}${dropped ? `（欠損のある ${dropped} 人を除外）` : ''}${balanced ? '' : '／ 群の人数が異なるため Type III 平方和'}`)}
             <details class="assume-panel" open><summary>🔎 前提条件のチェック</summary>
-                <table class="stats-table"><thead><tr><th>検定</th><th>対象</th><th>統計量</th><th><i>p</i></th><th>判定</th></tr></thead><tbody>${mRow}${levRows}</tbody></table>
+                <table class="stats-table"><thead><tr><th>検定</th><th>対象</th><th>統計量</th><th><i>p</i></th><th>判定</th></tr></thead><tbody>${mRow}${levRows}${boxMRow(bm, `${b} 列 × ${a} 群`)}</tbody></table>
                 <div class="assume-advice">💡 ${advice}</div>
-                <div class="assume-foot">混合計画では，被験者内要因の球面性（Mauchly）と，各水準における群間の等分散性（Levene）を確認します。共分散行列の等質性（Box の M 検定）は本ツールでは算出しません。</div>
+                <div class="assume-foot">混合計画では，被験者内要因の球面性（Mauchly）と，各水準における群間の等分散性（Levene），群間の共分散行列の等質性（Box の M）を確認します。Box の M 検定は非常に敏感なため，慣例的に α = .001 で判定します（Tabachnick &amp; Fidell, 2019）。</div>
             </details>
             ${tblCaption('セルごとの平均値（標準偏差）')}
             <div class="table-scroll"><table class="stats-table apa-table"><thead><tr><th>${escapeHtml(A)} ＼ ${escapeHtml(wName)}</th>${conds.map(c => `<th>${escapeHtml(c)}</th>`).join('')}<th><i>n</i></th><th>周辺平均</th></tr></thead><tbody>
@@ -4437,10 +4505,12 @@
             const ok = lev.p >= .05;
             return `<tr><td>等分散性 (Levene)</td><td>${escapeHtml(c)}</td><td><i>F</i>(${lev.df1}, ${lev.df2}) = ${fmt(lev.F, 2)}</td><td>${sigCell(lev.p)}</td><td><span class="chk ${ok ? 'chk-ok' : 'chk-ng'}">${ok ? '✓ 等分散を仮定できる' : '⚠ 等分散でない'}</span></td></tr>`;
         }).join('') : '';
-        const assume = (sphRows || levRows) ? `<details class="assume-panel" open><summary>🔎 前提条件のチェック</summary>
-            <table class="stats-table"><thead><tr><th>検定</th><th>対象</th><th>統計量</th><th><i>p</i></th><th>判定</th></tr></thead><tbody>${sphRows}${levRows}</tbody></table>
-            <div class="assume-advice">💡 ${res.strata.some(st => st.useGG) ? '球面性が棄却された被験者内効果には <b>Greenhouse-Geisser 補正</b>を適用し，その結果を判定と記述文に用いています。' : (sphRows ? '球面性はいずれも棄却されませんでした（2水準の被験者内効果は球面性の検定が不要です）。' : '被験者内要因の効果はすべて自由度 1 のため，球面性の検定は不要です。')}${/chk-ng/.test(levRows) ? '<br>一部の列で被験者間セルの等分散性が棄却されました。セルの人数が大きく異なる場合は被験者間効果の解釈に注意してください。' : ''}</div>
-            <div class="assume-foot">球面性の検定は各被験者内効果（3水準以上を含むもの）ごとに，被験者間セル内でプールした共分散行列から算出しています。</div></details>` : '';
+        const bm = (betNames.length && res.K >= 2) ? boxMTest(res.cellsB.map((_, ci) => d.rows.filter((__, i) => res.cellOf[i] === ci).map(rw => rw.y))) : null;
+        const bmRow = boxMRow(bm, `${res.K} 列 × ${res.P} セル`);
+        const assume = (sphRows || levRows || bmRow) ? `<details class="assume-panel" open><summary>🔎 前提条件のチェック</summary>
+            <table class="stats-table"><thead><tr><th>検定</th><th>対象</th><th>統計量</th><th><i>p</i></th><th>判定</th></tr></thead><tbody>${sphRows}${levRows}${bmRow}</tbody></table>
+            <div class="assume-advice">💡 ${res.strata.some(st => st.useGG) ? '球面性が棄却された被験者内効果には <b>Greenhouse-Geisser 補正</b>を適用し，その結果を判定と記述文に用いています。' : (sphRows ? '球面性はいずれも棄却されませんでした（2水準の被験者内効果は球面性の検定が不要です）。' : '被験者内要因の効果はすべて自由度 1 のため，球面性の検定は不要です。')}${/chk-ng/.test(levRows) ? '<br>一部の列で被験者間セルの等分散性が棄却されました。セルの人数が大きく異なる場合は被験者間効果の解釈に注意してください。' : ''}${bm && !bm.error ? '<br>' + boxMAdvice(bm) : ''}</div>
+            <div class="assume-foot">球面性の検定は各被験者内効果（3水準以上を含むもの）ごとに，被験者間セル内でプールした共分散行列から算出しています。Box の M 検定は被験者間要因と2列以上の測定値がある場合に，全列の共分散行列がセル間で等しいかを検定します（非常に敏感なため α = .001 で判定）。</div></details>` : '';
 
         // セル平均表: 行 = 被験者間セル，列 = 被験者内条件
         const rowLabel = c => betNames.length ? res.cellsB[c].map((lv, f) => escapeHtml(betLevels[f][lv])).join(' ・ ') : '全体';
@@ -4835,7 +4905,7 @@
         anova_mixed: {
             what: '群の違い（被験者間要因）と、同じ人に繰り返し測定した条件や時点（被験者内要因）の2要因について、主効果と交互作用を同時に検定します。介入研究の「群 × 時点」の分析で最もよく使われます。',
             when: ['介入群と統制群で、事前→事後（→追跡）の変化が異なるかを調べるとき（交互作用が介入効果の検定になる）', '男女など異なる群の人が、全員複数の実験条件を経験する計画'],
-            assume: ['各セルのデータが正規分布に従う', '<b>球面性</b>: 被験者内要因の条件ペアの差得点の分散が等しい（Mauchly の検定で確認。3水準以上のとき）', '各水準で群間の分散が等しい（Levene の検定で確認）', '群ごとの共分散行列が等しい（共分散行列の等質性）'],
+            assume: ['各セルのデータが正規分布に従う', '<b>球面性</b>: 被験者内要因の条件ペアの差得点の分散が等しい（Mauchly の検定で確認。3水準以上のとき）', '各水準で群間の分散が等しい（Levene の検定で確認）', '群ごとの共分散行列が等しい（<b>Box の M 検定</b>で確認。非常に敏感なため α = .001 で判定）'],
             input: '「被験者間要因」に群分け変数を1つ、「被験者内要因の水準」に繰り返し測定した列を時間順にカンマ区切りで入力（1人1行の横長形式）。設定で被験者内要因の名前（例: 時点）を付けられます。被験者間・被験者内の要因が2つ以上ある場合は「多要因分散分析（一般計画）」を使います。',
             read: ['<b>交互作用から先に見る</b>: 介入研究では「群 × 時点」の交互作用が「群によって変化の仕方が違う」＝介入効果を意味する。', '<b>分散分析表</b>は被験者間（群の主効果）と被験者内（時点の主効果・交互作用）に分かれ、それぞれ別の誤差項で検定される。', '<b>Mauchly の検定</b>が有意なら、被験者内の効果は <b>Greenhouse-Geisser 補正</b>の行を報告する。', '<b>単純主効果</b>: 交互作用が有意なとき、「各時点での群の差」と「各群での時点による変化」を確認する。', '<b>交互作用プロット</b>: 群ごとの線の傾きの違いが交互作用。'],
             effect: '偏 η²・一般化 η²: .01 小 ／ .06 中 ／ .14 大（被験者内要因を含む計画では、他研究との比較には一般化 η² が推奨される）',
@@ -4846,7 +4916,7 @@
         anova_factorial: {
             what: '被験者間要因と被験者内要因を任意の数だけ組み合わせた分散分析です。被験者内 × 被験者内（2要因の反復測定）や，3要因以上の計画（例: 性別 × 一致性 × 負荷）に対応します。',
             when: ['全員が複数の条件を組み合わせて経験する実験（例: 一致性 2 × 負荷 2 の被験者内計画）', '3つ以上の要因の交互作用を調べたいとき（例: 介入の効果が時点と性別によって異なるか）'],
-            assume: ['各セルのデータが正規分布に従う', '<b>球面性</b>: 3水準以上の被験者内要因を含む効果ごとに Mauchly の検定で確認', '被験者間要因がある場合は，各条件で群間の分散が等しい（Levene）', '被験者間の全セルにデータがある（空のセルがない）'],
+            assume: ['各セルのデータが正規分布に従う', '<b>球面性</b>: 3水準以上の被験者内要因を含む効果ごとに Mauchly の検定で確認', '被験者間要因がある場合は，各条件で群間の分散が等しい（Levene）', '被験者間要因と被験者内要因の両方がある場合は，セル間で共分散行列が等しい（Box の M 検定，α = .001）', '被験者間の全セルにデータがある（空のセルがない）'],
             input: '「被験者間要因」に群分け変数（0個以上），設定欄に被験者内要因を「名前: 水準1, 水準2」の形で1行ずつ定義し，「測定値の列」に全条件の列を<b>対応表の順</b>に入力します。上の行の要因ほどゆっくり変わる順です（2×2 なら 一致・低 → 一致・高 → 不一致・低 → 不一致・高）。被験者内要因がない場合は従属変数を1列だけ指定します（被験者間だけの多要因分析）。',
             read: ['<b>高次の交互作用から読む</b>: 3次の交互作用が有意なら，まず単純交互作用（ある要因の水準ごとの2要因の交互作用）を確認する。', '<b>分散分析表</b>は「被験者間」と「被験者内」に分かれ，被験者内の効果はそれぞれ専用の誤差項（効果 × 被験者）で検定される。', '<b>球面性</b>が棄却された効果は Greenhouse-Geisser 補正の行で判断する。2水準だけの被験者内効果は補正不要。', '<b>単純効果</b>: 固定した要因の水準のデータだけで再分析した結果。', '<b>推定周辺平均</b>: 他の要因について平均した各水準の平均値。主効果の解釈に使う。'],
             effect: '偏 η²・一般化 η²: .01 小 ／ .06 中 ／ .14 大（被験者内要因を含む計画どうしで比較するなら一般化 η²）',
@@ -4951,6 +5021,7 @@
         ['交互作用', 'ある要因の効果が、別の要因の水準によって異なること。交互作用プロットで線が平行でない状態。'],
         ['単純主効果', '交互作用が有意なとき、一方の要因の特定の水準に限定して、もう一方の要因の効果を検定したもの。'],
         ['球面性', '反復測定分散分析の前提。条件ペアごとの差得点の分散が等しいこと。崩れている場合は Greenhouse-Geisser 補正を使う。'],
+        ['Box の M 検定', '群ごとの共分散行列（変数間の分散と共分散）が等しいかを調べる検定。混合計画の分散分析や多変量解析の前提を確認する。非常に敏感なため α = .001 で判定するのが慣例で，群の人数が等しければ違反の影響は小さい。'],
         ['因子負荷量', '項目と因子の関連の強さ。プロマックス回転ではパターン行列の値を読む。'],
         ['共通性（h²）', '項目の分散のうち、抽出された因子で説明される割合。'],
         ['α 係数・ω 係数', '尺度の内的一貫性（信頼性）の指標。ω は項目ごとに負荷量が異なってもよい、より一般的な指標。'],
