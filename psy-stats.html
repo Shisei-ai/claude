@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Psy-Stats v17 — 心理統計 学習・分析ツール</title>
+    <title>Psy-Stats — 心理統計 学習・分析ツール</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/simple-statistics@7.8.3/dist/simple-statistics.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -310,7 +310,8 @@
         .wiz-foot .primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 
         /* ===== トースト ===== */
-        #toastHost { position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 3000; }
+        #versionTag { position: fixed; right: 12px; bottom: 8px; z-index: 2500; font-size: .68rem; color: #94a3b8; background: rgba(255,255,255,.75); padding: 1px 7px; border-radius: 999px; letter-spacing: .02em; pointer-events: none; font-variant-numeric: tabular-nums; }
+        #toastHost { position: fixed; right: 20px; bottom: 34px; display: flex; flex-direction: column; gap: 8px; z-index: 3000; }
         .toast { background: var(--ink); color: #fff; padding: 11px 16px; border-radius: 10px; font-size: .84rem; box-shadow: 0 8px 24px rgba(15,23,42,.3); max-width: 380px; animation: toastIn .2s ease; white-space: pre-line; border-left: 4px solid var(--accent-2); }
         .toast.ok { border-left-color: #34d399; } .toast.warn { border-left-color: #fbbf24; } .toast.err { border-left-color: #f87171; }
         @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -326,7 +327,7 @@
         }
         @media print {
             body { display: block; height: auto; overflow: visible; background: #fff; }
-            #sidebar, .topbar, #sb-expand-btn, #toastHost, .apa-copy-btn, .word-hint, .learn-card, .modal-back { display: none !important; }
+            #sidebar, .topbar, #sb-expand-btn, #toastHost, #versionTag, .apa-copy-btn, .word-hint, .learn-card, .modal-back { display: none !important; }
             .tab-panel { display: none !important; padding: 0; overflow: visible; }
             #tab-results { display: block !important; }
             .report-card { box-shadow: none; border: none; padding: 0 0 12px; margin-bottom: 18px; break-inside: avoid-page; animation: none; }
@@ -342,7 +343,7 @@
     <div class="sb-head">
         <div class="brand-mark">Ψ</div>
         <div>
-            <div class="brand-name">Psy-Stats <span style="color:#a5b4fc;">v17</span></div>
+            <div class="brand-name">Psy-Stats</div>
             <div class="brand-sub">心理統計 学習・分析ツール</div>
         </div>
         <button class="icon-btn" onclick="toggleSidebar()" title="サイドバーを格納">◀</button>
@@ -590,6 +591,7 @@
     </div>
 </div>
 <div id="toastHost"></div>
+<div id="versionTag" aria-label="バージョン"></div>
 
 <script>
     let rawData = [];
@@ -5113,6 +5115,7 @@
     };
 
     // ===== 状態 =====
+    const APP_VERSION = '17.0';
     let dataName = '', isSampleData = false, runCounter = 0;
 
     // ===== 汎用 UI =====
@@ -5587,7 +5590,7 @@
         clone.querySelectorAll('canvas, .apa-copy-btn, .word-hint, .learn-card').forEach(el => el.remove());
         const css = [...document.querySelectorAll('style')].map(s => s.textContent).join('\n');
         const stamp = new Date().toLocaleString('ja-JP');
-        const doc = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>分析結果 — Psy-Stats</title><style>${css}\nbody{display:block;height:auto;overflow:visible;padding:30px;background:#f3f5f9;}</style></head><body><div class="panel-inner"><p style="color:#64748b;font-size:.8rem;">Psy-Stats v17 ／ ${escapeHtml(dataName)} ／ 保存日時: ${stamp}</p>${clone.innerHTML}</div></body></html>`;
+        const doc = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>分析結果 — Psy-Stats</title><style>${css}\nbody{display:block;height:auto;overflow:visible;padding:30px;background:#f3f5f9;}</style></head><body><div class="panel-inner"><p style="color:#64748b;font-size:.8rem;display:flex;gap:8px;"><span>Psy-Stats ／ ${escapeHtml(dataName)} ／ 保存日時: ${stamp}</span><span style="margin-left:auto;font-size:.7rem;color:#94a3b8;">v${APP_VERSION}</span></p>${clone.innerHTML}</div></body></html>`;
         const blob = new Blob([doc], { type: 'text/html' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -5677,6 +5680,7 @@
 
     // ===== 初期化 =====
     (function initUI() {
+        document.getElementById('versionTag').textContent = `v${APP_VERSION}`;
         buildMethodSelect();
         loadPrefs();
         document.querySelectorAll('[data-var-input]').forEach(el => el.addEventListener('focus', () => setActiveInput(el.id)));
