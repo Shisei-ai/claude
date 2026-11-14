@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PSYCH-STATS v17 — 心理統計 学習・分析ツール</title>
+    <title>Psy-Stats v17 — 心理統計 学習・分析ツール</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/simple-statistics@7.8.3/dist/simple-statistics.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -342,7 +342,7 @@
     <div class="sb-head">
         <div class="brand-mark">Ψ</div>
         <div>
-            <div class="brand-name">PSYCH-STATS <span style="color:#a5b4fc;">v17</span></div>
+            <div class="brand-name">Psy-Stats <span style="color:#a5b4fc;">v17</span></div>
             <div class="brand-sub">心理統計 学習・分析ツール</div>
         </div>
         <button class="icon-btn" onclick="toggleSidebar()" title="サイドバーを格納">◀</button>
@@ -1340,7 +1340,7 @@
         const ws = XLSX.utils.json_to_sheet(rawData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Processed_Data");
-        XLSX.writeFile(wb, "psych_stats_processed_data.xlsx");
+        XLSX.writeFile(wb, "psy-stats_processed_data.xlsx");
     }
 
     // animation: false のためrequestAnimationFrameで即座に画像変換可能
@@ -5145,11 +5145,11 @@
         if (name === 'data') renderDataView();
     }
     function savePrefs() {
-        try { localStorage.setItem('psychstats.prefs', JSON.stringify({ append: document.getElementById('appendMode').checked, learn: document.getElementById('learnMode').checked })); } catch (e) { /* ストレージ不可の環境では無視 */ }
+        try { localStorage.setItem('psystats.prefs', JSON.stringify({ append: document.getElementById('appendMode').checked, learn: document.getElementById('learnMode').checked })); } catch (e) { /* ストレージ不可の環境では無視 */ }
     }
     function loadPrefs() {
         try {
-            const p = JSON.parse(localStorage.getItem('psychstats.prefs') || '{}');
+            const p = JSON.parse(localStorage.getItem('psystats.prefs') || localStorage.getItem('psychstats.prefs') || '{}');
             if (typeof p.append === 'boolean') document.getElementById('appendMode').checked = p.append;
             if (typeof p.learn === 'boolean') document.getElementById('learnMode').checked = p.learn;
         } catch (e) { /* 無視 */ }
@@ -5587,11 +5587,11 @@
         clone.querySelectorAll('canvas, .apa-copy-btn, .word-hint, .learn-card').forEach(el => el.remove());
         const css = [...document.querySelectorAll('style')].map(s => s.textContent).join('\n');
         const stamp = new Date().toLocaleString('ja-JP');
-        const doc = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>分析結果 — PSYCH-STATS</title><style>${css}\nbody{display:block;height:auto;overflow:visible;padding:30px;background:#f3f5f9;}</style></head><body><div class="panel-inner"><p style="color:#64748b;font-size:.8rem;">PSYCH-STATS v17 ／ ${escapeHtml(dataName)} ／ 保存日時: ${stamp}</p>${clone.innerHTML}</div></body></html>`;
+        const doc = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>分析結果 — Psy-Stats</title><style>${css}\nbody{display:block;height:auto;overflow:visible;padding:30px;background:#f3f5f9;}</style></head><body><div class="panel-inner"><p style="color:#64748b;font-size:.8rem;">Psy-Stats v17 ／ ${escapeHtml(dataName)} ／ 保存日時: ${stamp}</p>${clone.innerHTML}</div></body></html>`;
         const blob = new Blob([doc], { type: 'text/html' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `psychstats_results_${new Date().toISOString().slice(0, 10)}.html`;
+        a.download = `psy-stats_results_${new Date().toISOString().slice(0, 10)}.html`;
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 2000);
         toast('結果を HTML ファイルとして保存しました', 'ok');
