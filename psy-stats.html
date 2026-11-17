@@ -104,6 +104,16 @@
         .radio-row { display: flex; gap: 14px; margin: 2px 0 8px; }
         .radio-row label { font-size: .82rem; display: flex; align-items: center; cursor: pointer; }
         .map-preview { margin-top: 8px; font-size: .74rem; }
+        .sem-tpl { font-size: .72rem; color: var(--sb-muted); margin-bottom: 6px; display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+        .sem-tpl button { background: var(--sb-panel-2); border: 1px solid #34446a; color: var(--sb-text); border-radius: 6px; padding: 2px 8px; font-size: .72rem; cursor: pointer; }
+        .sem-tpl button:hover { border-color: var(--accent-2); color: #fff; }
+        .sem-syntax div { font-size: .74rem; color: var(--sb-text); margin: 3px 0; }
+        .sem-syntax code { color: #fbbf24; margin-right: 6px; }
+        .sem-diagram-tools { display: flex; gap: 6px; justify-content: center; margin: 6px 0; }
+        .sem-mode-btn { border: 1px solid var(--line-2); background: #fff; border-radius: 999px; padding: 3px 12px; font-size: .76rem; cursor: pointer; color: var(--ink-2); }
+        .sem-mode-btn.active { background: var(--accent-soft); border-color: var(--accent-2); color: var(--accent-ink); font-weight: 700; }
+        .sem-svg-wrap { overflow-x: auto; text-align: center; border: 1px solid var(--line); border-radius: 8px; padding: 6px; background: #fff; }
+        @media print { .sem-diagram-tools { display: none; } }
         .map-preview table { width: 100%; border-collapse: collapse; }
         .map-preview th, .map-preview td { border-bottom: 1px solid #2a3756; padding: 3px 6px; text-align: left; color: var(--sb-text); }
         .map-preview th { color: #c7d2fe; font-weight: 700; }
@@ -437,6 +447,30 @@
                 <div class="opt-title">1サンプル t 検定の設定</div>
                 <span class="label">比較する値 μ₀（基準値）</span>
                 <input type="number" step="any" id="mu0" value="3" placeholder="例: 尺度の中点 3">
+            </div>
+
+            <div id="semOptions" class="opt-panel">
+                <div class="opt-title">モデルの記述（lavaan 形式）</div>
+                <div class="sem-tpl">テンプレート: <button onclick="semTemplate('cfa')">確認的因子分析</button><button onclick="semTemplate('med')">媒介分析</button><button onclick="semTemplate('sem')">構造方程式</button></div>
+                <textarea id="semModel" rows="7" data-var-input spellcheck="false" placeholder="例:&#10;因子A =~ 項目1 + 項目2 + 項目3&#10;因子B =~ 項目4 + 項目5 + 項目6&#10;因子B ~ 因子A&#10;（変数タグをクリックすると、カーソル位置に入ります）" style="font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.8rem; line-height:1.65;"></textarea>
+                <details class="tool"><summary>構文の書き方</summary><div class="tool-box sem-syntax">
+                    <div><code>F =~ x1 + x2 + x3</code> 潜在変数 F を指標で測定</div>
+                    <div><code>y ~ x1 + x2</code> y を x1, x2 で予測（回帰）</div>
+                    <div><code>x1 ~~ x2</code> 共分散（誤差相関）</div>
+                    <div><code>y ~ a*x</code> 係数にラベル a（同じラベルは等値制約）</div>
+                    <div><code>F =~ 1*x1 + NA*x2</code> 数値は固定、NA は推定</div>
+                    <div><code>ind := a*b</code> 定義パラメータ（間接効果など）</div>
+                    <div><code># …</code> コメント（行末まで無視）</div>
+                </div></details>
+                <div class="flex-row" style="margin-top:8px;">
+                    <div><span class="label">推定法</span><select id="semDivisor"><option value="N">最尤法（lavaan 互換）</option><option value="N-1">最尤法（Amos 互換）</option></select></div>
+                    <div><span class="label">潜在変数の尺度</span><select id="semIdent"><option value="marker">第1指標の負荷 = 1</option><option value="stdlv">潜在変数の分散 = 1</option></select></div>
+                </div>
+                <label class="check-line" style="margin-top:6px;"><input type="checkbox" id="semAutoCovX" checked> 外生変数どうしの共分散を自動で推定</label>
+                <label class="check-line"><input type="checkbox" id="semAutoCovY" checked> 最終的な従属変数の誤差間共分散を自動で推定</label>
+                <label class="check-line"><input type="checkbox" id="semBoot"> 間接効果をブートストラップ法で検定</label>
+                <div class="flex-row" style="margin-top:4px;"><div><span class="label">ブートストラップ回数</span><input type="number" id="semBootN" value="2000" min="100" max="10000" step="100"></div></div>
+                <p class="muted-note">lavaan 互換は標本共分散を N で、Amos 互換は N−1 で割ります（χ² などがわずかに異なります）。欠損のあるケースは除外します。</p>
             </div>
 
             <div id="factorialOptions" class="opt-panel">
@@ -4718,6 +4752,781 @@
     }
 
     // ============================================================
+    // 共分散構造分析（SEM）エンジン
+    //   lavaan 風の構文 → RAM 形式: v = A v + u, Cov(u) = P,  Σ = F (I − A)^{-1} P (I − A)^{-T} F'
+    //   最尤推定（Fisher スコアリング），期待情報行列による標準誤差
+    // ============================================================
+    // 対角でスケーリングしてから逆行列を求める（変数の単位が大きくても数値的に安定）
+    function invertScaled(H) {
+        const d = H.map((r, i) => Math.sqrt(Math.abs(r[i])) || 1);
+        const inv = StatsLib.invertMatrix(H.map((r, i) => r.map((v, j) => v / (d[i] * d[j]))));
+        return inv ? inv.map((r, i) => r.map((v, j) => v / (d[i] * d[j]))) : null;
+    }
+    function semNormalize(text) {
+        return String(text || '').replace(/＋/g, '+').replace(/＊/g, '*').replace(/[～〜∼]/g, '~').replace(/＝/g, '=')
+            .replace(/：/g, ':').replace(/（/g, '(').replace(/）/g, ')').replace(/　/g, ' ');
+    }
+    const SEM_NAME_RE = /^[^\s+*~=:()]+$/;
+    function semParseTerm(t, line) {
+        const i = t.lastIndexOf('*');
+        if (i < 0) return { rhs: t.trim(), fixed: null, label: null, free: false };
+        const mod = t.slice(0, i).trim(), v = t.slice(i + 1).trim();
+        if (!SEM_NAME_RE.test(v)) throw new Error(`変数名が読み取れません: 「${t}」（${line}）`);
+        if (/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(mod)) return { rhs: v, fixed: parseFloat(mod), label: null, free: false };
+        if (mod.toUpperCase() === 'NA') return { rhs: v, fixed: null, label: null, free: true };
+        if (SEM_NAME_RE.test(mod) && !/^\d/.test(mod)) return { rhs: v, fixed: null, label: mod, free: false };
+        throw new Error(`係数の指定が読み取れません: 「${t}」（${line}）`);
+    }
+    function semParse(text) {
+        const stmts = [], defs = [];
+        semNormalize(text).split(/\n|;/).forEach(raw => {
+            const line = raw.replace(/#.*/, '').trim();
+            if (!line) return;
+            if (line.includes(':=')) {
+                const [lhs, rhs] = line.split(':=').map(s => s.trim());
+                if (!lhs || !SEM_NAME_RE.test(lhs) || !rhs) throw new Error(`定義パラメータの形式が正しくありません（例: 間接効果 := a*b）: ${line}`);
+                defs.push({ name: lhs, expr: rhs, line });
+                return;
+            }
+            let op = null, lhs, rhs;
+            for (const o of ['=~', '~~', '~']) { const i = line.indexOf(o); if (i >= 0) { op = o; lhs = line.slice(0, i); rhs = line.slice(i + o.length); break; } }
+            if (!op) throw new Error(`演算子（=~ ／ ~ ／ ~~ ／ :=）がない行があります: ${line}`);
+            const lhsList = lhs.split('+').map(s => s.trim()).filter(Boolean);
+            const terms = rhs.split('+').map(s => s.trim()).filter(Boolean);
+            if (!lhsList.length || !terms.length) throw new Error(`左辺または右辺が空です: ${line}`);
+            lhsList.forEach(l => {
+                if (!SEM_NAME_RE.test(l)) throw new Error(`変数名が読み取れません: 「${l}」（${line}）`);
+                terms.forEach(t => stmts.push({ op, lhs: l, ...semParseTerm(t, line), line }));
+            });
+        });
+        if (!stmts.length) throw new Error('モデルが空です。');
+        return { stmts, defs };
+    }
+
+    // 定義パラメータの式（+ − * / ^ と括弧）を安全に評価するための小さな構文解析器
+    function semCompileExpr(expr, isName) {
+        const toks = [];
+        const re = /\s*(\d+\.?\d*(?:e[-+]?\d+)?|\.\d+|[+\-*/^()]|[^\s+\-*/^()]+)/giy;
+        let m;
+        while (re.lastIndex < expr.length && (m = re.exec(expr))) toks.push(m[1]);
+        if (toks.join('').length !== expr.replace(/\s+/g, '').length) throw new Error(`式を読み取れません: ${expr}`);
+        let pos = 0;
+        const peek = () => toks[pos], next = () => toks[pos++];
+        const prim = () => {
+            const t = next();
+            if (t === undefined) throw new Error(`式が途中で終わっています: ${expr}`);
+            if (t === '(') { const e = add(); if (next() !== ')') throw new Error(`括弧が閉じていません: ${expr}`); return e; }
+            if (t === '-') { const e = unary(); return v => -e(v); }
+            if (/^(\d|\.\d)/.test(t)) { const c = parseFloat(t); return () => c; }
+            if (!isName(t)) throw new Error(`定義パラメータの式に未定義のラベル「${t}」があります（係数に a*x のようにラベルを付けてください）。`);
+            return v => v[t];
+        };
+        const unary = () => prim();
+        const pow = () => { const b = unary(); if (peek() === '^') { next(); const e = pow(); return v => Math.pow(b(v), e(v)); } return b; };
+        const mul = () => { let l = pow(); while (peek() === '*' || peek() === '/') { const o = next(), r = pow(), ll = l; l = o === '*' ? v => ll(v) * r(v) : v => ll(v) / r(v); } return l; };
+        const add = () => { let l = mul(); while (peek() === '+' || peek() === '-') { const o = next(), r = mul(), ll = l; l = o === '+' ? v => ll(v) + r(v) : v => ll(v) - r(v); } return l; };
+        const f = add();
+        if (pos !== toks.length) throw new Error(`式を読み取れません: ${expr}`);
+        return f;
+    }
+
+    // モデルの構築: 変数の順序（観測 → 潜在）とパラメータ表
+    function semBuild(parsed, dataCols, opts) {
+        const { stmts, defs } = parsed;
+        const latents = [...new Set(stmts.filter(s => s.op === '=~').map(s => s.lhs))];
+        latents.forEach(l => { if (dataCols.includes(l)) throw new Error(`潜在変数名「${l}」がデータの列名と重複しています。別の名前にしてください。`); });
+        const obs = [];
+        const addObs = v => { if (!latents.includes(v) && !obs.includes(v)) obs.push(v); };
+        stmts.forEach(s => { if (s.op !== '=~') addObs(s.lhs); addObs(s.rhs); });
+        const missing = obs.filter(v => !dataCols.includes(v));
+        if (missing.length) throw new Error(`変数「${missing.join('」「')}」がデータにありません（綴りを確認してください。潜在変数なら「名前 =~ 指標1 + 指標2」で定義します）。`);
+        if (obs.length < 2) throw new Error('観測変数が2つ以上必要です。');
+        const names = [...obs, ...latents], p = obs.length, n = names.length;
+        const ix = v => names.indexOf(v);
+        const entries = [];
+        const find = (mat, i, j) => entries.find(e => e.mat === mat && ((e.i === i && e.j === j) || (mat === 'P' && e.i === j && e.j === i)));
+        const add = (mat, i, j, info) => { const ex = find(mat, i, j); if (ex) { Object.assign(ex, info); return ex; } const e = { mat, i, j, ...info }; entries.push(e); return e; };
+        latents.forEach(L => {
+            stmts.filter(s => s.op === '=~' && s.lhs === L).forEach((s, k) => {
+                if (s.rhs === L) throw new Error(`潜在変数「${L}」が自分自身を指標にしています。`);
+                let fixed = s.fixed;
+                if (fixed === null && !s.free && k === 0 && opts.ident === 'marker') fixed = 1;
+                add('A', ix(s.rhs), ix(L), { op: '=~', lhs: L, rhs: s.rhs, fixed, label: s.label, user: true });
+            });
+        });
+        stmts.filter(s => s.op === '~').forEach(s => {
+            if (s.lhs === s.rhs) throw new Error(`変数「${s.lhs}」を自分自身に回帰させることはできません。`);
+            add('A', ix(s.lhs), ix(s.rhs), { op: '~', lhs: s.lhs, rhs: s.rhs, fixed: s.fixed, label: s.label, user: true });
+        });
+        stmts.filter(s => s.op === '~~').forEach(s => add('P', ix(s.lhs), ix(s.rhs), { op: '~~', lhs: s.lhs, rhs: s.rhs, fixed: s.fixed, label: s.label, user: true }));
+        const incoming = i => entries.some(e => e.mat === 'A' && e.i === i);
+        const regLhs = new Set(stmts.filter(s => s.op === '~').map(s => s.lhs)), regRhs = new Set(stmts.filter(s => s.op === '~').map(s => s.rhs));
+        names.forEach((v, i) => { if (!find('P', i, i)) add('P', i, i, { op: '~~', lhs: v, rhs: v, fixed: (i >= p && opts.ident === 'stdlv') ? 1 : null, label: null, user: false }); });
+        // 外生変数（潜在変数，および回帰の説明変数としてのみ現れる観測変数）間の共分散
+        const exo = names.map((_, i) => i).filter(i => !incoming(i) && (i >= p || regRhs.has(names[i])));
+        if (opts.autoCovX) exo.forEach((i, a) => exo.slice(a + 1).forEach(j => { if (!find('P', i, j)) add('P', i, j, { op: '~~', lhs: names[i], rhs: names[j], fixed: null, label: null, user: false, auto: 'x' }); }));
+        // 最終的な従属変数（他の変数を説明しない従属変数）の誤差間の共分散（lavaan の sem() と同じ既定）
+        const pureY = names.map((_, i) => i).filter(i => regLhs.has(names[i]) && !regRhs.has(names[i]) && !entries.some(e => e.mat === 'A' && e.j === i));
+        if (opts.autoCovY) pureY.forEach((i, a) => pureY.slice(a + 1).forEach(j => { if (!find('P', i, j)) add('P', i, j, { op: '~~', lhs: names[i], rhs: names[j], fixed: null, label: null, user: false, auto: 'y' }); }));
+        // パラメータ番号（同じラベル = 等値制約）
+        const labelK = new Map(), labelFixed = new Map();
+        let q = 0;
+        entries.forEach(e => {
+            if (e.fixed !== null && e.fixed !== undefined) { e.k = -1; if (e.label) labelFixed.set(e.label, e.fixed); return; }
+            if (e.label && labelK.has(e.label)) { e.k = labelK.get(e.label); return; }
+            e.k = q++;
+            if (e.label) labelK.set(e.label, e.k);
+        });
+        const defined = defs.map(d => {
+            if (labelK.has(d.name) || names.includes(d.name)) throw new Error(`定義パラメータ名「${d.name}」がラベルや変数名と重複しています。`);
+            return { ...d, fn: semCompileExpr(d.expr, t => labelK.has(t) || labelFixed.has(t)) };
+        });
+        return { names, obs, latents, p, n, entries, q, labelK, labelFixed, defined, exo, structural: [...new Set([...regLhs, ...regRhs])] };
+    }
+
+    function semImplied(model, theta) {
+        const { n, p, entries } = model;
+        const A = Array.from({ length: n }, () => new Array(n).fill(0)), P = Array.from({ length: n }, () => new Array(n).fill(0));
+        entries.forEach(e => { const v = e.k >= 0 ? theta[e.k] : e.fixed; if (e.mat === 'A') A[e.i][e.j] = v; else { P[e.i][e.j] = v; P[e.j][e.i] = v; } });
+        const B = StatsLib.invertMatrix(A.map((r, i) => r.map((v, j) => (i === j ? 1 : 0) - v)));
+        if (!B) return null;
+        const C = StatsLib.multiply(StatsLib.multiply(B, P), StatsLib.transpose(B));
+        return { A, P, B, C, Sigma: C.slice(0, p).map(r => r.slice(0, p)) };
+    }
+    function semFML(S, ldS, Sigma) {
+        const ld = logDet(Sigma);
+        if (!isFinite(ld)) return Infinity;
+        const Si = invertScaled(Sigma);
+        if (!Si) return Infinity;
+        let tr = 0;
+        for (let i = 0; i < S.length; i++) for (let j = 0; j < S.length; j++) tr += S[i][j] * Si[j][i];
+        return ld + tr - ldS - S.length;
+    }
+    // ∂Σ/∂θ_k（p×p）。spec: { mat, i, j } の配列（同じ番号のパラメータは合算）
+    function semDSigma(specsByK, imp, p) {
+        const { B, C } = imp;
+        return specsByK.map(list => {
+            const M = Array.from({ length: p }, () => new Array(p).fill(0));
+            list.forEach(({ mat, i, j }) => {
+                for (let r = 0; r < p; r++) for (let s = 0; s < p; s++) {
+                    M[r][s] += mat === 'A' ? B[r][i] * C[j][s] + C[r][j] * B[s][i] : B[r][i] * B[s][j] + (i !== j ? B[r][j] * B[s][i] : 0);
+                }
+            });
+            return M;
+        });
+    }
+    function semGradInfo(S, Sigma, D) {
+        const p = S.length, Si = invertScaled(Sigma);
+        const Diff = Sigma.map((r, i) => r.map((v, j) => v - S[i][j]));
+        const Delta = StatsLib.multiply(StatsLib.multiply(Si, Diff), Si);
+        const g = D.map(M => { let s = 0; for (let r = 0; r < p; r++) for (let c = 0; c < p; c++) s += Delta[r][c] * M[r][c]; return s; });
+        const SiD = D.map(M => StatsLib.multiply(Si, M));
+        const H = SiD.map(Mk => SiD.map(Ml => { let s = 0; for (let r = 0; r < p; r++) for (let c = 0; c < p; c++) s += Mk[r][c] * Ml[c][r]; return s; }));
+        return { g, H, Si, Delta, SiD };
+    }
+    function semSpecsByK(model) {
+        const specs = Array.from({ length: model.q }, () => []);
+        model.entries.forEach(e => { if (e.k >= 0) specs[e.k].push({ mat: e.mat, i: e.i, j: e.j }); });
+        return specs;
+    }
+    function semEstimate(model, S, theta0, maxIter = 500) {
+        const ldS = logDet(S);
+        if (!isFinite(ldS)) throw new Error('観測変数の共分散行列が正定値ではありません（同じ情報をもつ変数や，分散が 0 の変数がないか確認してください）。');
+        const specs = semSpecsByK(model);
+        let theta = theta0.slice(), imp = semImplied(model, theta), F = imp ? semFML(S, ldS, imp.Sigma) : Infinity;
+        if (!isFinite(F)) throw new Error('初期値でモデルの共分散行列を計算できませんでした。');
+        let converged = false, it = 0, gi = null;
+        for (; it < maxIter; it++) {
+            gi = semGradInfo(S, imp.Sigma, semDSigma(specs, imp, S.length));
+            const Hi = invertScaled(gi.H);
+            if (!Hi) throw new Error('情報行列が特異です。モデルが識別されていない可能性があります（潜在変数の尺度の固定，指標の数，パラメータ数を確認してください）。');
+            const dir = Hi.map(r => -r.reduce((s, v, k) => s + v * gi.g[k], 0));
+            let step = 1, accepted = false, cand, impC, Fc;
+            for (let h = 0; h < 40; h++) {
+                cand = theta.map((t, k) => t + step * dir[k]);
+                impC = semImplied(model, cand);
+                Fc = impC ? semFML(S, ldS, impC.Sigma) : Infinity;
+                if (Fc <= F + 1e-13 * Math.max(1, Math.abs(F))) { accepted = true; break; }
+                step /= 2;
+            }
+            if (!accepted) { converged = Math.max(...gi.g.map(Math.abs)) < 1e-6; break; }
+            const change = Math.max(0, ...dir.map((d, k) => Math.abs(step * d) / Math.max(1, Math.abs(theta[k]))));
+            const dF = F - Fc;
+            theta = cand; imp = impC; F = Fc;
+            if (change < 1e-9 || (dF >= 0 && dF < 1e-14)) { converged = true; it++; break; }
+        }
+        gi = semGradInfo(S, imp.Sigma, semDSigma(specs, imp, S.length));
+        if (!converged && Math.max(...gi.g.map(Math.abs)) < 1e-6) converged = true;
+        return { theta, imp, F, converged, iterations: it, ...gi, specs, ldS };
+    }
+
+    // 初期値: 指標の共分散から因子負荷，観測分散の半分を誤差分散に
+    function semStart(model, S) {
+        const { entries, p, names, latents } = model;
+        const theta = new Array(model.q).fill(0), set = new Set();
+        const varOf = i => (i < p ? S[i][i] : null);
+        const latScale = {};
+        const scaleOf = L => {
+            if (latScale[L] !== undefined) return latScale[L];
+            latScale[L] = 1;
+            const inds = entries.filter(e => e.op === '=~' && e.lhs === L);
+            const first = inds[0];
+            const v = first ? (first.i < p ? varOf(first.i) : scaleOf(names[first.i])) : 1;
+            latScale[L] = Math.max(1e-6, 0.5 * v);
+            return latScale[L];
+        };
+        latents.forEach(scaleOf);
+        const put = (e, v) => { if (e.k >= 0 && !set.has(e.k)) { theta[e.k] = v; set.add(e.k); } };
+        entries.forEach(e => {
+            if (e.op === '=~') {
+                const L = e.lhs, inds = entries.filter(x => x.op === '=~' && x.lhs === L), m = inds[0];
+                let v = 1;
+                if (m && m !== e && e.i < p && m.i < p) {
+                    const lamM = model.entries.find(x => x === m).fixed ?? 1;
+                    v = model.ident === 'stdlv' ? S[e.i][m.i] / Math.sqrt(0.5 * S[m.i][m.i]) : S[e.i][m.i] / (scaleOf(L) * lamM);
+                } else if (model.ident === 'stdlv' && e.i < p) v = Math.sqrt(0.5 * S[e.i][e.i]);
+                put(e, isFinite(v) && Math.abs(v) > 1e-8 ? v : 1);
+            } else if (e.mat === 'A') put(e, 0);
+            else if (e.i === e.j) {
+                const i = e.i, hasIn = entries.some(x => x.mat === 'A' && x.i === i);
+                put(e, i < p ? (hasIn ? 0.5 : 1) * S[i][i] : (model.ident === 'stdlv' ? 1 : (hasIn ? 0.5 : 1) * scaleOf(names[i])));
+            } else put(e, (e.i < p && e.j < p && model.exo.includes(e.i) && model.exo.includes(e.j)) ? S[e.i][e.j] : 0);
+        });
+        return theta;
+    }
+
+    // 非心 χ² 分布の累積分布（ポアソン重み付き和）
+    function ncChiCDF(x, df, lambda) {
+        if (x <= 0) return 0;
+        if (lambda <= 0) return StatsLib.gammaP(df / 2, x / 2);
+        const half = lambda / 2;
+        const j0 = Math.floor(half);
+        const lw = j => -half + j * Math.log(half) - StatsLib.logGamma(j + 1);
+        let sum = 0;
+        for (let j = j0; j < j0 + 2000; j++) { const w = Math.exp(lw(j)); sum += w * StatsLib.gammaP(df / 2 + j, x / 2); if (w < 1e-14 && j > j0 + 10) break; }
+        for (let j = j0 - 1; j >= 0; j--) { const w = Math.exp(lw(j)); sum += w * StatsLib.gammaP(df / 2 + j, x / 2); if (w < 1e-14) break; }
+        return Math.min(1, sum);
+    }
+    function semRmseaCI(X2, df, nEff) {
+        if (df <= 0) return { lo: NaN, hi: NaN, pclose: NaN };
+        const solve = target => {
+            if (ncChiCDF(X2, df, 0) < target) return 0;
+            let lo = 0, hi = Math.max(10, X2 * 4);
+            while (ncChiCDF(X2, df, hi) > target && hi < 1e7) hi *= 2;
+            for (let i = 0; i < 100; i++) { const mid = (lo + hi) / 2; if (ncChiCDF(X2, df, mid) > target) lo = mid; else hi = mid; }
+            return (lo + hi) / 2;
+        };
+        const lL = solve(0.95), lU = solve(0.05);
+        return { lo: Math.sqrt(lL / (df * nEff)), hi: Math.sqrt(lU / (df * nEff)), pclose: 1 - ncChiCDF(X2, df, 0.05 * 0.05 * df * nEff) };
+    }
+
+    // 標本共分散（divisor: 'N' または 'N-1'）
+    function semCov(Y, divisor) {
+        const N = Y.length, p = Y[0].length;
+        const m = Array.from({ length: p }, (_, j) => Y.reduce((s, r) => s + r[j], 0) / N);
+        const den = divisor === 'N' ? N : N - 1;
+        return Array.from({ length: p }, (_, i) => Array.from({ length: p }, (_, j) => Y.reduce((s, r) => s + (r[i] - m[i]) * (r[j] - m[j]), 0) / den));
+    }
+
+    // 推定 → 結果オブジェクト
+    function semFit(text, data, opts) {
+        const parsed = semParse(text);
+        const model = semBuild(parsed, Object.keys(data[0] || {}), opts);
+        model.ident = opts.ident;
+        const rows = data.filter(d => model.obs.every(v => isFinite(parseFloat(d[v]))));
+        const Y = rows.map(d => model.obs.map(v => parseFloat(d[v])));
+        const N = Y.length, p = model.p, moments = p * (p + 1) / 2;
+        if (N < 10) throw new Error(`分析に使える（全変数に値のある）ケースが ${N} 件しかありません。`);
+        const df = moments - model.q;
+        if (df < 0) throw new Error(`自由度が負です（データの情報量 ${moments} < 推定するパラメータ数 ${model.q}）。モデルが識別されていません。パラメータを減らすか，制約を加えてください。`);
+        const nEff = opts.divisor === 'N' ? N : N - 1;
+        const S = semCov(Y, opts.divisor);
+        const est = semEstimate(model, S, semStart(model, S));
+        const Hinv = invertScaled(est.H);
+        if (!Hinv) throw new Error('情報行列が特異です。モデルが識別されていない可能性があります。');
+        const covTheta = Hinv.map(r => r.map(v => v * 2 / nEff));
+        const se = covTheta.map((r, k) => Math.sqrt(Math.max(0, r[k])));
+        const { imp } = est, theta = est.theta;
+        const sd = imp.C.map((r, i) => Math.sqrt(Math.max(0, r[i])));
+        const valueOf = e => (e.k >= 0 ? theta[e.k] : e.fixed);
+        const warnings = [];
+        if (!est.converged) warnings.push('推定が収束しませんでした。モデルの指定や初期値に問題がある可能性があります。結果は参考値として扱ってください。');
+
+        // パラメータ表（推定値・SE・z・p・標準化）
+        const params = model.entries.map(e => {
+            const v = valueOf(e), free = e.k >= 0;
+            const s = free ? se[e.k] : NaN, z = free && s > 0 ? v / s : NaN;
+            let std;
+            if (e.mat === 'A') std = sd[e.i] > 0 ? v * sd[e.j] / sd[e.i] : NaN;
+            else if (e.i === e.j) std = imp.C[e.i][e.i] > 0 ? v / imp.C[e.i][e.i] : NaN;
+            else std = (imp.P[e.i][e.i] > 0 && imp.P[e.j][e.j] > 0) ? v / Math.sqrt(imp.P[e.i][e.i] * imp.P[e.j][e.j]) : NaN;
+            return { ...e, est: v, se: s, z, p: isFinite(z) ? StatsLib.zP(z) : NaN, std, free };
+        });
+        params.filter(x => x.mat === 'P' && x.i === x.j && x.est < 0).forEach(x => warnings.push(`「${x.lhs}」の${x.i < p && model.entries.some(e => e.mat === 'A' && e.i === x.i) ? '誤差' : ''}分散が負の値（${fmt(x.est, 3)}）です（不適解・ハイウッドケース）。モデルの見直しが必要です。`));
+        params.filter(x => x.mat === 'P' && x.i !== x.j && Math.abs(x.std) > 1).forEach(x => warnings.push(`「${x.lhs}」と「${x.rhs}」の相関が 1 を超えています（${fmt(x.std, 3)}）。不適解です。`));
+
+        // R²
+        const r2 = model.names.map((v, i) => model.entries.some(e => e.mat === 'A' && e.i === i) ? { name: v, latent: i >= p, r2: imp.C[i][i] > 0 ? 1 - imp.P[i][i] / imp.C[i][i] : NaN } : null).filter(Boolean);
+
+        // 適合度
+        const X2 = Math.max(0, nEff * est.F), pChi = df > 0 ? StatsLib.chiSquareP(X2, df) : NaN;
+        const Fb = S.reduce((s, r, i) => s + Math.log(r[i]), 0) - est.ldS;
+        const X2b = nEff * Fb, dfb = p * (p - 1) / 2;
+        const cfi = 1 - Math.max(X2 - df, 0) / Math.max(X2b - dfb, X2 - df, 1e-12);
+        const tli = df > 0 ? ((X2b / dfb) - (X2 / df)) / ((X2b / dfb) - 1) : NaN;
+        const rmsea = df > 0 ? Math.sqrt(Math.max(X2 - df, 0) / (df * nEff)) : NaN;
+        const ci = semRmseaCI(X2, df, nEff);
+        let srmrSum = 0;
+        for (let i = 0; i < p; i++) for (let j = 0; j <= i; j++) {
+            const rs = S[i][j] / Math.sqrt(S[i][i] * S[j][j]), rm = imp.Sigma[i][j] / Math.sqrt(imp.Sigma[i][i] * imp.Sigma[j][j]);
+            srmrSum += (rs - rm) ** 2;
+        }
+        const srmr = Math.sqrt(srmrSum / moments);
+        const SiS = StatsLib.multiply(est.Si, S);
+        // GFI = 1 − tr[(Σ⁻¹S − I)²] / tr[(Σ⁻¹S)²]
+        let num = 0, den = 0;
+        for (let i = 0; i < p; i++) for (let j = 0; j < p; j++) { const a = SiS[i][j] - (i === j ? 1 : 0), b = SiS[j][i] - (j === i ? 1 : 0); num += a * b; den += SiS[i][j] * SiS[j][i]; }
+        const gfi = 1 - num / den, agfi = df > 0 ? 1 - (moments / df) * (1 - gfi) : NaN;
+        // 対数尤度は N で割った標本共分散を用いる（lavaan と同じ）
+        const SN = opts.divisor === 'N' ? S : S.map(r => r.map(v => v * (N - 1) / N));
+        let trN = 0;
+        for (let i = 0; i < p; i++) for (let j = 0; j < p; j++) trN += SN[i][j] * est.Si[j][i];
+        const logL = -N / 2 * (p * Math.log(2 * Math.PI) + logDet(imp.Sigma) + trN);
+        const fit = { N, nEff, chi2: X2, df, p: pChi, chi2b: X2b, dfb, cfi, tli, rmsea, rmseaLo: ci.lo, rmseaHi: ci.hi, pclose: ci.pclose, srmr, gfi, agfi,
+            logL, aic: -2 * logL + 2 * model.q, bic: -2 * logL + model.q * Math.log(N), q: model.q, moments };
+
+        // 効果の分解（構造変数間）・定義パラメータ: θ の関数として計算し，デルタ法で SE
+        const labelVals = th => { const v = {}; model.labelK.forEach((k, l) => { v[l] = th[k]; }); model.labelFixed.forEach((x, l) => { v[l] = x; }); return v; };
+        const structIdx = model.structural.map(v => model.names.indexOf(v));
+        const effectPairs = [];
+        structIdx.forEach(y => { if (!model.entries.some(e => e.op === '~' && e.i === y)) return; structIdx.forEach(x => { if (x !== y) effectPairs.push([y, x]); }); });
+        const effectsOf = th => {
+            const im = semImplied(model, th);
+            if (!im) return null;
+            const sdv = im.C.map((r, i) => Math.sqrt(Math.max(0, r[i])));
+            return effectPairs.map(([y, x]) => { const tot = im.B[y][x], dir = im.A[y][x]; return { tot, dir, ind: tot - dir, k: sdv[x] / sdv[y] }; });
+        };
+        const defsOf = th => { const v = labelVals(th); return model.defined.map(d => d.fn(v)); };
+        const grad = (f, th, idx) => th.map((t, k) => {
+            const h = 1e-6 * Math.max(1, Math.abs(t));
+            const up = th.slice(); up[k] += h; const dn = th.slice(); dn[k] -= h;
+            const a = f(up), b = f(dn);
+            return (a && b) ? (idx(a) - idx(b)) / (2 * h) : NaN;
+        });
+        const deltaSE = (f, idx) => { const gv = grad(f, theta, idx); let s = 0; for (let a = 0; a < gv.length; a++) for (let b = 0; b < gv.length; b++) s += gv[a] * covTheta[a][b] * gv[b]; return Math.sqrt(Math.max(0, s)); };
+        const eff0 = effectsOf(theta);
+        const effects = effectPairs.map(([y, x], i) => ({ y: model.names[y], x: model.names[x], ...eff0[i] }))
+            .map((e, i) => ({ ...e, i }))
+            .filter(e => Math.abs(e.tot) > 1e-12 || Math.abs(e.dir) > 1e-12)
+            .map(e => {
+                const seInd = Math.abs(e.ind) > 1e-12 ? deltaSE(effectsOf, a => a[e.i].ind) : NaN;
+                const seTot = deltaSE(effectsOf, a => a[e.i].tot);
+                return { ...e, seInd, pInd: seInd > 0 ? StatsLib.zP(e.ind / seInd) : NaN, seTot, pTot: seTot > 0 ? StatsLib.zP(e.tot / seTot) : NaN };
+            });
+        const def0 = model.defined.length ? defsOf(theta) : [];
+        const defined = model.defined.map((d, i) => { const s = deltaSE(defsOf, a => a[i]); return { name: d.name, expr: d.expr, est: def0[i], se: s, z: def0[i] / s, p: s > 0 ? StatsLib.zP(def0[i] / s) : NaN }; });
+
+        // 修正指標（モデルにないパラメータを1つ追加した場合の χ² の減少の見込み）
+        const mi = [];
+        {
+            const has = (mat, i, j) => model.entries.some(e => e.mat === mat && ((e.i === i && e.j === j) || (mat === 'P' && e.i === j && e.j === i)));
+            const cands = [];
+            const isInd = i => model.entries.some(e => e.op === '=~' && e.i === i);
+            for (let i = 0; i < p; i++) for (let j = i + 1; j < p; j++) {
+                const endo = k => model.entries.some(e => e.mat === 'A' && e.i === k), endoI = endo(i), endoJ = endo(j);
+                if (endoI && endoJ && !has('P', i, j)) cands.push({ mat: 'P', i, j, op: '~~', lhs: model.names[i], rhs: model.names[j] });
+            }
+            model.latents.forEach(L => { const l = model.names.indexOf(L); for (let i = 0; i < p; i++) if (isInd(i) && !has('A', i, l)) cands.push({ mat: 'A', i, j: l, op: '=~', lhs: L, rhs: model.names[i] }); });
+            structIdx.forEach(y => structIdx.forEach(x => {
+                if (x === y || has('A', y, x) || has('A', x, y)) return;
+                if (!model.entries.some(e => e.op === '~' && e.i === y)) return;
+                cands.push({ mat: 'A', i: y, j: x, op: '~', lhs: model.names[y], rhs: model.names[x] });
+            }));
+            const Dc = semDSigma(cands.map(c => [c]), imp, p);
+            Dc.forEach((M, ci2) => {
+                let g = 0;
+                for (let r = 0; r < p; r++) for (let c = 0; c < p; c++) g += est.Delta[r][c] * M[r][c];
+                const SiM = StatsLib.multiply(est.Si, M);
+                const tr2 = (X, Yb) => { let s = 0; for (let r = 0; r < p; r++) for (let c = 0; c < p; c++) s += X[r][c] * Yb[c][r]; return s; };
+                const hcc = tr2(SiM, SiM), h = est.SiD.map(Mk => tr2(SiM, Mk));
+                let adj = hcc;
+                for (let a = 0; a < h.length; a++) for (let b = 0; b < h.length; b++) adj -= h[a] * Hinv[a][b] * h[b];
+                if (adj <= 1e-12 * Math.max(1, hcc)) return;
+                const c = cands[ci2], val = nEff / 2 * g * g / adj, epc = -g / adj;
+                const sepc = c.mat === 'A' ? epc * sd[c.j] / sd[c.i] : epc / Math.sqrt(Math.max(1e-300, imp.P[c.i][c.i] * imp.P[c.j][c.j]));
+                mi.push({ ...c, mi: val, epc, sepc });
+            });
+            mi.sort((a, b) => b.mi - a.mi);
+        }
+
+        // ブートストラップ（間接効果・定義パラメータの百分位信頼区間）
+        let boot = null;
+        if (opts.bootN > 0 && (effects.some(e => Math.abs(e.ind) > 1e-12) || defined.length)) {
+            let s32 = 20241017;
+            const rnd = () => { s32 |= 0; s32 = s32 + 0x6D2B79F5 | 0; let t = Math.imul(s32 ^ s32 >>> 15, 1 | s32); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+            const indDraws = effects.map(() => []), totDraws = effects.map(() => []), defDraws = defined.map(() => []);
+            let fail = 0;
+            for (let b = 0; b < opts.bootN; b++) {
+                const Yb = Array.from({ length: N }, () => Y[Math.floor(rnd() * N)]);
+                try {
+                    const Sb = semCov(Yb, opts.divisor);
+                    const eb = semEstimate(model, Sb, theta, 100);
+                    if (!eb.converged) { fail++; continue; }
+                    const ef = effectsOf(eb.theta);
+                    effects.forEach((e, i) => { indDraws[i].push(ef[e.i].ind); totDraws[i].push(ef[e.i].tot); });
+                    if (defined.length) defsOf(eb.theta).forEach((v, i) => defDraws[i].push(v));
+                } catch (err) { fail++; }
+            }
+            const pct = (arr, q2) => { const s = [...arr].sort((a, c) => a - c); if (!s.length) return NaN; const pos = (s.length - 1) * q2, lo = Math.floor(pos), hi = Math.ceil(pos); return s[lo] + (s[hi] - s[lo]) * (pos - lo); };
+            effects.forEach((e, i) => { e.bootIndLo = pct(indDraws[i], .025); e.bootIndHi = pct(indDraws[i], .975); e.bootTotLo = pct(totDraws[i], .025); e.bootTotHi = pct(totDraws[i], .975); });
+            defined.forEach((d, i) => { d.bootLo = pct(defDraws[i], .025); d.bootHi = pct(defDraws[i], .975); });
+            boot = { B: opts.bootN, ok: opts.bootN - fail, fail };
+        }
+        return { model, params, fit, r2, effects, defined, mi, boot, warnings, converged: est.converged, iterations: est.iterations, S, imp, theta, se, covTheta, N, opts };
+    }
+
+    // ===== SEM: パス図（SVG の自動レイアウト） =====
+    function semDiagramSVG(res, mode) {
+        const m = res.model, P = res.params;
+        const isLat = v => m.latents.includes(v);
+        const loadings = P.filter(e => e.op === '=~'), regs = P.filter(e => e.op === '~');
+        const covs = P.filter(e => e.mat === 'P' && e.i !== e.j);
+        const struct = [...new Set([...m.latents, ...m.structural])];
+        const textW = s => [...String(s)].reduce((w, ch) => w + (/[\x20-\x7e]/.test(ch) ? 7.4 : 13.5), 0);
+        const size = v => isLat(v) ? { w: Math.max(86, textW(v) + 40), h: 48 } : { w: Math.max(64, textW(v) + 22), h: 30 };
+        const sEdges = [...regs.map(e => [e.rhs, e.lhs]), ...loadings.filter(e => struct.includes(e.rhs)).map(e => [e.lhs, e.rhs])];
+        const level = Object.fromEntries(struct.map(v => [v, 0]));
+        for (let it = 0; it < struct.length; it++) sEdges.forEach(([a, b]) => { if (level[b] < level[a] + 1) level[b] = Math.min(level[a] + 1, struct.length); });
+        const maxL = Math.max(0, ...Object.values(level));
+        const indOf = L => loadings.filter(e => e.lhs === L && !struct.includes(e.rhs)).map(e => e.rhs);
+        const GAP = 78, IG = 14, HG = 140, VG = 40, ROWG = 64;
+        const node = {};
+        const cols = Array.from({ length: maxL + 1 }, () => []);
+        struct.forEach(v => cols[level[v]].push(v));
+        // 指標を置く側
+        const side = {};
+        cols.forEach((col, c) => col.forEach((v, r) => {
+            if (!isLat(v) || !indOf(v).length) { side[v] = null; return; }
+            side[v] = c === 0 ? 'left' : (c === maxL ? 'right' : (r % 2 === 0 ? 'top' : 'bottom'));
+        }));
+        const block = v => {
+            const s = size(v), inds = indOf(v), iw = Math.max(0, ...inds.map(x => size(x).w));
+            if (side[v] === 'left' || side[v] === 'right') return { h: Math.max(s.h, inds.length * (30 + IG) - IG), extL: side[v] === 'left' ? s.w / 2 + GAP + iw : s.w / 2, extR: side[v] === 'right' ? s.w / 2 + GAP + iw : s.w / 2 };
+            if (side[v]) { const rw = inds.reduce((t, x) => t + size(x).w + IG, -IG); return { h: s.h + ROWG + 30, extL: Math.max(s.w, rw) / 2, extR: Math.max(s.w, rw) / 2 }; }
+            return { h: s.h, extL: s.w / 2, extR: s.w / 2 };
+        };
+        // 列の x 座標
+        const colX = [];
+        cols.forEach((col, c) => {
+            const extL = Math.max(40, ...col.map(v => block(v).extL));
+            colX[c] = c === 0 ? 30 + extL : colX[c - 1] + Math.max(40, ...cols[c - 1].map(v => block(v).extR)) + HG + extL;
+        });
+        // 列内の順序（前の列の位置の重心）と y 座標
+        const colH = [];
+        cols.forEach((col, c) => {
+            if (c > 0) {
+                const bary = v => { const ps = sEdges.filter(([a, b]) => b === v && node[a]).map(([a]) => node[a].y); return ps.length ? ps.reduce((s, y) => s + y, 0) / ps.length : 1e9; };
+                col.sort((a, b) => bary(a) - bary(b));
+                col.forEach((v, r) => { if (isLat(v) && indOf(v).length && c !== maxL) side[v] = r % 2 === 0 ? 'top' : 'bottom'; });
+            }
+            let y = 0;
+            col.forEach(v => {
+                const b = block(v), s = size(v);
+                const cy = side[v] === 'top' ? y + 30 + ROWG + s.h / 2 : side[v] === 'bottom' ? y + s.h / 2 : y + b.h / 2;
+                node[v] = { x: colX[c], y: cy, ...s, lat: isLat(v), top: y };
+                y += b.h + VG;
+            });
+            colH[c] = y - VG;
+        });
+        const H = Math.max(...colH);
+        cols.forEach((col, c) => { const off = (H - colH[c]) / 2; col.forEach(v => { node[v].y += off; node[v].top += off; }); });
+        // 指標の配置
+        struct.forEach(v => {
+            const inds = indOf(v), L = node[v];
+            if (!inds.length || !side[v]) return;
+            if (side[v] === 'left' || side[v] === 'right') {
+                const total = inds.length * (30 + IG) - IG;
+                inds.forEach((x, k) => { const s = size(x); node[x] = { ...s, lat: false, side: side[v], x: side[v] === 'left' ? L.x - L.w / 2 - GAP - s.w / 2 : L.x + L.w / 2 + GAP + s.w / 2, y: L.y - total / 2 + 15 + k * (30 + IG) }; });
+            } else {
+                const rw = inds.reduce((t, x) => t + size(x).w + IG, -IG);
+                let x0 = L.x - rw / 2;
+                inds.forEach(x => { const s = size(x); node[x] = { ...s, lat: false, side: side[v], x: x0 + s.w / 2, y: side[v] === 'top' ? L.y - L.h / 2 - ROWG - 15 : L.y + L.h / 2 + ROWG + 15 }; x0 += s.w + IG; });
+            }
+        });
+        // 描画
+        const xs = Object.values(node).flatMap(n => [n.x - n.w / 2, n.x + n.w / 2]), ys = Object.values(node).flatMap(n => [n.y - n.h / 2, n.y + n.h / 2]);
+        const minX = Math.min(...xs) - 70, maxX = Math.max(...xs) + 90, minY = Math.min(...ys) - 60, maxY = Math.max(...ys) + 50;
+        const W = maxX - minX, Hh = maxY - minY;
+        const edgePt = (n, tx, ty) => {
+            const dx = tx - n.x, dy = ty - n.y;
+            if (!dx && !dy) return [n.x, n.y];
+            const t = n.lat ? 1 / Math.sqrt((dx / (n.w / 2)) ** 2 + (dy / (n.h / 2)) ** 2) : Math.min(Math.abs(dx) > 1e-9 ? (n.w / 2) / Math.abs(dx) : Infinity, Math.abs(dy) > 1e-9 ? (n.h / 2) / Math.abs(dy) : Infinity);
+            return [n.x + dx * t, n.y + dy * t];
+        };
+        const lab = (e) => {
+            const v = mode === 'std' ? e.std : e.est;
+            if (!isFinite(v)) return '';
+            return mode === 'std' ? apaFmt(v, 2, true) : apaFmt(v, 2);
+        };
+        const ns = e => e.free && isFinite(e.p) && e.p >= .05;
+        const label = (x, y, t, dim) => t ? `<rect x="${(x - textW(t) / 2 - 4).toFixed(1)}" y="${(y - 9).toFixed(1)}" width="${(textW(t) + 8).toFixed(1)}" height="17" rx="3" fill="#ffffff" opacity="0.92"/><text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="middle" font-size="12" fill="${dim ? '#94a3b8' : '#0f172a'}">${escapeHtml(t)}</text>` : '';
+        let svg = '';
+        // 線分が他の変数の枠を横切るか（端の変数は除く）
+        // 上下に指標の列をもつ潜在変数は「潜在変数＋指標の列」全体を1つの障害物とみなす
+        const groupBoxes = struct.filter(v => side[v] === 'top' || side[v] === 'bottom').map(v => {
+            const mem = [v, ...indOf(v)].filter(x => node[x]);
+            const x0 = Math.min(...mem.map(x => node[x].x - node[x].w / 2)), x1b = Math.max(...mem.map(x => node[x].x + node[x].w / 2));
+            const y0 = Math.min(...mem.map(x => node[x].y - node[x].h / 2)), y1b = Math.max(...mem.map(x => node[x].y + node[x].h / 2));
+            return { members: mem, x: (x0 + x1b) / 2, y: (y0 + y1b) / 2, w: x1b - x0, h: y1b - y0 };
+        });
+        const blockers = (a, b, x1, y1, x2, y2) => [...Object.entries(node), ...groupBoxes.map(g => [g.members, g])].filter(([v, n]) => {
+            if (Array.isArray(v) ? (v.includes(a) || v.includes(b)) : (v === a || v === b)) return false;
+            for (let k = 1; k < 40; k++) {
+                const t = k / 40, px = x1 + (x2 - x1) * t, py = y1 + (y2 - y1) * t;
+                if (Math.abs(px - n.x) <= n.w / 2 + 6 && Math.abs(py - n.y) <= n.h / 2 + 6) return true;
+            }
+            return false;
+        }).map(([, n]) => n);
+        const arrow = (a, b, e, frac, avoid) => {
+            const A = node[a], B = node[b];
+            if (!A || !B) return;
+            const dim = ns(e), stroke = dim ? '#94a3b8' : '#1e293b', dash = dim ? ' stroke-dasharray="5 4"' : '';
+            const text = lab(e) + (mode === 'std' && e.free && e.p < .05 ? stars(e.p).replace('†', '') : '');
+            let [x1, y1] = edgePt(A, B.x, B.y), [x2, y2] = edgePt(B, A.x, A.y);
+            const obs = avoid ? blockers(a, b, x1, y1, x2, y2) : [];
+            if (!obs.length) {
+                svg += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${stroke}" stroke-width="1.4"${dash} marker-end="url(#arr${dim ? 'g' : ''})"/>`;
+                svg += label(x1 + (x2 - x1) * frac, y1 + (y2 - y1) * frac, text, dim);
+                return;
+            }
+            // 障害物を避けて上または下に膨らませる（必要な膨らみが小さい側）
+            const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
+            const topY = Math.min(...obs.map(n => n.y - n.h / 2)) - 26, botY = Math.max(...obs.map(n => n.y + n.h / 2)) + 26;
+            const peakY = (my - topY) <= (botY - my) ? topY : botY;
+            const cx = mx, cy = 2 * peakY - my;
+            [x1, y1] = edgePt(A, cx, cy); [x2, y2] = edgePt(B, cx, cy);
+            svg += `<path d="M ${x1.toFixed(1)} ${y1.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}" fill="none" stroke="${stroke}" stroke-width="1.4"${dash} marker-end="url(#arr${dim ? 'g' : ''})"/>`;
+            svg += label(0.25 * x1 + 0.5 * cx + 0.25 * x2, 0.25 * y1 + 0.5 * cy + 0.25 * y2, text, dim);
+        };
+        loadings.forEach(e => arrow(e.lhs, e.rhs, e, 0.64, struct.includes(e.rhs)));
+        regs.forEach(e => arrow(e.rhs, e.lhs, e, 0.5, true));
+        const cxAll = (minX + maxX) / 2;
+        covs.forEach(e => {
+            const A = node[e.lhs], B = node[e.rhs];
+            if (!A || !B) return;
+            const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2, dx = B.x - A.x, dy = B.y - A.y, dist = Math.hypot(dx, dy) || 1;
+            let ox = -dy / dist, oy = dx / dist;
+            let want;
+            if (A.side && A.side === B.side) want = { left: [-1, 0], right: [1, 0], top: [0, -1], bottom: [0, 1] }[A.side];
+            else if (level[e.lhs] === 0 && level[e.rhs] === 0 && maxL > 0) want = [-1, 0];
+            else if (level[e.lhs] === maxL && level[e.rhs] === maxL && maxL > 0) want = [1, 0];
+            else want = [mx < cxAll ? -1 : 1, 0];
+            if (maxL === 0 && !A.side && !B.side) want = [1, 0];
+            if (ox * want[0] + oy * want[1] < 0) { ox = -ox; oy = -oy; }
+            const bulge = 28 + 0.22 * dist;
+            const cx = mx + ox * bulge, cy = my + oy * bulge;
+            const [x1, y1] = edgePt(A, cx, cy), [x2, y2] = edgePt(B, cx, cy);
+            const dim = ns(e);
+            svg += `<path d="M ${x1.toFixed(1)} ${y1.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}" fill="none" stroke="${dim ? '#94a3b8' : '#475569'}" stroke-width="1.2"${dim ? ' stroke-dasharray="5 4"' : ''} marker-start="url(#arr${dim ? 'g' : ''}s)" marker-end="url(#arr${dim ? 'g' : ''})"/>`;
+            svg += label(0.25 * x1 + 0.5 * cx + 0.25 * x2, 0.25 * y1 + 0.5 * cy + 0.25 * y2, lab(e), dim);
+        });
+        // ノード
+        Object.entries(node).forEach(([v, n]) => {
+            svg += n.lat
+                ? `<ellipse cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" rx="${(n.w / 2).toFixed(1)}" ry="${(n.h / 2).toFixed(1)}" fill="#ffffff" stroke="#0f172a" stroke-width="1.6"/>`
+                : `<rect x="${(n.x - n.w / 2).toFixed(1)}" y="${(n.y - n.h / 2).toFixed(1)}" width="${n.w.toFixed(1)}" height="${n.h}" fill="#ffffff" stroke="#0f172a" stroke-width="1.4"/>`;
+            svg += `<text x="${n.x.toFixed(1)}" y="${(n.y + 4.5).toFixed(1)}" text-anchor="middle" font-size="${n.lat ? 13.5 : 12.5}" font-weight="${n.lat ? 700 : 500}" fill="#0f172a">${escapeHtml(v)}</text>`;
+            const r2 = res.r2.find(x => x.name === v);
+            if (r2 && struct.includes(v) && isFinite(r2.r2)) svg += `<text x="${(n.x + n.w / 2 - 2).toFixed(1)}" y="${(side[v] === 'top' ? n.y + n.h / 2 + 14 : n.y - n.h / 2 - 5).toFixed(1)}" text-anchor="end" font-size="11" fill="#475569">R² = ${apaFmt(r2.r2, 2, true)}</text>`;
+        });
+        const mk = (id, color, start) => `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="${start ? 'auto-start-reverse' : 'auto'}"><path d="M0,0 L10,5 L0,10 z" fill="${color}"/></marker>`;
+        return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX.toFixed(0)} ${minY.toFixed(0)} ${W.toFixed(0)} ${Hh.toFixed(0)}" width="${W.toFixed(0)}" style="max-width:100%;height:auto;font-family:'Hiragino Sans','Noto Sans JP','Yu Gothic','Meiryo',sans-serif;background:#fff;">
+            <defs>${mk('arr', '#1e293b')}${mk('arrs', '#475569', true)}${mk('arrg', '#94a3b8')}${mk('arrgs', '#94a3b8', true)}</defs>
+            <rect x="${minX}" y="${minY}" width="${W}" height="${Hh}" fill="#ffffff"/>${svg}</svg>`;
+    }
+    function semToggleDiagram(btn, mode) {
+        const box = btn.closest('.sem-diagram');
+        box.querySelectorAll('svg[data-mode]').forEach(s => { s.style.display = s.dataset.mode === mode ? '' : 'none'; });
+        box.querySelectorAll('.sem-mode-btn').forEach(b => b.classList.toggle('active', b === btn));
+        const note = box.querySelector('.sem-mode-note');
+        if (note) note.innerHTML = mode === 'std' ? '数値は標準化推定値。' : '数値は非標準化推定値（1 は尺度を決めるために固定した値）。';
+    }
+    function semSavePNG(btn) {
+        const svg = [...btn.closest('.sem-diagram').querySelectorAll('svg[data-mode]')].find(s => s.style.display !== 'none');
+        if (!svg) return;
+        const vb = svg.viewBox.baseVal, sc = 2.5;
+        const xml = new XMLSerializer().serializeToString(svg);
+        const img = new Image();
+        img.onload = () => {
+            const cv = document.createElement('canvas');
+            cv.width = Math.round(vb.width * sc); cv.height = Math.round(vb.height * sc);
+            const ctx = cv.getContext('2d');
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cv.width, cv.height);
+            ctx.drawImage(img, 0, 0, cv.width, cv.height);
+            const a = document.createElement('a');
+            a.href = cv.toDataURL('image/png');
+            a.download = `psy-stats_path_diagram_${svg.dataset.mode}.png`;
+            document.body.appendChild(a); a.click(); a.remove();
+            toast('パス図を PNG で保存しました', 'ok');
+        };
+        img.onerror = () => toast('PNG への変換に失敗しました', 'err');
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+    }
+
+    // ===== SEM: 実行と出力 =====
+    function semFitJudge(f) {
+        if (!(f.df > 0)) return { level: 'sat', text: '飽和モデル（自由度 0）のため，適合度は評価できない（データに完全に一致する）' };
+        if (f.cfi >= .95 && f.rmsea <= .06 && f.srmr <= .08) return { level: 'good', text: '良好な適合が得られた' };
+        if (f.cfi >= .90 && f.rmsea <= .08 && f.srmr <= .10) return { level: 'ok', text: '許容できる適合が得られた' };
+        return { level: 'poor', text: 'モデルの適合は十分とはいえない' };
+    }
+    function runSEM(out) {
+        if (!rawData.length) throw new Error('データが読み込まれていません。');
+        const text = document.getElementById('semModel').value;
+        if (!text.trim()) throw new Error('モデルを記述してください（設定パネルの「テンプレート」から例を挿入できます）。');
+        const bootOn = document.getElementById('semBoot').checked;
+        const opts = {
+            divisor: document.getElementById('semDivisor').value, ident: document.getElementById('semIdent').value,
+            autoCovX: document.getElementById('semAutoCovX').checked, autoCovY: document.getElementById('semAutoCovY').checked,
+            bootN: bootOn ? Math.max(100, Math.min(10000, parseInt(document.getElementById('semBootN').value, 10) || 2000)) : 0
+        };
+        const res = semFit(text, rawData, opts);
+        const m = res.model, f = res.fit, P = res.params;
+        const hasLat = m.latents.length > 0, hasReg = P.some(e => e.op === '~');
+        const kind = hasLat && !hasReg ? '確認的因子分析（CFA）' : hasLat ? '構造方程式モデル（潜在変数を含む）' : 'パス解析（観測変数のみ）';
+        const judge = semFitJudge(f);
+        const estLabel = opts.divisor === 'N' ? '最尤法（lavaan 互換）' : '最尤法（Amos 互換）';
+        const pf = e => e.free ? sigCell(e.p) : '<span class="ns-text">固定</span>';
+        const row = (cells) => `<tr>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
+        const estCells = e => [fmt(e.est, 3), e.free ? fmt(e.se, 3) : '—', e.free ? fmt(e.z, 2) : '—', pf(e), `<b>${fmt(e.std, 3)}</b>`];
+        const kpi = (label, value, sub, good) => `<div class="kpi"><div class="kpi-label">${label}</div><div class="kpi-value" style="font-size:1.35rem;">${value}</div><div class="kpi-sub">${sub}${good === undefined ? '' : ` <span class="chk ${good ? 'chk-ok' : 'chk-ng'}">${good ? '✓' : '⚠'}</span>`}</div></div>`;
+        const sat = !(f.df > 0);
+
+        // 適合度
+        const fitTable = `${tblCaption('適合度指標')}
+            <table class="stats-table apa-table"><thead><tr><th>指標</th><th>値</th><th>目安（Hu &amp; Bentler, 1999 など）</th><th>判定</th></tr></thead><tbody>
+            ${[
+                ['χ²（df）, <i>p</i>', sat ? `${fmt(f.chi2, 3)} (0)` : `${fmt(f.chi2, 3)} (${f.df}), ${fmtP(f.p)}`, '<i>p</i> &gt; .05（大標本では有意になりやすい）', sat ? null : f.p >= .05],
+                ['CFI', fmt(f.cfi, 3), '≥ .95 良好 ／ ≥ .90 許容', sat ? null : f.cfi >= .90],
+                ['TLI', fmt(f.tli, 3), '≥ .95 良好 ／ ≥ .90 許容', sat ? null : f.tli >= .90],
+                ['RMSEA [90% CI]', sat ? '—' : `${fmt(f.rmsea, 3)} [${fmt(f.rmseaLo, 3)}, ${fmt(f.rmseaHi, 3)}]`, '≤ .06 良好 ／ ≤ .08 許容 ／ ≥ .10 不適合', sat ? null : f.rmsea <= .08],
+                ['RMSEA ≤ .05 の検定（PCLOSE）', sat ? '—' : fmtP(f.pclose), '&gt; .05 なら RMSEA ≤ .05 を棄却しない', null],
+                ['SRMR', fmt(f.srmr, 3), '≤ .08 良好', sat ? null : f.srmr <= .08],
+                ['GFI ／ AGFI', `${fmt(f.gfi, 3)} ／ ${fmt(f.agfi, 3)}`, '≥ .90（AGFI は GFI より低くなる）', sat ? null : f.gfi >= .90 && (!isFinite(f.agfi) || f.agfi >= .85)],
+                ['AIC ／ BIC', `${fmt(f.aic, 2)} ／ ${fmt(f.bic, 2)}`, 'モデル比較用（小さいほど良い）', null]
+            ].map(([a, b, c, ok]) => `<tr><td>${a}</td><td>${b}</td><td style="font-size:.78rem;color:var(--muted);">${c}</td><td>${ok === null ? '' : `<span class="chk ${ok ? 'chk-ok' : 'chk-ng'}">${ok ? '✓' : '⚠'}</span>`}</td></tr>`).join('')}
+            </tbody></table>
+            ${figNote(`<i>N</i> = ${f.N}（全変数に値のあるケース），推定法 = ${estLabel}，推定するパラメータ数 = ${f.q}，データの情報量 = ${f.moments}。独立モデル χ²(${f.dfb}) = ${fmt(f.chi2b, 2)}。GFI・AGFI は Jöreskog &amp; Sörbom の ML 版。AIC・BIC は対数尤度にもとづく（−2logL + 2<i>q</i>，−2logL + <i>q</i> ln <i>N</i>）。`)}`;
+
+        // パラメータ表
+        const meas = P.filter(e => e.op === '=~'), regs = P.filter(e => e.op === '~');
+        const covs = P.filter(e => e.mat === 'P' && e.i !== e.j), vars = P.filter(e => e.mat === 'P' && e.i === e.j);
+        const endo = i => m.entries.some(e => e.mat === 'A' && e.i === i);
+        const measTable = meas.length ? `${tblCaption('測定モデル（因子負荷量）')}
+            <table class="stats-table apa-table"><thead><tr><th>潜在変数 → 指標</th><th>推定値 <i>B</i></th><th><i>SE</i></th><th><i>z</i></th><th><i>p</i></th><th>標準化 β</th><th><i>R</i>²</th></tr></thead><tbody>
+            ${meas.map(e => { const r2 = res.r2.find(x => x.name === e.rhs); return row([`${escapeHtml(e.lhs)} → ${escapeHtml(e.rhs)}${e.label ? ` <small>(${escapeHtml(e.label)})</small>` : ''}`, ...estCells(e), r2 ? fmt(r2.r2, 3) : '—']); }).join('')}
+            </tbody></table>` : '';
+        const regTable = regs.length ? `${tblCaption('構造モデル（パス係数）')}
+            <table class="stats-table apa-table"><thead><tr><th>説明変数 → 従属変数</th><th>推定値 <i>B</i></th><th><i>SE</i></th><th><i>z</i></th><th><i>p</i></th><th>標準化 β</th></tr></thead><tbody>
+            ${regs.map(e => row([`${escapeHtml(e.rhs)} → ${escapeHtml(e.lhs)}${e.label ? ` <small>(${escapeHtml(e.label)})</small>` : ''}`, ...estCells(e)])).join('')}
+            </tbody></table>
+            ${res.r2.filter(x => regs.some(e => e.lhs === x.name)).length ? `<table class="stats-table"><tr><td class="metric-label">決定係数 <i>R</i>²</td><td>${res.r2.filter(x => regs.some(e => e.lhs === x.name)).map(x => `${escapeHtml(x.name)}: <b>${fmt(x.r2, 3)}</b>`).join('　')}</td></tr></table>` : ''}` : '';
+        const covTable = covs.length ? `${tblCaption('共分散（標準化 = 相関）')}
+            <table class="stats-table apa-table"><thead><tr><th>変数</th><th>推定値</th><th><i>SE</i></th><th><i>z</i></th><th><i>p</i></th><th>相関</th></tr></thead><tbody>
+            ${covs.map(e => row([`${escapeHtml(e.lhs)} ↔ ${escapeHtml(e.rhs)}${endo(e.i) || endo(e.j) ? ' <small>(誤差)</small>' : ''}${e.auto ? ' <small style="color:var(--muted)">自動</small>' : ''}`, ...estCells(e)])).join('')}
+            </tbody></table>` : '';
+        const varTable = `<details class="sub-details"><summary>分散・誤差分散（${vars.length}）</summary>
+            <table class="stats-table apa-table"><thead><tr><th>変数</th><th>推定値</th><th><i>SE</i></th><th><i>z</i></th><th><i>p</i></th><th>標準化</th></tr></thead><tbody>
+            ${vars.map(e => row([`${escapeHtml(e.lhs)}${endo(e.i) ? ' <small>(誤差分散)</small>' : ''}`, ...estCells(e)])).join('')}
+            </tbody></table>${figNote('誤差分散の標準化値は，その変数の分散のうち説明されない割合（1 − <i>R</i>²）。')}</details>`;
+
+        // 効果の分解
+        const effs = res.effects.filter(e => Math.abs(e.ind) > 1e-10);
+        const bootTxt = res.boot ? `ブートストラップ法（${res.boot.ok} 回，百分位法）` : '';
+        const effTable = effs.length ? `${tblCaption('直接効果・間接効果・総合効果')}
+            <div class="table-scroll"><table class="stats-table apa-table"><thead><tr><th>原因 → 結果</th><th>直接効果</th><th>間接効果</th><th><i>SE</i>（デルタ法）</th><th><i>p</i></th>${res.boot ? '<th>間接効果の 95% CI</th>' : ''}<th>総合効果</th><th>標準化（直接 ／ 間接 ／ 総合）</th></tr></thead><tbody>
+            ${effs.map(e => row([`${escapeHtml(e.x)} → ${escapeHtml(e.y)}`, fmt(e.dir, 3), `<b>${fmt(e.ind, 3)}</b>`, fmt(e.seInd, 3), sigCell(e.pInd),
+                ...(res.boot ? [`[${fmt(e.bootIndLo, 3)}, ${fmt(e.bootIndHi, 3)}]${(e.bootIndLo > 0 || e.bootIndHi < 0) ? ' <span class="sig-text">*</span>' : ''}`] : []),
+                fmt(e.tot, 3), `${fmt(e.dir * e.k, 3)} ／ ${fmt(e.ind * e.k, 3)} ／ ${fmt(e.tot * e.k, 3)}`])).join('')}
+            </tbody></table></div>
+            ${figNote(`間接効果は他の変数を経由する効果の合計。<i>SE</i> と <i>p</i> はデルタ法（Sobel 型）による。${res.boot ? `95% CI は${bootTxt}で，0 を含まなければ 5% 水準で有意（*）。間接効果の検定にはブートストラップ法が推奨される（Preacher &amp; Hayes, 2008）。` : '間接効果の検定には，設定の「ブートストラップ法」の利用が推奨される（Preacher &amp; Hayes, 2008）。'}`)}` : '';
+        const defTable = res.defined.length ? `${tblCaption('定義パラメータ（:=）')}
+            <table class="stats-table apa-table"><thead><tr><th>名前</th><th>式</th><th>推定値</th><th><i>SE</i></th><th><i>z</i></th><th><i>p</i></th>${res.boot ? '<th>95% CI（ブートストラップ）</th>' : ''}</tr></thead><tbody>
+            ${res.defined.map(d => row([escapeHtml(d.name), `<code>${escapeHtml(d.expr)}</code>`, `<b>${fmt(d.est, 3)}</b>`, fmt(d.se, 3), fmt(d.z, 2), sigCell(d.p), ...(res.boot ? [`[${fmt(d.bootLo, 3)}, ${fmt(d.bootHi, 3)}]`] : [])])).join('')}
+            </tbody></table>` : '';
+
+        // 修正指標
+        const miTop = res.mi.filter(x => x.mi >= 3.84).slice(0, 10);
+        const miTable = `<details class="sub-details"${miTop.length ? '' : ''}><summary>修正指標（上位 ${miTop.length} 件，MI ≥ 3.84）</summary>
+            ${miTop.length ? `<table class="stats-table apa-table"><thead><tr><th>追加する候補</th><th>MI</th><th>EPC</th><th>標準化 EPC</th></tr></thead><tbody>
+            ${miTop.map(x => row([`${x.op === '~~' ? `${escapeHtml(x.lhs)} ↔ ${escapeHtml(x.rhs)}（誤差共分散）` : x.op === '=~' ? `${escapeHtml(x.lhs)} → ${escapeHtml(x.rhs)}（交差負荷）` : `${escapeHtml(x.rhs)} → ${escapeHtml(x.lhs)}（パス）`}<br><small><code>${escapeHtml(x.op === '~' ? `${x.lhs} ~ ${x.rhs}` : `${x.lhs} ${x.op} ${x.rhs}`)}</code></small>`, `<b>${fmt(x.mi, 2)}</b>`, fmt(x.epc, 3), fmt(x.sepc, 3)])).join('')}
+            </tbody></table>` : '<p style="font-size:.84rem;">MI が 3.84 以上の候補はありません。</p>'}
+            ${figNote('MI はそのパラメータを1つ追加したときに見込まれる χ² の減少量（df = 1）。EPC は追加した場合の推定値の見込み。<b>理論的に説明できない修正はしないこと</b>（データに合わせた修正は再現性を損なう）。')}</details>`;
+
+        // パス図
+        const diagram = `<div class="figure sem-diagram">${figCaption(`${kind}のパス図`)}
+            <div class="sem-diagram-tools"><button class="sem-mode-btn active" onclick="semToggleDiagram(this,'std')">標準化</button><button class="sem-mode-btn" onclick="semToggleDiagram(this,'raw')">非標準化</button><button class="sem-mode-btn" onclick="semSavePNG(this)">🖼 PNG で保存</button></div>
+            <div class="sem-svg-wrap">${semDiagramSVG(res, 'std').replace('<svg ', '<svg data-mode="std" ')}${semDiagramSVG(res, 'raw').replace('<svg ', '<svg data-mode="raw" style="display:none" ')}</div>
+            ${figNote(`<span class="sem-mode-note">数値は標準化推定値。</span>四角は観測変数，楕円は潜在変数，両方向の曲線は共分散（相関）。破線は 5% 水準で有意でないパス。*** <i>p</i> &lt; .001，** <i>p</i> &lt; .01，* <i>p</i> &lt; .05。誤差（残差）は省略。`)}</div>`;
+
+        // APA 記述文
+        const apa = (() => {
+            let t = `${m.latents.length ? `${m.latents.map(escapeHtml).join('，')} を潜在変数とする` : ''}${kind}を，最尤法により推定した（<i>N</i> = ${f.N}）。`;
+            t += sat ? `モデルは飽和モデル（自由度 0）であった。` : `モデルの適合度は，χ²(${f.df}) = ${apaFmt(f.chi2, 2)}，<i>p</i> ${apaPfmt(f.p)}，CFI = ${apaFmt(f.cfi, 2, true)}，TLI = ${apaFmt(f.tli, 2, true)}，RMSEA = ${apaFmt(f.rmsea, 3, true)}（90% CI [${apaFmt(f.rmseaLo, 3, true)}, ${apaFmt(f.rmseaHi, 3, true)}]），SRMR = ${apaFmt(f.srmr, 3, true)} であり，${judge.text}。`;
+            m.latents.forEach(L => {
+                const ls = meas.filter(e => e.lhs === L).map(e => e.std).filter(isFinite);
+                if (ls.length) t += `${escapeHtml(L)} の標準化因子負荷量は ${apaFmt(Math.min(...ls), 2, true)} から ${apaFmt(Math.max(...ls), 2, true)} であった。`;
+            });
+            const latCov = covs.filter(e => m.latents.includes(e.lhs) && m.latents.includes(e.rhs));
+            if (latCov.length) t += `潜在変数間の相関は，${latCov.map(e => `${escapeHtml(e.lhs)} と ${escapeHtml(e.rhs)} で <i>r</i> = ${apaFmt(e.std, 2, true)}（<i>p</i> ${apaPfmt(e.p)}）`).join('，')}であった。`;
+            if (regs.length) t += `${regs.map(e => `${escapeHtml(e.rhs)} から ${escapeHtml(e.lhs)} へのパスは${e.free && e.p < .05 ? '有意であった' : e.free ? '有意でなかった' : '固定した'}（β = ${apaFmt(e.std, 2, true)}${e.free ? `，<i>p</i> ${apaPfmt(e.p)}` : ''}）`).join('。')}。`;
+            const r2s = res.r2.filter(x => regs.some(e => e.lhs === x.name));
+            if (r2s.length) t += `決定係数は ${r2s.map(x => `${escapeHtml(x.name)} で <i>R</i>² = ${apaFmt(x.r2, 2, true)}`).join('，')}であった。`;
+            effs.forEach(e => {
+                const bootSig = res.boot ? (e.bootIndLo > 0 || e.bootIndHi < 0) : null;
+                t += `${escapeHtml(e.x)} から ${escapeHtml(e.y)} への間接効果は ${apaFmt(e.ind, 3)}（標準化 ${apaFmt(e.ind * e.k, 3)}）であり，${res.boot ? `ブートストラップ法による 95% 信頼区間 [${apaFmt(e.bootIndLo, 3)}, ${apaFmt(e.bootIndHi, 3)}] は 0 を${bootSig ? '含まず，有意であった' : '含み，有意でなかった'}` : `デルタ法による検定では${e.pInd < .05 ? '有意であった' : '有意でなかった'}（<i>z</i> = ${apaFmt(e.ind / e.seInd, 2)}，<i>p</i> ${apaPfmt(e.pInd)}）`}。`;
+            });
+            res.defined.forEach(d => { t += `定義パラメータ ${escapeHtml(d.name)}（${escapeHtml(d.expr)}）の推定値は ${apaFmt(d.est, 3)} であった（<i>SE</i> = ${apaFmt(d.se, 3)}，<i>p</i> ${apaPfmt(d.p)}${res.boot ? `，95% CI [${apaFmt(d.bootLo, 3)}, ${apaFmt(d.bootHi, 3)}]` : ''}）。`; });
+            return t;
+        })();
+
+        out.innerHTML += `<div class="report-card">
+            ${cardTitle('🕸', `共分散構造分析: ${kind}`, `${estLabel} ／ <i>N</i> = ${f.N}${rawData.length - f.N ? `（欠損のある ${rawData.length - f.N} 件を除外）` : ''} ／ 観測変数 ${m.p}・潜在変数 ${m.latents.length} ／ 自由度 ${f.df} ／ ${res.converged ? `収束（${res.iterations} 回）` : '<span class="sig-text">未収束</span>'}`)}
+            ${res.warnings.map(w => `<div class="callout callout-warn">⚠ ${escapeHtml(w)}</div>`).join('')}
+            <div class="kpi-row">
+                ${sat ? kpi('χ²', fmt(f.chi2, 2), '飽和モデル（df = 0）') : kpi('χ²(df)', `${fmt(f.chi2, 2)} <small style="font-size:.8rem;">(${f.df})</small>`, `<i>p</i> ${f.p < .001 ? '&lt; .001' : '= ' + fmtP(f.p)}`, f.p >= .05)}
+                ${kpi('CFI', fmt(f.cfi, 3), '≥ .95 良好', sat ? undefined : f.cfi >= .95)}
+                ${kpi('RMSEA', fmt(f.rmsea, 3), `90% CI [${fmt(f.rmseaLo, 3)}, ${fmt(f.rmseaHi, 3)}]`, sat ? undefined : f.rmsea <= .06)}
+                ${kpi('SRMR', fmt(f.srmr, 3), '≤ .08 良好', sat ? undefined : f.srmr <= .08)}
+            </div>
+            <div class="callout ${judge.level === 'poor' ? 'callout-warn' : ''}">📏 総合判定: <b>${judge.text}</b>。${judge.level === 'poor' ? '修正指標や標準化残差を参考にしつつ，<b>理論的に妥当な範囲で</b>モデルを見直してください。' : ''}</div>
+            ${diagram}
+            ${fitTable}
+            ${measTable}${regTable}${covTable}${varTable}
+            ${effTable}${defTable}
+            ${miTable}
+            ${apaBox(apa)}
+        </div>`;
+    }
+    // テンプレートの挿入（サンプルデータなら実在の変数名，そうでなければ記入例）
+    function semTemplate(kind) {
+        const sample = isSampleData;
+        const T = {
+            cfa: sample ? '# 確認的因子分析: 2因子モデル\n不安 =~ 不安1 + 不安2 + 不安3 + 不安4 + 不安5\n自尊 =~ 自尊1 + 自尊2 + 自尊3 + 自尊4 + 自尊5'
+                        : '# 確認的因子分析: 潜在変数 =~ 指標1 + 指標2 + …\n因子A =~ 項目1 + 項目2 + 項目3\n因子B =~ 項目4 + 項目5 + 項目6',
+            med: sample ? '# 媒介分析: ストレス → サポート → 抑うつ\nサポート ~ a*ストレス\n抑うつ ~ b*サポート + c*ストレス\n間接効果 := a*b\n総合効果 := c + a*b'
+                        : '# 媒介分析: X → M → Y\nM ~ a*X\nY ~ b*M + c*X\n間接効果 := a*b\n総合効果 := c + a*b',
+            sem: sample ? '# 構造方程式モデル: 不安 → 自尊感情 → 抑うつ\n不安 =~ 不安1 + 不安2 + 不安4 + 不安5\n自尊 =~ 自尊1 + 自尊2 + 自尊3 + 自尊5\n自尊 ~ 不安\n抑うつ ~ 自尊 + 不安 + ストレス'
+                        : '# 構造方程式モデル\n因子A =~ 項目1 + 項目2 + 項目3\n因子B =~ 項目4 + 項目5 + 項目6\n因子B ~ 因子A\n結果変数 ~ 因子A + 因子B'
+        };
+        const ta = document.getElementById('semModel');
+        if (ta.value.trim() && !confirm('現在のモデルをテンプレートで置き換えますか？')) return;
+        ta.value = T[kind];
+        if (!sample) toast('記入例を挿入しました。変数名を実際のデータの列名に書き換えてください（サンプルデータでは実在の変数名が入ります）。', 'info', 5200);
+        setActiveInput('semModel');
+    }
+
+    // ============================================================
     // UI コントローラー (v17)
     // ============================================================
 
@@ -4799,7 +5608,10 @@
           brief: '複数の説明変数で目的変数を予測し、各変数の独自の影響（β）を調べます。',
           f1: { label: '目的変数 Y（量的）', hint: '予測される側の変数。例: 抑うつ', req: true },
           f2: { label: '説明変数 X（複数可）', hint: '交互作用は A*B。階層的投入法ではブロックを | で区切る。', multi: true, req: true },
-          panels: ['regOptions'] }
+          panels: ['regOptions'] },
+        { id: 'sem', group: '関連・予測', icon: '🕸', name: '共分散構造分析（SEM・確認的因子分析・パス解析・媒介分析）', short: '共分散構造分析（SEM）',
+          brief: '潜在変数（構成概念）や変数間の因果モデルを立て、データへの当てはまり（適合度）とパス係数を推定します。確認的因子分析・パス解析・媒介分析にも使えます。',
+          panels: ['semOptions'] }
     ];
     const METHOD_MAP = Object.fromEntries(METHODS.map(m => [m.id, m]));
 
@@ -5002,6 +5814,17 @@
             report: 'ストレスとサポートを説明変数とする重回帰分析の結果，モデルは有意であった（F(2, 117) = 24.3，p < .001，R² = .29）。ストレス（β = .41，p < .001）は正，サポート（β = −.27，p = .001）は負の有意な影響を示した。',
             pitfalls: ['β の大きさを因果効果の大きさと解釈する', '相関の高い説明変数を同時に投入する（多重共線性）', '交互作用項を入れる際に中心化しない（本ツールは自動で中心化）'],
             refs: 'Aiken, L. S., & West, S. G. (1991). Multiple regression: Testing and interpreting interactions.'
+        },
+        sem: {
+            what: '観測変数の背後にある潜在変数（構成概念）と，変数間の因果関係を1つのモデルとして表し，そのモデルがデータの共分散構造をどの程度再現できるか（適合度）と，各パスの強さを推定します。確認的因子分析・パス解析・媒介分析・潜在変数間の構造方程式モデルを統一的に扱えます。',
+            when: ['尺度の因子構造が想定どおりかを確かめるとき（確認的因子分析）', '「X → M → Y」の媒介効果（間接効果）を検証するとき', '測定誤差を取り除いた潜在変数どうしの関係を調べるとき', '複数の従属変数を含む因果モデルを一度に検証するとき'],
+            assume: ['理論にもとづいてモデルを事前に立てる（探索的に使うと再現性が下がる）', '多変量正規性（最尤法）。大きく外れる場合は結果を慎重に解釈する', '十分な標本サイズ（目安として 200 以上，少なくともパラメータ数の 5〜10 倍）', 'モデルが識別されている（潜在変数ごとに尺度を固定し，指標は原則 3 つ以上）'],
+            input: '設定パネルにモデルを lavaan 形式で記述します。「潜在変数 =~ 指標」で測定，「従属 ~ 説明」で回帰，「x ~~ y」で共分散，「a*x」でラベル，「名前 := a*b」で間接効果などを定義します。テンプレートから例を挿入でき，変数タグはカーソル位置に入ります。',
+            read: ['<b>適合度</b>を最初に確認する: CFI・TLI ≥ .95，RMSEA ≤ .06，SRMR ≤ .08 が良好の目安（Hu & Bentler, 1999）。χ² は標本が大きいとわずかなずれでも有意になる。', '<b>パス図</b>: 四角は観測変数，楕円は潜在変数，片方向の矢印は影響（パス係数），両方向の曲線は共分散（相関）。数値は標準化推定値で，変数間で大きさを比べられる。', '<b>因子負荷量</b>（標準化）: .50 以上，できれば .70 以上が望ましい。', '<b>間接効果</b>: X が M を経由して Y に与える効果（a × b）。検定にはブートストラップ法の信頼区間（0 を含まなければ有意）が推奨される。', '<b>修正指標</b>: パラメータを追加すると χ² がどれだけ下がるかの見込み。理論的に説明できる場合に限って参考にする。'],
+            effect: '適合度: CFI・TLI ≥ .95（良好）／ ≥ .90（許容），RMSEA ≤ .06（良好）／ ≤ .08（許容），SRMR ≤ .08。標準化パス係数は β として解釈（.10 小 ／ .30 中 ／ .50 大）。',
+            report: '不安と自尊感情を潜在変数とする構造方程式モデルを最尤法により推定した（N = 117）。モデルの適合度は χ²(32) = 28.95，p = .621，CFI = 1.00，TLI = 1.01，RMSEA = .000（90% CI [.000, .059]），SRMR = .057 であり，良好な適合が得られた。不安から自尊感情へのパスは有意であった（β = −.28，p = .015）。',
+            pitfalls: ['適合度が悪いからといって，修正指標に従って理論的根拠のない誤差相関を次々に追加する', '適合度が良いことを「モデルが正しい（因果関係が証明された）」と解釈する（同等に適合する別のモデルがありうる）', '横断データの媒介分析を因果の証拠とみなす', '指標が 1〜2 個しかない潜在変数を作り，識別できない・不安定な解になる'],
+            refs: 'Hu, L., & Bentler, P. M. (1999). Cutoff criteria for fit indexes in covariance structure analysis. Structural Equation Modeling. ／ Kline, R. B. (2016). Principles and practice of structural equation modeling (4th ed.). ／ Preacher, K. J., & Hayes, A. F. (2008). Asymptotic and resampling strategies for assessing and comparing indirect effects. Behavior Research Methods. ／ Rosseel, Y. (2012). lavaan: An R package for structural equation modeling. Journal of Statistical Software.'
         }
     };
 
@@ -5023,6 +5846,12 @@
         ['交互作用', 'ある要因の効果が、別の要因の水準によって異なること。交互作用プロットで線が平行でない状態。'],
         ['単純主効果', '交互作用が有意なとき、一方の要因の特定の水準に限定して、もう一方の要因の効果を検定したもの。'],
         ['球面性', '反復測定分散分析の前提。条件ペアごとの差得点の分散が等しいこと。崩れている場合は Greenhouse-Geisser 補正を使う。'],
+        ['共分散構造分析（SEM）', '潜在変数や変数間の因果関係を表したモデルから導かれる共分散行列が，データの共分散行列にどれだけ近いかを評価する分析。構造方程式モデリングとも呼ぶ。'],
+        ['確認的因子分析（CFA）', 'どの項目がどの因子に属するかを事前に指定し，その因子構造がデータに合うかを検証する因子分析。探索的因子分析（EFA）と対になる。'],
+        ['適合度指標', 'モデルがデータにどれだけ当てはまるかを表す指標。CFI・TLI（1 に近いほど良い），RMSEA・SRMR（0 に近いほど良い）を組み合わせて判断する。'],
+        ['間接効果（媒介効果）', 'X が媒介変数 M を経由して Y に与える効果。X→M の係数 a と M→Y の係数 b の積 a×b で表す。ブートストラップ法の信頼区間で検定するのが一般的。'],
+        ['修正指標（MI）', 'モデルにないパラメータを追加したときに見込まれる χ² の減少量。理論的に妥当な場合に限ってモデル修正の参考にする。'],
+        ['識別', 'モデルのパラメータがデータから一意に推定できること。潜在変数の尺度（負荷量 1 または分散 1）を固定し，自由度が 0 以上になる必要がある。'],
         ['Box の M 検定', '群ごとの共分散行列（変数間の分散と共分散）が等しいかを調べる検定。混合計画の分散分析や多変量解析の前提を確認する。非常に敏感なため α = .001 で判定するのが慣例で，群の人数が等しければ違反の影響は小さい。'],
         ['因子負荷量', '項目と因子の関連の強さ。プロマックス回転ではパターン行列の値を読む。'],
         ['共通性（h²）', '項目の分散のうち、抽出された因子で説明される割合。'],
@@ -5042,12 +5871,14 @@
             { label: '平均値に差があるか調べたい', desc: '群や条件の比較（t 検定・分散分析など）', next: 'diff' },
             { label: '変数どうしの関連を調べたい', desc: '相関・クロス集計', next: 'rel' },
             { label: 'ある変数を予測・説明したい', desc: '重回帰分析・調整効果', result: 'reg' },
+            { label: '因果モデルや潜在変数のモデルを検証したい', desc: '共分散構造分析（SEM）・パス解析・媒介分析', result: 'sem' },
             { label: '心理尺度を作る・評価したい', desc: '因子分析・信頼性・尺度得点', next: 'scale' }
         ] },
         scale: { q: '尺度について何をしたいですか？', opts: [
             { label: '項目の背後にある因子構造を調べたい', desc: '何因子か、どの項目がどの因子に属するか', result: 'factor' },
             { label: '尺度の信頼性（内的一貫性）を確かめたい', desc: 'α 係数・ω 係数・項目分析', result: 'alpha' },
-            { label: '下位尺度ごとの得点を作りたい', desc: '逆転項目の処理・合計/平均得点', result: 'scalescores' }
+            { label: '下位尺度ごとの得点を作りたい', desc: '逆転項目の処理・合計/平均得点', result: 'scalescores' },
+            { label: '想定した因子構造がデータに合うか確かめたい', desc: '確認的因子分析（CFA）', result: 'sem' }
         ] },
         diff: { q: '何と何を比べますか？', opts: [
             { label: '1つの平均値と基準値', desc: '例: 尺度の中点 3 より高いか', result: 'ttest_one' },
@@ -5111,7 +5942,8 @@
         kruskal: { y: '事後', x: '群' },
         corr: { x: 'ストレス, サポート, 抑うつ, 年齢' },
         chisq: { y: '群', x: '継続意向' },
-        reg: { y: '抑うつ', x: 'ストレス, サポート, 年齢' }
+        reg: { y: '抑うつ', x: 'ストレス, サポート, 年齢' },
+        sem: { sem: '# 構造方程式モデル: 不安 → 自尊感情 → 抑うつ\n不安 =~ 不安1 + 不安2 + 不安4 + 不安5\n自尊 =~ 自尊1 + 自尊2 + 自尊3 + 自尊5\n自尊 ~ a*不安\n抑うつ ~ b*自尊 + c*不安 + ストレス\n間接効果 := a*b' }
     };
 
     // ===== 状態 =====
@@ -5185,11 +6017,12 @@
         setField('f2', 'xPredictor', m.f2);
         document.getElementById('varsStep').style.display = (m.f1 || m.f2) ? '' : 'none';
         updateFactorialPreview();
-        ['onesampleOptions', 'corrOptions', 'posthocOptions', 'regOptions', 'factorOptions', 'scaleScoreOptions', 'mixedOptions', 'factorialOptions'].forEach(pid => {
+        ['onesampleOptions', 'corrOptions', 'posthocOptions', 'regOptions', 'factorOptions', 'scaleScoreOptions', 'mixedOptions', 'factorialOptions', 'semOptions'].forEach(pid => {
             document.getElementById(pid).classList.toggle('show', (m.panels || []).includes(pid));
         });
         // 入力先を自動で切り替え
         if (id === 'scalescores') setActiveInput('ssDefinitions');
+        else if (id === 'sem') setActiveInput('semModel');
         else if (m.f1 && !document.getElementById('yTarget').value.trim()) setActiveInput('yTarget');
         else if (m.f2) setActiveInput('xPredictor');
         else if (m.f1) setActiveInput('yTarget');
@@ -5249,6 +6082,15 @@
     function addTag(n) {
         const el = document.getElementById(activeIn);
         if (!el) return;
+        if (activeIn === 'semModel') {
+            const st = el.selectionStart ?? el.value.length, en = el.selectionEnd ?? st;
+            const before = el.value.slice(0, st), after = el.value.slice(en);
+            const pre = before && !/[\s(]$/.test(before) ? ' ' : '';
+            el.value = before + pre + n + after;
+            const pos = (before + pre + n).length;
+            el.focus(); el.setSelectionRange(pos, pos);
+            return;
+        }
         if (activeIn === 'ssDefinitions') {
             const v = el.value;
             const lastLine = v.split('\n').pop();
@@ -5369,6 +6211,7 @@
         if (ex.ss) document.getElementById('ssDefinitions').value = ex.ss;
         if (ex.wn) document.getElementById('withinName').value = ex.wn;
         if (ex.wdef !== undefined) document.getElementById('withinDefs').value = ex.wdef;
+        if (ex.sem) document.getElementById('semModel').value = ex.sem;
         updateFactorialPreview();
         if (id === 'reg') { document.getElementById('dummyVars').value = ''; document.getElementById('moderatorVars').value = ''; }
         switchTab('results');
@@ -5454,7 +6297,7 @@
             ['データの特徴を知りたい', ['summary']], ['尺度の構造・信頼性', ['factor', 'alpha', 'scalescores']],
             ['1つの平均と基準値', ['ttest_one']], ['2群（別々の人）', ['ttest_unpaired', 'mwu']], ['2条件（同じ人）', ['ttest_paired', 'wilcoxon']],
             ['3群以上（別々の人）', ['anova', 'kruskal']], ['3条件以上（同じ人）', ['rmanova']], ['2つの要因の組み合わせ', ['anova2', 'anova_mixed', 'anova_factorial']], ['3つ以上の要因', ['anova_factorial']],
-            ['量的 × 量的の関連', ['corr']], ['カテゴリ × カテゴリの関連', ['chisq']], ['予測・影響・調整効果', ['reg']]
+            ['量的 × 量的の関連', ['corr']], ['カテゴリ × カテゴリの関連', ['chisq']], ['予測・影響・調整効果', ['reg']], ['因果モデル・潜在変数・媒介', ['sem']]
         ];
         const content = `<div class="guide-content">
             <div class="report-card" id="guide-intro">${cardTitle('📖', '学習ガイドについて', 'このツールで「わかる」「書ける」ようになるために')}
@@ -5555,7 +6398,7 @@
             <div class="quick"><div class="q-num">STEP 4</div><h3>変数を指定して実行</h3><p>入力欄を選んで変数タグをクリック。<kbd style="color:var(--ink);border-color:#cbd5e1;background:#f8fafc;">Ctrl</kbd> + <kbd style="color:var(--ink);border-color:#cbd5e1;background:#f8fafc;">Enter</kbd> で実行できます。</p></div>
             <div class="quick"><div class="q-num">REPORT</div><h3>論文にそのまま使える出力</h3><p>APA 形式の表・図・記述文を生成。図表は Word に貼り付け、記述文はワンクリックでコピー。印刷・PDF・HTML 保存にも対応。</p></div>
         </div>
-        <div class="feature-list">${['記述統計・正規性検定', 'α / ω 係数', '尺度得点', '探索的因子分析（ML・PAF・ULS × Promax）', '1サンプル / 対応なし / 対応あり t 検定', '一元配置・二要因・多要因（被験者内×被験者内／3要因以上）・反復測定分散分析', 'Tukey / Games–Howell / Holm', 'Mann-Whitney / Wilcoxon / Kruskal-Wallis', 'Pearson / Spearman 相関', 'χ² 検定・残差分析・Fisher', '重回帰（階層・調整効果・単純傾斜）'].map(f => `<span>${f}</span>`).join('')}</div>`;
+        <div class="feature-list">${['記述統計・正規性検定', 'α / ω 係数', '尺度得点', '探索的因子分析（ML・PAF・ULS × Promax）', '1サンプル / 対応なし / 対応あり t 検定', '一元配置・二要因・多要因（被験者内×被験者内／3要因以上）・反復測定分散分析', 'Tukey / Games–Howell / Holm', 'Mann-Whitney / Wilcoxon / Kruskal-Wallis', 'Pearson / Spearman 相関', 'χ² 検定・残差分析・Fisher', '重回帰（階層・調整効果・単純傾斜）', '共分散構造分析（CFA・パス解析・媒介・ブートストラップ・パス図）'].map(f => `<span>${f}</span>`).join('')}</div>`;
     }
     function learnCardHTML(id) {
         const g = GUIDE[id], m = METHOD_MAP[id];
@@ -5659,6 +6502,7 @@
                 case 'kruskal': runKruskal(y, xs[0], wrap); break;
                 case 'corr': runCorrelation(xs, wrap); break;
                 case 'chisq': runChiSquare(y, xs[0], wrap); break;
+                case 'sem': runSEM(wrap); break;
                 case 'reg': {
                     const regMethod = document.querySelector('input[name="regMethod"]:checked').value;
                     const dummy = parseVarList(document.getElementById('dummyVars').value);
