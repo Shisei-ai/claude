@@ -411,6 +411,13 @@ body:not(.fx-on) #snow { display: none; }
   .fx-on .summon *, .bar i { animation: none !important; transition: none !important; }
 }
 
+/* ---------- 成長期 ---------- */
+.birth-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 6px 0; }
+.birth-facts div { background: var(--bg-2); padding: 8px 10px; min-width: 0; }
+.birth-facts span { display: block; font-size: 11px; color: var(--muted); }
+.birth-facts b { color: var(--fg); font-weight: 700; font-size: 14px; }
+.grow-stats { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--bg-2); margin: 6px 0 4px; }
+
 </style>
 <div id="app"></div>
 <script>
@@ -738,38 +745,52 @@ function classAffinity(atk, def) {
   return 0;
 }
 
-// ---- マスターの産まれ ----
-// stats: 魔力 / 体力 / 知力 / 精神 / 交渉 / 幸運（0〜100）
+// ---- マスターの産まれ（0歳で決まる家庭環境） ----
+// stats   : 「18歳で平均的に育った場合」の目安。0歳時点ではこの約3割から始まる
+// growth  : 能力ごとの伸びやすさ（1.0が標準）
+// magic   : 幼い頃から魔術を学べる家か
+// name    : 18歳時点の肩書き / origin : 誕生の場面 / text : 18歳時点の紹介
 const BIRTHS = [
-  { id: 'noble', name: '魔術の名門・嫡子', weight: 10,
-    text: '数百年続く魔術師の家系に生まれた。幼い頃から刻印を受け継ぐべく、厳しい修練を積んできた。',
-    stats: { mag: 62, phy: 30, int: 55, spi: 45, cha: 40, luk: 35 }, money: 12, circuits: [55, 80],
-    wish: '家門の悲願である「根源」への到達', perk: '家の宝物庫から触媒を一つ持ち出している。' },
-  { id: 'fallen', name: '没落した魔術家系', weight: 18,
-    text: 'かつては名を馳せた魔術師の家だが、今は見る影もない。残されたのは古い工房と、借金と、意地だけだ。',
-    stats: { mag: 45, phy: 35, int: 50, spi: 55, cha: 30, luk: 30 }, money: 3, circuits: [35, 60],
-    wish: '一族の再興', perk: '逆境に強い（精神判定に少し有利）。' },
-  { id: 'clocktower', name: '時計塔の派遣魔術師', weight: 13,
-    text: '魔術協会の総本山・時計塔から、この地の聖杯戦争の調査と参加を命じられて派遣された。',
-    stats: { mag: 52, phy: 28, int: 65, spi: 40, cha: 42, luk: 30 }, money: 10, circuits: [40, 65],
-    wish: '魔術師としての名声と、時計塔での地位', perk: '協会の支援で、まれに触媒が届く。' },
-  { id: 'mercenary', name: '魔術使いの傭兵', weight: 12,
-    text: '魔術を「道具」として使い、戦場を渡り歩いてきた。聖杯戦争も一つの仕事――のはずだった。',
-    stats: { mag: 38, phy: 62, int: 48, spi: 50, cha: 32, luk: 35 }, money: 8, circuits: [25, 45],
-    wish: '戦いのない、静かな暮らし', perk: '戦闘でのマスター支援が強い。' },
-  { id: 'civilian', name: '一般人・偶然の覚醒', weight: 20,
-    text: '魔術とは無縁の暮らしをしていた。だがある朝、右手の甲に奇妙な痣が浮かび上がった――。',
-    stats: { mag: 22, phy: 42, int: 42, spi: 45, cha: 55, luk: 60 }, money: 5, circuits: [8, 25],
-    wish: 'まだ分からない。ただ、誰も死なせたくない', perk: 'サーヴァントとの絆が深まりやすい。' },
-  { id: 'executor', name: '聖堂教会の元代行者', weight: 9,
-    text: '異端を狩る聖堂教会の代行者だったが、ある事件をきっかけに教会を離れた。体には黒鍵の扱いが染みついている。',
-    stats: { mag: 35, phy: 65, int: 45, spi: 60, cha: 30, luk: 28 }, money: 6, circuits: [20, 40],
-    wish: '過去の罪の贖い', perk: '体力と精神が高く、戦闘支援も得意。' },
-  { id: 'shrine', name: '天降神社の跡取り', weight: 15,
-    text: '深見市の霊脈を古くから守ってきた神社の家に生まれた。この街の土地のことなら誰よりも知っている。',
-    stats: { mag: 42, phy: 40, int: 45, spi: 58, cha: 45, luk: 45 }, money: 5, circuits: [25, 50],
-    wish: '街と霊脈を守ること', perk: '陣地（工房）の構築が得意。' },
+  { id: 'noble', name: '魔術の名門・嫡子', weight: 10, magic: true, home: '郊外の洋館',
+    origin: '郊外の古い洋館。数百年続く魔術師の家に、待望の跡継ぎが生まれた。<br>赤子の小さな体には、すでに並外れた数の魔術回路が脈打っている。父は満足げに頷いた。「この子が、我が家の悲願を継ぐ」',
+    text: '数百年続く魔術師の家系の跡継ぎとして、厳しい修練の中で育った。',
+    stats: { mag: 62, phy: 30, int: 55, spi: 45, cha: 40, luk: 35 }, growth: { mag: 1.3, int: 1.1, cha: 0.9, luk: 0.9 },
+    money: 12, circuits: [55, 80], wish: '家門の悲願である「根源」への到達', perk: '家の宝物庫から触媒を一つ持ち出している。' },
+  { id: 'fallen', name: '没落した魔術家系', weight: 18, magic: true, home: '旧城下町の古い屋敷',
+    origin: '旧城下町の、雨漏りのする古い屋敷。かつて名を馳せた魔術師の家に、一人の子が生まれた。<br>「家のことは気にしなくていい」と母は笑った。だが、蔵には先祖の魔導書が、埃をかぶって眠っている。',
+    text: 'かつて名を馳せた魔術師の家に生まれた。残されたのは古い工房と、借金と、意地だけだ。',
+    stats: { mag: 45, phy: 35, int: 50, spi: 55, cha: 30, luk: 30 }, growth: { spi: 1.25, int: 1.1, mag: 1.05 },
+    money: 3, circuits: [35, 60], wish: '一族の再興', perk: '逆境に強い（精神判定に少し有利）。' },
+  { id: 'clocktower', name: '時計塔の魔術師', weight: 13, magic: true, home: 'ロンドンと深見を行き来する家',
+    origin: '霧の街ロンドン。魔術協会の総本山・時計塔に籍を置く魔術師夫婦のもとに生まれた。<br>母の故郷は、遠い極東の地方都市――深見市だという。',
+    text: '時計塔で学んだ若き魔術師。母の故郷・深見市の聖杯戦争の調査を命じられ、この街に戻ってきた。',
+    stats: { mag: 52, phy: 28, int: 65, spi: 40, cha: 42, luk: 30 }, growth: { int: 1.3, mag: 1.1, phy: 0.85 },
+    money: 10, circuits: [40, 65], wish: '魔術師としての名声と、時計塔での地位', perk: '協会の支援で、まれに触媒が届く。' },
+  { id: 'mercenary', name: '魔術使いの傭兵', weight: 12, magic: true, home: '各地の戦場',
+    origin: '遠い国の紛争地帯。焼け落ちた村の瓦礫の中で、泣き声を上げる赤子がいた。<br>拾い上げたのは、魔術を「道具」として戦場を渡り歩く一人の傭兵だった。「……運のいいガキだ」',
+    text: '傭兵の養父に拾われ、戦場を渡り歩いて育った。魔術は生き延びるための道具だ。',
+    stats: { mag: 38, phy: 62, int: 48, spi: 50, cha: 32, luk: 35 }, growth: { phy: 1.3, spi: 1.1, cha: 0.85 },
+    money: 8, circuits: [25, 45], wish: '戦いのない、静かな暮らし', perk: '戦闘でのマスター支援が強い。' },
+  { id: 'civilian', name: '一般人', weight: 20, magic: false, home: '駅前の団地',
+    origin: '深見市の駅前、ごく普通の団地の一室。ごく普通の両親のもとに、ごく普通の子が生まれた。<br>――ただ一つ、誰も知らない。その子の中に、眠ったままの魔術回路があることを。',
+    text: '魔術とは無縁の、ごく普通の家庭で育った。',
+    stats: { mag: 22, phy: 42, int: 42, spi: 45, cha: 55, luk: 60 }, growth: { cha: 1.25, luk: 1.25, mag: 0.7 },
+    money: 5, circuits: [8, 25], wish: 'まだ分からない。ただ、誰も死なせたくない', perk: 'サーヴァントとの絆が深まりやすい。' },
+  { id: 'executor', name: '教会の孤児院出身', weight: 9, magic: false, home: '聖ヨハネ教会の孤児院',
+    origin: '冬の夜、丘の上の聖ヨハネ教会の前に、毛布にくるまれた赤子が置かれていた。<br>見つけたのは、まだ若い修道女だった。「……大丈夫。あなたは、一人じゃありませんよ」',
+    text: '聖ヨハネ教会の孤児院で育ち、聖堂教会で代行者の訓練を受けた。',
+    stats: { mag: 35, phy: 65, int: 45, spi: 60, cha: 30, luk: 28 }, growth: { phy: 1.2, spi: 1.25, luk: 0.85 },
+    money: 6, circuits: [20, 40], wish: '自分が生まれてきた意味を知ること', perk: '体力と精神が高く、戦闘支援も得意。' },
+  { id: 'shrine', name: '天降神社の跡取り', weight: 15, magic: true, home: '天降神社',
+    origin: '霊峰・天降山の中腹、天降神社。古くからこの地の霊脈を守ってきた神職の家に、子が生まれた。<br>その夜、山の霊脈がかすかに震えたことに、気付いた者はいなかった。',
+    text: '深見市の霊脈を守る神社の家に育った。この街の土地のことなら誰よりも知っている。',
+    stats: { mag: 42, phy: 40, int: 45, spi: 58, cha: 45, luk: 45 }, growth: { spi: 1.2, mag: 1.1, luk: 1.05 },
+    money: 5, circuits: [25, 50], wish: '街と霊脈を守ること', perk: '陣地（工房）の構築が得意。' },
 ];
+// 生まれつきの「得意」（ランダムで1つ。その能力が伸びやすい）
+const TALENTS = {
+  mag: '魔術の才', phy: '頑健な体', int: '明晰な頭脳', spi: '揺るがぬ心', cha: '人を惹きつける魅力', luk: '天運',
+};
 
 const ELEMENTS = [
   { name: '火', w: 22 }, { name: '水', w: 22 }, { name: '風', w: 22 }, { name: '地', w: 22 },
@@ -782,6 +803,7 @@ const NAMES = {
   given: ['湊', '遥', '透', '玲', '蒼', '千尋', '悠', '凛花', '朔', '紗夜', '燈', '律', '葵', '晴', '環', '詩織', '慧', '静'],
   foreignFamily: ['ヴァイスハウプト', 'ローゼンクランツ', 'アシュフォード', 'ベルナール', 'カレンベルク', 'オルブライト', 'ドラグノフ', 'フォンティーヌ'],
   foreignGiven: ['エーリッヒ', 'クラリス', 'ユリウス', 'アデーレ', 'ルドルフ', 'セシリア', 'ヴィクトル', 'イレーネ'],
+  friend: ['陽向', '奏', '颯', '結衣', '蓮', '小春', '大和', '澪', '樹', '茜'],
 };
 
 // ---- ライバルのマスター像 ----
@@ -971,7 +993,8 @@ const FLAVOR = {
 // =============================================================
 //  メインシナリオ（決まった日に必ず起きる物語イベント）
 //  三幕構成：
-//   序章「令呪の冬」   … 準備期間。街の異変と監督役、六十年前の生き残り
+//   生い立ち          … 0〜17歳（growth.js / data_growth.js）
+//   序章「令呪の冬」   … 18歳の冬、召喚までの3日間。街の異変と監督役、六十年前の生き残り
 //   第一幕「開幕」     … 1〜4日目。サーヴァントとの出会い、最初の敵
 //   第二幕「侵蝕」     … 5〜9日目。昏睡事件、黒い影、聖杯の真実
 //   第三幕「降臨」     … 10日目〜。決戦前夜、11日目以降の夜に天降山の決戦、聖杯
@@ -1012,7 +1035,7 @@ const SERVANT_WISH = {
 const STORY = [
   // ===================== 序章 =====================
   {
-    id: 's_tremor', phase: 'prep', day: 2, slot: 1, after: 'advance',
+    id: 's_tremor', phase: 'prep', day: 1, slot: 1, after: 'advance',
     title: '霊脈の揺らぎ', chapter: '序章　令呪の冬',
     text: () => '深夜。地鳴りのような低い響きで目が覚めた。<br>右手の痣が熱い。窓の外、天降山の方角の空が、一瞬だけ<b>黒く</b>揺らいだように見えた。<br>――まるで、夜そのものが滲み出してきたかのように。',
     choices: [
@@ -1025,16 +1048,18 @@ const STORY = [
       { label: '天降神社へ向かう', hint: '体力判定', run: () => {
           const r = chk('phy', 50);
           if (r.ok) { G.flags.leyline = true; G.flags.metMiko = true; tone('bold');
-            return [r.text, `夜の石段を駆け上がると、境内に白装束の少女が立っていた。巫女の${CAST.miko}だ。<br>「あなたも感じたんですね。……この山の霊脈、六十年ぶりに目を覚まそうとしています」<br>彼女から霊脈の流れを教わった。（陣地作成が得意になった）`]; }
+            return [r.text, `夜の石段を駆け上がると、境内に白装束の少女が立っていた。${G.flags.metMiko || birthOf().id === 'shrine' ? '従妹の' : '巫女の'}${CAST.miko}だ。<br>「あなたも感じたんですね。……この山の霊脈、六十年ぶりに目を覚まそうとしています」<br>彼女から霊脈の流れを教わった。（陣地作成が得意になった）`]; }
           hp(-10); return [r.text, '暗い石段で足を滑らせた。今夜は諦めよう。（HP-10）'];
         } },
       { label: '気のせいだと眠る', run: () => { gain('spi', 2); tone('cautious'); return '布団を被り直した。……だが、夢の中でも黒い空が揺れていた。（精神+2）'; } },
     ],
   },
   {
-    id: 's_sister', phase: 'prep', day: 3, slot: 0, after: 'hub',
+    id: 's_sister', phase: 'prep', day: 2, slot: 0, after: 'hub',
     title: '監督役', chapter: '序章　令呪の冬',
-    text: () => `丘の上の聖ヨハネ教会から呼び出しがあった。<br>ステンドグラスの光の中、銀髪の修道女が静かに振り返る。<br>「ようこそ。私は${CAST.sister}。この地の聖杯戦争の監督役を務めます」<br>彼女は淡々と規則を説明した。七人のマスターと七騎のサーヴァント。神秘の秘匿のため、戦闘は夜に限ること。脱落者は教会が保護すること。`,
+    text: () => (birthOf().id === 'executor'
+      ? `育った場所――丘の上の聖ヨハネ教会から呼び出しがあった。<br>ステンドグラスの光の中、銀髪の修道女が振り返る。${CAST.sister}。あなたを育ててくれた人だ。<br>「……まさか、あなたの手に令呪が宿るなんて。私は今、この地の聖杯戦争の監督役を務めています」<br>`
+      : `丘の上の聖ヨハネ教会から呼び出しがあった。<br>ステンドグラスの光の中、銀髪の修道女が静かに振り返る。<br>「ようこそ。私は${CAST.sister}。この地の聖杯戦争の監督役を務めます」<br>`) + `彼女は淡々と規則を説明した。七人のマスターと七騎のサーヴァント。神秘の秘匿のため、戦闘は夜に限ること。脱落者は教会が保護すること。`,
     choices: [
       { label: 'マスターとして正式に登録する', hint: '秩序 / 脱落時に保護される', run: () => {
           tone('law'); G.flags.registered = true;
@@ -1050,9 +1075,11 @@ const STORY = [
     ],
   },
   {
-    id: 's_oldman', phase: 'prep', day: 4, slot: 0, after: 'hub',
+    id: 's_oldman', phase: 'prep', day: 3, slot: 0, after: 'hub',
     title: '六十年前の生き残り', chapter: '序章　令呪の冬',
-    text: () => `御影川の河川敷。釣り糸を垂れる老人が、あなたの右手を見て目を細めた。<br>「……その痣。わしにも昔、同じものがあった」<br>老人は${CAST.old}と名乗った。六十年前、この街で起きた最初の聖杯戦争の、ただ一人の生き残りだという。`,
+    text: () => G.flags.oldTrust
+      ? `御影川の河川敷。子どもの頃から見知った釣り人――${CAST.old}が、あなたの右手を見て深く息をついた。<br>「……やはり、そうなったか。初めて会うた時から、そんな気がしておった」<br>老人は静かに語り始めた。六十年前、この街で起きた最初の聖杯戦争。その、ただ一人の生き残りが自分なのだと。`
+      : `御影川の河川敷。釣り糸を垂れる老人が、あなたの右手を見て目を細めた。<br>「……その痣。わしにも昔、同じものがあった」<br>老人は${CAST.old}と名乗った。六十年前、この街で起きた最初の聖杯戦争の、ただ一人の生き残りだという。`,
     choices: [
       { label: '当時のことを詳しく尋ねる', hint: '知力判定', run: () => {
           const r = chk('int', 55);
@@ -1066,9 +1093,9 @@ const STORY = [
     ],
   },
   {
-    id: 's_eve', phase: 'prep', day: 5, slot: 1, after: 'advance',
+    id: 's_eve', phase: 'prep', day: 3, slot: 1, after: 'advance',
     title: '召喚前夜', chapter: '序章　令呪の冬',
-    text: () => '明日の夜、召喚の儀を行う。準備に使える夜は、これが最後だ。<br>工房の窓から、雪のちらつく街を見下ろす。この街のどこかで、他のマスターたちも同じ夜を過ごしているのだろう。',
+    text: () => '明日になれば、聖杯戦争が始まる。今夜のうちに、召喚の儀を行わなければならない。<br>工房の窓から、雪のちらつく街を見下ろす。この街のどこかで、他のマスターたちも同じ夜を過ごしているのだろう。',
     choices: [
       { label: '召喚陣を仕上げる', hint: '召喚の質↑', run: () => {
           G.ritual = Math.min(3, G.ritual + 1); gain('mag', 1);
@@ -1119,6 +1146,35 @@ const STORY = [
           tone('cautious'); const c = schk(2, 55);
           if (c.ok) return [c.text, `${SV()}があなたを抱えて屋根伝いに跳んだ。追撃はない。……だが、相手の顔は覚えた。`];
           return { text: [c.text, '回り込まれた！ 戦うしかない。'], then: () => startBattle(G.storyRival, {}) };
+        } },
+    ],
+  },
+  {
+    id: 's_friend', phase: 'war', day: 3, slot: 0, after: 'hub', cond: () => G.rivals.some(r => r.friend && r.alive && !r.ally),
+    title: '幼馴染の令呪', chapter: '第一幕　開幕',
+    text: () => {
+      const r = G.rivals.find(x => x.friend); r.intel = Math.max(r.intel, 1);
+      return `「……やっぱり、あなたもだったんだ」<br>城跡公園のベンチで待っていたのは、${friendName()}だった。手袋を外したその手の甲に、<b>令呪</b>が刻まれている。<br>背後に、${r.cls}のサーヴァントが静かに控えていた。` +
+        `<p class="quote">「${r.quote}」</p>`;
+    },
+    choices: [
+      { label: '「手を組もう。二人で生き残るんだ」', hint: '交渉判定（友情で易しくなる）', run: () => {
+          const r = G.rivals.find(x => x.friend);
+          const need = Math.max(30, 75 - G.friend.bond / 2); const c = chk('cha', need);
+          if (c.ok || G.friend.bond >= 80) { r.ally = true; r.intel = 3; friend(10); addLog(`幼馴染・${G.friend.name}と同盟を結ぶ。`);
+            return [c.ok ? c.text : '', `${friendName()}は少しだけ泣きそうな顔で笑った。「……うん。あなたとなら」<br>${r.cls}陣営と同盟を結んだ。サーヴァントの真名<b>${servantOf(r).name}</b>も教えてもらった。`]; }
+          return [c.text, `「ごめん。……それは、できない」${friendName()}は目を伏せて、去っていった。`];
+        } },
+      { label: '「戦いから降りてくれ」と説得する', hint: '交渉判定', run: () => {
+          const r = G.rivals.find(x => x.friend);
+          const c = chk('cha', Math.max(35, 80 - G.friend.bond / 2));
+          if (c.ok) { r.alive = false; r.hp = 0; G.flags.friendSaved = true; addLog(`幼馴染・${G.friend.name}、聖杯戦争から降りる。`);
+            return [c.text, `長い沈黙の後、${friendName()}は頷いた。「……分かった。教会に行く。でも、約束して。絶対に、死なないで」<br>${r.cls}陣営は脱落した。誰も傷つかずに。`]; }
+          friend(-5); return [c.text, `「あなたにだけは、それを言われたくなかった」${friendName()}の声は震えていた。`];
+        } },
+      { label: '「正々堂々、戦おう」と約束する', hint: '秩序・大胆', run: () => {
+          tone('law'); tone('bold'); friend(5); G.flags.friendDuel = true;
+          return `「……昔から、そういうとこ変わらないね」${friendName()}は拳を突き出した。あなたはそれに、自分の拳を合わせた。`;
         } },
     ],
   },
@@ -1236,6 +1292,264 @@ const STORY = [
           return `「……それが君の答えか」${SV()}は長い沈黙の後、頷いた。「付き合おう。最後まで」（絆+5 聖杯との戦いで能力補正）`; } },
     ],
   },
+];
+
+// =============================================================
+//  成長期のデータ（0歳〜17歳）
+//  1ターン＝数年。ターンごとに
+//   ①「この数年をどう過ごすか（FOCUS）」を選ぶ → 能力が大きく伸びる
+//   ② その年頃の出来事（GROWTH_EVENTS）が起きる → 選択で能力・縁・属性が変わる
+//  18歳の冬に令呪が現れ、聖杯戦争の序章へ。
+// =============================================================
+
+// 成長の節目（age）。band は章の名前
+const STAGES = [
+  { age: 0, band: '誕生' },
+  { age: 3, band: '幼年期', text: '言葉を覚え、世界の広さを知り始める頃。' },
+  { age: 6, band: '幼年期', text: 'ランドセルを背負い、新しい友達ができる頃。' },
+  { age: 9, band: '少年期', text: '自分の得意と苦手が、少しずつ見えてくる頃。' },
+  { age: 12, band: '少年期', text: '子どもでも大人でもない、揺れ動く頃。' },
+  { age: 14, band: '思春期', text: '自分は何者なのか――答えの出ない問いを抱える頃。' },
+  { age: 16, band: '青年期', text: '進む道を、自分で選び始める頃。' },
+  { age: 17, band: '青年期', text: '子ども時代の終わりが、すぐそこに見えている。' },
+];
+const ADULT_AGE = 18;
+
+// 過ごし方。gains は伸びる能力（基準値）。magic:true は魔術を学べる環境が必要
+const FOCUS = {
+  play:    { name: '外を駆け回って遊ぶ', ages: [3, 9], gains: { phy: 12, luk: 6 } },
+  books:   { name: '本を読みふける', ages: [3, 12], gains: { int: 12, spi: 5 } },
+  family:  { name: '家族と過ごす', ages: [3, 9], gains: { cha: 10, spi: 5, luk: 4 } },
+  magic1:  { name: '魔術の手ほどきを受ける', ages: [3, 9], magic: true, gains: { mag: 12, int: 4 } },
+  friends: { name: '友達と遊ぶ', ages: [6, 14], gains: { cha: 12, luk: 5 }, friend: 8 },
+  martial: { name: '武道を習う', ages: [6, 17], gains: { phy: 12, spi: 6 } },
+  shrines: { name: '寺社を巡り、縁を結ぶ', ages: [6, 17], gains: { luk: 11, spi: 5 } },
+  merc:    { name: '養父に戦い方を学ぶ', ages: [6, 17], births: ['mercenary'], gains: { phy: 10, int: 5, mag: 5 } },
+  church:  { name: '代行者の訓練を受ける', ages: [9, 17], births: ['executor'], gains: { phy: 10, spi: 8, mag: 4 } },
+  study:   { name: '勉強に打ち込む', ages: [9, 17], gains: { int: 13, spi: 4 } },
+  magic2:  { name: '魔術の修行に励む', ages: [9, 17], magic: true, gains: { mag: 14, spi: 5 } },
+  mind:    { name: '瞑想・禊で心を鍛える', ages: [9, 17], gains: { spi: 13, mag: 3 } },
+  club:    { name: '部活に打ち込む', ages: [12, 17], gains: { phy: 9, cha: 8 } },
+  council: { name: '生徒会で人をまとめる', ages: [12, 17], gains: { cha: 10, int: 6 }, tone: 'law' },
+  wander:  { name: '夜の街をさまよう', ages: [12, 17], gains: { luk: 9, spi: 7 }, tone: 'chaos' },
+  work:    { name: 'アルバイトで貯金する', ages: [14, 17], gains: { cha: 6 }, money: 4 },
+  lore:    { name: '街の伝承と霊脈を調べる', ages: [14, 17], gains: { int: 8, mag: 5 }, catalyst: 0.25 },
+};
+
+// 成長期のイベント（書式は data_events.js と同じ）
+//  ages  : 発生する年齢の範囲 / births : 特定の産まれ限定 / fixed : その年齢で必ず起きる
+const GROWTH_EVENTS = [
+  // ---------- 幼年期 ----------
+  { id: 'g_fever', ages: [3, 3], title: '三日三晩の熱',
+    text: () => '原因不明の高熱が、三日三晩続いた。<br>うなされる夢の中で、誰かがあなたを見下ろしていた。遠い時代の、遠い国の誰か――。',
+    choices: [
+      { label: '夢の中の声に耳を傾ける', hint: '魔力↑・英霊との縁', run: () => {
+          const s = pickVisionServant(); gain('mag', 5);
+          return [`――${s.desc}<br>熱が引いた朝、あなたはその人の顔だけを、なぜかはっきりと覚えていた。（魔力+5）`,
+            '<span class="note">この「縁」は、いつか召喚の時に導いてくれるかもしれない。</span>'];
+        } },
+      { label: '必死に目を覚まそうとする', hint: '精神↑', run: () => { gain('spi', 6); return '目を開けると、泣き腫らした母の顔があった。あなたは小さな手で、その頬を撫でた。（精神+6）'; } },
+    ] },
+  { id: 'g_lost', ages: [3, 6], title: '夏祭りの迷子',
+    text: () => '天降神社の夏祭り。屋台の灯りに見とれているうちに、家族とはぐれてしまった。',
+    choices: [
+      { label: '泣かずにその場で待つ', hint: '精神↑・秩序', run: () => { gain('spi', 5); tone('law'); return '鳥居の下でじっと待っていると、ほどなく家族が駆けつけてきた。「えらかったね」（精神+5）'; } },
+      { label: '自分で探し回る', hint: '体力・幸運↑・大胆', run: () => { gain('phy', 4); gain('luk', 3); tone('bold'); return '人混みをかき分けて走り回り、自力で家族を見つけ出した。（体力+4 幸運+3）'; } },
+      { label: '釣竿を持ったおじいさんについていく', hint: '不思議な出会い', run: () => {
+          G.flags.oldTrust = true; gain('luk', 4);
+          return `釣竿を担いだ無口な老人が、黙って手を引いて家まで送ってくれた。別れ際、老人はあなたの右手をじっと見て呟いた。「……まさか、な」<br>名前は${CAST.old}というらしい。（幸運+4）`;
+        } },
+    ] },
+  { id: 'g_friend', ages: [6, 6], fixed: true, title: '幼馴染',
+    text: () => { const f = makeFriend(); return `${birthOf().id === 'clocktower' ? '母の故郷・深見で過ごした夏。' : birthOf().id === 'mercenary' ? '養父がしばらく身を寄せた深見の街で、' : ''}同い年の子と出会った。名前は<b>${f}</b>。<br>人懐っこい笑顔で「いっしょにあそぼ！」と手を差し出してくる。`; },
+    choices: [
+      { label: '手を取って一緒に遊ぶ', hint: '交渉↑・友情', run: () => { friend(30); gain('cha', 4); return `日が暮れるまで遊んだ。それから毎日、${friendName()}はあなたの家に来るようになった。（交渉+4）`; } },
+      { label: 'つい意地を張って喧嘩する', hint: '体力↑・好敵手', run: () => { friend(20); gain('phy', 4); G.flags.friendRival = true;
+          return `取っ組み合いの喧嘩になった。泥だらけの二人は、なぜか最後には笑っていた。${friendName()}は「次は負けないからな！」と言った。（体力+4）`; } },
+      { label: '大事な宝物を分けてあげる', hint: '幸運↑・善', run: () => { friend(25); gain('luk', 3); tone('good');
+          return `綺麗なビー玉を半分あげると、${friendName()}は目を輝かせた。「ずっと大事にする！」（幸運+3）`; } },
+    ] },
+  { id: 'g_first_magic', ages: [6, 9], magic: true, title: '初めての魔術',
+    text: () => `${birthOf().id === 'mercenary' ? '養父' : '父'}が、蝋燭を一本あなたの前に置いた。「指先に意識を集めろ。魔力を、熱に変えるんだ」`,
+    choices: [
+      { label: '教えられた通りに', hint: '魔力↑・秩序', run: () => { gain('mag', 5); tone('law'); return '小さな、けれど確かな火が灯った。「……筋は悪くない」（魔力+5）'; } },
+      { label: '自己流でやってみる', hint: '魔力判定・混沌', run: () => {
+          tone('chaos'); const r = chk('mag', 32);
+          if (r.ok) { gain('mag', 9); return [r.text, '蝋燭どころか、燭台ごと青い炎に包まれた。大人たちが息を呑む。（魔力+9）']; }
+          gain('spi', -2); gain('mag', 2); return [r.text, '指先を火傷した。痛みと一緒に、魔力の流れが少しだけ分かった気がする。（魔力+2 精神-2）'];
+        } },
+      { label: '炎が怖くて泣いてしまう', hint: '精神・交渉↑', run: () => { gain('spi', 3); gain('cha', 2);
+          return '大きな手が、あなたの頭を撫でた。「怖いと思えるなら、それでいい。魔術は危ないものだからな」（精神+3 交渉+2）'; } },
+    ] },
+  { id: 'g_agnes', ages: [3, 3], fixed: true, births: ['executor'], title: '若い修道女',
+    text: () => `孤児院を切り盛りする若い修道女――${CAST.sister}は、あなたにとって母であり、姉だった。<br>厳しくて、不器用で、でも夜にはいつも子守唄を歌ってくれる。`,
+    choices: [
+      { label: '聖書を読んでもらう', hint: '知力・精神↑', run: () => { gain('int', 4); gain('spi', 3); G.flags.agnesBond = true; return '難しい言葉ばかりだったけれど、彼女の声を聞いているのが好きだった。（知力+4 精神+3）'; } },
+      { label: '礼拝を抜け出して遊ぶ', hint: '体力↑・混沌', run: () => { gain('phy', 4); tone('chaos'); return '見つかってこっぴどく叱られた。でも、彼女は最後に少しだけ笑っていた。（体力+4）'; } },
+      { label: '小さい子の世話を手伝う', hint: '交渉↑・善', run: () => { gain('cha', 4); tone('good'); G.flags.agnesBond = true; return '「ありがとう。あなたがいてくれて、助かります」（交渉+4）'; } },
+    ] },
+  { id: 'g_merc', ages: [3, 3], fixed: true, births: ['mercenary'], title: '養父の教え',
+    text: () => '砂埃の舞う野営地。養父はナイフを研ぎながら言った。「いいか。生き延びろ。それだけが、この世界で唯一の正解だ」',
+    choices: [
+      { label: 'ナイフの扱いを教わる', hint: '体力↑', run: () => { gain('phy', 6); return '何度も手を切りながら、刃の重さを体で覚えた。（体力+6）'; } },
+      { label: '魔術の罠の作り方を教わる', hint: '魔力・知力↑', run: () => { gain('mag', 5); gain('int', 2); return '「魔術は道具だ。使えるものは全部使え」（魔力+5 知力+2）'; } },
+      { label: '「なんで戦うの？」と聞く', hint: '精神↑', run: () => { gain('spi', 5); G.flags.askedWhy = true;
+          return '養父は長いこと黙っていた。「……いつか、戦わなくていい場所を見つけるためさ」（精神+5）'; } },
+    ] },
+  // ---------- 少年期 ----------
+  { id: 'g_shrine', ages: [9, 9], fixed: true, births: ['shrine'], title: '神楽と霊脈',
+    text: () => `秋の例大祭。あなたは初めて神楽を舞うことになった。年下の従妹、${CAST.miko}が袖を引く。「がんばってね！」`,
+    choices: [
+      { label: '舞を極める', hint: '精神・交渉↑', run: () => { gain('spi', 6); gain('cha', 2); return '鈴の音とともに舞い終えると、境内が静まり返り、やがて大きな拍手が湧いた。（精神+6 交渉+2）'; } },
+      { label: '舞いながら霊脈を感じ取る', hint: '魔力↑・霊脈の知識', run: () => { gain('mag', 6); G.flags.leyline = true;
+          return '足元から、山の鼓動が伝わってきた。この山の下には、とても大きな何かが眠っている。（魔力+6）'; } },
+      { label: '雫と屋台を回る', hint: '交渉↑', run: () => { gain('cha', 4); G.flags.metMiko = true; return `「ねえねえ、次はあっち！」${CAST.miko}に振り回された一日だった。（交渉+4）`; } },
+    ] },
+  { id: 'g_debt', ages: [9, 9], fixed: true, births: ['fallen'], title: '借金取り',
+    text: () => '玄関で、母が見知らぬ男たちに頭を下げていた。「先代の借りは、きっちり返してもらいますよ」',
+    choices: [
+      { label: '母の前に立つ', hint: '精神↑・善', run: () => { gain('spi', 5); tone('good'); return '男たちは鼻で笑って帰っていった。母は、震えるあなたを強く抱きしめた。（精神+5）'; } },
+      { label: '蔵に籠もって魔導書を読む', hint: '魔力・知力↑', run: () => { gain('mag', 6); gain('int', 3);
+          return '「いつか、この家を取り戻す」先祖の魔導書を開いたのは、その夜が初めてだった。（魔力+6 知力+3）'; } },
+      { label: '蔵の骨董を売ろうと提案する', hint: '資金↑', run: () => { money(3); gain('int', 2); return '母は悲しそうに笑い、古い壺を一つだけ手放した。（資金+3 知力+2）'; } },
+    ] },
+  { id: 'g_awaken', ages: [12, 12], fixed: true, births: ['civilian', 'executor'], title: '目覚め',
+    text: () => '眠れない夜。ふと見ると、手のひらに小さな火花が散っていた。<br>体の奥で、何かが脈打っている。……これは、何だ？',
+    choices: [
+      { label: '誰にも言わずに隠し通す', hint: '精神↑', run: () => { G.flags.awakened = true; gain('spi', 5); gain('mag', 3); return '火花はやがて消えた。あなたはそれを、自分だけの秘密にした。（精神+5 魔力+3）<br><span class="note">これ以降、魔術の修行ができるようになった。</span>'; } },
+      { label: '図書館で手がかりを探す', hint: '知力・魔力↑', run: () => { G.flags.awakened = true; gain('int', 4); gain('mag', 4); return '古いオカルト本の片隅に、「魔術回路」という言葉を見つけた。（知力+4 魔力+4）<br><span class="note">これ以降、魔術の修行ができるようになった。</span>'; } },
+      { label: () => G.friend ? `${friendName()}に打ち明ける` : '家族に打ち明ける', hint: '交渉↑', run: () => { G.flags.awakened = true; friend(15); gain('cha', 3); gain('mag', 2);
+          return `${G.friend ? friendName() : '家族'}は驚いたけれど、笑わずに聞いてくれた。「すごいじゃん。でも、無理しちゃだめだよ」（交渉+3 魔力+2）<br><span class="note">これ以降、魔術の修行ができるようになった。</span>`; } },
+    ] },
+  { id: 'g_crest', ages: [12, 12], fixed: true, births: ['noble'], title: '魔術刻印の継承',
+    text: () => '十二歳の誕生日。父の手が、あなたの背中に刻印を移していく。全身の神経が焼けるような激痛。<br>「耐えろ。これが、我が家の数百年だ」',
+    choices: [
+      { label: '歯を食いしばって耐える', hint: '精神判定', run: () => {
+          const r = chk('spi', 45);
+          if (r.ok) { gain('mag', 12); gain('spi', 3); return [r.text, '激痛の果てに、刻印が体に馴染んでいく。先祖たちの研鑽が、あなたの中で目を覚ました。（魔力+12 精神+3）']; }
+          gain('mag', 7); return [r.text, '途中で意識を失った。目覚めると、刻印は半ばまで定着していた。（魔力+7）'];
+        } },
+      { label: '「なぜ根源を目指すの？」と問う', hint: '知力↑', run: () => { gain('int', 5); gain('mag', 6); G.flags.questioned = true;
+          return '父は答えなかった。ただ、その手がほんの一瞬だけ止まったのを、あなたは覚えている。（知力+5 魔力+6）'; } },
+    ] },
+  { id: 'g_bully', ages: [9, 12], title: '教室の片隅で',
+    text: () => `${G.friend ? friendName() : 'クラスメイト'}が、上級生たちに囲まれている。誰も助けようとしない。`,
+    choices: [
+      { label: '割って入る', hint: '体力判定・善', run: () => {
+          tone('good'); const r = chk('phy', 35); friend(10);
+          if (r.ok) { gain('phy', 3); gain('cha', 3); return [r.text, '体を張って追い払った。翌日から、あなたを見る皆の目が少し変わった。（体力+3 交渉+3）']; }
+          gain('spi', 4); return [r.text, 'ボロボロにされた。それでも、最後まで引かなかった。（精神+4）'];
+        } },
+      { label: '先生を呼んでくる', hint: '交渉↑・秩序', run: () => { tone('law'); gain('cha', 3); friend(5); return '先生が駆けつけ、上級生たちは散っていった。（交渉+3）'; } },
+      { label: '見て見ぬふりをする', hint: '知力↑・悪', run: () => { tone('evil'); gain('int', 2); friend(-10); return '関わらない方が賢い。……そう思うことにした。（知力+2）'; } },
+    ] },
+  { id: 'g_museum', ages: [9, 14], title: '博物館の遠足',
+    text: () => '社会科見学で訪れた市立博物館。古い展示品の一つから、呼ばれたような気がした。',
+    choices: [
+      { label: '学芸員に話を聞く', hint: '交渉判定・触媒', run: () => {
+          const r = chk('cha', 40);
+          if (r.ok) { const c = giveCatalyst(); return [r.text, `熱心な質問に感心した老学芸員が、「収蔵庫の隅で埃をかぶっていたものだ」と、小さな欠片を譲ってくれた。<b>${c}</b>だ。`]; }
+          gain('int', 3); return [r.text, '詳しい話は聞けたが、それだけだった。（知力+3）'];
+        } },
+      { label: 'ガラス越しにじっと見つめる', hint: '魔力↑', run: () => { gain('mag', 4); gain('spi', 2); return '展示品の奥に、かすかな魔力の残り香を感じた。（魔力+4 精神+2）'; } },
+    ] },
+  { id: 'g_storm', ages: [9, 14], title: '天降山の嵐',
+    text: () => '天降山で遊んでいるうちに、急な嵐に襲われた。雨宿りした岩陰の奥で、<b>黒い霧</b>が地面から滲み出しているのが見えた。',
+    choices: [
+      { label: '霧に近づいてみる', hint: '魔力↑・秘密に触れる', run: () => { gain('mag', 4); gain('spi', -2); G.flags.grailHint = true;
+          return '霧に触れた指先が、凍るように冷たくなった。耳の奥で、誰かの怨嗟の声がした気がする。（魔力+4 精神-2）'; } },
+      { label: '雨の中を全力で駆け下りる', hint: '体力↑', run: () => { gain('phy', 5); return '泥だらけになって、どうにか麓まで辿り着いた。（体力+5）'; } },
+      { label: '目を閉じて祈る', hint: '精神↑', run: () => { gain('spi', 5); return '嵐が過ぎるまで、ただ祈り続けた。目を開けると、霧は消えていた。（精神+5）'; } },
+    ] },
+  { id: 'g_oldman', ages: [12, 17], title: '河川敷の釣り人',
+    text: () => `御影川の河川敷で、釣り糸を垂れる老人の隣に座るのが、いつの間にか習慣になっていた。${CAST.old}――無口だが、不思議と居心地のいい人だ。`,
+    choices: [
+      { label: '昔の話をせがむ', hint: '知力↑・街の秘密', run: () => { gain('int', 4); G.flags.oldTrust = true; G.flags.grailHint = true;
+          return '「昔、この街で戦争があった。誰も知らない戦争じゃ」老人はそれきり黙った。（知力+4）'; } },
+      { label: '釣りを教わる', hint: '精神・幸運↑', run: () => { gain('spi', 4); gain('luk', 2); G.flags.oldTrust = true;
+          return '「待つことを覚えなされ。焦る者から、川に呑まれる」（精神+4 幸運+2）'; } },
+    ] },
+  { id: 'g_injury', ages: [9, 16], title: '交差点',
+    text: () => '下校途中の交差点。信号無視のトラックが、目の前に迫ってきた――！',
+    choices: [
+      { label: '咄嗟に跳ぶ', hint: '幸運判定', run: () => {
+          const r = chk('luk', 40);
+          if (r.ok) { gain('luk', 3); gain('phy', 2); return [r.text, '紙一重でかわした。……今のは、本当に自分の力だったのだろうか。（幸運+3 体力+2）']; }
+          gain('phy', -2); gain('spi', 5); return [r.text, '跳ね飛ばされ、一ヶ月入院した。病室の窓から見る景色で、少しだけ大人になった。（体力-2 精神+5）'];
+        } },
+    ] },
+  // ---------- 思春期・青年期 ----------
+  { id: 'g_club', ages: [12, 16], title: '最後の大会',
+    text: () => '部活の大会。ここまで積み重ねてきた全てを出し切る日だ。',
+    choices: [
+      { label: '全力でぶつかる', hint: '体力判定', run: () => {
+          const r = chk('phy', 50);
+          if (r.ok) { gain('cha', 5); gain('phy', 3); return [r.text, '勝った。仲間たちと抱き合って泣いた。（交渉+5 体力+3）']; }
+          gain('spi', 5); return [r.text, '負けた。悔しさで眠れなかった夜が、あなたを強くした。（精神+5）'];
+        } },
+      { label: '仲間を支える役に回る', hint: '交渉↑・善', run: () => { gain('cha', 5); tone('good'); return '「お前がいたから、ここまで来れた」仲間の言葉が、何よりの勲章だった。（交渉+5）'; } },
+    ] },
+  { id: 'g_exam', ages: [12, 17], title: '試験',
+    text: () => '人生を左右するかもしれない試験の日。鉛筆を握る手に、汗が滲む。',
+    choices: [
+      { label: '実力で挑む', hint: '知力判定', run: () => {
+          const r = chk('int', 52);
+          if (r.ok) { gain('int', 5); gain('spi', 2); return [r.text, '手応えは十分だった。結果は――合格。（知力+5 精神+2）']; }
+          gain('spi', 4); return [r.text, '結果は振るわなかった。けれど、まだ道は一つじゃない。（精神+4）'];
+        } },
+      { label: '暗示の魔術で試験官を……', hint: '魔力判定・悪', cond: () => hasMagic(), run: () => {
+          tone('evil'); const r = chk('mag', 48);
+          if (r.ok) { gain('mag', 4); return [r.text, '誰にも気付かれなかった。……胸の奥に、小さな棘が刺さったまま。（魔力+4）']; }
+          gain('spi', -3); return [r.text, '術が乱れ、自分の頭がぼんやりしてしまった。散々な結果だ。（精神-3）'];
+        } },
+    ] },
+  { id: 'g_runaway', ages: [12, 16], title: '家出',
+    text: () => '些細なことで家族と言い争い、夜の街に飛び出した。',
+    choices: [
+      { label: '夜の港へ向かう', hint: '幸運・知力↑・混沌', run: () => { tone('chaos'); gain('luk', 4); gain('int', 3);
+          return '倉庫街で、外国訛りの奇妙な男に会った。男はあなたの右手を見て笑った。「数年後が楽しみだ」……あれは誰だったのだろう。（幸運+4 知力+3）'; } },
+      { label: () => G.friend ? `${friendName()}の家に転がり込む` : '公園で夜を明かす', hint: '友情', run: () => { friend(15); gain('cha', 3);
+          return G.friend ? `${friendName()}は何も聞かずに、温かいココアを出してくれた。（交渉+3）` : '寒い夜だった。朝になって、家に帰った。（交渉+3）'; } },
+      { label: '思いとどまって家に帰る', hint: '精神↑・秩序', run: () => { tone('law'); gain('spi', 4); return '玄関で待っていた家族に、ぽつりと謝った。（精神+4）'; } },
+    ] },
+  { id: 'g_heart', ages: [14, 17], cond: () => !!G.friend, title: '淡い想い',
+    text: () => `放課後の帰り道。夕焼けの中で${friendName()}が振り返った。「ねえ、高校卒業したらさ……どうするの？」<br>その横顔に、なぜか胸がざわついた。`,
+    choices: [
+      { label: '素直な気持ちを伝える', hint: '交渉↑・友情', run: () => { friend(20); gain('cha', 5); G.flags.friendHeart = true;
+          return `${friendName()}は真っ赤になって、それから小さく頷いた。「……知ってたよ、ばか」（交渉+5）`; } },
+      { label: '「ずっと友達だよ」と笑う', hint: '精神↑', run: () => { friend(10); gain('spi', 4); return `「……うん。ずっと、ね」${friendName()}は少しだけ寂しそうに笑った。（精神+4）`; } },
+    ] },
+  { id: 'g_heirloom', ages: [14, 17], title: '形見',
+    text: () => '祖父の葬儀の後、遺品の整理をしていると、桐箱が出てきた。添えられた手紙には「これは、いつかお前の役に立つ」とだけ書かれている。',
+    choices: [
+      { label: '大切に受け継ぐ', hint: '触媒を得る', run: () => { const c = giveCatalyst(); return `箱の中には<b>${c}</b>が入っていた。祖父は、何を知っていたのだろう。`; } },
+      { label: '古物商に売る', hint: '資金↑', run: () => { money(4); return '思いのほか高値がついた。（資金+4）……少しだけ、後ろめたい。'; } },
+    ] },
+  { id: 'g_trip', ages: [15, 17], title: '修学旅行',
+    text: () => '修学旅行で、初めて海外を訪れた。古い街並み、石畳、博物館の大理石。',
+    choices: [
+      { label: '大英博物館に入り浸る', hint: '知力↑・幸運判定で触媒', run: () => {
+          gain('int', 4); const r = chk('luk', 50);
+          if (r.ok) { const c = giveCatalyst(); return [r.text, `帰り際、蚤の市で妙に惹かれる品を見つけた。<b>${c}</b>だ。（知力+4）`]; }
+          return [r.text, '展示品の数々に圧倒された。（知力+4）'];
+        } },
+      { label: '自由行動で街を歩き回る', hint: '交渉・幸運↑', run: () => { gain('cha', 4); gain('luk', 2); return '片言の英語で、地元の人たちと笑い合った。（交渉+4 幸運+2）'; } },
+    ] },
+  { id: 'g_secret', ages: [16, 17], cond: () => !!G.friend, title: '幼馴染の秘密',
+    text: () => `夜、${friendName()}から電話がかかってきた。「ねえ……変なこと聞くけど。最近、手の甲が痛くなったりしない？」<br>電話の向こうの声は、かすかに震えていた。`,
+    choices: [
+      { label: '「何かあったら、必ず力になる」', hint: '友情・善', run: () => { friend(15); tone('good'); G.flags.friendPromise = true;
+          return `「……ありがと。うん、大丈夫。ちょっと聞いてみただけ」${friendName()}はそう言って電話を切った。<br>その夜、あなたの右手の甲も、かすかに疼いた。`; } },
+      { label: '自分の秘密も打ち明ける', hint: '友情↑', cond: () => hasMagic(), run: () => { friend(20); gain('cha', 3);
+          return `長い沈黙の後、${friendName()}は言った。「……そっか。やっぱり、あなたも『こっち側』なんだ」（交渉+3）`; } },
+      { label: '「気のせいじゃない？」と流す', hint: '精神↑', run: () => { gain('spi', 3); return `「……そうだよね。ごめん、変なこと言って」（精神+3）`; } },
+    ] },
+  { id: 'g_parttime', ages: [14, 17], title: '初めてのアルバイト',
+    text: () => '駅前の喫茶店で、初めてのアルバイトを始めた。',
+    choices: [
+      { label: '真面目にこなす', hint: '資金・交渉↑', run: () => { money(3); gain('cha', 3); return '常連客にも顔を覚えてもらえた。（資金+3 交渉+3）'; } },
+      { label: '夜勤も入って稼ぐ', hint: '資金↑↑・体力↓', run: () => { money(5); gain('phy', -2); return '体はきついが、貯金は順調に増えた。（資金+5 体力-2）'; } },
+    ] },
 ];
 
 // =============================================================
@@ -1771,6 +2085,7 @@ function playQueue(q, then) { if (!q.length) { if (then) then(); return; } const
 const KANJI_NUM = ['〇', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二', '十三', '十四', '十五'];
 function chapterOf() {
   if (!G) return '';
+  if (G.phase === 'growth') return `生い立ち　${STAGES[G.growth.stage] ? STAGES[G.growth.stage].band : ''}`;
   if (G.phase === 'prep' || G.phase === 'summon') return '序章　令呪の冬';
   if (G.phase === 'end') return '終幕';
   return G.day < 4 ? '第一幕　開幕' : G.day < 10 ? '第二幕　侵蝕' : '第三幕　降臨';
@@ -1779,7 +2094,7 @@ function chapterOf() {
 function slotCard(then) {
   if (!G || !['prep', 'war'].includes(G.phase)) return then();
   if (G.phase === 'prep' && G.day > PREP_DAYS) return showCard({ kicker: '序章', title: '召喚の夜', cls: 'night', ms: 1500 }, then);
-  const day = `${G.phase === 'prep' ? '準備' : ''}${KANJI_NUM[G.day] || G.day}日目`;
+  const day = G.phase === 'prep' ? `召喚まで、あと${KANJI_NUM[PREP_DAYS - G.day + 1]}日` : `${KANJI_NUM[G.day] || G.day}日目`;
   showCard({ kicker: chapterOf(), title: day, sub: G.slot ? '夜' : '昼', cls: G.slot ? 'night' : 'day', ms: 1000 }, then);
 }
 // 章の始まりカード
@@ -1858,8 +2173,8 @@ function startSnow() {
 //  1プレイの目安は30分前後です。
 // =============================================================
 
-const SAVE_KEY = 'fukami-grail-war-v2';
-const PREP_DAYS = 5;
+const SAVE_KEY = 'fukami-grail-war-v3';
+const PREP_DAYS = 3;   // 18歳の冬、令呪が現れてから召喚までの日数
 const WAR_DAYS = 14;
 const FINAL_DAY = 11;   // 天降山の決戦はこの日の夜以降
 const EVENT_CHANCE = { prep: 0.25, war: 0.22 };   // コマの始めにランダムイベントが起きる確率
@@ -1992,29 +2307,27 @@ function randomName(foreign) {
 function rollMaster(name) {
   const b = wpick(BIRTHS, x => x.weight);
   const stats = {};
-  for (const k in b.stats) stats[k] = clamp(b.stats[k] + rand(-8, 8), 5, 95);
+  for (const k in b.stats) stats[k] = clamp(Math.round(b.stats[k] * 0.3) + rand(-3, 3), 3, 40);   // 0歳時点の素質
   return {
-    name: name || randomName(false), birth: b.id, stats, hp: 100, hpMax: 100, money: b.money + rand(0, 3),
+    name: name || randomName(false), birth: b.id, stats, hp: 100, hpMax: 100, money: 0, age: 0,
+    talent: pick(Object.keys(TALENTS)),
     seals: 3, od: 0, align: { law: rand(-20, 20), good: rand(-10, 25) },
     element: wpick(ELEMENTS, e => e.w).name, circuits: rand(b.circuits[0], b.circuits[1]),
-    age: rand(16, 34),
   };
 }
 function newGame(master) {
   G = {
-    v: 2, phase: 'prep', day: 1, slot: 0, master, servant: null,
+    v: 3, phase: 'growth', day: 1, slot: 0, master, servant: null, growth: { stage: 0 }, friend: null,
     catalysts: [], items: { potion: 1, gem: 0, crystal: 0, smoke: 1 }, flags: {}, used: {}, rivals: [], log: [], news: [],
     ritual: 0, workshop: 0, traps: 0, kills: 0, battles: 0, tmpRival: null, storyRival: null,
   };
   G.master.od = odMax();
-  if (master.birth === 'noble') giveCatalyst();
-  if (master.birth === 'mercenary') { item('gem', 1); item('smoke', 1); }
-  if (master.birth === 'clocktower') item('crystal', 1);
-  addLog(`${master.name}、深見市にて聖杯戦争への参加を決意する。`);
+  addLog(`${master.name}、誕生。`);
 }
 function addLog(t) { G.log.unshift({ when: whenShort(), text: t }); if (G.log.length > 80) G.log.pop(); }
 function whenShort() {
-  if (G.phase === 'prep') return `準備${G.day}日`;
+  if (G.phase === 'growth') return `${G.master.age}歳`;
+  if (G.phase === 'prep') return `18歳・${G.day}日`;
   if (G.phase === 'war') return `${G.day}日目${G.slot ? '夜' : '昼'}`;
   return '―';
 }
@@ -2056,7 +2369,8 @@ function paras(list) { return list.filter(Boolean).map(p => p.startsWith('<p') |
 // =============================================================
 function phaseLabel() {
   if (!G) return '';
-  if (G.phase === 'prep') return '準備期間';
+  if (G.phase === 'growth') return '成長期';
+  if (G.phase === 'prep') return '令呪の冬';
   if (G.phase === 'summon') return '召喚の夜';
   if (G.phase === 'war') return '聖杯戦争';
   return '終幕';
@@ -2500,7 +2814,7 @@ function assaultPlan(r) {
     { label: '敵マスターを暗殺する', hint: `${asn ? '気配遮断・' : ''}敏捷判定 目標${asn ? 58 : 78}・悪`, cls: 'danger', fn: () => {
       NOTES = []; tone('evil'); const c = schk(2, asn ? 58 : 78);
       if (c.ok) {
-        r.alive = false; r.hp = 0; r.masterDead = true; G.kills++; addLog(`${rivalLabel(r)}陣営のマスターを暗殺。`);
+        r.alive = false; r.hp = 0; r.masterDead = true; r.killed = true; G.kills++; addLog(`${rivalLabel(r)}陣営のマスターを暗殺。`);
         return next('暗殺', paras([c.text, `${SV()}の刃が、眠る${esc(r.master)}に届いた。マスターを失った${rivalLabel(r)}は、魔力の供給を断たれ消えていった。`,
           '<span class="note">戦わずに一陣営を落とした。だが、手は血に濡れた。</span>', ...takeNotes()]), advanceOrVictory);
       }
@@ -2630,12 +2944,137 @@ function setupRivals() {
     r.hpMax = r.hp = 70 + rankValue(s.p[1]);
     return r;
   });
+  // 幼馴染もマスターに選ばれていた
+  if (G.friend) {
+    const r = pick(G.rivals);
+    Object.assign(r, { friend: true, master: G.friend.name, type: '幼馴染', power: 6, aggr: 0.25,
+      quote: G.flags.friendRival ? 'やっと決着をつけられるね。……手加減しないから！'
+        : G.friend.bond >= 60 ? 'ごめん。でも、どうしても叶えたい願いがあるんだ。'
+          : '……あなたとは、戦いたくなかったな。' });
+  }
 }
 function afterSummon() {
   next('聖杯戦争、開幕', [
     '<p>こうして、深見市における聖杯戦争が幕を開けた。七騎のサーヴァントと七人のマスター。生き残るのは、ただ一組。</p>',
     `<p class="note">昼は情報・陣地・道具・絆を整える時間。夜は戦いの時間。敵の真名を暴き、作戦を選んで仕掛け、最後の一組となれ。期限は${WAR_DAYS}日。</p>`,
   ], startSlot, '戦いへ', '第一幕　開幕');
+}
+
+// =============================================================
+//  growth.js … 成長期（0歳〜17歳）の進行
+//  誕生 → [過ごし方を選ぶ → 出来事] × 7回 → 18歳の冬（令呪の発現）
+// =============================================================
+
+// ---- 幼馴染 ----
+function makeFriend() { if (!G.friend) G.friend = { name: pick(NAMES.friend), bond: 0 }; return G.friend.name; }
+function friendName() { return G.friend ? esc(G.friend.name) : ''; }
+function friend(n) { if (G.friend) G.friend.bond = clamp(G.friend.bond + n, 0, 100); }
+function hasMagic() { return birthOf().magic || !!G.flags.awakened; }
+function kanjiNum(n) {
+  const d = ['〇', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+  if (n <= 10) return n === 10 ? '十' : d[n];
+  if (n < 20) return '十' + d[n - 10];
+  return d[Math.floor(n / 10)] + '十' + (n % 10 ? d[n % 10] : '');
+}
+function currentStage() { return STAGES[G.growth.stage]; }
+
+// 伸びやすさ（産まれ × 生まれつきの得意 × ゆらぎ）を掛けて能力を伸ばす
+function growthMul(stat) { return (birthOf().growth[stat] || 1) * (G.master.talent === stat ? 1.3 : 1); }
+const GROW_RATE = 1.2;   // 成長全体の倍率（大きくすると18歳時点の能力が高くなる）
+function grow(stat, base) { const n = Math.max(1, Math.round(base * GROW_RATE * growthMul(stat) * (0.85 + Math.random() * 0.3))); gain(stat, n); return n; }
+
+// ---------------- 誕生（0歳） ----------------
+function growthStart() {
+  const b = birthOf(); const m = G.master;
+  G.lastChapter = '誕生';
+  chapterCard('第零幕　生い立ち', () => {
+    scene({ title: '誕生', sub: '0歳', reveal: true, body: paras([
+      b.origin,
+      `<div class="birth-facts"><div><span>魔術属性</span><b>${m.element}</b></div><div><span>魔術回路</span><b>${m.circuits}本</b></div><div><span>生まれつきの得意</span><b>${TALENTS[m.talent]}</b></div></div>`,
+      `<span class="note">これから18歳になるまでの日々が、あなたの能力を形作る。どう育つかは、あなた次第だ。</span>`,
+    ]), choices: [{ label: '産声を上げる', cls: 'primary', icon: 'next', fn: () => nextStage() }] });
+  });
+}
+
+// ---------------- 成長の節目 ----------------
+function growthStage() {
+  const st = currentStage();
+  saveGame();
+  const b = birthOf();
+  const list = Object.entries(FOCUS).filter(([, f]) =>
+    G.master.age >= f.ages[0] && G.master.age <= f.ages[1] &&
+    (!f.magic || hasMagic()) && (!f.births || f.births.includes(b.id)));
+  const choices = list.map(([k, f]) => ({
+    label: f.name,
+    hint: Object.entries(f.gains).map(([s, v]) => `${STAT_LABEL[s]}${growthMul(s) >= 1.2 ? '↑↑' : '↑'}`).join(' ') + (f.money ? ' 資金↑' : '') + (f.catalyst ? ' 触媒?' : '') + (f.friend && G.friend ? ' 友情↑' : ''),
+    icon: guessIcon(f.name) || 'train',
+    fn: () => applyFocus(k),
+  }));
+  scene({ title: `${G.master.age}歳`, sub: `${st.band}　${b.home}`, body: [
+    `<p>${st.text}</p>`,
+    `<div class="grow-stats">${statBars(G.master.stats)}</div>`,
+    `<p class="note">この数年を、どう過ごす？　↑↑は伸びやすい能力。</p>`,
+  ], choices });
+}
+function applyFocus(k) {
+  const f = FOCUS[k]; NOTES = [];
+  const res = [];
+  const ups = Object.entries(f.gains).map(([s, v]) => `${STAT_LABEL[s]}+${grow(s, v)}`);
+  if (f.money) money(f.money);
+  if (f.friend) friend(f.friend);
+  if (f.tone) tone(f.tone);
+  money(Math.max(1, Math.round(birthOf().money / 7)));   // おこづかい・仕送り
+  res.push(`${G.master.age}歳からの数年間は、「${f.name}」日々だった。`);
+  res.push(`<span class="note">${ups.join('　')}${f.money ? `　資金+${f.money}` : ''}</span>`);
+  if (f.catalyst && Math.random() < f.catalyst) { const c = giveCatalyst(); res.push(`調べものの途中で、古い品を手に入れた。<b>${c}</b>だ。`); }
+  addLog(`${G.master.age}歳：${f.name}。`);
+  next(`${G.master.age}歳`, paras(res.concat(takeNotes())), growthEvent, '次へ', currentStage().band);
+}
+function growthEvent() {
+  const age = G.master.age; const b = birthOf().id;
+  const ok = e => !G.used[e.id] && (!e.births || e.births.includes(b)) && (!e.magic || hasMagic()) && (!e.cond || e.cond());
+  let ev = GROWTH_EVENTS.find(e => e.fixed && e.ages[0] === age && ok(e));
+  if (!ev) {
+    const pool = GROWTH_EVENTS.filter(e => !e.fixed && age >= e.ages[0] && age <= e.ages[1] && ok(e));
+    if (pool.length) ev = pick(pool);
+  }
+  if (!ev) return nextStage();
+  showEvent({ ...ev, chapter: `${currentStage().band}・${age}歳` }, nextStage);
+}
+function nextStage() {
+  G.growth.stage++;
+  if (G.growth.stage >= STAGES.length) return comingOfAge();
+  const st = currentStage();
+  G.master.age = st.age;
+  const go = () => growthStage();
+  if (!CFG.fx) return go();
+  if (st.band !== G.lastChapter) { G.lastChapter = st.band; return showCard({ kicker: st.band, title: `${kanjiNum(st.age)}歳`, sub: st.text, cls: 'chapter', ms: 1800 }, go); }
+  showCard({ kicker: st.band, title: `${kanjiNum(st.age)}歳`, cls: 'day', ms: 1100 }, go);
+}
+
+// ---------------- 18歳の冬：令呪の発現 ----------------
+function comingOfAge() {
+  const b = birthOf(); const m = G.master;
+  m.age = ADULT_AGE; m.hp = m.hpMax;
+  G.phase = 'prep'; G.day = 1; G.slot = 0; SLOT = {};
+  G.master.od = odMax();
+  if (b.id === 'noble') giveCatalyst();
+  if (b.id === 'mercenary') { item('gem', 1); item('smoke', 1); }
+  if (b.id === 'clocktower') item('crystal', 1);
+  addLog(`${ADULT_AGE}歳の冬、右手に令呪が現れる。`);
+  const top = Object.entries(m.stats).sort((a, c) => c[1] - a[1]).slice(0, 2).map(([k]) => STAT_LABEL[k]);
+  const lines = [
+    `十八年が過ぎた。${b.text}`,
+    `<span class="note">得意なこと：${top.join('・')}　／　在り方：${alignLabel()}</span>`,
+    'その冬、右手の甲に、焼けるような痛みとともに三画の紋様が浮かび上がった。<br>聖杯に選ばれたマスターの証――<b>令呪</b>。',
+    G.friend ? `${friendName()}からの着信が、なぜか一件だけ残っていた。折り返しても、繋がらない。` : '',
+    G.catalysts.length ? `手元には、これまでの人生で手にした触媒がある。<b>${G.catalysts.map(id => SV_BY_ID[id].catalyst).join('、')}</b>。` : '',
+    `召喚の夜まで、あと${PREP_DAYS}日。`,
+  ];
+  chapterCard('序章　令呪の冬', () => {
+    G.lastChapter = '序章　令呪の冬';
+    next(`${ADULT_AGE}歳の冬`, paras(lines), () => { SLOT = {}; startSlot(); }, '準備を始める', 'PROLOGUE');
+  });
 }
 
 // =============================================================
@@ -2877,7 +3316,7 @@ function battleRound(cmd) {
     const guardS = Math.round(rivalParam(r, 2) * 0.5) + r.power * 3 + rand(1, 40) + (et === 'guard' ? 15 : 0);
     log.push(`<span class="note">${P}：敵マスターへ（${mine}）　対　${E}：護衛（${guardS}）</span>`);
     if (mine >= guardS && (isAssassin() || r.hp <= r.hpMax * 0.4)) {
-      r.hp = 0; r.masterDead = true;
+      r.hp = 0; r.masterDead = true; r.killed = true;
       log.push(`${P}の刃が${E}の脇をすり抜け、マスターの${esc(r.master)}を捉えた。供給を断たれた${E}が崩れ落ちる。`);
       log.push(...takeNotes()); return afterRound(log);
     }
@@ -2982,6 +3421,7 @@ function battleWin(extra) {
   r.alive = false; r.hp = 0; G.kills++;
   NOTES = []; bond(5);
   const body = [...extra, `<p>${rivalLabel(r)}の霊基が砕け、光の粒となって夜空に溶けていく。<b>勝利だ。</b></p>`];
+  if (r.friend) { G.flags.friendDefeated = true; body.push(`<p class="quote">「……負けちゃった。強くなったね」</p><p>${friendName()}は泣きながら笑っていた。</p>`); }
   addLog(`${rivalLabel(r)}陣営（${servantOf(r).name}）を撃破。`);
   if (r.bounty) { G.master.seals++; body.push('<p>教会からの討伐令を果たした。報酬として令呪が一画、右手に刻まれた。（令呪+1）</p>'); }
   const spoils = rand(1, 3); money(spoils); body.push(`<p class="note">敵の拠点から資金を回収した。（+${spoils}万円）</p>`);
@@ -3141,6 +3581,8 @@ function ending(kind) {
     none: () => ({ title: '終幕：願いなき勝者', text: ['<p>あなたは何も願わなかった。聖杯は誰の手にも渡らぬまま、静かに消えていった。</p>', `<p class="quote">${fmt(per.farewell)}</p>`,
       '<p>勝者の手に残ったのは、戦いの記憶と、確かに結ばれた絆だけだった。</p>'] }),
   }[kind]();
+  const ep = friendEpilogue(kind);
+  if (ep) E.text.push(ep);
   addLog(E.title); markEnding(kind);
   const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured'].includes(kind);
   sfx(good ? 'win' : 'lose');
@@ -3148,6 +3590,18 @@ function ending(kind) {
     SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good };
     TAB = 'story'; render();
   });
+}
+
+// 幼馴染のその後
+function friendEpilogue(kind) {
+  if (!G.friend || !G.rivals.length || kind === 'dead') return '';
+  const r = G.rivals.find(x => x.friend); const n = friendName();
+  if (!r) return '';
+  if (G.flags.friendSaved) return `<p class="note">春。${n}と並んで、城跡公園の桜を見上げた。「約束、守ってくれたね」</p>`;
+  if (r.killed) return `<p class="note">${n}の家の前を通るたび、あなたは足を止める。もう、あの笑顔が迎えてくれることはない。</p>`;
+  if (G.flags.friendDefeated) return `<p class="note">戦いの後、${n}から一通のメッセージが届いた。「おかえり。……また、ココア飲みに来なよ」</p>`;
+  if (r.alive) return `<p class="note">${n}は最後まで、あなたの味方でいてくれた。</p>`;
+  return `<p class="note">${n}は無事だった。教会で再会した時、二人はしばらく言葉もなく、ただ抱き合った。</p>`;
 }
 
 // =============================================================
@@ -3209,16 +3663,16 @@ function skipReveal() {
 }
 function viewTop() {
   const night = G.slot === 1;
-  const dayText = G.phase === 'prep' ? `${G.day}日目` : G.phase === 'summon' ? '開幕前夜' : G.phase === 'end' ? '終幕' : `${G.day}日目`;
+  const dayText = G.phase === 'growth' ? `${G.master.age}歳` : G.phase === 'prep' ? `18歳・${G.day}日目` : G.phase === 'summon' ? '開幕前夜' : G.phase === 'end' ? '終幕' : `${G.day}日目`;
   const seals = [0, 1, 2].map(i => `<svg class="seal ${i < G.master.seals ? '' : 'used'}" viewBox="0 0 18 22" aria-hidden="true"><path d="${SEAL_PATH}"/></svg>`).join('');
   const extraSeals = G.master.seals > 3 ? `<span class="tag red">+${G.master.seals - 3}</span>` : '';
   const sv = G.servant;
-  const prog = G.phase === 'prep' ? (G.day - 1 + G.slot * 0.5) / PREP_DAYS : G.phase === 'war' ? (G.day - 1 + G.slot * 0.5) / WAR_DAYS : 1;
+  const prog = G.phase === 'growth' ? G.master.age / ADULT_AGE : G.phase === 'prep' ? (G.day - 1 + G.slot * 0.5) / PREP_DAYS : G.phase === 'war' ? (G.day - 1 + G.slot * 0.5) / WAR_DAYS : 1;
   return `<header class="topbar">
     <div class="topbar-row">
       <div class="when"><span class="when-phase">${chapterOf().replace('　', ' ')}</span><span class="when-day">${dayText}</span>
         ${G.phase === 'prep' || G.phase === 'war' ? `<span class="time-chip ${night ? 'night' : 'day'}">${night ? '夜' : '昼'}</span>` : ''}</div>
-      <div class="seals" title="令呪 残り${G.master.seals}画" aria-label="令呪 残り${G.master.seals}画">${seals}${extraSeals}</div>
+      ${G.phase === 'growth' ? '' : `<div class="seals" title="令呪 残り${G.master.seals}画" aria-label="令呪 残り${G.master.seals}画">${seals}${extraSeals}</div>`}
     </div>
     <div class="mini"><span>HP <b>${G.master.hp}</b></span><span>資金 <b>${G.master.money}</b>万円</span>
       ${sv ? `<span>${emblem(servantOf(G).cls, 12)}${SV()} <b>${sv.hp}</b>/${servantHpMax()}</span><span>絆Lv <b>${Math.floor(sv.bond / 10)}</b></span>` : `<span>触媒 <b>${G.catalysts.length}</b></span>`}</div>
@@ -3261,7 +3715,7 @@ function viewTitle() {
     <p class="lead">${CITY.intro}</p>
     <div class="choices">
       <button class="choice primary" data-act="new">${actIcon('ritual')}<span class="c-label">はじめから</span><span class="c-hint">産まれはランダムで決まる</span></button>
-      ${save ? `<button class="choice" data-act="continue">${actIcon('next')}<span class="c-label">つづきから</span><span class="c-hint">${esc(save.master.name)}・${save.phase === 'prep' ? '準備期間' : '聖杯戦争'}${save.day}日目</span></button>` : ''}
+      ${save ? `<button class="choice" data-act="continue">${actIcon('next')}<span class="c-label">つづきから</span><span class="c-hint">${esc(save.master.name)}・${save.phase === 'growth' ? `${save.master.age}歳` : save.phase === 'prep' ? `18歳の冬・${save.day}日目` : `聖杯戦争${save.day}日目`}</span></button>` : ''}
       <div class="title-sub">
         <button class="choice" data-act="gallery">${actIcon('study')}<span class="c-label">エンディング</span><span class="c-hint">${seen}/${ENDING_LIST.length}</span></button>
         <button class="choice" data-act="settings">${actIcon('base')}<span class="c-label">設定</span></button>
@@ -3284,20 +3738,25 @@ function viewGallery() {
 }
 function viewCreate() {
   const m = SCENE.master, b = SCENE.birth;
+  const mul = k => (b.growth[k] || 1) * (m.talent === k ? 1.3 : 1);
+  const pot = Object.keys(STAT_LABEL).map(k => `<span class="tag ${mul(k) >= 1.2 ? 'gold' : mul(k) < 0.95 ? '' : ''}">${STAT_LABEL[k]}${mul(k) >= 1.2 ? '↑↑' : mul(k) < 0.95 ? '↓' : ''}</span>`).join('');
   return `<article class="scene">
-    <div class="scene-sub">MASTER</div><h1 class="scene-title">あなたの産まれ</h1>
+    <div class="scene-sub">BIRTH</div><h1 class="scene-title">あなたが生まれる家</h1>
     <div class="birth-card">
-      <div class="birth-name">${b.name}</div>
-      <p style="margin:6px 0 10px;font-size:14px">${b.text}</p>
-      <dl class="kv"><dt>年齢</dt><dd>${m.age}歳</dd><dt>魔術属性</dt><dd>${m.element}</dd><dt>魔術回路</dt><dd>${m.circuits}本</dd>
-        <dt>資金</dt><dd>${m.money}万円</dd><dt>願い</dt><dd>${b.wish}</dd><dt>特徴</dt><dd>${b.perk}</dd></dl>
-      <h3>能力値</h3>${statBars(m.stats)}
+      <div class="birth-name">${b.home}</div>
+      <p style="margin:6px 0 10px;font-size:14px">${b.origin}</p>
+      <dl class="kv"><dt>魔術属性</dt><dd>${m.element}</dd><dt>魔術回路</dt><dd>${m.circuits}本</dd>
+        <dt>生まれつき</dt><dd>${TALENTS[m.talent]}</dd><dt>魔術</dt><dd>${b.magic ? '幼い頃から学べる' : '学べない（目覚めれば別）'}</dd>
+        <dt>18歳の姿</dt><dd>${b.name}　<span style="color:var(--muted)">（願い：${b.wish}）</span></dd></dl>
+      <h3>伸びやすさ</h3><div>${pot}</div>
+      <h3>0歳の素質</h3>${statBars(m.stats)}
+      <p class="note" style="font-size:12px;color:var(--muted);margin-top:8px">ここから18歳までの過ごし方で、能力は大きく伸びていく。</p>
     </div>
-    <div class="field"><label for="mname">マスターの名前</label><input id="mname" maxlength="16" value="${esc(m.name)}" autocomplete="off"></div>
+    <div class="field"><label for="mname">あなたの名前</label><input id="mname" maxlength="16" value="${esc(m.name)}" autocomplete="off"></div>
     <div class="choices">
-      <button class="choice primary" data-act="start"><span class="c-label">この運命で始める</span></button>
-      <button class="choice" data-act="reroll"><span class="c-label">運命を引き直す</span><span class="c-hint">産まれ・能力を再抽選</span></button>
-      <button class="choice" data-act="title"><span class="c-label">タイトルへ戻る</span></button>
+      <button class="choice primary" data-act="start">${actIcon('ritual')}<span class="c-label">この運命に生まれる</span></button>
+      <button class="choice" data-act="reroll">${actIcon('walk')}<span class="c-label">運命を引き直す</span><span class="c-hint">家・素質を再抽選</span></button>
+      <button class="choice" data-act="title">${actIcon('flee')}<span class="c-label">タイトルへ戻る</span></button>
     </div></article>`;
 }
 function statBars(stats) {
@@ -3333,7 +3792,7 @@ function servantCard(sv) {
 }
 function viewMaster() {
   const m = G.master; const b = BIRTHS.find(x => x.id === m.birth);
-  return `<section class="panel"><h2>${M()}</h2><div><span class="tag gold">${b.name}</span><span class="tag">${alignLabel()}</span><span class="tag">${m.element}</span></div>
+  return `<section class="panel"><h2>${M()}<span style="font-size:14px;color:var(--muted);margin-left:8px">${m.age}歳</span></h2><div><span class="tag gold">${G.phase === 'growth' ? b.home : b.name}</span><span class="tag">${TALENTS[m.talent] || ''}</span><span class="tag">${alignLabel()}</span><span class="tag">${m.element}</span></div>
     <h3>状態</h3><div class="bars">
       <div class="bar-row"><span>HP</span><div class="bar hp"><i style="width:${m.hp}%"></i></div><span class="num">${m.hp}</span></div></div>
     <dl class="kv" style="margin-top:10px"><dt>令呪</dt><dd>${m.seals}画</dd><dt>資金</dt><dd>${m.money}万円</dd><dt>魔術回路</dt><dd>${m.circuits}本</dd>
@@ -3342,6 +3801,7 @@ function viewMaster() {
       <dt>願い</dt><dd>${b.wish}</dd><dt>特徴</dt><dd>${b.perk}</dd>
       <dt>属性値</dt><dd>秩序 ${m.align.law > 0 ? '+' : ''}${m.align.law}／善 ${m.align.good > 0 ? '+' : ''}${m.align.good}</dd></dl>
     <h3>能力値</h3>${statBars(m.stats)}
+    ${G.friend ? `<h3>幼馴染</h3><div class="bar-row"><span style="white-space:nowrap">${friendName()}</span><div class="bar bond"><i style="width:${G.friend.bond}%"></i></div><span class="num">${G.friend.bond}</span></div>` : ''}
     ${G.servant ? `<p class="note" style="font-size:12px;color:var(--muted)">マスターの魔力による英霊パラメータ補正：${masterCorrection() > 0 ? '+' : ''}${masterCorrection()}（魔力が低いとサーヴァントの性能が落ちる）</p>` : ''}
     <h3>道具</h3><div class="item-list">${Object.entries(ITEMS).map(([k, it]) => `<div><b>${it.name} ×${G.items[k] || 0}</b><span>${it.desc}</span></div>`).join('')}</div>
     <h3>所持している触媒</h3>${G.catalysts.length ? G.catalysts.map(id => `<span class="tag gold">${SV_BY_ID[id].catalyst}</span>`).join('') : '<p class="empty">まだ無い</p>'}
@@ -3433,11 +3893,7 @@ document.addEventListener('click', e => {
     const name = document.getElementById('mname').value.trim() || SCENE.master.name;
     SCENE.master.name = name.slice(0, 16);
     newGame(SCENE.master);
-    const b = BIRTHS.find(x => x.id === G.master.birth);
-    next('物語の始まり', [`<p>${CITY.intro}</p>`, `<p>${M()}――${b.name}。${b.text}</p>`,
-      `<p>右手の甲に浮かんだ三画の紋様。それは聖杯に選ばれたマスターの証、<b>令呪</b>だ。召喚の夜まで、あと${PREP_DAYS}日。</p>`,
-      G.catalysts.length ? `<p>家の宝物庫からは、英霊召喚の触媒<b>「${SV_BY_ID[G.catalysts[0]].catalyst}」</b>を持ち出してきた。</p>` : '',
-      '<p class="note">準備期間のうちに能力を鍛え、触媒を探し、召喚陣を整えよう。触媒がなければ、あなたの在り方（秩序・混沌／善・悪）に似た英霊が応えるという。</p>'], () => { SLOT = {}; startSlot(); }, '準備を始める', 'PROLOGUE');
+    growthStart();
   }
   else if (a === 'continue') { G = SCENE.save; SLOT = { news: true, story: true, event: true }; startFromSave(); }
   else if (a === 'aftersummon') afterSummon();
@@ -3447,6 +3903,7 @@ document.addEventListener('click', e => {
   }
 });
 function startFromSave() {
+  if (G.phase === 'growth') return growthStage();
   if (G.phase === 'summon') return summonScene();
   hub();
 }

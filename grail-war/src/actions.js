@@ -326,7 +326,7 @@ function assaultPlan(r) {
     { label: '敵マスターを暗殺する', hint: `${asn ? '気配遮断・' : ''}敏捷判定 目標${asn ? 58 : 78}・悪`, cls: 'danger', fn: () => {
       NOTES = []; tone('evil'); const c = schk(2, asn ? 58 : 78);
       if (c.ok) {
-        r.alive = false; r.hp = 0; r.masterDead = true; G.kills++; addLog(`${rivalLabel(r)}陣営のマスターを暗殺。`);
+        r.alive = false; r.hp = 0; r.masterDead = true; r.killed = true; G.kills++; addLog(`${rivalLabel(r)}陣営のマスターを暗殺。`);
         return next('暗殺', paras([c.text, `${SV()}の刃が、眠る${esc(r.master)}に届いた。マスターを失った${rivalLabel(r)}は、魔力の供給を断たれ消えていった。`,
           '<span class="note">戦わずに一陣営を落とした。だが、手は血に濡れた。</span>', ...takeNotes()]), advanceOrVictory);
       }
@@ -456,6 +456,14 @@ function setupRivals() {
     r.hpMax = r.hp = 70 + rankValue(s.p[1]);
     return r;
   });
+  // 幼馴染もマスターに選ばれていた
+  if (G.friend) {
+    const r = pick(G.rivals);
+    Object.assign(r, { friend: true, master: G.friend.name, type: '幼馴染', power: 6, aggr: 0.25,
+      quote: G.flags.friendRival ? 'やっと決着をつけられるね。……手加減しないから！'
+        : G.friend.bond >= 60 ? 'ごめん。でも、どうしても叶えたい願いがあるんだ。'
+          : '……あなたとは、戦いたくなかったな。' });
+  }
 }
 function afterSummon() {
   next('聖杯戦争、開幕', [

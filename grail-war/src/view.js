@@ -57,16 +57,16 @@ function skipReveal() {
 }
 function viewTop() {
   const night = G.slot === 1;
-  const dayText = G.phase === 'prep' ? `${G.day}日目` : G.phase === 'summon' ? '開幕前夜' : G.phase === 'end' ? '終幕' : `${G.day}日目`;
+  const dayText = G.phase === 'growth' ? `${G.master.age}歳` : G.phase === 'prep' ? `18歳・${G.day}日目` : G.phase === 'summon' ? '開幕前夜' : G.phase === 'end' ? '終幕' : `${G.day}日目`;
   const seals = [0, 1, 2].map(i => `<svg class="seal ${i < G.master.seals ? '' : 'used'}" viewBox="0 0 18 22" aria-hidden="true"><path d="${SEAL_PATH}"/></svg>`).join('');
   const extraSeals = G.master.seals > 3 ? `<span class="tag red">+${G.master.seals - 3}</span>` : '';
   const sv = G.servant;
-  const prog = G.phase === 'prep' ? (G.day - 1 + G.slot * 0.5) / PREP_DAYS : G.phase === 'war' ? (G.day - 1 + G.slot * 0.5) / WAR_DAYS : 1;
+  const prog = G.phase === 'growth' ? G.master.age / ADULT_AGE : G.phase === 'prep' ? (G.day - 1 + G.slot * 0.5) / PREP_DAYS : G.phase === 'war' ? (G.day - 1 + G.slot * 0.5) / WAR_DAYS : 1;
   return `<header class="topbar">
     <div class="topbar-row">
       <div class="when"><span class="when-phase">${chapterOf().replace('　', ' ')}</span><span class="when-day">${dayText}</span>
         ${G.phase === 'prep' || G.phase === 'war' ? `<span class="time-chip ${night ? 'night' : 'day'}">${night ? '夜' : '昼'}</span>` : ''}</div>
-      <div class="seals" title="令呪 残り${G.master.seals}画" aria-label="令呪 残り${G.master.seals}画">${seals}${extraSeals}</div>
+      ${G.phase === 'growth' ? '' : `<div class="seals" title="令呪 残り${G.master.seals}画" aria-label="令呪 残り${G.master.seals}画">${seals}${extraSeals}</div>`}
     </div>
     <div class="mini"><span>HP <b>${G.master.hp}</b></span><span>資金 <b>${G.master.money}</b>万円</span>
       ${sv ? `<span>${emblem(servantOf(G).cls, 12)}${SV()} <b>${sv.hp}</b>/${servantHpMax()}</span><span>絆Lv <b>${Math.floor(sv.bond / 10)}</b></span>` : `<span>触媒 <b>${G.catalysts.length}</b></span>`}</div>
@@ -109,7 +109,7 @@ function viewTitle() {
     <p class="lead">${CITY.intro}</p>
     <div class="choices">
       <button class="choice primary" data-act="new">${actIcon('ritual')}<span class="c-label">はじめから</span><span class="c-hint">産まれはランダムで決まる</span></button>
-      ${save ? `<button class="choice" data-act="continue">${actIcon('next')}<span class="c-label">つづきから</span><span class="c-hint">${esc(save.master.name)}・${save.phase === 'prep' ? '準備期間' : '聖杯戦争'}${save.day}日目</span></button>` : ''}
+      ${save ? `<button class="choice" data-act="continue">${actIcon('next')}<span class="c-label">つづきから</span><span class="c-hint">${esc(save.master.name)}・${save.phase === 'growth' ? `${save.master.age}歳` : save.phase === 'prep' ? `18歳の冬・${save.day}日目` : `聖杯戦争${save.day}日目`}</span></button>` : ''}
       <div class="title-sub">
         <button class="choice" data-act="gallery">${actIcon('study')}<span class="c-label">エンディング</span><span class="c-hint">${seen}/${ENDING_LIST.length}</span></button>
         <button class="choice" data-act="settings">${actIcon('base')}<span class="c-label">設定</span></button>
@@ -132,20 +132,25 @@ function viewGallery() {
 }
 function viewCreate() {
   const m = SCENE.master, b = SCENE.birth;
+  const mul = k => (b.growth[k] || 1) * (m.talent === k ? 1.3 : 1);
+  const pot = Object.keys(STAT_LABEL).map(k => `<span class="tag ${mul(k) >= 1.2 ? 'gold' : mul(k) < 0.95 ? '' : ''}">${STAT_LABEL[k]}${mul(k) >= 1.2 ? '↑↑' : mul(k) < 0.95 ? '↓' : ''}</span>`).join('');
   return `<article class="scene">
-    <div class="scene-sub">MASTER</div><h1 class="scene-title">あなたの産まれ</h1>
+    <div class="scene-sub">BIRTH</div><h1 class="scene-title">あなたが生まれる家</h1>
     <div class="birth-card">
-      <div class="birth-name">${b.name}</div>
-      <p style="margin:6px 0 10px;font-size:14px">${b.text}</p>
-      <dl class="kv"><dt>年齢</dt><dd>${m.age}歳</dd><dt>魔術属性</dt><dd>${m.element}</dd><dt>魔術回路</dt><dd>${m.circuits}本</dd>
-        <dt>資金</dt><dd>${m.money}万円</dd><dt>願い</dt><dd>${b.wish}</dd><dt>特徴</dt><dd>${b.perk}</dd></dl>
-      <h3>能力値</h3>${statBars(m.stats)}
+      <div class="birth-name">${b.home}</div>
+      <p style="margin:6px 0 10px;font-size:14px">${b.origin}</p>
+      <dl class="kv"><dt>魔術属性</dt><dd>${m.element}</dd><dt>魔術回路</dt><dd>${m.circuits}本</dd>
+        <dt>生まれつき</dt><dd>${TALENTS[m.talent]}</dd><dt>魔術</dt><dd>${b.magic ? '幼い頃から学べる' : '学べない（目覚めれば別）'}</dd>
+        <dt>18歳の姿</dt><dd>${b.name}　<span style="color:var(--muted)">（願い：${b.wish}）</span></dd></dl>
+      <h3>伸びやすさ</h3><div>${pot}</div>
+      <h3>0歳の素質</h3>${statBars(m.stats)}
+      <p class="note" style="font-size:12px;color:var(--muted);margin-top:8px">ここから18歳までの過ごし方で、能力は大きく伸びていく。</p>
     </div>
-    <div class="field"><label for="mname">マスターの名前</label><input id="mname" maxlength="16" value="${esc(m.name)}" autocomplete="off"></div>
+    <div class="field"><label for="mname">あなたの名前</label><input id="mname" maxlength="16" value="${esc(m.name)}" autocomplete="off"></div>
     <div class="choices">
-      <button class="choice primary" data-act="start"><span class="c-label">この運命で始める</span></button>
-      <button class="choice" data-act="reroll"><span class="c-label">運命を引き直す</span><span class="c-hint">産まれ・能力を再抽選</span></button>
-      <button class="choice" data-act="title"><span class="c-label">タイトルへ戻る</span></button>
+      <button class="choice primary" data-act="start">${actIcon('ritual')}<span class="c-label">この運命に生まれる</span></button>
+      <button class="choice" data-act="reroll">${actIcon('walk')}<span class="c-label">運命を引き直す</span><span class="c-hint">家・素質を再抽選</span></button>
+      <button class="choice" data-act="title">${actIcon('flee')}<span class="c-label">タイトルへ戻る</span></button>
     </div></article>`;
 }
 function statBars(stats) {
@@ -181,7 +186,7 @@ function servantCard(sv) {
 }
 function viewMaster() {
   const m = G.master; const b = BIRTHS.find(x => x.id === m.birth);
-  return `<section class="panel"><h2>${M()}</h2><div><span class="tag gold">${b.name}</span><span class="tag">${alignLabel()}</span><span class="tag">${m.element}</span></div>
+  return `<section class="panel"><h2>${M()}<span style="font-size:14px;color:var(--muted);margin-left:8px">${m.age}歳</span></h2><div><span class="tag gold">${G.phase === 'growth' ? b.home : b.name}</span><span class="tag">${TALENTS[m.talent] || ''}</span><span class="tag">${alignLabel()}</span><span class="tag">${m.element}</span></div>
     <h3>状態</h3><div class="bars">
       <div class="bar-row"><span>HP</span><div class="bar hp"><i style="width:${m.hp}%"></i></div><span class="num">${m.hp}</span></div></div>
     <dl class="kv" style="margin-top:10px"><dt>令呪</dt><dd>${m.seals}画</dd><dt>資金</dt><dd>${m.money}万円</dd><dt>魔術回路</dt><dd>${m.circuits}本</dd>
@@ -190,6 +195,7 @@ function viewMaster() {
       <dt>願い</dt><dd>${b.wish}</dd><dt>特徴</dt><dd>${b.perk}</dd>
       <dt>属性値</dt><dd>秩序 ${m.align.law > 0 ? '+' : ''}${m.align.law}／善 ${m.align.good > 0 ? '+' : ''}${m.align.good}</dd></dl>
     <h3>能力値</h3>${statBars(m.stats)}
+    ${G.friend ? `<h3>幼馴染</h3><div class="bar-row"><span style="white-space:nowrap">${friendName()}</span><div class="bar bond"><i style="width:${G.friend.bond}%"></i></div><span class="num">${G.friend.bond}</span></div>` : ''}
     ${G.servant ? `<p class="note" style="font-size:12px;color:var(--muted)">マスターの魔力による英霊パラメータ補正：${masterCorrection() > 0 ? '+' : ''}${masterCorrection()}（魔力が低いとサーヴァントの性能が落ちる）</p>` : ''}
     <h3>道具</h3><div class="item-list">${Object.entries(ITEMS).map(([k, it]) => `<div><b>${it.name} ×${G.items[k] || 0}</b><span>${it.desc}</span></div>`).join('')}</div>
     <h3>所持している触媒</h3>${G.catalysts.length ? G.catalysts.map(id => `<span class="tag gold">${SV_BY_ID[id].catalyst}</span>`).join('') : '<p class="empty">まだ無い</p>'}
@@ -281,11 +287,7 @@ document.addEventListener('click', e => {
     const name = document.getElementById('mname').value.trim() || SCENE.master.name;
     SCENE.master.name = name.slice(0, 16);
     newGame(SCENE.master);
-    const b = BIRTHS.find(x => x.id === G.master.birth);
-    next('物語の始まり', [`<p>${CITY.intro}</p>`, `<p>${M()}――${b.name}。${b.text}</p>`,
-      `<p>右手の甲に浮かんだ三画の紋様。それは聖杯に選ばれたマスターの証、<b>令呪</b>だ。召喚の夜まで、あと${PREP_DAYS}日。</p>`,
-      G.catalysts.length ? `<p>家の宝物庫からは、英霊召喚の触媒<b>「${SV_BY_ID[G.catalysts[0]].catalyst}」</b>を持ち出してきた。</p>` : '',
-      '<p class="note">準備期間のうちに能力を鍛え、触媒を探し、召喚陣を整えよう。触媒がなければ、あなたの在り方（秩序・混沌／善・悪）に似た英霊が応えるという。</p>'], () => { SLOT = {}; startSlot(); }, '準備を始める', 'PROLOGUE');
+    growthStart();
   }
   else if (a === 'continue') { G = SCENE.save; SLOT = { news: true, story: true, event: true }; startFromSave(); }
   else if (a === 'aftersummon') afterSummon();
@@ -295,6 +297,7 @@ document.addEventListener('click', e => {
   }
 });
 function startFromSave() {
+  if (G.phase === 'growth') return growthStage();
   if (G.phase === 'summon') return summonScene();
   hub();
 }

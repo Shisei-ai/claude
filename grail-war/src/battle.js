@@ -237,7 +237,7 @@ function battleRound(cmd) {
     const guardS = Math.round(rivalParam(r, 2) * 0.5) + r.power * 3 + rand(1, 40) + (et === 'guard' ? 15 : 0);
     log.push(`<span class="note">${P}：敵マスターへ（${mine}）　対　${E}：護衛（${guardS}）</span>`);
     if (mine >= guardS && (isAssassin() || r.hp <= r.hpMax * 0.4)) {
-      r.hp = 0; r.masterDead = true;
+      r.hp = 0; r.masterDead = true; r.killed = true;
       log.push(`${P}の刃が${E}の脇をすり抜け、マスターの${esc(r.master)}を捉えた。供給を断たれた${E}が崩れ落ちる。`);
       log.push(...takeNotes()); return afterRound(log);
     }
@@ -342,6 +342,7 @@ function battleWin(extra) {
   r.alive = false; r.hp = 0; G.kills++;
   NOTES = []; bond(5);
   const body = [...extra, `<p>${rivalLabel(r)}の霊基が砕け、光の粒となって夜空に溶けていく。<b>勝利だ。</b></p>`];
+  if (r.friend) { G.flags.friendDefeated = true; body.push(`<p class="quote">「……負けちゃった。強くなったね」</p><p>${friendName()}は泣きながら笑っていた。</p>`); }
   addLog(`${rivalLabel(r)}陣営（${servantOf(r).name}）を撃破。`);
   if (r.bounty) { G.master.seals++; body.push('<p>教会からの討伐令を果たした。報酬として令呪が一画、右手に刻まれた。（令呪+1）</p>'); }
   const spoils = rand(1, 3); money(spoils); body.push(`<p class="note">敵の拠点から資金を回収した。（+${spoils}万円）</p>`);

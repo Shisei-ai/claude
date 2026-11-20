@@ -7,8 +7,8 @@
 //  1プレイの目安は30分前後です。
 // =============================================================
 
-const SAVE_KEY = 'fukami-grail-war-v2';
-const PREP_DAYS = 5;
+const SAVE_KEY = 'fukami-grail-war-v3';
+const PREP_DAYS = 3;   // 18歳の冬、令呪が現れてから召喚までの日数
 const WAR_DAYS = 14;
 const FINAL_DAY = 11;   // 天降山の決戦はこの日の夜以降
 const EVENT_CHANCE = { prep: 0.25, war: 0.22 };   // コマの始めにランダムイベントが起きる確率
@@ -141,29 +141,27 @@ function randomName(foreign) {
 function rollMaster(name) {
   const b = wpick(BIRTHS, x => x.weight);
   const stats = {};
-  for (const k in b.stats) stats[k] = clamp(b.stats[k] + rand(-8, 8), 5, 95);
+  for (const k in b.stats) stats[k] = clamp(Math.round(b.stats[k] * 0.3) + rand(-3, 3), 3, 40);   // 0歳時点の素質
   return {
-    name: name || randomName(false), birth: b.id, stats, hp: 100, hpMax: 100, money: b.money + rand(0, 3),
+    name: name || randomName(false), birth: b.id, stats, hp: 100, hpMax: 100, money: 0, age: 0,
+    talent: pick(Object.keys(TALENTS)),
     seals: 3, od: 0, align: { law: rand(-20, 20), good: rand(-10, 25) },
     element: wpick(ELEMENTS, e => e.w).name, circuits: rand(b.circuits[0], b.circuits[1]),
-    age: rand(16, 34),
   };
 }
 function newGame(master) {
   G = {
-    v: 2, phase: 'prep', day: 1, slot: 0, master, servant: null,
+    v: 3, phase: 'growth', day: 1, slot: 0, master, servant: null, growth: { stage: 0 }, friend: null,
     catalysts: [], items: { potion: 1, gem: 0, crystal: 0, smoke: 1 }, flags: {}, used: {}, rivals: [], log: [], news: [],
     ritual: 0, workshop: 0, traps: 0, kills: 0, battles: 0, tmpRival: null, storyRival: null,
   };
   G.master.od = odMax();
-  if (master.birth === 'noble') giveCatalyst();
-  if (master.birth === 'mercenary') { item('gem', 1); item('smoke', 1); }
-  if (master.birth === 'clocktower') item('crystal', 1);
-  addLog(`${master.name}、深見市にて聖杯戦争への参加を決意する。`);
+  addLog(`${master.name}、誕生。`);
 }
 function addLog(t) { G.log.unshift({ when: whenShort(), text: t }); if (G.log.length > 80) G.log.pop(); }
 function whenShort() {
-  if (G.phase === 'prep') return `準備${G.day}日`;
+  if (G.phase === 'growth') return `${G.master.age}歳`;
+  if (G.phase === 'prep') return `18歳・${G.day}日`;
   if (G.phase === 'war') return `${G.day}日目${G.slot ? '夜' : '昼'}`;
   return '―';
 }
@@ -205,7 +203,8 @@ function paras(list) { return list.filter(Boolean).map(p => p.startsWith('<p') |
 // =============================================================
 function phaseLabel() {
   if (!G) return '';
-  if (G.phase === 'prep') return '準備期間';
+  if (G.phase === 'growth') return '成長期';
+  if (G.phase === 'prep') return '令呪の冬';
   if (G.phase === 'summon') return '召喚の夜';
   if (G.phase === 'war') return '聖杯戦争';
   return '終幕';

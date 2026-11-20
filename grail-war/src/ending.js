@@ -99,6 +99,8 @@ function ending(kind) {
     none: () => ({ title: '終幕：願いなき勝者', text: ['<p>あなたは何も願わなかった。聖杯は誰の手にも渡らぬまま、静かに消えていった。</p>', `<p class="quote">${fmt(per.farewell)}</p>`,
       '<p>勝者の手に残ったのは、戦いの記憶と、確かに結ばれた絆だけだった。</p>'] }),
   }[kind]();
+  const ep = friendEpilogue(kind);
+  if (ep) E.text.push(ep);
   addLog(E.title); markEnding(kind);
   const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured'].includes(kind);
   sfx(good ? 'win' : 'lose');
@@ -106,4 +108,16 @@ function ending(kind) {
     SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good };
     TAB = 'story'; render();
   });
+}
+
+// 幼馴染のその後
+function friendEpilogue(kind) {
+  if (!G.friend || !G.rivals.length || kind === 'dead') return '';
+  const r = G.rivals.find(x => x.friend); const n = friendName();
+  if (!r) return '';
+  if (G.flags.friendSaved) return `<p class="note">春。${n}と並んで、城跡公園の桜を見上げた。「約束、守ってくれたね」</p>`;
+  if (r.killed) return `<p class="note">${n}の家の前を通るたび、あなたは足を止める。もう、あの笑顔が迎えてくれることはない。</p>`;
+  if (G.flags.friendDefeated) return `<p class="note">戦いの後、${n}から一通のメッセージが届いた。「おかえり。……また、ココア飲みに来なよ」</p>`;
+  if (r.alive) return `<p class="note">${n}は最後まで、あなたの味方でいてくれた。</p>`;
+  return `<p class="note">${n}は無事だった。教会で再会した時、二人はしばらく言葉もなく、ただ抱き合った。</p>`;
 }

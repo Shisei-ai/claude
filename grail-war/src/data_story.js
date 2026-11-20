@@ -1,7 +1,8 @@
 // =============================================================
 //  メインシナリオ（決まった日に必ず起きる物語イベント）
 //  三幕構成：
-//   序章「令呪の冬」   … 準備期間。街の異変と監督役、六十年前の生き残り
+//   生い立ち          … 0〜17歳（growth.js / data_growth.js）
+//   序章「令呪の冬」   … 18歳の冬、召喚までの3日間。街の異変と監督役、六十年前の生き残り
 //   第一幕「開幕」     … 1〜4日目。サーヴァントとの出会い、最初の敵
 //   第二幕「侵蝕」     … 5〜9日目。昏睡事件、黒い影、聖杯の真実
 //   第三幕「降臨」     … 10日目〜。決戦前夜、11日目以降の夜に天降山の決戦、聖杯
@@ -42,7 +43,7 @@ const SERVANT_WISH = {
 const STORY = [
   // ===================== 序章 =====================
   {
-    id: 's_tremor', phase: 'prep', day: 2, slot: 1, after: 'advance',
+    id: 's_tremor', phase: 'prep', day: 1, slot: 1, after: 'advance',
     title: '霊脈の揺らぎ', chapter: '序章　令呪の冬',
     text: () => '深夜。地鳴りのような低い響きで目が覚めた。<br>右手の痣が熱い。窓の外、天降山の方角の空が、一瞬だけ<b>黒く</b>揺らいだように見えた。<br>――まるで、夜そのものが滲み出してきたかのように。',
     choices: [
@@ -55,16 +56,18 @@ const STORY = [
       { label: '天降神社へ向かう', hint: '体力判定', run: () => {
           const r = chk('phy', 50);
           if (r.ok) { G.flags.leyline = true; G.flags.metMiko = true; tone('bold');
-            return [r.text, `夜の石段を駆け上がると、境内に白装束の少女が立っていた。巫女の${CAST.miko}だ。<br>「あなたも感じたんですね。……この山の霊脈、六十年ぶりに目を覚まそうとしています」<br>彼女から霊脈の流れを教わった。（陣地作成が得意になった）`]; }
+            return [r.text, `夜の石段を駆け上がると、境内に白装束の少女が立っていた。${G.flags.metMiko || birthOf().id === 'shrine' ? '従妹の' : '巫女の'}${CAST.miko}だ。<br>「あなたも感じたんですね。……この山の霊脈、六十年ぶりに目を覚まそうとしています」<br>彼女から霊脈の流れを教わった。（陣地作成が得意になった）`]; }
           hp(-10); return [r.text, '暗い石段で足を滑らせた。今夜は諦めよう。（HP-10）'];
         } },
       { label: '気のせいだと眠る', run: () => { gain('spi', 2); tone('cautious'); return '布団を被り直した。……だが、夢の中でも黒い空が揺れていた。（精神+2）'; } },
     ],
   },
   {
-    id: 's_sister', phase: 'prep', day: 3, slot: 0, after: 'hub',
+    id: 's_sister', phase: 'prep', day: 2, slot: 0, after: 'hub',
     title: '監督役', chapter: '序章　令呪の冬',
-    text: () => `丘の上の聖ヨハネ教会から呼び出しがあった。<br>ステンドグラスの光の中、銀髪の修道女が静かに振り返る。<br>「ようこそ。私は${CAST.sister}。この地の聖杯戦争の監督役を務めます」<br>彼女は淡々と規則を説明した。七人のマスターと七騎のサーヴァント。神秘の秘匿のため、戦闘は夜に限ること。脱落者は教会が保護すること。`,
+    text: () => (birthOf().id === 'executor'
+      ? `育った場所――丘の上の聖ヨハネ教会から呼び出しがあった。<br>ステンドグラスの光の中、銀髪の修道女が振り返る。${CAST.sister}。あなたを育ててくれた人だ。<br>「……まさか、あなたの手に令呪が宿るなんて。私は今、この地の聖杯戦争の監督役を務めています」<br>`
+      : `丘の上の聖ヨハネ教会から呼び出しがあった。<br>ステンドグラスの光の中、銀髪の修道女が静かに振り返る。<br>「ようこそ。私は${CAST.sister}。この地の聖杯戦争の監督役を務めます」<br>`) + `彼女は淡々と規則を説明した。七人のマスターと七騎のサーヴァント。神秘の秘匿のため、戦闘は夜に限ること。脱落者は教会が保護すること。`,
     choices: [
       { label: 'マスターとして正式に登録する', hint: '秩序 / 脱落時に保護される', run: () => {
           tone('law'); G.flags.registered = true;
@@ -80,9 +83,11 @@ const STORY = [
     ],
   },
   {
-    id: 's_oldman', phase: 'prep', day: 4, slot: 0, after: 'hub',
+    id: 's_oldman', phase: 'prep', day: 3, slot: 0, after: 'hub',
     title: '六十年前の生き残り', chapter: '序章　令呪の冬',
-    text: () => `御影川の河川敷。釣り糸を垂れる老人が、あなたの右手を見て目を細めた。<br>「……その痣。わしにも昔、同じものがあった」<br>老人は${CAST.old}と名乗った。六十年前、この街で起きた最初の聖杯戦争の、ただ一人の生き残りだという。`,
+    text: () => G.flags.oldTrust
+      ? `御影川の河川敷。子どもの頃から見知った釣り人――${CAST.old}が、あなたの右手を見て深く息をついた。<br>「……やはり、そうなったか。初めて会うた時から、そんな気がしておった」<br>老人は静かに語り始めた。六十年前、この街で起きた最初の聖杯戦争。その、ただ一人の生き残りが自分なのだと。`
+      : `御影川の河川敷。釣り糸を垂れる老人が、あなたの右手を見て目を細めた。<br>「……その痣。わしにも昔、同じものがあった」<br>老人は${CAST.old}と名乗った。六十年前、この街で起きた最初の聖杯戦争の、ただ一人の生き残りだという。`,
     choices: [
       { label: '当時のことを詳しく尋ねる', hint: '知力判定', run: () => {
           const r = chk('int', 55);
@@ -96,9 +101,9 @@ const STORY = [
     ],
   },
   {
-    id: 's_eve', phase: 'prep', day: 5, slot: 1, after: 'advance',
+    id: 's_eve', phase: 'prep', day: 3, slot: 1, after: 'advance',
     title: '召喚前夜', chapter: '序章　令呪の冬',
-    text: () => '明日の夜、召喚の儀を行う。準備に使える夜は、これが最後だ。<br>工房の窓から、雪のちらつく街を見下ろす。この街のどこかで、他のマスターたちも同じ夜を過ごしているのだろう。',
+    text: () => '明日になれば、聖杯戦争が始まる。今夜のうちに、召喚の儀を行わなければならない。<br>工房の窓から、雪のちらつく街を見下ろす。この街のどこかで、他のマスターたちも同じ夜を過ごしているのだろう。',
     choices: [
       { label: '召喚陣を仕上げる', hint: '召喚の質↑', run: () => {
           G.ritual = Math.min(3, G.ritual + 1); gain('mag', 1);
@@ -149,6 +154,35 @@ const STORY = [
           tone('cautious'); const c = schk(2, 55);
           if (c.ok) return [c.text, `${SV()}があなたを抱えて屋根伝いに跳んだ。追撃はない。……だが、相手の顔は覚えた。`];
           return { text: [c.text, '回り込まれた！ 戦うしかない。'], then: () => startBattle(G.storyRival, {}) };
+        } },
+    ],
+  },
+  {
+    id: 's_friend', phase: 'war', day: 3, slot: 0, after: 'hub', cond: () => G.rivals.some(r => r.friend && r.alive && !r.ally),
+    title: '幼馴染の令呪', chapter: '第一幕　開幕',
+    text: () => {
+      const r = G.rivals.find(x => x.friend); r.intel = Math.max(r.intel, 1);
+      return `「……やっぱり、あなたもだったんだ」<br>城跡公園のベンチで待っていたのは、${friendName()}だった。手袋を外したその手の甲に、<b>令呪</b>が刻まれている。<br>背後に、${r.cls}のサーヴァントが静かに控えていた。` +
+        `<p class="quote">「${r.quote}」</p>`;
+    },
+    choices: [
+      { label: '「手を組もう。二人で生き残るんだ」', hint: '交渉判定（友情で易しくなる）', run: () => {
+          const r = G.rivals.find(x => x.friend);
+          const need = Math.max(30, 75 - G.friend.bond / 2); const c = chk('cha', need);
+          if (c.ok || G.friend.bond >= 80) { r.ally = true; r.intel = 3; friend(10); addLog(`幼馴染・${G.friend.name}と同盟を結ぶ。`);
+            return [c.ok ? c.text : '', `${friendName()}は少しだけ泣きそうな顔で笑った。「……うん。あなたとなら」<br>${r.cls}陣営と同盟を結んだ。サーヴァントの真名<b>${servantOf(r).name}</b>も教えてもらった。`]; }
+          return [c.text, `「ごめん。……それは、できない」${friendName()}は目を伏せて、去っていった。`];
+        } },
+      { label: '「戦いから降りてくれ」と説得する', hint: '交渉判定', run: () => {
+          const r = G.rivals.find(x => x.friend);
+          const c = chk('cha', Math.max(35, 80 - G.friend.bond / 2));
+          if (c.ok) { r.alive = false; r.hp = 0; G.flags.friendSaved = true; addLog(`幼馴染・${G.friend.name}、聖杯戦争から降りる。`);
+            return [c.text, `長い沈黙の後、${friendName()}は頷いた。「……分かった。教会に行く。でも、約束して。絶対に、死なないで」<br>${r.cls}陣営は脱落した。誰も傷つかずに。`]; }
+          friend(-5); return [c.text, `「あなたにだけは、それを言われたくなかった」${friendName()}の声は震えていた。`];
+        } },
+      { label: '「正々堂々、戦おう」と約束する', hint: '秩序・大胆', run: () => {
+          tone('law'); tone('bold'); friend(5); G.flags.friendDuel = true;
+          return `「……昔から、そういうとこ変わらないね」${friendName()}は拳を突き出した。あなたはそれに、自分の拳を合わせた。`;
         } },
     ],
   },
