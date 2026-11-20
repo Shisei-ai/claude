@@ -99,7 +99,11 @@ function ending(kind) {
     none: () => ({ title: '終幕：願いなき勝者', text: ['<p>あなたは何も願わなかった。聖杯は誰の手にも渡らぬまま、静かに消えていった。</p>', `<p class="quote">${fmt(per.farewell)}</p>`,
       '<p>勝者の手に残ったのは、戦いの記憶と、確かに結ばれた絆だけだった。</p>'] }),
   }[kind]();
-  addLog(E.title);
-  SCENE = { kind: 'ending', title: E.title, text: E.text.filter(Boolean), good: !['dead', 'lost', 'wish', 'wishKnown', 'devoured'].includes(kind) };
-  TAB = 'story'; render();
+  addLog(E.title); markEnding(kind);
+  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured'].includes(kind);
+  sfx(good ? 'win' : 'lose');
+  showCard({ kicker: good ? 'ENDING' : 'BAD END', title: E.title.replace('終幕：', ''), cls: good ? 'dawn' : 'blood', ms: 2200 }, () => {
+    SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good };
+    TAB = 'story'; render();
+  });
 }

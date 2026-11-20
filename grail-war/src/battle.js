@@ -56,12 +56,12 @@ function planEnemy() {
   else if (B.echarge === 0 && Math.random() < (r.hp < r.hpMax * 0.35 ? 0.25 : 0.1)) t = 'guard';
   else t = wpick(['str', 'agi', 'mag'], k => Math.pow(rivalParam(r, TACTICS[k].stat), 1.5));
   B.enemyNext = t;
-  if (B.sure) { B.tell = `【見切り】${enemyName()}は${TACTICS[t].tell}`; B.sure = false; return; }
+  if (B.sure) { B.tell = `【見切り】${enemyName()}は${TACTICS[t].tell}`; B.tellKey = t; B.sure = false; return; }
   const seeChance = t === 'np' ? 0.9 : 0.3 + G.master.stats.int / 200 + (r.intel >= 3 ? 0.2 : 0);
   if (Math.random() < seeChance) {
     const shown = t === 'np' || Math.random() < 0.75 ? t : pick(['str', 'agi', 'mag', 'guard']);
-    B.tell = `${enemyName()}は${TACTICS[shown].tell}`;
-  } else B.tell = null;
+    B.tell = `${enemyName()}は${TACTICS[shown].tell}`; B.tellKey = shown;
+  } else { B.tell = null; B.tellKey = null; }
 }
 
 function mactAvailable(k) {
@@ -73,13 +73,18 @@ function mactAvailable(k) {
 function battleScene(extra) {
   if (extra) B.extra = extra;
   const r = B.r; const sv = G.servant; const me = servantOf(G);
+  const an = B.anim || {};
+  const meW = Math.max(0, sv.hp / servantHpMax()) * 100, enW = Math.max(0, r.hp / r.hpMax) * 100;
+  const meFrom = an.me !== undefined ? Math.max(0, an.me / servantHpMax()) * 100 : meW;
+  const enFrom = an.en !== undefined ? Math.max(0, an.en / r.hpMax) * 100 : enW;
   const body = [
     `<div class="battle-field">
-      <div class="fighter"><div class="fighter-top"><span class="fighter-name">${me.short}</span><span>${me.cls}　HP ${sv.hp}/${servantHpMax()}　魔力 ${sv.mp}${B.charge ? `　<b>反撃+${B.charge}</b>` : ''}</span></div>
-        <div class="bar hp"><i style="width:${(sv.hp / servantHpMax()) * 100}%"></i></div></div>
+      <div class="fighter" id="f-me" style="--cc:${classColor(me.cls)}"><div class="fighter-top"><span class="fighter-name">${emblem(me.cls, 18)}${me.short}</span><span>${me.cls}　HP ${sv.hp}/${servantHpMax()}　魔力 ${sv.mp}${B.charge ? `　<b>反撃+${B.charge}</b>` : ''}</span></div>
+        <div class="bar hp"><i class="lag" style="width:${meFrom}%"></i><i data-w="${meW}" style="width:${meFrom}%"></i></div>
+        <div class="bar mp thin"><i style="width:${sv.mp}%"></i></div></div>
       <div class="vs">VS</div>
-      <div class="fighter enemy"><div class="fighter-top"><span class="fighter-name">${enemyName()}</span><span>${r.cls}${r.intel >= 3 ? '' : '（真名不明）'}　HP ${Math.max(0, r.hp)}/${r.hpMax}</span></div>
-        <div class="bar enemy"><i style="width:${Math.max(0, r.hp / r.hpMax) * 100}%"></i></div>
+      <div class="fighter enemy" id="f-en" style="--cc:${classColor(r.cls)}"><div class="fighter-top"><span class="fighter-name">${emblem(r.cls, 18)}${enemyName()}</span><span>${r.cls}${r.intel >= 3 ? '' : '（真名不明）'}　HP ${Math.max(0, r.hp)}/${r.hpMax}</span></div>
+        <div class="bar enemy"><i class="lag" style="width:${enFrom}%"></i><i data-w="${enW}" style="width:${enFrom}%"></i></div>
         ${r.intel >= 3 ? `<div class="enemy-params">${PARAM_NAMES.map((n, i) => `${n}<b>${servantOf(r).p[i]}</b>`).join('')}</div>` : ''}</div>
     </div>`,
   ];
@@ -106,22 +111,23 @@ function battleScene(extra) {
     const a = MASTER_ACTS[k]; const cnt = a.item ? `×${G.items[a.item]}` : '';
     return `<button class="chip ${B.mact === k ? 'on' : ''}" data-mact="${k}" ${mactAvailable(k) ? '' : 'disabled'} aria-pressed="${B.mact === k}">${a.name}${cnt}<small>${a.hint}</small></button>`;
   }).join('')}</div></div>`);
-  body.push('<p class="note rule">三すくみ：白兵 ＞ 魔術 ＞ 機動 ＞ 白兵</p>');
+  body.push(triangleSVG(B.tell ? B.tellKey : null));
 
   const p = i => `${PARAM_NAMES[i]}${valueRank(servantParam(i))}`;
   const mpAfter = sv.mp + (B.mact === 'crystal' ? 40 : 0);
   const choices = [
-    { label: '白兵戦', hint: `${p(0)}・魔術に強い`, fn: () => battleRound('str') },
-    { label: '機動戦', hint: `${p(2)}・白兵に強い`, fn: () => battleRound('agi') },
-    { label: '魔術戦', hint: `${p(3)}・機動に強い`, fn: () => battleRound('mag') },
-    { label: `宝具「${me.np}」`, hint: `${p(5)}・魔力-50${sv.exposed ? '' : '・真名が知られる'}`, disabled: mpAfter < 50, fn: () => battleRound('np'), cls: 'primary' },
-    { label: '防御', hint: `${p(1)}・被害半減、防げば反撃`, fn: () => battleRound('guard') },
-    { label: '見切り', hint: '次の構えを確実に読む・真名の手がかり', fn: () => battleRound('observe') },
+    { label: `宝具「${me.np}」`, hint: `${p(5)}・魔力-50${sv.exposed ? '' : '・真名が知られる'}`, disabled: mpAfter < 50, fn: () => battleRound('np'), cls: 'primary wide', icon: 'np' },
+    { label: '白兵戦', hint: `${p(0)}・魔術に強い`, fn: () => battleRound('str'), icon: 'str', cls: B.tellKey === 'agi' && B.tell ? 'warn' : '' },
+    { label: '機動戦', hint: `${p(2)}・白兵に強い`, fn: () => battleRound('agi'), icon: 'agi', cls: B.tellKey === 'mag' && B.tell ? 'warn' : '' },
+    { label: '魔術戦', hint: `${p(3)}・機動に強い`, fn: () => battleRound('mag'), icon: 'mag', cls: B.tellKey === 'str' && B.tell ? 'warn' : '' },
+    { label: '防御', hint: `${p(1)}・半減、防げば反撃`, fn: () => battleRound('guard'), icon: 'guard' },
+    { label: '見切り', hint: '次の手を読む・真名の手がかり', fn: () => battleRound('observe'), icon: 'observe' },
   ];
-  if (!B.boss) choices.push({ label: '敵マスターを狙う', hint: `${isAssassin() ? '気配遮断で有利' : '成功率は低い'}・悪`, cls: 'danger', fn: () => battleRound('master') });
-  choices.push({ label: `令呪を使う（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu });
-  if (!B.final) choices.push({ label: '撤退する', hint: G.items.smoke ? '煙幕の護符で確実に' : '敏捷・幸運で判定', fn: () => battleRound('flee') });
-  scene({ title: B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices });
+  if (!B.boss) choices.push({ label: '敵マスターを狙う', hint: `${isAssassin() ? '気配遮断で有利' : '成功率低'}・悪`, cls: 'danger', fn: () => battleRound('master'), icon: 'target' });
+  choices.push({ label: `令呪（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu, icon: 'seal' });
+  if (!B.final) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
+  scene({ title: B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
+  animateBattle();
 }
 function sealMenu() {
   const choices = [
@@ -130,8 +136,8 @@ function sealMenu() {
     { label: '「耐え抜け」', hint: 'HPを7割まで回復し、防御+30', fn: () => battleRound('seal_endure') },
   ];
   if (!B.final) choices.push({ label: '「退け」', hint: '確実に撤退', fn: () => battleRound('seal_retreat') });
-  choices.push({ label: '戻る', fn: () => battleScene() });
-  scene({ title: '令呪', sub: `残り${G.master.seals}画`, body: ['<p>右手の令呪が熱を帯びる。三画しかない絶対命令権――どう使う？</p>'], choices });
+  choices.push({ label: '戻る', fn: () => { B.anim = null; battleScene(); } });
+  scene({ title: '令呪', sub: `残り${G.master.seals}画`, body: [sealGlyphs(), '<p>右手の令呪が熱を帯びる。三画しかない絶対命令権――どう使う？</p>'], choices });
 }
 
 // ---------------- 1手番の処理 ----------------
@@ -139,6 +145,7 @@ function battleRound(cmd) {
   const r = B.r; const me = servantOf(G); const sv = G.servant;
   B.round++;
   const log = [];
+  B.fxq = []; B.anim = { me: sv.hp, en: r.hp };
   const P = me.short, E = enemyName();
   const et = B.enemyNext;
 
@@ -148,6 +155,7 @@ function battleRound(cmd) {
     G.master.seals--; addLog('令呪を一画使用（戦闘）。');
     const order = { seal_power: '全力で打ち倒せ', seal_np: '宝具を解き放て', seal_endure: '耐え抜け', seal_retreat: '退け' }[cmd];
     log.push(`<b>「令呪をもって命ずる――${order}！」</b> 右手の令呪が一画、紅く輝いて消えた。`);
+    B.fxq.push({ type: 'seal', order });
     if (cmd === 'seal_retreat') return escape(log.concat([`${P}の姿が掻き消え、次の瞬間にはあなたの隣にいた。令呪による空間転移だ。`]));
     if (cmd === 'seal_power') { sealBoost = 35; tac = ['str', 'agi', 'mag'].reduce((b, k) => servantParam(TACTICS[k].stat) > servantParam(TACTICS[b].stat) ? k : b, 'str'); }
     if (cmd === 'seal_np') { tac = 'np'; npFree = true; sealBoost = 20; }
@@ -171,7 +179,7 @@ function battleRound(cmd) {
   if (ma === 'boost') { od(-15); mBonus = 14; log.push(`強化魔術で${P}の霊基を後押しした。`); }
   if (ma === 'heal') { od(-20); shp(25); log.push(`治癒魔術で${P}の傷を塞いだ。（HP+25）`); }
   if (ma === 'potion') { item('potion', -1); shp(35); log.push(`治癒の霊薬を使った。（HP+35）`); }
-  if (ma === 'gem') { item('gem', -1); mBonus = 12; r.hp -= 10; log.push(`宝石を投げ放つ。炸裂した魔力が${E}を撃った！（10ダメージ）`); }
+  if (ma === 'gem') { item('gem', -1); mBonus = 12; r.hp -= 10; log.push(`宝石を投げ放つ。炸裂した魔力が${E}を撃った！（10ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: 10 }); }
   if (ma === 'crystal') { item('crystal', -1); mp(40); log.push(`魔力結晶を砕き、${P}に魔力を流し込んだ。（魔力+40）`); }
 
   // 宝具の宣言
@@ -179,11 +187,13 @@ function battleRound(cmd) {
     if (!npFree) sv.mp -= 50;
     if (!sv.exposed) { sv.exposed = true; log.push(`<span class="note">宝具の解放により、${P}の真名が敵に知られた。</span>`); }
     log.push(`<b>「${me.np}（${me.npRuby}）――！」</b>`);
+    B.fxq.push({ type: 'np', side: 'me', name: me.np, ruby: me.npRuby, who: me.short, cls: me.cls });
   }
   if (et === 'np') {
     r.mp -= 50;
     const en = servantOf(r);
     log.push(`${E}が宝具を解き放つ。<b>「${en.np}（${en.npRuby}）！」</b>`);
+    B.fxq.push({ type: 'np', side: 'en', name: en.np, ruby: en.npRuby, who: en.short, cls: r.cls });
     if (r.intel < 3) { r.intel = 3; log.push(`<span class="note">その宝具は――${en.name}！ 敵の真名が判明した。</span>`); addLog(`${r.cls}の真名「${en.name}」が判明。`); }
   }
 
@@ -210,13 +220,15 @@ function battleRound(cmd) {
     return base + (t === 'np' ? 25 : 0) + (t === 'guard' ? 5 : 0) + rand(1, 40) + mod;
   };
   const atk = t => ['str', 'agi', 'mag', 'np'].includes(t);
+  let crit = false;
   const dmgCalc = (diff, t, defEnd, luck, mul = 1) => {
     let d = Math.round((10 + diff * 0.5 + (t === 'np' ? 22 : 0) - defEnd / 10) * mul);
-    if (Math.random() * 100 < luck / 2) { d = Math.round(d * 1.5); log.push('会心の一撃！'); }
+    crit = false;
+    if (Math.random() * 100 < luck / 2) { d = Math.round(d * 1.5); log.push('会心の一撃！'); crit = true; }
     return Math.max(4, d);
   };
-  const hitEnemy = (d, t) => { r.hp -= d; log.push(winText(t, P, E) + `（${d}ダメージ）`); };
-  const hitMe = (d, t) => { shp(-d); log.push(winText(t, E, P) + `（${d}ダメージ）`); };
+  const hitEnemy = (d, t) => { r.hp -= d; log.push(winText(t, P, E) + `（${d}ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: d, crit }); };
+  const hitMe = (d, t) => { shp(-d); log.push(winText(t, E, P) + `（${d}ダメージ）`); B.fxq.push({ type: 'hit', side: 'me', dmg: d, crit }); };
 
   // ---- 敵マスターを狙う ----
   if (tac === 'master') {
@@ -293,6 +305,10 @@ function winText(t, a, d) {
   return pick(lines[t]);
 }
 function afterRound(log) {
+  const cut = (B.fxq || []).filter(x => x.type === 'np' || x.type === 'seal');
+  playQueue(cut.map(c => done => cutIn(c, done)), () => afterRoundCore(log));
+}
+function afterRoundCore(log) {
   const r = B.r; const sv = G.servant;
   const extra = [`<div class="blog">${log.map(t => `<p>${t}</p>`).join('')}</div>`];
   if (r.hp <= 0) return battleWin(extra);
@@ -315,10 +331,13 @@ function battleLoseChoice(extra) {
     item('potion', -1); G.servant.hp = 15; escape([`霊薬で辛うじて霊基を保ち、${SV()}は最後の力であなたを抱えて退いた。`]);
   } });
   choices.push({ label: '……ここまでか', fn: () => { const boss = B.boss; B = null; ending(boss ? 'devoured' : 'lost'); } });
+  sfx('lose');
   scene({ title: '霊核の危機', sub: 'CRISIS', body: [...extra, `<p>${SV()}が膝をつく。霊基が崩れ始めている――このままでは消滅する！</p>`], choices });
 }
 function battleWin(extra) {
   const r = B.r; const wasFinal = B.final; const boss = B.boss; B = null;
+  sfx('win');
+  if (!boss) showCard({ kicker: 'VICTORY', title: '勝利', sub: `${rivalLabel(r)}陣営を撃破`, cls: 'victory', ms: 1300 });
   if (boss) return ending(G.servant.special ? 'destroySpecial' : 'destroy');
   r.alive = false; r.hp = 0; G.kills++;
   NOTES = []; bond(5);
@@ -338,4 +357,45 @@ function battleWin(extra) {
       next('戦いの後', paras(['敗者に掛ける言葉はない。あなたは振り返らずに、その場を後にした。', ...takeNotes()]), finish); } },
   ];
   scene({ title: '勝利', sub: 'VICTORY', body, choices });
+}
+
+// ---------------- 戦闘の演出 ----------------
+// 宝具・令呪のカットイン
+function cutIn(c, done) {
+  if (c.type === 'np') {
+    sfx('np');
+    return showCard({ kicker: `${c.who}　宝具解放`, ruby: c.ruby, title: c.name, cls: `np ${c.side === 'en' ? 'enemy' : ''}`, color: classColor(c.cls), ms: 1700 }, done);
+  }
+  sfx('seal');
+  showCard({ kicker: '令呪をもって命ずる', title: `「${c.order}」`, cls: 'seal', ms: 1500 }, done);
+}
+// HPバーの減少・ダメージ数字・揺れ
+function animateBattle() {
+  const q = (B && B.fxq) || []; if (B) { B.fxq = []; B.anim = null; }
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelectorAll('[data-w]').forEach(el => { el.style.width = el.dataset.w + '%'; });
+    document.querySelectorAll('.bar .lag').forEach(el => { const to = el.nextElementSibling && el.nextElementSibling.dataset.w; if (to) setTimeout(() => { el.style.width = to + '%'; }, 450); });
+    let i = 0;
+    for (const e of q) {
+      if (e.type !== 'hit') continue;
+      const box = document.getElementById(e.side === 'me' ? 'f-me' : 'f-en'); if (!box) continue;
+      const n = document.createElement('span'); n.className = `dmg ${e.crit ? 'crit' : ''}`; n.textContent = `-${e.dmg}`;
+      n.style.animationDelay = `${i * 160}ms`; box.appendChild(n); i++;
+      if (CFG.fx) { box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake'); }
+      sfx(e.crit ? 'crit' : 'hit');
+    }
+  }));
+}
+// 三すくみの図（読めた敵の構えを赤く示す）
+function triangleSVG(tellKey) {
+  const node = (k, x, y, label) => `<g class="tri-node ${tellKey === k ? 'tell' : ''}"><circle cx="${x}" cy="${y}" r="15"/><text x="${x}" y="${y + 4}">${label}</text></g>`;
+  const arrow = (x1, y1, x2, y2) => `<path class="tri-arrow" d="M${x1} ${y1}L${x2} ${y2}" marker-end="url(#ah)"/>`;
+  return `<div class="tri"><svg viewBox="0 0 150 92" aria-label="三すくみ：白兵は魔術に、魔術は機動に、機動は白兵に強い">
+    <defs><marker id="ah" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L6 3L0 6z" class="tri-head"/></marker></defs>
+    ${arrow(64, 22, 95, 64)}${arrow(92, 76, 58, 76)}${arrow(42, 64, 64, 28)}
+    ${node('str', 75, 18, '白兵')}${node('mag', 108, 74, '魔術')}${node('agi', 42, 74, '機動')}
+  </svg><div class="tri-text">矢印の先に強い。<br>${tellKey && TACTICS[tellKey] && ['str', 'agi', 'mag'].includes(tellKey) ? `<b>読めた構え：${TACTICS[tellKey].name}</b>` : tellKey === 'np' ? '<b>宝具が来る</b>' : tellKey === 'guard' ? '<b>敵は防御の構え</b>' : '敵の構えは読めていない'}</div></div>`;
+}
+function sealGlyphs() {
+  return `<div class="seal-glyphs">${[0, 1, 2].map(i => `<svg viewBox="0 0 18 22" class="${i < G.master.seals ? 'on' : ''}"><path d="${SEAL_PATH}"/></svg>`).join('')}</div>`;
 }

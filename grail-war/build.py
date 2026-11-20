@@ -14,7 +14,7 @@ DIST = ROOT / "dist"
 
 # 読み込み順が大事：データ → 本体
 SCRIPTS = ["data_servants.js", "data_world.js", "data_story.js", "data_events.js",
-           "core.js", "actions.js", "battle.js", "ending.js", "view.js"]
+           "fx.js", "core.js", "actions.js", "battle.js", "ending.js", "view.js"]
 
 FONTS = ('<link rel="preconnect" href="https://fonts.googleapis.com">'
          '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'

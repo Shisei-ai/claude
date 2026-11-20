@@ -195,7 +195,7 @@ function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } 
 // scene({ title, sub, body:[段落...], choices:[{label, hint, fn, cls, disabled}] })
 function scene(s) { SCENE = s; TAB = 'story'; render(); const m = document.querySelector('.main'); if (m) m.scrollTop = 0; }
 function next(title, body, fn, label = '次へ', sub) {
-  scene({ title, sub, body, choices: [{ label, fn, cls: 'primary' }] });
+  scene({ title, sub, body, reveal: true, choices: [{ label, fn, cls: 'primary', icon: 'next' }] });
 }
 function takeNotes() { const n = NOTES; NOTES = []; return n; }
 function paras(list) { return list.filter(Boolean).map(p => p.startsWith('<p') || p.startsWith('<div') ? p : `<div class="para">${p}</div>`); }
@@ -228,7 +228,11 @@ function startSlot() {
   if (!SLOT.story) {
     SLOT.story = true;
     const beat = STORY.find(s => s.phase === G.phase && s.day === G.day && s.slot === G.slot && !G.used[s.id] && (!s.cond || s.cond()));
-    if (beat) return showEvent(beat, beat.after === 'advance' ? advance : startSlot);
+    if (beat) {
+      const go = () => showEvent(beat, beat.after === 'advance' ? advance : startSlot);
+      if (beat.chapter && beat.chapter !== G.lastChapter) { G.lastChapter = beat.chapter; return chapterCard(beat.chapter, go); }
+      return go();
+    }
   }
   if (G.phase === 'war' && aliveRivals().length === 1) {
     const last = aliveRivals()[0];
@@ -247,7 +251,7 @@ function advance() {
   G.slot++;
   if (G.slot > 1) { G.slot = 0; G.day++; dailyUpdate(); }
   if (G.phase === 'war' && G.day > WAR_DAYS) return deadlineScene();
-  startSlot();
+  slotCard(startSlot);
 }
 function dailyUpdate() {
   hp(10); od(Math.ceil(odMax() * 0.6));
@@ -314,5 +318,5 @@ function showEvent(ev, after = advance) {
       },
     }));
   if (!choices.length) choices.push({ label: '次へ', fn: after });
-  scene({ title: ev.title, sub: ev.chapter || 'EVENT', body: paras([text]), choices });
+  scene({ title: ev.title, sub: ev.chapter || 'EVENT', body: paras([text]), choices, reveal: true });
 }

@@ -39,13 +39,10 @@ body {
 button { font: inherit; color: inherit; }
 b { color: var(--gold); font-weight: 700; }
 
-#app { height: 100%; display: flex; flex-direction: column; max-width: 560px; margin: 0 auto; position: relative;
-  background:
-    radial-gradient(120% 60% at 50% -10%, #1d2546 0%, transparent 60%),
-    var(--bg); }
+#app { height: 100%; display: flex; flex-direction: column; max-width: 560px; margin: 0 auto; position: relative; z-index: 1; }
 
 /* ---------- 上部：状況バー ---------- */
-.topbar { flex: none; padding-block: 10px 8px; padding-left: var(--gutter-l); padding-right: var(--gutter-r);
+.topbar { flex: none; position: relative; padding-block: 10px 10px; padding-left: var(--gutter-l); padding-right: var(--gutter-r);
   border-bottom: 1px solid var(--line); background: #0c0e19e6; }
 .topbar-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .when { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
@@ -241,6 +238,178 @@ b { color: var(--gold); font-weight: 700; }
 .enemy-params { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; font-size: 11px; color: var(--muted); }
 .enemy-params b { font-family: var(--font-rank); color: var(--fg); margin-left: 3px; font-weight: 600; }
 .note.rule { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+
+/* =============================================================
+   演出
+   ============================================================= */
+/* ---------- 空（時間帯で変わる背景）と雪 ---------- */
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(120% 60% at 50% -10%, #1d2546 0%, transparent 60%), var(--bg); }
+body[data-sky="day"]::before { background: radial-gradient(130% 55% at 50% -12%, #3a4f7a 0%, #1c2440 45%, transparent 75%),
+  linear-gradient(180deg, transparent 60%, #2a2233 100%), #11152a; }
+body[data-sky="dawn"]::before { background: radial-gradient(120% 60% at 50% 110%, #8a5a3c 0%, #43304a 40%, transparent 75%),
+  radial-gradient(100% 50% at 50% -10%, #2a3156 0%, transparent 60%), #141429; }
+body[data-sky="blood"]::before { background: radial-gradient(120% 60% at 50% -10%, #4a1420 0%, transparent 60%), #0e0a12; }
+#snow { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+body:not(.fx-on) #snow { display: none; }
+
+/* ---------- 文章の段落表示 ---------- */
+.fx-on .rv { animation: rvIn .5s ease-out both; animation-delay: var(--d, 0ms); }
+.fx-on .scene.skip .rv, .fx-on .scene.skip .rv * { animation: none !important; opacity: 1 !important; transform: none !important; }
+@keyframes rvIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.fx-on .chk { animation: chkPop .45s cubic-bezier(.3, 1.6, .5, 1) both; animation-delay: inherit; }
+@keyframes chkPop { from { transform: scale(.7); opacity: 0; } to { transform: none; opacity: 1; } }
+.chk::before { content: "⚀"; font-size: 13px; line-height: 1; }
+
+/* 物語の場面：題字を少し格調高く */
+.scene.story .scene-title { font-size: 25px; letter-spacing: .04em; padding-left: 12px; border-left: 3px solid var(--seal); }
+.scene.story .scene-sub { color: #e8a0a8; }
+
+/* ---------- オーバーレイ（場面転換・章・カットイン） ---------- */
+#overlay { position: fixed; inset: 0; z-index: 50; display: none; place-items: center; cursor: pointer;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+#overlay.show { display: grid; animation: ovIn .35s ease-out both; }
+@keyframes ovIn { from { opacity: 0; } to { opacity: 1; } }
+.ov-inner { text-align: center; max-width: 520px; animation: ovText .9s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes ovText { from { opacity: 0; transform: translateY(10px); letter-spacing: .5em; } to { opacity: 1; transform: none; } }
+.ov-kicker { font-size: 12px; letter-spacing: .35em; color: var(--gold); margin-bottom: 8px; }
+.ov-title { font-family: var(--font-display); font-weight: 800; font-size: 40px; line-height: 1.25; text-wrap: balance; }
+.ov-sub { font-family: var(--font-display); font-size: 18px; letter-spacing: .3em; color: var(--muted); margin-top: 6px; }
+.ov-ruby { font-size: 13px; letter-spacing: .25em; color: var(--cc, var(--gold)); }
+#overlay.day { background: radial-gradient(90% 50% at 50% 50%, #2c3a60f2, #0c0e19f5); }
+#overlay.day .ov-sub { color: var(--sky-day); }
+#overlay.night { background: radial-gradient(90% 50% at 50% 50%, #161a33f2, #06070ef8); }
+#overlay.night .ov-sub { color: var(--gold); }
+#overlay.chapter { background: #06070ef8; }
+#overlay.chapter .ov-title { font-size: 52px; letter-spacing: .1em; }
+#overlay.chapter .ov-title::after { content: ""; display: block; width: 60px; height: 2px; margin: 14px auto 0; background: var(--seal); }
+#overlay.victory { background: radial-gradient(70% 40% at 50% 50%, #d2ad5f33, #0c0e19e0); }
+#overlay.victory .ov-title { color: var(--gold); }
+#overlay.dawn { background: radial-gradient(90% 60% at 50% 100%, #8a5a3ccc, #0c0e19f5); }
+#overlay.blood { background: radial-gradient(90% 60% at 50% 50%, #4a1420ee, #050307fa); }
+#overlay.blood .ov-title { color: #f3b7bd; }
+/* 宝具カットイン：斜めの帯が走る */
+#overlay.np { background: #04050af0; overflow: hidden; }
+#overlay.np::before { content: ""; position: absolute; left: -20%; right: -20%; top: 50%; height: 150px; margin-top: -75px;
+  background: linear-gradient(90deg, transparent, var(--cc), transparent); opacity: .3; transform: skewY(-8deg);
+  animation: band 1.6s ease-out both; }
+#overlay.np.enemy::before { background: linear-gradient(90deg, transparent, var(--seal), transparent); }
+@keyframes band { from { transform: skewY(-8deg) translateX(-60%); } to { transform: skewY(-8deg) translateX(10%); } }
+#overlay.np .ov-inner { position: relative; }
+#overlay.np .ov-title { font-size: 34px; text-shadow: 0 0 24px var(--cc); }
+#overlay.np.enemy .ov-title { text-shadow: 0 0 24px var(--seal); }
+#overlay.np .ov-kicker { color: var(--fg); }
+#overlay.seal { background: radial-gradient(60% 40% at 50% 50%, #d43c4c55, #050307f2); }
+#overlay.seal .ov-title { color: #ffd9dc; font-size: 30px; text-shadow: 0 0 18px var(--seal); }
+#overlay.seal .ov-kicker { color: #f3b7bd; }
+
+/* ---------- 選択肢のアイコン・グリッド ---------- */
+.aicon { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; color: var(--gold); opacity: .9; }
+.choice.danger .aicon { color: #f3a0a8; }
+.choice .c-label { flex: 1; min-width: 0; }
+.choice { justify-content: flex-start; }
+.choices.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.choices.grid .choice { flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; min-height: 66px; }
+.choices.grid .choice .c-hint { text-align: left; max-width: none; }
+.choices.grid .choice .aicon { width: 18px; height: 18px; }
+.choices.grid .choice.wide { grid-column: 1 / -1; }
+.choice.warn { border-color: #d43c4c66; }
+.choice.warn .c-hint::after { content: "　⚠ 構えに不利"; color: #f3a0a8; }
+.emblem { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; margin-right: 4px; }
+
+/* ---------- ヘッダーの進行バー ---------- */
+.progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: #ffffff0d; }
+.progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--seal), var(--gold)); transition: width .6s; }
+.progress b { position: absolute; top: -3px; width: 2px; height: 8px; background: var(--seal); }
+
+/* ---------- 戦闘 ---------- */
+.fighter { position: relative; border-left: 3px solid var(--cc, var(--line)); }
+.fighter-name { display: flex; align-items: center; }
+.bar { position: relative; }
+.bar i { position: relative; transition: width .55s cubic-bezier(.3, .7, .3, 1); }
+.bar i.lag { position: absolute; left: 0; top: 0; height: 100%; background: #ffffff55 !important; transition: width .8s ease-in; }
+.bar.thin { height: 3px; margin-top: 4px; }
+.dmg { position: absolute; right: 16px; top: 4px; font-family: var(--font-rank); font-weight: 600; font-size: 26px; color: #fff;
+  text-shadow: 0 0 8px var(--seal), 0 2px 0 #000; pointer-events: none; animation: dmgUp 1.1s ease-out both; }
+.dmg.crit { font-size: 34px; color: #ffd27a; }
+#f-me .dmg { color: #ffc7cc; }
+@keyframes dmgUp { 0% { opacity: 0; transform: translateY(8px) scale(.8); } 15% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-22px); } }
+.fx-on .fighter.shake { animation: shake .4s; }
+@keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-6px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+.fx-on .scene.battle .blog p { animation: rvIn .35s ease-out both; }
+.fx-on .scene.battle .blog p:nth-child(2) { animation-delay: .12s; } .fx-on .scene.battle .blog p:nth-child(3) { animation-delay: .24s; }
+.fx-on .scene.battle .blog p:nth-child(4) { animation-delay: .36s; } .fx-on .scene.battle .blog p:nth-child(n+5) { animation-delay: .48s; }
+.tri { display: flex; align-items: center; gap: 12px; margin: 10px 0 2px; }
+.tri svg { width: 132px; height: auto; flex: none; }
+.tri-node circle { fill: var(--bg-2); stroke: var(--line); stroke-width: 1.2; }
+.tri-node text { fill: var(--fg); font-size: 9px; text-anchor: middle; font-family: var(--font-body); }
+.tri-node.tell circle { fill: #d43c4c33; stroke: var(--seal); stroke-width: 1.8; }
+.tri-arrow { stroke: var(--gold); stroke-width: 1.2; fill: none; opacity: .7; }
+.tri-head { fill: var(--gold); }
+.tri-text { font-size: 12px; color: var(--muted); line-height: 1.6; min-width: 0; }
+.tri-text b { color: #f3c9cd; font-weight: 500; }
+.seal-glyphs { display: flex; justify-content: center; gap: 10px; margin: 6px 0 14px; }
+.seal-glyphs svg { width: 30px; height: 38px; }
+.seal-glyphs path { fill: none; stroke: #d43c4c55; stroke-width: 1; }
+.seal-glyphs .on path { fill: var(--seal); stroke: none; filter: drop-shadow(0 0 6px #d43c4c99); }
+
+/* ---------- サーヴァントカード（クラス色） ---------- */
+.svcard { border-color: color-mix(in srgb, var(--cc, var(--gold)) 45%, transparent); }
+.svcard .svclass { color: var(--cc, var(--gold)); }
+.svcard-emblem { position: absolute; right: 14px; top: 12px; opacity: .35; }
+.svcard-emblem .emblem { stroke-width: 1; }
+
+/* ---------- 召喚の演出 ---------- */
+.summon-stage { position: relative; display: grid; place-items: center; }
+.summon-stage .circle { grid-area: 1 / 1; }
+.summon-flash { grid-area: 1 / 1; width: 100%; height: 100%; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle, #fff 0%, var(--cc) 30%, transparent 65%); }
+.summon-class { grid-area: 1 / 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.summon-class span { font-family: var(--font-rank); letter-spacing: .4em; font-size: 15px; color: var(--cc); margin-left: .4em; }
+.summon-class .emblem { margin: 0; filter: drop-shadow(0 0 10px var(--cc)); }
+.summon-name { font-family: var(--font-display); font-size: 28px; font-weight: 800; text-align: center; margin: 12px 0 0; text-wrap: balance; }
+.summon-line { margin: 14px 0; font-family: var(--font-display); font-size: 16px; }
+.fx-on .summon .circle .ring { stroke-dasharray: 320; animation: draw 1.4s ease-out both; }
+@keyframes draw { from { stroke-dashoffset: 320; } to { stroke-dashoffset: 0; } }
+.fx-on .summon .summon-flash { animation: flash 1.1s ease-out both; animation-delay: 1.3s; }
+@keyframes flash { 0% { opacity: 0; transform: scale(.4); } 30% { opacity: .95; } 100% { opacity: 0; transform: scale(1.5); } }
+.fx-on .summon .summon-class { animation: rvIn .8s ease-out both; animation-delay: 1.8s; }
+.fx-on .summon .summon-name { animation: rvIn .8s ease-out both; animation-delay: 2.3s; }
+.fx-on .summon .summon-line { animation: rvIn .8s ease-out both; animation-delay: 2.8s; }
+.fx-on .summon .summon-card { animation: rvIn .8s ease-out both; animation-delay: 3.2s; }
+.fx-on .scene.summon.skip *, .fx-on .scene.summon.skip { animation: none !important; }
+.fx-on .scene.summon.skip .summon-flash { opacity: 0; }
+
+/* ---------- タイトル・設定・ギャラリー ---------- */
+.title-sub { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.title-sub .choice { min-height: 48px; padding: 10px 14px; }
+.title-circle { filter: drop-shadow(0 0 18px #d43c4c33); }
+.setting { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.setting b { display: block; font-weight: 500; }
+.setting span { font-size: 12px; color: var(--muted); }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { background: var(--bg-2); border: 0; padding: 9px 4px; font-size: 13px; cursor: pointer; color: var(--muted); min-height: 40px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--gold-soft); color: var(--gold); font-weight: 700; }
+.seg button:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0 6px; }
+.gallery div { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--bg-2); min-width: 0; }
+.gallery span { display: block; font-family: var(--font-rank); font-size: 11px; color: var(--muted); letter-spacing: .1em; }
+.gallery b { font-family: var(--font-display); font-weight: 700; color: var(--muted); }
+.gallery .got { border-color: #d2ad5f66; }
+.gallery .got b { color: var(--gold); }
+
+/* ---------- エンディング ---------- */
+.scene.ending .scene-title { font-size: 26px; }
+.scene.ending.good .scene-sub { color: var(--gold); }
+.scene.ending.bad .scene-sub { color: #f3a0a8; }
+.dawn-circle .ring { stroke: #e8c58a; }
+.blood-circle .ring { stroke: #8a2a36; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-on .rv, .fx-on .chk, #overlay.show, .ov-inner, #overlay.np::before, .dmg, .fx-on .fighter.shake,
+  .fx-on .summon *, .bar i { animation: none !important; transition: none !important; }
+}
 
 </style>
 <div id="app"></div>
@@ -1495,6 +1664,192 @@ const EVENTS = [
 ];
 
 // =============================================================
+//  fx.js … 演出（設定・効果音・カットイン・空と雪・アイコン・エンディング記録）
+// =============================================================
+
+// ---------------- 設定（ブラウザに保存） ----------------
+const CFG_KEY = 'fukami-cfg';
+const END_KEY = 'fukami-endings';
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let CFG = { speed: 1, fx: !REDUCED, sound: false };
+try { Object.assign(CFG, JSON.parse(localStorage.getItem(CFG_KEY) || '{}')); } catch (e) { }
+function saveCfg() { try { localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); } catch (e) { } applyCfg(); }
+function applyCfg() { document.body.classList.toggle('fx-on', !!CFG.fx); }
+const SPEED_STEP = [0, 230, 420];        // 文字送り：段落ごとの表示間隔（ミリ秒）
+const SPEED_NAMES = ['瞬時', '普通', 'ゆっくり'];
+let REVEAL_UNTIL = 0;                    // 文章の表示演出が終わる時刻
+
+// ---------------- エンディングの記録 ----------------
+const ENDING_LIST = [
+  ['destroySpecial', '夜明けの約束'], ['destroy', '冬の終わり'], ['together', '共に生きる'], ['servantWish', '託された願い'],
+  ['none', '願いなき勝者'], ['wish', '歪んだ願い'], ['wishKnown', '承知の上の願い'], ['devoured', '黒い夜明け'],
+  ['lost', '脱落'], ['dead', '血に染まる冬'],
+];
+function seenEndings() { try { return JSON.parse(localStorage.getItem(END_KEY) || '[]'); } catch (e) { return []; } }
+function markEnding(k) {
+  const s = seenEndings(); if (s.includes(k)) return;
+  s.push(k); try { localStorage.setItem(END_KEY, JSON.stringify(s)); } catch (e) { }
+}
+
+// ---------------- クラスの紋章と色 ----------------
+const CLASS_COLOR = {
+  'セイバー': '#7fa7e0', 'アーチャー': '#d8796a', 'ランサー': '#5cbca8', 'ライダー': '#d1a253', 'キャスター': '#ad88dc',
+  'アサシン': '#97a0b5', 'バーサーカー': '#e0644a', 'ルーラー': '#e6d6a0', 'アヴェンジャー': '#8a74c8', '聖杯': '#b04050',
+};
+const CLASS_ICON = {
+  'セイバー': '<path d="M12 2l2 3v10h-4V5z"/><path d="M7 15h10M12 15v5M10 21h4"/>',
+  'アーチャー': '<path d="M6 3c8 3 8 15 0 18"/><path d="M6 3v18"/><path d="M4 12h15M16 9l3 3-3 3"/>',
+  'ランサー': '<path d="M12 2l3 5h-6z"/><path d="M12 7v15M9 11h6"/>',
+  'ライダー': '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/><path d="M12 4v6M12 14v6M4 12h6M14 12h6"/>',
+  'キャスター': '<path d="M12 3l1.8 3.7 4 .6-2.9 2.8.7 4L12 12.2l-3.6 1.9.7-4-2.9-2.8 4-.6z"/><path d="M12 15v7"/>',
+  'アサシン': '<path d="M5 8c2-3 12-3 14 0-1 6-4 9-7 9S6 14 5 8z"/><path d="M8.5 10.5h2.5M13 10.5h2.5"/>',
+  'バーサーカー': '<path d="M4 3l5 6-2 2 9 10"/><path d="M20 3l-5 6 2 2-9 10"/>',
+  'ルーラー': '<path d="M12 3v17M7 21h10M4 8h16"/><path d="M4 8l-2 6h4zM20 8l-2 6h4z"/>',
+  'アヴェンジャー': '<path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-7 0 3 2 4 3 4-1-3 0-6 0-9z"/>',
+  '聖杯': '<path d="M7 3h10v4a5 5 0 0 1-10 0z"/><path d="M12 12v6M8 21h8"/>',
+};
+function classColor(cls) { return CLASS_COLOR[cls] || '#d2ad5f'; }
+function emblem(cls, size = 22) {
+  return `<svg class="emblem" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true" style="color:${classColor(cls)}">${CLASS_ICON[cls] || CLASS_ICON['聖杯']}</svg>`;
+}
+
+// ---------------- 行動ボタンのアイコン ----------------
+const ACT_ICON = {
+  battle: '<path d="M4 4l10 10M14 18l4-4M6 20l4-4"/><path d="M20 4L10 14M4 14l4 4"/>',
+  bond: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
+  intel: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  base: '<path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/>',
+  shop: '<path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/>',
+  rest: '<path d="M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10z"/>',
+  train: '<path d="M4 12h16M7 8v8M17 8v8M4 10v4M20 10v4"/>',
+  ally: '<circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/>',
+  walk: '<circle cx="12" cy="12" r="9"/><path d="M15 9l-2 4-4 2 2-4z"/>',
+  ritual: '<circle cx="12" cy="12" r="9"/><path d="M12 3l5.3 16.2L3.4 9.2h17.2L6.7 19.2z"/>',
+  scout: '<path d="M3 21l7-7M14 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12z"/>',
+  study: '<path d="M4 5h7v14H4zM13 5h7v14h-7z"/>',
+  str: '<path d="M12 2l2 3v10h-4V5z"/><path d="M7 15h10M12 15v6"/>',
+  agi: '<path d="M3 8h12a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h8"/>',
+  mag: '<path d="M12 2v6M12 16v6M2 12h6M16 12h6M5 5l4 4M15 15l4 4M19 5l-4 4M9 15l-4 4"/>',
+  np: '<circle cx="12" cy="12" r="4"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4M4.2 4.2l2.8 2.8M17 17l2.8 2.8M19.8 4.2L17 7M7 17l-2.8 2.8"/>',
+  guard: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 7v10"/>',
+  observe: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="2"/>',
+  target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v5M12 18v5M1 12h5M18 12h5"/>',
+  seal: '<path d="M12 2c4 5 6 9 0 20C6 11 8 7 12 2z"/>',
+  flee: '<path d="M10 6l-6 6 6 6M4 12h16"/>',
+  next: '<path d="M9 5l7 7-7 7"/>',
+};
+function actIcon(k) { return ACT_ICON[k] ? `<svg class="aicon" viewBox="0 0 24 24" aria-hidden="true">${ACT_ICON[k]}</svg>` : ''; }
+// ラベルからアイコンを決める（行動選択・サブメニュー用）
+const ICON_RULES = [
+  [/巡回|襲撃|迎え撃|戦う|仕掛|攻め込|挑発|戦いへ|挑む/, 'battle'], [/過ごす|語らう|想い|相棒|誓い|家族/, 'bond'],
+  [/情報|聞き込み|使い魔|教会|尾行/, 'intel'], [/偵察|探る/, 'scout'], [/文献|調べ|書庫|読み/, 'study'],
+  [/拠点|結界|罠|霊脈|陣/, 'base'], [/買い|買う/, 'shop'], [/休|眠る|覚悟/, 'rest'], [/鍛|修練|磨く|学ぶ|稼ぐ|アルバイト/, 'train'],
+  [/同盟/, 'ally'], [/歩く|散策/, 'walk'], [/召喚|触媒/, 'ritual'], [/撤退|退く|やめる|戻る|立ち去/, 'flee'],
+];
+function guessIcon(label) { for (const [re, k] of ICON_RULES) if (re.test(label)) return k; return null; }
+
+// ---------------- オーバーレイ（場面転換・カットイン） ----------------
+function overlayEl() {
+  let o = document.getElementById('overlay');
+  if (!o) { o = document.createElement('div'); o.id = 'overlay'; document.body.appendChild(o); }
+  return o;
+}
+// card({ kicker, title, sub, cls, ms }, then)  ……  タップでも閉じられる
+function showCard(c, then) {
+  if (!CFG.fx) { if (then) then(); return; }
+  const o = overlayEl();
+  o.className = `show ${c.cls || ''}`;
+  o.innerHTML = `<div class="ov-inner">${c.kicker ? `<div class="ov-kicker">${c.kicker}</div>` : ''}${c.ruby ? `<div class="ov-ruby">${c.ruby}</div>` : ''}<div class="ov-title">${c.title}</div>${c.sub ? `<div class="ov-sub">${c.sub}</div>` : ''}</div>`;
+  if (c.color) o.style.setProperty('--cc', c.color);
+  let done = false;
+  const fin = () => { if (done) return; done = true; o.className = ''; o.innerHTML = ''; o.onclick = null; if (then) then(); };
+  o.onclick = e => { e.stopPropagation(); fin(); };
+  setTimeout(fin, c.ms || 1200);
+}
+function playQueue(q, then) { if (!q.length) { if (then) then(); return; } const [f, ...rest] = q; f(() => playQueue(rest, then)); }
+
+const KANJI_NUM = ['〇', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二', '十三', '十四', '十五'];
+function chapterOf() {
+  if (!G) return '';
+  if (G.phase === 'prep' || G.phase === 'summon') return '序章　令呪の冬';
+  if (G.phase === 'end') return '終幕';
+  return G.day < 4 ? '第一幕　開幕' : G.day < 10 ? '第二幕　侵蝕' : '第三幕　降臨';
+}
+// コマが変わる時の「〇日目・夜」カード
+function slotCard(then) {
+  if (!G || !['prep', 'war'].includes(G.phase)) return then();
+  if (G.phase === 'prep' && G.day > PREP_DAYS) return showCard({ kicker: '序章', title: '召喚の夜', cls: 'night', ms: 1500 }, then);
+  const day = `${G.phase === 'prep' ? '準備' : ''}${KANJI_NUM[G.day] || G.day}日目`;
+  showCard({ kicker: chapterOf(), title: day, sub: G.slot ? '夜' : '昼', cls: G.slot ? 'night' : 'day', ms: 1000 }, then);
+}
+// 章の始まりカード
+function chapterCard(name, then) {
+  const [a, b] = name.split('　');
+  showCard({ kicker: 'CHAPTER', title: a, sub: b, cls: 'chapter', ms: 2200 }, then);
+}
+
+// ---------------- 効果音（その場で合成。初期設定はOFF） ----------------
+let AC = null;
+function audio() {
+  if (!AC) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; AC = new C(); }
+  if (AC.state === 'suspended') AC.resume();
+  return AC;
+}
+function beep(ac, freq, t0, dur, type = 'sine', vol = 0.06, endFreq) {
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t0);
+  if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g).connect(ac.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+}
+function noise(ac, t0, dur, vol = 0.08, freq = 900) {
+  const len = Math.floor(ac.sampleRate * dur); const buf = ac.createBuffer(1, len, ac.sampleRate); const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  s.buffer = buf; f.type = 'lowpass'; f.frequency.value = freq; g.gain.value = vol;
+  s.connect(f).connect(g).connect(ac.destination); s.start(t0);
+}
+function sfx(name) {
+  if (!CFG.sound) return;
+  try {
+    const ac = audio(); if (!ac) return; const t = ac.currentTime;
+    if (name === 'tick') beep(ac, 1200, t, 0.05, 'sine', 0.025);
+    if (name === 'hit') { noise(ac, t, 0.18, 0.12, 700); beep(ac, 120, t, 0.18, 'triangle', 0.08, 60); }
+    if (name === 'crit') { noise(ac, t, 0.3, 0.16, 1500); beep(ac, 220, t, 0.3, 'square', 0.04, 80); }
+    if (name === 'np') { beep(ac, 180, t, 0.9, 'sawtooth', 0.035, 1400); noise(ac, t + 0.6, 0.6, 0.1, 2500); }
+    if (name === 'seal') { beep(ac, 660, t, 1.2, 'sine', 0.05); beep(ac, 990, t + 0.05, 1.2, 'sine', 0.035); beep(ac, 1320, t + 0.1, 1.0, 'sine', 0.02); }
+    if (name === 'summon') { [262, 330, 392, 523].forEach((f, i) => beep(ac, f, t + i * 0.18, 1.8, 'sine', 0.04)); noise(ac, t + 0.9, 0.8, 0.06, 3000); }
+    if (name === 'win') [523, 659, 784, 1047].forEach((f, i) => beep(ac, f, t + i * 0.1, 0.5, 'triangle', 0.04));
+    if (name === 'lose') [392, 330, 262, 196].forEach((f, i) => beep(ac, f, t + i * 0.18, 0.6, 'sine', 0.04));
+    if (name === 'page') beep(ac, 520, t, 0.25, 'sine', 0.02, 780);
+  } catch (e) { }
+}
+
+// ---------------- 空と雪 ----------------
+let SKY = null;
+function setSky(mode) { document.body.dataset.sky = mode; }
+function startSnow() {
+  const c = document.createElement('canvas'); c.id = 'snow'; c.setAttribute('aria-hidden', 'true'); document.body.prepend(c);
+  const ctx = c.getContext('2d'); let w = 0, h = 0, dpr = 1;
+  const flakes = [...Array(46)].map(() => ({ x: Math.random(), y: Math.random(), r: 0.6 + Math.random() * 1.8, s: 0.15 + Math.random() * 0.4, d: Math.random() * 6 }));
+  const resize = () => { dpr = Math.min(2, window.devicePixelRatio || 1); w = c.clientWidth; h = c.clientHeight; c.width = w * dpr; c.height = h * dpr; };
+  window.addEventListener('resize', resize); resize();
+  const loop = t => {
+    SKY = requestAnimationFrame(loop);
+    if (!CFG.fx || document.hidden) { ctx.clearRect(0, 0, c.width, c.height); return; }
+    const night = document.body.dataset.sky !== 'day';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = night ? 'rgba(235,229,214,0.55)' : 'rgba(255,255,255,0.7)';
+    for (const f of flakes) {
+      f.y += f.s / h * 2.2; f.x += Math.sin(t / 1800 + f.d) * 0.0004;
+      if (f.y > 1.02) { f.y = -0.02; f.x = Math.random(); }
+      ctx.beginPath(); ctx.arc(f.x * w, f.y * h, f.r, 0, Math.PI * 2); ctx.fill();
+    }
+  };
+  SKY = requestAnimationFrame(loop);
+}
+
+// =============================================================
 //  core.js … ゲームの土台（状態・判定・時間の進行・イベント表示）
 //  大まかな流れ：
 //   タイトル → 産まれの決定 → 準備期間（5日） → 召喚の夜
@@ -1691,7 +2046,7 @@ function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } 
 // scene({ title, sub, body:[段落...], choices:[{label, hint, fn, cls, disabled}] })
 function scene(s) { SCENE = s; TAB = 'story'; render(); const m = document.querySelector('.main'); if (m) m.scrollTop = 0; }
 function next(title, body, fn, label = '次へ', sub) {
-  scene({ title, sub, body, choices: [{ label, fn, cls: 'primary' }] });
+  scene({ title, sub, body, reveal: true, choices: [{ label, fn, cls: 'primary', icon: 'next' }] });
 }
 function takeNotes() { const n = NOTES; NOTES = []; return n; }
 function paras(list) { return list.filter(Boolean).map(p => p.startsWith('<p') || p.startsWith('<div') ? p : `<div class="para">${p}</div>`); }
@@ -1724,7 +2079,11 @@ function startSlot() {
   if (!SLOT.story) {
     SLOT.story = true;
     const beat = STORY.find(s => s.phase === G.phase && s.day === G.day && s.slot === G.slot && !G.used[s.id] && (!s.cond || s.cond()));
-    if (beat) return showEvent(beat, beat.after === 'advance' ? advance : startSlot);
+    if (beat) {
+      const go = () => showEvent(beat, beat.after === 'advance' ? advance : startSlot);
+      if (beat.chapter && beat.chapter !== G.lastChapter) { G.lastChapter = beat.chapter; return chapterCard(beat.chapter, go); }
+      return go();
+    }
   }
   if (G.phase === 'war' && aliveRivals().length === 1) {
     const last = aliveRivals()[0];
@@ -1743,7 +2102,7 @@ function advance() {
   G.slot++;
   if (G.slot > 1) { G.slot = 0; G.day++; dailyUpdate(); }
   if (G.phase === 'war' && G.day > WAR_DAYS) return deadlineScene();
-  startSlot();
+  slotCard(startSlot);
 }
 function dailyUpdate() {
   hp(10); od(Math.ceil(odMax() * 0.6));
@@ -1810,7 +2169,7 @@ function showEvent(ev, after = advance) {
       },
     }));
   if (!choices.length) choices.push({ label: '次へ', fn: after });
-  scene({ title: ev.title, sub: ev.chapter || 'EVENT', body: paras([text]), choices });
+  scene({ title: ev.title, sub: ev.chapter || 'EVENT', body: paras([text]), choices, reveal: true });
 }
 
 // =============================================================
@@ -2255,7 +2614,7 @@ function doSummon(catalystId) {
   G.phase = 'war'; G.day = 1; G.slot = 0; SLOT = {};
   addLog(`${sv.cls}「${sv.name}」を召喚。`);
   if (G.flags.earlyIntel) intelRandom(1);
-  SCENE = { kind: 'summon', sv }; TAB = 'story'; render();
+  SCENE = { kind: 'summon', sv }; TAB = 'story'; render(); sfx('summon');
 }
 function setupRivals() {
   const mine = servantOf(G).cls;
@@ -2337,12 +2696,12 @@ function planEnemy() {
   else if (B.echarge === 0 && Math.random() < (r.hp < r.hpMax * 0.35 ? 0.25 : 0.1)) t = 'guard';
   else t = wpick(['str', 'agi', 'mag'], k => Math.pow(rivalParam(r, TACTICS[k].stat), 1.5));
   B.enemyNext = t;
-  if (B.sure) { B.tell = `【見切り】${enemyName()}は${TACTICS[t].tell}`; B.sure = false; return; }
+  if (B.sure) { B.tell = `【見切り】${enemyName()}は${TACTICS[t].tell}`; B.tellKey = t; B.sure = false; return; }
   const seeChance = t === 'np' ? 0.9 : 0.3 + G.master.stats.int / 200 + (r.intel >= 3 ? 0.2 : 0);
   if (Math.random() < seeChance) {
     const shown = t === 'np' || Math.random() < 0.75 ? t : pick(['str', 'agi', 'mag', 'guard']);
-    B.tell = `${enemyName()}は${TACTICS[shown].tell}`;
-  } else B.tell = null;
+    B.tell = `${enemyName()}は${TACTICS[shown].tell}`; B.tellKey = shown;
+  } else { B.tell = null; B.tellKey = null; }
 }
 
 function mactAvailable(k) {
@@ -2354,13 +2713,18 @@ function mactAvailable(k) {
 function battleScene(extra) {
   if (extra) B.extra = extra;
   const r = B.r; const sv = G.servant; const me = servantOf(G);
+  const an = B.anim || {};
+  const meW = Math.max(0, sv.hp / servantHpMax()) * 100, enW = Math.max(0, r.hp / r.hpMax) * 100;
+  const meFrom = an.me !== undefined ? Math.max(0, an.me / servantHpMax()) * 100 : meW;
+  const enFrom = an.en !== undefined ? Math.max(0, an.en / r.hpMax) * 100 : enW;
   const body = [
     `<div class="battle-field">
-      <div class="fighter"><div class="fighter-top"><span class="fighter-name">${me.short}</span><span>${me.cls}　HP ${sv.hp}/${servantHpMax()}　魔力 ${sv.mp}${B.charge ? `　<b>反撃+${B.charge}</b>` : ''}</span></div>
-        <div class="bar hp"><i style="width:${(sv.hp / servantHpMax()) * 100}%"></i></div></div>
+      <div class="fighter" id="f-me" style="--cc:${classColor(me.cls)}"><div class="fighter-top"><span class="fighter-name">${emblem(me.cls, 18)}${me.short}</span><span>${me.cls}　HP ${sv.hp}/${servantHpMax()}　魔力 ${sv.mp}${B.charge ? `　<b>反撃+${B.charge}</b>` : ''}</span></div>
+        <div class="bar hp"><i class="lag" style="width:${meFrom}%"></i><i data-w="${meW}" style="width:${meFrom}%"></i></div>
+        <div class="bar mp thin"><i style="width:${sv.mp}%"></i></div></div>
       <div class="vs">VS</div>
-      <div class="fighter enemy"><div class="fighter-top"><span class="fighter-name">${enemyName()}</span><span>${r.cls}${r.intel >= 3 ? '' : '（真名不明）'}　HP ${Math.max(0, r.hp)}/${r.hpMax}</span></div>
-        <div class="bar enemy"><i style="width:${Math.max(0, r.hp / r.hpMax) * 100}%"></i></div>
+      <div class="fighter enemy" id="f-en" style="--cc:${classColor(r.cls)}"><div class="fighter-top"><span class="fighter-name">${emblem(r.cls, 18)}${enemyName()}</span><span>${r.cls}${r.intel >= 3 ? '' : '（真名不明）'}　HP ${Math.max(0, r.hp)}/${r.hpMax}</span></div>
+        <div class="bar enemy"><i class="lag" style="width:${enFrom}%"></i><i data-w="${enW}" style="width:${enFrom}%"></i></div>
         ${r.intel >= 3 ? `<div class="enemy-params">${PARAM_NAMES.map((n, i) => `${n}<b>${servantOf(r).p[i]}</b>`).join('')}</div>` : ''}</div>
     </div>`,
   ];
@@ -2387,22 +2751,23 @@ function battleScene(extra) {
     const a = MASTER_ACTS[k]; const cnt = a.item ? `×${G.items[a.item]}` : '';
     return `<button class="chip ${B.mact === k ? 'on' : ''}" data-mact="${k}" ${mactAvailable(k) ? '' : 'disabled'} aria-pressed="${B.mact === k}">${a.name}${cnt}<small>${a.hint}</small></button>`;
   }).join('')}</div></div>`);
-  body.push('<p class="note rule">三すくみ：白兵 ＞ 魔術 ＞ 機動 ＞ 白兵</p>');
+  body.push(triangleSVG(B.tell ? B.tellKey : null));
 
   const p = i => `${PARAM_NAMES[i]}${valueRank(servantParam(i))}`;
   const mpAfter = sv.mp + (B.mact === 'crystal' ? 40 : 0);
   const choices = [
-    { label: '白兵戦', hint: `${p(0)}・魔術に強い`, fn: () => battleRound('str') },
-    { label: '機動戦', hint: `${p(2)}・白兵に強い`, fn: () => battleRound('agi') },
-    { label: '魔術戦', hint: `${p(3)}・機動に強い`, fn: () => battleRound('mag') },
-    { label: `宝具「${me.np}」`, hint: `${p(5)}・魔力-50${sv.exposed ? '' : '・真名が知られる'}`, disabled: mpAfter < 50, fn: () => battleRound('np'), cls: 'primary' },
-    { label: '防御', hint: `${p(1)}・被害半減、防げば反撃`, fn: () => battleRound('guard') },
-    { label: '見切り', hint: '次の構えを確実に読む・真名の手がかり', fn: () => battleRound('observe') },
+    { label: `宝具「${me.np}」`, hint: `${p(5)}・魔力-50${sv.exposed ? '' : '・真名が知られる'}`, disabled: mpAfter < 50, fn: () => battleRound('np'), cls: 'primary wide', icon: 'np' },
+    { label: '白兵戦', hint: `${p(0)}・魔術に強い`, fn: () => battleRound('str'), icon: 'str', cls: B.tellKey === 'agi' && B.tell ? 'warn' : '' },
+    { label: '機動戦', hint: `${p(2)}・白兵に強い`, fn: () => battleRound('agi'), icon: 'agi', cls: B.tellKey === 'mag' && B.tell ? 'warn' : '' },
+    { label: '魔術戦', hint: `${p(3)}・機動に強い`, fn: () => battleRound('mag'), icon: 'mag', cls: B.tellKey === 'str' && B.tell ? 'warn' : '' },
+    { label: '防御', hint: `${p(1)}・半減、防げば反撃`, fn: () => battleRound('guard'), icon: 'guard' },
+    { label: '見切り', hint: '次の手を読む・真名の手がかり', fn: () => battleRound('observe'), icon: 'observe' },
   ];
-  if (!B.boss) choices.push({ label: '敵マスターを狙う', hint: `${isAssassin() ? '気配遮断で有利' : '成功率は低い'}・悪`, cls: 'danger', fn: () => battleRound('master') });
-  choices.push({ label: `令呪を使う（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu });
-  if (!B.final) choices.push({ label: '撤退する', hint: G.items.smoke ? '煙幕の護符で確実に' : '敏捷・幸運で判定', fn: () => battleRound('flee') });
-  scene({ title: B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices });
+  if (!B.boss) choices.push({ label: '敵マスターを狙う', hint: `${isAssassin() ? '気配遮断で有利' : '成功率低'}・悪`, cls: 'danger', fn: () => battleRound('master'), icon: 'target' });
+  choices.push({ label: `令呪（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu, icon: 'seal' });
+  if (!B.final) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
+  scene({ title: B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
+  animateBattle();
 }
 function sealMenu() {
   const choices = [
@@ -2411,8 +2776,8 @@ function sealMenu() {
     { label: '「耐え抜け」', hint: 'HPを7割まで回復し、防御+30', fn: () => battleRound('seal_endure') },
   ];
   if (!B.final) choices.push({ label: '「退け」', hint: '確実に撤退', fn: () => battleRound('seal_retreat') });
-  choices.push({ label: '戻る', fn: () => battleScene() });
-  scene({ title: '令呪', sub: `残り${G.master.seals}画`, body: ['<p>右手の令呪が熱を帯びる。三画しかない絶対命令権――どう使う？</p>'], choices });
+  choices.push({ label: '戻る', fn: () => { B.anim = null; battleScene(); } });
+  scene({ title: '令呪', sub: `残り${G.master.seals}画`, body: [sealGlyphs(), '<p>右手の令呪が熱を帯びる。三画しかない絶対命令権――どう使う？</p>'], choices });
 }
 
 // ---------------- 1手番の処理 ----------------
@@ -2420,6 +2785,7 @@ function battleRound(cmd) {
   const r = B.r; const me = servantOf(G); const sv = G.servant;
   B.round++;
   const log = [];
+  B.fxq = []; B.anim = { me: sv.hp, en: r.hp };
   const P = me.short, E = enemyName();
   const et = B.enemyNext;
 
@@ -2429,6 +2795,7 @@ function battleRound(cmd) {
     G.master.seals--; addLog('令呪を一画使用（戦闘）。');
     const order = { seal_power: '全力で打ち倒せ', seal_np: '宝具を解き放て', seal_endure: '耐え抜け', seal_retreat: '退け' }[cmd];
     log.push(`<b>「令呪をもって命ずる――${order}！」</b> 右手の令呪が一画、紅く輝いて消えた。`);
+    B.fxq.push({ type: 'seal', order });
     if (cmd === 'seal_retreat') return escape(log.concat([`${P}の姿が掻き消え、次の瞬間にはあなたの隣にいた。令呪による空間転移だ。`]));
     if (cmd === 'seal_power') { sealBoost = 35; tac = ['str', 'agi', 'mag'].reduce((b, k) => servantParam(TACTICS[k].stat) > servantParam(TACTICS[b].stat) ? k : b, 'str'); }
     if (cmd === 'seal_np') { tac = 'np'; npFree = true; sealBoost = 20; }
@@ -2452,7 +2819,7 @@ function battleRound(cmd) {
   if (ma === 'boost') { od(-15); mBonus = 14; log.push(`強化魔術で${P}の霊基を後押しした。`); }
   if (ma === 'heal') { od(-20); shp(25); log.push(`治癒魔術で${P}の傷を塞いだ。（HP+25）`); }
   if (ma === 'potion') { item('potion', -1); shp(35); log.push(`治癒の霊薬を使った。（HP+35）`); }
-  if (ma === 'gem') { item('gem', -1); mBonus = 12; r.hp -= 10; log.push(`宝石を投げ放つ。炸裂した魔力が${E}を撃った！（10ダメージ）`); }
+  if (ma === 'gem') { item('gem', -1); mBonus = 12; r.hp -= 10; log.push(`宝石を投げ放つ。炸裂した魔力が${E}を撃った！（10ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: 10 }); }
   if (ma === 'crystal') { item('crystal', -1); mp(40); log.push(`魔力結晶を砕き、${P}に魔力を流し込んだ。（魔力+40）`); }
 
   // 宝具の宣言
@@ -2460,11 +2827,13 @@ function battleRound(cmd) {
     if (!npFree) sv.mp -= 50;
     if (!sv.exposed) { sv.exposed = true; log.push(`<span class="note">宝具の解放により、${P}の真名が敵に知られた。</span>`); }
     log.push(`<b>「${me.np}（${me.npRuby}）――！」</b>`);
+    B.fxq.push({ type: 'np', side: 'me', name: me.np, ruby: me.npRuby, who: me.short, cls: me.cls });
   }
   if (et === 'np') {
     r.mp -= 50;
     const en = servantOf(r);
     log.push(`${E}が宝具を解き放つ。<b>「${en.np}（${en.npRuby}）！」</b>`);
+    B.fxq.push({ type: 'np', side: 'en', name: en.np, ruby: en.npRuby, who: en.short, cls: r.cls });
     if (r.intel < 3) { r.intel = 3; log.push(`<span class="note">その宝具は――${en.name}！ 敵の真名が判明した。</span>`); addLog(`${r.cls}の真名「${en.name}」が判明。`); }
   }
 
@@ -2491,13 +2860,15 @@ function battleRound(cmd) {
     return base + (t === 'np' ? 25 : 0) + (t === 'guard' ? 5 : 0) + rand(1, 40) + mod;
   };
   const atk = t => ['str', 'agi', 'mag', 'np'].includes(t);
+  let crit = false;
   const dmgCalc = (diff, t, defEnd, luck, mul = 1) => {
     let d = Math.round((10 + diff * 0.5 + (t === 'np' ? 22 : 0) - defEnd / 10) * mul);
-    if (Math.random() * 100 < luck / 2) { d = Math.round(d * 1.5); log.push('会心の一撃！'); }
+    crit = false;
+    if (Math.random() * 100 < luck / 2) { d = Math.round(d * 1.5); log.push('会心の一撃！'); crit = true; }
     return Math.max(4, d);
   };
-  const hitEnemy = (d, t) => { r.hp -= d; log.push(winText(t, P, E) + `（${d}ダメージ）`); };
-  const hitMe = (d, t) => { shp(-d); log.push(winText(t, E, P) + `（${d}ダメージ）`); };
+  const hitEnemy = (d, t) => { r.hp -= d; log.push(winText(t, P, E) + `（${d}ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: d, crit }); };
+  const hitMe = (d, t) => { shp(-d); log.push(winText(t, E, P) + `（${d}ダメージ）`); B.fxq.push({ type: 'hit', side: 'me', dmg: d, crit }); };
 
   // ---- 敵マスターを狙う ----
   if (tac === 'master') {
@@ -2574,6 +2945,10 @@ function winText(t, a, d) {
   return pick(lines[t]);
 }
 function afterRound(log) {
+  const cut = (B.fxq || []).filter(x => x.type === 'np' || x.type === 'seal');
+  playQueue(cut.map(c => done => cutIn(c, done)), () => afterRoundCore(log));
+}
+function afterRoundCore(log) {
   const r = B.r; const sv = G.servant;
   const extra = [`<div class="blog">${log.map(t => `<p>${t}</p>`).join('')}</div>`];
   if (r.hp <= 0) return battleWin(extra);
@@ -2596,10 +2971,13 @@ function battleLoseChoice(extra) {
     item('potion', -1); G.servant.hp = 15; escape([`霊薬で辛うじて霊基を保ち、${SV()}は最後の力であなたを抱えて退いた。`]);
   } });
   choices.push({ label: '……ここまでか', fn: () => { const boss = B.boss; B = null; ending(boss ? 'devoured' : 'lost'); } });
+  sfx('lose');
   scene({ title: '霊核の危機', sub: 'CRISIS', body: [...extra, `<p>${SV()}が膝をつく。霊基が崩れ始めている――このままでは消滅する！</p>`], choices });
 }
 function battleWin(extra) {
   const r = B.r; const wasFinal = B.final; const boss = B.boss; B = null;
+  sfx('win');
+  if (!boss) showCard({ kicker: 'VICTORY', title: '勝利', sub: `${rivalLabel(r)}陣営を撃破`, cls: 'victory', ms: 1300 });
   if (boss) return ending(G.servant.special ? 'destroySpecial' : 'destroy');
   r.alive = false; r.hp = 0; G.kills++;
   NOTES = []; bond(5);
@@ -2619,6 +2997,47 @@ function battleWin(extra) {
       next('戦いの後', paras(['敗者に掛ける言葉はない。あなたは振り返らずに、その場を後にした。', ...takeNotes()]), finish); } },
   ];
   scene({ title: '勝利', sub: 'VICTORY', body, choices });
+}
+
+// ---------------- 戦闘の演出 ----------------
+// 宝具・令呪のカットイン
+function cutIn(c, done) {
+  if (c.type === 'np') {
+    sfx('np');
+    return showCard({ kicker: `${c.who}　宝具解放`, ruby: c.ruby, title: c.name, cls: `np ${c.side === 'en' ? 'enemy' : ''}`, color: classColor(c.cls), ms: 1700 }, done);
+  }
+  sfx('seal');
+  showCard({ kicker: '令呪をもって命ずる', title: `「${c.order}」`, cls: 'seal', ms: 1500 }, done);
+}
+// HPバーの減少・ダメージ数字・揺れ
+function animateBattle() {
+  const q = (B && B.fxq) || []; if (B) { B.fxq = []; B.anim = null; }
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelectorAll('[data-w]').forEach(el => { el.style.width = el.dataset.w + '%'; });
+    document.querySelectorAll('.bar .lag').forEach(el => { const to = el.nextElementSibling && el.nextElementSibling.dataset.w; if (to) setTimeout(() => { el.style.width = to + '%'; }, 450); });
+    let i = 0;
+    for (const e of q) {
+      if (e.type !== 'hit') continue;
+      const box = document.getElementById(e.side === 'me' ? 'f-me' : 'f-en'); if (!box) continue;
+      const n = document.createElement('span'); n.className = `dmg ${e.crit ? 'crit' : ''}`; n.textContent = `-${e.dmg}`;
+      n.style.animationDelay = `${i * 160}ms`; box.appendChild(n); i++;
+      if (CFG.fx) { box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake'); }
+      sfx(e.crit ? 'crit' : 'hit');
+    }
+  }));
+}
+// 三すくみの図（読めた敵の構えを赤く示す）
+function triangleSVG(tellKey) {
+  const node = (k, x, y, label) => `<g class="tri-node ${tellKey === k ? 'tell' : ''}"><circle cx="${x}" cy="${y}" r="15"/><text x="${x}" y="${y + 4}">${label}</text></g>`;
+  const arrow = (x1, y1, x2, y2) => `<path class="tri-arrow" d="M${x1} ${y1}L${x2} ${y2}" marker-end="url(#ah)"/>`;
+  return `<div class="tri"><svg viewBox="0 0 150 92" aria-label="三すくみ：白兵は魔術に、魔術は機動に、機動は白兵に強い">
+    <defs><marker id="ah" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L6 3L0 6z" class="tri-head"/></marker></defs>
+    ${arrow(64, 22, 95, 64)}${arrow(92, 76, 58, 76)}${arrow(42, 64, 64, 28)}
+    ${node('str', 75, 18, '白兵')}${node('mag', 108, 74, '魔術')}${node('agi', 42, 74, '機動')}
+  </svg><div class="tri-text">矢印の先に強い。<br>${tellKey && TACTICS[tellKey] && ['str', 'agi', 'mag'].includes(tellKey) ? `<b>読めた構え：${TACTICS[tellKey].name}</b>` : tellKey === 'np' ? '<b>宝具が来る</b>' : tellKey === 'guard' ? '<b>敵は防御の構え</b>' : '敵の構えは読めていない'}</div></div>`;
+}
+function sealGlyphs() {
+  return `<div class="seal-glyphs">${[0, 1, 2].map(i => `<svg viewBox="0 0 18 22" class="${i < G.master.seals ? 'on' : ''}"><path d="${SEAL_PATH}"/></svg>`).join('')}</div>`;
 }
 
 // =============================================================
@@ -2722,9 +3141,13 @@ function ending(kind) {
     none: () => ({ title: '終幕：願いなき勝者', text: ['<p>あなたは何も願わなかった。聖杯は誰の手にも渡らぬまま、静かに消えていった。</p>', `<p class="quote">${fmt(per.farewell)}</p>`,
       '<p>勝者の手に残ったのは、戦いの記憶と、確かに結ばれた絆だけだった。</p>'] }),
   }[kind]();
-  addLog(E.title);
-  SCENE = { kind: 'ending', title: E.title, text: E.text.filter(Boolean), good: !['dead', 'lost', 'wish', 'wishKnown', 'devoured'].includes(kind) };
-  TAB = 'story'; render();
+  addLog(E.title); markEnding(kind);
+  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured'].includes(kind);
+  sfx(good ? 'win' : 'lose');
+  showCard({ kicker: good ? 'ENDING' : 'BAD END', title: E.title.replace('終幕：', ''), cls: good ? 'dawn' : 'blood', ms: 2200 }, () => {
+    SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good };
+    TAB = 'story'; render();
+  });
 }
 
 // =============================================================
@@ -2756,7 +3179,12 @@ function render() {
   const app = document.getElementById('app');
   if (!SCENE) return;
   const k = SCENE.kind;
-  if (k === 'title' || k === 'create') { app.innerHTML = `<main class="main">${k === 'title' ? viewTitle() : viewCreate()}</main>`; return; }
+  setSky(!G || k === 'title' || k === 'create' || k === 'settings' || k === 'gallery' ? 'night'
+    : k === 'ending' ? (SCENE.good ? 'dawn' : 'blood') : k === 'summon' || G.phase === 'summon' ? 'night' : G.slot === 1 ? 'night' : 'day');
+  if (['title', 'create', 'settings', 'gallery'].includes(k)) {
+    app.innerHTML = `<main class="main">${k === 'title' ? viewTitle() : k === 'create' ? viewCreate() : k === 'settings' ? `<section class="panel">${viewSettings()}<div class="choices"><button class="choice primary" data-act="title">${actIcon('flee')}<span class="c-label">タイトルへ戻る</span></button></div></section>` : viewGallery()}</main>`;
+    return afterRender();
+  }
   const top = G ? viewTop() : '';
   let content = '';
   if (TAB === 'story') content = k === 'summon' ? viewSummon() : k === 'ending' ? viewEnding() : viewScene();
@@ -2767,6 +3195,17 @@ function render() {
   const tabs = [['story', '物語'], ['master', 'マスター'], ['servant', '英霊'], ['rivals', '陣営'], ['log', '記録']];
   app.innerHTML = `${top}<main class="main" id="main">${content}</main>
     <nav class="tabs" aria-label="画面切り替え">${tabs.map(([id, l]) => `<button class="tab ${TAB === id ? 'on' : ''}" data-tab="${id}" aria-pressed="${TAB === id}">${ICON[id]}${l}</button>`).join('')}</nav>`;
+  afterRender();
+}
+// 描画のあと：文章の表示演出の終了時刻を記録
+function afterRender() {
+  const sc = document.querySelector('.scene[data-total]');
+  REVEAL_UNTIL = sc ? Date.now() + (+sc.dataset.total) : 0;
+}
+function skipReveal() {
+  const sc = document.querySelector('.scene[data-total]');
+  if (sc) sc.classList.add('skip');
+  REVEAL_UNTIL = 0;
 }
 function viewTop() {
   const night = G.slot === 1;
@@ -2774,24 +3213,33 @@ function viewTop() {
   const seals = [0, 1, 2].map(i => `<svg class="seal ${i < G.master.seals ? '' : 'used'}" viewBox="0 0 18 22" aria-hidden="true"><path d="${SEAL_PATH}"/></svg>`).join('');
   const extraSeals = G.master.seals > 3 ? `<span class="tag red">+${G.master.seals - 3}</span>` : '';
   const sv = G.servant;
+  const prog = G.phase === 'prep' ? (G.day - 1 + G.slot * 0.5) / PREP_DAYS : G.phase === 'war' ? (G.day - 1 + G.slot * 0.5) / WAR_DAYS : 1;
   return `<header class="topbar">
     <div class="topbar-row">
-      <div class="when"><span class="when-phase">${phaseLabel()}</span><span class="when-day">${dayText}</span>
+      <div class="when"><span class="when-phase">${chapterOf().replace('　', ' ')}</span><span class="when-day">${dayText}</span>
         ${G.phase === 'prep' || G.phase === 'war' ? `<span class="time-chip ${night ? 'night' : 'day'}">${night ? '夜' : '昼'}</span>` : ''}</div>
       <div class="seals" title="令呪 残り${G.master.seals}画" aria-label="令呪 残り${G.master.seals}画">${seals}${extraSeals}</div>
     </div>
     <div class="mini"><span>HP <b>${G.master.hp}</b></span><span>資金 <b>${G.master.money}</b>万円</span>
-      ${sv ? `<span>${SV()} <b>${sv.hp}</b>/${servantHpMax()}</span><span>絆Lv <b>${Math.floor(sv.bond / 10)}</b></span>` : `<span>触媒 <b>${G.catalysts.length}</b></span>`}</div>
+      ${sv ? `<span>${emblem(servantOf(G).cls, 12)}${SV()} <b>${sv.hp}</b>/${servantHpMax()}</span><span>絆Lv <b>${Math.floor(sv.bond / 10)}</b></span>` : `<span>触媒 <b>${G.catalysts.length}</b></span>`}</div>
+    <div class="progress" aria-hidden="true"><i style="width:${Math.min(100, prog * 100)}%"></i>${G.phase === 'war' ? `<b style="left:${((FINAL_DAY - 0.5) / WAR_DAYS) * 100}%"></b>` : ''}</div>
   </header>`;
 }
 function viewScene() {
   const s = SCENE;
-  return `<article class="scene">
+  const step = s.reveal && CFG.fx ? SPEED_STEP[CFG.speed] : 0;
+  const body = s.body.filter(Boolean);
+  const total = step ? body.length * step + 250 : 0;
+  const story = /幕|序章|STORY|SPECIAL|FINAL|SIEGE/.test(s.sub || '');
+  return `<article class="scene ${story ? 'story' : ''} ${s.battle ? 'battle' : ''}" ${total ? `data-total="${total}"` : ''}>
     ${s.sub ? `<div class="scene-sub">${s.sub}</div>` : ''}
     <h1 class="scene-title">${s.title}</h1>
-    <div class="scene-body">${s.body.join('')}</div>
-    <div class="choices">${s.choices.map((c, i) => `<button class="choice ${c.cls || ''}" data-choice="${i}" ${c.disabled ? 'disabled' : ''}>
-      <span class="c-label">${c.label}</span>${c.hint ? `<span class="c-hint">${c.hint}</span>` : ''}</button>`).join('')}</div>
+    <div class="scene-body">${body.map((h, i) => step ? `<div class="rv" style="--d:${i * step}ms">${h}</div>` : h).join('')}</div>
+    <div class="choices ${s.grid ? 'grid' : ''} ${step ? 'rv' : ''}" style="--d:${body.length * step}ms">${s.choices.map((c, i) => {
+      const ic = c.icon || guessIcon(String(c.label));
+      return `<button class="choice ${c.cls || ''}" data-choice="${i}" ${c.disabled ? 'disabled' : ''}>
+      ${ic ? actIcon(ic) : ''}<span class="c-label">${c.label}</span>${c.hint ? `<span class="c-hint">${c.hint}</span>` : ''}</button>`;
+    }).join('')}</div>
   </article>`;
 }
 function circleSVG(cls = '') {
@@ -2806,16 +3254,33 @@ function circleSVG(cls = '') {
   </svg>`;
 }
 function viewTitle() {
-  const save = SCENE.save;
+  const save = SCENE.save; const seen = seenEndings().length;
   return `<div class="title-wrap">
-    ${circleSVG()}
+    ${circleSVG('title-circle')}
     <h1 class="game-title"><small>HOLY GRAIL WAR</small>深見市聖杯戦争</h1>
     <p class="lead">${CITY.intro}</p>
     <div class="choices">
-      <button class="choice primary" data-act="new"><span class="c-label">はじめから</span><span class="c-hint">産まれはランダムで決まる</span></button>
-      ${save ? `<button class="choice" data-act="continue"><span class="c-label">つづきから</span><span class="c-hint">${esc(save.master.name)}・${save.phase === 'prep' ? '準備期間' : '聖杯戦争'}${save.day}日目</span></button>` : ''}
+      <button class="choice primary" data-act="new">${actIcon('ritual')}<span class="c-label">はじめから</span><span class="c-hint">産まれはランダムで決まる</span></button>
+      ${save ? `<button class="choice" data-act="continue">${actIcon('next')}<span class="c-label">つづきから</span><span class="c-hint">${esc(save.master.name)}・${save.phase === 'prep' ? '準備期間' : '聖杯戦争'}${save.day}日目</span></button>` : ''}
+      <div class="title-sub">
+        <button class="choice" data-act="gallery">${actIcon('study')}<span class="c-label">エンディング</span><span class="c-hint">${seen}/${ENDING_LIST.length}</span></button>
+        <button class="choice" data-act="settings">${actIcon('base')}<span class="c-label">設定</span></button>
+      </div>
     </div>
   </div>`;
+}
+function viewSettings() {
+  const seg = (key, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button data-cfg="${key}:${v}" class="${String(CFG[key]) === String(v) ? 'on' : ''}" aria-pressed="${String(CFG[key]) === String(v)}">${l}</button>`).join('')}</div>`;
+  return `<h2>設定</h2>
+    <div class="setting"><div><b>文字送り</b><span>文章が段落ごとに現れる速さ。表示中に画面をタップすると全文が出る。</span></div>${seg('speed', SPEED_NAMES.map((n, i) => [i, n]))}</div>
+    <div class="setting"><div><b>演出</b><span>場面転換カード・宝具カットイン・雪・揺れなど。</span></div>${seg('fx', [[true, 'ON'], [false, 'OFF']])}</div>
+    <div class="setting"><div><b>効果音</b><span>その場で合成する控えめな音。消音モードでは鳴らない場合がある。</span></div>${seg('sound', [[true, 'ON'], [false, 'OFF']])}</div>`;
+}
+function viewGallery() {
+  const seen = seenEndings();
+  return `<section class="panel"><h2>エンディング</h2><p class="note" style="color:var(--muted);font-size:13px">到達したエンディング ${seen.length} / ${ENDING_LIST.length}</p>
+    <div class="gallery">${ENDING_LIST.map(([k, t], i) => `<div class="${seen.includes(k) ? 'got' : ''}"><span>${String(i + 1).padStart(2, '0')}</span><b>${seen.includes(k) ? t : '？？？'}</b></div>`).join('')}</div>
+    <div class="choices"><button class="choice primary" data-act="title">${actIcon('flee')}<span class="c-label">タイトルへ戻る</span></button></div></section>`;
 }
 function viewCreate() {
   const m = SCENE.master, b = SCENE.birth;
@@ -2849,16 +3314,17 @@ function paramGrid(p, effFn) {
 }
 function viewSummon() {
   const sv = SCENE.sv;
-  return `<article class="scene">
-    ${circleSVG('summon-glow')}
-    <div class="reveal">
-      <p class="quote" style="font-family:var(--font-display);font-size:16px;margin:16px 0">「${sv.line}」</p>
-      ${servantCard(sv)}
-      <div class="choices"><button class="choice primary" data-act="aftersummon"><span class="c-label">契約を結ぶ</span></button></div>
-    </div></article>`;
+  return `<article class="scene summon" style="--cc:${classColor(sv.cls)}" data-total="${CFG.fx ? 3600 : 0}">
+    <div class="summon-stage">${circleSVG('summon-glow')}<div class="summon-flash"></div>
+      <div class="summon-class">${emblem(sv.cls, 54)}<span>${CLASS_EN[sv.cls] || sv.cls}</span></div></div>
+    <div class="summon-name">${sv.name}</div>
+    <p class="quote summon-line">「${sv.line}」</p>
+    <div class="summon-card">${servantCard(sv)}
+      <div class="choices"><button class="choice primary" data-act="aftersummon">${actIcon('seal')}<span class="c-label">契約を結ぶ</span></button></div></div>
+  </article>`;
 }
 function servantCard(sv) {
-  return `<div class="svcard"><div class="svclass">${CLASS_EN[sv.cls] || sv.cls}</div>
+  return `<div class="svcard" style="--cc:${classColor(sv.cls)}"><div class="svcard-emblem">${emblem(sv.cls, 64)}</div><div class="svclass">${CLASS_EN[sv.cls] || sv.cls}</div>
     <div class="svname">${sv.name}</div>
     <div><span class="tag gold">${sv.cls}</span><span class="tag">${sv.align}</span><span class="tag">性格：${PERSONAS[sv.persona].label}</span></div>
     <p style="font-size:13px;color:var(--muted);margin:8px 0 12px">${sv.desc}</p>
@@ -2907,7 +3373,7 @@ function viewRivals() {
     <div class="rivals">${G.rivals.map(r => {
       const s = servantOf(r);
       return `<div class="rival ${r.alive ? '' : 'out'}">
-        <div class="rival-head"><span class="rival-cls">${r.intel >= 3 ? s.name : r.cls}</span>
+        <div class="rival-head"><span class="rival-cls">${emblem(r.cls, 16)}${r.intel >= 3 ? s.name : r.cls}</span>
           <span>${!r.alive ? '<span class="tag">脱落</span>' : r.ally ? '<span class="tag green">同盟</span>' : ''}${r.bounty && r.alive ? '<span class="tag red">討伐令</span>' : ''}
           <span class="intel" aria-label="情報段階${r.intel}">${[1, 2, 3].map(i => `<i class="${r.intel >= i ? 'on' : ''}"></i>`).join('')}</span></span></div>
         <p>${r.cls}　マスター：${r.intel >= 1 ? `${esc(r.master)}（${r.type}）` : '不明'}</p>
@@ -2922,16 +3388,18 @@ function viewLog() {
     <h3>ゲーム</h3><div class="choices">
       <button class="choice" data-act="totitle"><span class="c-label">タイトルへ戻る</span><span class="c-hint">進行は自動保存されている</span></button>
       <button class="choice danger" data-act="reset"><span class="c-label">${SCENE && SCENE.confirmReset ? 'もう一度押すと削除' : 'セーブデータを削除'}</span></button>
-    </div></section>`;
+    </div>
+    <div style="margin-top:22px">${viewSettings()}</div></section>`;
 }
 function viewEnding() {
   const s = SCENE; const sv = G.servant ? servantOf(G) : null;
-  return `<article class="scene">
-    ${circleSVG()}
-    <div class="scene-sub">${s.good ? 'ENDING' : 'BAD END'}</div>
+  const no = ENDING_LIST.findIndex(e => e[0] === s.endKind) + 1;
+  return `<article class="scene ending ${s.good ? 'good' : 'bad'}">
+    ${circleSVG(s.good ? 'dawn-circle' : 'blood-circle')}
+    <div class="scene-sub">${s.good ? 'ENDING' : 'BAD END'}${no ? `　No.${String(no).padStart(2, '0')}` : ''}</div>
     <h1 class="scene-title">${s.title}</h1>
-    <div class="scene-body">${s.text.join('')}</div>
-    <div class="ending-stats">
+    <div class="scene-body">${s.text.map((h, i) => CFG.fx ? `<div class="rv" style="--d:${400 + i * 700}ms">${h}</div>` : h).join('')}</div>
+    <div class="ending-stats ${CFG.fx ? 'rv' : ''}" style="--d:${400 + s.text.length * 700}ms">
       <div>到達<b>${G.phase === 'end' && G.servant ? `${G.day}日目` : `準備${G.day}日目`}</b></div>
       <div>撃破数<b>${G.kills}騎</b></div>
       <div>サーヴァント<b>${sv ? sv.short : '―'}</b></div>
@@ -2943,8 +3411,15 @@ function viewEnding() {
 
 // ---------------- 操作（タップ） ----------------
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-choice],[data-tab],[data-act],[data-mact]');
+  if (REVEAL_UNTIL > Date.now() && e.target.closest('.main')) { skipReveal(); return; }   // 表示中のタップは全文表示
+  const t = e.target.closest('[data-choice],[data-tab],[data-act],[data-mact],[data-cfg]');
   if (!t || t.disabled) return;
+  sfx('tick');
+  if (t.dataset.cfg) {
+    const [k, v] = t.dataset.cfg.split(':'); CFG[k] = k === 'speed' ? +v : v === 'true'; saveCfg();
+    if (k === 'sound' && CFG.sound) sfx('page');
+    render(); return;
+  }
   if (t.dataset.mact) { if (B) { B.mact = t.dataset.mact; battleScene(); } return; }
   if (t.dataset.tab) { TAB = t.dataset.tab; if (SCENE) SCENE.confirmReset = false; render(); return; }
   if (t.dataset.choice !== undefined) { const c = SCENE.choices[+t.dataset.choice]; if (c && !c.disabled) c.fn(); return; }
@@ -2952,6 +3427,8 @@ document.addEventListener('click', e => {
   if (a === 'new') createScreen();
   else if (a === 'reroll') { const name = document.getElementById('mname').value.trim(); const m = rollMaster(); if (name) m.name = name; createScreen(m); }
   else if (a === 'title' || a === 'totitle') titleScreen();
+  else if (a === 'settings') { SCENE = { kind: 'settings' }; render(); }
+  else if (a === 'gallery') { SCENE = { kind: 'gallery' }; render(); }
   else if (a === 'start') {
     const name = document.getElementById('mname').value.trim() || SCENE.master.name;
     SCENE.master.name = name.slice(0, 16);
@@ -2976,6 +3453,7 @@ function startFromSave() {
 
 // ---------------- 起動 ----------------
 function boot(data) {
+  applyCfg(); startSnow();
   if (data && data.save) { try { G = JSON.parse(data.save); SLOT = { news: true, story: true, event: true }; return startFromSave(); } catch (e) { } }
   titleScreen();
 }

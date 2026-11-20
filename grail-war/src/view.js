@@ -27,7 +27,12 @@ function render() {
   const app = document.getElementById('app');
   if (!SCENE) return;
   const k = SCENE.kind;
-  if (k === 'title' || k === 'create') { app.innerHTML = `<main class="main">${k === 'title' ? viewTitle() : viewCreate()}</main>`; return; }
+  setSky(!G || k === 'title' || k === 'create' || k === 'settings' || k === 'gallery' ? 'night'
+    : k === 'ending' ? (SCENE.good ? 'dawn' : 'blood') : k === 'summon' || G.phase === 'summon' ? 'night' : G.slot === 1 ? 'night' : 'day');
+  if (['title', 'create', 'settings', 'gallery'].includes(k)) {
+    app.innerHTML = `<main class="main">${k === 'title' ? viewTitle() : k === 'create' ? viewCreate() : k === 'settings' ? `<section class="panel">${viewSettings()}<div class="choices"><button class="choice primary" data-act="title">${actIcon('flee')}<span class="c-label">タイトルへ戻る</span></button></div></section>` : viewGallery()}</main>`;
+    return afterRender();
+  }
   const top = G ? viewTop() : '';
   let content = '';
   if (TAB === 'story') content = k === 'summon' ? viewSummon() : k === 'ending' ? viewEnding() : viewScene();
@@ -38,6 +43,17 @@ function render() {
   const tabs = [['story', '物語'], ['master', 'マスター'], ['servant', '英霊'], ['rivals', '陣営'], ['log', '記録']];
   app.innerHTML = `${top}<main class="main" id="main">${content}</main>
     <nav class="tabs" aria-label="画面切り替え">${tabs.map(([id, l]) => `<button class="tab ${TAB === id ? 'on' : ''}" data-tab="${id}" aria-pressed="${TAB === id}">${ICON[id]}${l}</button>`).join('')}</nav>`;
+  afterRender();
+}
+// 描画のあと：文章の表示演出の終了時刻を記録
+function afterRender() {
+  const sc = document.querySelector('.scene[data-total]');
+  REVEAL_UNTIL = sc ? Date.now() + (+sc.dataset.total) : 0;
+}
+function skipReveal() {
+  const sc = document.querySelector('.scene[data-total]');
+  if (sc) sc.classList.add('skip');
+  REVEAL_UNTIL = 0;
 }
 function viewTop() {
   const night = G.slot === 1;
@@ -45,24 +61,33 @@ function viewTop() {
   const seals = [0, 1, 2].map(i => `<svg class="seal ${i < G.master.seals ? '' : 'used'}" viewBox="0 0 18 22" aria-hidden="true"><path d="${SEAL_PATH}"/></svg>`).join('');
   const extraSeals = G.master.seals > 3 ? `<span class="tag red">+${G.master.seals - 3}</span>` : '';
   const sv = G.servant;
+  const prog = G.phase === 'prep' ? (G.day - 1 + G.slot * 0.5) / PREP_DAYS : G.phase === 'war' ? (G.day - 1 + G.slot * 0.5) / WAR_DAYS : 1;
   return `<header class="topbar">
     <div class="topbar-row">
-      <div class="when"><span class="when-phase">${phaseLabel()}</span><span class="when-day">${dayText}</span>
+      <div class="when"><span class="when-phase">${chapterOf().replace('　', ' ')}</span><span class="when-day">${dayText}</span>
         ${G.phase === 'prep' || G.phase === 'war' ? `<span class="time-chip ${night ? 'night' : 'day'}">${night ? '夜' : '昼'}</span>` : ''}</div>
       <div class="seals" title="令呪 残り${G.master.seals}画" aria-label="令呪 残り${G.master.seals}画">${seals}${extraSeals}</div>
     </div>
     <div class="mini"><span>HP <b>${G.master.hp}</b></span><span>資金 <b>${G.master.money}</b>万円</span>
-      ${sv ? `<span>${SV()} <b>${sv.hp}</b>/${servantHpMax()}</span><span>絆Lv <b>${Math.floor(sv.bond / 10)}</b></span>` : `<span>触媒 <b>${G.catalysts.length}</b></span>`}</div>
+      ${sv ? `<span>${emblem(servantOf(G).cls, 12)}${SV()} <b>${sv.hp}</b>/${servantHpMax()}</span><span>絆Lv <b>${Math.floor(sv.bond / 10)}</b></span>` : `<span>触媒 <b>${G.catalysts.length}</b></span>`}</div>
+    <div class="progress" aria-hidden="true"><i style="width:${Math.min(100, prog * 100)}%"></i>${G.phase === 'war' ? `<b style="left:${((FINAL_DAY - 0.5) / WAR_DAYS) * 100}%"></b>` : ''}</div>
   </header>`;
 }
 function viewScene() {
   const s = SCENE;
-  return `<article class="scene">
+  const step = s.reveal && CFG.fx ? SPEED_STEP[CFG.speed] : 0;
+  const body = s.body.filter(Boolean);
+  const total = step ? body.length * step + 250 : 0;
+  const story = /幕|序章|STORY|SPECIAL|FINAL|SIEGE/.test(s.sub || '');
+  return `<article class="scene ${story ? 'story' : ''} ${s.battle ? 'battle' : ''}" ${total ? `data-total="${total}"` : ''}>
     ${s.sub ? `<div class="scene-sub">${s.sub}</div>` : ''}
     <h1 class="scene-title">${s.title}</h1>
-    <div class="scene-body">${s.body.join('')}</div>
-    <div class="choices">${s.choices.map((c, i) => `<button class="choice ${c.cls || ''}" data-choice="${i}" ${c.disabled ? 'disabled' : ''}>
-      <span class="c-label">${c.label}</span>${c.hint ? `<span class="c-hint">${c.hint}</span>` : ''}</button>`).join('')}</div>
+    <div class="scene-body">${body.map((h, i) => step ? `<div class="rv" style="--d:${i * step}ms">${h}</div>` : h).join('')}</div>
+    <div class="choices ${s.grid ? 'grid' : ''} ${step ? 'rv' : ''}" style="--d:${body.length * step}ms">${s.choices.map((c, i) => {
+      const ic = c.icon || guessIcon(String(c.label));
+      return `<button class="choice ${c.cls || ''}" data-choice="${i}" ${c.disabled ? 'disabled' : ''}>
+      ${ic ? actIcon(ic) : ''}<span class="c-label">${c.label}</span>${c.hint ? `<span class="c-hint">${c.hint}</span>` : ''}</button>`;
+    }).join('')}</div>
   </article>`;
 }
 function circleSVG(cls = '') {
@@ -77,16 +102,33 @@ function circleSVG(cls = '') {
   </svg>`;
 }
 function viewTitle() {
-  const save = SCENE.save;
+  const save = SCENE.save; const seen = seenEndings().length;
   return `<div class="title-wrap">
-    ${circleSVG()}
+    ${circleSVG('title-circle')}
     <h1 class="game-title"><small>HOLY GRAIL WAR</small>深見市聖杯戦争</h1>
     <p class="lead">${CITY.intro}</p>
     <div class="choices">
-      <button class="choice primary" data-act="new"><span class="c-label">はじめから</span><span class="c-hint">産まれはランダムで決まる</span></button>
-      ${save ? `<button class="choice" data-act="continue"><span class="c-label">つづきから</span><span class="c-hint">${esc(save.master.name)}・${save.phase === 'prep' ? '準備期間' : '聖杯戦争'}${save.day}日目</span></button>` : ''}
+      <button class="choice primary" data-act="new">${actIcon('ritual')}<span class="c-label">はじめから</span><span class="c-hint">産まれはランダムで決まる</span></button>
+      ${save ? `<button class="choice" data-act="continue">${actIcon('next')}<span class="c-label">つづきから</span><span class="c-hint">${esc(save.master.name)}・${save.phase === 'prep' ? '準備期間' : '聖杯戦争'}${save.day}日目</span></button>` : ''}
+      <div class="title-sub">
+        <button class="choice" data-act="gallery">${actIcon('study')}<span class="c-label">エンディング</span><span class="c-hint">${seen}/${ENDING_LIST.length}</span></button>
+        <button class="choice" data-act="settings">${actIcon('base')}<span class="c-label">設定</span></button>
+      </div>
     </div>
   </div>`;
+}
+function viewSettings() {
+  const seg = (key, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button data-cfg="${key}:${v}" class="${String(CFG[key]) === String(v) ? 'on' : ''}" aria-pressed="${String(CFG[key]) === String(v)}">${l}</button>`).join('')}</div>`;
+  return `<h2>設定</h2>
+    <div class="setting"><div><b>文字送り</b><span>文章が段落ごとに現れる速さ。表示中に画面をタップすると全文が出る。</span></div>${seg('speed', SPEED_NAMES.map((n, i) => [i, n]))}</div>
+    <div class="setting"><div><b>演出</b><span>場面転換カード・宝具カットイン・雪・揺れなど。</span></div>${seg('fx', [[true, 'ON'], [false, 'OFF']])}</div>
+    <div class="setting"><div><b>効果音</b><span>その場で合成する控えめな音。消音モードでは鳴らない場合がある。</span></div>${seg('sound', [[true, 'ON'], [false, 'OFF']])}</div>`;
+}
+function viewGallery() {
+  const seen = seenEndings();
+  return `<section class="panel"><h2>エンディング</h2><p class="note" style="color:var(--muted);font-size:13px">到達したエンディング ${seen.length} / ${ENDING_LIST.length}</p>
+    <div class="gallery">${ENDING_LIST.map(([k, t], i) => `<div class="${seen.includes(k) ? 'got' : ''}"><span>${String(i + 1).padStart(2, '0')}</span><b>${seen.includes(k) ? t : '？？？'}</b></div>`).join('')}</div>
+    <div class="choices"><button class="choice primary" data-act="title">${actIcon('flee')}<span class="c-label">タイトルへ戻る</span></button></div></section>`;
 }
 function viewCreate() {
   const m = SCENE.master, b = SCENE.birth;
@@ -120,16 +162,17 @@ function paramGrid(p, effFn) {
 }
 function viewSummon() {
   const sv = SCENE.sv;
-  return `<article class="scene">
-    ${circleSVG('summon-glow')}
-    <div class="reveal">
-      <p class="quote" style="font-family:var(--font-display);font-size:16px;margin:16px 0">「${sv.line}」</p>
-      ${servantCard(sv)}
-      <div class="choices"><button class="choice primary" data-act="aftersummon"><span class="c-label">契約を結ぶ</span></button></div>
-    </div></article>`;
+  return `<article class="scene summon" style="--cc:${classColor(sv.cls)}" data-total="${CFG.fx ? 3600 : 0}">
+    <div class="summon-stage">${circleSVG('summon-glow')}<div class="summon-flash"></div>
+      <div class="summon-class">${emblem(sv.cls, 54)}<span>${CLASS_EN[sv.cls] || sv.cls}</span></div></div>
+    <div class="summon-name">${sv.name}</div>
+    <p class="quote summon-line">「${sv.line}」</p>
+    <div class="summon-card">${servantCard(sv)}
+      <div class="choices"><button class="choice primary" data-act="aftersummon">${actIcon('seal')}<span class="c-label">契約を結ぶ</span></button></div></div>
+  </article>`;
 }
 function servantCard(sv) {
-  return `<div class="svcard"><div class="svclass">${CLASS_EN[sv.cls] || sv.cls}</div>
+  return `<div class="svcard" style="--cc:${classColor(sv.cls)}"><div class="svcard-emblem">${emblem(sv.cls, 64)}</div><div class="svclass">${CLASS_EN[sv.cls] || sv.cls}</div>
     <div class="svname">${sv.name}</div>
     <div><span class="tag gold">${sv.cls}</span><span class="tag">${sv.align}</span><span class="tag">性格：${PERSONAS[sv.persona].label}</span></div>
     <p style="font-size:13px;color:var(--muted);margin:8px 0 12px">${sv.desc}</p>
@@ -178,7 +221,7 @@ function viewRivals() {
     <div class="rivals">${G.rivals.map(r => {
       const s = servantOf(r);
       return `<div class="rival ${r.alive ? '' : 'out'}">
-        <div class="rival-head"><span class="rival-cls">${r.intel >= 3 ? s.name : r.cls}</span>
+        <div class="rival-head"><span class="rival-cls">${emblem(r.cls, 16)}${r.intel >= 3 ? s.name : r.cls}</span>
           <span>${!r.alive ? '<span class="tag">脱落</span>' : r.ally ? '<span class="tag green">同盟</span>' : ''}${r.bounty && r.alive ? '<span class="tag red">討伐令</span>' : ''}
           <span class="intel" aria-label="情報段階${r.intel}">${[1, 2, 3].map(i => `<i class="${r.intel >= i ? 'on' : ''}"></i>`).join('')}</span></span></div>
         <p>${r.cls}　マスター：${r.intel >= 1 ? `${esc(r.master)}（${r.type}）` : '不明'}</p>
@@ -193,16 +236,18 @@ function viewLog() {
     <h3>ゲーム</h3><div class="choices">
       <button class="choice" data-act="totitle"><span class="c-label">タイトルへ戻る</span><span class="c-hint">進行は自動保存されている</span></button>
       <button class="choice danger" data-act="reset"><span class="c-label">${SCENE && SCENE.confirmReset ? 'もう一度押すと削除' : 'セーブデータを削除'}</span></button>
-    </div></section>`;
+    </div>
+    <div style="margin-top:22px">${viewSettings()}</div></section>`;
 }
 function viewEnding() {
   const s = SCENE; const sv = G.servant ? servantOf(G) : null;
-  return `<article class="scene">
-    ${circleSVG()}
-    <div class="scene-sub">${s.good ? 'ENDING' : 'BAD END'}</div>
+  const no = ENDING_LIST.findIndex(e => e[0] === s.endKind) + 1;
+  return `<article class="scene ending ${s.good ? 'good' : 'bad'}">
+    ${circleSVG(s.good ? 'dawn-circle' : 'blood-circle')}
+    <div class="scene-sub">${s.good ? 'ENDING' : 'BAD END'}${no ? `　No.${String(no).padStart(2, '0')}` : ''}</div>
     <h1 class="scene-title">${s.title}</h1>
-    <div class="scene-body">${s.text.join('')}</div>
-    <div class="ending-stats">
+    <div class="scene-body">${s.text.map((h, i) => CFG.fx ? `<div class="rv" style="--d:${400 + i * 700}ms">${h}</div>` : h).join('')}</div>
+    <div class="ending-stats ${CFG.fx ? 'rv' : ''}" style="--d:${400 + s.text.length * 700}ms">
       <div>到達<b>${G.phase === 'end' && G.servant ? `${G.day}日目` : `準備${G.day}日目`}</b></div>
       <div>撃破数<b>${G.kills}騎</b></div>
       <div>サーヴァント<b>${sv ? sv.short : '―'}</b></div>
@@ -214,8 +259,15 @@ function viewEnding() {
 
 // ---------------- 操作（タップ） ----------------
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-choice],[data-tab],[data-act],[data-mact]');
+  if (REVEAL_UNTIL > Date.now() && e.target.closest('.main')) { skipReveal(); return; }   // 表示中のタップは全文表示
+  const t = e.target.closest('[data-choice],[data-tab],[data-act],[data-mact],[data-cfg]');
   if (!t || t.disabled) return;
+  sfx('tick');
+  if (t.dataset.cfg) {
+    const [k, v] = t.dataset.cfg.split(':'); CFG[k] = k === 'speed' ? +v : v === 'true'; saveCfg();
+    if (k === 'sound' && CFG.sound) sfx('page');
+    render(); return;
+  }
   if (t.dataset.mact) { if (B) { B.mact = t.dataset.mact; battleScene(); } return; }
   if (t.dataset.tab) { TAB = t.dataset.tab; if (SCENE) SCENE.confirmReset = false; render(); return; }
   if (t.dataset.choice !== undefined) { const c = SCENE.choices[+t.dataset.choice]; if (c && !c.disabled) c.fn(); return; }
@@ -223,6 +275,8 @@ document.addEventListener('click', e => {
   if (a === 'new') createScreen();
   else if (a === 'reroll') { const name = document.getElementById('mname').value.trim(); const m = rollMaster(); if (name) m.name = name; createScreen(m); }
   else if (a === 'title' || a === 'totitle') titleScreen();
+  else if (a === 'settings') { SCENE = { kind: 'settings' }; render(); }
+  else if (a === 'gallery') { SCENE = { kind: 'gallery' }; render(); }
   else if (a === 'start') {
     const name = document.getElementById('mname').value.trim() || SCENE.master.name;
     SCENE.master.name = name.slice(0, 16);
@@ -247,6 +301,7 @@ function startFromSave() {
 
 // ---------------- 起動 ----------------
 function boot(data) {
+  applyCfg(); startSnow();
   if (data && data.save) { try { G = JSON.parse(data.save); SLOT = { news: true, story: true, event: true }; return startFromSave(); } catch (e) { } }
   titleScreen();
 }

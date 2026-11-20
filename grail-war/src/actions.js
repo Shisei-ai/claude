@@ -440,7 +440,7 @@ function doSummon(catalystId) {
   G.phase = 'war'; G.day = 1; G.slot = 0; SLOT = {};
   addLog(`${sv.cls}「${sv.name}」を召喚。`);
   if (G.flags.earlyIntel) intelRandom(1);
-  SCENE = { kind: 'summon', sv }; TAB = 'story'; render();
+  SCENE = { kind: 'summon', sv }; TAB = 'story'; render(); sfx('summon');
 }
 function setupRivals() {
   const mine = servantOf(G).cls;
