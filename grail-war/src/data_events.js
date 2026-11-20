@@ -124,20 +124,6 @@ const EVENTS = [
     ],
   },
   {
-    id: 'church', phase: 'prep', time: 'day', once: true, weight: 3,
-    title: '監督役の教会',
-    text: () => '丘の上の聖ヨハネ教会。この街の聖杯戦争の監督役が、ここに詰めているという。マスターとして登録を済ませるべきだろうか。',
-    choices: [
-      { label: '正式に登録する', run: () => { tone('law'); G.flags.registered = true; return '神父は淡々と手続きを済ませた。「脱落した場合、当教会が保護いたします。……ご武運を」'; } },
-      { label: '神父に探りを入れる', hint: '交渉判定', run: () => {
-          const r = chk('cha', 60); G.flags.registered = true;
-          if (r.ok) { G.flags.earlyIntel = true; return [r.text, '世間話のふりをして、既に登録を済ませた参加者がいることを聞き出した。（敵陣営の情報を1つ得た）']; }
-          return [r.text, '神父の笑みは崩れなかった。何も聞き出せないまま、登録だけを済ませた。'];
-        } },
-      { label: '登録しない', run: () => { tone('chaos'); return '誰かに縛られるのはごめんだ。あなたは教会を後にした。'; } },
-    ],
-  },
-  {
     id: 'ambush_prep', phase: 'prep', time: 'night', once: true, weight: 2,
     title: '路地裏の魔術師',
     text: () => '帰り道、背後から鋭い殺気。振り返ると、仮面の魔術師が魔弾を構えていた。「令呪の兆しを持つ者は、今のうちに消しておく」',
@@ -189,19 +175,6 @@ const EVENTS = [
           hp(-20); gain('mag', 2); return [r.text, '意識が飛んだ。目覚めると朝だった。体は重いが、わずかに回路が広がっている。（HP-20 魔力+2）'];
         } },
       { label: '瞑想して鎮める', run: () => { gain('spi', 3); return 'ゆっくりと呼吸を整え、疼きを鎮めた。（精神+3）'; } },
-    ],
-  },
-  {
-    id: 'old_master', phase: 'any', time: 'day', once: true, weight: 2,
-    title: '河川敷の老人',
-    text: () => '御影川の河川敷で、釣り糸を垂れる老人。あなたの右手を一瞥し、ぽつりと呟いた。<br>「六十年前にも、この街で戦争があった。わしもその時は、あんたと同じ痣を持っておったよ」',
-    choices: [
-      { label: '詳しく話を聞く', hint: '知力判定', run: () => {
-          const r = chk('int', 55);
-          if (r.ok) { G.flags.grailHint = true; gain('int', 3); return [r.text, '「あの聖杯はな、願いを歪めて叶える。……わしの友は、それで全てを失った」<br>老人の話から、聖杯に潜む「何か」の存在を知った。（知力+3）']; }
-          return [r.text, '老人の話はとりとめがなく、要領を得なかった。'];
-        } },
-      { label: '会釈して立ち去る', run: () => '老人は再び、黙って川面を見つめ始めた。' },
     ],
   },
   {
@@ -284,21 +257,21 @@ const EVENTS = [
     ],
   },
   {
-    id: 'soul_eating', phase: 'war', time: 'any', once: true, weight: 2, cond: () => aliveRivals().length >= 2,
-    title: '昏睡事件',
-    text: () => 'ニュースが、市内で原因不明の集団昏睡事件が相次いでいると報じている。……魂喰いだ。どこかの陣営が、一般人から魔力を奪っている。',
+    id: 'bounty', phase: 'war', time: 'any', once: true, weight: 2, cond: () => hostileRivals().length >= 2 && !G.flags.bounty,
+    title: '討伐令',
+    text: () => {
+      const r = G.tmpRival = randomHostile();
+      return `教会から全マスターへ通達が届いた。「${r.cls}陣営が神秘の秘匿に関する規約に違反した。討伐した者に、報酬として令呪一画を与える」`;
+    },
     choices: [
-      { label: '監督役に報告する', hint: '秩序', run: () => {
-          tone('law'); const r = randomAliveRival(); r.bounty = true; G.flags.bounty = r.id;
-          return `数日後、教会から通達が届いた。「${r.cls}陣営を規約違反とし、討伐した者に令呪一画を与える」`;
+      { label: '討伐に名乗りを上げる', hint: '秩序 / 敵の情報を得る', run: () => {
+          tone('law'); const r = G.tmpRival; r.bounty = true; G.flags.bounty = r.id; r.intel = Math.max(r.intel, 2);
+          return `教会から${r.cls}陣営の拠点の情報が提供された。<span class="note">討伐すれば令呪+1。</span>`;
         } },
-      { label: '自ら犯人を捜す', hint: '知力判定（善）', run: () => {
-          tone('good'); const c = chk('int', 58);
-          if (c.ok) { const r = randomAliveRival(); r.intel = Math.max(r.intel, 2); r.bounty = true; G.flags.bounty = r.id;
-            return [c.text, `犯人は${r.cls}陣営だと突き止めた。拠点の場所も判明した。教会もこの陣営を討伐対象に指定したようだ。`]; }
-          return [c.text, '手がかりは掴めなかった。'];
+      { label: '他陣営の潰し合いを待つ', hint: '慎重', run: () => {
+          tone('cautious'); const r = G.tmpRival; r.bounty = true; G.flags.bounty = r.id;
+          return `他の陣営が${r.cls}陣営に群がるだろう。その隙を窺えばいい。`;
         } },
-      { label: '放っておく', run: () => { tone('evil'); return '他の陣営が魔力を蓄えようと、知ったことではない。'; } },
     ],
   },
   {

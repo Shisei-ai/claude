@@ -65,7 +65,8 @@ b { color: var(--gold); font-weight: 700; }
   text-wrap: balance; }
 .scene-sub { font-size: 12px; letter-spacing: .14em; color: var(--gold); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
 .scene-sub::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, #d2ad5f66, transparent); }
-.scene-body p { margin: 0 0 12px; }
+.scene-body p, .scene-body .para { margin: 0 0 12px; }
+.scene-body .para p { margin: 8px 0 0; }
 .scene-body .quote { font-family: var(--font-display); font-size: 16px; padding: 10px 14px; border-left: 2px solid var(--gold);
   background: var(--gold-soft); border-radius: 0 6px 6px 0; }
 .scene-body .note { font-size: 13px; color: var(--muted); }
@@ -205,3 +206,34 @@ b { color: var(--gold); font-weight: 700; }
   .circle .spin, .summon-glow, .reveal { animation: none; }
   .choice { transition: none; }
 }
+
+/* ---------- 行動選択の状況パネル ---------- */
+.status-box { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 4px 0 6px; }
+.status-box > div { background: var(--bg-2); padding: 6px 8px; font-size: 11px; color: var(--muted); min-width: 0; }
+.status-box > div span { display: block; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status-box b { font-size: 17px; color: var(--fg); font-weight: 700; font-variant-numeric: tabular-nums; }
+.status-box em { font-style: normal; margin-left: 2px; }
+.status-box .wide { grid-column: 1 / -1; font-size: 12px; line-height: 1.6; }
+.status-box .wide span { display: inline; margin-right: 4px; color: var(--gold); }
+
+/* ---------- 道具一覧 ---------- */
+.item-list { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.item-list div { display: flex; flex-direction: column; border-left: 2px solid #d2ad5f66; padding-left: 10px; }
+.item-list b { font-weight: 500; color: var(--fg); }
+.item-list span { font-size: 12px; color: var(--muted); }
+
+/* ---------- 戦闘：マスターの行動 ---------- */
+.mact { margin: 12px 0 4px; }
+.mact-head { font-size: 12px; letter-spacing: .12em; color: var(--gold); display: flex; justify-content: space-between; margin-bottom: 6px; }
+.mact-head span { color: var(--muted); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.mact-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: flex; flex-direction: column; align-items: flex-start; gap: 0; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg-2); font-size: 13px; cursor: pointer; line-height: 1.35; min-height: 44px; justify-content: center; }
+.chip small { font-size: 10px; color: var(--muted); }
+.chip.on { border-color: var(--gold); background: var(--gold-soft); color: var(--gold); }
+.chip[disabled] { opacity: .35; cursor: not-allowed; }
+.chip:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.enemy-params { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; font-size: 11px; color: var(--muted); }
+.enemy-params b { font-family: var(--font-rank); color: var(--fg); margin-left: 3px; font-weight: 600; }
+.note.rule { font-size: 12px; color: var(--muted); margin: 8px 0 0; }

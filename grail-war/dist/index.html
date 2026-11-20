@@ -75,7 +75,8 @@ b { color: var(--gold); font-weight: 700; }
   text-wrap: balance; }
 .scene-sub { font-size: 12px; letter-spacing: .14em; color: var(--gold); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
 .scene-sub::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, #d2ad5f66, transparent); }
-.scene-body p { margin: 0 0 12px; }
+.scene-body p, .scene-body .para { margin: 0 0 12px; }
+.scene-body .para p { margin: 8px 0 0; }
 .scene-body .quote { font-family: var(--font-display); font-size: 16px; padding: 10px 14px; border-left: 2px solid var(--gold);
   background: var(--gold-soft); border-radius: 0 6px 6px 0; }
 .scene-body .note { font-size: 13px; color: var(--muted); }
@@ -215,6 +216,37 @@ b { color: var(--gold); font-weight: 700; }
   .circle .spin, .summon-glow, .reveal { animation: none; }
   .choice { transition: none; }
 }
+
+/* ---------- 行動選択の状況パネル ---------- */
+.status-box { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 4px 0 6px; }
+.status-box > div { background: var(--bg-2); padding: 6px 8px; font-size: 11px; color: var(--muted); min-width: 0; }
+.status-box > div span { display: block; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status-box b { font-size: 17px; color: var(--fg); font-weight: 700; font-variant-numeric: tabular-nums; }
+.status-box em { font-style: normal; margin-left: 2px; }
+.status-box .wide { grid-column: 1 / -1; font-size: 12px; line-height: 1.6; }
+.status-box .wide span { display: inline; margin-right: 4px; color: var(--gold); }
+
+/* ---------- 道具一覧 ---------- */
+.item-list { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.item-list div { display: flex; flex-direction: column; border-left: 2px solid #d2ad5f66; padding-left: 10px; }
+.item-list b { font-weight: 500; color: var(--fg); }
+.item-list span { font-size: 12px; color: var(--muted); }
+
+/* ---------- 戦闘：マスターの行動 ---------- */
+.mact { margin: 12px 0 4px; }
+.mact-head { font-size: 12px; letter-spacing: .12em; color: var(--gold); display: flex; justify-content: space-between; margin-bottom: 6px; }
+.mact-head span { color: var(--muted); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.mact-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: flex; flex-direction: column; align-items: flex-start; gap: 0; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg-2); font-size: 13px; cursor: pointer; line-height: 1.35; min-height: 44px; justify-content: center; }
+.chip small { font-size: 10px; color: var(--muted); }
+.chip.on { border-color: var(--gold); background: var(--gold-soft); color: var(--gold); }
+.chip[disabled] { opacity: .35; cursor: not-allowed; }
+.chip:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.enemy-params { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; font-size: 11px; color: var(--muted); }
+.enemy-params b { font-family: var(--font-rank); color: var(--fg); margin-left: 3px; font-weight: 600; }
+.note.rule { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
 
 </style>
 </head>
@@ -776,6 +808,276 @@ const FLAVOR = {
 };
 
 // =============================================================
+//  メインシナリオ（決まった日に必ず起きる物語イベント）
+//  三幕構成：
+//   序章「令呪の冬」   … 準備期間。街の異変と監督役、六十年前の生き残り
+//   第一幕「開幕」     … 1〜4日目。サーヴァントとの出会い、最初の敵
+//   第二幕「侵蝕」     … 5〜9日目。昏睡事件、黒い影、聖杯の真実
+//   第三幕「降臨」     … 10日目〜。決戦前夜、11日目以降の夜に天降山の決戦、聖杯
+//
+//  書式は data_events.js と同じ。違いは以下の2点。
+//   phase / day / slot（0=昼 1=夜）で発生タイミングを指定
+//   after: 'hub'（そのコマの行動選択へ進む） / 'advance'（そのコマを使い切る）
+// =============================================================
+
+// ---- 登場人物（オリジナル） ----
+const CAST = {
+  sister: 'シスター・アグネス',   // 聖ヨハネ教会の監督役
+  old: '榊 宗玄',                 // 六十年前の聖杯戦争の生き残り
+  miko: '天降 雫',                // 天降神社の巫女
+};
+
+// ---- 黒き聖杯の澱（隠しボス） ----
+const BOSS = {
+  id: 'ori', name: '黒き聖杯の澱', short: '澱', cls: '聖杯',
+  p: ['A', 'EX', 'C', 'EX', 'E', 'EX'], align: '―', persona: 'berserker',
+  np: 'この世全ての澱', npRuby: 'カース・オブ・フカミ', catalyst: null,
+  line: '', desc: '六十年前に聖杯へ溶けた呪いの成れの果て。願いを喰らい、街を呑もうとしている。',
+};
+
+// サーヴァントの「願い」：性格ごとに、決戦前夜などで語られる
+const SERVANT_WISH = {
+  knight: '果たせなかった誓いを、もう一度果たしたい',
+  king: '我が治世の続きを見届けること',
+  warrior: '心ゆくまで戦える、最高の好敵手との一戦',
+  cool: '……さあな。強いて言えば、君の願いが叶うところを見てみたい',
+  gentle: '大切な人たちが、笑って暮らせる世界',
+  free: 'もう一度、思いっきり生きてみたい！',
+  dark: '奪われたものへの、最後の決着',
+  scholar: 'まだ誰も書いていない、最高の物語の結末',
+  berserker: '（言葉はない。だが、その眼差しは確かに何かを求めている）',
+};
+
+const STORY = [
+  // ===================== 序章 =====================
+  {
+    id: 's_tremor', phase: 'prep', day: 2, slot: 1, after: 'advance',
+    title: '霊脈の揺らぎ', chapter: '序章　令呪の冬',
+    text: () => '深夜。地鳴りのような低い響きで目が覚めた。<br>右手の痣が熱い。窓の外、天降山の方角の空が、一瞬だけ<b>黒く</b>揺らいだように見えた。<br>――まるで、夜そのものが滲み出してきたかのように。',
+    choices: [
+      { label: '使い魔を天降山へ飛ばす', hint: '魔力判定', run: () => {
+          const r = chk('mag', 58);
+          if (r.ok) { G.flags.grailHint = true; gain('mag', 2);
+            return [r.text, '使い魔の視界に、山頂の古社から黒い霧が細く立ちのぼるのが見えた。霧は霊脈に沿って、街の方へと流れていく。<br>……あれは何だ？（魔力+2）']; }
+          return [r.text, '使い魔は山の中腹で何かに怯え、引き返してきた。'];
+        } },
+      { label: '天降神社へ向かう', hint: '体力判定', run: () => {
+          const r = chk('phy', 50);
+          if (r.ok) { G.flags.leyline = true; G.flags.metMiko = true; tone('bold');
+            return [r.text, `夜の石段を駆け上がると、境内に白装束の少女が立っていた。巫女の${CAST.miko}だ。<br>「あなたも感じたんですね。……この山の霊脈、六十年ぶりに目を覚まそうとしています」<br>彼女から霊脈の流れを教わった。（陣地作成が得意になった）`]; }
+          hp(-10); return [r.text, '暗い石段で足を滑らせた。今夜は諦めよう。（HP-10）'];
+        } },
+      { label: '気のせいだと眠る', run: () => { gain('spi', 2); tone('cautious'); return '布団を被り直した。……だが、夢の中でも黒い空が揺れていた。（精神+2）'; } },
+    ],
+  },
+  {
+    id: 's_sister', phase: 'prep', day: 3, slot: 0, after: 'hub',
+    title: '監督役', chapter: '序章　令呪の冬',
+    text: () => `丘の上の聖ヨハネ教会から呼び出しがあった。<br>ステンドグラスの光の中、銀髪の修道女が静かに振り返る。<br>「ようこそ。私は${CAST.sister}。この地の聖杯戦争の監督役を務めます」<br>彼女は淡々と規則を説明した。七人のマスターと七騎のサーヴァント。神秘の秘匿のため、戦闘は夜に限ること。脱落者は教会が保護すること。`,
+    choices: [
+      { label: 'マスターとして正式に登録する', hint: '秩序 / 脱落時に保護される', run: () => {
+          tone('law'); G.flags.registered = true;
+          return `「賢明な判断です」${CAST.sister}は名簿にあなたの名を書き記した。「教会はいつでも、あなたの相談に応じましょう」<br><span class="note">戦争中、昼の「情報収集」で教会を頼れるようになった。</span>`;
+        } },
+      { label: '「六十年前の戦争について聞きたい」', hint: '交渉判定', run: () => {
+          G.flags.registered = true; const r = chk('cha', 60);
+          if (r.ok) { G.flags.grailHint = true;
+            return [r.text, `${CAST.sister}の表情が、ほんのわずかに曇った。<br>「……前回の記録は、教会にもほとんど残っていません。不自然なほどに。ただ一つ――生き残ったマスターが、まだこの街にいるとだけ」<br>登録も済ませた。`]; }
+          return [r.text, '「過去の詮索は、今は不要でしょう」穏やかに、しかしきっぱりと遮られた。登録だけは済ませた。'];
+        } },
+      { label: '誰の指図も受けない', hint: '混沌', run: () => { tone('chaos'); return `「そうですか。……ご武運を」${CAST.sister}は、それ以上何も言わなかった。`; } },
+    ],
+  },
+  {
+    id: 's_oldman', phase: 'prep', day: 4, slot: 0, after: 'hub',
+    title: '六十年前の生き残り', chapter: '序章　令呪の冬',
+    text: () => `御影川の河川敷。釣り糸を垂れる老人が、あなたの右手を見て目を細めた。<br>「……その痣。わしにも昔、同じものがあった」<br>老人は${CAST.old}と名乗った。六十年前、この街で起きた最初の聖杯戦争の、ただ一人の生き残りだという。`,
+    choices: [
+      { label: '当時のことを詳しく尋ねる', hint: '知力判定', run: () => {
+          const r = chk('int', 55);
+          if (r.ok) { G.flags.grailHint = true; G.flags.oldTrust = true; gain('int', 3);
+            return [r.text, '「最後に残ったのは、わしと――名前のない、呪いのような英霊じゃった。あれが聖杯に呑まれた瞬間、山が黒く染まった」<br>「あの聖杯は、願いを<b>歪めて</b>叶える。……気をつけなされ」（知力+3）']; }
+          return [r.text, '老人の話は昔語りと愚痴が入り混じり、肝心なところが分からなかった。'];
+        } },
+      { label: '戦いの心得を教わる', hint: '体力・精神↑', run: () => { gain('phy', 2); gain('spi', 3); G.flags.oldTrust = true;
+          return '「生き残る者は、退き時を知る者じゃ」老人の言葉は短く、重かった。（体力+2 精神+3）'; } },
+      { label: '会釈して立ち去る', run: () => '老人は再び、黙って川面を見つめ始めた。' },
+    ],
+  },
+  {
+    id: 's_eve', phase: 'prep', day: 5, slot: 1, after: 'advance',
+    title: '召喚前夜', chapter: '序章　令呪の冬',
+    text: () => '明日の夜、召喚の儀を行う。準備に使える夜は、これが最後だ。<br>工房の窓から、雪のちらつく街を見下ろす。この街のどこかで、他のマスターたちも同じ夜を過ごしているのだろう。',
+    choices: [
+      { label: '召喚陣を仕上げる', hint: '召喚の質↑', run: () => {
+          G.ritual = Math.min(3, G.ritual + 1); gain('mag', 1);
+          return `夜を徹して、陣に最後の線を引いた。（召喚の準備 ${G.ritual}/3 魔力+1）`;
+        } },
+      { label: '最後の触媒を探しに出る', hint: '幸運判定', run: () => {
+          const r = chk('luk', 62);
+          if (r.ok) { const c = giveCatalyst(); return [r.text, `旧城下町の古道具屋が、閉店間際に一つの品を譲ってくれた。<b>${c}</b>だ。`]; }
+          return [r.text, '雪の中を歩き回ったが、収穫はなかった。'];
+        } },
+      { label: '静かに覚悟を決める', hint: 'HP全快 精神↑', run: () => { hp(100); gain('spi', 3);
+          return 'ゆっくりと湯に浸かり、早めに眠った。心は不思議と凪いでいる。（HP全快 精神+3）'; } },
+    ],
+  },
+
+  // ===================== 第一幕「開幕」 =====================
+  {
+    id: 's_morning', phase: 'war', day: 1, slot: 0, after: 'hub',
+    title: '最初の朝', chapter: '第一幕　開幕',
+    text: () => `召喚から一夜。台所に立つと、${SV()}が窓辺から冬の街を眺めていた。<br>「おはよう、マスター。……一つ聞いておきたい。<b>君は聖杯に、何を願う？</b>」`,
+    choices: [
+      { label: () => `「${birthOf().wish}」と答える`, hint: '自分の願いを語る', run: () => {
+          bond(4); G.flags.toldWish = true;
+          return [`あなたは自分の願いを、正直に語った。`, `<p class="quote">${fmt(pick(PERSONAS[servantOf(G).persona].mid))}</p>`, `${SV()}は静かに頷いた。（絆+4）`];
+        } },
+      { label: '「君こそ、何を願うんだ？」', hint: 'サーヴァントの願いを聞く', run: () => {
+          bond(3); G.flags.knowWish = true;
+          return [`${SV()}は少し意外そうな顔をして、それから遠くを見た。`, `<p class="quote">「${SERVANT_WISH[servantOf(G).persona]}」</p>`, '（絆+3　サーヴァントの願いを知った）'];
+        } },
+      { label: '「今は勝つことだけ考えよう」', hint: '大胆', run: () => { tone('bold'); return `「……ああ、それも一つの答えだ」${SV()}は口の端を上げた。`; } },
+    ],
+  },
+  {
+    id: 's_first', phase: 'war', day: 2, slot: 1, after: 'advance', cond: () => hostileRivals().length > 0,
+    title: '最初の邂逅', chapter: '第一幕　開幕',
+    text: () => {
+      const r = G.storyRival = hostileRivals().reduce((a, b) => a.aggr >= b.aggr ? a : b);
+      r.intel = Math.max(r.intel, 1);
+      return `買い出しの帰り道、街灯が一斉に明滅した。<br>人払いの結界。気付けば、通りには誰もいない。<br>電柱の上に、<b>${r.cls}</b>のサーヴァントが立っていた。傍らには、マスターの${esc(r.master)}――${r.type}。<br><p class="quote">「${r.quote}」</p>`;
+    },
+    choices: [
+      { label: '迎え撃つ', hint: '戦闘', cls: 'danger', run: () => ({ text: `${SV()}が実体化し、あなたの前に立った。「下がっていろ、マスター」`, then: () => startBattle(G.storyRival, {}) }) },
+      { label: '名乗りを上げ、一騎打ちを挑む', hint: '秩序・大胆 / 初撃に補正', cls: 'danger', run: () => {
+          tone('law'); tone('bold');
+          return { text: `${SV()}が一歩前に出て、堂々とクラスを名乗った。敵もそれに応じ、空気が張り詰める。`, then: () => startBattle(G.storyRival, { duel: true }) };
+        } },
+      { label: '戦わずに退く', hint: 'サーヴァント敏捷判定', run: () => {
+          tone('cautious'); const c = schk(2, 55);
+          if (c.ok) return [c.text, `${SV()}があなたを抱えて屋根伝いに跳んだ。追撃はない。……だが、相手の顔は覚えた。`];
+          return { text: [c.text, '回り込まれた！ 戦うしかない。'], then: () => startBattle(G.storyRival, {}) };
+        } },
+    ],
+  },
+  {
+    id: 's_coma', phase: 'war', day: 4, slot: 0, after: 'hub',
+    title: '昏睡事件', chapter: '第二幕　侵蝕',
+    text: () => `朝のニュースが、市内で原因不明の昏睡事件が相次いでいると報じていた。被害者はこの三日で十二人。全員、夜の街で倒れているのを発見されたという。<br>昼過ぎ、${CAST.sister}から連絡が入った。<br>「魂喰い――魔力の略奪の可能性があります。ですが、どのサーヴァントの痕跡とも一致しないのです」`,
+    choices: [
+      { label: '調査を引き受ける', hint: '善', run: () => { tone('good'); G.flags.investigate = true;
+          return `「感謝します。何か分かれば、教会にも知らせてください」<br><span class="note">夜の巡回や偵察で、事件の手がかりが見つかりやすくなった。</span>`; } },
+      { label: '他陣営の仕業として利用する', hint: '悪 / 敵の情報を得る', run: () => {
+          tone('evil'); const r = randomHostile();
+          if (r) { r.intel = Math.max(r.intel, 1); r.bounty = true;
+            return `あなたは「${r.cls}陣営が怪しい」と監督役に吹き込んだ。教会は${r.cls}陣営に討伐令を出した。<br><span class="note">討伐すれば令呪が一画もらえる。</span>`; }
+          return '利用できそうな陣営は見当たらなかった。';
+        } },
+      { label: '静観する', hint: '慎重', run: () => { tone('cautious'); return '他陣営の動きを見極めるまで、下手に動くべきではない。'; } },
+    ],
+  },
+  {
+    id: 's_shadow', phase: 'war', day: 6, slot: 1, after: 'advance',
+    title: '黒い影', chapter: '第二幕　侵蝕',
+    text: () => `${G.flags.investigate ? '昏睡事件を追って' : '偶然通りかかった'}港の倉庫街で、あなたは見た。<br>路地に倒れた男の上に、<b>黒い泥のような影</b>が覆いかぶさっている。影は男から何かを吸い上げ、脈打つように膨らんでいく。<br>「マスター、下がれ。あれは――サーヴァントではない」${SV()}の声が、かすかに震えていた。`,
+    choices: [
+      { label: '影を討つ', hint: 'サーヴァント魔力判定', cls: 'danger', run: () => {
+          const c = schk(3, 60);
+          G.flags.grailHint = true;
+          if (c.ok) { bond(3); gain('spi', 1);
+            return [c.text, `${SV()}の一撃が影を引き裂いた。影は悲鳴のような音を立てて霧散し、残滓は――天降山の方角へと流れていった。<br>男は衰弱しているが、息はある。（絆+3）`]; }
+          shp(-25); return [c.text, `影は${SV()}の攻撃を呑み込み、触れた部分の霊基を侵した。どうにか追い払ったが、${SV()}の顔色は悪い。（サーヴァントHP-25）<br>逃げていく影は、天降山の方角へ消えた。`];
+        } },
+      { label: '倒れた男を連れて逃げる', hint: '善', run: () => {
+          tone('good'); G.flags.grailHint = true; shp(-10); gain('luk', 2);
+          return `${SV()}が影を牽制する間に、男を担いで大通りまで走った。振り返ると、影は霊脈の流れに沿って山の方へ退いていった。（サーヴァントHP-10 幸運+2）`;
+        } },
+      { label: '影を追跡する', hint: '知力判定', run: () => {
+          const c = chk('int', 60); G.flags.grailHint = true;
+          if (c.ok) { G.flags.shadowTrail = true;
+            return [c.text, '距離を取って影の後を追った。影は霊脈を遡り、天降山の古社――聖杯が降臨するはずの場所へと吸い込まれていった。<br><b>影の正体は、聖杯そのものから漏れ出したものだ。</b>']; }
+          hp(-15); return [c.text, '影を見失い、気付けば足元から泥が這い上がっていた。慌てて振り払う。（HP-15）'];
+        } },
+    ],
+  },
+  {
+    id: 's_past', phase: 'war', day: 8, slot: 0, after: 'hub', cond: () => !G.flags.grailTruth,
+    title: '六十年前の真実', chapter: '第二幕　侵蝕',
+    text: () => `${G.flags.grailHint ? '黒い影、霊脈の異変、六十年前の戦争。' : '街の異変が、何かと繋がっている気がする。'}点と点を繋ぐために、どこを調べるべきだろうか。`,
+    choices: [
+      { label: () => `${CAST.old}を訪ねる`, hint: '交渉判定', run: () => {
+          const c = chk('cha', G.flags.oldTrust ? 40 : 62);
+          if (c.ok) { G.flags.grailTruth = true;
+            return [c.text, `老人は長い沈黙の後、口を開いた。<br>「最後の英霊は、人の悪意を形にした<b>呪いそのもの</b>じゃった。聖杯はそれを呑み込み……中身ごと腐った。あの影は、聖杯から溢れた呪いじゃよ」<br>「頼む。あれを、二度と世に出してはならん」`]; }
+          return [c.text, '「……話すことは何もない」老人は背を向けた。'];
+        } },
+      { label: '天降神社の古文書を調べる', hint: '知力判定', run: () => {
+          const c = chk('int', G.flags.metMiko ? 45 : 60);
+          if (c.ok) { G.flags.grailTruth = true;
+            return [c.text, `${G.flags.metMiko ? `${CAST.miko}が蔵を開けてくれた。` : ''}古文書には、聖杯の器が「呪いを孕み、黒く染まった」と記されていた。<br><b>この聖杯は汚染されている。願いは、破滅の形でしか叶わない。</b>`]; }
+          return [c.text, '崩し字が読めず、決定的な記述を見つけられなかった。'];
+        } },
+      { label: '教会の記録庫に忍び込む', hint: '幸運判定（混沌）', run: () => {
+          tone('chaos'); const c = chk('luk', 55);
+          if (c.ok) { G.flags.grailTruth = true; G.flags.sisterSecret = true;
+            return [c.text, `封印された書庫の奥に、前回の報告書があった。「聖杯の汚染を確認。ただし、儀式の継続を優先する」――署名は教会上層部のものだ。<br><b>教会は、聖杯が汚染されていると知っていた。</b>`]; }
+          gain('spi', -3); return [c.text, `足音。${CAST.sister}だ。「……ここは立入禁止です」咎めはしなかったが、その目は冷たかった。（精神-3）`];
+        } },
+      { label: () => `${SVname()}に聖杯の気配を探らせる`, hint: 'サーヴァント魔力判定', run: () => {
+          const c = schk(3, 58);
+          if (c.ok) { G.flags.grailTruth = true; bond(2);
+            return [c.text, `天降山を見上げた${SV()}が、険しい顔で言った。「……あの山の下に、底なしの悪意が溜まっている。聖杯は、呪われている」`]; }
+          return [c.text, '聖杯の気配は、霊脈の奥深くに隠れていて掴めなかった。'];
+        } },
+    ],
+  },
+  {
+    id: 's_devoured', phase: 'war', day: 9, slot: 1, after: 'advance', cond: () => hostileRivals().length >= 3,
+    title: '呑まれた陣営', chapter: '第二幕　侵蝕',
+    text: () => {
+      const r = G.storyRival = hostileRivals().reduce((a, b) => (a.hp / a.hpMax) <= (b.hp / b.hpMax) ? a : b);
+      return `城跡公園に駆けつけた時には、もう遅かった。<br>傷ついた<b>${rivalLabel(r)}</b>のサーヴァントに、地面から湧き出した黒い泥が絡みついている。泥は霊基を喰らいながら、ずぶずぶと地中へ引きずり込んでいく。<br>マスターの${esc(r.master)}が、悲鳴を上げて手を伸ばしていた。`;
+    },
+    choices: [
+      { label: '泥を断ち切り、助ける', hint: 'サーヴァント筋力判定（善）', cls: 'danger', run: () => {
+          tone('good'); const r = G.storyRival; const c = schk(0, 62);
+          r.alive = false; r.hp = 0; addLog(`${rivalLabel(r)}陣営、黒い泥に呑まれて脱落。`);
+          if (c.ok) { for (const x of aliveRivals()) x.intel = Math.min(3, x.intel + 1);
+            return [c.text, `${SV()}が泥を断ち切った。サーヴァントは救えなかったが、${esc(r.master)}は助け出せた。<br>「……借りができた。知っていることは全部話す」<br>彼の情報で、<b>残る全陣営の情報が一段階進んだ。</b>`]; }
+          shp(-20); return [c.text, `泥は重く、${SV()}の刃は届かなかった。${rivalLabel(r)}陣営は、跡形もなく呑み込まれた。（サーヴァントHP-20）`];
+        } },
+      { label: '泥の動きを観察する', hint: '知力判定', run: () => {
+          const r = G.storyRival; const c = chk('int', 55);
+          r.alive = false; r.hp = 0; addLog(`${rivalLabel(r)}陣営、黒い泥に呑まれて脱落。`);
+          if (c.ok) { G.flags.mudKnown = true;
+            return [c.text, `泥は<b>傷ついたサーヴァント</b>を狙う。聖杯は、脱落者の魂を貪って満ちていく――。<br><span class="note">この戦いの仕組みが分かった。決戦で有利になるだろう。</span>`]; }
+          return [c.text, `為す術もなく、${rivalLabel(r)}陣営が呑み込まれていくのを見ていることしかできなかった。`];
+        } },
+      { label: '今のうちに立ち去る', hint: '慎重', run: () => {
+          tone('cautious'); const r = G.storyRival; r.alive = false; r.hp = 0; addLog(`${rivalLabel(r)}陣営、黒い泥に呑まれて脱落。`);
+          return '背後で、何かが地面に沈む音がした。あなたは振り返らなかった。';
+        } },
+    ],
+  },
+
+  // ===================== 第三幕「降臨」 =====================
+  {
+    id: 's_eveFinal', phase: 'war', day: 10, slot: 1, after: 'hub',
+    title: '決戦前夜', chapter: '第三幕　降臨',
+    text: () => `天降山の頂が、夜空にうっすらと光っている。聖杯の降臨が近い。<br>拠点の屋根の上で、${SV()}が月を見上げていた。隣に座ると、${SV()}はぽつりと言った。<br><p class="quote">${fmt(pick(PERSONAS[servantOf(G).persona][bondTier()]))}</p>「……マスター。最後の戦いの前に、君の覚悟を聞かせてくれ」`,
+    choices: [
+      { label: '「必ず勝とう。二人で」', hint: '決戦で能力補正', run: () => { G.flags.resolve = 'win'; bond(4); tone('bold');
+          return `「ああ。必ずだ」${SV()}は拳を差し出した。あなたはそれに、自分の拳を合わせた。（絆+4 決戦で能力補正）`; } },
+      { label: '「君の願いを叶えたい」', hint: '新たなエンディングが開く', run: () => { G.flags.resolve = 'servant'; G.flags.knowWish = true; bond(8);
+          return [`${SV()}は驚いたように目を見開き、それから、ゆっくりと笑った。`, `<p class="quote">「${SERVANT_WISH[servantOf(G).persona]}……それが、願いだ。覚えていてくれたら嬉しい」</p>`, '（絆+8 聖杯をサーヴァントに託せるようになった）']; } },
+      { label: '「聖杯を壊そう」', hint: '聖杯の真実を知っている時のみ', cond: () => G.flags.grailTruth, run: () => { G.flags.resolve = 'destroy'; bond(5); tone('good');
+          return `「……それが君の答えか」${SV()}は長い沈黙の後、頷いた。「付き合おう。最後まで」（絆+5 聖杯との戦いで能力補正）`; } },
+    ],
+  },
+];
+
+// =============================================================
 //  ランダムイベント
 //  phase : 'prep'（召喚前） / 'war'（聖杯戦争中） / 'any'
 //  time  : 'day'（昼） / 'night'（夜） / 'any'
@@ -901,20 +1203,6 @@ const EVENTS = [
     ],
   },
   {
-    id: 'church', phase: 'prep', time: 'day', once: true, weight: 3,
-    title: '監督役の教会',
-    text: () => '丘の上の聖ヨハネ教会。この街の聖杯戦争の監督役が、ここに詰めているという。マスターとして登録を済ませるべきだろうか。',
-    choices: [
-      { label: '正式に登録する', run: () => { tone('law'); G.flags.registered = true; return '神父は淡々と手続きを済ませた。「脱落した場合、当教会が保護いたします。……ご武運を」'; } },
-      { label: '神父に探りを入れる', hint: '交渉判定', run: () => {
-          const r = chk('cha', 60); G.flags.registered = true;
-          if (r.ok) { G.flags.earlyIntel = true; return [r.text, '世間話のふりをして、既に登録を済ませた参加者がいることを聞き出した。（敵陣営の情報を1つ得た）']; }
-          return [r.text, '神父の笑みは崩れなかった。何も聞き出せないまま、登録だけを済ませた。'];
-        } },
-      { label: '登録しない', run: () => { tone('chaos'); return '誰かに縛られるのはごめんだ。あなたは教会を後にした。'; } },
-    ],
-  },
-  {
     id: 'ambush_prep', phase: 'prep', time: 'night', once: true, weight: 2,
     title: '路地裏の魔術師',
     text: () => '帰り道、背後から鋭い殺気。振り返ると、仮面の魔術師が魔弾を構えていた。「令呪の兆しを持つ者は、今のうちに消しておく」',
@@ -966,19 +1254,6 @@ const EVENTS = [
           hp(-20); gain('mag', 2); return [r.text, '意識が飛んだ。目覚めると朝だった。体は重いが、わずかに回路が広がっている。（HP-20 魔力+2）'];
         } },
       { label: '瞑想して鎮める', run: () => { gain('spi', 3); return 'ゆっくりと呼吸を整え、疼きを鎮めた。（精神+3）'; } },
-    ],
-  },
-  {
-    id: 'old_master', phase: 'any', time: 'day', once: true, weight: 2,
-    title: '河川敷の老人',
-    text: () => '御影川の河川敷で、釣り糸を垂れる老人。あなたの右手を一瞥し、ぽつりと呟いた。<br>「六十年前にも、この街で戦争があった。わしもその時は、あんたと同じ痣を持っておったよ」',
-    choices: [
-      { label: '詳しく話を聞く', hint: '知力判定', run: () => {
-          const r = chk('int', 55);
-          if (r.ok) { G.flags.grailHint = true; gain('int', 3); return [r.text, '「あの聖杯はな、願いを歪めて叶える。……わしの友は、それで全てを失った」<br>老人の話から、聖杯に潜む「何か」の存在を知った。（知力+3）']; }
-          return [r.text, '老人の話はとりとめがなく、要領を得なかった。'];
-        } },
-      { label: '会釈して立ち去る', run: () => '老人は再び、黙って川面を見つめ始めた。' },
     ],
   },
   {
@@ -1061,21 +1336,21 @@ const EVENTS = [
     ],
   },
   {
-    id: 'soul_eating', phase: 'war', time: 'any', once: true, weight: 2, cond: () => aliveRivals().length >= 2,
-    title: '昏睡事件',
-    text: () => 'ニュースが、市内で原因不明の集団昏睡事件が相次いでいると報じている。……魂喰いだ。どこかの陣営が、一般人から魔力を奪っている。',
+    id: 'bounty', phase: 'war', time: 'any', once: true, weight: 2, cond: () => hostileRivals().length >= 2 && !G.flags.bounty,
+    title: '討伐令',
+    text: () => {
+      const r = G.tmpRival = randomHostile();
+      return `教会から全マスターへ通達が届いた。「${r.cls}陣営が神秘の秘匿に関する規約に違反した。討伐した者に、報酬として令呪一画を与える」`;
+    },
     choices: [
-      { label: '監督役に報告する', hint: '秩序', run: () => {
-          tone('law'); const r = randomAliveRival(); r.bounty = true; G.flags.bounty = r.id;
-          return `数日後、教会から通達が届いた。「${r.cls}陣営を規約違反とし、討伐した者に令呪一画を与える」`;
+      { label: '討伐に名乗りを上げる', hint: '秩序 / 敵の情報を得る', run: () => {
+          tone('law'); const r = G.tmpRival; r.bounty = true; G.flags.bounty = r.id; r.intel = Math.max(r.intel, 2);
+          return `教会から${r.cls}陣営の拠点の情報が提供された。<span class="note">討伐すれば令呪+1。</span>`;
         } },
-      { label: '自ら犯人を捜す', hint: '知力判定（善）', run: () => {
-          tone('good'); const c = chk('int', 58);
-          if (c.ok) { const r = randomAliveRival(); r.intel = Math.max(r.intel, 2); r.bounty = true; G.flags.bounty = r.id;
-            return [c.text, `犯人は${r.cls}陣営だと突き止めた。拠点の場所も判明した。教会もこの陣営を討伐対象に指定したようだ。`]; }
-          return [c.text, '手がかりは掴めなかった。'];
+      { label: '他陣営の潰し合いを待つ', hint: '慎重', run: () => {
+          tone('cautious'); const r = G.tmpRival; r.bounty = true; G.flags.bounty = r.id;
+          return `他の陣営が${r.cls}陣営に群がるだろう。その隙を窺えばいい。`;
         } },
-      { label: '放っておく', run: () => { tone('evil'); return '他の陣営が魔力を蓄えようと、知ったことではない。'; } },
     ],
   },
   {
@@ -1228,25 +1503,38 @@ const EVENTS = [
 ];
 
 // =============================================================
-//  ゲーム本体（進行・判定・戦闘・画面描画）
+//  core.js … ゲームの土台（状態・判定・時間の進行・イベント表示）
 //  大まかな流れ：
-//   タイトル → 産まれの決定 → 準備期間（6日） → 召喚の夜
-//   → 聖杯戦争（最大14日） → エンディング
+//   タイトル → 産まれの決定 → 準備期間（5日） → 召喚の夜
+//   → 聖杯戦争（最大14日） → 天降山の決戦 → 聖杯 → エンディング
 //  1日は「昼」と「夜」の2コマ。コマごとに行動を1つ選びます。
+//  1プレイの目安は30分前後です。
 // =============================================================
 
-const SAVE_KEY = 'fukami-grail-war-v1';
-const PREP_DAYS = 6;
+const SAVE_KEY = 'fukami-grail-war-v2';
+const PREP_DAYS = 5;
 const WAR_DAYS = 14;
+const FINAL_DAY = 11;   // 天降山の決戦はこの日の夜以降
+const EVENT_CHANCE = { prep: 0.25, war: 0.22 };   // コマの始めにランダムイベントが起きる確率
 const STAT_LABEL = { mag: '魔力', phy: '体力', int: '知力', spi: '精神', cha: '交渉', luk: '幸運' };
 const CLASS_EN = { 'セイバー': 'SABER', 'アーチャー': 'ARCHER', 'ランサー': 'LANCER', 'ライダー': 'RIDER',
-  'キャスター': 'CASTER', 'アサシン': 'ASSASSIN', 'バーサーカー': 'BERSERKER', 'ルーラー': 'RULER', 'アヴェンジャー': 'AVENGER' };
+  'キャスター': 'CASTER', 'アサシン': 'ASSASSIN', 'バーサーカー': 'BERSERKER', 'ルーラー': 'RULER', 'アヴェンジャー': 'AVENGER', '聖杯': 'GRAIL' };
+
+// 道具（買い出しで入手。主に戦闘中に「マスターの行動」として使う）
+const ITEMS = {
+  potion:  { name: '治癒の霊薬', cost: 2, desc: '戦闘中、サーヴァントのHPを35回復' },
+  gem:     { name: '魔力を込めた宝石', cost: 3, desc: '戦闘中、宝石魔術で援護（その手番+12・敵に10ダメージ）' },
+  crystal: { name: '魔力結晶', cost: 2, desc: 'サーヴァントの魔力を40回復（戦闘中も使える）' },
+  smoke:   { name: '煙幕の護符', cost: 1, desc: '戦闘から確実に撤退できる' },
+};
+const ITEM_MAX = 3;
 
 let G = null;          // ゲームの状態（セーブされる）
 let SCENE = null;      // 今表示している場面（セーブしない）
 let TAB = 'story';     // 選択中のタブ
 let NOTES = [];        // 判定結果などに付け足す小さな注記
 let LAST_HUB = null;   // 最後に行動選択画面へ戻った時点のセーブデータ
+let SLOT = {};         // このコマで済ませた処理（ニュース・物語・イベント）
 
 // ---------------- 小さな道具 ----------------
 const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -1260,29 +1548,34 @@ function wpick(items, wf) {
   return items[items.length - 1];
 }
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const SV_BY_ID = Object.fromEntries(SERVANTS.map(s => [s.id, s]));
+const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS]).map(s => [s.id, s]));
 
 // ---------------- 名前・参照 ----------------
 function M() { return esc(G.master.name); }
 function servantOf(o) { return SV_BY_ID[o.servantId || (o.servant && o.servant.id)]; }
 function SV() { return G.servant ? servantOf(G).short : 'サーヴァント'; }
 const SVname = SV;
+function birthOf() { return BIRTHS.find(x => x.id === G.master.birth); }
 function fmt(s) { return s.replaceAll('{m}', M()).replaceAll('{s}', SV()); }
 function aliveRivals() { return (G.rivals || []).filter(r => r.alive); }
 function hostileRivals() { return aliveRivals().filter(r => !r.ally); }
 function randomAliveRival() { return pick(aliveRivals()); }
+function randomHostile() { return pick(hostileRivals()); }
+// 今戦える敵（天降山に籠城した最後の陣営は除く）
+function engageable() { return hostileRivals().filter(r => !r.siege); }
 function rivalLabel(r) { return r.intel >= 3 ? servantOf(r).short : r.cls; }
+function isAssassin() { return G.servant && servantOf(G).cls === 'アサシン'; }
 
 // ---------------- 状態を変える関数（イベントからも使う） ----------------
 function note(t) { NOTES.push(t); }
-function gain(stat, n) {
-  const st = G.master.stats; const before = st[stat];
-  st[stat] = clamp(st[stat] + n, 1, 100);
-}
+function gain(stat, n) { const st = G.master.stats; st[stat] = clamp(st[stat] + n, 1, 100); }
 function money(n) { G.master.money = Math.max(0, G.master.money + n); }
 function hp(n) { G.master.hp = clamp(G.master.hp + n, 0, G.master.hpMax); }
+function od(n) { G.master.od = clamp(G.master.od + n, 0, odMax()); }
+function odMax() { return 20 + Math.floor(G.master.stats.mag * 0.6); }
 function shp(n) { if (G.servant) G.servant.hp = clamp(G.servant.hp + n, 0, servantHpMax()); }
 function mp(n) { if (G.servant) G.servant.mp = clamp(G.servant.mp + n, 0, 100); }
+function item(k, n) { G.items[k] = clamp((G.items[k] || 0) + n, 0, ITEM_MAX); }
 function bond(n) {
   if (!G.servant || n === 0) return;
   if (n > 0 && G.master.birth === 'civilian') n = Math.round(n * 1.3);
@@ -1325,12 +1618,12 @@ function chk(stat, diff) {
   let v = G.master.stats[stat];
   if (stat === 'spi' && G.master.birth === 'fallen') v += 5;
   const roll = rand(1, 45); const total = v + roll; const ok = total >= diff;
-  return { ok, text: `<span class="chk ${ok ? 'ok' : 'ng'}">【${STAT_LABEL[stat]}判定】${ok ? '成功' : '失敗'} <em>${v}+${roll}=${total} / 目標${diff}</em></span>` };
+  return { ok, margin: total - diff, text: `<span class="chk ${ok ? 'ok' : 'ng'}">【${STAT_LABEL[stat]}判定】${ok ? '成功' : '失敗'} <em>${v}+${roll}=${total} / 目標${diff}</em></span>` };
 }
 // サーヴァント判定：パラメータ（ランクを数値化）+ サイコロ
 function schk(i, diff) {
   const v = servantParam(i); const roll = rand(1, 45); const total = v + roll; const ok = total >= diff;
-  return { ok, text: `<span class="chk ${ok ? 'ok' : 'ng'}">【${SV()}・${PARAM_NAMES[i]}判定】${ok ? '成功' : '失敗'} <em>${v}+${roll}=${total} / 目標${diff}</em></span>` };
+  return { ok, margin: total - diff, text: `<span class="chk ${ok ? 'ok' : 'ng'}">【${SV()}・${PARAM_NAMES[i]}判定】${ok ? '成功' : '失敗'} <em>${v}+${roll}=${total} / 目標${diff}</em></span>` };
 }
 
 // マスターの魔力がサーヴァントの性能に影響する（Fateの設定に準拠）
@@ -1355,18 +1648,21 @@ function rollMaster(name) {
   for (const k in b.stats) stats[k] = clamp(b.stats[k] + rand(-8, 8), 5, 95);
   return {
     name: name || randomName(false), birth: b.id, stats, hp: 100, hpMax: 100, money: b.money + rand(0, 3),
-    seals: 3, align: { law: rand(-20, 20), good: rand(-10, 25) },
+    seals: 3, od: 0, align: { law: rand(-20, 20), good: rand(-10, 25) },
     element: wpick(ELEMENTS, e => e.w).name, circuits: rand(b.circuits[0], b.circuits[1]),
     age: rand(16, 34),
   };
 }
 function newGame(master) {
   G = {
-    v: 1, phase: 'prep', day: 1, slot: 0, master, servant: null,
-    catalysts: [], flags: {}, used: {}, rivals: [], log: [], news: [],
-    ritual: 0, workshop: 0, kills: 0, battles: 0, tmpRival: null,
+    v: 2, phase: 'prep', day: 1, slot: 0, master, servant: null,
+    catalysts: [], items: { potion: 1, gem: 0, crystal: 0, smoke: 1 }, flags: {}, used: {}, rivals: [], log: [], news: [],
+    ritual: 0, workshop: 0, traps: 0, kills: 0, battles: 0, tmpRival: null, storyRival: null,
   };
+  G.master.od = odMax();
   if (master.birth === 'noble') giveCatalyst();
+  if (master.birth === 'mercenary') { item('gem', 1); item('smoke', 1); }
+  if (master.birth === 'clocktower') item('crystal', 1);
   addLog(`${master.name}、深見市にて聖杯戦争への参加を決意する。`);
 }
 function addLog(t) { G.log.unshift({ when: whenShort(), text: t }); if (G.log.length > 80) G.log.pop(); }
@@ -1406,22 +1702,7 @@ function next(title, body, fn, label = '次へ', sub) {
   scene({ title, sub, body, choices: [{ label, fn, cls: 'primary' }] });
 }
 function takeNotes() { const n = NOTES; NOTES = []; return n; }
-
-// =============================================================
-//  タイトル・キャラクター作成
-// =============================================================
-function titleScreen() {
-  G = null;
-  const save = loadSave();
-  SCENE = { kind: 'title', save };
-  TAB = 'story'; render();
-}
-function createScreen(master) {
-  const m = master || rollMaster();
-  const b = BIRTHS.find(x => x.id === m.birth);
-  SCENE = { kind: 'create', master: m, birth: b };
-  render();
-}
+function paras(list) { return list.filter(Boolean).map(p => p.startsWith('<p') || p.startsWith('<div') ? p : `<div class="para">${p}</div>`); }
 
 // =============================================================
 //  時間の進行
@@ -1435,37 +1716,45 @@ function phaseLabel() {
 }
 function isNight() { return G.slot === 1; }
 
-// コマの始まり：イベント判定 → 行動選択
+// コマの始まり：ニュース → 物語 → 決戦判定 → ランダムイベント → 行動選択
 function startSlot() {
   if (checkGameOver()) return;
-  // 準備期間の最後の夜は召喚
   if (G.phase === 'prep' && G.day > PREP_DAYS) { G.phase = 'summon'; return summonScene(); }
   if (G.phase === 'war') {
-    if (hostileRivals().length === 0 && aliveRivals().length > 0) return breakAlliance();
     if (aliveRivals().length === 0) return victoryScene();
-    if (aliveRivals().length === 1 && isNight()) return finalBattleIntro();
+    if (hostileRivals().length === 0) return breakAlliance();
   }
-  // 前日のニュース
-  if (G.news.length && G.slot === 0) {
+  if (!SLOT.news && G.news.length && G.slot === 0) {
+    SLOT.news = true;
     const n = G.news.splice(0);
-    return next('昨夜の出来事', n.map(t => `<p class="news">${t}</p>`), () => maybeEvent());
+    return next('昨夜の出来事', n.map(t => `<p class="news">${t}</p>`), startSlot, '次へ', 'NEWS');
   }
-  maybeEvent();
-}
-function maybeEvent() {
-  const chance = G.phase === 'prep' ? 0.33 : 0.3;
-  if (Math.random() < chance) { const ev = drawEvent(); if (ev) return showEvent(ev); }
+  if (!SLOT.story) {
+    SLOT.story = true;
+    const beat = STORY.find(s => s.phase === G.phase && s.day === G.day && s.slot === G.slot && !G.used[s.id] && (!s.cond || s.cond()));
+    if (beat) return showEvent(beat, beat.after === 'advance' ? advance : startSlot);
+  }
+  if (G.phase === 'war' && aliveRivals().length === 1) {
+    const last = aliveRivals()[0];
+    if (isNight() && G.day >= FINAL_DAY) return finalBattleIntro();
+    if (!last.siege) return siegeScene(last);
+  }
+  if (!SLOT.event) {
+    SLOT.event = true;
+    if (Math.random() < EVENT_CHANCE[G.phase]) { const ev = drawEvent(); if (ev) return showEvent(ev, startSlot); }
+  }
   hub();
 }
 function advance() {
   if (checkGameOver()) return;
+  SLOT = {};
   G.slot++;
   if (G.slot > 1) { G.slot = 0; G.day++; dailyUpdate(); }
   if (G.phase === 'war' && G.day > WAR_DAYS) return deadlineScene();
   startSlot();
 }
 function dailyUpdate() {
-  hp(10);
+  hp(10); od(Math.ceil(odMax() * 0.6));
   if (G.phase === 'war' && G.servant) {
     mp(15 + Math.floor(G.master.stats.mag * 0.3) + G.workshop * 5);
     shp(10 + G.workshop * 3);
@@ -1477,17 +1766,17 @@ function dailyUpdate() {
 // ライバル同士の戦い（画面外で進む）
 function simulateRivals() {
   const alive = aliveRivals();
-  if (alive.length < 3) return;   // 最後の2陣営はプレイヤーと決着をつける
-  const p = 0.24 + G.day * 0.012;
+  if (alive.length < 3 || G.day < 3) return;   // 最後の2陣営はプレイヤーと決着をつける
+  const p = 0.1 + G.day * 0.015;
   if (Math.random() > p) return;
   const [a, b] = shuffle(alive).slice(0, 2);
   const power = r => [0, 1, 2, 3, 5].reduce((s, i) => s + rivalParam(r, i), 0) / 5 + r.power + r.hp / 8 + rand(0, 30);
   const [win, lose] = power(a) >= power(b) ? [a, b] : [b, a];
   lose.alive = false; lose.hp = 0;
-  win.hp = Math.max(20, win.hp - rand(20, 50));
+  win.hp = Math.max(20, win.hp - rand(20, 50)); win.clues = (win.clues || 0) + (Math.random() < 0.5 ? 1 : 0);
   const place = pick(['港の倉庫街', '城跡公園', '御影川の河川敷', '天降山の山道', '駅前の再開発地区']);
   G.news.push(`昨夜、${place}で激しい戦闘があった。<b>${rivalLabel(lose)}陣営</b>が脱落したようだ。` +
-    (win.intel >= 1 ? `勝ったのは${rivalLabel(win)}陣営らしい。` : ''));
+    (win.intel >= 1 ? `勝ったのは${rivalLabel(win)}陣営らしい。手負いのはずだ。` : ''));
   addLog(`${rivalLabel(lose)}陣営が${rivalLabel(win)}陣営に敗れ脱落。`);
 }
 
@@ -1498,7 +1787,7 @@ function checkGameOver() {
 }
 
 // =============================================================
-//  イベント
+//  イベント（ランダム・物語共通）
 // =============================================================
 function drawEvent(forceTime) {
   const t = forceTime || (isNight() ? 'night' : 'day');
@@ -1511,47 +1800,78 @@ function drawEvent(forceTime) {
   if (!list.length) return null;
   return wpick(list, e => e.weight || 1);
 }
-function showEvent(ev) {
+// after：結果を読んだ後に進む先（advance＝コマを使い切る / startSlot＝行動選択へ）
+function showEvent(ev, after = advance) {
   G.used[ev.id] = true;
   const text = typeof ev.text === 'function' ? ev.text() : ev.text;
   const choices = ev.choices
     .filter(c => !c.cond || c.cond())
     .map(c => ({
-      label: typeof c.label === 'function' ? c.label() : c.label, hint: c.hint,
+      label: typeof c.label === 'function' ? c.label() : c.label, hint: c.hint, cls: c.cls,
       fn: () => {
         NOTES = [];
         const res = c.run();
         let body = [], then = null;
         if (res && res.text !== undefined) { body = [].concat(res.text); then = res.then; } else body = [].concat(res);
-        body = body.filter(Boolean).concat(takeNotes());
-        next(ev.title, body.map(p => `<p>${p}</p>`), then || advance);
+        body = paras(body.concat(takeNotes()));
+        next(ev.title, body, then || after, then ? '次へ' : '次へ', ev.chapter ? 'STORY' : 'EVENT');
       },
     }));
-  if (!choices.length) choices.push({ label: '次へ', fn: advance });
-  scene({ title: ev.title, sub: 'EVENT', body: [`<p>${text}</p>`], choices });
+  if (!choices.length) choices.push({ label: '次へ', fn: after });
+  scene({ title: ev.title, sub: ev.chapter || 'EVENT', body: paras([text]), choices });
 }
 
 // =============================================================
-//  行動選択（ハブ）
+//  actions.js … 行動選択（ハブ）と、各行動の中身
+//  聖杯戦争中は「何を優先するか」が戦略になります。
+//   情報（真名を暴く） / 陣地（守りを固める） / 道具（戦闘の切り札）
+//   絆（サーヴァントの力を引き出す） / 攻勢（敵を減らす）
 // =============================================================
+
 function hub() {
   G.tmpRival = null;
   saveGame();
   const flavor = pick(FLAVOR[isNight() ? 'night' : 'day']);
   const body = [`<p>${flavor}</p>`];
-  let acts = [];
+  let acts;
   if (G.phase === 'prep') {
-    body.push(`<p class="note">聖杯戦争の開幕まで、あと${PREP_DAYS - G.day + 1}日。召喚に備えて力を蓄えよう。</p>`);
+    body.push(`<p class="note">召喚の夜まで、あと${PREP_DAYS - G.day + 1}日。能力を鍛え、触媒を探し、召喚陣を整えよう。</p>`);
     acts = isNight() ? prepNightActions() : prepDayActions();
   } else {
-    const sv = G.servant;
-    body.push(`<p class="note">残り陣営：${hostileRivals().length}${aliveRivals().length !== hostileRivals().length ? `（同盟中 ${aliveRivals().length - hostileRivals().length}）` : ''}　${SV()} HP ${sv.hp}/${servantHpMax()}・魔力 ${sv.mp}</p>`);
+    body.push(statusLine());
+    const last = aliveRivals().find(r => r.siege);
+    if (last) body.push(`<p class="note">最後の敵・${rivalLabel(last)}陣営は天降山に籠城している。決戦は<b>${FINAL_DAY}日目の夜</b>。それまでに力を蓄えよう。</p>`);
+    else if (G.day >= FINAL_DAY - 2) body.push(`<p class="note">聖杯の降臨が近い。残り一陣営になれば、${FINAL_DAY}日目以降の夜に天降山で決戦となる。</p>`);
     acts = isNight() ? warNightActions() : warDayActions();
   }
   scene({ title: isNight() ? '夜の行動' : '昼の行動', sub: `${phaseLabel()}・${G.day}日目`, body, choices: acts });
 }
+function statusLine() {
+  const sv = G.servant; const allies = aliveRivals().length - hostileRivals().length;
+  const items = Object.keys(ITEMS).filter(k => G.items[k]).map(k => `${ITEMS[k].name}×${G.items[k]}`).join('　') || 'なし';
+  return `<div class="status-box">
+    <div><span>敵陣営</span><b>${hostileRivals().length}</b>${allies ? `<em>同盟${allies}</em>` : ''}</div>
+    <div><span>${SV()}</span><b>${sv.hp}</b><em>/${servantHpMax()}</em></div>
+    <div><span>英霊の魔力</span><b>${sv.mp}</b></div>
+    <div><span>オド</span><b>${G.master.od}</b><em>/${odMax()}</em></div>
+    <div class="wide"><span>陣地</span>Lv${G.workshop}・罠${G.traps}　<span>道具</span>${items}</div>
+  </div>`;
+}
+// 行動の結果を表示して、コマを進める
+function actResult(title, fn) {
+  NOTES = [];
+  const res = [].concat(fn()).filter(Boolean).concat(takeNotes());
+  next(title, paras(res), advance);
+}
+// サブメニュー（「やめる」で行動選択に戻る）
+function submenu(title, sub, text, choices) {
+  choices.push({ label: 'やめる', fn: hub });
+  scene({ title, sub, body: paras([].concat(text)), choices });
+}
 
-// ---- 準備期間 ----
+// =============================================================
+//  準備期間
+// =============================================================
 function prepDayActions() {
   return [
     { label: '体を鍛える', hint: '体力↑ 精神↑', fn: () => actResult('鍛錬', () => { const n = rand(3, 5); gain('phy', n); gain('spi', 1);
@@ -1559,23 +1879,23 @@ function prepDayActions() {
     { label: '魔術の修練', hint: '魔力↑（精神判定）', fn: () => actResult('魔術の修練', studyMagic) },
     { label: '書庫で調べもの', hint: '知力↑ 触媒の手がかり', fn: () => actResult('調べもの', () => {
       const n = rand(3, 5); gain('int', n);
-      if (Math.random() < 0.15) { const c = giveCatalyst(); return [`市立図書館の郷土資料室で調べものをした。（知力+${n}）`, `古い寄贈品目録を辿り、<b>${c}</b>の在処を突き止めて入手した！`]; }
+      if (Math.random() < 0.2) { const c = giveCatalyst(); return [`市立図書館の郷土資料室で調べものをした。（知力+${n}）`, `古い寄贈品目録を辿り、<b>${c}</b>の在処を突き止めて入手した！`]; }
       return `市立図書館で英霊の伝承を調べた。（知力+${n}）`; }) },
-    { label: '街を歩く', hint: '何かが起きるかも', fn: () => walkTown('day') },
+    { label: '街を歩く', hint: '出来事が起きやすい', fn: () => walkTown('day') },
     { label: 'アルバイト', hint: '資金↑ 交渉↑', fn: () => actResult('アルバイト', () => { const n = rand(2, 3); money(n); gain('cha', 1);
       return `駅前の喫茶店で働いた。（資金+${n}万円 交渉+1）`; }) },
-    { label: '休む', hint: 'HP回復', fn: () => actResult('休息', () => { hp(30); gain('spi', 1); return '一日ゆっくりと体を休めた。（HP+30 精神+1）'; }) },
+    { label: '買い出し', hint: '霊薬・宝石などの道具', fn: shopMenu },
   ];
 }
 function prepNightActions() {
   return [
-    { label: '召喚陣の準備', hint: `召喚の質↑（現在${G.ritual}/3）`, disabled: G.ritual >= 3, fn: () => actResult('召喚陣の準備', () => {
+    { label: '召喚陣の準備', hint: `召喚の質↑（${G.ritual}/3）`, disabled: G.ritual >= 3, fn: () => actResult('召喚陣の準備', () => {
       G.ritual++; gain('mag', 1);
       return [`工房の床に、銀と水銀で召喚陣を描き込んでいく。（召喚の準備 ${G.ritual}/3 魔力+1）`,
         '<span class="note">準備が整うほど、召喚したサーヴァントとの最初の絆と魔力が高まる。</span>']; }) },
     { label: '魔術の修練', hint: '魔力↑（精神判定）', fn: () => actResult('魔術の修練', studyMagic) },
     { label: '夜の街を歩く', hint: '危険と出会い', fn: () => walkTown('night') },
-    { label: '眠る', hint: 'HP回復', fn: () => actResult('休息', () => { hp(25); return '早めに床についた。（HP+25）'; }) },
+    { label: '眠る', hint: 'HP回復', fn: () => actResult('休息', () => { hp(30); gain('spi', 1); return '早めに床についた。（HP+30 精神+1）'; }) },
   ];
 }
 function studyMagic() {
@@ -1585,63 +1905,272 @@ function studyMagic() {
 }
 function walkTown(t) {
   const ev = drawEvent(t);
-  if (ev && Math.random() < 0.85) return showEvent(ev);
+  if (ev && Math.random() < 0.85) return showEvent(ev, advance);
   actResult('散策', () => { gain('luk', 1); return `${pick(CITY.places)}を歩いた。特に何も起きなかったが、街の地理に詳しくなった。（幸運+1）`; });
 }
-function actResult(title, fn) {
-  NOTES = [];
-  const res = [].concat(fn()).filter(Boolean).concat(takeNotes());
-  next(title, res.map(p => `<p>${p}</p>`), advance);
+
+// ---- 買い出し（何個か買ってからコマを終える） ----
+function shopMenu(bought = 0) {
+  const choices = Object.entries(ITEMS).map(([k, it]) => ({
+    label: `${it.name}を買う`, hint: `${it.cost}万円・所持${G.items[k] || 0}/${ITEM_MAX}`,
+    disabled: G.master.money < it.cost || (G.items[k] || 0) >= ITEM_MAX,
+    fn: () => { money(-it.cost); item(k, 1); shopMenu(bought + 1); },
+  }));
+  if (bought) choices.push({ label: '買い物を終える', cls: 'primary', fn: advance });
+  else choices.push({ label: 'やめる', fn: hub });
+  scene({ title: '買い出し', sub: 'SHOP', body: [
+    `<p>旧城下町の裏通りに、魔術師向けの品を扱う店がある。所持金は<b>${G.master.money}万円</b>。</p>`,
+    `<div class="item-list">${Object.values(ITEMS).map(it => `<div><b>${it.name}</b><span>${it.desc}</span></div>`).join('')}</div>`,
+    bought ? `<p class="note">${bought}点購入した。</p>` : '',
+  ], choices });
 }
 
-// ---- 聖杯戦争中 ----
+// =============================================================
+//  聖杯戦争：昼の行動
+// =============================================================
 function warDayActions() {
-  const canBuild = G.workshop < 5;
-  return [
-    { label: `${SV()}と過ごす`, hint: '絆↑', fn: hangoutMenu },
-    { label: '情報収集', hint: '敵陣営の情報（知力/交渉）', fn: () => actResult('情報収集', gatherIntel) },
-    { label: '工房を強化する', hint: canBuild ? `資金-2 陣地Lv${G.workshop}→${G.workshop + 1}` : '最大', disabled: !canBuild || G.master.money < 2,
-      fn: () => actResult('陣地作成', () => {
-        money(-2); const up = (G.master.birth === 'shrine' || G.flags.leyline) && G.workshop < 4 ? 2 : 1;
-        G.workshop = Math.min(5, G.workshop + up);
-        return `拠点の結界を張り直し、魔力の溜まり場を整えた。（陣地Lv ${G.workshop}）`;
-      }) },
-    { label: '鍛錬する', hint: '体力↑ 魔力↑', fn: () => actResult('鍛錬', () => { gain('phy', 2); gain('mag', 2);
-      return `${SV()}に見てもらいながら鍛錬した。（体力+2 魔力+2）`; }) },
-    { label: '休息', hint: 'HP・魔力回復', fn: () => actResult('休息', () => { hp(25); shp(20); mp(15);
-      return `拠点で体を休めた。（HP+25 ${SV()}のHP+20 魔力+15）`; }) },
-  ];
-}
-function warNightActions() {
-  const targets = hostileRivals().filter(r => r.intel >= 2);
   const acts = [
-    { label: '夜の巡回', hint: '敵と遭遇するかも', fn: patrol, cls: 'danger' },
+    { label: `${SV()}と過ごす`, hint: '絆↑（好みに合わせると大きく上がる）', fn: hangoutMenu },
+    { label: '情報を集める', hint: '敵の正体・拠点・真名を探る', fn: intelMenu },
+    { label: '拠点を整える', hint: '結界・罠・霊脈', fn: baseMenu },
+    { label: '買い出し', hint: '戦闘用の道具', fn: shopMenu },
+    { label: 'マスターの鍛錬', hint: '体力・魔力・知力', fn: trainMenu },
   ];
-  if (targets.length) acts.push({ label: '敵の拠点を襲撃する', hint: '奇襲で有利に戦える', fn: assaultMenu, cls: 'danger' });
-  acts.push(
-    { label: '拠点で待ち構える', hint: `陣地Lv${G.workshop}で迎撃`, fn: defendBase },
-    { label: `${SV()}と語らう`, hint: '絆↑ 特別な会話', fn: nightTalk },
-    { label: '魔力を回復して休む', hint: '魔力・HP回復', fn: nightRest },
-  );
+  const allyTargets = hostileRivals().filter(r => r.intel >= 1);
+  if (allyTargets.length && hostileRivals().length >= 3 && !aliveRivals().some(r => r.ally))
+    acts.push({ label: '同盟を持ちかける', hint: '交渉判定・一時休戦', fn: allianceMenu });
+  acts.push({ label: '休息', hint: 'HP・魔力・オド回復', fn: () => actResult('休息', () => { hp(25); shp(20); mp(15); od(15);
+    return `拠点で体を休めた。（HP+25 ${SV()}のHP+20 魔力+15 オド+15）`; }) });
   return acts;
 }
 
-function gatherIntel() {
-  const stat = G.master.stats.int >= G.master.stats.cha ? 'int' : 'cha';
-  const r = chk(stat, 55);
-  if (!r.ok) return [r.text, '有力な手がかりは得られなかった。'];
-  const t = intelRandom(1);
-  return [r.text, t || 'これ以上、新しい情報は見つからなかった。'];
+// ---- 情報収集：方法によって得意・不得意がある ----
+function intelMenu() {
+  const can = G.flags.registered && (G.flags.churchDay || 0) + 3 <= G.day;
+  const research = hostileRivals().filter(r => r.intel >= 1 && r.intel < 3);
+  submenu('情報を集める', 'INTEL', [
+    '<p>どうやって探る？　情報は①マスター判明 → ②拠点判明（襲撃できる） → ③真名判明（戦闘で大きく有利）の順に進む。</p>',
+  ], [
+    { label: '街で聞き込み', hint: `交渉判定（交渉${G.master.stats.cha}）`, fn: () => actResult('聞き込み', () => {
+      const r = chk('cha', 55);
+      if (!r.ok) return [r.text, '噂話ばかりで、有力な手がかりは得られなかった。'];
+      return [r.text, intelRandom(1) || 'これ以上、新しい情報は見つからなかった。'];
+    }) },
+    { label: '使い魔を放つ', hint: `魔力判定・オド-10（残${G.master.od}）`, disabled: G.master.od < 10, fn: () => actResult('使い魔', () => {
+      od(-10); const r = chk('mag', 58);
+      if (!r.ok) return [r.text, '使い魔は他陣営の結界に焼かれてしまった。'];
+      const t = [intelRandom(1)]; if (r.margin >= 20) t.push(intelRandom(1));
+      return [r.text, '鴉の使い魔が、夜通し街を見張ってくれた。', ...t.filter(Boolean)];
+    }) },
+    { label: '文献で真名を探る', hint: research.length ? '知力判定・戦った相手ほど易しい' : '対象なし（マスター判明が必要）', disabled: !research.length, fn: researchMenu },
+    { label: '教会を頼る', hint: G.flags.registered ? (can ? '確実に情報が得られる（3日に1度）' : '数日待つ必要がある') : '教会への登録が必要', disabled: !can, fn: () => actResult('教会', () => {
+      G.flags.churchDay = G.day;
+      const r = hostileRivals().filter(x => x.intel < 3).sort((a, b) => a.intel - b.intel)[0];
+      if (!r) return `${CAST.sister}は首を振った。「お伝えできることは、もうありません」`;
+      r.intel = Math.min(3, r.intel + 1);
+      return [`${CAST.sister}は少し迷ってから、資料を一枚差し出した。「……公平を期すため、です」`, intelText(r)];
+    }) },
+  ]);
 }
+function researchMenu() {
+  const list = hostileRivals().filter(r => r.intel >= 1 && r.intel < 3);
+  submenu('文献調査', 'RESEARCH', '<p>どの陣営のサーヴァントを調べる？　戦ったり、見切ったりした回数（手がかり）が多いほど成功しやすい。</p>',
+    list.map(r => {
+      const diff = researchDiff(r);
+      return { label: `${r.cls}を調べる`, hint: `目標${diff}・手がかり${r.clues || 0}`, fn: () => actResult('文献調査', () => {
+        const c = chk('int', diff);
+        if (!c.ok) { r.clues = (r.clues || 0) + 1; return [c.text, '決め手に欠けた。だが、候補はいくつかに絞り込めた。（手がかり+1）']; }
+        r.intel = 3; addLog(`${r.cls}の真名「${servantOf(r).name}」を看破。`);
+        return [c.text, `伝承と照らし合わせて確信した。${r.cls}の真名は<b>${servantOf(r).name}</b>だ！`, `<span class="note">${servantOf(r).desc}</span>`];
+      }) };
+    }));
+}
+function researchDiff(r) { return Math.max(40, 78 - (r.clues || 0) * 8 - (r.intel >= 2 ? 5 : 0)); }
+
 // 情報を1段階進める：1=マスター判明 2=拠点判明 3=真名判明
 function intelRandom(n) {
   const cand = aliveRivals().filter(r => r.intel < 3);
   if (!cand.length) return '';
   const r = pick(cand); r.intel = Math.min(3, r.intel + n);
+  return intelText(r);
+}
+function intelText(r) {
   if (r.intel === 1) return `${r.cls}陣営のマスターは<b>${esc(r.master)}</b>――${r.type}だと分かった。`;
-  if (r.intel === 2) return `${r.cls}陣営の拠点を突き止めた。いつでも襲撃を仕掛けられる。`;
+  if (r.intel === 2) return `${r.cls}陣営の拠点を突き止めた。夜に襲撃を仕掛けられる。`;
   addLog(`${r.cls}の真名「${servantOf(r).name}」を看破。`);
   return `${r.cls}の真名は<b>${servantOf(r).name}</b>だ！ 伝承から弱点が見えてきた。（戦闘で有利になる）`;
+}
+
+// ---- 拠点 ----
+function baseMenu() {
+  const leyline = G.flags.leyline || G.master.birth === 'shrine';
+  submenu('拠点を整える', 'BASE', [`<p>拠点で戦うと、陣地Lvに応じて毎手番有利になる。罠は迎撃戦の最初に敵へダメージを与える。陣地は毎日の回復量も増やす。</p>`], [
+    { label: '結界を強化する', hint: G.workshop >= 5 ? '最大' : `資金-2・陣地Lv${G.workshop}→${Math.min(5, G.workshop + (leyline ? 2 : 1))}`, disabled: G.workshop >= 5 || G.master.money < 2,
+      fn: () => actResult('陣地作成', () => { money(-2); G.workshop = Math.min(5, G.workshop + (leyline && G.workshop < 4 ? 2 : 1));
+        return `拠点の結界を張り直し、魔力の溜まり場を整えた。（陣地Lv ${G.workshop}）`; }) },
+    { label: '罠を仕掛ける', hint: G.traps >= 3 ? '最大' : `資金-1・罠${G.traps}→${G.traps + 1}`, disabled: G.traps >= 3 || G.master.money < 1,
+      fn: () => actResult('罠', () => { money(-1); G.traps++; return `拠点の周囲に、魔力に反応して炸裂する術式を仕込んだ。（罠 ${G.traps}）`; }) },
+    { label: '霊脈から魔力を汲む', hint: leyline ? '魔力判定（易）・英霊の魔力↑' : '魔力判定・英霊の魔力↑', fn: () => actResult('霊脈', () => {
+      const c = chk('mag', leyline ? 40 : 58);
+      if (c.ok) { mp(40); od(10); return [c.text, `天降山から流れる霊脈を拠点へ引き込んだ。（${SV()}の魔力+40 オド+10）`]; }
+      mp(10); return [c.text, '霊脈の流れは気まぐれで、わずかしか汲めなかった。（魔力+10）'];
+    }) },
+  ]);
+}
+
+// ---- マスターの鍛錬 ----
+function trainMenu() {
+  submenu('マスターの鍛錬', 'TRAINING', [`<p>マスターの魔力はサーヴァントの性能に、知力は敵の構えを読む力に、体力は自分の身を守る力に関わる。</p>`], [
+    { label: '体を鍛える', hint: '体力+3 HP+10', fn: () => actResult('鍛錬', () => { gain('phy', 3); hp(10); return `${SV()}に稽古をつけてもらった。（体力+3 HP+10）`; }) },
+    { label: '魔術を磨く', hint: '魔力+3（オド上限も増える）', fn: () => actResult('鍛錬', () => { gain('mag', 3); return '工房に籠もり、術式を研ぎ澄ました。（魔力+3）'; }) },
+    { label: '戦術を学ぶ', hint: '知力+3', fn: () => actResult('鍛錬', () => { gain('int', 3); bond(1); return `${SV()}から、生前の戦の話を聞いた。（知力+3 絆+1）`; }) },
+    { label: '資金を稼ぐ', hint: '資金+2〜4', fn: () => actResult('資金調達', () => { const c = chk('cha', 50); const n = c.ok ? 4 : 2; money(n);
+      return [c.text, `日雇いの仕事をこなした。（資金+${n}万円）`]; }) },
+  ]);
+}
+
+// ---- 同盟 ----
+function allianceMenu() {
+  submenu('同盟交渉', 'ALLIANCE', '<p>同盟を結んだ陣営とは戦わずに済む。残りが同盟相手だけになると、同盟は解消される。</p>',
+    hostileRivals().filter(r => r.intel >= 1).map(r => {
+      const diff = Math.round(50 + r.aggr * 30);
+      return { label: `${r.cls}陣営（${esc(r.master)}）`, hint: `交渉判定 目標${diff}`, fn: () => actResult('同盟交渉', () => {
+        const c = chk('cha', diff);
+        if (!c.ok) { tone('law'); return [c.text, `「悪いが、手を組む気はない」${esc(r.master)}はにべもなく断った。`]; }
+        r.ally = true; r.intel = Math.max(2, r.intel); tone('law'); addLog(`${r.cls}陣営と同盟を結ぶ。`);
+        return [c.text, `${esc(r.master)}は少し考え、頷いた。「いいだろう。残りが減るまでは、な」<br>${r.cls}陣営と同盟を結んだ。拠点の場所も教えてもらった。`];
+      }) };
+    }));
+}
+
+// =============================================================
+//  聖杯戦争：夜の行動
+// =============================================================
+function warNightActions() {
+  const targets = engageable().filter(r => r.intel >= 2);
+  const none = !engageable().length;
+  const acts = [
+    { label: '夜の巡回', hint: none ? '敵は天降山に籠城中' : '慎重 or 挑発。敵を探す', disabled: none, fn: patrolMenu, cls: 'danger' },
+    { label: `${SV()}に偵察させる`, hint: none ? '敵は天降山に籠城中' : '敏捷判定で情報↑・失敗すると戦闘', disabled: none, fn: scoutMenu },
+  ];
+  if (targets.length) acts.push({ label: '敵の拠点を襲撃する', hint: '作戦を選んで仕掛ける', fn: assaultMenu, cls: 'danger' });
+  acts.push(
+    { label: '拠点で迎え撃つ', hint: `陣地Lv${G.workshop}・罠${G.traps}で待ち構える`, fn: defendBase },
+    { label: `${SV()}と語らう`, hint: G.servant.bond >= 70 && !G.servant.special ? '何かが起きそうだ' : '絆↑', fn: nightTalk },
+    { label: '魔力を回復して休む', hint: '魔力・HP回復（夜襲の危険）', fn: nightRest },
+  );
+  return acts;
+}
+// 夜に拠点にいると襲われることがある
+function baseAttackChance() { return 0.08 + G.day * 0.01 + (G.servant.exposed ? 0.1 : 0); }
+function maybeRaided(after) {
+  if (engageable().length && Math.random() < baseAttackChance()) {
+    const r = wpick(engageable(), x => x.aggr);
+    return next('夜襲', [`<p>結界が軋む音がした。――<b>${rivalLabel(r)}陣営</b>の襲撃だ！ 陣地の力で迎え撃つ。</p>`],
+      () => startBattle(r, { defend: true }), '迎え撃つ');
+  }
+  after();
+}
+
+function patrolMenu() {
+  submenu('夜の巡回', 'PATROL', '<p>どう動く？</p>', [
+    { label: '慎重に探る', hint: '遭遇しにくいが、先に敵を見つけられる', fn: () => patrol('careful') },
+    { label: '魔力を隠さず挑発する', hint: '高確率で戦闘・大胆', cls: 'danger', fn: () => patrol('bold') },
+  ]);
+}
+function patrol(mode) {
+  const foes = engageable();
+  const p = mode === 'bold' ? 0.75 : 0.4;
+  if (Math.random() < p && foes.length) {
+    const r = wpick(foes, x => 0.5 + x.aggr);
+    r.intel = Math.max(r.intel, 1);
+    if (mode === 'bold') {
+      NOTES = []; tone('bold');
+      return next('遭遇', paras([`${pick(CITY.places)}で魔力を解き放つと、すぐに応える気配があった。`,
+        `――<b>${rivalLabel(r)}</b>のサーヴァントだ。マスターの${esc(r.master)}の姿もある。`, `<p class="quote">「${r.quote}」</p>`, ...takeNotes()]),
+        () => startBattle(r, {}), '戦う');
+    }
+    return scene({ title: '発見', sub: 'PATROL', body: paras([`${pick(CITY.places)}の暗がりで、先に敵の姿を捉えた。<b>${rivalLabel(r)}</b>陣営だ。まだこちらには気付いていない。`]),
+      choices: [
+        { label: '奇襲を仕掛ける', hint: '最初の手番に大きな補正', cls: 'danger', fn: () => startBattle(r, { ambush: true }) },
+        { label: '尾行して情報を得る', hint: '情報+1', fn: () => actResult('尾行', () => { r.intel = Math.min(3, r.intel + 1); r.clues = (r.clues || 0) + 1;
+          return ['気付かれないよう後をつけた。', intelText(r)]; }) },
+        { label: 'やり過ごす', fn: () => actResult('巡回', () => { tone('cautious'); return '息を殺して、敵が通り過ぎるのを待った。'; }) },
+      ] });
+  }
+  if (Math.random() < 0.35) { const ev = drawEvent('night'); if (ev) return showEvent(ev, advance); }
+  actResult('夜の巡回', () => {
+    const t = Math.random() < (G.flags.investigate ? 0.6 : 0.35) ? intelRandom(1) : '';
+    return ['静かな夜だった。敵の姿は見当たらない。', t ? '戦いの痕跡を見つけた。' + t : ''];
+  });
+}
+
+function scoutMenu() {
+  const bonus = isAssassin() ? 15 : 0;
+  submenu('偵察', 'SCOUT', `<p>${SV()}を単独で偵察に出す。${isAssassin() ? '気配遮断を持つアサシンは偵察が得意だ。' : ''}失敗すると敵に見つかり、不利な状態で戦闘になる。</p>`,
+    engageable().map(r => ({
+      label: `${rivalLabel(r)}陣営を探る`, hint: `敏捷判定 目標${60 - bonus}・情報${r.intel}/3`, disabled: r.intel >= 3,
+      fn: () => {
+        NOTES = []; const c = schk(2, 60 - bonus);
+        if (c.ok) {
+          r.intel = Math.min(3, r.intel + 1); r.clues = (r.clues || 0) + 1;
+          const t = [intelText(r)];
+          if (c.margin >= 20 && r.intel < 3) { r.intel++; t.push(intelText(r)); }
+          return next('偵察', paras([c.text, `夜明け前、${SV()}が戻ってきた。「見てきたぞ」`, ...t]), advance);
+        }
+        return next('偵察失敗', paras([c.text, `${SV()}の気配が敵に察知された！ ${rivalLabel(r)}陣営が迫ってくる。`]),
+          () => startBattle(r, { enemyFirst: true }), '戦う');
+      },
+    })));
+}
+
+function assaultMenu() {
+  submenu('襲撃目標', 'ASSAULT', '<p>拠点を突き止めた陣営に仕掛ける。どの陣営を狙う？</p>',
+    engageable().filter(r => r.intel >= 2).map(r => ({
+      label: `${rivalLabel(r)}陣営`, hint: `マスター：${esc(r.master)}　HP${r.hp}/${r.hpMax}`, cls: 'danger', fn: () => assaultPlan(r),
+    })));
+}
+function assaultPlan(r) {
+  const asn = isAssassin();
+  const choices = [
+    { label: '正面から攻め込む', hint: '通常の戦闘・大胆', fn: () => { NOTES = []; tone('bold');
+      next('襲撃', paras([`${rivalLabel(r)}陣営の拠点へ、正面から踏み込んだ。`, ...takeNotes()]), () => startBattle(r, {}), '戦う'); } },
+    { label: '気配を殺して奇襲する', hint: `${SV()}の敏捷判定 目標${asn ? 50 : 62}`, fn: () => {
+      const c = schk(2, asn ? 50 : 62);
+      if (c.ok) return next('奇襲', paras([c.text, '敵はまだ気付いていない。最初の一撃は、こちらのものだ。']), () => startBattle(r, { ambush: true }), '仕掛ける');
+      next('奇襲失敗', paras([c.text, '気付かれた！ 迎撃の構えを取られてしまった。']), () => startBattle(r, { enemyFirst: true }), '戦う');
+    } },
+    { label: '先に敵の工房を崩す', hint: `マスターの魔力判定 目標60・オド-15`, disabled: G.master.od < 15, fn: () => {
+      od(-15); const c = chk('mag', 60);
+      if (c.ok) { r.hp = Math.max(10, r.hp - 20); r.power -= 1;
+        return next('工房破壊', paras([c.text, `結界の要を撃ち抜いた。敵の陣地が崩れ、${rivalLabel(r)}は魔力の供給を乱されている。（敵HP-20・敵の強さ低下）`]), () => startBattle(r, {}), '攻め込む'); }
+      next('工房破壊失敗', paras([c.text, '結界は堅かった。侵入に気付かれた！']), () => startBattle(r, { enemyFirst: true }), '戦う');
+    } },
+    { label: '敵マスターを暗殺する', hint: `${asn ? '気配遮断・' : ''}敏捷判定 目標${asn ? 58 : 78}・悪`, cls: 'danger', fn: () => {
+      NOTES = []; tone('evil'); const c = schk(2, asn ? 58 : 78);
+      if (c.ok) {
+        r.alive = false; r.hp = 0; r.masterDead = true; G.kills++; addLog(`${rivalLabel(r)}陣営のマスターを暗殺。`);
+        return next('暗殺', paras([c.text, `${SV()}の刃が、眠る${esc(r.master)}に届いた。マスターを失った${rivalLabel(r)}は、魔力の供給を断たれ消えていった。`,
+          '<span class="note">戦わずに一陣営を落とした。だが、手は血に濡れた。</span>', ...takeNotes()]), advanceOrVictory);
+      }
+      next('暗殺失敗', paras([c.text, `寸前で敵サーヴァントが割って入った！`, ...takeNotes()]), () => startBattle(r, { enemyFirst: true }), '戦う');
+    } },
+  ];
+  submenu(`${rivalLabel(r)}陣営への襲撃`, 'PLAN', [`<p>作戦を決めよう。${r.intel >= 3 ? `敵の真名は${servantOf(r).name}。` : ''}</p>`], choices);
+}
+function advanceOrVictory() { if (aliveRivals().length === 0) return victoryScene(); advance(); }
+
+function defendBase() {
+  if (Math.random() < 0.5 && engageable().length) {
+    const r = wpick(engageable(), x => x.aggr);
+    return next('迎撃', [`<p>結界に反応。${rivalLabel(r)}陣営が攻めてきた！ 陣地の力で迎え撃つ。</p>`],
+      () => startBattle(r, { defend: true }), '迎え撃つ');
+  }
+  actResult('待機', () => { mp(15); shp(10); od(10); return '敵は現れなかった。結界の内で魔力を蓄えた。（魔力+15 HP+10 オド+10）'; });
+}
+function nightRest() {
+  maybeRaided(() => actResult('休息', () => { mp(30); shp(15); hp(15); bond(1);
+    return `パスを通じて${SV()}に魔力を送りながら眠った。（魔力+30 ${SV()}のHP+15 HP+15）`; }));
 }
 
 // ---- サーヴァントと過ごす ----
@@ -1651,10 +2180,9 @@ function hangoutMenu() {
     label: a.name, hint: `${a.place}${a.cost ? `・資金-${a.cost}` : ''}`, disabled: G.master.money < a.cost,
     fn: () => hangout(k),
   }));
-  choices.push({ label: 'やめる', fn: hub });
-  scene({ title: `${SV()}と過ごす`, sub: 'BOND', body: [`<p>今日はどう過ごそうか。${SV()}にも好みがあるようだ。</p>`,
+  submenu(`${SV()}と過ごす`, 'BOND', [`<p>今日はどう過ごそうか。${SV()}にも好みがあるようだ。</p>`,
     G.servant.bond >= 20 ? `<p class="note">${SV()}が好きそうなこと：${PERSONAS[servantOf(G).persona].likes.map(k => ACTIVITIES[k].name).join('、')}</p>` :
-      '<p class="note">絆が深まれば、好みも分かってくるだろう。</p>'], choices });
+      '<p class="note">絆が深まれば、好みも分かってくるだろう。</p>'], choices);
 }
 function hangout(k) {
   NOTES = [];
@@ -1669,16 +2197,18 @@ function hangout(k) {
   bond(n);
   const line = fmt(pick(per[bondTier()]));
   next(a.name, [`<p>${a.place}で${SV()}と過ごした。${react}</p>`, `<p class="quote">${line}</p>`,
-    `<p class="note">絆+${n}　${STAT_LABEL[statGain[0]]}+${statGain[1]}</p>`, ...takeNotes().map(t => `<p>${t}</p>`)], advance);
+    `<p class="note">絆+${n}　${STAT_LABEL[statGain[0]]}+${statGain[1]}</p>`, ...paras(takeNotes())], advance);
 }
 function nightTalk() {
   const sv = G.servant;
   if (sv.bond >= 70 && !sv.special && sv.bond >= (G.flags.specialNext || 0)) return specialEvent();
-  NOTES = [];
-  const n = rand(3, 5); bond(n); mp(5);
-  const per = PERSONAS[servantOf(G).persona];
-  next('夜の語らい', [`<p>静かな夜。拠点の縁側で、${SV()}と言葉を交わした。</p>`, `<p class="quote">${fmt(pick(per[bondTier()]))}</p>`,
-    `<p class="note">絆+${n}</p>`, ...takeNotes().map(t => `<p>${t}</p>`)], advance);
+  maybeRaided(() => {
+    NOTES = [];
+    const n = rand(3, 5); bond(n); mp(5);
+    const per = PERSONAS[servantOf(G).persona];
+    next('夜の語らい', [`<p>静かな夜。拠点の縁側で、${SV()}と言葉を交わした。</p>`, `<p class="quote">${fmt(pick(per[bondTier()]))}</p>`,
+      `<p class="note">絆+${n}</p>`, ...paras(takeNotes())], advance);
+  });
 }
 function specialEvent() {
   const per = PERSONAS[servantOf(G).persona];
@@ -1686,8 +2216,8 @@ function specialEvent() {
     label: r.verb, hint: `関係：${r.name}`, fn: () => {
       G.servant.special = k; NOTES = []; bond(10);
       addLog(`${servantOf(G).name}と「${r.name}」の関係になる。`);
-      next('特別な関係', [`<p>${fmt(r.text)}</p>`, `<p class="note">${SV()}と<b>「${r.name}」</b>になった。戦闘で絆の力が働くようになる。</p>`,
-        ...takeNotes().map(t => `<p>${t}</p>`)], advance);
+      next('特別な関係', [`<p>${fmt(r.text)}</p>`, `<p class="note">${SV()}と<b>「${r.name}」</b>になった。戦闘で絆の力が働き、エンディングにも影響する。</p>`,
+        ...paras(takeNotes())], advance);
     },
   }));
   choices.push({ label: '今は、この関係のままで', fn: () => {
@@ -1698,53 +2228,17 @@ function specialEvent() {
   scene({ title: '月下の告白', sub: 'SPECIAL', body: [`<p>月の綺麗な夜だった。${SV()}がふと、真剣な顔であなたを見つめた。</p>`,
     `<p class="quote">${fmt(per.special)}</p>`, '<p>あなたは――</p>'], choices });
 }
-function nightRest() {
-  if (Math.random() < 0.15 && hostileRivals().length) {
-    const r = wpick(hostileRivals(), x => x.aggr);
-    return next('夜襲', [`<p>眠りに落ちかけた時、結界が軋む音がした。――${rivalLabel(r)}陣営の襲撃だ！</p>`],
-      () => startBattle(r, { defend: true }), '迎え撃つ');
-  }
-  actResult('休息', () => { mp(30); shp(15); hp(15); bond(1); return `パスを通じて${SV()}に魔力を送りながら眠った。（魔力+30 ${SV()}のHP+15 HP+15）`; });
-}
-function patrol() {
-  const roll = Math.random();
-  const foes = hostileRivals();
-  if (roll < 0.55 && foes.length) {
-    const r = wpick(foes, x => 0.5 + x.aggr);
-    r.intel = Math.max(r.intel, 1);
-    return next('遭遇', [`<p>${pick(CITY.places)}を巡回中、凄まじい殺気が闇を裂いた。</p>`,
-      `<p>――<b>${rivalLabel(r)}</b>のサーヴァントだ。背後には、マスターの${esc(r.master)}の姿もある。</p>`,
-      r.intel >= 1 ? `<p class="quote">「${r.quote}」</p>` : ''], () => startBattle(r, {}), '戦う');
-  }
-  if (roll < 0.8) { const ev = drawEvent('night'); if (ev) return showEvent(ev); }
-  actResult('夜の巡回', () => { const t = Math.random() < 0.4 ? intelRandom(1) : ''; return ['静かな夜だった。敵の気配は見当たらない。', t]; });
-}
-function assaultMenu() {
-  const choices = hostileRivals().filter(r => r.intel >= 2).map(r => ({
-    label: `${rivalLabel(r)}陣営を襲う`, hint: `マスター：${esc(r.master)}`, cls: 'danger',
-    fn: () => next('襲撃', [`<p>夜陰に紛れ、${rivalLabel(r)}陣営の拠点へと迫る。</p>`], () => startBattle(r, { ambush: true }), '仕掛ける'),
-  }));
-  choices.push({ label: 'やめる', fn: hub });
-  scene({ title: '襲撃目標', sub: 'ASSAULT', body: ['<p>拠点を突き止めた陣営に奇襲を仕掛ける。奇襲側は戦闘で有利になる。</p>'], choices });
-}
-function defendBase() {
-  if (Math.random() < 0.45 && hostileRivals().length) {
-    const r = wpick(hostileRivals(), x => x.aggr);
-    return next('迎撃', [`<p>結界に反応。${rivalLabel(r)}陣営が攻めてきた！ 陣地の力で迎え撃つ。</p>`],
-      () => startBattle(r, { defend: true }), '迎え撃つ');
-  }
-  actResult('待機', () => { mp(15); shp(10); return '敵は現れなかった。結界の内で魔力を蓄えた。（魔力+15 HP+10）'; });
-}
 
 // =============================================================
 //  召喚
 // =============================================================
 function summonScene() {
   const choices = G.catalysts.map(id => ({ label: `「${SV_BY_ID[id].catalyst}」を使う`, hint: '縁ある英霊を喚ぶ', fn: () => doSummon(id) }));
-  choices.push({ label: '触媒を使わない', hint: '自分と似た英霊が応える', fn: () => doSummon(null) });
+  choices.push({ label: '触媒を使わない', hint: `${alignLabel()}の自分に似た英霊が応える`, fn: () => doSummon(null) });
   scene({ title: '召喚の夜', sub: 'SUMMONING', body: [
     '<p>準備の日々は終わった。今宵、聖杯戦争が始まる。</p>',
     `<p>工房の床に描いた召喚陣の前に立つ。右手の令呪が、熱を帯びて脈打っている。${G.ritual >= 3 ? '陣は完璧に仕上がっている。' : G.ritual > 0 ? '陣の準備はまずまずだ。' : '急ごしらえの陣だが、やるしかない。'}</p>`,
+    '<p class="quote">「――告げる。汝の身は我が下に、我が命運は汝の剣に。聖杯の寄るべに従い、この意、この理に従うならば応えよ」</p>',
     G.catalysts.length ? '<p>手元には触媒がある。どれを使おうか。</p>' : '<p>触媒は手に入らなかった。縁に任せるしかない。</p>',
   ], choices });
 }
@@ -1766,7 +2260,7 @@ function doSummon(catalystId) {
   G.servant = { id: sv.id, hp: 0, mp: 60 + G.ritual * 13, bond: 5 + G.ritual * 4, special: null, exposed: false };
   G.servant.hp = servantHpMax();
   setupRivals();
-  G.phase = 'war'; G.day = 1; G.slot = 0;
+  G.phase = 'war'; G.day = 1; G.slot = 0; SLOT = {};
   addLog(`${sv.cls}「${sv.name}」を召喚。`);
   if (G.flags.earlyIntel) intelRandom(1);
   SCENE = { kind: 'summon', sv }; TAB = 'story'; render();
@@ -1780,159 +2274,307 @@ function setupRivals() {
     const pool = SERVANTS.filter(s => s.cls === cls && s.id !== G.servant.id);
     const s = pick(pool); const t = types[i];
     const r = { id: 'r' + i, cls, servantId: s.id, master: randomName(t.foreign), type: t.type, power: t.power + rand(-1, 1),
-      aggr: t.aggr, quote: t.quote, alive: true, hp: 0, hpMax: 0, mp: 100, intel: 0, ally: false, bounty: false, masterDead: false };
+      aggr: t.aggr, quote: t.quote, alive: true, hp: 0, hpMax: 0, mp: 100, intel: 0, clues: 0, seals: 2 + rand(0, 1),
+      ally: false, bounty: false, masterDead: false };
     r.hpMax = r.hp = 70 + rankValue(s.p[1]);
     return r;
   });
 }
 function afterSummon() {
   next('聖杯戦争、開幕', [
-    `<p>こうして、深見市における聖杯戦争が幕を開けた。七騎のサーヴァントと七人のマスター。生き残るのは、ただ一組。</p>`,
-    `<p class="note">昼は準備と絆を深める時間、夜は戦いの時間だ。情報を集めて敵の真名を暴き、絆を育み、最後の一組となれ。期限は${WAR_DAYS}日。</p>`,
-  ], () => startSlot(), '戦いへ');
+    '<p>こうして、深見市における聖杯戦争が幕を開けた。七騎のサーヴァントと七人のマスター。生き残るのは、ただ一組。</p>',
+    `<p class="note">昼は情報・陣地・道具・絆を整える時間。夜は戦いの時間。敵の真名を暴き、作戦を選んで仕掛け、最後の一組となれ。期限は${WAR_DAYS}日。</p>`,
+  ], startSlot, '戦いへ', '第一幕　開幕');
 }
 
 // =============================================================
-//  戦闘
+//  battle.js … 戦闘
+//  毎手番「マスターの行動」と「サーヴァントの行動」を1つずつ選ぶ。
+//
+//  サーヴァントの行動
+//   攻撃：白兵（筋力）/ 機動（敏捷）/ 魔術（魔力） … 三すくみ
+//         白兵 ＞ 魔術 ＞ 機動 ＞ 白兵（有利な側に+15）
+//   宝具：魔力50を使う大技。三すくみを無視。ただし真名が敵に知られる
+//   防御：耐久で受け、ダメージ半減。防ぎ切れば次の手番に反撃補正
+//   見切り：攻撃しない代わりに、次の敵の行動を確実に読み、真名の手がかりを得る
+//   敵マスターを狙う：成功すれば一気に決着（アサシンが得意・悪）
+//   令呪：4種類の命令から選ぶ
+//   撤退
+//
+//  マスターの行動
+//   指揮（+5）/ 強化魔術（オド15：+14）/ 治癒魔術（オド20：HP+25）/ 道具
 // =============================================================
-// 戦術の三すくみ：白兵（筋力）> 魔術（魔力）> 機動（敏捷）> 白兵
+
 const TACTICS = {
   str: { name: '白兵戦', stat: 0, beats: 'mag', tell: '大きく踏み込む構えを見せている（白兵戦の気配）' },
   agi: { name: '機動戦', stat: 2, beats: 'str', tell: '間合いを測り、素早く動き回っている（機動戦の気配）' },
   mag: { name: '魔術戦', stat: 3, beats: 'agi', tell: '周囲に魔力が渦巻いている（魔術戦の気配）' },
   np:  { name: '宝具', stat: 5, tell: '魔力が異常に高まっている――宝具が来る！' },
+  guard: { name: '防御', stat: 1, tell: '腰を落とし、守りを固めている（防御の気配）' },
+};
+const MASTER_ACTS = {
+  command: { name: '指揮に専念', hint: '+5' },
+  boost:   { name: '強化魔術', hint: 'オド15・+14', od: 15 },
+  heal:    { name: '治癒魔術', hint: 'オド20・HP+25', od: 20 },
+  potion:  { name: '治癒の霊薬', hint: 'HP+35', item: 'potion' },
+  gem:     { name: '宝石魔術', hint: '+12・敵に10', item: 'gem' },
+  crystal: { name: '魔力結晶', hint: '魔力+40', item: 'crystal' },
 };
 let B = null; // 戦闘中の状態（セーブしない）
 
-function startBattle(rival, opt) {
+function startBattle(rival, opt = {}) {
   G.battles++;
-  B = { r: rival, round: 0, log: [], ambush: !!opt.ambush, defend: !!opt.defend, final: !!opt.final, miracle: false, enemyNext: null, tell: null };
+  B = { r: rival, round: 0, opt, final: !!(opt.final || opt.boss), boss: !!opt.boss, miracle: false,
+    enemyNext: null, tell: null, sure: false, charge: 0, echarge: 0, mact: 'command', extra: null, enemySeal: false };
   rival.intel = Math.max(rival.intel, 1);
+  const pre = [];
+  if (opt.defend && G.traps > 0) {
+    G.traps--; rival.hp = Math.max(1, rival.hp - 20);
+    pre.push(`<p>仕掛けておいた罠が炸裂した！ ${enemyName()}に20ダメージ。（残りの罠 ${G.traps}）</p>`);
+  }
   planEnemy();
-  battleScene();
+  battleScene(pre);
 }
 function enemyName() { return B.r.intel >= 3 ? servantOf(B.r).short : `敵${B.r.cls}`; }
+
+// 敵の次の行動を決め、「構え」として見せるかどうかを決める
 function planEnemy() {
   const r = B.r;
   let t;
   if (r.mp >= 50 && (r.hp < r.hpMax * 0.5 || Math.random() < 0.15)) t = 'np';
+  else if (B.echarge === 0 && Math.random() < (r.hp < r.hpMax * 0.35 ? 0.25 : 0.1)) t = 'guard';
   else t = wpick(['str', 'agi', 'mag'], k => Math.pow(rivalParam(r, TACTICS[k].stat), 1.5));
   B.enemyNext = t;
-  // 敵の構えを読む（知力と情報量で見抜ける確率が上がる）
+  if (B.sure) { B.tell = `【見切り】${enemyName()}は${TACTICS[t].tell}`; B.sure = false; return; }
   const seeChance = t === 'np' ? 0.9 : 0.3 + G.master.stats.int / 200 + (r.intel >= 3 ? 0.2 : 0);
   if (Math.random() < seeChance) {
-    const shown = t === 'np' || Math.random() < 0.75 ? t : pick(['str', 'agi', 'mag']);
+    const shown = t === 'np' || Math.random() < 0.75 ? t : pick(['str', 'agi', 'mag', 'guard']);
     B.tell = `${enemyName()}は${TACTICS[shown].tell}`;
   } else B.tell = null;
 }
+
+function mactAvailable(k) {
+  const a = MASTER_ACTS[k];
+  if (a.od && G.master.od < a.od) return false;
+  if (a.item && !(G.items[a.item] > 0)) return false;
+  return true;
+}
 function battleScene(extra) {
+  if (extra) B.extra = extra;
   const r = B.r; const sv = G.servant; const me = servantOf(G);
   const body = [
     `<div class="battle-field">
-      <div class="fighter"><div class="fighter-top"><span class="fighter-name">${me.short}</span><span>${me.cls}　HP ${sv.hp}/${servantHpMax()}　魔力 ${sv.mp}</span></div>
+      <div class="fighter"><div class="fighter-top"><span class="fighter-name">${me.short}</span><span>${me.cls}　HP ${sv.hp}/${servantHpMax()}　魔力 ${sv.mp}${B.charge ? `　<b>反撃+${B.charge}</b>` : ''}</span></div>
         <div class="bar hp"><i style="width:${(sv.hp / servantHpMax()) * 100}%"></i></div></div>
       <div class="vs">VS</div>
       <div class="fighter enemy"><div class="fighter-top"><span class="fighter-name">${enemyName()}</span><span>${r.cls}${r.intel >= 3 ? '' : '（真名不明）'}　HP ${Math.max(0, r.hp)}/${r.hpMax}</span></div>
-        <div class="bar enemy"><i style="width:${Math.max(0, r.hp / r.hpMax) * 100}%"></i></div></div>
+        <div class="bar enemy"><i style="width:${Math.max(0, r.hp / r.hpMax) * 100}%"></i></div>
+        ${r.intel >= 3 ? `<div class="enemy-params">${PARAM_NAMES.map((n, i) => `${n}<b>${servantOf(r).p[i]}</b>`).join('')}</div>` : ''}</div>
     </div>`,
   ];
   if (B.round === 0) {
     const mods = [];
-    if (B.ambush) mods.push('奇襲');
-    if (B.defend && G.workshop) mods.push(`陣地Lv${G.workshop}`);
+    if (B.opt.ambush) mods.push('奇襲');
+    if (B.opt.enemyFirst) mods.push('先手を取られた');
+    if (B.opt.duel) mods.push('一騎打ち');
+    if (B.opt.defend && G.workshop) mods.push(`陣地Lv${G.workshop}`);
     if (r.intel >= 3) mods.push('真名看破');
+    if (G.servant.exposed) mods.push('こちらの真名が露見');
     const aff = classAffinity(me.cls, r.cls);
     if (aff > 0 && me.cls !== 'バーサーカー' && r.cls !== 'バーサーカー') mods.push('クラス相性◎');
     if (aff < 0) mods.push('クラス相性×');
-    body.push(`<p>${B.final ? '聖杯を賭けた、最後の戦いが始まる。' : '戦闘開始。'}${mods.length ? `<br><span class="note">有利・不利：${mods.join('・')}</span>` : ''}</p>`);
+    if (B.final && G.flags.resolve === 'win') mods.push('決意');
+    body.push(`<p>${B.boss ? '聖杯の内から、黒い泥が形を成して立ち上がる。' : B.final ? '聖杯を賭けた、最後の戦いが始まる。' : '戦闘開始。'}${mods.length ? `<br><span class="note">補正：${mods.join('・')}</span>` : ''}</p>`);
   }
-  if (extra) body.push(...extra);
+  if (B.extra) body.push(...B.extra);
   if (B.tell) body.push(`<p class="tell">${B.tell}</p>`);
-  body.push('<p class="note">白兵は魔術に、魔術は機動に、機動は白兵に強い。</p>');
+  // マスターの行動（トグル）
+  const mk = Object.keys(MASTER_ACTS).filter(k => !MASTER_ACTS[k].item || G.items[MASTER_ACTS[k].item] > 0);
+  if (!mactAvailable(B.mact)) B.mact = 'command';
+  body.push(`<div class="mact"><div class="mact-head">マスターの行動 <span>オド ${G.master.od}/${odMax()}</span></div><div class="mact-row">${mk.map(k => {
+    const a = MASTER_ACTS[k]; const cnt = a.item ? `×${G.items[a.item]}` : '';
+    return `<button class="chip ${B.mact === k ? 'on' : ''}" data-mact="${k}" ${mactAvailable(k) ? '' : 'disabled'} aria-pressed="${B.mact === k}">${a.name}${cnt}<small>${a.hint}</small></button>`;
+  }).join('')}</div></div>`);
+  body.push('<p class="note rule">三すくみ：白兵 ＞ 魔術 ＞ 機動 ＞ 白兵</p>');
+
   const p = i => `${PARAM_NAMES[i]}${valueRank(servantParam(i))}`;
+  const mpAfter = sv.mp + (B.mact === 'crystal' ? 40 : 0);
   const choices = [
     { label: '白兵戦', hint: `${p(0)}・魔術に強い`, fn: () => battleRound('str') },
     { label: '機動戦', hint: `${p(2)}・白兵に強い`, fn: () => battleRound('agi') },
     { label: '魔術戦', hint: `${p(3)}・機動に強い`, fn: () => battleRound('mag') },
-    { label: `宝具「${me.np}」`, hint: `魔力-50　真名が知られる`, disabled: sv.mp < 50, fn: () => battleRound('np'), cls: 'primary' },
-    { label: '令呪：全力で打ち倒せ', hint: `令呪-1（残${G.master.seals}）`, disabled: G.master.seals < 1, fn: () => battleRound('seal'), cls: 'danger' },
+    { label: `宝具「${me.np}」`, hint: `${p(5)}・魔力-50${sv.exposed ? '' : '・真名が知られる'}`, disabled: mpAfter < 50, fn: () => battleRound('np'), cls: 'primary' },
+    { label: '防御', hint: `${p(1)}・被害半減、防げば反撃`, fn: () => battleRound('guard') },
+    { label: '見切り', hint: '次の構えを確実に読む・真名の手がかり', fn: () => battleRound('observe') },
   ];
-  if (!B.final) choices.push({ label: '撤退する', hint: '敏捷・幸運で判定', fn: () => battleRound('flee') });
-  scene({ title: B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices });
+  if (!B.boss) choices.push({ label: '敵マスターを狙う', hint: `${isAssassin() ? '気配遮断で有利' : '成功率は低い'}・悪`, cls: 'danger', fn: () => battleRound('master') });
+  choices.push({ label: `令呪を使う（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu });
+  if (!B.final) choices.push({ label: '撤退する', hint: G.items.smoke ? '煙幕の護符で確実に' : '敏捷・幸運で判定', fn: () => battleRound('flee') });
+  scene({ title: B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices });
 }
+function sealMenu() {
+  const choices = [
+    { label: '「全力で打ち倒せ」', hint: '最も得意な攻撃に+35', cls: 'danger', fn: () => battleRound('seal_power') },
+    { label: '「宝具を解き放て」', hint: '魔力を使わず宝具+20', cls: 'danger', fn: () => battleRound('seal_np') },
+    { label: '「耐え抜け」', hint: 'HPを7割まで回復し、防御+30', fn: () => battleRound('seal_endure') },
+  ];
+  if (!B.final) choices.push({ label: '「退け」', hint: '確実に撤退', fn: () => battleRound('seal_retreat') });
+  choices.push({ label: '戻る', fn: () => battleScene() });
+  scene({ title: '令呪', sub: `残り${G.master.seals}画`, body: ['<p>右手の令呪が熱を帯びる。三画しかない絶対命令権――どう使う？</p>'], choices });
+}
+
+// ---------------- 1手番の処理 ----------------
 function battleRound(cmd) {
   const r = B.r; const me = servantOf(G); const sv = G.servant;
   B.round++;
   const log = [];
-  const et = B.enemyNext;
   const P = me.short, E = enemyName();
+  const et = B.enemyNext;
 
+  // 令呪
+  let tac = cmd, sealBoost = 0, npFree = false;
+  if (cmd.startsWith('seal_')) {
+    G.master.seals--; addLog('令呪を一画使用（戦闘）。');
+    const order = { seal_power: '全力で打ち倒せ', seal_np: '宝具を解き放て', seal_endure: '耐え抜け', seal_retreat: '退け' }[cmd];
+    log.push(`<b>「令呪をもって命ずる――${order}！」</b> 右手の令呪が一画、紅く輝いて消えた。`);
+    if (cmd === 'seal_retreat') return escape(log.concat([`${P}の姿が掻き消え、次の瞬間にはあなたの隣にいた。令呪による空間転移だ。`]));
+    if (cmd === 'seal_power') { sealBoost = 35; tac = ['str', 'agi', 'mag'].reduce((b, k) => servantParam(TACTICS[k].stat) > servantParam(TACTICS[b].stat) ? k : b, 'str'); }
+    if (cmd === 'seal_np') { tac = 'np'; npFree = true; sealBoost = 20; }
+    if (cmd === 'seal_endure') { tac = 'guard'; sealBoost = 30; sv.hp = Math.max(sv.hp, Math.round(servantHpMax() * 0.7)); }
+  }
+
+  // 撤退
   if (cmd === 'flee') {
+    if (G.items.smoke > 0) { item('smoke', -1); return escape(log.concat(['煙幕の護符を地面に叩きつけた。濃い霧に紛れて離脱する。'])); }
     const mine = (servantParam(2) + servantParam(4)) / 2 + rand(1, 40) + 5;
     const theirs = rivalParam(r, 2) + rand(1, 40);
-    if (mine >= theirs) {
-      addLog(`${rivalLabel(r)}陣営との戦闘から撤退。`);
-      B = null;
-      return next('撤退', [`<p>${P}が煙幕のように魔力を散らし、あなたを抱えて離脱した。どうにか逃げ切れた。</p>`], advance);
-    }
+    if (mine >= theirs) return escape(log.concat([`${P}があなたを抱えて跳んだ。どうにか逃げ切れた。`]));
     log.push(`撤退に失敗！ ${E}に回り込まれた。`);
     const dmg = rand(10, 18); shp(-dmg); log.push(`${P}は${dmg}のダメージを受けた。`);
     return afterRound(log);
   }
 
-  // 自分の戦術
-  let tac = cmd, sealBoost = 0;
-  if (cmd === 'seal') {
-    G.master.seals--; sealBoost = 35; shp(25);
-    tac = ['str', 'agi', 'mag'].reduce((best, k) => servantParam(TACTICS[k].stat) > servantParam(TACTICS[best].stat) ? k : best, 'str');
-    log.push(`<b>「令呪をもって命ずる――全力で打ち倒せ！」</b> 右手の令呪が一画、紅く輝いて消えた。`);
-    addLog('令呪を一画使用（戦闘）。');
-  }
+  // マスターの行動
+  let mBonus = 0; const ma = B.mact; B.mact = 'command';
+  if (ma === 'command') mBonus = 5;
+  if (ma === 'boost') { od(-15); mBonus = 14; log.push(`強化魔術で${P}の霊基を後押しした。`); }
+  if (ma === 'heal') { od(-20); shp(25); log.push(`治癒魔術で${P}の傷を塞いだ。（HP+25）`); }
+  if (ma === 'potion') { item('potion', -1); shp(35); log.push(`治癒の霊薬を使った。（HP+35）`); }
+  if (ma === 'gem') { item('gem', -1); mBonus = 12; r.hp -= 10; log.push(`宝石を投げ放つ。炸裂した魔力が${E}を撃った！（10ダメージ）`); }
+  if (ma === 'crystal') { item('crystal', -1); mp(40); log.push(`魔力結晶を砕き、${P}に魔力を流し込んだ。（魔力+40）`); }
+
+  // 宝具の宣言
   if (tac === 'np') {
-    sv.mp -= 50;
+    if (!npFree) sv.mp -= 50;
     if (!sv.exposed) { sv.exposed = true; log.push(`<span class="note">宝具の解放により、${P}の真名が敵に知られた。</span>`); }
     log.push(`<b>「${me.np}（${me.npRuby}）――！」</b>`);
   }
   if (et === 'np') {
     r.mp -= 50;
     const en = servantOf(r);
-    log.push(`敵が宝具を解き放つ。<b>「${en.np}（${en.npRuby}）！」</b>`);
+    log.push(`${E}が宝具を解き放つ。<b>「${en.np}（${en.npRuby}）！」</b>`);
     if (r.intel < 3) { r.intel = 3; log.push(`<span class="note">その宝具は――${en.name}！ 敵の真名が判明した。</span>`); addLog(`${r.cls}の真名「${en.name}」が判明。`); }
   }
 
-  // スコア計算
-  const myBase = servantParam(TACTICS[tac].stat) + (tac === 'np' ? 25 : 0);
-  const enBase = rivalParam(r, TACTICS[et].stat) + (et === 'np' ? 25 : 0);
-  let myMod = classAffinity(me.cls, r.cls) + Math.floor(sv.bond / 8) + (sv.special ? 5 : 0) + Math.floor(G.master.stats.mag / 20)
-    + (['mercenary', 'executor'].includes(G.master.birth) ? 4 : 0) + (r.intel >= 3 ? 8 : 0)
-    + (B.ambush && B.round === 1 ? 10 : 0) + (B.defend ? G.workshop * 3 : 0) + sealBoost;
-  let enMod = classAffinity(r.cls, me.cls) + r.power + (sv.exposed ? 6 : 0);
-  if (tac !== 'np' && et !== 'np') {
-    if (TACTICS[tac].beats === et) myMod += 15;
-    if (TACTICS[et].beats === tac) enMod += 15;
+  // 敵マスターの令呪（追い詰められると使う）
+  let eSeal = 0;
+  if (!B.enemySeal && r.seals > 0 && r.hp < r.hpMax * 0.35 && Math.random() < 0.6) {
+    B.enemySeal = true; r.seals--; eSeal = 25; r.hp = Math.min(r.hpMax, r.hp + 25);
+    log.push(`<span class="note">${B.boss ? '泥が脈打ち、傷が塞がっていく。' : `敵マスターの令呪が輝いた！ ${E}の傷が癒え、力が増す。`}（敵HP+25）</span>`);
   }
-  const mine = myBase + myMod + rand(1, 40);
-  const theirs = enBase + enMod + rand(1, 40);
-  const diff = mine - theirs;
-  log.push(`<span class="note">${P}：${TACTICS[tac].name}（${mine}）　対　${E}：${TACTICS[et].name}（${theirs}）</span>`);
 
-  const crit = luck => Math.random() * 100 < luck / 2;
-  if (diff >= 0) {
-    let dmg = Math.round(10 + diff * 0.5 + (tac === 'np' ? 22 : 0) - rankValue(servantOf(r).p[1]) / 10);
-    if (crit(servantParam(4))) { dmg = Math.round(dmg * 1.5); log.push('会心の一撃！'); }
-    dmg = Math.max(6, dmg); r.hp -= dmg;
-    log.push(winText(tac, P, E) + `（${dmg}ダメージ）`);
+  // ---- 補正値 ----
+  const first = B.round === 1;
+  const myMod = classAffinity(me.cls, r.cls) + Math.floor(sv.bond / 8) + (sv.special ? 5 : 0) + Math.floor(G.master.stats.mag / 20)
+    + (['mercenary', 'executor'].includes(G.master.birth) ? 4 : 0) + (r.intel >= 3 ? 8 : 0)
+    + (first && B.opt.ambush ? 15 : 0) + (first && B.opt.duel ? 6 : 0) + (B.opt.defend ? G.workshop * 3 : 0)
+    + (B.final && G.flags.resolve === 'win' ? 6 : 0) + (B.boss && G.flags.resolve === 'destroy' ? 8 : 0) + (B.boss && G.flags.mudKnown ? 5 : 0)
+    + sealBoost + mBonus + B.charge;
+  const enMod = classAffinity(r.cls, me.cls) + r.power + (sv.exposed ? 6 : 0) + (first && B.opt.enemyFirst ? 12 : 0) + eSeal + B.echarge;
+  B.charge = 0; B.echarge = 0;
+
+  const score = (side, t, mod) => {
+    if (t === 'observe') return Math.round(servantParam(2) * 0.6) + rand(1, 30) + mod;
+    const base = side === 'me' ? servantParam(TACTICS[t].stat) : rivalParam(r, TACTICS[t].stat);
+    return base + (t === 'np' ? 25 : 0) + (t === 'guard' ? 5 : 0) + rand(1, 40) + mod;
+  };
+  const atk = t => ['str', 'agi', 'mag', 'np'].includes(t);
+  const dmgCalc = (diff, t, defEnd, luck, mul = 1) => {
+    let d = Math.round((10 + diff * 0.5 + (t === 'np' ? 22 : 0) - defEnd / 10) * mul);
+    if (Math.random() * 100 < luck / 2) { d = Math.round(d * 1.5); log.push('会心の一撃！'); }
+    return Math.max(4, d);
+  };
+  const hitEnemy = (d, t) => { r.hp -= d; log.push(winText(t, P, E) + `（${d}ダメージ）`); };
+  const hitMe = (d, t) => { shp(-d); log.push(winText(t, E, P) + `（${d}ダメージ）`); };
+
+  // ---- 敵マスターを狙う ----
+  if (tac === 'master') {
+    NOTES = []; tone('evil');
+    const mine = servantParam(2) + rand(1, 40) + (isAssassin() ? 20 : -8) + mBonus;
+    const guardS = Math.round(rivalParam(r, 2) * 0.5) + r.power * 3 + rand(1, 40) + (et === 'guard' ? 15 : 0);
+    log.push(`<span class="note">${P}：敵マスターへ（${mine}）　対　${E}：護衛（${guardS}）</span>`);
+    if (mine >= guardS && (isAssassin() || r.hp <= r.hpMax * 0.4)) {
+      r.hp = 0; r.masterDead = true;
+      log.push(`${P}の刃が${E}の脇をすり抜け、マスターの${esc(r.master)}を捉えた。供給を断たれた${E}が崩れ落ちる。`);
+      log.push(...takeNotes()); return afterRound(log);
+    }
+    if (mine >= guardS) {
+      r.power -= 3; r.hp -= 12;
+      log.push(`${esc(r.master)}に手傷を負わせた！ 支援が途切れ、${E}の動きが鈍る。（敵の強さ低下・12ダメージ）`);
+    } else {
+      log.push(`読まれていた！ ${E}がマスターを庇い、カウンターを放つ。`);
+      if (atk(et)) hitMe(dmgCalc(rand(5, 20), et, servantParam(1), rivalParam(r, 4), 1.2), et);
+    }
+    log.push(...takeNotes()); return afterRound(log);
+  }
+
+  // ---- 通常の解決 ----
+  const mine = score('me', tac, myMod);
+  const theirs = score('en', et, enMod);
+  if (atk(tac) && atk(et)) {
+    let m2 = mine, t2 = theirs;
+    if (tac !== 'np' && et !== 'np') {
+      if (TACTICS[tac].beats === et) { m2 += 15; log.push(`<span class="note">${TACTICS[tac].name}が${TACTICS[et].name}を制した！（+15）</span>`); }
+      if (TACTICS[et].beats === tac) { t2 += 15; log.push(`<span class="note">${TACTICS[et].name}に${TACTICS[tac].name}を制された！（敵+15）</span>`); }
+    }
+    log.push(`<span class="note">${P}：${TACTICS[tac].name}（${m2}）　対　${E}：${TACTICS[et].name}（${t2}）</span>`);
+    if (m2 >= t2) hitEnemy(dmgCalc(m2 - t2, tac, rankValue(servantOf(r).p[1]), servantParam(4)), tac);
+    else hitMe(dmgCalc(t2 - m2, et, servantParam(1), rivalParam(r, 4)), et);
+  } else if (atk(tac) && et === 'guard') {
+    log.push(`<span class="note">${P}：${TACTICS[tac].name}（${mine}）　対　${E}：防御（${theirs}）</span>`);
+    if (mine >= theirs) hitEnemy(dmgCalc(mine - theirs, tac, rankValue(servantOf(r).p[1]), servantParam(4), tac === 'np' ? 0.7 : 0.5), tac);
+    else { B.echarge = 12; log.push(`${E}は攻撃を受け止めきった。反撃の気配がある。`); }
+  } else if (tac === 'guard' && atk(et)) {
+    log.push(`<span class="note">${P}：防御（${mine}）　対　${E}：${TACTICS[et].name}（${theirs}）</span>`);
+    if (theirs > mine) hitMe(dmgCalc(theirs - mine, et, servantParam(1), rivalParam(r, 4), et === 'np' ? 0.7 : 0.5), et);
+    else { B.charge = 12; log.push(`${P}は攻撃を完全に受け止めた！ 次の手番、反撃の好機だ。（+12）`); }
+  } else if (tac === 'observe') {
+    B.sure = true; B.charge = Math.max(B.charge, 8); r.clues = (r.clues || 0) + 1;
+    if (atk(et)) {
+      log.push(`<span class="note">${P}：見切り（回避${mine}）　対　${E}：${TACTICS[et].name}（${theirs}）</span>`);
+      if (theirs > mine) hitMe(dmgCalc(theirs - mine, et, servantParam(1), rivalParam(r, 4), 0.8), et);
+      else log.push(`${P}は紙一重で攻撃をかわし、${E}の動きを見極めた。`);
+    } else log.push(`互いに出方を窺う。${P}は${E}の癖を観察した。`);
+    if (r.intel < 3 && !B.boss) {
+      const c = chk('int', 82 - r.clues * 6);
+      if (c.ok) { r.intel = 3; log.push(c.text, `あの構え、あの武具――間違いない。真名は<b>${servantOf(r).name}</b>だ！`); addLog(`${r.cls}の真名「${servantOf(r).name}」を看破。`); }
+      else log.push('<span class="note">真名の手がかりを得た。（手がかり+1）</span>');
+    }
+    log.push('<span class="note">次の手番、敵の行動を確実に読める。（+8）</span>');
   } else {
-    let dmg = Math.round(10 + (-diff) * 0.5 + (et === 'np' ? 22 : 0) - servantParam(1) / 10);
-    if (crit(rivalParam(r, 4))) { dmg = Math.round(dmg * 1.5); log.push('痛恨の一撃！'); }
-    dmg = Math.max(6, dmg); shp(-dmg);
-    log.push(winText(et, E, P) + `（${dmg}ダメージ）`);
+    log.push(`互いに守りを固め、睨み合いが続く。`);
+    B.charge = 5; B.echarge = 5;
   }
   afterRound(log);
 }
+function escape(log) {
+  addLog(`${rivalLabel(B.r)}陣営との戦闘から撤退。`);
+  B.r.clues = (B.r.clues || 0) + 1; B = null;
+  next('撤退', paras(log), advance);
+}
 function winText(t, a, d) {
   const lines = {
-    str: [`${a}の重い一撃が${d}を捉えた！`, `${a}が真正面から${d}を押し切った！`],
+    str: [`${a}の重い一撃が${d}を捉えた！`, `${a}が真正面から${d}を押し切った！`, `火花が散る。打ち合いを制したのは${a}だ！`],
     agi: [`${a}は残像を残して${d}の死角に回り込んだ！`, `目にも留まらぬ速さで、${a}の連撃が${d}を襲う！`],
     mag: [`${a}の放った魔力の奔流が${d}を呑み込んだ！`, `${a}の術式が炸裂し、${d}を吹き飛ばした！`],
     np: [`宝具の光が夜を白く染め、${d}を薙ぎ払った！`, `伝説そのものが、${d}に牙を剥いた！`],
@@ -1958,46 +2600,66 @@ function battleLoseChoice(extra) {
     G.master.seals--; G.servant.hp = Math.round(servantHpMax() * 0.4); addLog('令呪で消滅寸前のサーヴァントを繋ぎ止める。');
     planEnemy(); battleScene([`<p>令呪の魔力が${SV()}の霊基を強引に繋ぎ止めた。${SV()}は再び立ち上がる！</p>`]);
   } });
-  choices.push({ label: '……ここまでか', fn: () => { B = null; ending('lost'); } });
+  if (G.items.potion > 0 && !B.final) choices.push({ label: '霊薬を飲ませて退く', hint: '霊薬-1・撤退', fn: () => {
+    item('potion', -1); G.servant.hp = 15; escape([`霊薬で辛うじて霊基を保ち、${SV()}は最後の力であなたを抱えて退いた。`]);
+  } });
+  choices.push({ label: '……ここまでか', fn: () => { const boss = B.boss; B = null; ending(boss ? 'devoured' : 'lost'); } });
   scene({ title: '霊核の危機', sub: 'CRISIS', body: [...extra, `<p>${SV()}が膝をつく。霊基が崩れ始めている――このままでは消滅する！</p>`], choices });
 }
 function battleWin(extra) {
-  const r = B.r; const wasFinal = B.final; B = null;
+  const r = B.r; const wasFinal = B.final; const boss = B.boss; B = null;
+  if (boss) return ending(G.servant.special ? 'destroySpecial' : 'destroy');
   r.alive = false; r.hp = 0; G.kills++;
   NOTES = []; bond(5);
   const body = [...extra, `<p>${rivalLabel(r)}の霊基が砕け、光の粒となって夜空に溶けていく。<b>勝利だ。</b></p>`];
   addLog(`${rivalLabel(r)}陣営（${servantOf(r).name}）を撃破。`);
   if (r.bounty) { G.master.seals++; body.push('<p>教会からの討伐令を果たした。報酬として令呪が一画、右手に刻まれた。（令呪+1）</p>'); }
-  body.push(...takeNotes().map(t => `<p>${t}</p>`));
-  const finish = () => {
-    if (wasFinal || aliveRivals().length === 0) return victoryScene();
-    advance();
-  };
+  const spoils = rand(1, 3); money(spoils); body.push(`<p class="note">敵の拠点から資金を回収した。（+${spoils}万円）</p>`);
+  body.push(...paras(takeNotes()));
+  const finish = () => (wasFinal || aliveRivals().length === 0) ? victoryScene() : advance();
+  if (r.masterDead) return next('勝利', body, finish);
   const choices = [
     { label: 'マスターを教会へ送る', hint: '秩序・善', fn: () => { NOTES = []; tone('law'); tone('good');
-      next('戦いの後', [`<p>${esc(r.master)}は力なく頷き、教会へと去っていった。</p>`, ...takeNotes().map(t => `<p>${t}</p>`)], finish); } },
-    { label: '残った令呪を奪う', hint: '悪 / 令呪+1', disabled: G.master.seals >= 3, fn: () => { NOTES = []; tone('evil'); G.master.seals++; r.masterDead = true;
-      next('戦いの後', [`<p>${esc(r.master)}の腕から令呪を奪い取った。（令呪+1）</p>`, ...takeNotes().map(t => `<p>${t}</p>`)], finish); } },
+      next('戦いの後', paras([`${esc(r.master)}は力なく頷き、教会へと去っていった。`, ...takeNotes()]), finish); } },
+    { label: '残った令呪を奪う', hint: '悪 / 令呪+1', disabled: r.seals < 1, fn: () => { NOTES = []; tone('evil'); G.master.seals++; r.masterDead = true;
+      next('戦いの後', paras([`${esc(r.master)}の腕から令呪を奪い取った。（令呪+1）`, ...takeNotes()]), finish); } },
     { label: '何も言わず立ち去る', hint: '混沌', fn: () => { NOTES = []; tone('chaos');
-      next('戦いの後', ['<p>敗者に掛ける言葉はない。あなたは振り返らずに、その場を後にした。</p>', ...takeNotes().map(t => `<p>${t}</p>`)], finish); } },
+      next('戦いの後', paras(['敗者に掛ける言葉はない。あなたは振り返らずに、その場を後にした。', ...takeNotes()]), finish); } },
   ];
   scene({ title: '勝利', sub: 'VICTORY', body, choices });
 }
 
-// ---- 終盤の展開 ----
+// =============================================================
+//  ending.js … 終盤（決戦・聖杯降臨・隠しボス）とエンディング
+// =============================================================
+
 function breakAlliance() {
   for (const r of aliveRivals()) r.ally = false;
   next('同盟の終わり', ['<p>残るは、同盟を結んだ陣営とあなたたちだけになった。電話の向こうで、相手が静かに告げる。「――ここまでだ。次に会う時は、敵同士だ」</p>'], startSlot);
 }
+function siegeScene(r) {
+  r.siege = true; r.ally = false; r.intel = Math.max(r.intel, 2);
+  next('籠城', paras([`残る敵は、${rivalLabel(r)}陣営ただ一つ。`,
+    `その夜、${esc(r.master)}から使い魔が届いた。「聖杯の降臨は${FINAL_DAY}日目の夜。天降山の頂で待つ。……それまで、せいぜい足掻くといい」`,
+    `${rivalLabel(r)}陣営は天降山の古社に陣を敷き、結界の内に籠もった。手出しはできない。`,
+    `<span class="note">決戦は${FINAL_DAY}日目の夜。それまでの日々で、絆を深め、真名を暴き、道具を揃えよう。</span>`]), startSlot, '次へ', 'SIEGE');
+}
 function finalBattleIntro() {
   const r = aliveRivals()[0];
   r.ally = false;
-  next('天降山', [
+  const choices = [{ label: '最後の戦いへ', cls: 'primary', fn: () => startBattle(r, { final: true }) }];
+  if (G.items.crystal || G.items.potion) choices.unshift({ label: '道具で万全を期す', hint: '魔力結晶・霊薬を使ってから戦う', fn: () => {
+    if (G.items.crystal) { item('crystal', -1); mp(40); }
+    if (G.items.potion) { item('potion', -1); shp(35); }
+    startBattle(r, { final: true });
+  } });
+  scene({ title: '天降山', sub: '第三幕　降臨', body: [
     '<p>残る陣営は、あと一つ。天降山の頂、霊脈の集う古社の境内に、聖杯の器が姿を現しつつある。</p>',
-    `<p>月明かりの下、最後の敵が待っていた。${rivalLabel(r)}陣営――マスター、${esc(r.master)}。</p>`,
+    `<p>雪の舞う石段を登りきると、最後の敵が待っていた。${rivalLabel(r)}陣営――マスター、${esc(r.master)}。</p>`,
     `<p class="quote">「${r.quote}」</p>`,
     `<p class="quote">${fmt(pick(PERSONAS[servantOf(G).persona].high))}</p>`,
-  ], () => startBattle(r, { final: true }), '最後の戦いへ');
+    `<p class="note">${SV()} HP ${G.servant.hp}/${servantHpMax()}・魔力 ${G.servant.mp}　敵HP ${r.hp}/${r.hpMax}　撤退はできない。</p>`,
+  ], choices });
 }
 function deadlineScene() {
   // 期限切れ：残った陣営のうち最強の一つが最後の敵になる
@@ -2006,28 +2668,39 @@ function deadlineScene() {
   const strongest = alive.reduce((a, b) => (a.power + a.hp) >= (b.power + b.hp) ? a : b);
   for (const r of alive) if (r !== strongest) { r.alive = false; addLog(`${rivalLabel(r)}陣営、混戦の中で脱落。`); }
   next('最終局面', ['<p>聖杯の器が満ちようとしている。監督役から全陣営へ通達が届いた。「聖杯の降臨は今宵。残る者は天降山へ」</p>',
-    '<p>天降山へ向かう途中の混戦で、いくつもの陣営が倒れていった。生き残ったのは――</p>'], finalBattleIntro);
+    '<p>天降山へ向かう途中の混戦で、いくつもの陣営が黒い泥に呑まれていった。生き残ったのは――</p>'], finalBattleIntro);
 }
 
-// =============================================================
-//  エンディング
-// =============================================================
 function victoryScene() {
   G.phase = 'end';
-  const sv = servantOf(G); const b = BIRTHS.find(x => x.id === G.master.birth);
-  const choices = [
-    { label: `「${b.wish}」を願う`, hint: 'マスターの願い', fn: () => ending(G.flags.grailTruth ? 'wishKnown' : 'wish') },
-  ];
-  if (G.servant.special) choices.unshift({ label: `${sv.short}の受肉を願う`, hint: `「${RELATIONS[G.servant.special].name}」として共に生きる`, cls: 'primary', fn: () => ending('together') });
-  if (G.flags.grailTruth) choices.unshift({ label: '聖杯を破壊する', hint: '汚染された聖杯を消し去る', cls: 'primary', fn: () => ending(G.servant.special ? 'destroySpecial' : 'destroy') });
+  const sv = servantOf(G); const b = birthOf();
+  const choices = [];
+  if (G.flags.grailTruth) choices.push({ label: '聖杯を破壊する', hint: '呪いそのものとの戦いになる', cls: 'danger', fn: bossIntro });
+  if (G.servant.special) choices.push({ label: `${sv.short}の受肉を願う`, hint: `「${RELATIONS[G.servant.special].name}」として共に生きる`, cls: 'primary', fn: () => ending('together') });
+  if (G.flags.knowWish && !G.flags.grailTruth) choices.push({ label: `${sv.short}に聖杯を託す`, hint: `「${SERVANT_WISH[sv.persona].slice(0, 18)}…」`, fn: () => ending('servantWish') });
+  choices.push({ label: `「${b.wish}」を願う`, hint: 'マスターの願い', fn: () => ending(G.flags.grailTruth ? 'wishKnown' : 'wish') });
   choices.push({ label: '何も願わない', fn: () => ending('none') });
-  scene({ title: '聖杯降臨', sub: 'THE HOLY GRAIL', body: [
+  scene({ title: '聖杯降臨', sub: '第三幕　降臨', body: [
     '<p>最後の敵が消え、天降山の頂に黄金の杯が降りてきた。万能の願望機――聖杯。</p>',
-    G.flags.grailTruth ? '<p>だが、あなたは知っている。その黄金の内側には、どす黒い泥が渦巻いていることを。</p>' : '<p>その輝きは眩く、どんな願いでも叶えてくれそうに見えた。</p>',
+    G.flags.grailTruth ? '<p>だが、あなたは知っている。その黄金の内側には、六十年分の呪いが渦巻いていることを。</p>'
+      : G.flags.grailHint ? '<p>その輝きは眩い。……けれど、なぜだろう。杯の底に、黒い影が揺れた気がした。</p>'
+        : '<p>その輝きは眩く、どんな願いでも叶えてくれそうに見えた。</p>',
     `<p class="quote">${fmt(pick(PERSONAS[sv.persona].high))}</p>`,
     '<p>あなたが願うのは――</p>',
   ], choices });
 }
+function bossIntro() {
+  const boss = { id: 'boss', cls: '聖杯', servantId: 'ori', master: '―', type: '', quote: '', power: 7, aggr: 1, alive: true,
+    hp: 190, hpMax: 190, mp: 100, intel: 3, clues: 0, seals: 1, ally: false };
+  next('黒き聖杯', [
+    `<p>「${SV()}、聖杯を――壊して」</p>`,
+    '<p>その言葉に応えるように、黄金の杯がひび割れた。溢れ出したのは、六十年分の呪い。黒い泥が渦を巻き、巨大な影となって立ち上がる。</p>',
+    '<p class="quote">「ネガイヲ……ネガイヲ、ヨコセ……」</p>',
+    G.flags.resolve === 'destroy' ? `<p>${SV()}が剣を構える。「決めていたことだ。最後まで付き合おう」</p>` : `<p>${SV()}が前に出る。「――下がっていろ。これは、私の戦いでもある」</p>`,
+    `<p class="note">${SV()} HP ${G.servant.hp}/${servantHpMax()}・魔力 ${G.servant.mp}　令呪 ${G.master.seals}画。撤退はできない。</p>`,
+  ], () => startBattle(boss, { boss: true }), '聖杯に挑む', 'FINAL');
+}
+
 function ending(kind) {
   G.phase = 'end'; clearSave();
   const sv = G.servant ? servantOf(G) : null; const rel = G.servant && G.servant.special ? RELATIONS[G.servant.special] : null;
@@ -2035,27 +2708,35 @@ function ending(kind) {
   const E = {
     dead: () => ({ title: '終幕：血に染まる冬', text: [`<p>深見市の冬の夜に、${M()}の命は散った。</p>`, sv ? `<p>契約者を失った${sv.short}もまた、光の粒となって消えていく。最後に、何かを言いかけたように見えた。</p>` : '', '<p>聖杯戦争は、あなたのいないまま続いていく。</p>'] }),
     lost: () => ({ title: '終幕：脱落', text: [`<p>${sv.short}の霊基は砕け、聖杯戦争からの脱落が決まった。</p>`, `<p class="quote">${fmt(per.farewell)}</p>`,
-      G.flags.registered ? '<p>あなたは教会に保護され、戦いの結末を遠くから聞くことになった。右手の痣だけが、あの日々が夢ではなかったと告げている。</p>' : '<p>あなたは傷ついた体を引きずり、冬の街へと消えた。右手の痣だけが、あの日々が夢ではなかったと告げている。</p>'] }),
+      G.flags.registered ? `<p>あなたは教会に保護され、戦いの結末を遠くから聞くことになった。${CAST.sister}が淹れてくれた紅茶は、少しだけ苦かった。</p>` : '<p>あなたは傷ついた体を引きずり、冬の街へと消えた。</p>',
+      '<p>右手の痣だけが、あの日々が夢ではなかったと告げている。</p>'] }),
+    devoured: () => ({ title: '終幕：黒い夜明け', text: ['<p>泥は全てを呑み込んだ。', `${sv.short}の霊基も、あなたの叫びも。</p>`,
+      '<p>天降山から溢れた呪いは、夜明けとともに街へと流れ下っていく。……けれど、その勢いは六十年前ほどではなかった。あなたたちの戦いは、確かに何かを削り取ったのだ。</p>',
+      '<p class="note">ヒント：決戦前夜の覚悟や、黒い泥の正体を知っていれば、聖杯との戦いで有利になる。</p>'] }),
     wish: () => ({ title: '終幕：歪んだ願い', text: ['<p>聖杯は願いを聞き届けた。――最悪の形で。</p>', '<p>溢れ出した黒い泥が天降山を覆い、深見市の夜空が赤く染まる。願いは確かに「叶った」。だが、その代償はあまりにも大きかった。</p>',
       `<p>消えゆく${sv.short}の姿を見送りながら、あなたは悟る。この聖杯は、最初から呪われていたのだと。</p>`, '<p class="note">ヒント：聖杯の真実を知っていれば、別の選択肢があったかもしれない。</p>'] }),
     wishKnown: () => ({ title: '終幕：承知の上の願い', text: ['<p>呪われた聖杯と知りながら、あなたは願った。泥が溢れ、街に災いが降りかかる。</p>', `<p>${sv.short}は何も言わず、ただ悲しげにあなたを見つめていた。</p>`] }),
-    destroy: () => ({ title: '終幕：冬の終わり', text: [`<p>「${sv.short}、聖杯を破壊して」</p>`, `<p>${sv.short}の最後の宝具が、黄金の杯を光の中に消し去った。呪いは霧散し、天降山に朝日が昇る。</p>`,
-      `<p class="quote">${fmt(per.farewell)}</p>`, '<p>聖杯を手にすることはなかった。けれど、あなたは確かにこの街を救ったのだ。</p>'] }),
-    destroySpecial: () => ({ title: '終幕：夜明けの約束', text: [`<p>二人で選んだ答えは、聖杯の破壊だった。${sv.short}の宝具が呪いを焼き払い、夜が明けていく。</p>`,
+    servantWish: () => ({ title: '終幕：託された願い', text: [`<p>「${sv.short}。この聖杯は、君のものだ」</p>`, `<p>${sv.short}は驚き、それから静かに杯を受け取った。</p>`,
+      `<p class="quote">「${SERVANT_WISH[sv.persona]}」</p>`, '<p>黄金の光が夜空に広がる。その願いがどんな形で叶ったのか、あなたには分からない。けれど、光の中で振り返った顔は、確かに笑っていた。</p>',
+      G.flags.grailHint ? '<p class="note">杯の底に揺れた黒い影のことを、あなたは最後まで考えないようにした。</p>' : ''] }),
+    destroy: () => ({ title: '終幕：冬の終わり', text: [`<p>${sv.short}の最後の一撃が、黒き聖杯を光の中に消し去った。呪いは霧散し、天降山に朝日が昇る。</p>`,
+      `<p class="quote">${fmt(per.farewell)}</p>`, `<p>聖杯を手にすることはなかった。けれど、あなたは確かにこの街を救ったのだ。河川敷では、${CAST.old}が一人、深く頭を下げていた。</p>`] }),
+    destroySpecial: () => ({ title: '終幕：夜明けの約束', text: [`<p>二人で選んだ答えは、聖杯の破壊だった。${sv.short}の一撃が呪いを焼き払い、夜が明けていく。</p>`,
       `<p>消えゆく体で、${sv.short}はあなたの手を握った。「${rel ? rel.name : ''}」として過ごした日々が、指先から伝わってくる。</p>`, `<p class="quote">${fmt(per.farewell)}</p>`,
       '<p>朝日の中に消えた姿を、あなたは決して忘れない。――いつかまた、どこかの空の下で。</p>'] }),
     together: () => ({ title: `終幕：${rel ? rel.name : ''}として`, text: [`<p>「${sv.short}に、この世界で生きる体を」</p>`, '<p>聖杯は願いを聞き届けた。黄金の光が霊基を包み、英霊は肉体を得て現世に降り立つ。</p>',
-      `<p>冬が終わり、深見市に春が来た。桜並木の下を、${sv.short}と並んで歩く。かつて「${rel ? rel.name : ''}」と呼び合った二人の、新しい日々が始まる。</p>`,
-      G.flags.grailTruth ? '<p class="note">聖杯の呪いは今も眠っている。いつか、二人で向き合う日が来るだろう。</p>' : ''] }),
+      `<p>冬が終わり、深見市に春が来た。桜並木の下を、${sv.short}と並んで歩く。「${rel ? rel.name : ''}」と呼び合う二人の、新しい日々が始まる。</p>`,
+      G.flags.grailTruth ? '<p class="note">聖杯の呪いは今も山の下に眠っている。いつか、二人で向き合う日が来るだろう。</p>' : ''] }),
     none: () => ({ title: '終幕：願いなき勝者', text: ['<p>あなたは何も願わなかった。聖杯は誰の手にも渡らぬまま、静かに消えていった。</p>', `<p class="quote">${fmt(per.farewell)}</p>`,
       '<p>勝者の手に残ったのは、戦いの記憶と、確かに結ばれた絆だけだった。</p>'] }),
   }[kind]();
   addLog(E.title);
-  SCENE = { kind: 'ending', title: E.title, text: E.text.filter(Boolean), good: !['dead', 'lost', 'wish', 'wishKnown'].includes(kind) };
+  SCENE = { kind: 'ending', title: E.title, text: E.text.filter(Boolean), good: !['dead', 'lost', 'wish', 'wishKnown', 'devoured'].includes(kind) };
   TAB = 'story'; render();
 }
 
 // =============================================================
+//  view.js … 画面の描画と、タップ操作の受け付け
 //  画面描画
 // =============================================================
 const ICON = {
@@ -2066,6 +2747,18 @@ const ICON = {
   log: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>',
 };
 const SEAL_PATH = 'M9 1 C 13 6, 15 10, 9 21 C 3 10, 5 6, 9 1 Z';
+
+// ---------------- タイトル・キャラクター作成 ----------------
+function titleScreen() {
+  G = null; B = null;
+  SCENE = { kind: 'title', save: loadSave() };
+  TAB = 'story'; render();
+}
+function createScreen(master) {
+  const m = master || rollMaster();
+  SCENE = { kind: 'create', master: m, birth: BIRTHS.find(x => x.id === m.birth) };
+  render();
+}
 
 function render() {
   const app = document.getElementById('app');
@@ -2186,15 +2879,19 @@ function viewMaster() {
     <h3>状態</h3><div class="bars">
       <div class="bar-row"><span>HP</span><div class="bar hp"><i style="width:${m.hp}%"></i></div><span class="num">${m.hp}</span></div></div>
     <dl class="kv" style="margin-top:10px"><dt>令呪</dt><dd>${m.seals}画</dd><dt>資金</dt><dd>${m.money}万円</dd><dt>魔術回路</dt><dd>${m.circuits}本</dd>
-      <dt>陣地</dt><dd>Lv ${G.workshop}${G.flags.leyline || m.birth === 'shrine' ? '（霊脈の知識あり）' : ''}</dd>
+      <dt>オド</dt><dd>${m.od} / ${odMax()}（マスター自身の魔力。戦闘の支援魔術や使い魔に使う）</dd>
+      <dt>陣地</dt><dd>Lv ${G.workshop}・罠${G.traps}${G.flags.leyline || m.birth === 'shrine' ? '（霊脈の知識あり）' : ''}</dd>
       <dt>願い</dt><dd>${b.wish}</dd><dt>特徴</dt><dd>${b.perk}</dd>
       <dt>属性値</dt><dd>秩序 ${m.align.law > 0 ? '+' : ''}${m.align.law}／善 ${m.align.good > 0 ? '+' : ''}${m.align.good}</dd></dl>
     <h3>能力値</h3>${statBars(m.stats)}
     ${G.servant ? `<p class="note" style="font-size:12px;color:var(--muted)">マスターの魔力による英霊パラメータ補正：${masterCorrection() > 0 ? '+' : ''}${masterCorrection()}（魔力が低いとサーヴァントの性能が落ちる）</p>` : ''}
+    <h3>道具</h3><div class="item-list">${Object.entries(ITEMS).map(([k, it]) => `<div><b>${it.name} ×${G.items[k] || 0}</b><span>${it.desc}</span></div>`).join('')}</div>
     <h3>所持している触媒</h3>${G.catalysts.length ? G.catalysts.map(id => `<span class="tag gold">${SV_BY_ID[id].catalyst}</span>`).join('') : '<p class="empty">まだ無い</p>'}
     <h3>判明している事実</h3>
       ${G.flags.grailTruth ? '<span class="tag red">聖杯は汚染されている</span>' : G.flags.grailHint ? '<span class="tag">聖杯には何か秘密がある……</span>' : '<p class="empty">特になし</p>'}
       ${G.flags.registered ? '<span class="tag green">教会に登録済み</span>' : ''}
+      ${G.flags.mudKnown ? '<span class="tag red">黒い泥は傷ついた英霊を狙う</span>' : ''}
+      ${G.flags.knowWish && G.servant ? `<span class="tag gold">${SV()}の願い：${SERVANT_WISH[servantOf(G).persona]}</span>` : ''}
   </section>`;
 }
 function viewServant() {
@@ -2254,8 +2951,9 @@ function viewEnding() {
 
 // ---------------- 操作（タップ） ----------------
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-choice],[data-tab],[data-act]');
+  const t = e.target.closest('[data-choice],[data-tab],[data-act],[data-mact]');
   if (!t || t.disabled) return;
+  if (t.dataset.mact) { if (B) { B.mact = t.dataset.mact; battleScene(); } return; }
   if (t.dataset.tab) { TAB = t.dataset.tab; if (SCENE) SCENE.confirmReset = false; render(); return; }
   if (t.dataset.choice !== undefined) { const c = SCENE.choices[+t.dataset.choice]; if (c && !c.disabled) c.fn(); return; }
   const a = t.dataset.act;
@@ -2268,11 +2966,11 @@ document.addEventListener('click', e => {
     newGame(SCENE.master);
     const b = BIRTHS.find(x => x.id === G.master.birth);
     next('物語の始まり', [`<p>${CITY.intro}</p>`, `<p>${M()}――${b.name}。${b.text}</p>`,
-      `<p>右手の甲に浮かんだ三画の紋様。それは聖杯に選ばれたマスターの証、<b>令呪</b>だ。聖杯戦争の開幕まで、あと${PREP_DAYS}日。</p>`,
+      `<p>右手の甲に浮かんだ三画の紋様。それは聖杯に選ばれたマスターの証、<b>令呪</b>だ。召喚の夜まで、あと${PREP_DAYS}日。</p>`,
       G.catalysts.length ? `<p>家の宝物庫からは、英霊召喚の触媒<b>「${SV_BY_ID[G.catalysts[0]].catalyst}」</b>を持ち出してきた。</p>` : '',
-      '<p class="note">準備期間のうちに能力を鍛え、触媒を探し、召喚陣を整えよう。触媒がなければ、あなたの在り方に似た英霊が応えるという。</p>'], startSlot, '準備を始める', 'PROLOGUE');
+      '<p class="note">準備期間のうちに能力を鍛え、触媒を探し、召喚陣を整えよう。触媒がなければ、あなたの在り方（秩序・混沌／善・悪）に似た英霊が応えるという。</p>'], () => { SLOT = {}; startSlot(); }, '準備を始める', 'PROLOGUE');
   }
-  else if (a === 'continue') { G = SCENE.save; if (!G.flags) G.flags = {}; startFromSave(); }
+  else if (a === 'continue') { G = SCENE.save; SLOT = { news: true, story: true, event: true }; startFromSave(); }
   else if (a === 'aftersummon') afterSummon();
   else if (a === 'reset') {
     if (SCENE.confirmReset) { clearSave(); titleScreen(); }
@@ -2286,7 +2984,7 @@ function startFromSave() {
 
 // ---------------- 起動 ----------------
 function boot(data) {
-  if (data && data.save) { try { G = JSON.parse(data.save); return startFromSave(); } catch (e) { } }
+  if (data && data.save) { try { G = JSON.parse(data.save); SLOT = { news: true, story: true, event: true }; return startFromSave(); } catch (e) { } }
   titleScreen();
 }
 if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ save: LAST_HUB }));
