@@ -1,0 +1,2298 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0c0e19">
+<title>深見市聖杯戦争</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Shippori+Mincho+B1:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* =============================================================
+   見た目（CSS）
+   レイアウト: 上=状況バー / 中=物語や各画面（スクロール） / 下=タブ
+   夜の聖杯戦争をイメージした、暗い一色のテーマで統一しています。
+   ============================================================= */
+:root {
+  --bg: #0c0e19;        /* 夜の藍 */
+  --bg-2: #121628;      /* パネル */
+  --bg-3: #1a1f36;      /* 浮いた面 */
+  --line: #2b3253;      /* 罫線 */
+  --fg: #ebe5d6;        /* 月明かりの紙色 */
+  --muted: #9ba1ba;
+  --seal: #d43c4c;      /* 令呪の紅 */
+  --seal-soft: #d43c4c33;
+  --gold: #d2ad5f;      /* 聖杯の金 */
+  --gold-soft: #d2ad5f26;
+  --ok: #67c294;
+  --ng: #e2716f;
+  --sky-day: #8fb3d9;
+  --font-display: "Shippori Mincho B1", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
+  --font-rank: "Cinzel", "Times New Roman", serif;
+  --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.75;
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+}
+button { font: inherit; color: inherit; }
+b { color: var(--gold); font-weight: 700; }
+
+#app { height: 100%; display: flex; flex-direction: column; max-width: 560px; margin: 0 auto; position: relative;
+  background:
+    radial-gradient(120% 60% at 50% -10%, #1d2546 0%, transparent 60%),
+    var(--bg); }
+
+/* ---------- 上部：状況バー ---------- */
+.topbar { flex: none; padding-block: 10px 8px; padding-left: var(--gutter-l); padding-right: var(--gutter-r);
+  border-bottom: 1px solid var(--line); background: #0c0e19e6; }
+.topbar-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.when { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.when-phase { font-size: 11px; letter-spacing: .12em; color: var(--muted); white-space: nowrap; }
+.when-day { font-family: var(--font-display); font-size: 19px; font-weight: 700; white-space: nowrap; }
+.time-chip { font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
+.time-chip.day { color: var(--sky-day); border-color: #8fb3d955; }
+.time-chip.night { color: var(--gold); border-color: #d2ad5f55; }
+.seals { display: flex; gap: 3px; align-items: center; }
+.seal { width: 18px; height: 22px; }
+.seal path { fill: var(--seal); }
+.seal.used path { fill: none; stroke: #d43c4c55; stroke-width: 1.2; }
+.mini { display: flex; gap: 12px; margin-top: 6px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.mini span b { color: var(--fg); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* ---------- 中央 ---------- */
+.main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding-block: 18px 28px; padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
+
+.scene-title { font-family: var(--font-display); font-weight: 700; font-size: 22px; line-height: 1.4; margin: 0 0 4px;
+  text-wrap: balance; }
+.scene-sub { font-size: 12px; letter-spacing: .14em; color: var(--gold); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.scene-sub::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, #d2ad5f66, transparent); }
+.scene-body p { margin: 0 0 12px; }
+.scene-body .quote { font-family: var(--font-display); font-size: 16px; padding: 10px 14px; border-left: 2px solid var(--gold);
+  background: var(--gold-soft); border-radius: 0 6px 6px 0; }
+.scene-body .note { font-size: 13px; color: var(--muted); }
+.scene-body .news { font-size: 13px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: var(--bg-2); }
+
+.chk { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: baseline; font-size: 12px; padding: 3px 10px;
+  border-radius: 6px; font-variant-numeric: tabular-nums; }
+.chk.ok { background: #67c2941f; color: var(--ok); border: 1px solid #67c29455; }
+.chk.ng { background: #e2716f1f; color: var(--ng); border: 1px solid #e2716f55; }
+.chk em { font-style: normal; color: var(--muted); }
+
+.choices { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.choice { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left;
+  padding: 13px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-3); cursor: pointer;
+  min-height: 52px; transition: border-color .15s, background .15s, transform .08s; }
+.choice:hover { border-color: #d2ad5f88; }
+.choice:active { transform: scale(.985); }
+.choice:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.choice .c-label { font-weight: 500; }
+.choice .c-hint { font-size: 11px; color: var(--muted); text-align: right; flex: none; max-width: 45%; line-height: 1.4; }
+.choice[disabled] { opacity: .4; cursor: not-allowed; }
+.choice.primary { background: linear-gradient(180deg, #2a2440, #1d1a30); border-color: #d2ad5f77; }
+.choice.danger { border-color: #d43c4c88; background: linear-gradient(180deg, #2c1820, #1d1420); }
+.choice.danger .c-label { color: #f3b7bd; }
+
+/* ---------- 下部タブ ---------- */
+.tabs { flex: none; display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid var(--line); background: #0c0e19f2;
+  padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
+.tab { background: none; border: 0; padding: 9px 0 8px; font-size: 11px; color: var(--muted); cursor: pointer; display: flex;
+  flex-direction: column; align-items: center; gap: 2px; letter-spacing: .06em; }
+.tab svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.5; }
+.tab.on { color: var(--gold); }
+.tab:focus-visible { outline: 2px solid var(--gold); outline-offset: -4px; }
+.tab .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--seal); position: absolute; margin-left: 18px; }
+
+/* ---------- パネル共通 ---------- */
+.panel h2 { font-family: var(--font-display); font-size: 20px; margin: 0 0 2px; }
+.panel h3 { font-size: 12px; letter-spacing: .14em; color: var(--gold); margin: 22px 0 8px; font-weight: 500; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 13px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; min-width: 0; }
+.bars { display: flex; flex-direction: column; gap: 8px; }
+.bar-row { display: grid; grid-template-columns: 3.2em 1fr 2.6em; gap: 10px; align-items: center; font-size: 13px; }
+.bar-row .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.bar { height: 6px; border-radius: 3px; background: #ffffff12; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--fg); border-radius: 3px; }
+.bar.hp i { background: var(--ok); }
+.bar.mp i { background: #7aa2e8; }
+.bar.bond i { background: linear-gradient(90deg, var(--seal), var(--gold)); }
+.bar.enemy i { background: var(--ng); }
+.tag { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin: 2px 4px 2px 0; }
+.tag.gold { color: var(--gold); border-color: #d2ad5f66; }
+.tag.red { color: #f3b7bd; border-color: #d43c4c77; }
+.tag.green { color: var(--ok); border-color: #67c29466; }
+.empty { color: var(--muted); font-size: 13px; padding: 24px 0; text-align: center; }
+
+/* ---------- Fate式パラメータ表 ---------- */
+.params { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.param { background: var(--bg-2); padding: 8px 10px 9px; min-width: 0; }
+.param .pl { font-size: 11px; color: var(--muted); letter-spacing: .1em; }
+.param .pr { font-family: var(--font-rank); font-size: 22px; font-weight: 600; line-height: 1.2; color: var(--fg); }
+.param .pr small { font-family: var(--font-body); font-size: 10px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+.param .pr.up { color: var(--ok); }
+.param .pr.down { color: var(--ng); }
+.param .bar { margin-top: 4px; height: 3px; }
+.param .bar i { background: var(--gold); }
+
+/* ---------- サーヴァントカード ---------- */
+.svcard { border: 1px solid #d2ad5f55; border-radius: 14px; padding: 16px; background:
+  linear-gradient(160deg, #221d36 0%, #141829 60%); position: relative; overflow: hidden; }
+.svcard::before { content: ""; position: absolute; right: -60px; top: -60px; width: 180px; height: 180px; border-radius: 50%;
+  border: 1px solid #d2ad5f33; box-shadow: 0 0 0 14px #d2ad5f0d, 0 0 0 30px #d2ad5f08; }
+.svclass { font-family: var(--font-rank); font-size: 12px; letter-spacing: .3em; color: var(--gold); }
+.svname { font-family: var(--font-display); font-size: 24px; font-weight: 700; line-height: 1.35; margin: 2px 0 4px; text-wrap: balance; }
+.np { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.np .np-name { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
+.np .np-ruby { font-size: 11px; color: var(--gold); letter-spacing: .08em; }
+
+/* ---------- 陣営一覧 ---------- */
+.rivals { display: flex; flex-direction: column; gap: 10px; }
+.rival { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--bg-2); }
+.rival.out { opacity: .5; }
+.rival-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.rival-cls { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
+.rival p { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+.intel { display: flex; gap: 3px; }
+.intel i { width: 14px; height: 4px; border-radius: 2px; background: #ffffff1a; }
+.intel i.on { background: var(--gold); }
+
+/* ---------- 戦闘 ---------- */
+.battle-field { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 14px; }
+.fighter { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--bg-2); }
+.fighter.enemy { border-color: #d43c4c55; }
+.fighter-top { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.fighter-name { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+.fighter .bar { margin-top: 6px; height: 8px; }
+.vs { text-align: center; font-family: var(--font-rank); color: var(--seal); letter-spacing: .4em; font-size: 12px; }
+.tell { font-size: 13px; padding: 8px 12px; border-radius: 8px; background: #d43c4c14; border: 1px solid #d43c4c44; color: #f3c9cd; }
+.blog { font-size: 13px; color: var(--muted); border-left: 1px solid var(--line); padding-left: 10px; margin-top: 10px; }
+.blog p { margin: 0 0 6px; }
+
+/* ---------- タイトル・召喚 ---------- */
+.title-wrap { min-height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 18px; padding-block: 12px; }
+.circle { width: min(78vw, 300px); aspect-ratio: 1; max-width: 100%; margin: 0 auto; display: block; }
+.circle .ring { fill: none; stroke: var(--gold); stroke-width: .6; opacity: .75; }
+.circle .ring.red { stroke: var(--seal); opacity: .9; }
+.circle .spin { transform-origin: 50% 50%; animation: spin 60s linear infinite; }
+.circle .spin.rev { animation-duration: 90s; animation-direction: reverse; }
+.circle text { font-family: var(--font-rank); font-size: 4.2px; fill: var(--gold); letter-spacing: 1.2px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.game-title { font-family: var(--font-display); font-size: 34px; font-weight: 800; text-align: center; letter-spacing: .08em; margin: 0; line-height: 1.3; }
+.game-title small { display: block; font-size: 12px; letter-spacing: .5em; color: var(--gold); font-weight: 500; margin-bottom: 6px; }
+.lead { color: var(--muted); font-size: 13px; text-align: center; margin: 0 auto; max-width: 30em; }
+.summon-glow { animation: glow 1.6s ease-out both; }
+@keyframes glow { 0% { filter: drop-shadow(0 0 0 #d2ad5f00); opacity: .3; transform: scale(.85); }
+  60% { filter: drop-shadow(0 0 22px #d2ad5fcc); opacity: 1; } 100% { filter: drop-shadow(0 0 8px #d2ad5f66); transform: scale(1); } }
+.reveal { animation: reveal .8s ease-out both; animation-delay: .6s; }
+@keyframes reveal { from { opacity: .0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.field { display: flex; flex-direction: column; gap: 6px; margin: 14px 0; }
+.field label { font-size: 12px; color: var(--muted); letter-spacing: .1em; }
+.field input { font: inherit; background: var(--bg-3); border: 1px solid var(--line); color: var(--fg); border-radius: 8px; padding: 10px 12px; width: 100%; }
+.field input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+.birth-card { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--bg-2); }
+.birth-name { font-family: var(--font-display); font-size: 19px; font-weight: 700; }
+
+.log-list { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.log-list div { display: grid; grid-template-columns: 4.5em 1fr; gap: 10px; }
+.log-list span { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.ending-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
+.ending-stats div { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--bg-2); font-size: 12px; color: var(--muted); }
+.ending-stats b { display: block; font-size: 16px; color: var(--fg); font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) {
+  .circle .spin, .summon-glow, .reveal { animation: none; }
+  .choice { transition: none; }
+}
+
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// =============================================================
+//  サーヴァントデータ
+//  ・パラメータは「筋力 / 耐久 / 敏捷 / 魔力 / 幸運 / 宝具」の順。
+//  ・ランクは E / D / C / B / A / EX。末尾の「+」は1つにつき少し強化。
+//  ・値は作者の記憶をもとにした目安です。気になる所は自由に書き換えてください。
+//  ・persona は会話や好みの傾向（data_world.js の PERSONAS を参照）。
+//  ・catalyst は「その英霊を呼べる触媒」の名前。null なら触媒なし。
+// =============================================================
+
+const SERVANTS = [
+  // ---------------- セイバー ----------------
+  { id: 'artoria', name: 'アルトリア・ペンドラゴン', short: 'アルトリア', cls: 'セイバー',
+    p: ['B', 'C', 'C', 'B', 'A+', 'A++'], align: '秩序・善', persona: 'knight',
+    np: '約束された勝利の剣', npRuby: 'エクスカリバー', catalyst: '錆びた鞘の欠片',
+    line: 'サーヴァント・セイバー、召喚に応じ参上しました。これより我が剣は、貴方と共にあります。',
+    desc: 'ブリテンを治めた伝説の騎士王。聖剣を携える、誇り高き王。' },
+  { id: 'nero', name: 'ネロ・クラウディウス', short: 'ネロ', cls: 'セイバー',
+    p: ['D', 'D', 'A', 'B', 'A', 'B'], align: '混沌・善', persona: 'king',
+    np: '招き蕩う黄金劇場', npRuby: 'アエストゥス・ドムス・アウレア', catalyst: '真紅の薔薇のブローチ',
+    line: 'うむ！ 余を喚んだのはそなたか！ 良い、実に良い。この聖杯戦争、余が華やかに彩ってみせよう！',
+    desc: 'ローマ帝国第五代皇帝。芸術を愛する、絢爛にして奔放な薔薇の皇帝。' },
+  { id: 'siegfried', name: 'ジークフリート', short: 'ジークフリート', cls: 'セイバー',
+    p: ['B+', 'A', 'B', 'C', 'E', 'A'], align: '混沌・善', persona: 'knight',
+    np: '幻想大剣・天魔失墜', npRuby: 'バルムンク', catalyst: '乾いた菩提樹の葉',
+    line: 'サーヴァント、セイバー。……すまない、俺で良ければ力を貸そう。',
+    desc: 'ネーデルラントの竜殺しの英雄。悪竜の血を浴びた不死身に近い肉体を持つ。' },
+  { id: 'mordred', name: 'モードレッド', short: 'モードレッド', cls: 'セイバー',
+    p: ['B+', 'A', 'B', 'B', 'D', 'A'], align: '混沌・中庸', persona: 'warrior',
+    np: '我が麗しき父への叛逆', npRuby: 'クラレント・ブラッドアーサー', catalyst: '赤い角飾りの兜片',
+    line: 'よう、オレを喚んだのはお前か？ ……ま、悪くねえ。聖杯はオレがいただく、いいな？',
+    desc: '円卓の騎士にして、王に叛逆した騎士。荒々しくも真っ直ぐな剣士。' },
+  { id: 'okita', name: '沖田総司', short: '沖田', cls: 'セイバー',
+    p: ['C', 'E', 'A+', 'E', 'D', 'C'], align: '中立・中庸', persona: 'free',
+    np: '誓いの羽織', npRuby: 'ちかいのはおり', catalyst: '浅葱色の羽織の切れ端',
+    line: '新選組一番隊隊長、沖田総司。参りました。……あ、病弱ですけど、斬るのは得意ですよ？',
+    desc: '幕末の京を駆けた新選組の天才剣士。神速の三段突きを持つ。' },
+  { id: 'musashi', name: '宮本武蔵', short: '武蔵', cls: 'セイバー',
+    p: ['B', 'B', 'A', 'E', 'A+', 'A'], align: '混沌・善', persona: 'free',
+    np: '六道五輪・倶利伽羅天象', npRuby: 'りくどうごりん・くりからてんしょう', catalyst: '古びた二刀の鍔',
+    line: '新免武蔵、ここに推参！ 美味しいご飯と強い相手、どっちもある街だといいなあ。',
+    desc: '二天一流の開祖。天衣無縫の剣豪にして、無類の食いしん坊。' },
+  { id: 'gawain', name: 'ガウェイン', short: 'ガウェイン', cls: 'セイバー',
+    p: ['B+', 'B+', 'B', 'A', 'A+', 'A+'], align: '秩序・善', persona: 'knight',
+    np: '転輪する勝利の剣', npRuby: 'エクスカリバー・ガラティーン', catalyst: '太陽の紋章が刻まれた盾片',
+    line: '円卓の騎士ガウェイン、召喚に応じました。陽のある限り、この剣は決して折れません。',
+    desc: '太陽の祝福を受けた円卓の騎士。日中は力が三倍になるという。' },
+  { id: 'deon', name: 'シュヴァリエ・デオン', short: 'デオン', cls: 'セイバー',
+    p: ['C', 'C', 'A', 'C', 'B', 'C'], align: '中立・中庸', persona: 'gentle',
+    np: '百合の花咲く豪華絢爛', npRuby: 'フルール・ド・リス', catalyst: '白百合の刺繍のハンカチ',
+    line: 'シュヴァリエ・デオン。王家と、そして新たな主のために剣を執りましょう。',
+    desc: 'フランス王家に仕えた美貌の剣士にして諜報員。' },
+  { id: 'rama', name: 'ラーマ', short: 'ラーマ', cls: 'セイバー',
+    p: ['A', 'B', 'A+', 'B', 'A+', 'A+'], align: '秩序・善', persona: 'warrior',
+    np: '羅刹を穿つ不滅', npRuby: 'ブラフマーストラ', catalyst: '色褪せた猿神の護符',
+    line: 'コーサラの王子ラーマ、ここに。必ず勝つ。そして必ず……いや、何でもない。共に往こう！',
+    desc: '古代インドの叙事詩『ラーマーヤナ』の主人公。魔王を討った理想の王子。' },
+
+  // ---------------- アーチャー ----------------
+  { id: 'emiya', name: 'エミヤ', short: 'エミヤ', cls: 'アーチャー',
+    p: ['D', 'C', 'C', 'B', 'E', '？'], align: '中立・中庸', persona: 'cool',
+    np: '無限の剣製', npRuby: 'アンリミテッド・ブレイドワークス', catalyst: '赤い聖骸布の切れ端',
+    line: 'サーヴァント、アーチャー。……やれやれ、厄介な縁に喚ばれたものだ。だが契約は契約だ、マスター。',
+    desc: '未来の英霊。投影魔術で無数の剣を生み出す、皮肉屋の弓兵。' },
+  { id: 'gilgamesh', name: 'ギルガメッシュ', short: 'ギルガメッシュ', cls: 'アーチャー',
+    p: ['B', 'C', 'C', 'B', 'A', 'EX'], align: '混沌・善', persona: 'king',
+    np: '天地乖離す開闢の星', npRuby: 'エヌマ・エリシュ', catalyst: '最初に脱皮した蛇の化石',
+    line: '我を喚んだか。光栄に思うがいい。この戦、我が直々に見定めてやろう。',
+    desc: '人類最古の英雄王。この世のあらゆる宝を所有したという黄金の王。' },
+  { id: 'atalante', name: 'アタランテ', short: 'アタランテ', cls: 'アーチャー',
+    p: ['D', 'E', 'A', 'B', 'C', 'B'], align: '中立・悪', persona: 'cool',
+    np: '訴状の矢文', npRuby: 'ポイボス・カタストロフェ', catalyst: '黄金の林檎の飾り',
+    line: '汝が私のマスターか。……狩りならば任せておけ。この弓が汝の敵を射抜こう。',
+    desc: 'ギリシャ神話の純潔の狩人。俊足と弓で名を馳せた。' },
+  { id: 'robin', name: 'ロビンフッド', short: 'ロビン', cls: 'アーチャー',
+    p: ['D', 'C', 'B', 'B', 'B', 'D'], align: '中立・善', persona: 'cool',
+    np: '祈りの弓', npRuby: 'イー・バウ', catalyst: 'イチイの木の枝',
+    line: 'はいはい、アーチャーのロビンフッドです。正面からの戦いは勘弁ですけど、搦め手なら任せてくださいよ。',
+    desc: 'シャーウッドの森の義賊。罠と毒矢を操るゲリラ戦の名手。' },
+  { id: 'nobunaga', name: '織田信長', short: '信長', cls: 'アーチャー',
+    p: ['B', 'B', 'B', 'C', 'B', 'EX'], align: '中立・中庸', persona: 'free',
+    np: '三千世界', npRuby: 'さんだんうち', catalyst: '焦げた火縄銃の部品',
+    line: '是非もなし！ 第六天魔王・織田信長、ここに見参じゃ！ 聖杯？ うむ、ワシのものじゃな！',
+    desc: '戦国の覇王。神秘殺しの火縄銃を無数に展開する。' },
+  { id: 'arash', name: 'アーラシュ', short: 'アーラシュ', cls: 'アーチャー',
+    p: ['B', 'EX', 'B', 'C', 'D', 'B++'], align: '混沌・善', persona: 'warrior',
+    np: '流星一条', npRuby: 'ステラ', catalyst: '古代ペルシアの鏃',
+    line: 'アーチャー、アーラシュだ。頑丈さには自信がある。よろしく頼むぜ、マスター。',
+    desc: '西アジアの大英雄。一矢で二国の国境を定めたという大弓の勇者。' },
+  { id: 'tristan', name: 'トリスタン', short: 'トリスタン', cls: 'アーチャー',
+    p: ['B', 'B', 'A', 'B', 'E', 'A'], align: '秩序・善', persona: 'knight',
+    np: '痛哭の幻奏', npRuby: 'フェイルノート', catalyst: '竪琴の古い弦',
+    line: '円卓の騎士トリスタン。……私は悲しい。このような寒い夜に喚ばれるとは。ですが、弓は確かに。',
+    desc: '竪琴を弓とする円卓の騎士。哀しみを湛えた弓の名手。' },
+
+  // ---------------- ランサー ----------------
+  { id: 'cuchulainn', name: 'クー・フーリン', short: 'クー・フーリン', cls: 'ランサー',
+    p: ['B', 'C', 'A', 'C', 'E', 'B'], align: '秩序・中庸', persona: 'warrior',
+    np: '刺し穿つ死棘の槍', npRuby: 'ゲイ・ボルク', catalyst: '古い金のイヤリング',
+    line: 'サーヴァント・ランサー。よう、アンタがオレのマスターか。まあ、楽しくやろうぜ。',
+    desc: 'アイルランドの光の御子。因果を逆転させる呪いの朱槍を持つ。' },
+  { id: 'diarmuid', name: 'ディルムッド・オディナ', short: 'ディルムッド', cls: 'ランサー',
+    p: ['B', 'C', 'A+', 'D', 'E', 'B'], align: '秩序・中庸', persona: 'knight',
+    np: '破魔の紅薔薇', npRuby: 'ゲイ・ジャルグ', catalyst: '古い槍の石突',
+    line: 'フィオナ騎士団が一番槍、ディルムッド・オディナ。今度こそ、主に忠義を尽くしましょう。',
+    desc: 'フィオナ騎士団随一の戦士。二本の魔槍を操る美丈夫。' },
+  { id: 'scathach', name: 'スカサハ', short: 'スカサハ', cls: 'ランサー',
+    p: ['B', 'A', 'A', 'C', 'D', 'A+'], align: '中立・善', persona: 'cool',
+    np: '貫き穿つ死翔の槍', npRuby: 'ゲイ・ボルク・オルタナティブ', catalyst: '影の国の黒い石',
+    line: '影の国の女王、スカサハだ。私を喚んだ以上、半端は許さんぞ。鍛え甲斐があるといいがな。',
+    desc: '影の国の女王にして、数多の英雄を育てた武芸の師。' },
+  { id: 'karna', name: 'カルナ', short: 'カルナ', cls: 'ランサー',
+    p: ['B', 'A', 'A', 'B', 'D', 'EX'], align: '秩序・善', persona: 'cool',
+    np: '日輪よ、死に随え', npRuby: 'ヴァサヴィー・シャクティ', catalyst: '黄金の鎧の欠片',
+    line: 'サーヴァント・ランサー、カルナ。オレの力がお前の役に立つというのなら、存分に使うがいい。',
+    desc: '『マハーバーラタ』の大英雄。太陽神の子にして、施しの英雄。' },
+  { id: 'leonidas', name: 'レオニダス一世', short: 'レオニダス', cls: 'ランサー',
+    p: ['B', 'A', 'B', 'C', 'B', 'B'], align: '秩序・善', persona: 'warrior',
+    np: '炎門の守護者', npRuby: 'テルモピュライ・エノモタイア', catalyst: '青銅の兜の欠片',
+    line: 'スパルタ王レオニダス、推参！ 守りは任されよ。では早速、筋力鍛錬から始めましょうか！',
+    desc: 'テルモピュライの戦いで知られるスパルタの王。守りの英雄。' },
+  { id: 'elizabeth', name: 'エリザベート・バートリー', short: 'エリザベート', cls: 'ランサー',
+    p: ['C', 'D', 'E', 'A', 'B', 'E'], align: '混沌・悪', persona: 'free',
+    np: '鮮血魔嬢', npRuby: 'バートリ・エルジェーベト', catalyst: 'チェイテ城の古い煉瓦',
+    line: 'エリザベート・バートリー、ここに降臨！ 光栄に思いなさい、アタシのマスターになれるなんて！',
+    desc: '血の伯爵夫人。竜の血を引き、破壊的な歌声を武器とする。' },
+
+  // ---------------- ライダー ----------------
+  { id: 'medusa', name: 'メドゥーサ', short: 'メドゥーサ', cls: 'ライダー',
+    p: ['B', 'D', 'A', 'B', 'E', 'A+'], align: '混沌・善', persona: 'cool',
+    np: '騎英の手綱', npRuby: 'ベルレフォーン', catalyst: 'ゴルゴンの紋が刻まれた古貨',
+    line: 'サーヴァント・ライダー。……召喚に応じました。何なりとお申し付けを。',
+    desc: 'ギリシャ神話のゴルゴン三姉妹の末妹。天馬を駆る。' },
+  { id: 'iskandar', name: 'イスカンダル', short: 'イスカンダル', cls: 'ライダー',
+    p: ['B', 'A', 'D', 'C', 'A+', 'A++'], align: '中立・善', persona: 'king',
+    np: '王の軍勢', npRuby: 'アイオニオン・ヘタイロイ', catalyst: '古いマケドニアの外套の切れ端',
+    line: '我が名は征服王イスカンダル！ さて、貴様がこのマスターか？ 共に天下を取りに行くぞ！',
+    desc: '世界の果てを目指した征服王。かつての臣下たちを固有結界に喚ぶ。' },
+  { id: 'astolfo', name: 'アストルフォ', short: 'アストルフォ', cls: 'ライダー',
+    p: ['D', 'D', 'B', 'C', 'A+', 'C'], align: '混沌・善', persona: 'free',
+    np: '恐慌呼び起こせし魔笛', npRuby: 'ラ・ブラック・ルナ', catalyst: '古びた角笛',
+    line: 'シャルルマーニュ十二勇士のアストルフォ！ キミがマスター？ よろしくね！',
+    desc: 'シャルルマーニュ十二勇士の一人。陽気で天真爛漫な騎士。' },
+  { id: 'ushiwakamaru', name: '牛若丸', short: '牛若丸', cls: 'ライダー',
+    p: ['C', 'C', 'A+', 'B', 'A', 'A'], align: '混沌・中庸', persona: 'free',
+    np: '遮那王流離譚', npRuby: 'しゃなおうりゅうりたん', catalyst: '天狗の羽根',
+    line: '源九郎義経、牛若丸。主殿、ご命令を。首級を挙げてまいりましょう！',
+    desc: '源平合戦の天才武将・源義経の幼名。八艘跳びの軽業を誇る。' },
+  { id: 'drake', name: 'フランシス・ドレイク', short: 'ドレイク', cls: 'ライダー',
+    p: ['C', 'B', 'D', 'E', 'EX', 'A+'], align: '混沌・悪', persona: 'warrior',
+    np: '黄金鹿と嵐の夜', npRuby: 'ゴールデン・ワイルドハント', catalyst: '錆びた航海用コンパス',
+    line: 'アタシはフランシス・ドレイク！ 聖杯っていうお宝があるんだって？ 乗った！',
+    desc: '生きたまま世界一周を成し遂げた大海賊。星の開拓者。' },
+  { id: 'marie', name: 'マリー・アントワネット', short: 'マリー', cls: 'ライダー',
+    p: ['D', 'B', 'B', 'A', 'C', 'A'], align: '秩序・善', persona: 'gentle',
+    np: '百合の王冠に栄光あれ', npRuby: 'ギロチン・ブレイカー', catalyst: '白薔薇の髪飾り',
+    line: 'ごきげんよう、マスター。マリー・アントワネットよ。ヴィヴ・ラ・フランス！ 素敵な日々にしましょうね。',
+    desc: 'フランス王妃。民を愛し、最期まで気高くあった白百合の王妃。' },
+
+  // ---------------- キャスター ----------------
+  { id: 'medea', name: 'メディア', short: 'メディア', cls: 'キャスター',
+    p: ['E', 'D', 'C', 'A+', 'B', 'C'], align: '中立・悪', persona: 'scholar',
+    np: '破戒すべき全ての符', npRuby: 'ルールブレイカー', catalyst: '古代の歪な短剣の柄',
+    line: 'サーヴァント・キャスター。……貴方が私の主？ ふふ、精々上手に使ってちょうだい。',
+    desc: 'コルキスの王女。神代の魔術を操る「裏切りの魔女」。' },
+  { id: 'gilles', name: 'ジル・ド・レェ', short: 'ジル', cls: 'キャスター',
+    p: ['D', 'E', 'D', 'C', 'E', 'A+'], align: '混沌・悪', persona: 'dark',
+    np: '螺湮城教本', npRuby: 'プレラーティーズ・スペルブック', catalyst: '黒ずんだ古い写本の頁',
+    line: 'おお……おおお！ 我が呼び声に応えし主よ！ 共に冒涜的な宴を始めましょうぞ！',
+    desc: '救国の英雄から堕ちた青髭。海魔を召喚する魔導書を操る。' },
+  { id: 'tamamo', name: '玉藻の前', short: '玉藻', cls: 'キャスター',
+    p: ['E', 'E', 'B', 'A', 'D', 'B'], align: '中立・悪', persona: 'free',
+    np: '水天日光天照八野鎮石', npRuby: 'すいてんにっこうあまてらすやのしずいし', catalyst: '古い銅鏡',
+    line: '玉藻の前、ご主人様のお呼びとあらば即参上！ 末永く、よろしくお願いしますね。',
+    desc: '平安の世を騒がせた九尾の狐。天照の分け御霊を名乗る。' },
+  { id: 'merlin', name: 'マーリン', short: 'マーリン', cls: 'キャスター',
+    p: ['C', 'D', 'B', 'A', 'B', 'EX'], align: '中立・善', persona: 'free',
+    np: '永久に閉ざされた理想郷', npRuby: 'ガーデン・オブ・アヴァロン', catalyst: '季節外れに咲き続ける花',
+    line: 'やあ、花の魔術師マーリンだ。そんなに驚かなくても。ハッピーエンドは好きだよ、手伝わせてくれ。',
+    desc: 'アーサー王を導いた宮廷魔術師。夢魔と人の混血。' },
+  { id: 'zhuge', name: '諸葛孔明〔エルメロイⅡ世〕', short: '孔明', cls: 'キャスター',
+    p: ['E', 'E', 'D', 'B', 'A', 'C'], align: '中立・善', persona: 'scholar',
+    np: '石兵八陣', npRuby: 'かえらずのじん', catalyst: '古い羽扇の羽根',
+    line: '……サーヴァント・キャスター、諸葛孔明だ。正確にはその疑似サーヴァントだがね。始めるなら、まず作戦を立てるぞ。',
+    desc: '三国志の天才軍師の力を宿した、ある魔術師の疑似サーヴァント。' },
+  { id: 'andersen', name: 'ハンス・クリスチャン・アンデルセン', short: 'アンデルセン', cls: 'キャスター',
+    p: ['E', 'E', 'E', 'C', 'E', 'C'], align: '秩序・中庸', persona: 'scholar',
+    np: '貴方のための物語', npRuby: 'メルヒェン・マイネスレーベンス', catalyst: '古い童話集の初版本',
+    line: 'なんだ、俺を喚んだのか。戦力としては最低だぞ。だが観察眼と毒舌だけは保証してやる。',
+    desc: 'デンマークの童話作家。辛辣な毒舌家だが、人間観察は鋭い。' },
+
+  // ---------------- アサシン ----------------
+  { id: 'kojiro', name: '佐々木小次郎', short: '小次郎', cls: 'アサシン',
+    p: ['C', 'E', 'A+', 'E', 'A', '－'], align: '中立・悪', persona: 'cool',
+    np: '秘剣・燕返し', npRuby: 'つばめがえし', catalyst: '古い山門の瓦',
+    line: 'アサシン、佐々木小次郎。……名乗った通りの者かは知らぬが。月見酒の相手くらいは務まろう。',
+    desc: '「燕返し」を極めた剣士。その剣技は魔法の域に届くという。' },
+  { id: 'hassan', name: '呪腕のハサン', short: 'ハサン', cls: 'アサシン',
+    p: ['B', 'C', 'A', 'C', 'E', 'C'], align: '秩序・悪', persona: 'cool',
+    np: '妄想心音', npRuby: 'ザバーニーヤ', catalyst: '白い髑髏の仮面の欠片',
+    line: 'アサシンのサーヴァント、ハサン・サッバーハ。影より、主にお仕えいたしましょう。',
+    desc: '暗殺教団の歴代当主の一人。呪いの右腕で心臓を握り潰す。' },
+  { id: 'jack', name: 'ジャック・ザ・リッパー', short: 'ジャック', cls: 'アサシン',
+    p: ['C', 'C', 'A', 'C', 'E', 'C'], align: '混沌・悪', persona: 'free',
+    np: '解体聖母', npRuby: 'マリア・ザ・リッパー', catalyst: '霧の倫敦の古い新聞',
+    line: 'わたしたちはジャック。ねえ、あなたがわたしたちの……マスター？',
+    desc: '霧の倫敦を震撼させた連続殺人鬼。その正体は幼き怨念の集合体。' },
+  { id: 'jingke', name: '荊軻', short: '荊軻', cls: 'アサシン',
+    p: ['D', 'D', 'A', 'C', 'B', 'B'], align: '混沌・善', persona: 'cool',
+    np: '不還匕首', npRuby: 'ふかんひしゅ', catalyst: '古い地図の巻物',
+    line: '荊軻だ。暗殺なら請け負おう。……その前に、酒があれば言うことはないな。',
+    desc: '秦王暗殺に挑んだ古代中国の刺客。酒をこよなく愛する。' },
+  { id: 'shiki', name: '両儀式', short: '式', cls: 'アサシン',
+    p: ['D', 'C', 'A', 'C', 'A', 'EX'], align: '混沌・善', persona: 'cool',
+    np: '直死', npRuby: 'しき', catalyst: '赤い革ジャンパーの切れ端',
+    line: '両儀式。……面倒だけど、斬っていいものがあるなら付き合うよ。',
+    desc: 'あらゆるものの「死」を視る魔眼を持つ少女。' },
+  { id: 'serenity', name: '静謐のハサン', short: '静謐', cls: 'アサシン',
+    p: ['D', 'D', 'A+', 'C', 'B', 'C'], align: '秩序・悪', persona: 'gentle',
+    np: '妄想毒身', npRuby: 'ザバーニーヤ', catalyst: '毒草の押し花',
+    line: '……静謐のハサン、です。わたしに触れても……平気、ですか？',
+    desc: '全身が毒と化した暗殺者。触れることすら死を招く少女。' },
+
+  // ---------------- バーサーカー ----------------
+  { id: 'heracles', name: 'ヘラクレス', short: 'ヘラクレス', cls: 'バーサーカー',
+    p: ['A+', 'A', 'A', 'A', 'B', 'A'], align: '混沌・狂', persona: 'berserker',
+    np: '十二の試練', npRuby: 'ゴッド・ハンド', catalyst: '古い神殿の礎石の欠片',
+    line: '■■■■■■■■――ッ！！',
+    desc: 'ギリシャ神話最大の英雄。十二の試練を乗り越えた不屈の肉体を持つ。' },
+  { id: 'lancelot', name: 'ランスロット', short: 'ランスロット', cls: 'バーサーカー',
+    p: ['A+', 'A', 'A+', 'C', 'B', 'A'], align: '秩序・狂', persona: 'berserker',
+    np: '騎士は徒手にて死せず', npRuby: 'ナイト・オブ・オーナー', catalyst: '湖の騎士の錆びた籠手',
+    line: 'Arrrr……thurrrr……！',
+    desc: '円卓最強と謳われた湖の騎士。狂気に堕ちてなお、その武技は衰えない。' },
+  { id: 'lubu', name: '呂布奉先', short: '呂布', cls: 'バーサーカー',
+    p: ['A+', 'A', 'B', 'D', 'C', 'A'], align: '混沌・狂', persona: 'berserker',
+    np: '軍神五兵', npRuby: 'ゴッドフォース', catalyst: '古い方天画戟の房飾り',
+    line: '■■■■ーーーッ！！（地を揺るがす咆哮が響いた）',
+    desc: '三国志最強の武将。人中の呂布、馬中の赤兎。' },
+  { id: 'frankenstein', name: 'フランケンシュタイン', short: 'フラン', cls: 'バーサーカー',
+    p: ['C', 'B', 'D', 'C', 'B', 'C'], align: '中立・狂', persona: 'berserker',
+    np: '磔刑の雷樹', npRuby: 'ブラステッド・ツリー', catalyst: '古い実験記録の断片',
+    line: 'ウゥ……ァ……。（花嫁衣装の少女が、じっとこちらを見つめている）',
+    desc: '人造人間の少女。完璧な伴侶を求めて造られた存在。' },
+  { id: 'kintoki', name: '坂田金時', short: '金時', cls: 'バーサーカー',
+    p: ['A+', 'B', 'B', 'C', 'C', 'C'], align: '秩序・善', persona: 'warrior',
+    np: '黄金衝撃', npRuby: 'ゴールデンスパーク', catalyst: '古い鉞の柄',
+    line: 'オレは坂田金時、ゴールデンなバーサーカーだ！ よろしく頼むぜ、大将！',
+    desc: '頼光四天王の一人。足柄山の金太郎として知られる怪力の英雄。' },
+  { id: 'spartacus', name: 'スパルタクス', short: 'スパルタクス', cls: 'バーサーカー',
+    p: ['A', 'EX', 'D', 'E', 'D', 'C'], align: '中立・狂', persona: 'berserker',
+    np: '疵獣の咆吼', npRuby: 'クライング・ウォーモンガー', catalyst: '錆びた剣闘士の鎖',
+    line: 'さあ、圧制者よ！ ……ではないのか？ ならば共に叛逆しよう、我が同志よ！',
+    desc: 'ローマに反旗を翻した剣闘士。受けた傷を力に変える。' },
+
+  // ---------------- エクストラクラス ----------------
+  { id: 'jeanne', name: 'ジャンヌ・ダルク', short: 'ジャンヌ', cls: 'ルーラー',
+    p: ['B', 'B', 'A', 'A', 'C', 'A++'], align: '秩序・善', persona: 'knight',
+    np: '我が神はここにありて', npRuby: 'リュミノジテ・エテルネッル', catalyst: '焼け残った旗の切れ端',
+    line: 'サーヴァント・ルーラー、ジャンヌ・ダルク。……主の御名において、貴方と共に戦います。',
+    desc: 'オルレアンの乙女。聖杯戦争の調停者たる裁定者のクラス。' },
+  { id: 'jalter', name: 'ジャンヌ・ダルク〔オルタ〕', short: 'ジャンヌ・オルタ', cls: 'アヴェンジャー',
+    p: ['A', 'C', 'A', 'B', 'E', 'A+'], align: '混沌・悪', persona: 'dark',
+    np: '吼え立てよ、我が憤怒', npRuby: 'ラ・グロンドメント・デュ・ヘイン', catalyst: '黒く焦げた旗の切れ端',
+    line: 'サーヴァント・アヴェンジャー。……何よ、その顔。召喚したのはアンタでしょう？',
+    desc: '憎悪と復讐に染まった「もう一人の聖女」。黒き炎を操る。' },
+  { id: 'edmond', name: '巌窟王 エドモン・ダンテス', short: 'エドモン', cls: 'アヴェンジャー',
+    p: ['B', 'A', 'A', 'B', 'E', 'A'], align: '混沌・悪', persona: 'dark',
+    np: '虎よ、煌々と燃え盛れ', npRuby: 'アンフェル・シャトー', catalyst: 'シャトー・ディフの錆びた鍵',
+    line: 'クハハハハ！ 俺を喚んだか、復讐の化身たる俺を！ よかろう、共に地獄を往くとしよう。',
+    desc: '無実の罪で投獄され、脱獄の果てに復讐を遂げた男。' },
+];
+
+// 基本の7クラス（ライバル陣営はここから選ばれる）
+const BASE_CLASSES = ['セイバー', 'アーチャー', 'ランサー', 'ライダー', 'キャスター', 'アサシン', 'バーサーカー'];
+
+// =============================================================
+//  世界設定データ（舞台・産まれ・ライバル・性格・クラス相性）
+// =============================================================
+
+// ---- 舞台：深見市（ふかみし） ----
+const CITY = {
+  name: '深見市',
+  ruby: 'ふかみし',
+  intro: '北に霊峰・天降山（あまふりやま）、南に冬の荒海を望む人口二十万の地方都市。' +
+         '城跡の残る旧城下町と、再開発の進む駅前、寂れた港の倉庫街。' +
+         'この街の地下には、古くから太い霊脈が走っている――。',
+  places: ['深見駅前', '旧城下町', '城跡公園', '深見港・倉庫街', '天降神社', '聖ヨハネ教会', '県立深見高校', '御影川の河川敷'],
+};
+
+// ---- ランク → 数値 ----
+// 判定では「数値 + サイコロ」で勝負します。
+function rankValue(r) {
+  if (!r) return 0;
+  if (r === '？') return 40;      // 不明：Bランク相当として扱う
+  if (r === '－' || r === 'なし') return 30;
+  const base = { E: 10, D: 20, C: 30, B: 40, A: 50, EX: 65 };
+  const m = r.match(/^(EX|[A-E])(\+*)(-*)$/);
+  if (!m) return 30;
+  return base[m[1]] + m[2].length * 5 - m[3].length * 3;
+}
+// 数値 → 表示用ランク（マスター補正後の表示に使う）
+function valueRank(v) {
+  if (v >= 65) return 'EX';
+  const table = [[60, 'A++'], [55, 'A+'], [50, 'A'], [45, 'B+'], [40, 'B'], [35, 'C+'], [30, 'C'], [25, 'D+'], [20, 'D'], [15, 'E+'], [0, 'E']];
+  for (const [t, r] of table) if (v >= t) return r;
+  return 'E';
+}
+
+const PARAM_NAMES = ['筋力', '耐久', '敏捷', '魔力', '幸運', '宝具'];
+
+// ---- クラス相性（FGOの三すくみをベースに簡略化） ----
+// 戻り値: 攻撃側から見た補正値
+function classAffinity(atk, def) {
+  const adv = {
+    'セイバー': ['ランサー'], 'ランサー': ['アーチャー'], 'アーチャー': ['セイバー'],
+    'ライダー': ['キャスター'], 'キャスター': ['アサシン'], 'アサシン': ['ライダー'],
+    'アヴェンジャー': ['ルーラー'], 'ルーラー': [],
+  };
+  if (atk === 'バーサーカー' || def === 'バーサーカー') return 6;   // 狂戦士は与える・受ける両方が大きい
+  if ((adv[atk] || []).includes(def)) return 8;
+  if ((adv[def] || []).includes(atk)) return -8;
+  return 0;
+}
+
+// ---- マスターの産まれ ----
+// stats: 魔力 / 体力 / 知力 / 精神 / 交渉 / 幸運（0〜100）
+const BIRTHS = [
+  { id: 'noble', name: '魔術の名門・嫡子', weight: 10,
+    text: '数百年続く魔術師の家系に生まれた。幼い頃から刻印を受け継ぐべく、厳しい修練を積んできた。',
+    stats: { mag: 62, phy: 30, int: 55, spi: 45, cha: 40, luk: 35 }, money: 12, circuits: [55, 80],
+    wish: '家門の悲願である「根源」への到達', perk: '家の宝物庫から触媒を一つ持ち出している。' },
+  { id: 'fallen', name: '没落した魔術家系', weight: 18,
+    text: 'かつては名を馳せた魔術師の家だが、今は見る影もない。残されたのは古い工房と、借金と、意地だけだ。',
+    stats: { mag: 45, phy: 35, int: 50, spi: 55, cha: 30, luk: 30 }, money: 3, circuits: [35, 60],
+    wish: '一族の再興', perk: '逆境に強い（精神判定に少し有利）。' },
+  { id: 'clocktower', name: '時計塔の派遣魔術師', weight: 13,
+    text: '魔術協会の総本山・時計塔から、この地の聖杯戦争の調査と参加を命じられて派遣された。',
+    stats: { mag: 52, phy: 28, int: 65, spi: 40, cha: 42, luk: 30 }, money: 10, circuits: [40, 65],
+    wish: '魔術師としての名声と、時計塔での地位', perk: '協会の支援で、まれに触媒が届く。' },
+  { id: 'mercenary', name: '魔術使いの傭兵', weight: 12,
+    text: '魔術を「道具」として使い、戦場を渡り歩いてきた。聖杯戦争も一つの仕事――のはずだった。',
+    stats: { mag: 38, phy: 62, int: 48, spi: 50, cha: 32, luk: 35 }, money: 8, circuits: [25, 45],
+    wish: '戦いのない、静かな暮らし', perk: '戦闘でのマスター支援が強い。' },
+  { id: 'civilian', name: '一般人・偶然の覚醒', weight: 20,
+    text: '魔術とは無縁の暮らしをしていた。だがある朝、右手の甲に奇妙な痣が浮かび上がった――。',
+    stats: { mag: 22, phy: 42, int: 42, spi: 45, cha: 55, luk: 60 }, money: 5, circuits: [8, 25],
+    wish: 'まだ分からない。ただ、誰も死なせたくない', perk: 'サーヴァントとの絆が深まりやすい。' },
+  { id: 'executor', name: '聖堂教会の元代行者', weight: 9,
+    text: '異端を狩る聖堂教会の代行者だったが、ある事件をきっかけに教会を離れた。体には黒鍵の扱いが染みついている。',
+    stats: { mag: 35, phy: 65, int: 45, spi: 60, cha: 30, luk: 28 }, money: 6, circuits: [20, 40],
+    wish: '過去の罪の贖い', perk: '体力と精神が高く、戦闘支援も得意。' },
+  { id: 'shrine', name: '天降神社の跡取り', weight: 15,
+    text: '深見市の霊脈を古くから守ってきた神社の家に生まれた。この街の土地のことなら誰よりも知っている。',
+    stats: { mag: 42, phy: 40, int: 45, spi: 58, cha: 45, luk: 45 }, money: 5, circuits: [25, 50],
+    wish: '街と霊脈を守ること', perk: '陣地（工房）の構築が得意。' },
+];
+
+const ELEMENTS = [
+  { name: '火', w: 22 }, { name: '水', w: 22 }, { name: '風', w: 22 }, { name: '地', w: 22 },
+  { name: '空', w: 8 }, { name: '虚数', w: 2 }, { name: '五大元素（アベレージ・ワン）', w: 2 },
+];
+
+// ---- 名前の候補（ランダム生成用） ----
+const NAMES = {
+  family: ['柊', '朝霧', '神楽坂', '水無瀬', '鷹取', '霧島', '御門', '久遠', '一ノ瀬', '早瀬', '氷室', '桐生', '天城', '真壁', '綾瀬', '鳴海', '東雲', '宗像'],
+  given: ['湊', '遥', '透', '玲', '蒼', '千尋', '悠', '凛花', '朔', '紗夜', '燈', '律', '葵', '晴', '環', '詩織', '慧', '静'],
+  foreignFamily: ['ヴァイスハウプト', 'ローゼンクランツ', 'アシュフォード', 'ベルナール', 'カレンベルク', 'オルブライト', 'ドラグノフ', 'フォンティーヌ'],
+  foreignGiven: ['エーリッヒ', 'クラリス', 'ユリウス', 'アデーレ', 'ルドルフ', 'セシリア', 'ヴィクトル', 'イレーネ'],
+};
+
+// ---- ライバルのマスター像 ----
+// power: マスターとしての支援力（戦闘補正） / aggr: 好戦性（0〜1）
+const RIVAL_TYPES = [
+  { type: '時計塔の貴族魔術師', power: 9, aggr: 0.5, foreign: true,
+    quote: '極東の田舎魔術師が相手とはね。せめて退屈させないでくれたまえ。' },
+  { type: '深見の名家の当主', power: 8, aggr: 0.4, foreign: false,
+    quote: 'この地の聖杯は我が家のものだ。余所者に渡すわけにはいかない。' },
+  { type: '冷酷な傭兵', power: 7, aggr: 0.7, foreign: true,
+    quote: '仕事だ。悪く思うな。' },
+  { type: '錬金術師の一族の少女', power: 8, aggr: 0.5, foreign: true,
+    quote: 'あなたも聖杯を求めるの？ なら、ここで消えてもらうわ。' },
+  { type: '狂気に憑かれた魔術師', power: 6, aggr: 0.9, foreign: false,
+    quote: 'ヒヒ……街ごと燃やせば、聖杯も早く満ちると思わないかい？' },
+  { type: '聖堂教会の代行者', power: 9, aggr: 0.6, foreign: true,
+    quote: '主の名において、異端の魔術師を討つ。' },
+  { type: '巻き込まれた高校生', power: 3, aggr: 0.2, foreign: false,
+    quote: 'お、俺だって分かんないんだよ！ でも、こいつと約束したんだ！' },
+  { type: '老いた魔術師', power: 7, aggr: 0.3, foreign: false,
+    quote: '六十年前の戦いの続きを、ようやく見届けられる……。' },
+];
+
+// ---- サーヴァントの性格（persona） ----
+// likes / dislikes：一緒に過ごす時の好みの過ごし方
+// 台詞中の {m} はマスター名、{s} はサーヴァント名に置き換わります。
+const ACTIVITIES = {
+  eat:   { name: '街で食べ歩く', place: '駅前の商店街', cost: 1 },
+  train: { name: '手合わせ・鍛錬', place: '御影川の河川敷', cost: 0 },
+  walk:  { name: '街を案内する', place: '旧城下町', cost: 0 },
+  talk:  { name: '生前の話を聞く', place: '拠点の居間', cost: 0 },
+  shop:  { name: '買い物に出かける', place: '駅前のデパート', cost: 2 },
+  quiet: { name: '静かな場所で過ごす', place: '城跡公園', cost: 0 },
+};
+
+const PERSONAS = {
+  knight: {
+    label: '高潔', likes: ['train', 'talk'], dislikes: ['shop'],
+    low: ['「マスター、休息も戦いの内です。……ですが、私は剣の手入れをしている方が落ち着きます」',
+          '「この街の地形は把握しておくべきでしょう。案内を頼めますか」',
+          '「貴方の判断を信じます。それが、今の私の務めですから」'],
+    mid: ['「{m}、貴方は不思議な人だ。生前に仕えた人々とは、まるで違う」',
+          '「今日の手合わせ、悪くありませんでした。貴方は確かに強くなっている」',
+          '「……こうして穏やかな時間を過ごすのは、いつ以来でしょうか」'],
+    high: ['「{m}。たとえ聖杯が手に入らずとも、貴方と剣を並べたことは私の誇りです」',
+           '「貴方の願いが何であれ、私はその盾となりましょう。それが今の、私自身の願いです」',
+           '「……少しだけ、肩の力を抜いてもいいでしょうか。貴方の前でなら」'],
+    special: '「{m}。英霊として、そして一人の人間として申し上げます。貴方は、私にとってただのマスターではありません」',
+    farewell: '「貴方と共に戦えたこと、生涯――いいえ、この魂が続く限りの誇りです」',
+  },
+  king: {
+    label: '王者', likes: ['eat', 'shop'], dislikes: ['quiet'],
+    low: ['「王を退屈させるな、{m}。この街で一番の店に案内せよ」',
+          '「よいか、マスター。王とは、常に堂々としているものだ」',
+          '「この時代の民は豊かよな。眺めていて飽きぬ」'],
+    mid: ['「{m}、お前の在り方、なかなか見所がある」',
+          '「今宵の酒は旨い。付き合え、{m}」',
+          '「王の隣に立つことを許そう。光栄に思うがよい」'],
+    high: ['「{m}よ、お前を我が宝の一つに数えてやってもよい」',
+           '「王は孤独なものだ。……だが、今は少しばかり違うらしい」',
+           '「この戦の果てに何があろうと、お前と見た景色は忘れぬ」'],
+    special: '「{m}。この王が誰かを特別と認めるなど、万に一つもないことだ。……誇れ。お前はその一つだ」',
+    farewell: '「胸を張れ、{m}。お前は王が認めた者なのだからな」',
+  },
+  warrior: {
+    label: '豪快', likes: ['train', 'eat'], dislikes: ['quiet'],
+    low: ['「おう、マスター！ 腹が減っては戦はできねえ、何か食いに行こうぜ」',
+          '「ちょいと体を動かさねえか？ じっとしてると鈍っちまう」',
+          '「細けえことは任せた。戦うのはこっちの仕事だ」'],
+    mid: ['「{m}、アンタ、なかなか根性あるじゃねえか」',
+          '「背中を預けられる相手ってのは、そういねえもんだ」',
+          '「今日の飯は最高だったな！ また来ようぜ」'],
+    high: ['「{m}。この戦い、アンタと組めて良かったと本気で思ってる」',
+           '「死ぬなよ。アンタが死んだら、勝っても意味がねえ」',
+           '「どんな奴が来ようが、アンタだけは守り通す。約束だ」'],
+    special: '「……柄じゃねえのは分かってる。けどな、{m}。アンタはオレにとって、ただのマスターじゃねえんだ」',
+    farewell: '「楽しかったぜ、{m}。最高の戦だった！」',
+  },
+  cool: {
+    label: '冷静', likes: ['quiet', 'talk'], dislikes: ['shop'],
+    low: ['「無駄口は好まない。必要なことだけ伝えてくれ」',
+          '「この街は夜が静かでいい。……見張りには向いている」',
+          '「警戒を怠るな、マスター。聖杯戦争に安全な昼などない」'],
+    mid: ['「……{m}、君は案外、筋がいい」',
+          '「たまにはこういうのも悪くない。……本当に、たまにはな」',
+          '「君の淹れた茶は、まあ、飲めなくもない」'],
+    high: ['「{m}。救われているのは、案外こちらの方なのかもしれないな」',
+           '「君が望むなら、最後まで付き合おう。それが答えだ」',
+           '「……笑うな。君の前でだけ、少し気が緩むだけだ」'],
+    special: '「らしくないことを言う。{m}、君の隣が、今の居場所だ。……二度は言わないぞ」',
+    farewell: '「……悪くない契約だった。息災でな、{m}」',
+  },
+  gentle: {
+    label: '穏和', likes: ['walk', 'quiet'], dislikes: ['train'],
+    low: ['「マスター、無理はしないでくださいね。少し休みましょう？」',
+          '「この街の景色、とても素敵です。案内してくださって嬉しいわ」',
+          '「困ったことがあったら、何でも言ってくださいね」'],
+    mid: ['「{m}が笑ってくれると、私も嬉しくなります」',
+          '「こうして一緒に歩くの、好きですよ」',
+          '「戦いは怖いけれど、{m}と一緒なら頑張れます」'],
+    high: ['「{m}。あなたに出会えて、本当に良かった」',
+           '「たとえ消えてしまうとしても、この想い出は宝物です」',
+           '「ずっとこの時間が続けばいいのに、って……少しだけ思ってしまいました」'],
+    special: '「{m}。あなたは、もうただのマスターではありません。……私にとって、かけがえのない人です」',
+    farewell: '「ありがとう、{m}。どうか、幸せに生きてくださいね」',
+  },
+  free: {
+    label: '奔放', likes: ['shop', 'eat', 'walk'], dislikes: ['talk'],
+    low: ['「ねえねえマスター、あそこのお店行ってみようよ！」',
+          '「戦争中だからって、楽しまなきゃ損でしょ？」',
+          '「退屈なのはごめんだからね！ 何か面白いことない？」'],
+    mid: ['「{m}って、一緒にいて飽きないよね！」',
+          '「今日も楽しかった！ 明日はどこ行く？」',
+          '「えへへ、{m}が隣にいると、なんだか調子いいんだ」'],
+    high: ['「{m}。……真面目な話、してもいい？ あなたと会えて、本当に良かった」',
+           '「ずっと遊んでたいなあ。戦いなんか終わっちゃえばいいのに」',
+           '「何があっても、絶対にあなたの味方だから。覚えておいてね」'],
+    special: '「{m}。今だけはふざけないで言うね。あなたは、ただのマスターなんかじゃないよ」',
+    farewell: '「またね、{m}！ ……ううん、きっとまた会えるから！」',
+  },
+  dark: {
+    label: '復讐者', likes: ['quiet', 'talk'], dislikes: ['walk'],
+    low: ['「馴れ合うつもりはない。勘違いするな」',
+          '「この街の光は眩しすぎる。……影のある場所がいい」',
+          '「せいぜい足を引っ張るな、マスター」'],
+    mid: ['「……{m}。お前は、奇妙な奴だ」',
+          '「ふん。今日は、悪くなかった。それだけだ」',
+          '「お前の甘さは嫌いだ。……だが、捨てろとは言わん」'],
+    high: ['「この憎悪の炎を前にしても、隣に立つというのか。……好きにしろ」',
+           '「復讐の他には何もなかった。……今は、お前がいる」',
+           '「お前を傷つける者は、地獄の果てまで追い詰めてやる」'],
+    special: '「{m}。……認めよう。お前は、この炎の中で唯一、焼き尽くしたくないものだ」',
+    farewell: '「待て、しかして希望せよ。……お前なら、その意味が分かるだろう」',
+  },
+  scholar: {
+    label: '知性派', likes: ['talk', 'quiet'], dislikes: ['train'],
+    low: ['「静かに本を読める場所はないのか」',
+          '「観察対象としては、君はなかなか興味深い」',
+          '「戦術の話なら付き合う。雑談は短めに頼む」'],
+    mid: ['「{m}、君という物語は、思ったより読み応えがある」',
+          '「……今日の議論は有意義だった。礼を言う」',
+          '「この時代の書店は素晴らしいな。つい長居してしまう」'],
+    high: ['「{m}。君という物語の結末を、最後まで見届けたい」',
+           '「凡庸な英雄譚には興味がない。だが、君のものは別だ」',
+           '「持てる知恵は、全て君のために使おう」'],
+    special: '「{m}。千の物語を読んできたが、これほど続きを知りたいと思ったのは初めてだ」',
+    farewell: '「良い物語だった。君の続きは、君自身が書くといい」',
+  },
+  berserker: {
+    label: '狂化', likes: ['train', 'quiet'], dislikes: ['shop'],
+    low: ['（{s}は無言でこちらを見下ろしている）',
+          '（{s}が低く唸った。敵意はない……らしい）',
+          '（{s}は周囲を警戒するように佇んでいる）'],
+    mid: ['（{s}が、あなたの歩調に合わせて歩いている）',
+          '（あなたが手を差し出すと、{s}は少しだけ頭を垂れた）',
+          '（{s}の唸り声が、どこか穏やかに聞こえる）'],
+    high: ['（{s}はあなたの前に立ち、決して退かない意志を示している）',
+           '（狂気の奥に、確かな理性の光が見えた気がした）',
+           '（{s}が、あなたの名を呼んだ――ような気がした）'],
+    special: '（{s}が、あなたの前に静かに膝をついた。狂気に閉ざされた瞳が、まっすぐにあなたを映している）',
+    farewell: '（{s}は最後に一度だけ、穏やかにあなたを見つめ、光の粒となって消えていった）',
+  },
+};
+
+// ---- 特別な関係 ----
+const RELATIONS = {
+  lover:   { name: '恋人', verb: '想いを伝える',
+             text: '{s}は一瞬目を見開き、それから、これまでで一番柔らかな表情を見せた。重ねた手のぬくもりは、英霊も人も変わらなかった。' },
+  partner: { name: '無二の相棒', verb: 'かけがえのない相棒だと告げる',
+             text: '{s}は満足そうに笑い、拳を軽くあなたの胸に当てた。言葉以上のものが、確かに伝わった。' },
+  oath:    { name: '永遠の主従', verb: '永遠の主従の誓いを立てる',
+             text: '月明かりの下、二人は誓いを交わした。令呪よりも確かな繋がりが、魂に刻まれる。' },
+  family:  { name: '家族', verb: '家族のような存在だと伝える',
+             text: '{s}は少し照れくさそうに、けれど嬉しそうに頷いた。帰る場所がある――その温かさを、二人は分かち合った。' },
+};
+
+// ---- 時間帯ごとの情景描写 ----
+const FLAVOR = {
+  day: ['冬の朝。深見市の空は鉛色に曇っている。', '乾いた北風が、城跡公園の枯れ枝を揺らしていく。',
+        '駅前の雑踏はいつも通りだ。この街で戦争が起きているなど、誰も知らない。', '薄い冬の陽射しが、旧城下町の瓦屋根を照らしている。',
+        '港の方から汽笛が聞こえる。今日も一日が始まる。', '吐く息が白い。天降山の頂には、うっすらと雪が積もっている。'],
+  night: ['夜。月が雲間から顔を覗かせている。', '冷たい夜気が肌を刺す。遠くで犬が吠えた。',
+          '街灯の少ない旧城下町は、深い闇に沈んでいる。', '港の倉庫街に、霧が立ち込め始めた。',
+          '夜空に星が瞬いている。今夜は、どこかで戦いが起きるだろうか。', '天降山の方角から、かすかな魔力の揺らぎを感じる。'],
+};
+
+// =============================================================
+//  ランダムイベント
+//  phase : 'prep'（召喚前） / 'war'（聖杯戦争中） / 'any'
+//  time  : 'day'（昼） / 'night'（夜） / 'any'
+//  once  : true なら1回のプレイで1度だけ発生
+//  cond  : 発生条件（省略可）
+//  choices[].run() の戻り値：
+//     文字列 or 文字列の配列 → 結果の文章
+//     { text, then } → 文章のあと then() を実行（戦闘開始など）
+//
+//  使える便利関数（engine.js で定義）
+//   chk('int', 60)   … マスター判定（mag/phy/int/spi/cha/luk）
+//   schk(2, 60)      … サーヴァント判定（0筋力 1耐久 2敏捷 3魔力 4幸運 5宝具）
+//   gain('int', 3)   … 能力値を増減
+//   money(n) hp(n) shp(n) mp(n) bond(n) tone('good') …
+//   giveCatalyst()   … 触媒を1つ入手（入手した名前を返す）
+//   M() … マスター名 / SV() … サーヴァント名
+// =============================================================
+
+const EVENTS = [
+  // ===================== 召喚前（準備期間） =====================
+  {
+    id: 'antique', phase: 'prep', time: 'day', once: true, weight: 3,
+    title: '骨董店「古月堂」',
+    text: () => '旧城下町の路地裏に、古びた骨董店がある。店主の老婆が、あなたの右手の痣を見て目を細めた。<br>「……あんた、ああいう「縁」の品を探してるんだろう？ 一つだけ、妙なものが入っていてね」',
+    choices: [
+      { label: '言い値で買い取る', hint: '資金 -4', cond: () => G.master.money >= 4,
+        run: () => { money(-4); const c = giveCatalyst(); return `老婆は桐箱を差し出した。中には――<b>${c}</b>。<br>手に取った瞬間、遥か昔の誰かの気配が、指先に触れた気がした。`; } },
+      { label: '値切ってみる', hint: '交渉判定', run: () => {
+          const r = chk('cha', 65);
+          if (r.ok) { money(-1); const c = giveCatalyst(); return [r.text, `「ふん、口の上手い子だね」老婆は笑って桐箱を渡した。<b>${c}</b>を手に入れた。`]; }
+          return [r.text, '「冷やかしなら帰っとくれ」……追い出されてしまった。'];
+        } },
+      { label: '今は手を出さない', run: () => { tone('cautious'); return '怪しげな品に頼るのはやめておこう。あなたは店を後にした。'; } },
+    ],
+  },
+  {
+    id: 'grimoire', phase: 'prep', time: 'any', once: true, weight: 2,
+    title: '古書店の魔導書',
+    text: () => '駅前の古書店の奥、埃をかぶった棚に、明らかに「本物」の魔導書が紛れ込んでいた。',
+    choices: [
+      { label: 'その場で読み解く', hint: '知力判定', run: () => {
+          const r = chk('int', 60);
+          if (r.ok) { gain('mag', 4); gain('int', 3); return [r.text, '難解な術式を読み解くことができた。魔術の理解が深まった。（魔力+4 知力+3）']; }
+          gain('spi', -3); return [r.text, '文字が頭の中でのたうち回り、激しい頭痛に襲われた。（精神-3）'];
+        } },
+      { label: '購入して持ち帰る', hint: '資金 -2', cond: () => G.master.money >= 2,
+        run: () => { money(-2); gain('int', 4); return 'じっくりと時間をかけて読み込んだ。（知力+4）'; } },
+    ],
+  },
+  {
+    id: 'shadow', phase: 'prep', time: 'night', once: true, weight: 2,
+    title: '不審な人影',
+    text: () => '夜の港で、外套を纏った人物が倉庫に入っていくのを見かけた。かすかに魔力の残り香がする。……他のマスター候補かもしれない。',
+    choices: [
+      { label: '後をつける', hint: '体力判定', run: () => {
+          const r = chk('phy', 55);
+          if (r.ok) { G.flags.earlyIntel = true; return [r.text, '気付かれずに後をつけ、相手の拠点の目星をつけた。聖杯戦争が始まれば役に立つだろう。（敵陣営の情報を1つ得た）']; }
+          hp(-15); return [r.text, '気付かれた！ 放たれた魔弾が肩をかすめる。命からがら逃げ出した。（HP-15）'];
+        } },
+      { label: '使い魔で探る', hint: '魔力判定', run: () => {
+          const r = chk('mag', 55);
+          if (r.ok) { G.flags.earlyIntel = true; return [r.text, '鳥の使い魔が倉庫の窓から内部を覗いた。相手の顔を確認できた。（敵陣営の情報を1つ得た）']; }
+          return [r.text, '使い魔は結界に弾かれてしまった。深追いは危険だ。'];
+        } },
+      { label: '関わらない', run: () => { tone('cautious'); return 'まだ戦争は始まっていない。今は無用な争いを避けるべきだ。'; } },
+    ],
+  },
+  {
+    id: 'letter', phase: 'prep', time: 'day', once: true, weight: 2,
+    title: '一通の手紙',
+    text: () => {
+      const b = G.master.birth;
+      if (b === 'clocktower') return '時計塔から封蝋付きの手紙と小包が届いた。「本件の重要性に鑑み、補助物資を送付する」とある。';
+      if (b === 'noble' || b === 'fallen') return '実家の書斎から、古い日記が見つかった。曾祖父が書き残した、前回の聖杯戦争の記録らしい。';
+      return 'ポストに差出人不明の手紙が入っていた。「聖杯戦争に関わるな。この街の聖杯は――」と書かれ、その先は焼け焦げて読めない。';
+    },
+    choices: [
+      { label: '内容を確かめる', run: () => {
+          const b = G.master.birth;
+          if (b === 'clocktower') { const c = giveCatalyst(); money(3); return `小包の中には<b>${c}</b>と、当座の資金が入っていた。（資金+3）`; }
+          if (b === 'noble' || b === 'fallen') { gain('int', 5); G.flags.grailHint = true; return '日記には「聖杯は無色にあらず」と記されていた。……どういう意味だろう。（知力+5）'; }
+          G.flags.grailHint = true; gain('spi', 2); return '不気味な警告だ。だが、この街の聖杯に何か秘密があるのは確かなようだ。（精神+2）';
+        } },
+    ],
+  },
+  {
+    id: 'auction', phase: 'prep', time: 'night', once: true, weight: 2,
+    title: '港の闇オークション',
+    text: () => '倉庫街の地下で、魔術師相手の闇オークションが開かれているという。出品目録には「英雄の遺物」の文字があった。',
+    choices: [
+      { label: '正式に競り落とす', hint: '資金 -6', cond: () => G.master.money >= 6,
+        run: () => { money(-6); const c = giveCatalyst(); return `熾烈な競り合いの末、<b>${c}</b>を競り落とした。`; } },
+      { label: '会場から盗み出す', hint: '幸運判定（悪・混沌）', run: () => {
+          tone('evil'); tone('chaos');
+          const r = chk('luk', 65);
+          if (r.ok) { const c = giveCatalyst(); return [r.text, `混乱に乗じて展示ケースから<b>${c}</b>を抜き取った。誰にも気付かれていない……はずだ。`]; }
+          hp(-20); money(-2); return [r.text, '警備の魔術師に見つかった！ 散々な目に遭って逃げ帰った。（HP-20 資金-2）'];
+        } },
+      { label: '見物だけして帰る', run: () => { gain('int', 2); return '出品物の来歴を聞いているだけでも勉強になった。（知力+2）'; } },
+    ],
+  },
+  {
+    id: 'shrine_maiden', phase: 'prep', time: 'day', once: true, weight: 2,
+    title: '天降神社の霊脈',
+    text: () => '天降山の中腹にある天降神社。境内の掃除をしていた巫女が、あなたに声をかけてきた。<br>「この山には街で一番太い霊脈が通っているんです。……最近、少し様子がおかしいのですけれど」',
+    choices: [
+      { label: '掃除を手伝い、話を聞く', run: () => { tone('good'); gain('spi', 3); G.flags.leyline = true; return '巫女から霊脈の流れについて詳しく教わった。拠点作りに役立ちそうだ。（精神+3 陣地構築が得意になった）'; } },
+      { label: '霊脈を独自に調べる', hint: '魔力判定', run: () => {
+          const r = chk('mag', 55);
+          if (r.ok) { gain('mag', 3); G.flags.leyline = true; return [r.text, '霊脈の結節点を見つけ出した。（魔力+3 陣地構築が得意になった）']; }
+          return [r.text, '流れが複雑すぎて読み切れなかった。'];
+        } },
+    ],
+  },
+  {
+    id: 'lost_child', phase: 'any', time: 'day', once: true, weight: 2,
+    title: '迷子',
+    text: () => '城跡公園で、小さな子供が泣きじゃくっている。どうやら親とはぐれてしまったらしい。',
+    choices: [
+      { label: '一緒に親を探す', run: () => { tone('good'); gain('luk', 3); gain('cha', 2); return '一時間ほどかけて、無事に母親を見つけ出した。子供の笑顔に、少しだけ心が軽くなった。（幸運+3 交渉+2）'; } },
+      { label: '交番に任せる', run: () => { tone('law'); return '近くの交番に子供を預けた。これで大丈夫だろう。'; } },
+      { label: '見なかったことにする', run: () => { tone('evil'); return '今は他人に構っている余裕はない。……胸の奥が少し痛んだ。'; } },
+    ],
+  },
+  {
+    id: 'church', phase: 'prep', time: 'day', once: true, weight: 3,
+    title: '監督役の教会',
+    text: () => '丘の上の聖ヨハネ教会。この街の聖杯戦争の監督役が、ここに詰めているという。マスターとして登録を済ませるべきだろうか。',
+    choices: [
+      { label: '正式に登録する', run: () => { tone('law'); G.flags.registered = true; return '神父は淡々と手続きを済ませた。「脱落した場合、当教会が保護いたします。……ご武運を」'; } },
+      { label: '神父に探りを入れる', hint: '交渉判定', run: () => {
+          const r = chk('cha', 60); G.flags.registered = true;
+          if (r.ok) { G.flags.earlyIntel = true; return [r.text, '世間話のふりをして、既に登録を済ませた参加者がいることを聞き出した。（敵陣営の情報を1つ得た）']; }
+          return [r.text, '神父の笑みは崩れなかった。何も聞き出せないまま、登録だけを済ませた。'];
+        } },
+      { label: '登録しない', run: () => { tone('chaos'); return '誰かに縛られるのはごめんだ。あなたは教会を後にした。'; } },
+    ],
+  },
+  {
+    id: 'ambush_prep', phase: 'prep', time: 'night', once: true, weight: 2,
+    title: '路地裏の魔術師',
+    text: () => '帰り道、背後から鋭い殺気。振り返ると、仮面の魔術師が魔弾を構えていた。「令呪の兆しを持つ者は、今のうちに消しておく」',
+    choices: [
+      { label: '魔術で応戦する', hint: '魔力判定', run: () => {
+          const r = chk('mag', 62);
+          if (r.ok) { gain('mag', 3); gain('spi', 2); return [r.text, '相手の魔弾を相殺し、反撃の一撃を叩き込んだ。仮面の魔術師は舌打ちして闇に消えた。（魔力+3 精神+2）']; }
+          hp(-25); return [r.text, '押し負けた。腹部に焼けるような痛み。どうにか逃げ延びた。（HP-25）'];
+        } },
+      { label: '全力で逃げる', hint: '体力判定', run: () => {
+          const r = chk('phy', 55);
+          if (r.ok) { gain('phy', 2); return [r.text, '入り組んだ路地を駆け抜け、追手を撒いた。（体力+2）']; }
+          hp(-15); return [r.text, '逃げ切れずに一撃を受けたが、人通りのある大通りに出たところで相手は退いた。（HP-15）'];
+        } },
+      { label: '言葉で揺さぶる', hint: '交渉判定', run: () => {
+          const r = chk('cha', 65);
+          if (r.ok) { G.flags.earlyIntel = true; return [r.text, '「監督役に通報済みだ」というはったりが効いた。去り際、相手の所属を示す紋章が見えた。（敵陣営の情報を1つ得た）']; }
+          hp(-20); return [r.text, '問答無用だった。（HP-20）'];
+        } },
+    ],
+  },
+  {
+    id: 'museum', phase: 'prep', time: 'any', once: true, weight: 2,
+    title: '市立博物館の特別展',
+    text: () => '深見市立博物館で「ヨーロッパ古代遺物展」が開催されている。展示品の一つから、明らかに強い神秘の気配がする。',
+    choices: [
+      { label: '学芸員に頼み込む', hint: '交渉判定（難）', run: () => {
+          const r = chk('cha', 75);
+          if (r.ok) { const c = giveCatalyst(); tone('law'); return [r.text, `研究目的と偽って、展示期間後に<b>${c}</b>を借り受ける約束を取り付けた。……実際には、明日にでも届けてくれるらしい。`]; }
+          return [r.text, '丁重に断られてしまった。'];
+        } },
+      { label: '閉館後に忍び込む', hint: '体力判定（悪・混沌）', run: () => {
+          tone('evil'); tone('chaos');
+          const r = chk('phy', 65);
+          if (r.ok) { const c = giveCatalyst(); return [r.text, `警報装置をすり抜け、<b>${c}</b>を手に入れた。展示ケースには精巧な偽物を残しておいた。`]; }
+          hp(-10); gain('spi', -3); return [r.text, '警備員に見つかりかけ、慌てて逃げ出した。（HP-10 精神-3）'];
+        } },
+      { label: '展示を眺めるだけにする', run: () => { gain('int', 3); return '古代の英雄たちの逸話を学んだ。（知力+3）'; } },
+    ],
+  },
+  {
+    id: 'circuit', phase: 'prep', time: 'night', once: true, weight: 2,
+    title: '魔術回路の疼き',
+    text: () => '深夜、全身の魔術回路が焼けるように疼き出した。令呪の兆しに、体が反応しているのかもしれない。',
+    choices: [
+      { label: '痛みを受け入れ、回路を開く', hint: '精神判定', run: () => {
+          const r = chk('spi', 60);
+          if (r.ok) { gain('mag', 6); return [r.text, '激痛の果てに、眠っていた回路が開いた。魔力の流れが格段に良くなった。（魔力+6）']; }
+          hp(-20); gain('mag', 2); return [r.text, '意識が飛んだ。目覚めると朝だった。体は重いが、わずかに回路が広がっている。（HP-20 魔力+2）'];
+        } },
+      { label: '瞑想して鎮める', run: () => { gain('spi', 3); return 'ゆっくりと呼吸を整え、疼きを鎮めた。（精神+3）'; } },
+    ],
+  },
+  {
+    id: 'old_master', phase: 'any', time: 'day', once: true, weight: 2,
+    title: '河川敷の老人',
+    text: () => '御影川の河川敷で、釣り糸を垂れる老人。あなたの右手を一瞥し、ぽつりと呟いた。<br>「六十年前にも、この街で戦争があった。わしもその時は、あんたと同じ痣を持っておったよ」',
+    choices: [
+      { label: '詳しく話を聞く', hint: '知力判定', run: () => {
+          const r = chk('int', 55);
+          if (r.ok) { G.flags.grailHint = true; gain('int', 3); return [r.text, '「あの聖杯はな、願いを歪めて叶える。……わしの友は、それで全てを失った」<br>老人の話から、聖杯に潜む「何か」の存在を知った。（知力+3）']; }
+          return [r.text, '老人の話はとりとめがなく、要領を得なかった。'];
+        } },
+      { label: '会釈して立ち去る', run: () => '老人は再び、黙って川面を見つめ始めた。' },
+    ],
+  },
+  {
+    id: 'dream', phase: 'prep', time: 'night', once: true, weight: 3,
+    title: '英霊の夢',
+    text: () => {
+      const s = pickVisionServant();
+      return `その夜、不思議な夢を見た。遠い時代、遠い国。<br>――${s.desc}<br>夢の中のその人物は、振り返ってあなたを見たような気がした。`;
+    },
+    choices: [
+      { label: 'その姿を心に刻む', run: () => { G.flags.visionStrong = true; return '目覚めても、夢の余韻は消えなかった。召喚の時、この「縁」が導いてくれるかもしれない。'; } },
+      { label: 'ただの夢だと忘れる', run: () => { G.flags.vision = null; return '頭を振って、夢の記憶を追い払った。'; } },
+    ],
+  },
+  {
+    id: 'parttime', phase: 'any', time: 'day', once: true, weight: 1,
+    title: 'バイト先からの電話',
+    text: () => '以前働いていた喫茶店の店長から電話だ。「急に人手が足りなくなって！ 今日だけ入ってくれない？ 時給は弾むから！」',
+    choices: [
+      { label: '引き受ける', run: () => { money(3); gain('cha', 2); tone('good'); return '目の回るような忙しさだったが、店長にはとても感謝された。（資金+3 交渉+2）'; } },
+      { label: '断る', run: () => '「そっかあ、また今度ね」店長は残念そうに電話を切った。' },
+    ],
+  },
+
+  // ===================== 聖杯戦争中 =====================
+  {
+    id: 'traces', phase: 'war', time: 'night', once: false, weight: 2,
+    title: '戦闘の痕跡',
+    text: () => '倉庫街の一角が、まるで巨大な獣に抉られたように破壊されている。サーヴァント同士の戦闘の痕跡だ。',
+    choices: [
+      { label: '痕跡を調べる', hint: '知力判定', run: () => {
+          const r = chk('int', 55);
+          if (r.ok) { const t = intelRandom(1); return [r.text, t || '手がかりは得られたが、既に判明している情報ばかりだった。']; }
+          return [r.text, '何も分からなかった。'];
+        } },
+      { label: () => `${SVname()}に調べてもらう`, hint: 'サーヴァント魔力判定', run: () => {
+          const r = schk(3, 55);
+          if (r.ok) { const t = intelRandom(1); bond(1); return [r.text, t || '既知の情報ばかりだった。']; }
+          return [r.text, `「……駄目だ、痕跡が消されている」と${SV()}は首を振った。`];
+        } },
+    ],
+  },
+  {
+    id: 'civilian_danger', phase: 'war', time: 'night', once: false, weight: 2,
+    title: '巻き込まれた一般人',
+    text: () => '悲鳴が聞こえた。路地裏で、会社帰りの女性が使い魔らしき異形に襲われている！',
+    choices: [
+      { label: '助けに入る', hint: 'サーヴァント敏捷判定（善）', run: () => {
+          tone('good');
+          const r = schk(2, 50);
+          if (r.ok) { gain('luk', 2); return [r.text, `${SV()}が一瞬で異形を斬り伏せた。女性は気を失っているが、怪我はない。（幸運+2）`]; }
+          shp(-15); return [r.text, `異形は倒したが、${SV()}は女性を庇って傷を負った。（サーヴァントHP-15）`];
+        } },
+      { label: '使い魔の主を追う', hint: '魔力判定', run: () => {
+          const r = chk('mag', 60);
+          if (r.ok) { const t = intelRandom(1); return [r.text, '魔力の糸を辿った。', t || '既に知っている陣営の仕業だった。']; }
+          return [r.text, '追跡は途中で途切れた。女性は――無事だったようだ。'];
+        } },
+      { label: '見捨てる', run: () => { tone('evil'); return '戦力を消耗するわけにはいかない。悲鳴に背を向けた。'; } },
+    ],
+  },
+  {
+    id: 'alliance', phase: 'war', time: 'day', once: true, weight: 2, cond: () => aliveRivals().length >= 3,
+    title: '同盟の申し出',
+    text: () => {
+      const r = G.tmpRival = randomAliveRival();
+      return `喫茶店で一人の人物があなたの向かいに座った。${r.master}――${r.type}だ。<br>「休戦しないか？ 残りが減るまで、互いに手を出さない。悪い話じゃないだろう」`;
+    },
+    choices: [
+      { label: '同盟を結ぶ', hint: '秩序', run: () => {
+          tone('law'); const r = G.tmpRival; r.ally = true; r.intel = Math.max(r.intel, 2);
+          return `握手を交わした。${r.cls}陣営とは当面戦わない。拠点の場所も教えてもらった。……いつまで続くかは分からないが。`;
+        } },
+      { label: '同盟のふりをして情報を探る', hint: '交渉判定（悪）', run: () => {
+          tone('evil'); const r = G.tmpRival; const c = chk('cha', 60);
+          if (c.ok) { r.intel = 3; return [c.text, `巧みな話術で、相手のサーヴァントの真名が<b>${servantOf(r).name}</b>だと聞き出した！`]; }
+          return [c.text, '「……君、信用できないな」相手は席を立った。'];
+        } },
+      { label: '断る', run: () => { tone('chaos'); return '「そうか。なら次に会う時は敵同士だ」相手は肩をすくめて去っていった。'; } },
+    ],
+  },
+  {
+    id: 'soul_eating', phase: 'war', time: 'any', once: true, weight: 2, cond: () => aliveRivals().length >= 2,
+    title: '昏睡事件',
+    text: () => 'ニュースが、市内で原因不明の集団昏睡事件が相次いでいると報じている。……魂喰いだ。どこかの陣営が、一般人から魔力を奪っている。',
+    choices: [
+      { label: '監督役に報告する', hint: '秩序', run: () => {
+          tone('law'); const r = randomAliveRival(); r.bounty = true; G.flags.bounty = r.id;
+          return `数日後、教会から通達が届いた。「${r.cls}陣営を規約違反とし、討伐した者に令呪一画を与える」`;
+        } },
+      { label: '自ら犯人を捜す', hint: '知力判定（善）', run: () => {
+          tone('good'); const c = chk('int', 58);
+          if (c.ok) { const r = randomAliveRival(); r.intel = Math.max(r.intel, 2); r.bounty = true; G.flags.bounty = r.id;
+            return [c.text, `犯人は${r.cls}陣営だと突き止めた。拠点の場所も判明した。教会もこの陣営を討伐対象に指定したようだ。`]; }
+          return [c.text, '手がかりは掴めなかった。'];
+        } },
+      { label: '放っておく', run: () => { tone('evil'); return '他の陣営が魔力を蓄えようと、知ったことではない。'; } },
+    ],
+  },
+  {
+    id: 'servant_dream', phase: 'war', time: 'night', once: true, weight: 3,
+    title: 'サーヴァントの夢',
+    text: () => `眠りの中で、あなたは${SV()}の記憶を見た。<br>――${servantOf(G).desc}<br>その生涯の、誰にも語られなかった一場面。喜びと、痛みと、決して届かなかった願い。`,
+    choices: [
+      { label: '夢のことを話す', run: () => { bond(6); return `${SV()}は少し驚いた顔をした。「……見たのか。いや、責めはしない。マスターとサーヴァントは、時に夢で繋がるという」（絆+6）`; } },
+      { label: '胸の内にしまっておく', run: () => { bond(3); return 'あの記憶は、本人が話したくなった時に聞けばいい。あなたは何も言わなかった。（絆+3）'; } },
+    ],
+  },
+  {
+    id: 'assassin_attack', phase: 'war', time: 'day', once: true, weight: 2,
+    title: '白昼の暗殺者',
+    text: () => '人混みの中、首筋に冷たい気配。――毒の刃が、あなたの喉元に迫っていた！',
+    choices: [
+      { label: '身を翻してかわす', hint: '体力判定', run: () => {
+          const c = chk('phy', 62);
+          if (c.ok) { gain('phy', 2); return [c.text, '紙一重で刃をかわした。襲撃者は群衆に紛れて消えた。（体力+2）']; }
+          hp(-30); return [c.text, `刃が脇腹を裂いた。${SV()}が駆けつけ、襲撃者は撤退した。（HP-30）`];
+        } },
+      { label: () => `${SVname()}を信じる`, hint: '絆40以上で確実', run: () => {
+          if (G.servant.bond >= 40) { bond(3); return `あなたが動くより早く、${SV()}が刃を弾き飛ばしていた。「私のマスターに手を出すな」（絆+3）`; }
+          const c = schk(2, 60);
+          if (c.ok) return [c.text, `${SV()}が間一髪で割って入った。`];
+          hp(-30); return [c.text, '間に合わなかった。（HP-30）'];
+        } },
+    ],
+  },
+  {
+    id: 'mana_shortage', phase: 'war', time: 'any', once: false, weight: 3, cond: () => G.servant.mp < 40,
+    title: '魔力不足',
+    text: () => `${SV()}の顔色が悪い。連戦で魔力が底を突きかけている。このままでは実体化を保つのも難しい。`,
+    choices: [
+      { label: '自分の生命力を魔力に変えて渡す', hint: 'HP -20 / 魔力大回復', run: () => { hp(-20); mp(50); bond(4); return `あなたの魔力が、パスを通じて${SV()}に流れ込んでいく。「……無茶をする。だが、ありがとう」（魔力+50 絆+4）`; } },
+      { label: '霊脈から魔力を汲み上げる', hint: '魔力判定', run: () => {
+          const c = chk('mag', 55);
+          if (c.ok) { mp(40); return [c.text, '天降山の霊脈から魔力を引き込むことに成功した。（魔力+40）']; }
+          mp(10); return [c.text, 'わずかしか汲み上げられなかった。（魔力+10）'];
+        } },
+    ],
+  },
+  {
+    id: 'grail_truth', phase: 'war', time: 'any', once: true, weight: 2, cond: () => G.flags.grailHint && !G.flags.grailTruth,
+    title: '聖杯の真実',
+    text: () => '集めた断片を繋ぎ合わせると、一つの仮説が浮かび上がった。この街の聖杯は、六十年前の戦いで「何か」に汚染されている――。',
+    choices: [
+      { label: '天降神社の古文書で確かめる', hint: '知力判定', run: () => {
+          const c = chk('int', 60);
+          if (c.ok) { G.flags.grailTruth = true; return [c.text, '古文書には、前回の聖杯戦争で呼ばれた「呪いそのもの」の英霊が、聖杯の内に溶けたと記されていた。<b>この聖杯は、願いを破滅の形でしか叶えない。</b>']; }
+          return [c.text, '決定的な記述は見つからなかった。'];
+        } },
+      { label: () => `${SVname()}に聖杯の気配を探らせる`, hint: 'サーヴァント魔力判定', run: () => {
+          const c = schk(3, 60);
+          if (c.ok) { G.flags.grailTruth = true; bond(2); return [c.text, `「……マスター。この聖杯からは、底知れない悪意を感じる」${SV()}の表情は険しい。<b>聖杯は汚染されている。</b>`]; }
+          return [c.text, '聖杯の在処そのものが掴めなかった。'];
+        } },
+    ],
+  },
+  {
+    id: 'festival', phase: 'war', time: 'night', once: true, weight: 2,
+    title: '冬灯り祭り',
+    text: () => '今夜は旧城下町で「冬灯り祭り」が開かれている。無数の灯籠が、石畳の通りを幻想的に照らしていた。',
+    choices: [
+      { label: () => `${SVname()}と祭りを回る`, hint: '資金 -1', cond: () => G.master.money >= 1,
+        run: () => { money(-1); bond(8); return `${SV()}は灯籠の光を見上げ、小さく息をついた。「……美しいな。この景色を守るために戦うのも、悪くない」（絆+8）`; } },
+      { label: '人混みに紛れて偵察する', hint: '知力判定', run: () => {
+          const c = chk('int', 55);
+          if (c.ok) { const t = intelRandom(1); return [c.text, t || '収穫はなかった。']; }
+          return [c.text, '人が多すぎて、何も分からなかった。'];
+        } },
+    ],
+  },
+  {
+    id: 'trueName_clue', phase: 'war', time: 'day', once: false, weight: 2, cond: () => aliveRivals().some(r => r.intel >= 1 && r.intel < 3),
+    title: '真名の手がかり',
+    text: () => '図書館の郷土資料室。これまでの戦闘で見た敵サーヴァントの武器や戦い方を、伝承と照らし合わせてみる。',
+    choices: [
+      { label: '文献を徹底的に調べる', hint: '知力判定', run: () => {
+          const c = chk('int', 60);
+          if (c.ok) {
+            const r = aliveRivals().filter(r => r.intel >= 1 && r.intel < 3)[0];
+            r.intel = 3; return [c.text, `間違いない。${r.cls}の真名は<b>${servantOf(r).name}</b>だ！ 弱点も見えてきた。`];
+          }
+          return [c.text, '決め手に欠ける。'];
+        } },
+    ],
+  },
+  {
+    id: 'witness', phase: 'war', time: 'day', once: true, weight: 2,
+    title: '目撃者',
+    text: () => `顔見知りの近所の人に声をかけられた。「ねえ、昨日の夜、あなたと一緒にいた人……空を飛んでなかった？」<br>どうやら${SV()}の姿を見られていたらしい。`,
+    choices: [
+      { label: '暗示の魔術で記憶を消す', hint: '魔力判定', run: () => {
+          const c = chk('mag', 50);
+          if (c.ok) { tone('law'); return [c.text, '相手の目がとろんと曇った。「……あれ、何の話だっけ」']; }
+          gain('spi', -2); return [c.text, '術が上手くかからない。適当にごまかして、その場を離れた。（精神-2）'];
+        } },
+      { label: '冗談でごまかす', hint: '交渉判定', run: () => {
+          const c = chk('cha', 50);
+          if (c.ok) return [c.text, '「あはは、コスプレの撮影だよ」……どうにか納得してもらえた。'];
+          return [c.text, '相手は首を傾げたままだ。噂にならなければいいが。'];
+        } },
+    ],
+  },
+  {
+    id: 'master_meeting', phase: 'war', time: 'day', once: true, weight: 2,
+    title: 'マスター同士の邂逅',
+    text: () => {
+      const r = G.tmpRival = randomAliveRival();
+      return `昼間の公園。ベンチに座る人物の手の甲に、令呪の輝きが見えた。${r.type}――${r.master}だ。向こうもこちらに気付いた。<br>「${r.quote}」`;
+    },
+    choices: [
+      { label: '言葉を交わし、探りを入れる', hint: '交渉判定', run: () => {
+          const r = G.tmpRival; const c = chk('cha', 55);
+          if (c.ok) { r.intel = Math.max(r.intel, 2); return [c.text, `腹の探り合いの末、${r.cls}陣営の拠点の位置を掴んだ。`]; }
+          r.intel = Math.max(r.intel, 1); return [c.text, '相手は一枚上手だった。分かったのは相手の名前と顔だけだ。'];
+        } },
+      { label: '昼間の不戦協定を守り、立ち去る', hint: '秩序', run: () => { tone('law'); G.tmpRival.intel = Math.max(G.tmpRival.intel, 1); return '昼間の争いは避けるのが暗黙のルールだ。あなたは静かにその場を離れた。'; } },
+    ],
+  },
+  {
+    id: 'servant_argue', phase: 'war', time: 'night', once: true, weight: 2,
+    title: '単独行動の申し出',
+    text: () => `「マスター、今夜は一人で行かせてくれ。敵の陣地を探ってくる」<br>${SV()}は譲らない様子だ。`,
+    choices: [
+      { label: '信じて任せる', hint: '混沌', run: () => {
+          tone('chaos'); const c = schk(2, 55);
+          if (c.ok) { bond(4); const t = intelRandom(1); return [c.text, `夜明け前、${SV()}は無事に戻ってきた。「収穫はあったぞ」（絆+4）`, t || '']; }
+          shp(-20); bond(2); return [c.text, `${SV()}は傷を負って戻ってきた。「……すまない、深追いしすぎた」（サーヴァントHP-20）`];
+        } },
+      { label: '危険だと止める', hint: '秩序', run: () => { tone('law'); return `「……分かった。マスターの判断に従おう」${SV()}は渋々頷いた。`; } },
+      { label: '一緒に行く', hint: '体力判定', run: () => {
+          const c = chk('phy', 55);
+          if (c.ok) { bond(5); const t = intelRandom(1); return [c.text, `二人で夜の街を駆けた。「全く、無茶なマスターだ」${SV()}は呆れつつも笑っていた。（絆+5）`, t || '']; }
+          hp(-15); bond(3); return [c.text, '足手まといになってしまった。それでも、隣を走ったことに意味はあった。（HP-15 絆+3）'];
+        } },
+    ],
+  },
+  {
+    id: 'injured_master', phase: 'war', time: 'night', once: true, weight: 2, cond: () => G.rivals.some(r => !r.alive && !r.masterDead),
+    title: '敗れたマスター',
+    text: () => '雨の降る夜道で、うずくまる人影を見つけた。サーヴァントを失ったマスターだ。令呪の輝きはまだ一画、残っている。',
+    choices: [
+      { label: '教会まで送り届ける', hint: '善', run: () => { tone('good'); gain('luk', 3); return '相手は弱々しく礼を言った。「……あんたは、勝てよ」（幸運+3）'; } },
+      { label: '残った令呪を奪う', hint: '悪 / 令呪+1', cond: () => G.master.seals < 3, run: () => { tone('evil'); G.master.seals++; return '相手の腕から令呪を剥ぎ取った。右手に、新たな一画が刻まれる。（令呪+1）'; } },
+      { label: '放っておく', run: () => '関わる理由はない。あなたは通り過ぎた。' },
+    ],
+  },
+];
+
+// =============================================================
+//  ゲーム本体（進行・判定・戦闘・画面描画）
+//  大まかな流れ：
+//   タイトル → 産まれの決定 → 準備期間（6日） → 召喚の夜
+//   → 聖杯戦争（最大14日） → エンディング
+//  1日は「昼」と「夜」の2コマ。コマごとに行動を1つ選びます。
+// =============================================================
+
+const SAVE_KEY = 'fukami-grail-war-v1';
+const PREP_DAYS = 6;
+const WAR_DAYS = 14;
+const STAT_LABEL = { mag: '魔力', phy: '体力', int: '知力', spi: '精神', cha: '交渉', luk: '幸運' };
+const CLASS_EN = { 'セイバー': 'SABER', 'アーチャー': 'ARCHER', 'ランサー': 'LANCER', 'ライダー': 'RIDER',
+  'キャスター': 'CASTER', 'アサシン': 'ASSASSIN', 'バーサーカー': 'BERSERKER', 'ルーラー': 'RULER', 'アヴェンジャー': 'AVENGER' };
+
+let G = null;          // ゲームの状態（セーブされる）
+let SCENE = null;      // 今表示している場面（セーブしない）
+let TAB = 'story';     // 選択中のタブ
+let NOTES = [];        // 判定結果などに付け足す小さな注記
+let LAST_HUB = null;   // 最後に行動選択画面へ戻った時点のセーブデータ
+
+// ---------------- 小さな道具 ----------------
+const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const shuffle = arr => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rand(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function wpick(items, wf) {
+  const ws = items.map(wf); const total = ws.reduce((s, w) => s + w, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < items.length; i++) { r -= ws[i]; if (r <= 0) return items[i]; }
+  return items[items.length - 1];
+}
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const SV_BY_ID = Object.fromEntries(SERVANTS.map(s => [s.id, s]));
+
+// ---------------- 名前・参照 ----------------
+function M() { return esc(G.master.name); }
+function servantOf(o) { return SV_BY_ID[o.servantId || (o.servant && o.servant.id)]; }
+function SV() { return G.servant ? servantOf(G).short : 'サーヴァント'; }
+const SVname = SV;
+function fmt(s) { return s.replaceAll('{m}', M()).replaceAll('{s}', SV()); }
+function aliveRivals() { return (G.rivals || []).filter(r => r.alive); }
+function hostileRivals() { return aliveRivals().filter(r => !r.ally); }
+function randomAliveRival() { return pick(aliveRivals()); }
+function rivalLabel(r) { return r.intel >= 3 ? servantOf(r).short : r.cls; }
+
+// ---------------- 状態を変える関数（イベントからも使う） ----------------
+function note(t) { NOTES.push(t); }
+function gain(stat, n) {
+  const st = G.master.stats; const before = st[stat];
+  st[stat] = clamp(st[stat] + n, 1, 100);
+}
+function money(n) { G.master.money = Math.max(0, G.master.money + n); }
+function hp(n) { G.master.hp = clamp(G.master.hp + n, 0, G.master.hpMax); }
+function shp(n) { if (G.servant) G.servant.hp = clamp(G.servant.hp + n, 0, servantHpMax()); }
+function mp(n) { if (G.servant) G.servant.mp = clamp(G.servant.mp + n, 0, 100); }
+function bond(n) {
+  if (!G.servant || n === 0) return;
+  if (n > 0 && G.master.birth === 'civilian') n = Math.round(n * 1.3);
+  const before = Math.floor(G.servant.bond / 10);
+  G.servant.bond = clamp(G.servant.bond + n, 0, 100);
+  const after = Math.floor(G.servant.bond / 10);
+  if (after > before) note(`<span class="tag gold">絆Lv ${after} に上昇</span>`);
+}
+
+// 選択肢の「傾向」：マスターの属性が動き、サーヴァントの好き嫌いで絆も変わる
+function tone(t) {
+  const a = G.master.align;
+  if (t === 'good') a.good = clamp(a.good + 8, -100, 100);
+  if (t === 'evil') a.good = clamp(a.good - 8, -100, 100);
+  if (t === 'law') a.law = clamp(a.law + 8, -100, 100);
+  if (t === 'chaos') a.law = clamp(a.law - 8, -100, 100);
+  if (!G.servant) return;
+  const sv = servantOf(G); const [order, moral] = sv.align.split('・');
+  let d = 0;
+  if (order === '秩序') d += t === 'law' ? 2 : t === 'chaos' ? -2 : 0;
+  if (order === '混沌') d += t === 'chaos' ? 2 : t === 'law' ? -1 : 0;
+  if (moral === '善') d += t === 'good' ? 2 : t === 'evil' ? -3 : 0;
+  if (moral === '悪') d += t === 'evil' ? 2 : 0;
+  const bold = ['warrior', 'king', 'free'].includes(sv.persona);
+  const calm = ['cool', 'scholar'].includes(sv.persona);
+  if (t === 'cautious') d += calm ? 1 : bold ? -1 : 0;
+  if (t === 'bold') d += bold ? 1 : calm ? -1 : 0;
+  if (d > 0) { bond(d); note(`<span class="note">${SV()}は好ましく思ったようだ。（絆+${d}）</span>`); }
+  if (d < 0) { bond(d); note(`<span class="note">${SV()}は少し不満そうだ。（絆${d}）</span>`); }
+}
+function alignLabel(a = G.master.align) {
+  const o = a.law > 25 ? '秩序' : a.law < -25 ? '混沌' : '中立';
+  const m = a.good > 25 ? '善' : a.good < -25 ? '悪' : '中庸';
+  return `${o}・${m}`;
+}
+
+// ---------------- 判定 ----------------
+// マスター判定：能力値 + サイコロ(1〜45) が 目標値 以上なら成功
+function chk(stat, diff) {
+  let v = G.master.stats[stat];
+  if (stat === 'spi' && G.master.birth === 'fallen') v += 5;
+  const roll = rand(1, 45); const total = v + roll; const ok = total >= diff;
+  return { ok, text: `<span class="chk ${ok ? 'ok' : 'ng'}">【${STAT_LABEL[stat]}判定】${ok ? '成功' : '失敗'} <em>${v}+${roll}=${total} / 目標${diff}</em></span>` };
+}
+// サーヴァント判定：パラメータ（ランクを数値化）+ サイコロ
+function schk(i, diff) {
+  const v = servantParam(i); const roll = rand(1, 45); const total = v + roll; const ok = total >= diff;
+  return { ok, text: `<span class="chk ${ok ? 'ok' : 'ng'}">【${SV()}・${PARAM_NAMES[i]}判定】${ok ? '成功' : '失敗'} <em>${v}+${roll}=${total} / 目標${diff}</em></span>` };
+}
+
+// マスターの魔力がサーヴァントの性能に影響する（Fateの設定に準拠）
+function masterCorrection() {
+  const m = G.master.stats.mag;
+  if (m < 25) return -8; if (m < 40) return -4; if (m < 70) return 0; if (m < 85) return 3; return 5;
+}
+function servantParam(i) {
+  const base = rankValue(servantOf(G).p[i]);
+  return i === 4 ? base : Math.max(5, base + masterCorrection());
+}
+function servantHpMax() { return 70 + rankValue(servantOf(G).p[1]); }
+function rivalParam(r, i) { const base = rankValue(servantOf(r).p[i]); return i === 4 ? base : base + (r.power - 6); }
+
+// ---------------- 新しいゲーム ----------------
+function randomName(foreign) {
+  return foreign ? `${pick(NAMES.foreignGiven)}・${pick(NAMES.foreignFamily)}` : `${pick(NAMES.family)} ${pick(NAMES.given)}`;
+}
+function rollMaster(name) {
+  const b = wpick(BIRTHS, x => x.weight);
+  const stats = {};
+  for (const k in b.stats) stats[k] = clamp(b.stats[k] + rand(-8, 8), 5, 95);
+  return {
+    name: name || randomName(false), birth: b.id, stats, hp: 100, hpMax: 100, money: b.money + rand(0, 3),
+    seals: 3, align: { law: rand(-20, 20), good: rand(-10, 25) },
+    element: wpick(ELEMENTS, e => e.w).name, circuits: rand(b.circuits[0], b.circuits[1]),
+    age: rand(16, 34),
+  };
+}
+function newGame(master) {
+  G = {
+    v: 1, phase: 'prep', day: 1, slot: 0, master, servant: null,
+    catalysts: [], flags: {}, used: {}, rivals: [], log: [], news: [],
+    ritual: 0, workshop: 0, kills: 0, battles: 0, tmpRival: null,
+  };
+  if (master.birth === 'noble') giveCatalyst();
+  addLog(`${master.name}、深見市にて聖杯戦争への参加を決意する。`);
+}
+function addLog(t) { G.log.unshift({ when: whenShort(), text: t }); if (G.log.length > 80) G.log.pop(); }
+function whenShort() {
+  if (G.phase === 'prep') return `準備${G.day}日`;
+  if (G.phase === 'war') return `${G.day}日目${G.slot ? '夜' : '昼'}`;
+  return '―';
+}
+
+// 触媒：まだ持っていない英霊の触媒からランダムに1つ
+function giveCatalyst() {
+  const owned = new Set(G.catalysts);
+  const pool = SERVANTS.filter(s => s.catalyst && !owned.has(s.id));
+  const s = pick(pool); G.catalysts.push(s.id);
+  addLog(`触媒「${s.catalyst}」を入手。`);
+  return s.catalyst;
+}
+function pickVisionServant() {
+  if (!G.flags.vision) G.flags.vision = pick(SERVANTS).id;
+  return SV_BY_ID[G.flags.vision];
+}
+
+// ---------------- セーブ / ロード ----------------
+function saveGame() {
+  LAST_HUB = JSON.stringify(G);
+  try { localStorage.setItem(SAVE_KEY, LAST_HUB); } catch (e) { /* 保存できない環境でも遊べるように無視 */ }
+}
+function loadSave() { try { const s = localStorage.getItem(SAVE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } LAST_HUB = null; }
+
+// =============================================================
+//  場面（シーン）の表示
+// =============================================================
+// scene({ title, sub, body:[段落...], choices:[{label, hint, fn, cls, disabled}] })
+function scene(s) { SCENE = s; TAB = 'story'; render(); const m = document.querySelector('.main'); if (m) m.scrollTop = 0; }
+function next(title, body, fn, label = '次へ', sub) {
+  scene({ title, sub, body, choices: [{ label, fn, cls: 'primary' }] });
+}
+function takeNotes() { const n = NOTES; NOTES = []; return n; }
+
+// =============================================================
+//  タイトル・キャラクター作成
+// =============================================================
+function titleScreen() {
+  G = null;
+  const save = loadSave();
+  SCENE = { kind: 'title', save };
+  TAB = 'story'; render();
+}
+function createScreen(master) {
+  const m = master || rollMaster();
+  const b = BIRTHS.find(x => x.id === m.birth);
+  SCENE = { kind: 'create', master: m, birth: b };
+  render();
+}
+
+// =============================================================
+//  時間の進行
+// =============================================================
+function phaseLabel() {
+  if (!G) return '';
+  if (G.phase === 'prep') return '準備期間';
+  if (G.phase === 'summon') return '召喚の夜';
+  if (G.phase === 'war') return '聖杯戦争';
+  return '終幕';
+}
+function isNight() { return G.slot === 1; }
+
+// コマの始まり：イベント判定 → 行動選択
+function startSlot() {
+  if (checkGameOver()) return;
+  // 準備期間の最後の夜は召喚
+  if (G.phase === 'prep' && G.day > PREP_DAYS) { G.phase = 'summon'; return summonScene(); }
+  if (G.phase === 'war') {
+    if (hostileRivals().length === 0 && aliveRivals().length > 0) return breakAlliance();
+    if (aliveRivals().length === 0) return victoryScene();
+    if (aliveRivals().length === 1 && isNight()) return finalBattleIntro();
+  }
+  // 前日のニュース
+  if (G.news.length && G.slot === 0) {
+    const n = G.news.splice(0);
+    return next('昨夜の出来事', n.map(t => `<p class="news">${t}</p>`), () => maybeEvent());
+  }
+  maybeEvent();
+}
+function maybeEvent() {
+  const chance = G.phase === 'prep' ? 0.33 : 0.3;
+  if (Math.random() < chance) { const ev = drawEvent(); if (ev) return showEvent(ev); }
+  hub();
+}
+function advance() {
+  if (checkGameOver()) return;
+  G.slot++;
+  if (G.slot > 1) { G.slot = 0; G.day++; dailyUpdate(); }
+  if (G.phase === 'war' && G.day > WAR_DAYS) return deadlineScene();
+  startSlot();
+}
+function dailyUpdate() {
+  hp(10);
+  if (G.phase === 'war' && G.servant) {
+    mp(15 + Math.floor(G.master.stats.mag * 0.3) + G.workshop * 5);
+    shp(10 + G.workshop * 3);
+    for (const r of aliveRivals()) { r.hp = Math.min(r.hpMax, r.hp + 18); r.mp = Math.min(100, r.mp + 30); }
+    simulateRivals();
+  }
+}
+
+// ライバル同士の戦い（画面外で進む）
+function simulateRivals() {
+  const alive = aliveRivals();
+  if (alive.length < 3) return;   // 最後の2陣営はプレイヤーと決着をつける
+  const p = 0.24 + G.day * 0.012;
+  if (Math.random() > p) return;
+  const [a, b] = shuffle(alive).slice(0, 2);
+  const power = r => [0, 1, 2, 3, 5].reduce((s, i) => s + rivalParam(r, i), 0) / 5 + r.power + r.hp / 8 + rand(0, 30);
+  const [win, lose] = power(a) >= power(b) ? [a, b] : [b, a];
+  lose.alive = false; lose.hp = 0;
+  win.hp = Math.max(20, win.hp - rand(20, 50));
+  const place = pick(['港の倉庫街', '城跡公園', '御影川の河川敷', '天降山の山道', '駅前の再開発地区']);
+  G.news.push(`昨夜、${place}で激しい戦闘があった。<b>${rivalLabel(lose)}陣営</b>が脱落したようだ。` +
+    (win.intel >= 1 ? `勝ったのは${rivalLabel(win)}陣営らしい。` : ''));
+  addLog(`${rivalLabel(lose)}陣営が${rivalLabel(win)}陣営に敗れ脱落。`);
+}
+
+function checkGameOver() {
+  if (!G || G.phase === 'end') return true;
+  if (G.master.hp <= 0) { ending('dead'); return true; }
+  return false;
+}
+
+// =============================================================
+//  イベント
+// =============================================================
+function drawEvent(forceTime) {
+  const t = forceTime || (isNight() ? 'night' : 'day');
+  const ph = G.phase;
+  const list = EVENTS.filter(e =>
+    (e.phase === 'any' || e.phase === ph) &&
+    (e.time === 'any' || e.time === t) &&
+    !(e.once && G.used[e.id]) &&
+    (!e.cond || e.cond()));
+  if (!list.length) return null;
+  return wpick(list, e => e.weight || 1);
+}
+function showEvent(ev) {
+  G.used[ev.id] = true;
+  const text = typeof ev.text === 'function' ? ev.text() : ev.text;
+  const choices = ev.choices
+    .filter(c => !c.cond || c.cond())
+    .map(c => ({
+      label: typeof c.label === 'function' ? c.label() : c.label, hint: c.hint,
+      fn: () => {
+        NOTES = [];
+        const res = c.run();
+        let body = [], then = null;
+        if (res && res.text !== undefined) { body = [].concat(res.text); then = res.then; } else body = [].concat(res);
+        body = body.filter(Boolean).concat(takeNotes());
+        next(ev.title, body.map(p => `<p>${p}</p>`), then || advance);
+      },
+    }));
+  if (!choices.length) choices.push({ label: '次へ', fn: advance });
+  scene({ title: ev.title, sub: 'EVENT', body: [`<p>${text}</p>`], choices });
+}
+
+// =============================================================
+//  行動選択（ハブ）
+// =============================================================
+function hub() {
+  G.tmpRival = null;
+  saveGame();
+  const flavor = pick(FLAVOR[isNight() ? 'night' : 'day']);
+  const body = [`<p>${flavor}</p>`];
+  let acts = [];
+  if (G.phase === 'prep') {
+    body.push(`<p class="note">聖杯戦争の開幕まで、あと${PREP_DAYS - G.day + 1}日。召喚に備えて力を蓄えよう。</p>`);
+    acts = isNight() ? prepNightActions() : prepDayActions();
+  } else {
+    const sv = G.servant;
+    body.push(`<p class="note">残り陣営：${hostileRivals().length}${aliveRivals().length !== hostileRivals().length ? `（同盟中 ${aliveRivals().length - hostileRivals().length}）` : ''}　${SV()} HP ${sv.hp}/${servantHpMax()}・魔力 ${sv.mp}</p>`);
+    acts = isNight() ? warNightActions() : warDayActions();
+  }
+  scene({ title: isNight() ? '夜の行動' : '昼の行動', sub: `${phaseLabel()}・${G.day}日目`, body, choices: acts });
+}
+
+// ---- 準備期間 ----
+function prepDayActions() {
+  return [
+    { label: '体を鍛える', hint: '体力↑ 精神↑', fn: () => actResult('鍛錬', () => { const n = rand(3, 5); gain('phy', n); gain('spi', 1);
+      return `早朝の御影川の河川敷を走り込んだ。（体力+${n} 精神+1）`; }) },
+    { label: '魔術の修練', hint: '魔力↑（精神判定）', fn: () => actResult('魔術の修練', studyMagic) },
+    { label: '書庫で調べもの', hint: '知力↑ 触媒の手がかり', fn: () => actResult('調べもの', () => {
+      const n = rand(3, 5); gain('int', n);
+      if (Math.random() < 0.15) { const c = giveCatalyst(); return [`市立図書館の郷土資料室で調べものをした。（知力+${n}）`, `古い寄贈品目録を辿り、<b>${c}</b>の在処を突き止めて入手した！`]; }
+      return `市立図書館で英霊の伝承を調べた。（知力+${n}）`; }) },
+    { label: '街を歩く', hint: '何かが起きるかも', fn: () => walkTown('day') },
+    { label: 'アルバイト', hint: '資金↑ 交渉↑', fn: () => actResult('アルバイト', () => { const n = rand(2, 3); money(n); gain('cha', 1);
+      return `駅前の喫茶店で働いた。（資金+${n}万円 交渉+1）`; }) },
+    { label: '休む', hint: 'HP回復', fn: () => actResult('休息', () => { hp(30); gain('spi', 1); return '一日ゆっくりと体を休めた。（HP+30 精神+1）'; }) },
+  ];
+}
+function prepNightActions() {
+  return [
+    { label: '召喚陣の準備', hint: `召喚の質↑（現在${G.ritual}/3）`, disabled: G.ritual >= 3, fn: () => actResult('召喚陣の準備', () => {
+      G.ritual++; gain('mag', 1);
+      return [`工房の床に、銀と水銀で召喚陣を描き込んでいく。（召喚の準備 ${G.ritual}/3 魔力+1）`,
+        '<span class="note">準備が整うほど、召喚したサーヴァントとの最初の絆と魔力が高まる。</span>']; }) },
+    { label: '魔術の修練', hint: '魔力↑（精神判定）', fn: () => actResult('魔術の修練', studyMagic) },
+    { label: '夜の街を歩く', hint: '危険と出会い', fn: () => walkTown('night') },
+    { label: '眠る', hint: 'HP回復', fn: () => actResult('休息', () => { hp(25); return '早めに床についた。（HP+25）'; }) },
+  ];
+}
+function studyMagic() {
+  const r = chk('spi', 45);
+  if (r.ok) { const n = rand(3, 5); gain('mag', n); gain('int', 1); return [r.text, `魔術回路を酷使し、術式の精度を高めた。（魔力+${n} 知力+1）`]; }
+  hp(-10); gain('mag', 1); return [r.text, '魔力の制御を誤り、回路が焼けるように痛んだ。（HP-10 魔力+1）'];
+}
+function walkTown(t) {
+  const ev = drawEvent(t);
+  if (ev && Math.random() < 0.85) return showEvent(ev);
+  actResult('散策', () => { gain('luk', 1); return `${pick(CITY.places)}を歩いた。特に何も起きなかったが、街の地理に詳しくなった。（幸運+1）`; });
+}
+function actResult(title, fn) {
+  NOTES = [];
+  const res = [].concat(fn()).filter(Boolean).concat(takeNotes());
+  next(title, res.map(p => `<p>${p}</p>`), advance);
+}
+
+// ---- 聖杯戦争中 ----
+function warDayActions() {
+  const canBuild = G.workshop < 5;
+  return [
+    { label: `${SV()}と過ごす`, hint: '絆↑', fn: hangoutMenu },
+    { label: '情報収集', hint: '敵陣営の情報（知力/交渉）', fn: () => actResult('情報収集', gatherIntel) },
+    { label: '工房を強化する', hint: canBuild ? `資金-2 陣地Lv${G.workshop}→${G.workshop + 1}` : '最大', disabled: !canBuild || G.master.money < 2,
+      fn: () => actResult('陣地作成', () => {
+        money(-2); const up = (G.master.birth === 'shrine' || G.flags.leyline) && G.workshop < 4 ? 2 : 1;
+        G.workshop = Math.min(5, G.workshop + up);
+        return `拠点の結界を張り直し、魔力の溜まり場を整えた。（陣地Lv ${G.workshop}）`;
+      }) },
+    { label: '鍛錬する', hint: '体力↑ 魔力↑', fn: () => actResult('鍛錬', () => { gain('phy', 2); gain('mag', 2);
+      return `${SV()}に見てもらいながら鍛錬した。（体力+2 魔力+2）`; }) },
+    { label: '休息', hint: 'HP・魔力回復', fn: () => actResult('休息', () => { hp(25); shp(20); mp(15);
+      return `拠点で体を休めた。（HP+25 ${SV()}のHP+20 魔力+15）`; }) },
+  ];
+}
+function warNightActions() {
+  const targets = hostileRivals().filter(r => r.intel >= 2);
+  const acts = [
+    { label: '夜の巡回', hint: '敵と遭遇するかも', fn: patrol, cls: 'danger' },
+  ];
+  if (targets.length) acts.push({ label: '敵の拠点を襲撃する', hint: '奇襲で有利に戦える', fn: assaultMenu, cls: 'danger' });
+  acts.push(
+    { label: '拠点で待ち構える', hint: `陣地Lv${G.workshop}で迎撃`, fn: defendBase },
+    { label: `${SV()}と語らう`, hint: '絆↑ 特別な会話', fn: nightTalk },
+    { label: '魔力を回復して休む', hint: '魔力・HP回復', fn: nightRest },
+  );
+  return acts;
+}
+
+function gatherIntel() {
+  const stat = G.master.stats.int >= G.master.stats.cha ? 'int' : 'cha';
+  const r = chk(stat, 55);
+  if (!r.ok) return [r.text, '有力な手がかりは得られなかった。'];
+  const t = intelRandom(1);
+  return [r.text, t || 'これ以上、新しい情報は見つからなかった。'];
+}
+// 情報を1段階進める：1=マスター判明 2=拠点判明 3=真名判明
+function intelRandom(n) {
+  const cand = aliveRivals().filter(r => r.intel < 3);
+  if (!cand.length) return '';
+  const r = pick(cand); r.intel = Math.min(3, r.intel + n);
+  if (r.intel === 1) return `${r.cls}陣営のマスターは<b>${esc(r.master)}</b>――${r.type}だと分かった。`;
+  if (r.intel === 2) return `${r.cls}陣営の拠点を突き止めた。いつでも襲撃を仕掛けられる。`;
+  addLog(`${r.cls}の真名「${servantOf(r).name}」を看破。`);
+  return `${r.cls}の真名は<b>${servantOf(r).name}</b>だ！ 伝承から弱点が見えてきた。（戦闘で有利になる）`;
+}
+
+// ---- サーヴァントと過ごす ----
+function bondTier() { const b = G.servant.bond; return b < 30 ? 'low' : b < 60 ? 'mid' : 'high'; }
+function hangoutMenu() {
+  const choices = Object.entries(ACTIVITIES).map(([k, a]) => ({
+    label: a.name, hint: `${a.place}${a.cost ? `・資金-${a.cost}` : ''}`, disabled: G.master.money < a.cost,
+    fn: () => hangout(k),
+  }));
+  choices.push({ label: 'やめる', fn: hub });
+  scene({ title: `${SV()}と過ごす`, sub: 'BOND', body: [`<p>今日はどう過ごそうか。${SV()}にも好みがあるようだ。</p>`,
+    G.servant.bond >= 20 ? `<p class="note">${SV()}が好きそうなこと：${PERSONAS[servantOf(G).persona].likes.map(k => ACTIVITIES[k].name).join('、')}</p>` :
+      '<p class="note">絆が深まれば、好みも分かってくるだろう。</p>'], choices });
+}
+function hangout(k) {
+  NOTES = [];
+  const a = ACTIVITIES[k]; const per = PERSONAS[servantOf(G).persona];
+  money(-a.cost);
+  let n = 4, react = '';
+  if (per.likes.includes(k)) { n = 8; react = `${SV()}はとても楽しそうだ。`; }
+  else if (per.dislikes.includes(k)) { n = 1; react = `${SV()}はあまり気乗りしない様子だった。`; }
+  n += Math.floor(G.master.stats.cha / 30);
+  const statGain = { eat: ['cha', 1], train: ['phy', 2], walk: ['luk', 1], talk: ['int', 1], shop: ['cha', 1], quiet: ['spi', 2] }[k];
+  gain(statGain[0], statGain[1]);
+  bond(n);
+  const line = fmt(pick(per[bondTier()]));
+  next(a.name, [`<p>${a.place}で${SV()}と過ごした。${react}</p>`, `<p class="quote">${line}</p>`,
+    `<p class="note">絆+${n}　${STAT_LABEL[statGain[0]]}+${statGain[1]}</p>`, ...takeNotes().map(t => `<p>${t}</p>`)], advance);
+}
+function nightTalk() {
+  const sv = G.servant;
+  if (sv.bond >= 70 && !sv.special && sv.bond >= (G.flags.specialNext || 0)) return specialEvent();
+  NOTES = [];
+  const n = rand(3, 5); bond(n); mp(5);
+  const per = PERSONAS[servantOf(G).persona];
+  next('夜の語らい', [`<p>静かな夜。拠点の縁側で、${SV()}と言葉を交わした。</p>`, `<p class="quote">${fmt(pick(per[bondTier()]))}</p>`,
+    `<p class="note">絆+${n}</p>`, ...takeNotes().map(t => `<p>${t}</p>`)], advance);
+}
+function specialEvent() {
+  const per = PERSONAS[servantOf(G).persona];
+  const choices = Object.entries(RELATIONS).map(([k, r]) => ({
+    label: r.verb, hint: `関係：${r.name}`, fn: () => {
+      G.servant.special = k; NOTES = []; bond(10);
+      addLog(`${servantOf(G).name}と「${r.name}」の関係になる。`);
+      next('特別な関係', [`<p>${fmt(r.text)}</p>`, `<p class="note">${SV()}と<b>「${r.name}」</b>になった。戦闘で絆の力が働くようになる。</p>`,
+        ...takeNotes().map(t => `<p>${t}</p>`)], advance);
+    },
+  }));
+  choices.push({ label: '今は、この関係のままで', fn: () => {
+    G.flags.specialNext = G.servant.bond + 10;
+    next('夜の語らい', [`<p>あなたは微笑んで、首を横に振った。${SV()}は少しだけ目を伏せ、「……そうか」と呟いた。</p>`,
+      '<p class="note">さらに絆が深まれば、また機会が訪れるだろう。</p>'], advance);
+  } });
+  scene({ title: '月下の告白', sub: 'SPECIAL', body: [`<p>月の綺麗な夜だった。${SV()}がふと、真剣な顔であなたを見つめた。</p>`,
+    `<p class="quote">${fmt(per.special)}</p>`, '<p>あなたは――</p>'], choices });
+}
+function nightRest() {
+  if (Math.random() < 0.15 && hostileRivals().length) {
+    const r = wpick(hostileRivals(), x => x.aggr);
+    return next('夜襲', [`<p>眠りに落ちかけた時、結界が軋む音がした。――${rivalLabel(r)}陣営の襲撃だ！</p>`],
+      () => startBattle(r, { defend: true }), '迎え撃つ');
+  }
+  actResult('休息', () => { mp(30); shp(15); hp(15); bond(1); return `パスを通じて${SV()}に魔力を送りながら眠った。（魔力+30 ${SV()}のHP+15 HP+15）`; });
+}
+function patrol() {
+  const roll = Math.random();
+  const foes = hostileRivals();
+  if (roll < 0.55 && foes.length) {
+    const r = wpick(foes, x => 0.5 + x.aggr);
+    r.intel = Math.max(r.intel, 1);
+    return next('遭遇', [`<p>${pick(CITY.places)}を巡回中、凄まじい殺気が闇を裂いた。</p>`,
+      `<p>――<b>${rivalLabel(r)}</b>のサーヴァントだ。背後には、マスターの${esc(r.master)}の姿もある。</p>`,
+      r.intel >= 1 ? `<p class="quote">「${r.quote}」</p>` : ''], () => startBattle(r, {}), '戦う');
+  }
+  if (roll < 0.8) { const ev = drawEvent('night'); if (ev) return showEvent(ev); }
+  actResult('夜の巡回', () => { const t = Math.random() < 0.4 ? intelRandom(1) : ''; return ['静かな夜だった。敵の気配は見当たらない。', t]; });
+}
+function assaultMenu() {
+  const choices = hostileRivals().filter(r => r.intel >= 2).map(r => ({
+    label: `${rivalLabel(r)}陣営を襲う`, hint: `マスター：${esc(r.master)}`, cls: 'danger',
+    fn: () => next('襲撃', [`<p>夜陰に紛れ、${rivalLabel(r)}陣営の拠点へと迫る。</p>`], () => startBattle(r, { ambush: true }), '仕掛ける'),
+  }));
+  choices.push({ label: 'やめる', fn: hub });
+  scene({ title: '襲撃目標', sub: 'ASSAULT', body: ['<p>拠点を突き止めた陣営に奇襲を仕掛ける。奇襲側は戦闘で有利になる。</p>'], choices });
+}
+function defendBase() {
+  if (Math.random() < 0.45 && hostileRivals().length) {
+    const r = wpick(hostileRivals(), x => x.aggr);
+    return next('迎撃', [`<p>結界に反応。${rivalLabel(r)}陣営が攻めてきた！ 陣地の力で迎え撃つ。</p>`],
+      () => startBattle(r, { defend: true }), '迎え撃つ');
+  }
+  actResult('待機', () => { mp(15); shp(10); return '敵は現れなかった。結界の内で魔力を蓄えた。（魔力+15 HP+10）'; });
+}
+
+// =============================================================
+//  召喚
+// =============================================================
+function summonScene() {
+  const choices = G.catalysts.map(id => ({ label: `「${SV_BY_ID[id].catalyst}」を使う`, hint: '縁ある英霊を喚ぶ', fn: () => doSummon(id) }));
+  choices.push({ label: '触媒を使わない', hint: '自分と似た英霊が応える', fn: () => doSummon(null) });
+  scene({ title: '召喚の夜', sub: 'SUMMONING', body: [
+    '<p>準備の日々は終わった。今宵、聖杯戦争が始まる。</p>',
+    `<p>工房の床に描いた召喚陣の前に立つ。右手の令呪が、熱を帯びて脈打っている。${G.ritual >= 3 ? '陣は完璧に仕上がっている。' : G.ritual > 0 ? '陣の準備はまずまずだ。' : '急ごしらえの陣だが、やるしかない。'}</p>`,
+    G.catalysts.length ? '<p>手元には触媒がある。どれを使おうか。</p>' : '<p>触媒は手に入らなかった。縁に任せるしかない。</p>',
+  ], choices });
+}
+function doSummon(catalystId) {
+  let sv;
+  if (catalystId) sv = SV_BY_ID[catalystId];
+  else {
+    const a = alignLabel().split('・');
+    sv = wpick(SERVANTS, s => {
+      const [o, m] = s.align.split('・');
+      let w = 1;
+      if (o === a[0]) w += 1.5;
+      if (m === a[1]) w += 1.5;
+      if (!BASE_CLASSES.includes(s.cls)) w *= 0.4;
+      if (G.flags.vision === s.id) w *= G.flags.visionStrong ? 6 : 2.5;
+      return w;
+    });
+  }
+  G.servant = { id: sv.id, hp: 0, mp: 60 + G.ritual * 13, bond: 5 + G.ritual * 4, special: null, exposed: false };
+  G.servant.hp = servantHpMax();
+  setupRivals();
+  G.phase = 'war'; G.day = 1; G.slot = 0;
+  addLog(`${sv.cls}「${sv.name}」を召喚。`);
+  if (G.flags.earlyIntel) intelRandom(1);
+  SCENE = { kind: 'summon', sv }; TAB = 'story'; render();
+}
+function setupRivals() {
+  const mine = servantOf(G).cls;
+  let classes = BASE_CLASSES.filter(c => c !== mine);
+  if (classes.length > 6) classes = shuffle(classes).slice(0, 6);
+  const types = shuffle(RIVAL_TYPES);
+  G.rivals = classes.map((cls, i) => {
+    const pool = SERVANTS.filter(s => s.cls === cls && s.id !== G.servant.id);
+    const s = pick(pool); const t = types[i];
+    const r = { id: 'r' + i, cls, servantId: s.id, master: randomName(t.foreign), type: t.type, power: t.power + rand(-1, 1),
+      aggr: t.aggr, quote: t.quote, alive: true, hp: 0, hpMax: 0, mp: 100, intel: 0, ally: false, bounty: false, masterDead: false };
+    r.hpMax = r.hp = 70 + rankValue(s.p[1]);
+    return r;
+  });
+}
+function afterSummon() {
+  next('聖杯戦争、開幕', [
+    `<p>こうして、深見市における聖杯戦争が幕を開けた。七騎のサーヴァントと七人のマスター。生き残るのは、ただ一組。</p>`,
+    `<p class="note">昼は準備と絆を深める時間、夜は戦いの時間だ。情報を集めて敵の真名を暴き、絆を育み、最後の一組となれ。期限は${WAR_DAYS}日。</p>`,
+  ], () => startSlot(), '戦いへ');
+}
+
+// =============================================================
+//  戦闘
+// =============================================================
+// 戦術の三すくみ：白兵（筋力）> 魔術（魔力）> 機動（敏捷）> 白兵
+const TACTICS = {
+  str: { name: '白兵戦', stat: 0, beats: 'mag', tell: '大きく踏み込む構えを見せている（白兵戦の気配）' },
+  agi: { name: '機動戦', stat: 2, beats: 'str', tell: '間合いを測り、素早く動き回っている（機動戦の気配）' },
+  mag: { name: '魔術戦', stat: 3, beats: 'agi', tell: '周囲に魔力が渦巻いている（魔術戦の気配）' },
+  np:  { name: '宝具', stat: 5, tell: '魔力が異常に高まっている――宝具が来る！' },
+};
+let B = null; // 戦闘中の状態（セーブしない）
+
+function startBattle(rival, opt) {
+  G.battles++;
+  B = { r: rival, round: 0, log: [], ambush: !!opt.ambush, defend: !!opt.defend, final: !!opt.final, miracle: false, enemyNext: null, tell: null };
+  rival.intel = Math.max(rival.intel, 1);
+  planEnemy();
+  battleScene();
+}
+function enemyName() { return B.r.intel >= 3 ? servantOf(B.r).short : `敵${B.r.cls}`; }
+function planEnemy() {
+  const r = B.r;
+  let t;
+  if (r.mp >= 50 && (r.hp < r.hpMax * 0.5 || Math.random() < 0.15)) t = 'np';
+  else t = wpick(['str', 'agi', 'mag'], k => Math.pow(rivalParam(r, TACTICS[k].stat), 1.5));
+  B.enemyNext = t;
+  // 敵の構えを読む（知力と情報量で見抜ける確率が上がる）
+  const seeChance = t === 'np' ? 0.9 : 0.3 + G.master.stats.int / 200 + (r.intel >= 3 ? 0.2 : 0);
+  if (Math.random() < seeChance) {
+    const shown = t === 'np' || Math.random() < 0.75 ? t : pick(['str', 'agi', 'mag']);
+    B.tell = `${enemyName()}は${TACTICS[shown].tell}`;
+  } else B.tell = null;
+}
+function battleScene(extra) {
+  const r = B.r; const sv = G.servant; const me = servantOf(G);
+  const body = [
+    `<div class="battle-field">
+      <div class="fighter"><div class="fighter-top"><span class="fighter-name">${me.short}</span><span>${me.cls}　HP ${sv.hp}/${servantHpMax()}　魔力 ${sv.mp}</span></div>
+        <div class="bar hp"><i style="width:${(sv.hp / servantHpMax()) * 100}%"></i></div></div>
+      <div class="vs">VS</div>
+      <div class="fighter enemy"><div class="fighter-top"><span class="fighter-name">${enemyName()}</span><span>${r.cls}${r.intel >= 3 ? '' : '（真名不明）'}　HP ${Math.max(0, r.hp)}/${r.hpMax}</span></div>
+        <div class="bar enemy"><i style="width:${Math.max(0, r.hp / r.hpMax) * 100}%"></i></div></div>
+    </div>`,
+  ];
+  if (B.round === 0) {
+    const mods = [];
+    if (B.ambush) mods.push('奇襲');
+    if (B.defend && G.workshop) mods.push(`陣地Lv${G.workshop}`);
+    if (r.intel >= 3) mods.push('真名看破');
+    const aff = classAffinity(me.cls, r.cls);
+    if (aff > 0 && me.cls !== 'バーサーカー' && r.cls !== 'バーサーカー') mods.push('クラス相性◎');
+    if (aff < 0) mods.push('クラス相性×');
+    body.push(`<p>${B.final ? '聖杯を賭けた、最後の戦いが始まる。' : '戦闘開始。'}${mods.length ? `<br><span class="note">有利・不利：${mods.join('・')}</span>` : ''}</p>`);
+  }
+  if (extra) body.push(...extra);
+  if (B.tell) body.push(`<p class="tell">${B.tell}</p>`);
+  body.push('<p class="note">白兵は魔術に、魔術は機動に、機動は白兵に強い。</p>');
+  const p = i => `${PARAM_NAMES[i]}${valueRank(servantParam(i))}`;
+  const choices = [
+    { label: '白兵戦', hint: `${p(0)}・魔術に強い`, fn: () => battleRound('str') },
+    { label: '機動戦', hint: `${p(2)}・白兵に強い`, fn: () => battleRound('agi') },
+    { label: '魔術戦', hint: `${p(3)}・機動に強い`, fn: () => battleRound('mag') },
+    { label: `宝具「${me.np}」`, hint: `魔力-50　真名が知られる`, disabled: sv.mp < 50, fn: () => battleRound('np'), cls: 'primary' },
+    { label: '令呪：全力で打ち倒せ', hint: `令呪-1（残${G.master.seals}）`, disabled: G.master.seals < 1, fn: () => battleRound('seal'), cls: 'danger' },
+  ];
+  if (!B.final) choices.push({ label: '撤退する', hint: '敏捷・幸運で判定', fn: () => battleRound('flee') });
+  scene({ title: B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices });
+}
+function battleRound(cmd) {
+  const r = B.r; const me = servantOf(G); const sv = G.servant;
+  B.round++;
+  const log = [];
+  const et = B.enemyNext;
+  const P = me.short, E = enemyName();
+
+  if (cmd === 'flee') {
+    const mine = (servantParam(2) + servantParam(4)) / 2 + rand(1, 40) + 5;
+    const theirs = rivalParam(r, 2) + rand(1, 40);
+    if (mine >= theirs) {
+      addLog(`${rivalLabel(r)}陣営との戦闘から撤退。`);
+      B = null;
+      return next('撤退', [`<p>${P}が煙幕のように魔力を散らし、あなたを抱えて離脱した。どうにか逃げ切れた。</p>`], advance);
+    }
+    log.push(`撤退に失敗！ ${E}に回り込まれた。`);
+    const dmg = rand(10, 18); shp(-dmg); log.push(`${P}は${dmg}のダメージを受けた。`);
+    return afterRound(log);
+  }
+
+  // 自分の戦術
+  let tac = cmd, sealBoost = 0;
+  if (cmd === 'seal') {
+    G.master.seals--; sealBoost = 35; shp(25);
+    tac = ['str', 'agi', 'mag'].reduce((best, k) => servantParam(TACTICS[k].stat) > servantParam(TACTICS[best].stat) ? k : best, 'str');
+    log.push(`<b>「令呪をもって命ずる――全力で打ち倒せ！」</b> 右手の令呪が一画、紅く輝いて消えた。`);
+    addLog('令呪を一画使用（戦闘）。');
+  }
+  if (tac === 'np') {
+    sv.mp -= 50;
+    if (!sv.exposed) { sv.exposed = true; log.push(`<span class="note">宝具の解放により、${P}の真名が敵に知られた。</span>`); }
+    log.push(`<b>「${me.np}（${me.npRuby}）――！」</b>`);
+  }
+  if (et === 'np') {
+    r.mp -= 50;
+    const en = servantOf(r);
+    log.push(`敵が宝具を解き放つ。<b>「${en.np}（${en.npRuby}）！」</b>`);
+    if (r.intel < 3) { r.intel = 3; log.push(`<span class="note">その宝具は――${en.name}！ 敵の真名が判明した。</span>`); addLog(`${r.cls}の真名「${en.name}」が判明。`); }
+  }
+
+  // スコア計算
+  const myBase = servantParam(TACTICS[tac].stat) + (tac === 'np' ? 25 : 0);
+  const enBase = rivalParam(r, TACTICS[et].stat) + (et === 'np' ? 25 : 0);
+  let myMod = classAffinity(me.cls, r.cls) + Math.floor(sv.bond / 8) + (sv.special ? 5 : 0) + Math.floor(G.master.stats.mag / 20)
+    + (['mercenary', 'executor'].includes(G.master.birth) ? 4 : 0) + (r.intel >= 3 ? 8 : 0)
+    + (B.ambush && B.round === 1 ? 10 : 0) + (B.defend ? G.workshop * 3 : 0) + sealBoost;
+  let enMod = classAffinity(r.cls, me.cls) + r.power + (sv.exposed ? 6 : 0);
+  if (tac !== 'np' && et !== 'np') {
+    if (TACTICS[tac].beats === et) myMod += 15;
+    if (TACTICS[et].beats === tac) enMod += 15;
+  }
+  const mine = myBase + myMod + rand(1, 40);
+  const theirs = enBase + enMod + rand(1, 40);
+  const diff = mine - theirs;
+  log.push(`<span class="note">${P}：${TACTICS[tac].name}（${mine}）　対　${E}：${TACTICS[et].name}（${theirs}）</span>`);
+
+  const crit = luck => Math.random() * 100 < luck / 2;
+  if (diff >= 0) {
+    let dmg = Math.round(10 + diff * 0.5 + (tac === 'np' ? 22 : 0) - rankValue(servantOf(r).p[1]) / 10);
+    if (crit(servantParam(4))) { dmg = Math.round(dmg * 1.5); log.push('会心の一撃！'); }
+    dmg = Math.max(6, dmg); r.hp -= dmg;
+    log.push(winText(tac, P, E) + `（${dmg}ダメージ）`);
+  } else {
+    let dmg = Math.round(10 + (-diff) * 0.5 + (et === 'np' ? 22 : 0) - servantParam(1) / 10);
+    if (crit(rivalParam(r, 4))) { dmg = Math.round(dmg * 1.5); log.push('痛恨の一撃！'); }
+    dmg = Math.max(6, dmg); shp(-dmg);
+    log.push(winText(et, E, P) + `（${dmg}ダメージ）`);
+  }
+  afterRound(log);
+}
+function winText(t, a, d) {
+  const lines = {
+    str: [`${a}の重い一撃が${d}を捉えた！`, `${a}が真正面から${d}を押し切った！`],
+    agi: [`${a}は残像を残して${d}の死角に回り込んだ！`, `目にも留まらぬ速さで、${a}の連撃が${d}を襲う！`],
+    mag: [`${a}の放った魔力の奔流が${d}を呑み込んだ！`, `${a}の術式が炸裂し、${d}を吹き飛ばした！`],
+    np: [`宝具の光が夜を白く染め、${d}を薙ぎ払った！`, `伝説そのものが、${d}に牙を剥いた！`],
+  };
+  return pick(lines[t]);
+}
+function afterRound(log) {
+  const r = B.r; const sv = G.servant;
+  const extra = [`<div class="blog">${log.map(t => `<p>${t}</p>`).join('')}</div>`];
+  if (r.hp <= 0) return battleWin(extra);
+  if (sv.hp <= 0) {
+    if (sv.special && !B.miracle) {
+      B.miracle = true; sv.hp = 25;
+      extra.push(`<p class="quote">「……まだだ。${M()}を残して、消えるわけにはいかない！」</p><p>絆の力が、消えかけた霊基を繋ぎ止めた。（HP 25で踏みとどまった）</p>`);
+    } else return battleLoseChoice(extra);
+  }
+  planEnemy();
+  battleScene(extra);
+}
+function battleLoseChoice(extra) {
+  const choices = [];
+  if (G.master.seals > 0) choices.push({ label: '令呪：「立ち上がれ」', hint: `令呪-1（残${G.master.seals}）`, cls: 'danger', fn: () => {
+    G.master.seals--; G.servant.hp = Math.round(servantHpMax() * 0.4); addLog('令呪で消滅寸前のサーヴァントを繋ぎ止める。');
+    planEnemy(); battleScene([`<p>令呪の魔力が${SV()}の霊基を強引に繋ぎ止めた。${SV()}は再び立ち上がる！</p>`]);
+  } });
+  choices.push({ label: '……ここまでか', fn: () => { B = null; ending('lost'); } });
+  scene({ title: '霊核の危機', sub: 'CRISIS', body: [...extra, `<p>${SV()}が膝をつく。霊基が崩れ始めている――このままでは消滅する！</p>`], choices });
+}
+function battleWin(extra) {
+  const r = B.r; const wasFinal = B.final; B = null;
+  r.alive = false; r.hp = 0; G.kills++;
+  NOTES = []; bond(5);
+  const body = [...extra, `<p>${rivalLabel(r)}の霊基が砕け、光の粒となって夜空に溶けていく。<b>勝利だ。</b></p>`];
+  addLog(`${rivalLabel(r)}陣営（${servantOf(r).name}）を撃破。`);
+  if (r.bounty) { G.master.seals++; body.push('<p>教会からの討伐令を果たした。報酬として令呪が一画、右手に刻まれた。（令呪+1）</p>'); }
+  body.push(...takeNotes().map(t => `<p>${t}</p>`));
+  const finish = () => {
+    if (wasFinal || aliveRivals().length === 0) return victoryScene();
+    advance();
+  };
+  const choices = [
+    { label: 'マスターを教会へ送る', hint: '秩序・善', fn: () => { NOTES = []; tone('law'); tone('good');
+      next('戦いの後', [`<p>${esc(r.master)}は力なく頷き、教会へと去っていった。</p>`, ...takeNotes().map(t => `<p>${t}</p>`)], finish); } },
+    { label: '残った令呪を奪う', hint: '悪 / 令呪+1', disabled: G.master.seals >= 3, fn: () => { NOTES = []; tone('evil'); G.master.seals++; r.masterDead = true;
+      next('戦いの後', [`<p>${esc(r.master)}の腕から令呪を奪い取った。（令呪+1）</p>`, ...takeNotes().map(t => `<p>${t}</p>`)], finish); } },
+    { label: '何も言わず立ち去る', hint: '混沌', fn: () => { NOTES = []; tone('chaos');
+      next('戦いの後', ['<p>敗者に掛ける言葉はない。あなたは振り返らずに、その場を後にした。</p>', ...takeNotes().map(t => `<p>${t}</p>`)], finish); } },
+  ];
+  scene({ title: '勝利', sub: 'VICTORY', body, choices });
+}
+
+// ---- 終盤の展開 ----
+function breakAlliance() {
+  for (const r of aliveRivals()) r.ally = false;
+  next('同盟の終わり', ['<p>残るは、同盟を結んだ陣営とあなたたちだけになった。電話の向こうで、相手が静かに告げる。「――ここまでだ。次に会う時は、敵同士だ」</p>'], startSlot);
+}
+function finalBattleIntro() {
+  const r = aliveRivals()[0];
+  r.ally = false;
+  next('天降山', [
+    '<p>残る陣営は、あと一つ。天降山の頂、霊脈の集う古社の境内に、聖杯の器が姿を現しつつある。</p>',
+    `<p>月明かりの下、最後の敵が待っていた。${rivalLabel(r)}陣営――マスター、${esc(r.master)}。</p>`,
+    `<p class="quote">「${r.quote}」</p>`,
+    `<p class="quote">${fmt(pick(PERSONAS[servantOf(G).persona].high))}</p>`,
+  ], () => startBattle(r, { final: true }), '最後の戦いへ');
+}
+function deadlineScene() {
+  // 期限切れ：残った陣営のうち最強の一つが最後の敵になる
+  G.day = WAR_DAYS; G.slot = 1;
+  const alive = aliveRivals();
+  const strongest = alive.reduce((a, b) => (a.power + a.hp) >= (b.power + b.hp) ? a : b);
+  for (const r of alive) if (r !== strongest) { r.alive = false; addLog(`${rivalLabel(r)}陣営、混戦の中で脱落。`); }
+  next('最終局面', ['<p>聖杯の器が満ちようとしている。監督役から全陣営へ通達が届いた。「聖杯の降臨は今宵。残る者は天降山へ」</p>',
+    '<p>天降山へ向かう途中の混戦で、いくつもの陣営が倒れていった。生き残ったのは――</p>'], finalBattleIntro);
+}
+
+// =============================================================
+//  エンディング
+// =============================================================
+function victoryScene() {
+  G.phase = 'end';
+  const sv = servantOf(G); const b = BIRTHS.find(x => x.id === G.master.birth);
+  const choices = [
+    { label: `「${b.wish}」を願う`, hint: 'マスターの願い', fn: () => ending(G.flags.grailTruth ? 'wishKnown' : 'wish') },
+  ];
+  if (G.servant.special) choices.unshift({ label: `${sv.short}の受肉を願う`, hint: `「${RELATIONS[G.servant.special].name}」として共に生きる`, cls: 'primary', fn: () => ending('together') });
+  if (G.flags.grailTruth) choices.unshift({ label: '聖杯を破壊する', hint: '汚染された聖杯を消し去る', cls: 'primary', fn: () => ending(G.servant.special ? 'destroySpecial' : 'destroy') });
+  choices.push({ label: '何も願わない', fn: () => ending('none') });
+  scene({ title: '聖杯降臨', sub: 'THE HOLY GRAIL', body: [
+    '<p>最後の敵が消え、天降山の頂に黄金の杯が降りてきた。万能の願望機――聖杯。</p>',
+    G.flags.grailTruth ? '<p>だが、あなたは知っている。その黄金の内側には、どす黒い泥が渦巻いていることを。</p>' : '<p>その輝きは眩く、どんな願いでも叶えてくれそうに見えた。</p>',
+    `<p class="quote">${fmt(pick(PERSONAS[sv.persona].high))}</p>`,
+    '<p>あなたが願うのは――</p>',
+  ], choices });
+}
+function ending(kind) {
+  G.phase = 'end'; clearSave();
+  const sv = G.servant ? servantOf(G) : null; const rel = G.servant && G.servant.special ? RELATIONS[G.servant.special] : null;
+  const per = sv ? PERSONAS[sv.persona] : null;
+  const E = {
+    dead: () => ({ title: '終幕：血に染まる冬', text: [`<p>深見市の冬の夜に、${M()}の命は散った。</p>`, sv ? `<p>契約者を失った${sv.short}もまた、光の粒となって消えていく。最後に、何かを言いかけたように見えた。</p>` : '', '<p>聖杯戦争は、あなたのいないまま続いていく。</p>'] }),
+    lost: () => ({ title: '終幕：脱落', text: [`<p>${sv.short}の霊基は砕け、聖杯戦争からの脱落が決まった。</p>`, `<p class="quote">${fmt(per.farewell)}</p>`,
+      G.flags.registered ? '<p>あなたは教会に保護され、戦いの結末を遠くから聞くことになった。右手の痣だけが、あの日々が夢ではなかったと告げている。</p>' : '<p>あなたは傷ついた体を引きずり、冬の街へと消えた。右手の痣だけが、あの日々が夢ではなかったと告げている。</p>'] }),
+    wish: () => ({ title: '終幕：歪んだ願い', text: ['<p>聖杯は願いを聞き届けた。――最悪の形で。</p>', '<p>溢れ出した黒い泥が天降山を覆い、深見市の夜空が赤く染まる。願いは確かに「叶った」。だが、その代償はあまりにも大きかった。</p>',
+      `<p>消えゆく${sv.short}の姿を見送りながら、あなたは悟る。この聖杯は、最初から呪われていたのだと。</p>`, '<p class="note">ヒント：聖杯の真実を知っていれば、別の選択肢があったかもしれない。</p>'] }),
+    wishKnown: () => ({ title: '終幕：承知の上の願い', text: ['<p>呪われた聖杯と知りながら、あなたは願った。泥が溢れ、街に災いが降りかかる。</p>', `<p>${sv.short}は何も言わず、ただ悲しげにあなたを見つめていた。</p>`] }),
+    destroy: () => ({ title: '終幕：冬の終わり', text: [`<p>「${sv.short}、聖杯を破壊して」</p>`, `<p>${sv.short}の最後の宝具が、黄金の杯を光の中に消し去った。呪いは霧散し、天降山に朝日が昇る。</p>`,
+      `<p class="quote">${fmt(per.farewell)}</p>`, '<p>聖杯を手にすることはなかった。けれど、あなたは確かにこの街を救ったのだ。</p>'] }),
+    destroySpecial: () => ({ title: '終幕：夜明けの約束', text: [`<p>二人で選んだ答えは、聖杯の破壊だった。${sv.short}の宝具が呪いを焼き払い、夜が明けていく。</p>`,
+      `<p>消えゆく体で、${sv.short}はあなたの手を握った。「${rel ? rel.name : ''}」として過ごした日々が、指先から伝わってくる。</p>`, `<p class="quote">${fmt(per.farewell)}</p>`,
+      '<p>朝日の中に消えた姿を、あなたは決して忘れない。――いつかまた、どこかの空の下で。</p>'] }),
+    together: () => ({ title: `終幕：${rel ? rel.name : ''}として`, text: [`<p>「${sv.short}に、この世界で生きる体を」</p>`, '<p>聖杯は願いを聞き届けた。黄金の光が霊基を包み、英霊は肉体を得て現世に降り立つ。</p>',
+      `<p>冬が終わり、深見市に春が来た。桜並木の下を、${sv.short}と並んで歩く。かつて「${rel ? rel.name : ''}」と呼び合った二人の、新しい日々が始まる。</p>`,
+      G.flags.grailTruth ? '<p class="note">聖杯の呪いは今も眠っている。いつか、二人で向き合う日が来るだろう。</p>' : ''] }),
+    none: () => ({ title: '終幕：願いなき勝者', text: ['<p>あなたは何も願わなかった。聖杯は誰の手にも渡らぬまま、静かに消えていった。</p>', `<p class="quote">${fmt(per.farewell)}</p>`,
+      '<p>勝者の手に残ったのは、戦いの記憶と、確かに結ばれた絆だけだった。</p>'] }),
+  }[kind]();
+  addLog(E.title);
+  SCENE = { kind: 'ending', title: E.title, text: E.text.filter(Boolean), good: !['dead', 'lost', 'wish', 'wishKnown'].includes(kind) };
+  TAB = 'story'; render();
+}
+
+// =============================================================
+//  画面描画
+// =============================================================
+const ICON = {
+  story: '<svg viewBox="0 0 24 24"><path d="M4 5h11a3 3 0 0 1 3 3v11H7a3 3 0 0 1-3-3z"/><path d="M8 9h6M8 13h6"/></svg>',
+  master: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-4 4-6 7-6s6 2 7 6"/></svg>',
+  servant: '<svg viewBox="0 0 24 24"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.5-.8z"/></svg>',
+  rivals: '<svg viewBox="0 0 24 24"><path d="M5 19L19 5M14 5h5v5M19 19L5 5M5 10V5h5"/></svg>',
+  log: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>',
+};
+const SEAL_PATH = 'M9 1 C 13 6, 15 10, 9 21 C 3 10, 5 6, 9 1 Z';
+
+function render() {
+  const app = document.getElementById('app');
+  if (!SCENE) return;
+  const k = SCENE.kind;
+  if (k === 'title' || k === 'create') { app.innerHTML = `<main class="main">${k === 'title' ? viewTitle() : viewCreate()}</main>`; return; }
+  const top = G ? viewTop() : '';
+  let content = '';
+  if (TAB === 'story') content = k === 'summon' ? viewSummon() : k === 'ending' ? viewEnding() : viewScene();
+  else if (TAB === 'master') content = viewMaster();
+  else if (TAB === 'servant') content = viewServant();
+  else if (TAB === 'rivals') content = viewRivals();
+  else if (TAB === 'log') content = viewLog();
+  const tabs = [['story', '物語'], ['master', 'マスター'], ['servant', '英霊'], ['rivals', '陣営'], ['log', '記録']];
+  app.innerHTML = `${top}<main class="main" id="main">${content}</main>
+    <nav class="tabs" aria-label="画面切り替え">${tabs.map(([id, l]) => `<button class="tab ${TAB === id ? 'on' : ''}" data-tab="${id}" aria-pressed="${TAB === id}">${ICON[id]}${l}</button>`).join('')}</nav>`;
+}
+function viewTop() {
+  const night = G.slot === 1;
+  const dayText = G.phase === 'prep' ? `${G.day}日目` : G.phase === 'summon' ? '開幕前夜' : G.phase === 'end' ? '終幕' : `${G.day}日目`;
+  const seals = [0, 1, 2].map(i => `<svg class="seal ${i < G.master.seals ? '' : 'used'}" viewBox="0 0 18 22" aria-hidden="true"><path d="${SEAL_PATH}"/></svg>`).join('');
+  const extraSeals = G.master.seals > 3 ? `<span class="tag red">+${G.master.seals - 3}</span>` : '';
+  const sv = G.servant;
+  return `<header class="topbar">
+    <div class="topbar-row">
+      <div class="when"><span class="when-phase">${phaseLabel()}</span><span class="when-day">${dayText}</span>
+        ${G.phase === 'prep' || G.phase === 'war' ? `<span class="time-chip ${night ? 'night' : 'day'}">${night ? '夜' : '昼'}</span>` : ''}</div>
+      <div class="seals" title="令呪 残り${G.master.seals}画" aria-label="令呪 残り${G.master.seals}画">${seals}${extraSeals}</div>
+    </div>
+    <div class="mini"><span>HP <b>${G.master.hp}</b></span><span>資金 <b>${G.master.money}</b>万円</span>
+      ${sv ? `<span>${SV()} <b>${sv.hp}</b>/${servantHpMax()}</span><span>絆Lv <b>${Math.floor(sv.bond / 10)}</b></span>` : `<span>触媒 <b>${G.catalysts.length}</b></span>`}</div>
+  </header>`;
+}
+function viewScene() {
+  const s = SCENE;
+  return `<article class="scene">
+    ${s.sub ? `<div class="scene-sub">${s.sub}</div>` : ''}
+    <h1 class="scene-title">${s.title}</h1>
+    <div class="scene-body">${s.body.join('')}</div>
+    <div class="choices">${s.choices.map((c, i) => `<button class="choice ${c.cls || ''}" data-choice="${i}" ${c.disabled ? 'disabled' : ''}>
+      <span class="c-label">${c.label}</span>${c.hint ? `<span class="c-hint">${c.hint}</span>` : ''}</button>`).join('')}</div>
+  </article>`;
+}
+function circleSVG(cls = '') {
+  // 召喚陣：円と、円周上の点を結ぶ七芒星
+  const pts = [...Array(7)].map((_, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / 7; return [50 + 34 * Math.cos(a), 50 + 34 * Math.sin(a)]; });
+  const star = pts.map((_, i) => pts[(i * 3) % 7]).map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join(' ') + 'Z';
+  return `<svg class="circle ${cls}" viewBox="0 0 100 100" aria-hidden="true">
+    <g class="spin"><circle class="ring" cx="50" cy="50" r="47"/><circle class="ring" cx="50" cy="50" r="43"/>
+      <path id="tp" d="M50 50 m-45 0 a45 45 0 1 1 90 0 a45 45 0 1 1 -90 0" fill="none"/>
+      <text><textPath href="#tp">SABER · ARCHER · LANCER · RIDER · CASTER · ASSASSIN · BERSERKER ·</textPath></text></g>
+    <g class="spin rev"><path class="ring red" d="${star}"/><circle class="ring" cx="50" cy="50" r="34"/><circle class="ring" cx="50" cy="50" r="14"/></g>
+  </svg>`;
+}
+function viewTitle() {
+  const save = SCENE.save;
+  return `<div class="title-wrap">
+    ${circleSVG()}
+    <h1 class="game-title"><small>HOLY GRAIL WAR</small>深見市聖杯戦争</h1>
+    <p class="lead">${CITY.intro}</p>
+    <div class="choices">
+      <button class="choice primary" data-act="new"><span class="c-label">はじめから</span><span class="c-hint">産まれはランダムで決まる</span></button>
+      ${save ? `<button class="choice" data-act="continue"><span class="c-label">つづきから</span><span class="c-hint">${esc(save.master.name)}・${save.phase === 'prep' ? '準備期間' : '聖杯戦争'}${save.day}日目</span></button>` : ''}
+    </div>
+  </div>`;
+}
+function viewCreate() {
+  const m = SCENE.master, b = SCENE.birth;
+  return `<article class="scene">
+    <div class="scene-sub">MASTER</div><h1 class="scene-title">あなたの産まれ</h1>
+    <div class="birth-card">
+      <div class="birth-name">${b.name}</div>
+      <p style="margin:6px 0 10px;font-size:14px">${b.text}</p>
+      <dl class="kv"><dt>年齢</dt><dd>${m.age}歳</dd><dt>魔術属性</dt><dd>${m.element}</dd><dt>魔術回路</dt><dd>${m.circuits}本</dd>
+        <dt>資金</dt><dd>${m.money}万円</dd><dt>願い</dt><dd>${b.wish}</dd><dt>特徴</dt><dd>${b.perk}</dd></dl>
+      <h3>能力値</h3>${statBars(m.stats)}
+    </div>
+    <div class="field"><label for="mname">マスターの名前</label><input id="mname" maxlength="16" value="${esc(m.name)}" autocomplete="off"></div>
+    <div class="choices">
+      <button class="choice primary" data-act="start"><span class="c-label">この運命で始める</span></button>
+      <button class="choice" data-act="reroll"><span class="c-label">運命を引き直す</span><span class="c-hint">産まれ・能力を再抽選</span></button>
+      <button class="choice" data-act="title"><span class="c-label">タイトルへ戻る</span></button>
+    </div></article>`;
+}
+function statBars(stats) {
+  return `<div class="bars">${Object.keys(STAT_LABEL).map(k => `<div class="bar-row"><span>${STAT_LABEL[k]}</span><div class="bar"><i style="width:${stats[k]}%"></i></div><span class="num">${stats[k]}</span></div>`).join('')}</div>`;
+}
+function paramGrid(p, effFn) {
+  return `<div class="params">${PARAM_NAMES.map((n, i) => {
+    const base = p[i]; const eff = effFn ? effFn(i) : null; const bv = rankValue(base);
+    const diff = eff === null ? 0 : eff - bv;
+    const shown = diff ? `${base}<small>→${valueRank(eff)}</small>` : base;
+    return `<div class="param"><div class="pl">${n}</div><div class="pr ${diff > 0 ? 'up' : diff < 0 ? 'down' : ''}">${shown}</div>
+      <div class="bar"><i style="width:${Math.min(100, ((eff ?? bv) / 65) * 100)}%"></i></div></div>`;
+  }).join('')}</div>`;
+}
+function viewSummon() {
+  const sv = SCENE.sv;
+  return `<article class="scene">
+    ${circleSVG('summon-glow')}
+    <div class="reveal">
+      <p class="quote" style="font-family:var(--font-display);font-size:16px;margin:16px 0">「${sv.line}」</p>
+      ${servantCard(sv)}
+      <div class="choices"><button class="choice primary" data-act="aftersummon"><span class="c-label">契約を結ぶ</span></button></div>
+    </div></article>`;
+}
+function servantCard(sv) {
+  return `<div class="svcard"><div class="svclass">${CLASS_EN[sv.cls] || sv.cls}</div>
+    <div class="svname">${sv.name}</div>
+    <div><span class="tag gold">${sv.cls}</span><span class="tag">${sv.align}</span><span class="tag">性格：${PERSONAS[sv.persona].label}</span></div>
+    <p style="font-size:13px;color:var(--muted);margin:8px 0 12px">${sv.desc}</p>
+    ${paramGrid(sv.p, G && G.servant && G.servant.id === sv.id ? servantParam : null)}
+    <div class="np"><div class="np-ruby">${sv.npRuby}</div><div class="np-name">${sv.np}</div></div></div>`;
+}
+function viewMaster() {
+  const m = G.master; const b = BIRTHS.find(x => x.id === m.birth);
+  return `<section class="panel"><h2>${M()}</h2><div><span class="tag gold">${b.name}</span><span class="tag">${alignLabel()}</span><span class="tag">${m.element}</span></div>
+    <h3>状態</h3><div class="bars">
+      <div class="bar-row"><span>HP</span><div class="bar hp"><i style="width:${m.hp}%"></i></div><span class="num">${m.hp}</span></div></div>
+    <dl class="kv" style="margin-top:10px"><dt>令呪</dt><dd>${m.seals}画</dd><dt>資金</dt><dd>${m.money}万円</dd><dt>魔術回路</dt><dd>${m.circuits}本</dd>
+      <dt>陣地</dt><dd>Lv ${G.workshop}${G.flags.leyline || m.birth === 'shrine' ? '（霊脈の知識あり）' : ''}</dd>
+      <dt>願い</dt><dd>${b.wish}</dd><dt>特徴</dt><dd>${b.perk}</dd>
+      <dt>属性値</dt><dd>秩序 ${m.align.law > 0 ? '+' : ''}${m.align.law}／善 ${m.align.good > 0 ? '+' : ''}${m.align.good}</dd></dl>
+    <h3>能力値</h3>${statBars(m.stats)}
+    ${G.servant ? `<p class="note" style="font-size:12px;color:var(--muted)">マスターの魔力による英霊パラメータ補正：${masterCorrection() > 0 ? '+' : ''}${masterCorrection()}（魔力が低いとサーヴァントの性能が落ちる）</p>` : ''}
+    <h3>所持している触媒</h3>${G.catalysts.length ? G.catalysts.map(id => `<span class="tag gold">${SV_BY_ID[id].catalyst}</span>`).join('') : '<p class="empty">まだ無い</p>'}
+    <h3>判明している事実</h3>
+      ${G.flags.grailTruth ? '<span class="tag red">聖杯は汚染されている</span>' : G.flags.grailHint ? '<span class="tag">聖杯には何か秘密がある……</span>' : '<p class="empty">特になし</p>'}
+      ${G.flags.registered ? '<span class="tag green">教会に登録済み</span>' : ''}
+  </section>`;
+}
+function viewServant() {
+  if (!G.servant) return '<section class="panel"><p class="empty">まだサーヴァントを召喚していない。<br>準備期間の終わりに召喚の儀が行われる。</p></section>';
+  const s = G.servant; const sv = servantOf(G); const per = PERSONAS[sv.persona];
+  return `<section class="panel">${servantCard(sv)}
+    <h3>状態</h3><div class="bars">
+      <div class="bar-row"><span>HP</span><div class="bar hp"><i style="width:${(s.hp / servantHpMax()) * 100}%"></i></div><span class="num">${s.hp}</span></div>
+      <div class="bar-row"><span>魔力</span><div class="bar mp"><i style="width:${s.mp}%"></i></div><span class="num">${s.mp}</span></div>
+      <div class="bar-row"><span>絆</span><div class="bar bond"><i style="width:${s.bond}%"></i></div><span class="num">Lv${Math.floor(s.bond / 10)}</span></div></div>
+    <dl class="kv" style="margin-top:10px"><dt>関係</dt><dd>${s.special ? `<span class="tag red">${RELATIONS[s.special].name}</span>` : s.bond >= 70 ? '夜に語らえば、何かが起きるかもしれない' : 'マスターとサーヴァント（絆Lv7で変化）'}</dd>
+      <dt>真名</dt><dd>${s.exposed ? '<span class="tag red">敵に知られている</span>' : '秘匿中'}</dd>
+      <dt>好み</dt><dd>${s.bond >= 20 ? per.likes.map(k => ACTIVITIES[k].name).join('、') : '絆Lv2で判明'}</dd>
+      <dt>苦手</dt><dd>${s.bond >= 40 ? per.dislikes.map(k => ACTIVITIES[k].name).join('、') : '絆Lv4で判明'}</dd></dl>
+    <p class="note" style="font-size:12px;color:var(--muted);margin-top:12px">パラメータの「→」はマスター補正後の実効ランク。判定ではランクを数値（E=10〜EX=65）にして使う。</p>
+  </section>`;
+}
+function viewRivals() {
+  if (!G.rivals.length) return '<section class="panel"><p class="empty">聖杯戦争が始まると、敵陣営の情報がここに表示される。</p></section>';
+  return `<section class="panel"><h2>陣営</h2><p class="note" style="font-size:12px;color:var(--muted);margin:0 0 12px">情報段階：①マスター判明 ②拠点判明（襲撃可能） ③真名判明（戦闘有利）</p>
+    <div class="rivals">${G.rivals.map(r => {
+      const s = servantOf(r);
+      return `<div class="rival ${r.alive ? '' : 'out'}">
+        <div class="rival-head"><span class="rival-cls">${r.intel >= 3 ? s.name : r.cls}</span>
+          <span>${!r.alive ? '<span class="tag">脱落</span>' : r.ally ? '<span class="tag green">同盟</span>' : ''}${r.bounty && r.alive ? '<span class="tag red">討伐令</span>' : ''}
+          <span class="intel" aria-label="情報段階${r.intel}">${[1, 2, 3].map(i => `<i class="${r.intel >= i ? 'on' : ''}"></i>`).join('')}</span></span></div>
+        <p>${r.cls}　マスター：${r.intel >= 1 ? `${esc(r.master)}（${r.type}）` : '不明'}</p>
+        ${r.intel >= 2 && r.alive ? `<div class="bar-row" style="margin-top:6px"><span>HP</span><div class="bar enemy"><i style="width:${(r.hp / r.hpMax) * 100}%"></i></div><span class="num">${r.hp}</span></div>` : ''}
+        ${r.intel >= 3 ? `<div style="margin-top:8px">${paramGrid(s.p)}</div><p>宝具：${s.np}（${s.npRuby}）</p>` : ''}
+      </div>`;
+    }).join('')}</div></section>`;
+}
+function viewLog() {
+  return `<section class="panel"><h2>記録</h2>
+    <div class="log-list" style="margin-top:12px">${G.log.map(l => `<div><span>${l.when}</span><p style="margin:0">${esc(l.text)}</p></div>`).join('')}</div>
+    <h3>ゲーム</h3><div class="choices">
+      <button class="choice" data-act="totitle"><span class="c-label">タイトルへ戻る</span><span class="c-hint">進行は自動保存されている</span></button>
+      <button class="choice danger" data-act="reset"><span class="c-label">${SCENE && SCENE.confirmReset ? 'もう一度押すと削除' : 'セーブデータを削除'}</span></button>
+    </div></section>`;
+}
+function viewEnding() {
+  const s = SCENE; const sv = G.servant ? servantOf(G) : null;
+  return `<article class="scene">
+    ${circleSVG()}
+    <div class="scene-sub">${s.good ? 'ENDING' : 'BAD END'}</div>
+    <h1 class="scene-title">${s.title}</h1>
+    <div class="scene-body">${s.text.join('')}</div>
+    <div class="ending-stats">
+      <div>到達<b>${G.phase === 'end' && G.servant ? `${G.day}日目` : `準備${G.day}日目`}</b></div>
+      <div>撃破数<b>${G.kills}騎</b></div>
+      <div>サーヴァント<b>${sv ? sv.short : '―'}</b></div>
+      <div>絆<b>${G.servant ? `Lv${Math.floor(G.servant.bond / 10)}` : '―'}${G.servant && G.servant.special ? `・${RELATIONS[G.servant.special].name}` : ''}</b></div>
+    </div>
+    <div class="choices"><button class="choice primary" data-act="totitle"><span class="c-label">タイトルへ</span></button></div>
+  </article>`;
+}
+
+// ---------------- 操作（タップ） ----------------
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-choice],[data-tab],[data-act]');
+  if (!t || t.disabled) return;
+  if (t.dataset.tab) { TAB = t.dataset.tab; if (SCENE) SCENE.confirmReset = false; render(); return; }
+  if (t.dataset.choice !== undefined) { const c = SCENE.choices[+t.dataset.choice]; if (c && !c.disabled) c.fn(); return; }
+  const a = t.dataset.act;
+  if (a === 'new') createScreen();
+  else if (a === 'reroll') { const name = document.getElementById('mname').value.trim(); const m = rollMaster(); if (name) m.name = name; createScreen(m); }
+  else if (a === 'title' || a === 'totitle') titleScreen();
+  else if (a === 'start') {
+    const name = document.getElementById('mname').value.trim() || SCENE.master.name;
+    SCENE.master.name = name.slice(0, 16);
+    newGame(SCENE.master);
+    const b = BIRTHS.find(x => x.id === G.master.birth);
+    next('物語の始まり', [`<p>${CITY.intro}</p>`, `<p>${M()}――${b.name}。${b.text}</p>`,
+      `<p>右手の甲に浮かんだ三画の紋様。それは聖杯に選ばれたマスターの証、<b>令呪</b>だ。聖杯戦争の開幕まで、あと${PREP_DAYS}日。</p>`,
+      G.catalysts.length ? `<p>家の宝物庫からは、英霊召喚の触媒<b>「${SV_BY_ID[G.catalysts[0]].catalyst}」</b>を持ち出してきた。</p>` : '',
+      '<p class="note">準備期間のうちに能力を鍛え、触媒を探し、召喚陣を整えよう。触媒がなければ、あなたの在り方に似た英霊が応えるという。</p>'], startSlot, '準備を始める', 'PROLOGUE');
+  }
+  else if (a === 'continue') { G = SCENE.save; if (!G.flags) G.flags = {}; startFromSave(); }
+  else if (a === 'aftersummon') afterSummon();
+  else if (a === 'reset') {
+    if (SCENE.confirmReset) { clearSave(); titleScreen(); }
+    else { SCENE.confirmReset = true; render(); }
+  }
+});
+function startFromSave() {
+  if (G.phase === 'summon') return summonScene();
+  hub();
+}
+
+// ---------------- 起動 ----------------
+function boot(data) {
+  if (data && data.save) { try { G = JSON.parse(data.save); return startFromSave(); } catch (e) { } }
+  titleScreen();
+}
+if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ save: LAST_HUB }));
+if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot);
+else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});
+
+</script>
+</body>
+</html>
