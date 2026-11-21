@@ -188,7 +188,8 @@ function servantCard(sv) {
     <div><span class="tag gold">${sv.cls}</span><span class="tag">${sv.align}</span><span class="tag">性格：${PERSONAS[sv.persona].label}</span><span class="tag">口調：${voiceOf(sv).label}</span></div>
     <p style="font-size:13px;color:var(--muted);margin:8px 0 12px">${sv.desc}</p>
     ${paramGrid(sv.p, G && G.servant && G.servant.id === sv.id ? servantParam : null)}
-    <div class="np"><div class="np-ruby">${sv.npRuby}</div><div class="np-name">${sv.np}</div></div></div>`;
+    <div class="np"><div class="np-ruby">${sv.npRuby}</div><div class="np-name">${sv.np}</div></div>
+    ${typeof skillListHTML === 'function' && SKILL_DATA[sv.id] ? `<h3 style="margin-top:14px">保有スキル／クラススキル</h3>${skillListHTML(sv)}` : ''}</div>`;
 }
 function viewMaster() {
   const m = G.master; const b = BIRTHS.find(x => x.id === m.birth);
@@ -240,7 +241,7 @@ function viewRivals() {
           <span class="intel" aria-label="情報段階${r.intel}">${[1, 2, 3].map(i => `<i class="${r.intel >= i ? 'on' : ''}"></i>`).join('')}</span></span></div>
         <p>${r.cls}　マスター：${r.intel >= 1 ? `${esc(r.master)}（${r.type}）` : '不明'}</p>
         ${r.intel >= 2 && r.alive ? `<div class="bar-row" style="margin-top:6px"><span>HP</span><div class="bar enemy"><i style="width:${(r.hp / r.hpMax) * 100}%"></i></div><span class="num">${r.hp}</span></div>` : ''}
-        ${knowsName(r) ? `<div style="margin-top:8px">${paramGrid(s.p)}</div><p>宝具：${s.np}（${s.npRuby}）</p>` : ''}
+        ${knowsName(r) ? `<div style="margin-top:8px">${paramGrid(s.p)}</div><p>宝具：${s.np}（${s.npRuby}）</p>${skillListHTML(s)}` : ''}
       </div>`;
     }).join('')}</div></section>`;
 }
@@ -276,7 +277,7 @@ function viewEnding() {
 // ---------------- 操作（タップ） ----------------
 document.addEventListener('click', e => {
   if (REVEAL_UNTIL > Date.now() && e.target.closest('.main')) { skipReveal(); return; }   // 表示中のタップは全文表示
-  const t = e.target.closest('[data-choice],[data-tab],[data-act],[data-mact],[data-cfg],[data-pickcls],[data-gender]');
+  const t = e.target.closest('[data-choice],[data-tab],[data-act],[data-mact],[data-cfg],[data-pickcls],[data-gender],[data-skill]');
   if (!t || t.disabled) return;
   sfx('tick');
   if (t.dataset.cfg) {
@@ -292,6 +293,7 @@ document.addEventListener('click', e => {
     else m.name = name.slice(0, 16);
     render(); return;
   }
+  if (t.dataset.skill !== undefined && B) { const i = +t.dataset.skill; B.skill = i < 0 ? null : i; battleScene(); return; }
   if (t.dataset.mact) { if (B) { B.mact = t.dataset.mact; battleScene(); } return; }
   if (t.dataset.pickcls) { pickServantScene(t.dataset.pickcls); return; }
   if (t.dataset.tab) { TAB = t.dataset.tab; if (SCENE) SCENE.confirmReset = false; render(); return; }

@@ -39,6 +39,7 @@ function startBattle(rival, opt = {}) {
   G.battles++;
   B = { r: rival, round: 0, opt, final: !!(opt.final || opt.boss), boss: !!opt.boss, beast: !!opt.beast, miracle: false,
     enemyNext: null, tell: null, sure: false, charge: 0, echarge: 0, mact: 'command', extra: null, enemySeal: false };
+  skillInit();
   const pre = [];
   const seen = meet(rival);
   if (seen) pre.push(`<p>${seen}</p>`);
@@ -121,6 +122,7 @@ function battleScene(extra) {
     const a = MASTER_ACTS[k]; const cnt = a.item ? `×${G.items[a.item]}` : '';
     return `<button class="chip ${B.mact === k ? 'on' : ''}" data-mact="${k}" ${mactAvailable(k) ? '' : 'disabled'} aria-pressed="${B.mact === k}">${a.name}${cnt}<small>${a.hint}</small></button>`;
   }).join('')}</div></div>`);
+  body.push(skillRowHTML());
   body.push(triangleSVG(B.tell ? B.tellKey : null));
 
   const p = i => `${PARAM_NAMES[i]}${valueRank(servantParam(i))}`;
@@ -151,6 +153,7 @@ function shirouBattleScene(body) {
     const a = MASTER_ACTS[k]; const name = k === 'command' ? '使わない' : `${a.name}×${G.items[a.item]}`; const hint = k === 'command' ? '' : a.hint;
     return `<button class="chip ${B.mact === k ? 'on' : ''}" data-mact="${k}" aria-pressed="${B.mact === k}">${name}<small>${hint}</small></button>`;
   }).join('')}</div></div>`);
+  body.push(skillRowHTML());
   body.push(triangleSVG(B.tell ? B.tellKey : null));
   const choices = Object.entries(SHIROU_ACTS).map(([k, a]) => ({
     label: a.ruby ? `${a.name}` : a.name, hint: a.ruby ? `${a.ruby}・${a.hint}` : a.hint, disabled: !shirouActAvailable(k),
@@ -181,7 +184,7 @@ function battleRound(cmd) {
   const log = [];
   B.fxq = []; B.anim = { me: sv.hp, en: r.hp };
   const P = me.short, E = enemyName();
-  const et = B.enemyNext;
+  let et = B.enemyNext;
 
   // 令呪
   let tac = cmd, sealBoost = 0, npFree = false;
@@ -217,6 +220,13 @@ function battleRound(cmd) {
   if (ma === 'gem') { item('gem', -1); mBonus += 12; r.hp -= 10; log.push(`宝石を投げ放つ。炸裂した魔力が${E}を撃った！（10ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: 10 }); }
   if (ma === 'crystal') { item('crystal', -1); mp(40); log.push(`魔力結晶を砕き、${P}に魔力を流し込んだ。（魔力+40）`); }
 
+  // スキル（自分が選んだもの・敵のAI）と、行動封じ
+  if (B.skill != null) { skillActivate('me', B.skill, log); B.skill = null; }
+  enemySkillAI(log);
+  let stunMe = 0, stunEn = 0;
+  if (B.stun.en) { B.stun.en = false; if (et !== 'guard') log.push(`<span class="note">${E}は身動きが取れない！</span>`); et = 'guard'; stunEn = -10; }
+  if (B.stun.me) { B.stun.me = false; stunMe = -12; log.push(`<span class="note">${P}の動きが鈍っている……！</span>`); }
+
   // 宝具の宣言
   if (tac === 'np') {
     if (!npFree) sv.mp -= 50;
@@ -249,8 +259,8 @@ function battleRound(cmd) {
     + (first && B.opt.ambush ? 15 : 0) + (first && B.opt.duel ? 6 : 0) + (B.opt.defend ? G.workshop * 3 : 0)
     + (B.final && G.flags.resolve === 'win' ? 6 : 0) + (B.boss && G.flags.resolve === 'destroy' ? 8 : 0) + (B.boss && G.flags.mudKnown ? 5 : 0) + (B.final && G.flags.resolve === 'pure' ? 5 : 0) + (B.beast ? (G.flags.resolve === 'beast' ? 8 : 0) + (G.flags.grailBeast ? 5 : 0) + (G.flags.serpentKnown ? 4 : 0) : 0) + (G.flags.partnerCombo && sv.special === 'partner' ? 3 : 0)
     + (!B.boss && r.id === mys().culprit && mys().culpritKnown ? 3 + (G.flags.shadowKnown ? 3 : 0) : 0)
-    + sealBoost + mBonus + B.charge;
-  const enMod = classAffinity(r.cls, me.cls) + r.power + (sv.exposed ? 6 : 0) + (first && B.opt.enemyFirst ? 12 : 0) + eSeal + B.echarge;
+    + sealBoost + mBonus + B.charge + skillMod('me', tac, et) + stunMe;
+  const enMod = classAffinity(r.cls, me.cls) + r.power + (sv.exposed ? 6 : 0) + (first && B.opt.enemyFirst ? 12 : 0) + eSeal + B.echarge + skillMod('en', et, tac) + stunEn;
   B.charge = 0; B.echarge = 0;
 
   const score = (side, t, mod) => {
@@ -266,14 +276,14 @@ function battleRound(cmd) {
     if (Math.random() * 100 < luck / 2) { d = Math.round(d * 1.5); log.push('会心の一撃！'); crit = true; }
     return Math.max(4, d);
   };
-  const hitEnemy = (d, t) => { r.hp -= d; log.push(winText(t, P, E) + `（${d}ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: d, crit }); };
-  const hitMe = (d, t) => { if (B.aias) { d = Math.max(1, Math.round(d * 0.3)); log.push('<span class="note">七枚の花弁が、攻撃の大半を受け止めた！</span>'); }
+  const hitEnemy = (d, t) => { d = skillDamage('en', d, log); r.hp -= d; log.push(winText(t, P, E) + `（${d}ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: d, crit }); };
+  const hitMe = (d, t) => { d = skillDamage('me', d, log); if (B.aias) { d = Math.max(1, Math.round(d * 0.3)); log.push('<span class="note">七枚の花弁が、攻撃の大半を受け止めた！</span>'); }
     shp(-d); log.push(winText(t, E, P) + `（${d}ダメージ）`); B.fxq.push({ type: 'hit', side: 'me', dmg: d, crit }); };
 
   // ---- 敵マスターを狙う ----
   if (tac === 'master') {
     NOTES = []; tone('evil');
-    const mine = servantParam(2) + rand(1, 40) + (isAssassin() ? 20 : -8) + mBonus;
+    const mine = servantParam(2) + rand(1, 40) + (isAssassin() ? 20 : -8) + mBonus + buffSum('me', 'master') + Math.ceil(classSkillV(me, '気配遮断') / 2);
     const guardS = Math.round(rivalParam(r, 2) * 0.5) + r.power * 3 + rand(1, 40) + (et === 'guard' ? 15 : 0);
     log.push(`<span class="note">${P}：敵マスターへ（${mine}）　対　${E}：護衛（${guardS}）</span>`);
     if (mine >= guardS && (isAssassin() || r.hp <= r.hpMax * 0.4)) {
@@ -301,21 +311,21 @@ function battleRound(cmd) {
       if (TACTICS[et].beats === tac) { t2 += 15; log.push(`<span class="note">${TACTICS[et].name}に${TACTICS[tac].name}を制された！（敵+15）</span>`); }
     }
     log.push(`<span class="note">${P}：${TACTICS[tac].name}（${m2}）　対　${E}：${TACTICS[et].name}（${t2}）</span>`);
-    if (m2 >= t2) hitEnemy(dmgCalc(m2 - t2, tac, rankValue(servantOf(r).p[1]), servantParam(4)), tac);
-    else hitMe(dmgCalc(t2 - m2, et, servantParam(1), rivalParam(r, 4)), et);
+    if (m2 >= t2) hitEnemy(dmgCalc(m2 - t2, tac, rankValue(servantOf(r).p[1]), servantParam(4) + 2 * skillCrit('me')), tac);
+    else hitMe(dmgCalc(t2 - m2, et, servantParam(1), rivalParam(r, 4) + 2 * skillCrit('en')), et);
   } else if (atk(tac) && et === 'guard') {
     log.push(`<span class="note">${P}：${TACTICS[tac].name}（${mine}）　対　${E}：防御（${theirs}）</span>`);
-    if (mine >= theirs) hitEnemy(dmgCalc(mine - theirs, tac, rankValue(servantOf(r).p[1]), servantParam(4), tac === 'np' ? 0.7 : 0.5), tac);
+    if (mine >= theirs) hitEnemy(dmgCalc(mine - theirs, tac, rankValue(servantOf(r).p[1]), servantParam(4) + 2 * skillCrit('me'), skillPierce('me') ? 0.9 : tac === 'np' ? 0.7 : 0.5), tac);
     else { B.echarge = 12; log.push(`${E}は攻撃を受け止めきった。反撃の気配がある。`); }
   } else if (tac === 'guard' && atk(et)) {
     log.push(`<span class="note">${P}：防御（${mine}）　対　${E}：${TACTICS[et].name}（${theirs}）</span>`);
-    if (theirs > mine) hitMe(dmgCalc(theirs - mine, et, servantParam(1), rivalParam(r, 4), et === 'np' ? 0.7 : 0.5), et);
+    if (theirs > mine) hitMe(dmgCalc(theirs - mine, et, servantParam(1), rivalParam(r, 4) + 2 * skillCrit('en'), skillPierce('en') ? 0.9 : et === 'np' ? 0.7 : 0.5), et);
     else { B.charge = 12; log.push(`${P}は攻撃を完全に受け止めた！ 次の手番、反撃の好機だ。（+12）`); }
   } else if (tac === 'observe') {
     B.sure = true; B.charge = Math.max(B.charge, 8); r.clues = (r.clues || 0) + 1;
     if (atk(et)) {
       log.push(`<span class="note">${P}：見切り（回避${mine}）　対　${E}：${TACTICS[et].name}（${theirs}）</span>`);
-      if (theirs > mine) hitMe(dmgCalc(theirs - mine, et, servantParam(1), rivalParam(r, 4), 0.8), et);
+      if (theirs > mine) hitMe(dmgCalc(theirs - mine, et, servantParam(1), rivalParam(r, 4) + 2 * skillCrit('en'), 0.8), et);
       else log.push(`${P}は紙一重で攻撃をかわし、${E}の動きを見極めた。`);
     } else log.push(`互いに出方を窺う。${P}は${E}の癖を観察した。`);
     if (!knowsName(r) && !B.boss) {
@@ -352,6 +362,8 @@ function afterRound(log) {
 function afterRoundCore(log) {
   const r = B.r; const sv = G.servant;
   const extra = [`<div class="blog">${log.map(t => `<p>${t}</p>`).join('')}</div>`];
+  if (r.hp <= 0 && B.guts.en) { B.guts.en = false; r.hp = 20; extra.push(`<p class="note">${enemyName()}は、倒れる寸前で踏みとどまった！（戦闘続行）</p>`); }
+  if (sv.hp <= 0 && B.guts.me) { B.guts.me = false; sv.hp = 20; extra.push(`<p class="note">${SV()}は、倒れる寸前で踏みとどまった！（戦闘続行）</p>`); }
   if (r.hp <= 0) return battleWin(extra);
   if (sv.hp <= 0) {
     if (sv.special && !B.miracle) {
@@ -359,6 +371,7 @@ function afterRoundCore(log) {
       extra.push(`<p class="quote">${say('notYet')}</p><p>絆の力が、消えかけた霊基を繋ぎ止めた。（HP 25で踏みとどまった）</p>`);
     } else return battleLoseChoice(extra);
   }
+  skillTick();
   planEnemy();
   battleScene(extra);
 }

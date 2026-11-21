@@ -465,3 +465,13 @@ body:not(.fx-on) #snow { display: none; }
 .talk.enemy { border-left-color: var(--gold); background: #d2ad5f10; }
 
 .truth.beast { border-color: #b9e3c688; background: #b9e3c612; }
+
+/* ---- スキル ---- */
+.skill-list { display: grid; gap: 6px; margin: 6px 0 10px; }
+.skill-list > div { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; background: var(--bg-3); font-size: 13px; line-height: 1.6; }
+.skill-list b { color: var(--fg); }
+.skill-list em { font-style: normal; color: var(--gold); margin-left: 6px; font-size: 12px; }
+.skill-list span { display: block; color: var(--muted); font-size: 12px; }
+.skill-list.cls > div { background: transparent; border-style: dashed; }
+.skill-use { display: inline-block; font-size: 13px; color: var(--gold); }
+.skill-use.en { color: #f3b7bd; }

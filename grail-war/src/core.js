@@ -75,6 +75,10 @@ function knowsName(r) { return r.intel >= 3 || !!r.named; }
 function meet(r) {
   r.intel = Math.max(r.intel, 1);
   if (typeof isShirou === 'function' && isShirou()) { const t = shirouMeet(r); if (t) return t; }
+  if (G.servant && typeof classSkillV === 'function' && classSkillV(servantOf(G), '真名看破') && !knowsName(r) && !['ori', 'beast8'].includes(r.servantId)) {
+    r.named = true; addLog(`真名看破：${r.cls}の真名「${servantOf(r).name}」。`);
+    return `${SV()}の瞳が、裁定者の光を帯びた。「――真名看破。あの英霊は、<b>${servantOf(r).name}</b>です」`;
+  }
   if (typeof isFuji === 'function' && isFuji() && !knowsName(r) && r.servantId !== 'ori') {
     r.named = true; addLog(`${r.cls}の真名「${servantOf(r).name}」を一目で看破。`);
     return `一目で分かった。あの姿、あの武具――<b>${servantOf(r).name}</b>だ。かつての旅で、共に戦ったことのある英霊。`;
@@ -297,6 +301,7 @@ function dailyUpdate() {
     for (const r of aliveRivals()) { r.hp = Math.min(r.hpMax, r.hp + 18); r.mp = Math.min(100, r.mp + 30); }
     simulateRivals();
     mysteryDaily();
+    skillDaily();
   }
 }
 
