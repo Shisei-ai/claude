@@ -59,7 +59,7 @@ function SV() { return G.servant ? servantOf(G).short : 'サーヴァント'; }
 const SVname = SV;
 function birthOf() { return BIRTHS.find(x => x.id === G.master.birth); }
 function fmt(s) {
-  let t = s.replaceAll('{m}', M()).replaceAll('{s}', SV());
+  let t = s.replaceAll('{m}', typeof isShirou === 'function' && isShirou() ? 'シロウ' : M()).replaceAll('{s}', SV());
   if (G && G.servant) t = fmtVoice(t, servantOf(G));   // 一人称・二人称を英霊の口調に
   return t;
 }
@@ -74,6 +74,7 @@ function knowsName(r) { return r.intel >= 3 || !!r.named; }
 // 敵サーヴァントと対面した：藤丸なら一目で真名を看破する。看破した時は説明文を返す
 function meet(r) {
   r.intel = Math.max(r.intel, 1);
+  if (typeof isShirou === 'function' && isShirou()) { const t = shirouMeet(r); if (t) return t; }
   if (typeof isFuji === 'function' && isFuji() && !knowsName(r) && r.servantId !== 'ori') {
     r.named = true; addLog(`${r.cls}の真名「${servantOf(r).name}」を一目で看破。`);
     return `一目で分かった。あの姿、あの武具――<b>${servantOf(r).name}</b>だ。かつての旅で、共に戦ったことのある英霊。`;
@@ -89,7 +90,7 @@ function gain(stat, n) { const st = G.master.stats; st[stat] = clamp(st[stat] + 
 function money(n) { G.master.money = Math.max(0, G.master.money + n); }
 function hp(n) { G.master.hp = clamp(G.master.hp + n, 0, G.master.hpMax); }
 function od(n) { G.master.od = clamp(G.master.od + n, 0, odMax()); }
-function odMax() { return 20 + Math.floor(G.master.stats.mag * 0.6); }
+function odMax() { return 20 + Math.floor(G.master.stats.mag * 0.6) + (G.master.birth === 'shirou' ? 25 : 0); }   // 士郎は投影のために魔力を溜め込める
 function shp(n) { if (G.servant) G.servant.hp = clamp(G.servant.hp + n, 0, servantHpMax()); }
 function mp(n) { if (G.servant) G.servant.mp = clamp(G.servant.mp + n, 0, 100); }
 function item(k, n) { G.items[k] = clamp((G.items[k] || 0) + n, 0, ITEM_MAX); }
@@ -148,7 +149,8 @@ function schk(i, diff) {
 
 // マスターの魔力がサーヴァントの性能に影響する（Fateの設定に準拠）
 function masterCorrection() {
-  if (G.master.birth === 'fujimaru' || G.master.birth === 'kishinami') return 6;   // 歴戦のマスター：英霊は十二分に力を振るえる
+  if (G.master.birth === 'fujimaru' || G.master.birth === 'kishinami') return 6;
+  if (G.master.birth === 'shirou') return -6;   // 衛宮士郎：魔力の供給が苦手な、未熟なマスター   // 歴戦のマスター：英霊は十二分に力を振るえる
   const m = G.master.stats.mag;
   if (m < 25) return -8; if (m < 40) return -4; if (m < 70) return 0; if (m < 85) return 3; return 5;
 }

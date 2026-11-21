@@ -57,11 +57,11 @@ function skipReveal() {
 }
 function viewTop() {
   const night = G.slot === 1;
-  const dayText = G.phase === 'growth' ? (isFuji() ? `20歳・${stageLabel()}` : isKishi() ? `月の王・${stageLabel()}` : `${G.master.age}歳`) : G.phase === 'prep' ? `18歳・${G.day}日目` : G.phase === 'summon' || (G.phase === 'war' && G.day === 0) ? '開幕前夜' : G.phase === 'end' ? '終幕' : G.phase === 'epilogue' ? epiAgeLabel() : `${G.day}日目`;
+  const dayText = G.phase === 'growth' ? (isFuji() ? `20歳・${stageLabel()}` : isKishi() ? `月の王・${stageLabel()}` : isShirou() ? `${G.master.age}歳・${stageLabel()}` : `${G.master.age}歳`) : G.phase === 'prep' ? `${G.master.age}歳・${G.day}日目` : G.phase === 'summon' || (G.phase === 'war' && G.day === 0) ? '開幕前夜' : G.phase === 'end' ? '終幕' : G.phase === 'epilogue' ? epiAgeLabel() : `${G.day}日目`;
   const seals = [0, 1, 2].map(i => `<svg class="seal ${i < G.master.seals ? '' : 'used'}" viewBox="0 0 18 22" aria-hidden="true"><path d="${SEAL_PATH}"/></svg>`).join('');
   const extraSeals = G.master.seals > 3 ? `<span class="tag red">+${G.master.seals - 3}</span>` : '';
   const sv = G.servant;
-  const prog = G.phase === 'growth' ? (isFuji() || isKishi() ? G.growth.stage / stageList().length : G.master.age / ADULT_AGE) : G.phase === 'prep' ? (G.day - 1 + G.slot * 0.5) / PREP_DAYS : G.phase === 'war' ? (G.day - 1 + G.slot * 0.5) / WAR_DAYS : 1;
+  const prog = G.phase === 'growth' ? (isFuji() || isKishi() || isShirou() ? G.growth.stage / stageList().length : G.master.age / ADULT_AGE) : G.phase === 'prep' ? (G.day - 1 + G.slot * 0.5) / PREP_DAYS : G.phase === 'war' ? (G.day - 1 + G.slot * 0.5) / WAR_DAYS : 1;
   return `<header class="topbar">
     <div class="topbar-row">
       <div class="when"><span class="when-phase">${chapterOf().replace('　', ' ')}</span><span class="when-day">${dayText}</span>
@@ -177,7 +177,7 @@ function viewSummon() {
     ${SCENE.emergency ? '<p class="note" style="text-align:center;margin:10px 0 0">召喚陣も詠唱もないまま、令呪の光が英霊を呼び寄せた。</p>' : ''}
     ${SCENE.failed ? `<p class="note" style="text-align:center;margin:10px 0 0">「${SCENE.failed.catalyst}」は確かに縁を結んだ。だが、${SCENE.failed.cls}の霊基は、今のあなたには応えなかった。<br>代わりに、別の英霊が呼び声に応えた――。</p>` : ''}
     ${!BASE_CLASSES.includes(sv.cls) ? `<p class="extra-badge">特殊クラス　${sv.cls}</p>` : ''}
-    ${isKishi() ? `<p class="quote summon-line">${kishiReunionLine(sv)}</p><p class="note" style="text-align:center;margin:-6px 0 12px">――月の聖杯戦争を共に戦った記憶を持ったまま、英霊は応えた。（絆+${KISHI_MEMORY_BOND}）${SCENE.reunion ? '<br>月の玉座で言葉を交わした英霊だ。縁は、さらに深い。（絆+15）' : ''}</p>` : isFuji() ? `<p class="quote summon-line">${fujiReunionLine(sv)}</p><p class="note" style="text-align:center;margin:-6px 0 12px">――かつてカルデアであなたに喚ばれた記憶が、英霊の中で目を覚ました。（絆+${FUJI_MEMORY_BOND}）${SCENE.reunion ? '<br>夢に見た、あの英霊だ。再会の想いが、さらに縁を深める。（絆+15）' : ''}</p>` : `<p class="quote summon-line">「${sv.line}」</p>`}
+    ${isShirou() ? `<p class="quote summon-line">${SHIROU_REUNION}</p><p class="note" style="text-align:center;margin:-6px 0 12px">――あの冬の土蔵で交わした契約が、もう一度結ばれた。（絆+${SHIROU_MEMORY_BOND}）</p>` : isKishi() ? `<p class="quote summon-line">${kishiReunionLine(sv)}</p><p class="note" style="text-align:center;margin:-6px 0 12px">――月の聖杯戦争を共に戦った記憶を持ったまま、英霊は応えた。（絆+${KISHI_MEMORY_BOND}）${SCENE.reunion ? '<br>月の玉座で言葉を交わした英霊だ。縁は、さらに深い。（絆+15）' : ''}</p>` : isFuji() ? `<p class="quote summon-line">${fujiReunionLine(sv)}</p><p class="note" style="text-align:center;margin:-6px 0 12px">――かつてカルデアであなたに喚ばれた記憶が、英霊の中で目を覚ました。（絆+${FUJI_MEMORY_BOND}）${SCENE.reunion ? '<br>夢に見た、あの英霊だ。再会の想いが、さらに縁を深める。（絆+15）' : ''}</p>` : `<p class="quote summon-line">「${sv.line}」</p>`}
     <div class="summon-card">${servantCard(sv)}
       <div class="choices"><button class="choice primary" data-act="aftersummon">${actIcon('seal')}<span class="c-label">契約を結ぶ</span></button></div></div>
   </article>`;
@@ -307,6 +307,7 @@ document.addEventListener('click', e => {
     SCENE.master.name = name.slice(0, 16);
     if (isFujiName(name)) SCENE.master = { ...fujimaruMaster(SCENE.master.name), gender: SCENE.master.gender };
     if (isKishiName(name)) SCENE.master = kishiMaster(SCENE.master.name, SCENE.master.gender);
+    if (isShirouName(name)) SCENE.master = shirouMaster(SCENE.master.name);
     newGame(SCENE.master);
     growthStart();
   }
@@ -335,6 +336,7 @@ else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});
 
 // 特殊クラスの兆し（召喚前に、条件の達成状況を表示）
 function viewExtraOmens() {
+  if (isShirou()) return '<h3>召喚する英霊</h3><p class="note" style="font-size:12px;color:var(--gold)">特殊シナリオ：触媒は、投影した「全て遠き理想郷」。応えるのは、ただ一騎――騎士王アルトリア。</p>';
   if (isKishi()) return `<h3>月の英霊</h3><p class="note" style="font-size:12px;color:var(--gold)">特殊シナリオ：召喚できるのは、月で契約した英霊たち（${lineupNames()}）。</p>`;
   if (isFuji()) return '<h3>特殊クラスの兆し</h3><p class="note" style="font-size:12px;color:var(--gold)">特殊シナリオ：すべての召喚制限が解除されている。カルデアゆかりの英霊（★）も召喚できる。</p>';
   return `<h3>特殊クラスの兆し</h3><p class="note" style="font-size:12px;color:var(--muted);margin:0 0 8px">条件をすべて満たすと、そのクラスの英霊が召喚に応えるようになる。触媒を使っても、条件を満たしていなければ応えない。</p>

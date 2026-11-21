@@ -111,6 +111,7 @@ function battleScene(extra) {
   }
   if (B.extra) body.push(...B.extra);
   if (B.tell) body.push(`<p class="tell">${B.tell}</p>`);
+  if (isShirou()) return shirouBattleScene(body);
   // マスターの行動（トグル）
   const mk = Object.keys(MASTER_ACTS).filter(k => !MASTER_ACTS[k].item || G.items[MASTER_ACTS[k].item] > 0);
   if (!mactAvailable(B.mact)) B.mact = 'command';
@@ -131,6 +132,24 @@ function battleScene(extra) {
     { label: '見切り', hint: '次の手を読む・真名の手がかり', fn: () => battleRound('observe'), icon: 'observe' },
   ];
   if (!B.boss) choices.push({ label: '敵マスターを狙う', hint: `${isAssassin() ? '気配遮断で有利' : '成功率低'}・悪`, cls: 'danger', fn: () => battleRound('master'), icon: 'target' });
+  choices.push({ label: `令呪（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu, icon: 'seal' });
+  if (!B.final) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
+  scene({ title: B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
+  animateBattle();
+}
+// 衛宮士郎の戦闘画面：士郎の行動を選ぶ。セイバーは自分の判断で戦う
+function shirouBattleScene(body) {
+  const auto = B.forceTac || saberAuto();
+  body.push(`<div class="mact"><div class="mact-head">士郎 <span>HP ${G.master.hp}/${G.master.hpMax}　オド ${G.master.od}/${odMax()}${B.shirouDown ? '　<b>満身創痍</b>' : ''}</span></div>
+    <p class="note" style="margin:4px 0 0">セイバーの構え：<b>${TACTICS[auto].name}</b>${B.forceTac ? '（指示）' : '（自分の判断）'}</p></div>`);
+  body.push(triangleSVG(B.tell ? B.tellKey : null));
+  const choices = Object.entries(SHIROU_ACTS).map(([k, a]) => ({
+    label: a.ruby ? `${a.name}` : a.name, hint: a.ruby ? `${a.ruby}・${a.hint}` : a.hint, disabled: !shirouActAvailable(k),
+    cls: k === 'ubw' ? 'primary wide' : ['calad', 'nine'].includes(k) ? 'danger' : '', icon: { blades: 'str', bow: 'target', aias: 'guard', calad: 'np', nine: 'np', ubw: 'np', support: 'bond' }[k],
+    fn: () => shirouRound(k),
+  }));
+  if (G.items.potion > 0) choices.push({ label: '治癒の霊薬を使う', hint: `セイバーHP+35（×${G.items.potion}）`, icon: 'guard', fn: () => { item('potion', -1); shp(35); B.forceTac = 'guard'; shirouRound('support'); } });
+  choices.push({ label: 'セイバーに指示を出す', hint: '次の手番の戦い方を決める', icon: 'observe', fn: saberOrderMenu });
   choices.push({ label: `令呪（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu, icon: 'seal' });
   if (!B.final) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
   scene({ title: B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
@@ -181,7 +200,8 @@ function battleRound(cmd) {
   }
 
   // マスターの行動
-  let mBonus = 0; const ma = B.mact; B.mact = 'command';
+  let mBonus = 0; const ma = isShirou() ? null : B.mact; B.mact = 'command';
+  if (isShirou()) mBonus = applyShirouAct(log, E);
   if (ma === 'command') mBonus = 5;
   if (ma === 'boost') { od(-15); mBonus = 14; log.push(`強化魔術で${P}の霊基を後押しした。`); }
   if (ma === 'heal') { od(-20); shp(25); log.push(`治癒魔術で${P}の傷を塞いだ。（HP+25）`); }
@@ -236,7 +256,8 @@ function battleRound(cmd) {
     return Math.max(4, d);
   };
   const hitEnemy = (d, t) => { r.hp -= d; log.push(winText(t, P, E) + `（${d}ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: d, crit }); };
-  const hitMe = (d, t) => { shp(-d); log.push(winText(t, E, P) + `（${d}ダメージ）`); B.fxq.push({ type: 'hit', side: 'me', dmg: d, crit }); };
+  const hitMe = (d, t) => { if (B.aias) { d = Math.max(1, Math.round(d * 0.3)); log.push('<span class="note">七枚の花弁が、攻撃の大半を受け止めた！</span>'); }
+    shp(-d); log.push(winText(t, E, P) + `（${d}ダメージ）`); B.fxq.push({ type: 'hit', side: 'me', dmg: d, crit }); };
 
   // ---- 敵マスターを狙う ----
   if (tac === 'master') {
@@ -313,6 +334,7 @@ function winText(t, a, d) {
   return pick(lines[t]);
 }
 function afterRound(log) {
+  if (isShirou() && B) { shirouCounter(log, B.enemyNext, enemyName()); shirouDownCheck(log); B.aias = false; }
   const cut = (B.fxq || []).filter(x => x.type === 'np' || x.type === 'seal');
   playQueue(cut.map(c => done => cutIn(c, done)), () => afterRoundCore(log));
 }

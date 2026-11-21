@@ -1,0 +1,386 @@
+// =============================================================
+//  特殊シナリオ：衛宮 士郎
+//  名前を「衛宮 士郎」にすると始まる。『Fate/stay night』の主人公のシナリオ。
+//
+//  冬木市の聖杯戦争から数年。胸に燻る「正義の味方」への憧れと共に、衛宮士郎は世界を周っていた。
+//  遠坂凛からの連絡で、深見市の聖杯戦争へ向かう。脳裏には、騎士王たる少女の姿が浮かんでいた。
+//
+//   ・世界を周った7つの年月で能力を育てる（成長期の代わり）。「無限の剣製」はすでにモノにしている
+//   ・召喚できる英霊はアルトリア（セイバー）のみ。召喚は特別な場面になる
+//   ・マスターとしては弱い（英霊のパラメータ補正-6）。代わりに士郎自身が英霊とある程度渡り合える
+//   ・戦闘では「士郎の行動」を選ぶのが中心。セイバーは自分の判断で戦う（指示を出すこともできる）
+//       投影した双剣で斬り込む／弓で援護する／熾天覆う七つの円環／偽・螺旋剣／是、射殺す百頭／無限の剣製
+//   ・第五次聖杯戦争で見た英霊が敵として現れやすく、士郎は一目で正体に気付く。赤い外套のアーチャーとも……
+//   ・エピローグでは、遠坂凛・間桐桜との再会が描かれる
+// =============================================================
+
+const SHIROU_NAME = '衛宮士郎';
+function isShirouName(name) { return String(name).replace(/[\s　]/g, '') === SHIROU_NAME; }
+function isShirou() { return !!G && G.master.birth === 'shirou'; }
+
+BIRTHS.push({ id: 'shirou', name: '正義の味方を目指す者', weight: 0, magic: true, home: '冬木市・衛宮邸',
+  origin: '', text: '冬木の聖杯戦争を生き延び、正義の味方を目指して世界を周っている。',
+  stats: { mag: 32, phy: 70, int: 46, spi: 80, cha: 50, luk: 34 },
+  growth: { phy: 1.15, spi: 1.1, mag: 1.05 },
+  money: 4, circuits: [27, 27], wish: '誰もが笑っていられる世界――正義の味方になること',
+  perk: '「無限の剣製」をモノにした投影魔術師。マスターとしては未熟だが、自ら英霊とある程度渡り合える（戦闘は士郎の行動が中心）。' });
+
+// アルトリアは「シロウ」と呼ぶ
+const SHIROU_MEMORY_BOND = 25;   // あの冬の記憶を持ったまま応える
+const SHIROU_REUNION = '「――問おう。貴方が、私のマスターか」<br>……いいえ。問うまでもありませんね。<br>「シロウ。――また、会えましたね」';
+// 第五次聖杯戦争で見た英霊（敵として現れやすく、一目で正体が分かる）
+const FIFTH_WAR = { 'ランサー': 'cuchulainn', 'ライダー': 'medusa', 'キャスター': 'medea', 'アサシン': 'kojiro', 'バーサーカー': 'heracles', 'アーチャー': 'emiya' };
+const FIFTH_LINE = {
+  cuchulainn: 'あの赤い槍。獣のような身のこなし――<b>クー・フーリン</b>。あの夜、俺の心臓を貫いた槍兵だ。',
+  medusa: '長い髪、眼帯、鎖の付いた短剣――<b>メドゥーサ</b>。桜を守っていた、あのライダーだ。',
+  medea: 'フードの奥の冷たい笑み――<b>メディア</b>。柳洞寺に陣を張っていた、裏切りの魔女。',
+  kojiro: '物干し竿のような長刀――<b>佐々木小次郎</b>。山門を守っていた、あの剣士だ。',
+  hassan: '髑髏の仮面――<b>ハサン・サッバーハ</b>。あの冬の夜に見た、暗殺者だ。',
+  heracles: '鉛色の巨躯――<b>ヘラクレス</b>。イリヤの傍らにいた、あの最強の英霊だ。',
+  emiya: '赤い外套、白と黒の双剣。――<b>あれは、俺だ</b>。いつか辿り着くかもしれない、俺の成れの果て。',
+  gilgamesh: '黄金の鎧――<b>ギルガメッシュ</b>。あの冬、全てを見下ろしていた英雄王。',
+};
+
+// ---- 世界を周った7年 ----
+const STAGES_S = [
+  { label: '旅立ち', band: '正義の味方' },
+  { label: '一年目・ロンドン', band: '旅', text: '遠坂に付き合って、時計塔のあるロンドンへ。魔術師の世界は、思っていた以上に広く、冷たかった。' },
+  { label: '二年目・紛争地', band: '旅', text: '銃声の止まない街。助けられる命と、助けられない命。その境目に、何度も立たされた。' },
+  { label: '三年目・砂漠の国', band: '旅', text: '乾いた風の中で、剣を投影し続けた。手のひらの豆が、いつの間にか消えなくなっていた。' },
+  { label: '四年目・東欧の森', band: '旅', text: '吸血種の噂を追って、深い森へ。あの冬の夜と同じ、冷たい月が昇っていた。' },
+  { label: '五年目・南の島', band: '旅', text: '津波に呑まれた村で、瓦礫をどかし続けた。誰かの「ありがとう」が、どんな報酬よりも重かった。' },
+  { label: '六年目・剣の丘', band: '心象', text: '気付けば、剣の墓標が立ち並ぶ丘の夢を見るようになっていた。――ここが、俺の世界だ。' },
+  { label: '七年目・帰国の報せ', band: '心象', text: '旅の終わりは、まだ見えない。けれど、遠坂からの電話が、それを少しだけ変えた。' },
+];
+const SHIROU_RATE = 0.85;
+const FOCUS_S = {
+  trace:  { name: '投影魔術を鍛え続ける', gains: { mag: 9, int: 4 } },
+  body:   { name: '体を限界まで鍛える', gains: { phy: 10, spi: 3 } },
+  sword:  { name: '記憶の中の、あの剣筋をなぞる', gains: { phy: 7, spi: 6 } },
+  bow:    { name: '弓を引き、心を澄ませる', gains: { int: 6, luk: 6 } },
+  rin:    { name: '遠坂から魔術を叩き込まれる', gains: { mag: 7, int: 7 } },
+  help:   { name: '行く先々で、人を助ける', gains: { spi: 8, cha: 5 } },
+  cook:   { name: '各地の料理を覚える', gains: { cha: 8, luk: 4 }, money: 1 },
+};
+const GROWTH_EVENTS_S = [
+  { id: 'sg_depart', stages: [1], fixed: true, title: '旅立ちの朝',
+    text: () => '冬木を発つ朝。衛宮邸の門の前に、見送りの人たちが集まっていた。<br>「ちゃんとご飯食べるのよ、士郎！」と藤ねえ。「……先輩。いってらっしゃい」と桜。<br>そして遠坂が、腕を組んで言った。「いい？ 無茶したら承知しないから。……ちゃんと、帰ってきなさいよ」',
+    choices: [
+      { label: '「行ってきます」と、笑って答える', hint: '精神・交渉↑', run: () => { gain('spi', 3); gain('cha', 3); return '三人の顔を目に焼き付けて、門をくぐった。――必ず、帰ってくる。（精神+3 交渉+3）'; } },
+      { label: '桜に、家のことを頼む', hint: '幸運↑・道具', run: () => { gain('luk', 3); item('potion', 1); return '「はい。先輩の帰る場所は、私が守ります」桜は、小さな包みを差し出した。中身は手作りの薬と、お守りだった。（幸運+3 治癒の霊薬+1）'; } },
+      { label: '遠坂に、改めて礼を言う', hint: '魔力↑', run: () => { gain('mag', 4); return '「な、何よ急に。……いいから、さっさと行きなさい」遠坂は顔を背けたまま、宝石を一つ押し付けてきた。（魔力+4）'; } },
+    ] },
+  { id: 'sg_ubw', stages: [6], fixed: true, title: '剣の丘',
+    text: () => '夢を見た。赤い荒野。空には歯車。無数の剣が、墓標のように突き立っている。<br>――知っている。ここは、俺の心の中の景色だ。<br>あの赤い外套の背中が、丘の上で振り返った気がした。',
+    choices: [
+      { label: '剣の丘を、自分の足で歩く', hint: '魔力・精神↑↑', run: () => { gain('mag', 5); gain('spi', 5); G.flags.ubwMastered = true;
+          return '一本一本の剣に触れ、その来歴を読み取っていく。目を覚ました時、心象風景は、もう夢ではなくなっていた。<br><b>「無限の剣製」を、完全にモノにした。</b>（魔力+5 精神+5）'; } },
+      { label: 'あの背中に、問いかける', hint: '知力・精神↑↑', run: () => { gain('int', 5); gain('spi', 5); G.flags.ubwMastered = true;
+          return '「……お前は、後悔していたのか」答えはない。けれど、振り返った横顔は、ほんの少しだけ笑っていた気がした。（知力+5 精神+5）'; } },
+    ] },
+  { id: 'sg_letter', stages: [2, 3, 4, 5, 6, 7], title: '遠坂からの手紙',
+    text: () => '旅先の安宿に、遠坂からの手紙が届いた。小言が三枚。近況が一枚。最後の一行だけ、字が少し小さかった。「……で、いつ帰ってくるのよ」',
+    choices: [
+      { label: '同封の宝石を、大切に持っておく', hint: '道具を得る', run: () => { item('gem', 1); return '手紙には、魔力の籠もった宝石が一つ入っていた。（魔力を込めた宝石+1）'; } },
+      { label: '長い返事を書く', hint: '交渉・知力↑', run: () => { gain('cha', 3); gain('int', 2); return '旅のこと、出会った人のこと。気付けば便箋が五枚になっていた。（交渉+3 知力+2）'; } },
+    ] },
+  { id: 'sg_dilemma', stages: [2, 3, 4, 5, 6, 7], title: '天秤',
+    text: () => '燃える村。崩れかけた家に、子どもが一人。反対側の通りでは、十人が瓦礫の下にいる。<br>どちらかしか、間に合わない。',
+    choices: [
+      { label: '十人を助けに走る', hint: '精神↑・知力↑', run: () => { gain('spi', 3); gain('int', 3); tone('law');
+          return '十人を救った。振り返った時、家はもう崩れていた。……正義の味方は、いつも誰かを切り捨てる。あの男の言葉が、耳の奥で響いた。（精神+3 知力+3）'; } },
+      { label: '両方を救おうと足掻く', hint: '体力判定', run: () => { tone('good'); const c = chk('phy', 60);
+          if (c.ok) { gain('phy', 3); gain('spi', 4); return [c.text, '投影した盾で瓦礫を支え、子どもを抱えたまま走った。全員が、生きていた。――それでも、次も救えるとは限らない。（体力+3 精神+4）']; }
+          hp(-15); gain('spi', 5); return [c.text, '全員は救えなかった。焼けた腕の痛みより、胸の痛みの方がずっと重かった。（HP-15 精神+5）']; } },
+    ] },
+  { id: 'sg_red', stages: [3, 4, 5, 6, 7], title: '赤い背中',
+    text: () => '鏡に映った自分の髪に、白いものが混じっていた。投影を重ねた代償だ。<br>――あの赤い外套の男も、きっとこうして、少しずつ「ああなった」のだろう。',
+    choices: [
+      { label: '「それでも、俺は後悔しない」', hint: '精神↑↑', run: () => { gain('spi', 6); return 'あいつが答えを得たように。俺も、自分の答えを貫く。（精神+6）'; } },
+      { label: '投影の負担を減らす工夫をする', hint: '魔力・知力↑', run: () => { gain('mag', 3); gain('int', 3); return '遠坂の手紙にあった助言を、一つずつ試した。少しだけ、体が楽になった。（魔力+3 知力+3）'; } },
+    ] },
+  { id: 'sg_taiga', stages: [2, 3, 4, 5, 6, 7], title: '藤ねえの電話',
+    text: () => '国際電話が鳴った。「士郎ー！ 元気？ ちゃんと食べてる？ 桜ちゃんがね、また料理上手になったのよー！」<br>相変わらずの声に、思わず笑ってしまった。',
+    choices: [
+      { label: '近況を、のんびり話す', hint: '幸運・交渉↑', run: () => { gain('luk', 3); gain('cha', 2); return '電話代のことは考えないことにした。（幸運+3 交渉+2）'; } },
+      { label: '「……藤ねえ、ありがとう」', hint: '精神↑', run: () => { gain('spi', 4); return '「な、何よ急に。……士郎は、いつだってうちの子なんだからね」（精神+4）'; } },
+    ] },
+  { id: 'sg_dream', stages: [4, 5, 6, 7], title: '夢の騎士王',
+    text: () => '夢を見た。朝焼けの丘。血に濡れた剣。そして、金砂のような髪をなびかせて立つ、小さな背中。<br>――セイバー。<br>目を覚ますと、頬が濡れていた。',
+    choices: [
+      { label: '「また、会えるだろうか」と呟く', hint: '精神↑・縁', run: () => { gain('spi', 4); G.flags.saberDream = true; return 'その呟きに答える者はいない。けれど、胸の奥で、何かが確かに繋がった気がした。（精神+4）'; } },
+      { label: '剣を投影し、あの剣筋をなぞる', hint: '体力↑', run: () => { gain('phy', 4); return '夜明けまで、記憶の中の騎士王の剣を追い続けた。（体力+4）'; } },
+    ] },
+];
+
+// ---- 物語（stay night の要素を織り込んだ固有の場面） ----
+STORY.unshift(
+  {
+    id: 'sh_arrive', phase: 'prep', day: 1, slot: 0, after: 'hub', cond: () => G.route === 'shirou',
+    title: '深見へ', chapter: '序章　令呪の冬',
+    text: () => '深見駅に降り立つと、懐かしい冬の匂いがした。冬木によく似た、港と山に挟まれた地方都市。<br>携帯が鳴る。「着いた？ いい、士郎。教会の監督役には私から話を通しておいたから。……それと、拠点はちゃんと選びなさいよ」',
+    choices: [
+      { label: '古い屋敷の「土蔵」を借りる', hint: '召喚の準備+1・陣地', run: () => { G.ritual = Math.min(3, G.ritual + 1); G.workshop = Math.min(5, G.workshop + 1);
+          return '街外れの古い屋敷に、手入れされていない土蔵があった。埃っぽい空気、ガラクタの山。――あの夜と、同じ匂いがした。（召喚の準備+1 陣地Lv+1）'; } },
+      { label: '教会に挨拶に行く', hint: '秩序・教会に登録', run: () => { tone('law'); G.flags.registered = true;
+          return `${CAST.sister}は、静かに頭を下げた。「遠坂家の当主から、話は伺っております」<br>――あの神父とは違う。そう思うと、少しだけ肩の力が抜けた。（教会に登録）`; } },
+      { label: '街を歩き、地形を頭に入れる', hint: '知力・幸運↑', run: () => { gain('int', 3); gain('luk', 2); G.flags.leyline = true;
+          return '港、旧城下町、城跡公園、天降山。戦いになりそうな場所を、一つずつ確かめた。（知力+3 幸運+2 霊脈の知識）'; } },
+    ],
+  },
+  {
+    id: 'sh_eve', phase: 'prep', day: 3, slot: 1, after: 'advance', cond: () => G.route === 'shirou',
+    title: '召喚前夜', chapter: '序章　令呪の冬',
+    text: () => '明日の夜、召喚を行う。<br>触媒は、もう決めていた。――「全て遠き理想郷（アヴァロン）」。あの冬、自分の体の中にあった、騎士王の鞘。<br>本物はもう、ない。けれど、あの形なら、目を閉じても思い出せる。',
+    choices: [
+      { label: '鞘の投影を、何度も練習する', hint: '召喚の準備↑', run: () => { G.ritual = Math.min(3, G.ritual + 1); gain('mag', 2);
+          return `何度目かの投影で、黄金の鞘が、確かな重みを持って手の中に現れた。（召喚の準備 ${G.ritual}/3 魔力+2）`; } },
+      { label: 'あの冬のことを、一つずつ思い出す', hint: '精神↑↑', run: () => { gain('spi', 5);
+          return '土蔵の月明かり。問いかける声。朝焼けの丘での別れ。……忘れたことなど、一度もなかった。（精神+5）'; } },
+    ],
+  },
+  {
+    id: 'sh_breakfast', phase: 'war', day: 1, slot: 0, after: 'hub', cond: () => G.route === 'shirou',
+    title: '最初の朝', chapter: '第一幕　開幕',
+    text: () => '召喚から一夜。台所に立つと、背後に気配があった。<br>振り返ると、セイバーが、じっと鍋を見つめていた。「……シロウ。朝食の時間は、まだでしょうか」<br>あの頃と、何も変わらない。思わず、笑ってしまった。',
+    choices: [
+      { label: '腕によりをかけて和食を作る', hint: '絆↑↑・英霊の魔力↑', run: () => { bond(6); mp(20);
+          return `炊きたての白米、焼き魚、味噌汁。セイバーは一口ごとに、静かに、深く頷いた。「……うむ。シロウの料理です」（絆+6 魔力+20）`; } },
+      { label: '「今度の戦いのこと、話そう」', hint: '知力↑・絆↑', run: () => { bond(3); gain('int', 3);
+          return `セイバーは箸を置き、背筋を伸ばした。「はい。……シロウ、今度は私が、最後まで貴方の剣でいます」（絆+3 知力+3）`; } },
+      { label: '「おかえり、セイバー」', hint: '絆↑↑', run: () => { bond(8);
+          return `セイバーは目を見開き、それから、少しだけ泣きそうな顔で微笑んだ。「……ただいま戻りました、シロウ」（絆+8）`; } },
+    ],
+  },
+  {
+    id: 'sh_archer', phase: 'war', day: 3, slot: 1, after: 'advance', cond: () => G.route === 'shirou' && G.rivals.some(r => r.servantId === 'emiya' && r.alive && !r.ally),
+    title: '赤い外套', chapter: '第一幕　開幕',
+    text: () => { const r = G.storyRival = G.rivals.find(x => x.servantId === 'emiya'); r.named = true; r.intel = Math.max(r.intel, 2);
+      return `夜の城跡公園。街灯の上に、赤い外套の男が立っていた。<br>白と黒の双剣。鋼のような目。――知っている。あの男を、俺は知っている。<br><p class="quote">「……やれやれ。まさか、こんな所で君に会うとはな。衛宮士郎」</p>男の傍らで、マスターの${esc(r.master)}が怪訝そうな顔をしている。`; },
+    choices: [
+      { label: '双剣を投影し、正面から挑む', hint: '戦闘（士郎の行動に補正）', cls: 'danger', run: () => { G.flags.archerDuel = true;
+          return { text: '「――投影、開始（トレース・オン）」<br>同じ剣が、同じ手の中に現れる。あいつが、口の端だけで笑った。', then: () => startBattle(G.storyRival, { duel: true }) }; } },
+      { label: '「答えは、得たのか」と問う', hint: '精神↑↑', run: () => { gain('spi', 6); bond(2);
+          return '<p class="quote">「……さてな。だが、君の顔を見る限り――私のようには、ならずに済みそうだ」</p>男はそれだけ言って、夜の闇に消えた。（精神+6 絆+2）'; } },
+      { label: 'セイバーと共に退く', hint: '慎重', run: () => { tone('cautious');
+          return `「シロウ、あれは……」セイバーの問いに、首を横に振った。「……いつか、決着をつける相手だ」`; } },
+    ],
+  },
+  {
+    id: 'sh_rin', phase: 'war', day: 5, slot: 0, after: 'hub', cond: () => G.route === 'shirou',
+    title: '遠坂からの電話', chapter: '第二幕　侵蝕',
+    text: () => '朝、携帯が鳴った。「どう？ 生きてる？」遠坂の声だ。<br>「深見の聖杯、こっちでも少し調べたわ。……あんたの方で掴んだこと、聞かせなさい」',
+    choices: [
+      { label: '掴んだことを全部話し、知恵を借りる', hint: '知力判定・真相の手がかり', run: () => {
+          const c = chk('int', 50);
+          if (!c.ok) return [c.text, '「……要領を得ないわね。もうちょっと調べてから電話しなさい」切られた。'];
+          if (solved()) { gain('int', 4); return [c.text, '「なるほどね。……やるじゃない、士郎」（知力+4）']; }
+          return isCursed()
+            ? [c.text, '「六十年前、深見の聖杯は『何か』を取り込んだ記録がある。……冬木の大聖杯と、同じ匂いがするのよ」',
+              addClue('rin_call', '遠坂の調査', '六十年前、深見の聖杯は何かを取り込んだ記録がある。冬木の大聖杯と同じ「匂い」がするという。', 2)]
+            : [c.text, '「深見の聖杯、記録を見る限り綺麗なものよ。冬木とは違う。……怪しいのは、参加者の方ね」',
+              addClue('rin_call', '遠坂の調査', '深見の聖杯の記録に、汚染の痕跡はない。怪しいのは参加者の方だという。', 2)];
+        } },
+      { label: '宝石を送ってもらう', hint: '宝石+2', run: () => { item('gem', 2);
+          return '「……高いのよ、これ。後で絶対返しなさいよね」翌日、宝石が二つ、速達で届いた。（魔力を込めた宝石+2）'; } },
+      { label: '「桜と藤ねえは元気か」と聞く', hint: '精神↑・絆↑', run: () => { gain('spi', 4); bond(2);
+          return '「元気よ。桜なんて、毎日あんたの部屋を掃除してるわ。……だから、さっさと終わらせて帰ってきなさい」（精神+4 絆+2）'; } },
+    ],
+  },
+  {
+    id: 'sh_dream', phase: 'war', day: 7, slot: 0, after: 'hub', cond: () => G.route === 'shirou',
+    title: '朝焼けの夢', chapter: '第二幕　侵蝕',
+    text: () => '朝、セイバーがいつになく静かだった。<br>「……シロウの夢を見ました。赤い荒野と、無数の剣。――貴方は、あの景色の中で、ずっと一人で戦ってきたのですね」',
+    choices: [
+      { label: '「もう一人じゃない」と答える', hint: '絆↑↑', run: () => { bond(8); return 'セイバーは、そっとあなたの手に自分の手を重ねた。「……はい。今は、私がいます」（絆+8）'; } },
+      { label: '「セイバーの夢も、見たよ」', hint: '絆↑・精神↑', run: () => { bond(5); gain('spi', 3); return '朝焼けの丘の話をすると、セイバーは少しだけ目を伏せ、それから微笑んだ。「……あの日の答えは、変わっていません」（絆+5 精神+3）'; } },
+    ],
+  },
+);
+
+// ---- 衛宮士郎だけの日々のイベント ----
+EVENTS.push(
+  { id: 'sh_appetite', phase: 'war', time: 'day', once: true, weight: 4, cond: () => isShirou(), title: '騎士王の食欲',
+    text: () => '商店街の前を通りかかった時、セイバーの足が止まった。視線の先には、湯気を立てる肉まんの屋台。<br>「……シロウ。あれは、偵察すべき対象だと思います」',
+    choices: [
+      { label: '十個買う', hint: '資金-1・絆↑↑', cond: () => G.master.money >= 1, run: () => { money(-1); bond(6); mp(15); return 'セイバーは、驚くべき速さで十個を平らげた。「……満足です」（絆+6 魔力+15）'; } },
+      { label: '「帰ったら作ってやる」', hint: '絆↑・交渉↑', run: () => { bond(4); gain('cha', 2); return 'セイバーの目が、きらりと光った。「約束ですよ、シロウ」（絆+4 交渉+2）'; } },
+    ] },
+  { id: 'sh_dojo', phase: 'war', time: 'day', once: true, weight: 3, cond: () => isShirou(), title: '道場',
+    text: () => '借りた屋敷には、小さな道場があった。竹刀を手にしたセイバーが、振り返る。「シロウ。一本、手合わせを」',
+    choices: [
+      { label: '全力で打ち込む', hint: '体力↑↑', run: () => { gain('phy', 5); bond(3); return '何十回も打ち据えられた。けれど、最後の一本は、ほんの少しだけセイバーの竹刀に届いた。「……強くなりましたね、シロウ」（体力+5 絆+3）'; } },
+      { label: '守りに徹して、剣筋を見る', hint: '知力・精神↑', run: () => { gain('int', 3); gain('spi', 3); return 'あの冬と同じ剣筋。けれど、今は少しだけ、その先が読める。（知力+3 精神+3）'; } },
+    ] },
+);
+
+// ---- 序章・召喚・開幕 ----
+function shirouStart() {
+  G.lastChapter = '正義の味方';
+  chapterCard('特殊シナリオ　衛宮士郎', () => {
+    scene({ title: '旅立ち', sub: '正義の味方', reveal: true, body: paras([
+      '冬木市の聖杯戦争から数年。胸に燻る「正義の味方」への憧れと共に、衛宮士郎は世界を周っていた。',
+      '投影魔術。そして、心の中に広がる剣の丘――「無限の剣製」。あの冬を越えて手にした力を携えて、助けを求める声のある場所へ。',
+      '<span class="note">特殊シナリオ：世界を周った7つの年月の過ごし方が、あなたの力になる。マスターとしては未熟だが、士郎自身が英霊とある程度渡り合える。</span>',
+    ]), choices: [{ label: '旅を始める', cls: 'primary', icon: 'next', fn: () => nextStage() }] });
+  });
+}
+function shirouMaster(name) {
+  const b = BIRTHS.find(x => x.id === 'shirou');
+  return { name: name || '衛宮　士郎', gender: 'm', birth: 'shirou', stats: { ...b.stats }, hp: 100, hpMax: 100, money: b.money, age: 17,
+    talent: 'spi', seals: 3, od: 0, align: { law: 15, good: 45 }, element: '剣', circuits: 27 };
+}
+function shirouPrologue() {
+  next('遠坂からの連絡', paras([
+    '旅の空の下で、携帯が鳴った。', G.summary,
+    '「日本の深見市で、聖杯戦争が行われるらしいの。それがどうもキナ臭いのよね。でも、私は冬木の大聖杯のことで忙しくって……士郎、任せてもいい？ 終わったら久しぶりに会いましょ！ 桜も会いたがってるわ！」',
+    '変わらない様子に頬が緩み、衛宮士郎は日本へと向かう。<br>聖杯戦争――あの鮮烈な体験に、また身を投じることになるとは。',
+    '脳裏には、騎士王たる少女の姿が浮かんでいた。',
+    `<span class="note">【特殊シナリオ】召喚の夜まで${PREP_DAYS}日。召喚できるのは、アルトリア（セイバー）ただ一騎。<br>【戦闘】士郎自身の行動（投影・弓・宝具の投影・無限の剣製）を選ぶのが中心になる。セイバーは自分の判断で戦う。</span>`,
+  ]), beginPrep, '日本へ', 'PROLOGUE');
+}
+// 召喚：土蔵の月明かりの下で
+function shirouSummonScene() {
+  scene({ title: '召喚の夜', sub: 'SUMMONING', reveal: true, body: paras([
+    '月明かりの差し込む土蔵。床に描いた召喚陣は、あの夜のものより、ずっと丁寧に描けている。',
+    '陣の中心に、投影した鞘を置く。黄金の装飾、青い宝玉。――「全て遠き理想郷（アヴァロン）」。',
+    '胸の奥が、静かに熱を帯びていく。あの日、言えなかった言葉がある。もう一度、会えたなら。',
+  ]), choices: [{ label: '詠唱を始める', cls: 'primary', icon: 'ritual', fn: shirouChant }] });
+}
+function shirouChant() {
+  scene({ title: '英霊召喚', sub: 'SUMMONING', reveal: true, body: [
+    '<p>右手を掲げる。二十七本の魔術回路に、ありったけの魔力を流し込む。</p>',
+    ...SUMMON_CHANT.map(t => `<p class="chant">${t}</p>`),
+  ], choices: [{ label: '――その名を呼ぶ', cls: 'primary', icon: 'ritual', fn: shirouArrival }] });
+}
+function shirouArrival() {
+  scene({ title: '月下の再会', sub: 'SUMMONING', reveal: true, body: paras([
+    '風が、吹いた。',
+    '土蔵の中に、あるはずのない風が渦を巻く。陣から溢れた光が、月明かりと混ざり合い、埃を星屑のように舞い上げる。',
+    '光の中に、小さな影が立っていた。<br>青い衣。銀の鎧。金砂のように輝く髪。――翡翠の瞳が、まっすぐにこちらを見る。',
+    '<p class="quote">「――問おう。貴方が、私のマスターか」</p>',
+    'あの夜と、同じ言葉。同じ声。<br>答えようとして、声が出なかった。喉の奥が熱くて、視界が滲んで。',
+    '少女の瞳が、わずかに揺れた。剣を握る手から、力が抜けていく。',
+    '<p class="quote">「…………シロウ？」</p>',
+    '名前を呼ばれた。それだけで、もう、十分だった。',
+    '「ああ。――ただいま、セイバー」<br>「……はい。おかえりなさい、シロウ。――また、会えましたね」',
+    '月明かりの土蔵で、騎士王は、あの朝焼けの丘以来、初めて泣きそうな顔で笑った。',
+  ]), choices: [{ label: '契約を結ぶ', cls: 'primary', icon: 'seal', fn: () => doSummon('artoria') }] });
+}
+function shirouAfterSummon() {
+  next('聖杯戦争、開幕', [
+    '<p>騎士王と、もう一度契約を交わした。あの冬の続きを、今度こそ最後まで。</p>',
+    '<p>七騎のサーヴァントと七人のマスター。深見の聖杯戦争が、幕を開ける。</p>',
+    `<p class="note">【マスターとして】魔力の供給は相変わらず得意ではない（英霊のパラメータ補正-6）。<br>【士郎の戦い】戦闘では、士郎自身の行動を選ぶ。投影した双剣で斬り込む、弓で援護する、宝具を投影する――そして切り札「無限の剣製」。セイバーは自分の判断で戦う（指示を出すこともできる）。期限は${WAR_DAYS}日。</p>`,
+  ], startSlot, '戦いへ', '第一幕　開幕');
+}
+// 第五次聖杯戦争の英霊を、一目で見抜く
+function shirouMeet(r) {
+  if (!isShirou() || knowsName(r) || !FIFTH_LINE[r.servantId]) return '';
+  r.named = true; addLog(`${r.cls}の正体「${servantOf(r).name}」に気付く。`);
+  return FIFTH_LINE[r.servantId];
+}
+
+// =============================================================
+//  戦闘：士郎の行動
+//   セイバーは自分の判断で戦う（敵の手が読めていれば、それに勝つ手を選ぶ）
+// =============================================================
+const SHIROU_ACTS = {
+  blades: { name: '干将・莫耶で斬り込む', hint: '士郎が直接攻撃・セイバー+6・反撃の危険', od: 0 },
+  bow:    { name: '弓で援護射撃', hint: '安全な援護・セイバー+4', od: 0 },
+  aias:   { name: '熾天覆う七つの円環', ruby: 'ロー・アイアス', hint: 'オド20・敵の攻撃を大きく防ぐ', od: 20 },
+  calad:  { name: '偽・螺旋剣', ruby: 'カラドボルグII', hint: 'オド25・大ダメージ・士郎HP-5', od: 25 },
+  nine:   { name: '是、射殺す百頭', ruby: 'ナインライブズ', hint: 'オド30・九連撃・士郎HP-10・1戦1回', od: 30, once: true },
+  ubw:    { name: '無限の剣製', ruby: 'アンリミテッド・ブレイドワークス', hint: 'オド40・切り札・2手番目から・1戦1回', od: 40, once: true },
+  support:{ name: 'セイバーと呼吸を合わせる', hint: 'セイバー+8', od: 0 },
+};
+function shirouActAvailable(k) {
+  const a = SHIROU_ACTS[k];
+  if (B.shirouDown && !['bow', 'support'].includes(k)) return false;
+  if (a.od && G.master.od < a.od) return false;
+  if (a.once && (B.used || {})[k]) return false;
+  if (k === 'ubw' && B.round < 1) return false;
+  return true;
+}
+// セイバー自身の判断
+function saberAuto() {
+  const r = B.r; const sv = G.servant;
+  if (sv.mp >= 50 && (r.hp <= r.hpMax * 0.45 || B.tellKey === 'np')) return 'np';
+  if (B.tell && B.tellKey && TACTICS[B.tellKey] && ['str', 'agi', 'mag'].includes(B.tellKey))
+    return Object.keys(TACTICS).find(k => TACTICS[k].beats === B.tellKey);
+  return ['str', 'agi', 'mag'].reduce((b, k) => servantParam(TACTICS[k].stat) > servantParam(TACTICS[b].stat) ? k : b, 'str');
+}
+function shirouRound(act) { B.sact = act; const t = B.forceTac || saberAuto(); B.forceTac = null; battleRound(t); }
+function saberOrderMenu() {
+  const p = i => `${PARAM_NAMES[i]}${valueRank(servantParam(i))}`;
+  scene({ title: 'セイバーへの指示', sub: `ROUND ${B.round + 1}`, body: ['<p>この手番、セイバーにどう戦ってもらう？（次に士郎の行動を選ぶ）</p>'], choices: [
+    { label: `宝具「${servantOf(G).np}」`, hint: `${p(5)}・魔力-50`, disabled: G.servant.mp < 50, fn: () => { B.forceTac = 'np'; B.anim = null; battleScene(); } },
+    { label: '白兵戦', hint: p(0), fn: () => { B.forceTac = 'str'; B.anim = null; battleScene(); } },
+    { label: '機動戦', hint: p(2), fn: () => { B.forceTac = 'agi'; B.anim = null; battleScene(); } },
+    { label: '魔術戦', hint: p(3), fn: () => { B.forceTac = 'mag'; B.anim = null; battleScene(); } },
+    { label: '防御', hint: p(1), fn: () => { B.forceTac = 'guard'; B.anim = null; battleScene(); } },
+    { label: 'セイバーに任せる', fn: () => { B.forceTac = null; B.anim = null; battleScene(); } },
+  ] });
+}
+// 士郎の行動の効果（battleRound の中で呼ばれる）。戻り値はセイバーへの補正
+function applyShirouAct(log, E) {
+  const k = B.sact; B.sact = null; if (!k) return 0;
+  const a = SHIROU_ACTS[k]; const r = B.r; const st = G.master.stats;
+  if (a.od) od(-a.od);
+  if (a.once) { B.used = B.used || {}; B.used[k] = true; }
+  const hit = (d, text) => { r.hp -= d; log.push(`${text}（${d}ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: d }); };
+  if (k === 'blades') { B.shirouExposed = true; hit(3 + Math.round(st.phy / 14) + rand(0, 4) + (G.flags.archerDuel && r.servantId === 'emiya' ? 6 : 0), `「投影、開始（トレース・オン）」――白と黒の双剣を手に、士郎が${E}へ斬り込んだ！`); return 6; }
+  if (k === 'bow') { hit(2 + Math.round(st.int / 18) + rand(0, 3), `投影した矢を番え、放つ。弓道で鍛えた射は、狙いを違えない。`); return 4; }
+  if (k === 'aias') { B.aias = true; log.push('<b>「――熾天覆う七つの円環（ロー・アイアス）！」</b> 七枚の花弁の盾が、セイバーの前に咲いた。'); B.fxq.push({ type: 'np', side: 'me', name: '熾天覆う七つの円環', ruby: 'ロー・アイアス', who: '衛宮士郎', cls: 'アーチャー' }); return 0; }
+  if (k === 'calad') { hp(-5); B.fxq.push({ type: 'np', side: 'me', name: '偽・螺旋剣', ruby: 'カラドボルグII', who: '衛宮士郎', cls: 'アーチャー' });
+    hit(12 + Math.round(st.mag / 8) + rand(0, 5), `<b>「――偽・螺旋剣（カラドボルグII）」</b> 捻じれた剣が矢となり、空間ごと${E}を穿った！`); return 0; }
+  if (k === 'nine') { hp(-10); B.fxq.push({ type: 'np', side: 'me', name: '是、射殺す百頭', ruby: 'ナインライブズ', who: '衛宮士郎', cls: 'アーチャー' });
+    hit(16 + Math.round(st.phy / 8) + rand(0, 5), `<b>「――是、射殺す百頭（ナインライブズ）」</b> 投影した斧剣が、九つの斬撃となって${E}を襲う！`); return 6; }
+  if (k === 'ubw') { hp(-15); B.fxq.push({ type: 'np', side: 'me', name: '無限の剣製', ruby: 'アンリミテッド・ブレイドワークス', who: '衛宮士郎', cls: 'アーチャー' });
+    log.push('<b>「――体は、剣で出来ている」</b>', '詠唱と共に、世界が塗り替わる。燃え盛る炎、空に浮かぶ歯車。赤い荒野に、無数の剣が突き立っている。');
+    hit(26 + Math.round(st.mag / 6) + rand(0, 6), `<b>「――無限の剣製（アンリミテッド・ブレイドワークス）」</b> 剣の雨が、${E}に降り注いだ！`);
+    log.push('<span class="note">固有結界の中で、セイバーの剣が冴え渡る。（セイバー+14・士郎HP-15）</span>'); return 14; }
+  if (k === 'support') { log.push('士郎とセイバーの呼吸が、ぴたりと重なった。'); return 8; }
+  return 0;
+}
+// 士郎への反撃（双剣で斬り込んだ時）
+function shirouCounter(log, et, E) {
+  if (!B.shirouExposed) return; B.shirouExposed = false;
+  if (!['str', 'agi', 'mag', 'np'].includes(et) || Math.random() > 0.55) return;
+  const d = rand(8, 16) + (et === 'np' ? 10 : 0) - Math.round(G.master.stats.phy / 20);
+  hp(-Math.max(3, d)); log.push(`${E}の一撃が、士郎の体を掠めた！（士郎HP-${Math.max(3, d)}）`);
+}
+function shirouDownCheck(log) {
+  if (!isShirou() || G.master.hp > 0) return;
+  G.master.hp = 1; B.shirouDown = true;
+  log.push('<b>士郎が膝をついた。</b>これ以上の無茶はできない。（以後この戦闘では、弓と援護しか使えない）');
+}
+
+// ---- 士郎の日々の行動：セイバーに食事を作る ----
+function cookForSaber() {
+  actResult('食事', () => { bond(rand(4, 6)); mp(25); money(-1 * (G.master.money > 0 ? 1 : 0));
+    return pick(['ハンバーグを焼いた。セイバーは一口食べるたびに、小さく「うむ」と頷いた。', '大皿に唐揚げを山ほど積んだ。三十分後、皿は空になっていた。', '鍋を作った。湯気の向こうで、セイバーが幸せそうに目を細めている。'])
+      + '<br><span class="note">美味しい食事は、魔力の供給が苦手な士郎にとって大切な補給だ。（絆↑ 英霊の魔力+25）</span>'; });
+}
+
+// ---- エンディング・エピローグ ----
+function shirouEpilogue(kind) {
+  if (!isShirou() || kind === 'dead') return '';
+  return '<p class="note">約束どおり、冬木へ帰った。衛宮邸の門の前で、遠坂が腕を組んで待っていた。「遅い！」その後ろで、桜が泣きそうな顔で笑っていた。</p>';
+}
+const EPI_SHIROU_A = { y: 1, title: '冬木の再会',
+  text: () => G.epi.track.startsWith('together')
+    ? '春。セイバーを連れて、冬木に帰った。<br>衛宮邸の門をくぐった瞬間、遠坂が固まり、桜が持っていた鍋を落としかけた。「……セ、セイバー!?」「――お久しぶりです、凛、桜」<br>その夜の衛宮邸は、何年ぶりかに、賑やかな笑い声で満ちた。'
+    : '春。一人で、冬木に帰った。<br>衛宮邸の縁側で、遠坂と桜が待っていた。何も聞かずに、桜がお茶を淹れてくれた。遠坂は、黙って隣に座った。<br>「……おかえり、士郎」',
+  choices: [
+    { label: 'みんなで食卓を囲む', hint: '幸福↑↑', run: () => epiGain({ joy: 3 }, '衛宮邸で凛や桜と食卓を囲んだ') || '藤ねえも駆けつけ、食卓はあっという間に賑やかになった。桜の料理は、本当に上手になっていた。' },
+    { label: '遠坂と、深見の聖杯の話をする', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '凛と聖杯の後始末を語り合った') || '「……そう。よくやったわね、士郎」遠坂は報告書を閉じ、少しだけ誇らしげに笑った。' },
+    { label: '桜と、土蔵の掃除をする', hint: '絆↑↑', run: () => epiGain({ bond: 3 }, '桜と土蔵を片付けた') || '「先輩、このガラクタ……まだ取っておくんですか？」桜は呆れながらも、楽しそうに埃を払っていた。' },
+  ] };
+const EPI_SHIROU_B = { y: 20, title: '衛宮邸の桜',
+  text: () => '二十年が過ぎた。衛宮邸の庭の桜が、今年も満開だ。<br>花見の席には、時計塔で名を上げた遠坂と、すっかり衛宮家の台所を任されるようになった桜。藤ねえの笑い声も、相変わらずだ。' +
+    (G.epi.track.startsWith('together') ? '<br>セイバーは、三人前のお弁当を前に、真剣な顔で箸を構えている。' : ''),
+  choices: [
+    { label: '昔話に花を咲かせる', hint: '幸福・絆↑', run: () => epiGain({ joy: 2, bond: 1 }, '桜の下で、あの冬の昔話をした') || '「あの時の士郎ったらね――」遠坂の暴露話に、桜が吹き出した。' },
+    { label: '次の世代に、魔術を教える', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '次の世代に魔術を伝えた') || '遠坂の弟子や、近所の子どもたちに、投影の基礎を教えた。「先生、剣ばっかりですね」と笑われた。' },
+  ] };

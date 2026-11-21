@@ -112,6 +112,7 @@ function warDayActions() {
     { label: '真相を調べる', hint: solved() ? `真相は判明済み・手がかり${mys().ev}` : `街の謎と聖杯の秘密・手がかり${mys().ev}`, icon: 'study', fn: mysteryMenu },
     { label: '拠点を整える', hint: '結界・罠・霊脈', fn: baseMenu },
     { label: '買い出し', hint: '戦闘用の道具', fn: shopMenu },
+    ...(isShirou() ? [{ label: 'セイバーに食事を作る', hint: '絆↑・英霊の魔力↑（魔力供給の代わり）', icon: 'bond', fn: cookForSaber }] : []),
     { label: 'マスターの鍛錬', hint: '体力・魔力・知力', fn: trainMenu },
   ];
   const allyTargets = hostileRivals().filter(r => r.intel >= 1);
@@ -360,14 +361,14 @@ function nightRest() {
 }
 
 // ---- サーヴァントと過ごす ----
-function bondTier() { const b = G.servant.bond; if ((isFuji() || isKishi()) && b < 60) return 'mid'; return b < 30 ? 'low' : b < 60 ? 'mid' : 'high'; }   // 藤丸の英霊は初対面ではない
+function bondTier() { const b = G.servant.bond; if ((isFuji() || isKishi() || isShirou()) && b < 60) return 'mid'; return b < 30 ? 'low' : b < 60 ? 'mid' : 'high'; }   // 藤丸の英霊は初対面ではない
 function hangoutMenu() {
   const choices = Object.entries(ACTIVITIES).map(([k, a]) => ({
     label: a.name, hint: `${a.place}${a.cost ? `・資金-${a.cost}` : ''}`, disabled: G.master.money < a.cost,
     fn: () => hangout(k),
   }));
   submenu(`${SV()}と過ごす`, 'BOND', [`<p>今日はどう過ごそうか。${SV()}にも好みがあるようだ。</p>`,
-    G.servant.bond >= 20 || isFuji() || isKishi() ? `<p class="note">${SV()}が好きそうなこと：${PERSONAS[servantOf(G).persona].likes.map(k => ACTIVITIES[k].name).join('、')}</p>` :
+    G.servant.bond >= 20 || isFuji() || isKishi() || isShirou() ? `<p class="note">${SV()}が好きそうなこと：${PERSONAS[servantOf(G).persona].likes.map(k => ACTIVITIES[k].name).join('、')}</p>` :
       '<p class="note">絆が深まれば、好みも分かってくるだろう。</p>'], choices);
 }
 function hangout(k) {
@@ -430,9 +431,10 @@ const SUMMON_CHANT = [
   '汝三大の言霊を纏う七天、<br>抑止の輪より来たれ、天秤の守り手よ――！',
 ];
 // 召喚できる英霊か（カルデアゆかりの英霊は藤丸シナリオのみ / 特殊クラスは条件付き）
-function summonable(s) { if (isKishi()) return kishiLineup().includes(s.id); return (!s.chaldea || isFuji()) && extraOpen(s.cls); }
+function summonable(s) { if (isShirou()) return s.id === 'artoria'; if (isKishi()) return kishiLineup().includes(s.id); return (!s.chaldea || isFuji()) && extraOpen(s.cls); }
 function summonScene() {
   if (isKishi()) return kishiSummonScene();
+  if (isShirou()) return shirouSummonScene();
   const choices = G.catalysts.map(id => {
     const c = SV_BY_ID[id].cls; const ex = !!EXTRA_CLASSES[c];
     return { label: `「${SV_BY_ID[id].catalyst}」を使う`, hint: ex ? `特殊な気配……${extraOpen(c) ? '縁が強く応えている' : '何かが足りない気がする'}` : '縁ある英霊を喚ぶ', fn: () => chantScene(id) };
@@ -474,8 +476,8 @@ function doSummon(catalystId, opt = {}) {
       return w;
     });
   }
-  const reunion = (isFuji() && G.flags.fujiDream === sv.id) || (isKishi() && G.flags.kishiBond === sv.id);
-  G.servant = { id: sv.id, hp: 0, mp: 60 + G.ritual * 13, bond: (opt.emergency ? 15 : 5) + G.ritual * 4 + (reunion ? 15 : 0) + (isFuji() ? FUJI_MEMORY_BOND : 0) + (isKishi() ? KISHI_MEMORY_BOND : 0), special: null, exposed: false };
+  const reunion = (isFuji() && G.flags.fujiDream === sv.id) || (isKishi() && G.flags.kishiBond === sv.id) || (isShirou() && !!G.flags.saberDream);
+  G.servant = { id: sv.id, hp: 0, mp: 60 + G.ritual * 13, bond: (opt.emergency ? 15 : 5) + G.ritual * 4 + (reunion ? 15 : 0) + (isFuji() ? FUJI_MEMORY_BOND : 0) + (isKishi() ? KISHI_MEMORY_BOND : 0) + (isShirou() ? SHIROU_MEMORY_BOND : 0), special: null, exposed: false };
   G.servant.hp = servantHpMax();
   if (!G.rivals.length) setupRivals();
   else fitRivalsToServant(sv);
@@ -496,7 +498,9 @@ function setupRivals() {
   const types = shuffle(RIVAL_TYPES);
   G.rivals = classes.map((cls, i) => {
     const pool = SERVANTS.filter(s => s.cls === cls && !s.chaldea && (!G.servant || s.id !== G.servant.id) && !(isKishi() && kishiLineup().includes(s.id)));
-    const s = pick(pool); const t = types[i];
+    let s = pick(pool); const t = types[i];
+    // 衛宮士郎：第五次聖杯戦争で見た英霊が現れやすい（赤い外套のアーチャーは必ず）
+    if (isShirou() && FIFTH_WAR[cls] && (cls === 'アーチャー' || Math.random() < 0.6)) s = SV_BY_ID[FIFTH_WAR[cls]];
     const r = { id: 'r' + i, cls, servantId: s.id, master: randomName(t.foreign), type: t.type, power: t.power + rand(-1, 1),
       aggr: t.aggr, quote: t.quote, alive: true, hp: 0, hpMax: 0, mp: 100, intel: 0, clues: 0, seals: 2 + rand(0, 1),
       ally: false, bounty: false, masterDead: false };
@@ -515,6 +519,7 @@ function setupRivals() {
 function afterSummon() {
   if (G.route === 'caught' && G.day === 0) return caughtFirstFight();
   if (isKishi()) return kishiAfterSummon();
+  if (isShirou()) return shirouAfterSummon();
   if (isFuji()) return next('聖杯戦争、開幕', [
     `<p>かつての旅の記憶を取り戻した${SV()}と、改めて契約を交わした。言葉はいらない。互いの戦い方は、もう知っている。</p>`,
     '<p>七騎のサーヴァントと七人のマスター。そしてこの戦いの裏には、あなたを招いた『蒐集者』がいる。</p>',
