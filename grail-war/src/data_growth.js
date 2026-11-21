@@ -95,7 +95,7 @@ const GROWTH_EVENTS = [
   { id: 'g_merc', ages: [3, 3], fixed: true, births: ['mercenary'], title: '養父の教え',
     text: () => '砂埃の舞う野営地。養父はナイフを研ぎながら言った。「いいか。生き延びろ。それだけが、この世界で唯一の正解だ」',
     choices: [
-      { label: 'ナイフの扱いを教わる', hint: '体力↑', run: () => { gain('phy', 6); return '何度も手を切りながら、刃の重さを体で覚えた。（体力+6）'; } },
+      { label: 'ナイフの扱いを教わる', hint: '体力↑', run: () => { gain('phy', 6); G.flags.grudge = true; return '焼かれた村のことは、一日も忘れたことがない。何度も手を切りながら、刃の重さを体で覚えた。（体力+6）'; } },
       { label: '魔術の罠の作り方を教わる', hint: '魔力・知力↑', run: () => { gain('mag', 5); gain('int', 2); return '「魔術は道具だ。使えるものは全部使え」（魔力+5 知力+2）'; } },
       { label: '「なんで戦うの？」と聞く', hint: '精神↑', run: () => { gain('spi', 5); G.flags.askedWhy = true;
           return '養父は長いこと黙っていた。「……いつか、戦わなくていい場所を見つけるためさ」（精神+5）'; } },
@@ -113,7 +113,7 @@ const GROWTH_EVENTS = [
     text: () => '玄関で、母が見知らぬ男たちに頭を下げていた。「先代の借りは、きっちり返してもらいますよ」',
     choices: [
       { label: '母の前に立つ', hint: '精神↑・善', run: () => { gain('spi', 5); tone('good'); return '男たちは鼻で笑って帰っていった。母は、震えるあなたを強く抱きしめた。（精神+5）'; } },
-      { label: '蔵に籠もって魔導書を読む', hint: '魔力・知力↑', run: () => { gain('mag', 6); gain('int', 3);
+      { label: '蔵に籠もって魔導書を読む', hint: '魔力・知力↑', run: () => { gain('mag', 6); gain('int', 3); G.flags.grudge = true;
           return '「いつか、この家を取り戻す」先祖の魔導書を開いたのは、その夜が初めてだった。（魔力+6 知力+3）'; } },
       { label: '蔵の骨董を売ろうと提案する', hint: '資金↑', run: () => { money(3); gain('int', 2); return '母は悲しそうに笑い、古い壺を一つだけ手放した。（資金+3 知力+2）'; } },
     ] },
@@ -160,7 +160,7 @@ const GROWTH_EVENTS = [
   { id: 'g_storm', ages: [9, 14], title: '天降山の嵐',
     text: () => '天降山で遊んでいるうちに、急な嵐に襲われた。雨宿りした岩陰の奥で、<b>黒い霧</b>が地面から滲み出しているのが見えた。',
     choices: [
-      { label: '霧に近づいてみる', hint: '魔力↑・秘密に触れる', run: () => { gain('mag', 4); gain('spi', -2); G.flags.grailHint = true; lore(1);
+      { label: '霧に近づいてみる', hint: '魔力↑・秘密に触れる', run: () => { gain('mag', 4); gain('spi', -2); G.flags.grailHint = true; G.flags.touchedMist = true; lore(1);
           return '霧に触れた指先が、凍るように冷たくなった。耳の奥で、誰かの怨嗟の声がした気がする。（魔力+4 精神-2）'; } },
       { label: '雨の中を全力で駆け下りる', hint: '体力↑', run: () => { gain('phy', 5); return '泥だらけになって、どうにか麓まで辿り着いた。（体力+5）'; } },
       { label: '目を閉じて祈る', hint: '精神↑', run: () => { gain('spi', 5); return '嵐が過ぎるまで、ただ祈り続けた。目を開けると、霧は消えていた。（精神+5）'; } },

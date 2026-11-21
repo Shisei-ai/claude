@@ -419,3 +419,15 @@ body:not(.fx-on) #snow { display: none; }
   padding: 10px 6px; border-top: 1px solid #d2ad5f33; color: var(--fg); text-shadow: 0 0 14px #d2ad5f33; }
 .scene-body .rv:last-child .chant { color: var(--gold); font-weight: 700; }
 .scene-body .chant rt { font-size: 9px; color: var(--gold); letter-spacing: .1em; }
+
+/* ---------- 特殊クラスの兆し ---------- */
+.omens { display: flex; flex-direction: column; gap: 8px; }
+.omen { border: 1px solid var(--line); border-left: 3px solid var(--line); border-radius: 8px; padding: 8px 12px; background: var(--bg-2); }
+.omen.open { border-left-color: var(--cc); border-color: color-mix(in srgb, var(--cc) 45%, transparent); }
+.omen-head { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.omen-head b { font-weight: 700; }
+.omen-head span { font-size: 11px; color: var(--muted); margin-left: auto; }
+.omen.open .omen-head span { color: var(--cc); font-weight: 700; }
+.omen ul { list-style: none; margin: 4px 0 0; padding: 0; font-size: 12px; color: var(--muted); }
+.omen li.ok { color: var(--ok); }
+.extra-badge { text-align: center; font-family: var(--font-rank); letter-spacing: .3em; color: var(--cc); font-size: 12px; margin: 8px 0 0; }

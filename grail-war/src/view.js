@@ -172,6 +172,8 @@ function viewSummon() {
       <div class="summon-class">${emblem(sv.cls, 54)}<span>${CLASS_EN[sv.cls] || sv.cls}</span></div></div>
     <div class="summon-name">${sv.name}</div>
     ${SCENE.emergency ? '<p class="note" style="text-align:center;margin:10px 0 0">召喚陣も詠唱もないまま、令呪の光が英霊を呼び寄せた。</p>' : ''}
+    ${SCENE.failed ? `<p class="note" style="text-align:center;margin:10px 0 0">「${SCENE.failed.catalyst}」は確かに縁を結んだ。だが、${SCENE.failed.cls}の霊基は、今のあなたには応えなかった。<br>代わりに、別の英霊が呼び声に応えた――。</p>` : ''}
+    ${!BASE_CLASSES.includes(sv.cls) ? `<p class="extra-badge">特殊クラス　${sv.cls}</p>` : ''}
     <p class="quote summon-line">「${sv.line}」</p>
     <div class="summon-card">${servantCard(sv)}
       <div class="choices"><button class="choice primary" data-act="aftersummon">${actIcon('seal')}<span class="c-label">契約を結ぶ</span></button></div></div>
@@ -199,6 +201,7 @@ function viewMaster() {
     ${G.friend ? `<h3>幼馴染</h3><div class="bar-row"><span style="white-space:nowrap">${friendName()}</span><div class="bar bond"><i style="width:${G.friend.bond}%"></i></div><span class="num">${G.friend.bond}</span></div>` : ''}
     ${G.servant ? `<p class="note" style="font-size:12px;color:var(--muted)">マスターの魔力による英霊パラメータ補正：${masterCorrection() > 0 ? '+' : ''}${masterCorrection()}（魔力が低いとサーヴァントの性能が落ちる）</p>` : ''}
     <h3>道具</h3><div class="item-list">${Object.entries(ITEMS).map(([k, it]) => `<div><b>${it.name} ×${G.items[k] || 0}</b><span>${it.desc}</span></div>`).join('')}</div>
+    ${G.servant ? '' : viewExtraOmens()}
     <h3>所持している触媒</h3>${G.catalysts.length ? G.catalysts.map(id => `<span class="tag gold">${SV_BY_ID[id].catalyst}</span>`).join('') : '<p class="empty">まだ無い</p>'}
     <h3>判明している事実</h3>
       ${G.flags.grailTruth ? '<span class="tag red">聖杯は汚染されている</span>' : G.flags.grailHint ? '<span class="tag">聖杯には何か秘密がある……</span>' : '<p class="empty">特になし</p>'}
@@ -314,3 +317,15 @@ function boot(data) {
 if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ save: LAST_HUB }));
 if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot);
 else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});
+
+// 特殊クラスの兆し（召喚前に、条件の達成状況を表示）
+function viewExtraOmens() {
+  return `<h3>特殊クラスの兆し</h3><p class="note" style="font-size:12px;color:var(--muted);margin:0 0 8px">条件をすべて満たすと、そのクラスの英霊が召喚に応えるようになる。触媒を使っても、条件を満たしていなければ応えない。</p>
+    <div class="omens">${Object.entries(EXTRA_CLASSES).map(([cls, e]) => {
+      const open = extraOpen(cls);
+      return `<div class="omen ${open ? 'open' : ''}" style="--cc:${classColor(cls)}">
+        <div class="omen-head">${emblem(cls, 16)}<b>${cls}</b><span>${open ? '応える' : e.omen}</span></div>
+        <ul>${e.conds.map(([t, f]) => `<li class="${f() ? 'ok' : ''}">${f() ? '✓' : '・'} ${t}</li>`).join('')}
+        ${e.alt ? `<li class="${e.alt[1]() ? 'ok' : ''}">${e.alt[1]() ? '✓' : '・'} または：${e.alt[0]}</li>` : ''}</ul></div>`;
+    }).join('')}</div>`;
+}

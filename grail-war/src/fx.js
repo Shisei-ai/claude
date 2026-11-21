@@ -30,6 +30,7 @@ function markEnding(k) {
 const CLASS_COLOR = {
   'セイバー': '#7fa7e0', 'アーチャー': '#d8796a', 'ランサー': '#5cbca8', 'ライダー': '#d1a253', 'キャスター': '#ad88dc',
   'アサシン': '#97a0b5', 'バーサーカー': '#e0644a', 'ルーラー': '#e6d6a0', 'アヴェンジャー': '#8a74c8', '聖杯': '#b04050',
+  'アルターエゴ': '#d985bd', 'ムーンキャンサー': '#c3b2f0', 'フォーリナー': '#6fb3a8', 'シールダー': '#b8c6d8', 'プリテンダー': '#9fd36f',
 };
 const CLASS_ICON = {
   'セイバー': '<path d="M12 2l2 3v10h-4V5z"/><path d="M7 15h10M12 15v5M10 21h4"/>',
@@ -42,6 +43,11 @@ const CLASS_ICON = {
   'ルーラー': '<path d="M12 3v17M7 21h10M4 8h16"/><path d="M4 8l-2 6h4zM20 8l-2 6h4z"/>',
   'アヴェンジャー': '<path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-7 0 3 2 4 3 4-1-3 0-6 0-9z"/>',
   '聖杯': '<path d="M7 3h10v4a5 5 0 0 1-10 0z"/><path d="M12 12v6M8 21h8"/>',
+  'アルターエゴ': '<circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/>',
+  'ムーンキャンサー': '<path d="M16 3a9 9 0 1 0 5 13A7 7 0 0 1 16 3z"/>',
+  'フォーリナー': '<circle cx="12" cy="10" r="5"/><circle cx="12" cy="10" r="1.5"/><path d="M7 14c-1 3-3 5-4 6M12 15v6M17 14c1 3 3 5 4 6"/>',
+  'シールダー': '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8 10h8M12 6v12"/>',
+  'プリテンダー': '<path d="M4 9l4-4 4 4 4-4 4 4v4c0 4-4 7-8 7s-8-3-8-7z"/><path d="M8 13h2M14 13h2"/>',
 };
 function classColor(cls) { return CLASS_COLOR[cls] || '#d2ad5f'; }
 function emblem(cls, size = 22) {

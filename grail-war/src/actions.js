@@ -418,7 +418,10 @@ const SUMMON_CHANT = [
   '汝三大の言霊を纏う七天、<br>抑止の輪より来たれ、天秤の守り手よ――！',
 ];
 function summonScene() {
-  const choices = G.catalysts.map(id => ({ label: `「${SV_BY_ID[id].catalyst}」を使う`, hint: '縁ある英霊を喚ぶ', fn: () => chantScene(id) }));
+  const choices = G.catalysts.map(id => {
+    const c = SV_BY_ID[id].cls; const ex = !!EXTRA_CLASSES[c];
+    return { label: `「${SV_BY_ID[id].catalyst}」を使う`, hint: ex ? `特殊な気配……${extraOpen(c) ? '縁が強く応えている' : '何かが足りない気がする'}` : '縁ある英霊を喚ぶ', fn: () => chantScene(id) };
+  });
   choices.push({ label: '触媒を使わない', hint: `${alignLabel()}の自分に似た英霊が応える`, fn: () => chantScene(null) });
   const place = { heir: '家の工房', mission: G.master.birth === 'mercenary' ? '借り受けた倉庫' : '教会の地下聖堂', seeker: '自室の床' }[G.route] || '工房';
   scene({ title: '召喚の夜', sub: 'SUMMONING', body: [
@@ -436,17 +439,21 @@ function chantScene(catalystId) {
   ], choices: [{ label: '詠唱を終える', cls: 'primary', icon: 'ritual', fn: () => doSummon(catalystId) }] });
 }
 function doSummon(catalystId, opt = {}) {
-  let sv;
-  if (catalystId) sv = SV_BY_ID[catalystId];
-  else {
+  let sv = null, failed = null;
+  if (catalystId) {
+    sv = SV_BY_ID[catalystId];
+    if (!extraOpen(sv.cls)) { failed = sv; sv = null; }   // エクストラクラスは条件を満たさないと応えない
+  }
+  if (!sv) {
     const a = alignLabel().split('・');
     const taken = new Set(G.rivals.map(r => r.servantId));
-    sv = wpick(SERVANTS.filter(s => !taken.has(s.id)), s => {
+    sv = wpick(SERVANTS.filter(s => !taken.has(s.id) && extraOpen(s.cls) && s !== failed), s => {
       const [o, m] = s.align.split('・');
       let w = 1;
       if (o === a[0]) w += 1.5;
       if (m === a[1]) w += 1.5;
-      if (!BASE_CLASSES.includes(s.cls)) w *= 0.4;
+      // 条件を満たした特殊クラスは、クラス全体でおよそ3回に1回応えるくらいの重み
+      if (!BASE_CLASSES.includes(s.cls)) w *= 60 / SERVANTS.filter(x => x.cls === s.cls).length;
       if (G.flags.vision === s.id) w *= G.flags.visionStrong ? 6 : 2.5;
       return w;
     });
@@ -459,7 +466,9 @@ function doSummon(catalystId, opt = {}) {
   if (opt.emergency) { G.day = 0; G.slot = 1; } else { G.day = 1; G.slot = 0; }
   addLog(`${sv.cls}「${sv.name}」を召喚。`);
   if (G.flags.earlyIntel) intelRandom(1);
-  SCENE = { kind: 'summon', sv, emergency: !!opt.emergency }; TAB = 'story'; render(); sfx('summon');
+  if (failed) addLog(`「${failed.catalyst}」の縁は、${failed.cls}の条件を満たさず届かなかった。`);
+  if (!BASE_CLASSES.includes(sv.cls)) addLog(`特殊クラス「${sv.cls}」の英霊が応えた。`);
+  SCENE = { kind: 'summon', sv, emergency: !!opt.emergency, failed }; TAB = 'story'; render(); sfx('summon');
 }
 function setupRivals() {
   // 召喚前（巻き込まれルート）は7陣営すべてを用意し、召喚後に1つ減らす

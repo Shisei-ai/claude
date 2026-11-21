@@ -14,7 +14,8 @@ const FINAL_DAY = 11;   // 天降山の決戦はこの日の夜以降
 const EVENT_CHANCE = { prep: 0.25, war: 0.22 };   // コマの始めにランダムイベントが起きる確率
 const STAT_LABEL = { mag: '魔力', phy: '体力', int: '知力', spi: '精神', cha: '交渉', luk: '幸運' };
 const CLASS_EN = { 'セイバー': 'SABER', 'アーチャー': 'ARCHER', 'ランサー': 'LANCER', 'ライダー': 'RIDER',
-  'キャスター': 'CASTER', 'アサシン': 'ASSASSIN', 'バーサーカー': 'BERSERKER', 'ルーラー': 'RULER', 'アヴェンジャー': 'AVENGER', '聖杯': 'GRAIL' };
+  'キャスター': 'CASTER', 'アサシン': 'ASSASSIN', 'バーサーカー': 'BERSERKER', 'ルーラー': 'RULER', 'アヴェンジャー': 'AVENGER', '聖杯': 'GRAIL',
+  'アルターエゴ': 'ALTER EGO', 'ムーンキャンサー': 'MOON CANCER', 'フォーリナー': 'FOREIGNER', 'シールダー': 'SHIELDER', 'プリテンダー': 'PRETENDER' };
 
 // 道具（買い出しで入手。主に戦闘中に「マスターの行動」として使う）
 const ITEMS = {
