@@ -115,6 +115,7 @@ function chapterOf() {
   if (G.phase === 'growth') { const st = stageList()[G.growth.stage]; return `${isFuji() ? '日常' : isKishi() ? '月の玉座' : '生い立ち'}　${st ? st.band : ''}`; }
   if (G.phase === 'prep' || G.phase === 'summon') return '序章　令呪の冬';
   if (G.phase === 'end') return '終幕';
+  if (G.phase === 'epilogue') return 'エピローグ　その後の人生';
   return G.day < 4 ? '第一幕　開幕' : G.day < 10 ? '第二幕　侵蝕' : '第三幕　降臨';
 }
 // コマが変わる時の「〇日目・夜」カード

@@ -57,7 +57,7 @@ function skipReveal() {
 }
 function viewTop() {
   const night = G.slot === 1;
-  const dayText = G.phase === 'growth' ? (isFuji() ? `20歳・${stageLabel()}` : isKishi() ? `月の王・${stageLabel()}` : `${G.master.age}歳`) : G.phase === 'prep' ? `18歳・${G.day}日目` : G.phase === 'summon' || (G.phase === 'war' && G.day === 0) ? '開幕前夜' : G.phase === 'end' ? '終幕' : `${G.day}日目`;
+  const dayText = G.phase === 'growth' ? (isFuji() ? `20歳・${stageLabel()}` : isKishi() ? `月の王・${stageLabel()}` : `${G.master.age}歳`) : G.phase === 'prep' ? `18歳・${G.day}日目` : G.phase === 'summon' || (G.phase === 'war' && G.day === 0) ? '開幕前夜' : G.phase === 'end' ? '終幕' : G.phase === 'epilogue' ? epiAgeLabel() : `${G.day}日目`;
   const seals = [0, 1, 2].map(i => `<svg class="seal ${i < G.master.seals ? '' : 'used'}" viewBox="0 0 18 22" aria-hidden="true"><path d="${SEAL_PATH}"/></svg>`).join('');
   const extraSeals = G.master.seals > 3 ? `<span class="tag red">+${G.master.seals - 3}</span>` : '';
   const sv = G.servant;
@@ -128,6 +128,8 @@ function viewGallery() {
   const seen = seenEndings();
   return `<section class="panel"><h2>エンディング</h2><p class="note" style="color:var(--muted);font-size:13px">到達したエンディング ${seen.length} / ${ENDING_LIST.length}</p>
     <div class="gallery">${ENDING_LIST.map(([k, t], i) => `<div class="${seen.includes(k) ? 'got' : ''}"><span>${String(i + 1).padStart(2, '0')}</span><b>${seen.includes(k) ? t : '？？？'}</b></div>`).join('')}</div>
+    <h2 style="margin-top:20px">その後の人生</h2><p class="note" style="color:var(--muted);font-size:13px">見届けたエピローグ ${seenEpilogues().length} / ${Object.keys(EPI_TITLES).length}</p>
+    <div class="gallery">${Object.entries(EPI_TITLES).map(([k, t], i) => `<div class="${seenEpilogues().includes(k) ? 'got' : ''}"><span>${String(i + 1).padStart(2, '0')}</span><b>${seenEpilogues().includes(k) ? t : '？？？'}</b></div>`).join('')}</div>
     <div class="choices"><button class="choice primary" data-act="title">${actIcon('flee')}<span class="c-label">タイトルへ戻る</span></button></div></section>`;
 }
 function viewCreate() {
@@ -255,18 +257,18 @@ function viewEnding() {
   const no = ENDING_LIST.findIndex(e => e[0] === s.endKind) + 1;
   return `<article class="scene ending ${s.good ? 'good' : 'bad'}">
     ${circleSVG(s.good ? 'dawn-circle' : 'blood-circle')}
-    <div class="scene-sub">${s.good ? 'ENDING' : 'BAD END'}${no ? `　No.${String(no).padStart(2, '0')}` : ''}</div>
+    <div class="scene-sub">${s.epilogue ? 'EPILOGUE' : s.good ? 'ENDING' : 'BAD END'}${no ? `　No.${String(no).padStart(2, '0')}` : ''}</div>
     <h1 class="scene-title">${s.title}</h1>
     <div class="scene-body">${s.text.map((h, i) => CFG.fx ? `<div class="rv" style="--d:${400 + i * 700}ms">${h}</div>` : h).join('')}</div>
-    <div class="ending-stats ${CFG.fx ? 'rv' : ''}" style="--d:${400 + s.text.length * 700}ms">
+    ${s.epilogue ? '' : `<div class="ending-stats ${CFG.fx ? 'rv' : ''}" style="--d:${400 + s.text.length * 700}ms">
       <div>到達<b>${G.phase === 'end' && G.servant ? `${G.day}日目` : `準備${G.day}日目`}</b></div>
       <div>撃破数<b>${G.kills}騎</b></div>
       <div>サーヴァント<b>${sv ? sv.short : '―'}</b></div>
       <div>参戦の経緯<b>${routeName() || '―'}</b></div>
       <div>残った令呪<b>${G.master.seals}画</b></div>
       <div>絆<b>${G.servant ? `Lv${Math.floor(G.servant.bond / 10)}` : '―'}${G.servant && G.servant.special ? `・${RELATIONS[G.servant.special].name}` : ''}</b></div>
-    </div>
-    <div class="choices"><button class="choice primary" data-act="totitle"><span class="c-label">タイトルへ</span></button></div>
+    </div>`}
+    <div class="choices">${!s.epilogue && hasEpilogue(s.endKind) ? `<button class="choice primary" data-act="epilogue">${actIcon('next')}<span class="c-label">その後の人生へ</span><span class="c-hint">エピローグ：${EPI_TITLES[epiTrackOf(s.endKind)] || ''}</span></button>` : ''}<button class="choice${!s.epilogue && hasEpilogue(s.endKind) ? '' : ' primary'}" data-act="totitle"><span class="c-label">タイトルへ</span></button></div>
   </article>`;
 }
 
@@ -297,6 +299,7 @@ document.addEventListener('click', e => {
   if (a === 'new') createScreen();
   else if (a === 'reroll') { const name = document.getElementById('mname').value.trim(); const m = rollMaster(null, SCENE.master.gender); if (name) m.name = name; createScreen(m); }
   else if (a === 'title' || a === 'totitle') titleScreen();
+  else if (a === 'epilogue') startEpilogue(SCENE.endKind);
   else if (a === 'settings') { SCENE = { kind: 'settings' }; render(); }
   else if (a === 'gallery') { SCENE = { kind: 'gallery' }; render(); }
   else if (a === 'start') {
