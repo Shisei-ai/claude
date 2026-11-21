@@ -90,27 +90,4 @@ function nextStage() {
   showCard({ kicker: st.band, title: `${kanjiNum(st.age)}歳`, cls: 'day', ms: 1100 }, go);
 }
 
-// ---------------- 18歳の冬：令呪の発現 ----------------
-function comingOfAge() {
-  const b = birthOf(); const m = G.master;
-  m.age = ADULT_AGE; m.hp = m.hpMax;
-  G.phase = 'prep'; G.day = 1; G.slot = 0; SLOT = {};
-  G.master.od = odMax();
-  if (b.id === 'noble') giveCatalyst();
-  if (b.id === 'mercenary') { item('gem', 1); item('smoke', 1); }
-  if (b.id === 'clocktower') item('crystal', 1);
-  addLog(`${ADULT_AGE}歳の冬、右手に令呪が現れる。`);
-  const top = Object.entries(m.stats).sort((a, c) => c[1] - a[1]).slice(0, 2).map(([k]) => STAT_LABEL[k]);
-  const lines = [
-    `十八年が過ぎた。${b.text}`,
-    `<span class="note">得意なこと：${top.join('・')}　／　在り方：${alignLabel()}</span>`,
-    'その冬、右手の甲に、焼けるような痛みとともに三画の紋様が浮かび上がった。<br>聖杯に選ばれたマスターの証――<b>令呪</b>。',
-    G.friend ? `${friendName()}からの着信が、なぜか一件だけ残っていた。折り返しても、繋がらない。` : '',
-    G.catalysts.length ? `手元には、これまでの人生で手にした触媒がある。<b>${G.catalysts.map(id => SV_BY_ID[id].catalyst).join('、')}</b>。` : '',
-    `召喚の夜まで、あと${PREP_DAYS}日。`,
-  ];
-  chapterCard('序章　令呪の冬', () => {
-    G.lastChapter = '序章　令呪の冬';
-    next(`${ADULT_AGE}歳の冬`, paras(lines), () => { SLOT = {}; startSlot(); }, '準備を始める', 'PROLOGUE');
-  });
-}
+// 18歳の冬（令呪の発現）は routes.js の comingOfAge() へ

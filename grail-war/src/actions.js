@@ -412,19 +412,21 @@ function specialEvent() {
 function summonScene() {
   const choices = G.catalysts.map(id => ({ label: `「${SV_BY_ID[id].catalyst}」を使う`, hint: '縁ある英霊を喚ぶ', fn: () => doSummon(id) }));
   choices.push({ label: '触媒を使わない', hint: `${alignLabel()}の自分に似た英霊が応える`, fn: () => doSummon(null) });
+  const place = { heir: '家の工房', mission: G.master.birth === 'mercenary' ? '借り受けた倉庫' : '教会の地下聖堂', seeker: '自室の床' }[G.route] || '工房';
   scene({ title: '召喚の夜', sub: 'SUMMONING', body: [
-    '<p>準備の日々は終わった。今宵、聖杯戦争が始まる。</p>',
-    `<p>工房の床に描いた召喚陣の前に立つ。右手の令呪が、熱を帯びて脈打っている。${G.ritual >= 3 ? '陣は完璧に仕上がっている。' : G.ritual > 0 ? '陣の準備はまずまずだ。' : '急ごしらえの陣だが、やるしかない。'}</p>`,
-    '<p class="quote">「――告げる。汝の身は我が下に、我が命運は汝の剣に。聖杯の寄るべに従い、この意、この理に従うならば応えよ」</p>',
+    `<p>${G.route === 'seeker' ? '独学と教えを頼りに、ここまで来た。' : '準備の日々は終わった。'}今宵、聖杯戦争が始まる。</p>`,
+    `<p>${place}に描いた召喚陣の前に立つ。右手の令呪が、熱を帯びて脈打っている。${G.ritual >= 3 ? '陣は完璧に仕上がっている。' : G.ritual > 0 ? '陣の準備はまずまずだ。' : '急ごしらえの陣だが、やるしかない。'}</p>`,
+    '<p class="quote">「――天に満ちる星よ、地に眠る霊脈よ。我が血と令呪を標とし、契約の門を開け。応えよ、英霊。この呼び声に、この願いに」</p>',
     G.catalysts.length ? '<p>手元には触媒がある。どれを使おうか。</p>' : '<p>触媒は手に入らなかった。縁に任せるしかない。</p>',
   ], choices });
 }
-function doSummon(catalystId) {
+function doSummon(catalystId, opt = {}) {
   let sv;
   if (catalystId) sv = SV_BY_ID[catalystId];
   else {
     const a = alignLabel().split('・');
-    sv = wpick(SERVANTS, s => {
+    const taken = new Set(G.rivals.map(r => r.servantId));
+    sv = wpick(SERVANTS.filter(s => !taken.has(s.id)), s => {
       const [o, m] = s.align.split('・');
       let w = 1;
       if (o === a[0]) w += 1.5;
@@ -434,21 +436,24 @@ function doSummon(catalystId) {
       return w;
     });
   }
-  G.servant = { id: sv.id, hp: 0, mp: 60 + G.ritual * 13, bond: 5 + G.ritual * 4, special: null, exposed: false };
+  G.servant = { id: sv.id, hp: 0, mp: 60 + G.ritual * 13, bond: (opt.emergency ? 15 : 5) + G.ritual * 4, special: null, exposed: false };
   G.servant.hp = servantHpMax();
-  setupRivals();
-  G.phase = 'war'; G.day = 1; G.slot = 0; SLOT = {};
+  if (!G.rivals.length) setupRivals();
+  else fitRivalsToServant(sv);
+  G.phase = 'war'; SLOT = {};
+  if (opt.emergency) { G.day = 0; G.slot = 1; } else { G.day = 1; G.slot = 0; }
   addLog(`${sv.cls}「${sv.name}」を召喚。`);
   if (G.flags.earlyIntel) intelRandom(1);
-  SCENE = { kind: 'summon', sv }; TAB = 'story'; render(); sfx('summon');
+  SCENE = { kind: 'summon', sv, emergency: !!opt.emergency }; TAB = 'story'; render(); sfx('summon');
 }
 function setupRivals() {
-  const mine = servantOf(G).cls;
+  // 召喚前（巻き込まれルート）は7陣営すべてを用意し、召喚後に1つ減らす
+  const mine = G.servant ? servantOf(G).cls : null;
   let classes = BASE_CLASSES.filter(c => c !== mine);
-  if (classes.length > 6) classes = shuffle(classes).slice(0, 6);
+  if (mine && classes.length > 6) classes = shuffle(classes).slice(0, 6);
   const types = shuffle(RIVAL_TYPES);
   G.rivals = classes.map((cls, i) => {
-    const pool = SERVANTS.filter(s => s.cls === cls && s.id !== G.servant.id);
+    const pool = SERVANTS.filter(s => s.cls === cls && (!G.servant || s.id !== G.servant.id));
     const s = pick(pool); const t = types[i];
     const r = { id: 'r' + i, cls, servantId: s.id, master: randomName(t.foreign), type: t.type, power: t.power + rand(-1, 1),
       aggr: t.aggr, quote: t.quote, alive: true, hp: 0, hpMax: 0, mp: 100, intel: 0, clues: 0, seals: 2 + rand(0, 1),
@@ -466,8 +471,39 @@ function setupRivals() {
   }
 }
 function afterSummon() {
+  if (G.route === 'caught' && G.day === 0) return caughtFirstFight();
   next('聖杯戦争、開幕', [
     '<p>こうして、深見市における聖杯戦争が幕を開けた。七騎のサーヴァントと七人のマスター。生き残るのは、ただ一組。</p>',
     `<p class="note">昼は情報・陣地・道具・絆を整える時間。夜は戦いの時間。敵の真名を暴き、作戦を選んで仕掛け、最後の一組となれ。期限は${WAR_DAYS}日。</p>`,
   ], startSlot, '戦いへ', '第一幕　開幕');
+}
+
+// 巻き込まれた夜：召喚直後の最初の戦い
+function caughtFirstFight() {
+  const r = G.storyRival;
+  scene({ title: '契約', sub: 'PROLOGUE', reveal: true, body: paras([
+    `光が収まると、あなたの前に${SV()}が立っていた。振り下ろされた${r.cls}の刃を、片手で受け止めて。`,
+    servantOf(G).persona === 'berserker' ? `（${SV()}は低く唸り、あなたを背に庇うように立ちはだかった）`
+      : `<p class="quote">「状況は分からないが、一つだけ確かなことがある。――君が、マスターだ」</p>`,
+    `${esc(r.master)}が舌打ちした。「最後の一騎が、こんな素人に喚ばれるとはな」`,
+    '何が起きているのか、何一つ分からない。けれど、今は――',
+  ]), choices: [
+    { label: '「頼む、助けてくれ！」', hint: '戦闘（敵は不意を突かれている）', cls: 'danger', icon: 'battle', fn: () => { G.flags.firstFight = true; startBattle(r, { ambush: true }); } },
+    { label: '一緒に逃げる', hint: 'サーヴァント敏捷判定', icon: 'flee', fn: () => {
+      const c = schk(2, 50);
+      if (c.ok) return next('逃走', paras([c.text, `${SV()}があなたを抱えて夜空へ跳んだ。眼下で、街の灯りがみるみる遠ざかっていく。`,
+        '気付けば、自分の部屋の前に立っていた。……夢では、なかった。']), advance);
+      next('逃走失敗', paras([c.text, '回り込まれた！ 戦うしかない。']), () => startBattle(r, {}), '戦う');
+    } },
+  ] });
+}
+
+// 先に用意した7陣営を、召喚された英霊に合わせて6陣営に整える（巻き込まれルート用）
+function fitRivalsToServant(sv) {
+  const dup = G.rivals.find(r => r.servantId === sv.id);
+  if (dup) { const alt = SERVANTS.filter(s => s.cls === dup.cls && s.id !== sv.id && !G.rivals.some(r => r.servantId === s.id)); if (alt.length) dup.servantId = pick(alt).id; }
+  if (G.rivals.length <= 6) return;
+  const keep = r => r === G.storyRival || r.friend;
+  const victim = G.rivals.find(r => r.cls === sv.cls && !keep(r)) || G.rivals.find(r => !keep(r));
+  G.rivals.splice(G.rivals.indexOf(victim), 1);
 }

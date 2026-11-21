@@ -48,7 +48,7 @@ const GROWTH_EVENTS = [
     text: () => '原因不明の高熱が、三日三晩続いた。<br>うなされる夢の中で、誰かがあなたを見下ろしていた。遠い時代の、遠い国の誰か――。',
     choices: [
       { label: '夢の中の声に耳を傾ける', hint: '魔力↑・英霊との縁', run: () => {
-          const s = pickVisionServant(); gain('mag', 5);
+          const s = pickVisionServant(); gain('mag', 5); lore(1);
           return [`――${s.desc}<br>熱が引いた朝、あなたはその人の顔だけを、なぜかはっきりと覚えていた。（魔力+5）`,
             '<span class="note">この「縁」は、いつか召喚の時に導いてくれるかもしれない。</span>'];
         } },
@@ -60,7 +60,7 @@ const GROWTH_EVENTS = [
       { label: '泣かずにその場で待つ', hint: '精神↑・秩序', run: () => { gain('spi', 5); tone('law'); return '鳥居の下でじっと待っていると、ほどなく家族が駆けつけてきた。「えらかったね」（精神+5）'; } },
       { label: '自分で探し回る', hint: '体力・幸運↑・大胆', run: () => { gain('phy', 4); gain('luk', 3); tone('bold'); return '人混みをかき分けて走り回り、自力で家族を見つけ出した。（体力+4 幸運+3）'; } },
       { label: '釣竿を持ったおじいさんについていく', hint: '不思議な出会い', run: () => {
-          G.flags.oldTrust = true; gain('luk', 4);
+          G.flags.oldTrust = true; gain('luk', 4); lore(1);
           return `釣竿を担いだ無口な老人が、黙って手を引いて家まで送ってくれた。別れ際、老人はあなたの右手をじっと見て呟いた。「……まさか、な」<br>名前は${CAST.old}というらしい。（幸運+4）`;
         } },
     ] },
@@ -120,9 +120,9 @@ const GROWTH_EVENTS = [
   { id: 'g_awaken', ages: [12, 12], fixed: true, births: ['civilian', 'executor'], title: '目覚め',
     text: () => '眠れない夜。ふと見ると、手のひらに小さな火花が散っていた。<br>体の奥で、何かが脈打っている。……これは、何だ？',
     choices: [
-      { label: '誰にも言わずに隠し通す', hint: '精神↑', run: () => { G.flags.awakened = true; gain('spi', 5); gain('mag', 3); return '火花はやがて消えた。あなたはそれを、自分だけの秘密にした。（精神+5 魔力+3）<br><span class="note">これ以降、魔術の修行ができるようになった。</span>'; } },
-      { label: '図書館で手がかりを探す', hint: '知力・魔力↑', run: () => { G.flags.awakened = true; gain('int', 4); gain('mag', 4); return '古いオカルト本の片隅に、「魔術回路」という言葉を見つけた。（知力+4 魔力+4）<br><span class="note">これ以降、魔術の修行ができるようになった。</span>'; } },
-      { label: () => G.friend ? `${friendName()}に打ち明ける` : '家族に打ち明ける', hint: '交渉↑', run: () => { G.flags.awakened = true; friend(15); gain('cha', 3); gain('mag', 2);
+      { label: '誰にも言わずに隠し通す', hint: '精神↑', run: () => { G.flags.awakened = true; lore(2); gain('spi', 5); gain('mag', 3); return '火花はやがて消えた。あなたはそれを、自分だけの秘密にした。（精神+5 魔力+3）<br><span class="note">これ以降、魔術の修行ができるようになった。</span>'; } },
+      { label: '図書館で手がかりを探す', hint: '知力・魔力↑', run: () => { G.flags.awakened = true; lore(2); gain('int', 4); gain('mag', 4); return '古いオカルト本の片隅に、「魔術回路」という言葉を見つけた。（知力+4 魔力+4）<br><span class="note">これ以降、魔術の修行ができるようになった。</span>'; } },
+      { label: () => G.friend ? `${friendName()}に打ち明ける` : '家族に打ち明ける', hint: '交渉↑', run: () => { G.flags.awakened = true; lore(2); friend(15); gain('cha', 3); gain('mag', 2);
           return `${G.friend ? friendName() : '家族'}は驚いたけれど、笑わずに聞いてくれた。「すごいじゃん。でも、無理しちゃだめだよ」（交渉+3 魔力+2）<br><span class="note">これ以降、魔術の修行ができるようになった。</span>`; } },
     ] },
   { id: 'g_crest', ages: [12, 12], fixed: true, births: ['noble'], title: '魔術刻印の継承',
@@ -152,15 +152,15 @@ const GROWTH_EVENTS = [
     choices: [
       { label: '学芸員に話を聞く', hint: '交渉判定・触媒', run: () => {
           const r = chk('cha', 40);
-          if (r.ok) { const c = giveCatalyst(); return [r.text, `熱心な質問に感心した老学芸員が、「収蔵庫の隅で埃をかぶっていたものだ」と、小さな欠片を譲ってくれた。<b>${c}</b>だ。`]; }
+          if (r.ok) { const c = giveCatalyst(); lore(1); return [r.text, `熱心な質問に感心した老学芸員が、「収蔵庫の隅で埃をかぶっていたものだ」と、小さな欠片を譲ってくれた。<b>${c}</b>だ。`]; }
           gain('int', 3); return [r.text, '詳しい話は聞けたが、それだけだった。（知力+3）'];
         } },
-      { label: 'ガラス越しにじっと見つめる', hint: '魔力↑', run: () => { gain('mag', 4); gain('spi', 2); return '展示品の奥に、かすかな魔力の残り香を感じた。（魔力+4 精神+2）'; } },
+      { label: 'ガラス越しにじっと見つめる', hint: '魔力↑', run: () => { gain('mag', 4); gain('spi', 2); lore(1); return '展示品の奥に、かすかな魔力の残り香を感じた。（魔力+4 精神+2）'; } },
     ] },
   { id: 'g_storm', ages: [9, 14], title: '天降山の嵐',
     text: () => '天降山で遊んでいるうちに、急な嵐に襲われた。雨宿りした岩陰の奥で、<b>黒い霧</b>が地面から滲み出しているのが見えた。',
     choices: [
-      { label: '霧に近づいてみる', hint: '魔力↑・秘密に触れる', run: () => { gain('mag', 4); gain('spi', -2); G.flags.grailHint = true;
+      { label: '霧に近づいてみる', hint: '魔力↑・秘密に触れる', run: () => { gain('mag', 4); gain('spi', -2); G.flags.grailHint = true; lore(1);
           return '霧に触れた指先が、凍るように冷たくなった。耳の奥で、誰かの怨嗟の声がした気がする。（魔力+4 精神-2）'; } },
       { label: '雨の中を全力で駆け下りる', hint: '体力↑', run: () => { gain('phy', 5); return '泥だらけになって、どうにか麓まで辿り着いた。（体力+5）'; } },
       { label: '目を閉じて祈る', hint: '精神↑', run: () => { gain('spi', 5); return '嵐が過ぎるまで、ただ祈り続けた。目を開けると、霧は消えていた。（精神+5）'; } },
@@ -168,9 +168,9 @@ const GROWTH_EVENTS = [
   { id: 'g_oldman', ages: [12, 17], title: '河川敷の釣り人',
     text: () => `御影川の河川敷で、釣り糸を垂れる老人の隣に座るのが、いつの間にか習慣になっていた。${CAST.old}――無口だが、不思議と居心地のいい人だ。`,
     choices: [
-      { label: '昔の話をせがむ', hint: '知力↑・街の秘密', run: () => { gain('int', 4); G.flags.oldTrust = true; G.flags.grailHint = true;
+      { label: '昔の話をせがむ', hint: '知力↑・街の秘密', run: () => { gain('int', 4); G.flags.oldTrust = true; G.flags.grailHint = true; lore(2);
           return '「昔、この街で戦争があった。誰も知らない戦争じゃ」老人はそれきり黙った。（知力+4）'; } },
-      { label: '釣りを教わる', hint: '精神・幸運↑', run: () => { gain('spi', 4); gain('luk', 2); G.flags.oldTrust = true;
+      { label: '釣りを教わる', hint: '精神・幸運↑', run: () => { gain('spi', 4); gain('luk', 2); G.flags.oldTrust = true; lore(1);
           return '「待つことを覚えなされ。焦る者から、川に呑まれる」（精神+4 幸運+2）'; } },
     ] },
   { id: 'g_injury', ages: [9, 16], title: '交差点',
@@ -210,7 +210,7 @@ const GROWTH_EVENTS = [
   { id: 'g_runaway', ages: [12, 16], title: '家出',
     text: () => '些細なことで家族と言い争い、夜の街に飛び出した。',
     choices: [
-      { label: '夜の港へ向かう', hint: '幸運・知力↑・混沌', run: () => { tone('chaos'); gain('luk', 4); gain('int', 3);
+      { label: '夜の港へ向かう', hint: '幸運・知力↑・混沌', run: () => { tone('chaos'); gain('luk', 4); gain('int', 3); lore(1);
           return '倉庫街で、外国訛りの奇妙な男に会った。男はあなたの右手を見て笑った。「数年後が楽しみだ」……あれは誰だったのだろう。（幸運+4 知力+3）'; } },
       { label: () => G.friend ? `${friendName()}の家に転がり込む` : '公園で夜を明かす', hint: '友情', run: () => { friend(15); gain('cha', 3);
           return G.friend ? `${friendName()}は何も聞かずに、温かいココアを出してくれた。（交渉+3）` : '寒い夜だった。朝になって、家に帰った。（交渉+3）'; } },
@@ -226,7 +226,7 @@ const GROWTH_EVENTS = [
   { id: 'g_heirloom', ages: [14, 17], title: '形見',
     text: () => '祖父の葬儀の後、遺品の整理をしていると、桐箱が出てきた。添えられた手紙には「これは、いつかお前の役に立つ」とだけ書かれている。',
     choices: [
-      { label: '大切に受け継ぐ', hint: '触媒を得る', run: () => { const c = giveCatalyst(); return `箱の中には<b>${c}</b>が入っていた。祖父は、何を知っていたのだろう。`; } },
+      { label: '大切に受け継ぐ', hint: '触媒を得る', run: () => { const c = giveCatalyst(); lore(1); return `箱の中には<b>${c}</b>が入っていた。祖父は、何を知っていたのだろう。`; } },
       { label: '古物商に売る', hint: '資金↑', run: () => { money(4); return '思いのほか高値がついた。（資金+4）……少しだけ、後ろめたい。'; } },
     ] },
   { id: 'g_trip', ages: [15, 17], title: '修学旅行',
@@ -242,9 +242,9 @@ const GROWTH_EVENTS = [
   { id: 'g_secret', ages: [16, 17], cond: () => !!G.friend, title: '幼馴染の秘密',
     text: () => `夜、${friendName()}から電話がかかってきた。「ねえ……変なこと聞くけど。最近、手の甲が痛くなったりしない？」<br>電話の向こうの声は、かすかに震えていた。`,
     choices: [
-      { label: '「何かあったら、必ず力になる」', hint: '友情・善', run: () => { friend(15); tone('good'); G.flags.friendPromise = true;
+      { label: '「何かあったら、必ず力になる」', hint: '友情・善', run: () => { friend(15); tone('good'); G.flags.friendPromise = true; lore(1);
           return `「……ありがと。うん、大丈夫。ちょっと聞いてみただけ」${friendName()}はそう言って電話を切った。<br>その夜、あなたの右手の甲も、かすかに疼いた。`; } },
-      { label: '自分の秘密も打ち明ける', hint: '友情↑', cond: () => hasMagic(), run: () => { friend(20); gain('cha', 3);
+      { label: '自分の秘密も打ち明ける', hint: '友情↑', cond: () => hasMagic(), run: () => { friend(20); gain('cha', 3); lore(1);
           return `長い沈黙の後、${friendName()}は言った。「……そっか。やっぱり、あなたも『こっち側』なんだ」（交渉+3）`; } },
       { label: '「気のせいじゃない？」と流す', hint: '精神↑', run: () => { gain('spi', 3); return `「……そうだよね。ごめん、変なこと言って」（精神+3）`; } },
     ] },
@@ -253,5 +253,36 @@ const GROWTH_EVENTS = [
     choices: [
       { label: '真面目にこなす', hint: '資金・交渉↑', run: () => { money(3); gain('cha', 3); return '常連客にも顔を覚えてもらえた。（資金+3 交渉+3）'; } },
       { label: '夜勤も入って稼ぐ', hint: '資金↑↑・体力↓', run: () => { money(5); gain('phy', -2); return '体はきついが、貯金は順調に増えた。（資金+5 体力-2）'; } },
+    ] },
+  // ---------- 17歳：進路（参戦の経緯が決まる） ----------
+  { id: 'g_crossroads', ages: [17, 17], fixed: true, title: '進路',
+    text: () => {
+      const b = birthOf();
+      if (b.id === 'mercenary') return '養父が古い銃を磨きながら言った。「お前ももう一人前だ。この先どう生きるかは、自分で決めろ」';
+      if (b.id === 'executor') return `${CAST.sister}が、進路希望の紙を差し出した。「代行者の道に進むのも、普通の大学に行くのも、あなたの自由です。……どちらを選んでも、私はあなたの味方ですよ」`;
+      if (b.magic) return '高校最後の冬。家の書斎で、分厚い魔導書と大学のパンフレットが並んでいる。魔術師として生きるのか、それとも――。';
+      if (G.lore >= 2) return 'この街には、何かがある。夢に見た英霊、黒い霧、釣り人の昔話。<br>大学のパンフレットを前に、あなたはずっと考えていた。このまま「普通」に生きていいのだろうか、と。';
+      return '高校最後の冬。友達は皆、受験や就職の話で持ちきりだ。あなたも、そろそろ決めなければならない。';
+    },
+    choices: [
+      { label: '家を継ぎ、魔術師として生きる', hint: '魔力↑', cond: () => birthOf().magic && birthOf().id !== 'mercenary', run: () => {
+          gain('mag', 4); tone('law'); return '書斎の扉を閉じ、魔導書を開いた。迷いは、もうない。（魔力+4）'; } },
+      { label: '魔術から離れて生きたい', hint: '交渉↑・道を外れる', cond: () => birthOf().magic, run: () => {
+          G.flags.rebel = true; gain('cha', 3); tone('chaos');
+          return '大学のパンフレットに、そっと丸をつけた。……家の誰にも、まだ言えていない。（交渉+3）'; } },
+      { label: '養父の跡を継ぎ、傭兵になる', hint: '体力↑', cond: () => birthOf().id === 'mercenary', run: () => {
+          gain('phy', 4); return '養父は何も言わず、使い込んだナイフを一本、あなたに渡した。（体力+4）'; } },
+      { label: '代行者として生きる', hint: '体力・精神↑', cond: () => birthOf().id === 'executor', run: () => {
+          G.flags.churchPath = true; gain('phy', 2); gain('spi', 3); lore(2);
+          return `${CAST.sister}は少しだけ寂しそうに微笑んだ。「……分かりました。では、教えましょう。この街の、本当の姿を」（体力+2 精神+3）`; } },
+      { label: 'この街の秘密を追い続ける', hint: '知力↑・真実へ', cond: () => !birthOf().magic && G.lore >= 2, run: () => {
+          G.flags.pursue = true; gain('int', 4); lore(1); tone('bold');
+          return 'パンフレットを閉じ、図書館の郷土資料室へ向かった。答えは、きっとこの街のどこかにある。（知力+4）'; } },
+      { label: '普通に進学・就職する', hint: '交渉・精神↑', cond: () => !birthOf().magic || birthOf().id === 'mercenary', run: () => {
+          if (birthOf().magic) G.flags.rebel = true;
+          gain('cha', 3); gain('spi', 2); tone('cautious');
+          return '平凡でいい。穏やかな毎日が続けば、それで。（交渉+3 精神+2）'; } },
+      { label: () => `${friendName()}と同じ大学を目指す`, hint: '友情↑', cond: () => !!G.friend && !birthOf().magic, run: () => {
+          friend(10); gain('int', 3); return `「ほんと！？ じゃあ一緒に勉強しよ！」${friendName()}は飛び上がって喜んだ。（知力+3）`; } },
     ] },
 ];

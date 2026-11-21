@@ -57,7 +57,7 @@ function skipReveal() {
 }
 function viewTop() {
   const night = G.slot === 1;
-  const dayText = G.phase === 'growth' ? `${G.master.age}歳` : G.phase === 'prep' ? `18歳・${G.day}日目` : G.phase === 'summon' ? '開幕前夜' : G.phase === 'end' ? '終幕' : `${G.day}日目`;
+  const dayText = G.phase === 'growth' ? `${G.master.age}歳` : G.phase === 'prep' ? `18歳・${G.day}日目` : G.phase === 'summon' || (G.phase === 'war' && G.day === 0) ? '開幕前夜' : G.phase === 'end' ? '終幕' : `${G.day}日目`;
   const seals = [0, 1, 2].map(i => `<svg class="seal ${i < G.master.seals ? '' : 'used'}" viewBox="0 0 18 22" aria-hidden="true"><path d="${SEAL_PATH}"/></svg>`).join('');
   const extraSeals = G.master.seals > 3 ? `<span class="tag red">+${G.master.seals - 3}</span>` : '';
   const sv = G.servant;
@@ -171,6 +171,7 @@ function viewSummon() {
     <div class="summon-stage">${circleSVG('summon-glow')}<div class="summon-flash"></div>
       <div class="summon-class">${emblem(sv.cls, 54)}<span>${CLASS_EN[sv.cls] || sv.cls}</span></div></div>
     <div class="summon-name">${sv.name}</div>
+    ${SCENE.emergency ? '<p class="note" style="text-align:center;margin:10px 0 0">召喚陣も詠唱もないまま、令呪の光が英霊を呼び寄せた。</p>' : ''}
     <p class="quote summon-line">「${sv.line}」</p>
     <div class="summon-card">${servantCard(sv)}
       <div class="choices"><button class="choice primary" data-act="aftersummon">${actIcon('seal')}<span class="c-label">契約を結ぶ</span></button></div></div>
@@ -186,7 +187,7 @@ function servantCard(sv) {
 }
 function viewMaster() {
   const m = G.master; const b = BIRTHS.find(x => x.id === m.birth);
-  return `<section class="panel"><h2>${M()}<span style="font-size:14px;color:var(--muted);margin-left:8px">${m.age}歳</span></h2><div><span class="tag gold">${G.phase === 'growth' ? b.home : b.name}</span><span class="tag">${TALENTS[m.talent] || ''}</span><span class="tag">${alignLabel()}</span><span class="tag">${m.element}</span></div>
+  return `<section class="panel"><h2>${M()}<span style="font-size:14px;color:var(--muted);margin-left:8px">${m.age}歳</span></h2><div><span class="tag gold">${G.phase === 'growth' ? b.home : b.name}</span><span class="tag">${TALENTS[m.talent] || ''}</span>${G.route ? `<span class="tag red">${routeName()}</span>` : ''}<span class="tag">${alignLabel()}</span><span class="tag">${m.element}</span></div>
     <h3>状態</h3><div class="bars">
       <div class="bar-row"><span>HP</span><div class="bar hp"><i style="width:${m.hp}%"></i></div><span class="num">${m.hp}</span></div></div>
     <dl class="kv" style="margin-top:10px"><dt>令呪</dt><dd>${m.seals}画</dd><dt>資金</dt><dd>${m.money}万円</dd><dt>魔術回路</dt><dd>${m.circuits}本</dd>
@@ -257,6 +258,8 @@ function viewEnding() {
       <div>到達<b>${G.phase === 'end' && G.servant ? `${G.day}日目` : `準備${G.day}日目`}</b></div>
       <div>撃破数<b>${G.kills}騎</b></div>
       <div>サーヴァント<b>${sv ? sv.short : '―'}</b></div>
+      <div>参戦の経緯<b>${routeName() || '―'}</b></div>
+      <div>残った令呪<b>${G.master.seals}画</b></div>
       <div>絆<b>${G.servant ? `Lv${Math.floor(G.servant.bond / 10)}` : '―'}${G.servant && G.servant.special ? `・${RELATIONS[G.servant.special].name}` : ''}</b></div>
     </div>
     <div class="choices"><button class="choice primary" data-act="totitle"><span class="c-label">タイトルへ</span></button></div>

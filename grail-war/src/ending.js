@@ -96,13 +96,19 @@ function ending(kind) {
     together: () => ({ title: `終幕：${rel ? rel.name : ''}として`, text: [`<p>「${sv.short}に、この世界で生きる体を」</p>`, '<p>聖杯は願いを聞き届けた。黄金の光が霊基を包み、英霊は肉体を得て現世に降り立つ。</p>',
       `<p>冬が終わり、深見市に春が来た。桜並木の下を、${sv.short}と並んで歩く。「${rel ? rel.name : ''}」と呼び合う二人の、新しい日々が始まる。</p>`,
       G.flags.grailTruth ? '<p class="note">聖杯の呪いは今も山の下に眠っている。いつか、二人で向き合う日が来るだろう。</p>' : ''] }),
+    abstain: () => ({ title: '終幕：日常への帰還', text: ['<p>「……ごめん。戦えない」</p>',
+      `<p>${sv.short}は少しだけ目を伏せ、それから穏やかに笑った。</p>`, `<p class="quote">${fmt(per.farewell)}</p>`,
+      `<p>令呪は教会に預けられ、${sv.short}の姿は光の粒となって消えた。</p>`,
+      '<p>春が来た。あの冬、この街で何が起きたのか、あなたは知らない。ニュースは時々、原因不明の事故や昏睡事件を報じていた。</p>',
+      '<p>右手の甲には、今もうっすらと三画の痣が残っている。</p>',
+      '<p class="note">ヒント：戦う道を選べば、別の結末が待っている。</p>'] }),
     none: () => ({ title: '終幕：願いなき勝者', text: ['<p>あなたは何も願わなかった。聖杯は誰の手にも渡らぬまま、静かに消えていった。</p>', `<p class="quote">${fmt(per.farewell)}</p>`,
       '<p>勝者の手に残ったのは、戦いの記憶と、確かに結ばれた絆だけだった。</p>'] }),
   }[kind]();
   const ep = friendEpilogue(kind);
   if (ep) E.text.push(ep);
   addLog(E.title); markEnding(kind);
-  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured'].includes(kind);
+  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain'].includes(kind);
   sfx(good ? 'win' : 'lose');
   showCard({ kicker: good ? 'ENDING' : 'BAD END', title: E.title.replace('終幕：', ''), cls: good ? 'dawn' : 'blood', ms: 2200 }, () => {
     SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good };

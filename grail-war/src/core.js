@@ -156,6 +156,7 @@ function newGame(master) {
     ritual: 0, workshop: 0, traps: 0, kills: 0, battles: 0, tmpRival: null, storyRival: null,
   };
   G.master.od = odMax();
+  G.lore = BIRTHS.find(b => b.id === master.birth).magic ? 5 : 0;   // 魔術世界をどれだけ知っているか
   addLog(`${master.name}、誕生。`);
 }
 function addLog(t) { G.log.unshift({ when: whenShort(), text: t }); if (G.log.length > 80) G.log.pop(); }

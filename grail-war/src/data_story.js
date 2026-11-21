@@ -63,6 +63,32 @@ const STORY = [
     ],
   },
   {
+    id: 's_mentor', phase: 'prep', day: 1, slot: 0, after: 'hub', cond: () => G.route === 'seeker',
+    title: '師を求めて', chapter: '序章　令呪の冬',
+    text: () => '令呪は手に入った。だが、サーヴァントを喚ぶ方法を、あなたは本でしか知らない。<br>召喚陣の描き方、魔力の通し方、詠唱――誰かに教わらなければ、三日後の夜には間に合わない。',
+    choices: [
+      { label: () => `${CAST.old}に教えを乞う`, hint: '交渉判定（顔見知りなら易しい）', run: () => {
+          const c = chk('cha', G.flags.oldTrust ? 35 : 58);
+          if (c.ok) { G.ritual += 2; G.flags.oldTrust = true; G.flags.grailHint = true;
+            return [c.text, `老人は長い沈黙の後、釣竿を置いた。「……六十年前、わしが描いた陣じゃ。同じ過ちは繰り返すな」<br>古びた手帳に、召喚陣の図面がびっしりと描かれていた。（召喚の準備+2）`]; }
+          G.ritual += 1; return [c.text, '「若いのが首を突っ込むことではない」突き放されたが、去り際に一枚の紙片を握らされた。（召喚の準備+1）'];
+        } },
+      { label: '天降神社を訪ねる', hint: '魔力↑・霊脈の知識', run: () => {
+          G.ritual += 1; G.flags.leyline = true; G.flags.metMiko = true; gain('mag', 2);
+          return `${CAST.miko}が、蔵の古文書を見せてくれた。「この山の霊脈の流れに沿って陣を描けば、きっと……」（召喚の準備+1 魔力+2）`;
+        } },
+      { label: '独学で召喚陣を組み上げる', hint: '知力判定', run: () => {
+          const c = chk('int', 60);
+          if (c.ok) { G.ritual += 2; gain('int', 2); return [c.text, '集めた文献を突き合わせ、一晩で陣の理屈を組み上げた。（召喚の準備+2 知力+2）']; }
+          hp(-10); return [c.text, '試しに魔力を通した陣が暴発した。……一からやり直しだ。（HP-10）'];
+        } },
+      { label: '教会で監督役に相談する', hint: '秩序・教会に登録', run: () => {
+          tone('law'); G.flags.registered = true; G.ritual += 1;
+          return `${CAST.sister}は目を丸くした。「独力でここまで辿り着いた一般の方は、記録にありません」<br>彼女は規則を説明し、最低限の召喚の手順を教えてくれた。（召喚の準備+1 教会に登録）`;
+        } },
+    ],
+  },
+  {
     id: 's_sister', phase: 'prep', day: 2, slot: 0, after: 'hub',
     title: '監督役', chapter: '序章　令呪の冬',
     text: () => (birthOf().id === 'executor'
@@ -121,6 +147,23 @@ const STORY = [
 
   // ===================== 第一幕「開幕」 =====================
   {
+    id: 's_church_caught', phase: 'war', day: 1, slot: 0, after: 'hub', cond: () => G.route === 'caught',
+    title: '聖杯戦争', chapter: '第一幕　開幕',
+    text: () => `一睡もできないまま朝が来た。${SV()}は、昨夜のことを一つずつ説明してくれた。<br>聖杯戦争。万能の願望機を巡り、七人のマスターと七騎のサーヴァントが殺し合う儀式。右手の痣は<b>令呪</b>と呼ばれるもので、あなたはその七人の一人に選ばれてしまったのだという。<br>${SV()}に促され、丘の上の聖ヨハネ教会を訪ねた。` +
+      (birthOf().id === 'executor' ? `<br>迎えたのは、あなたを育てた${CAST.sister}だった。「……どうして、あなたが」彼女は顔を覆った。`
+        : `<br>銀髪の修道女――監督役の${CAST.sister}は、静かに告げた。「令呪を手放し、教会の保護を受けることもできます。ただし、サーヴァントとはここでお別れです」`),
+    choices: [
+      { label: '「戦う。巻き込まれたままで終わりたくない」', hint: '大胆・教会に登録', run: () => {
+          tone('bold'); G.flags.registered = true; bond(5);
+          return `${SV()}が、わずかに口元を緩めた。「……いい答えだ、マスター」<br>あなたはマスターとして、正式に聖杯戦争への参加を登録した。（絆+5）`;
+        } },
+      { label: '令呪を手放し、保護を求める', hint: '戦いから降りる', run: () => ({ text: `${SV()}は何も言わず、あなたの答えを待っている。`, then: abstainConfirm }) },
+      { label: '「少し、考えさせてほしい」', hint: '慎重', run: () => {
+          tone('cautious'); return `「答えを急ぐ必要はありません。ですが、敵は待ってくれませんよ」${CAST.sister}はそう言って、扉を閉じた。`;
+        } },
+    ],
+  },
+  {
     id: 's_morning', phase: 'war', day: 1, slot: 0, after: 'hub',
     title: '最初の朝', chapter: '第一幕　開幕',
     text: () => `召喚から一夜。台所に立つと、${SV()}が窓辺から冬の街を眺めていた。<br>「おはよう、マスター。……一つ聞いておきたい。<b>君は聖杯に、何を願う？</b>」`,
@@ -137,7 +180,7 @@ const STORY = [
     ],
   },
   {
-    id: 's_first', phase: 'war', day: 2, slot: 1, after: 'advance', cond: () => hostileRivals().length > 0,
+    id: 's_first', phase: 'war', day: 2, slot: 1, after: 'advance', cond: () => hostileRivals().length > 0 && G.route !== 'caught',
     title: '最初の邂逅', chapter: '第一幕　開幕',
     text: () => {
       const r = G.storyRival = hostileRivals().reduce((a, b) => a.aggr >= b.aggr ? a : b);
@@ -301,3 +344,19 @@ const STORY = [
     ],
   },
 ];
+
+// 巻き込まれた者が、戦いから降りるかどうか
+function abstainConfirm() {
+  const per = PERSONAS[servantOf(G).persona];
+  scene({ title: '選択', sub: '第一幕　開幕', reveal: true, body: paras([
+    `本当に、これでいいのだろうか。右手の令呪を見つめる。昨夜、${SV()}はあなたの命を救ってくれた。`,
+    `<p class="quote">${fmt(per.low[0])}</p>`,
+    '令呪を手放せば、日常に戻れる。けれど、この街で始まった戦いが止まるわけではない。',
+  ]), choices: [
+    { label: '令呪を手放す', hint: '聖杯戦争から降りる（エンディング）', icon: 'flee', fn: () => ending('abstain') },
+    { label: '……やっぱり、戦う', hint: '絆↑', cls: 'primary', icon: 'battle', fn: () => {
+      NOTES = []; G.flags.registered = true; bond(8);
+      next('決意', paras([`令呪を握りしめ、顔を上げた。${SV()}が、静かに頷く。「――では、改めて。よろしく頼む、マスター」`, ...takeNotes()]), startSlot);
+    } },
+  ] });
+}
