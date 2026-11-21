@@ -1993,18 +1993,22 @@ function reunionLine(sv) { const s = sigOf(sv); return fmt((s && s[5]) || V(sv).
 function applyTic(line, sv) { const t = TICS[(sv || servantOf(G)).id]; return t && line.startsWith('「') ? t(line) : line; }
 
 // =============================================================
-//  恋人関係の夜：魔力供給（Fate原作の「魔力供給」に準拠した、官能的だが露骨ではない描写）
-//  ・「恋人」関係のとき、夜の「魔力を回復して休む」がこの描写になり、回復量も大きい
-//  ・未成年、または外見・設定上それに近い英霊は対象外（恋人関係そのものを選べない）
+//  恋人関係の夜：魔力供給
+//  ・「恋人」関係のとき、夜の「魔力を回復して休む」が二人で過ごす夜になり、回復量も大きい
+//  ・大人の姿の英霊：Fate原作の「魔力供給」に準拠した、官能的だが露骨ではない描写（loverNight）
+//  ・少年少女の姿の英霊（YOUTHFUL）：信頼し合うプラトニックな恋人としての夜（platonicNight）
+//  ・子どもの英霊（CHILDREN）：恋人関係そのものを選べない（相棒・主従・家族は可）
 // =============================================================
 
-// 恋人関係・官能的な描写の対象外とする英霊
-// （子どもの英霊、原作で肉体年齢が未成年とされる英霊、少年少女の姿で現界する英霊）
+// 子どもの英霊：恋人関係は選べない
+const CHILDREN = new Set(['jack', 'nursery', 'abigail', 'andersen']);
+// 官能的な描写の対象外（恋人関係はプラトニックなものになる）
+// （原作で肉体年齢が若いとされる英霊、少年少女の姿で現界する英霊）
 const YOUTHFUL = new Set(['jack', 'nursery', 'abigail', 'andersen', 'medea_lily', 'elizabeth', 'kiyohime', 'euryale', 'ibaraki',
   'ushiwakamaru', 'passionlip', 'meltryllis', 'bb', 'mash', 'astolfo', 'artoria', 'artoria_alter', 'artoria_caster', 'mordred',
   'marie', 'ishtar', 'parvati', 'suzuka', 'shuten', 'nemo', 'serenity']);
 function isYouthful(sv) { return YOUTHFUL.has((sv || servantOf(G)).id); }
-function canBeLover(sv) { return !isYouthful(sv); }
+function canBeLover(sv) { return !CHILDREN.has((sv || servantOf(G)).id); }
 
 // 夜の情景（{s}＝英霊の名前）
 const LOVER_NIGHTS = [
@@ -2047,6 +2051,43 @@ function loverNight() {
   ];
   next('二人の夜', paras(body), advance, '朝を迎える', 'LOVERS');
 }
+
+// ---- プラトニックな恋人の夜（少年少女の姿の英霊） ----
+const PLATONIC_NIGHTS = [
+  '縁側に並んで座り、毛布を一枚、二人で分け合った。<br>雪が降るのを眺めながら、他愛もない話を夜更けまで続ける。ふと触れた指先を、{s}はそのままそっと握り返した。繋いだ手から、パスを通じて温かな魔力が流れていく。',
+  '「……少しだけ、こうしていてもいいですか」<br>{s}はそう言って、あなたの肩にもたれかかった。窓の外の月を見上げながら、繋いだ手の温もりだけを確かめ合う。それだけで、パスが静かに満ちていくのが分かった。',
+  '眠れない夜、{s}と二人で星を数えた。<br>好きなもの、怖いもの、叶えたいこと。一つずつ打ち明けるたび、手と手の間を流れる魔力が、少しずつ温かくなっていく。',
+  '拠点の居間で、温かい飲み物を片手に語り合った。<br>話し疲れて、いつの間にか二人とも肩を寄せ合ったまま眠っていた。繋いだままの手を通して、魔力が穏やかに巡り続けていた。',
+];
+const PLATONIC_WHISPER = {
+  polite: ['「……{you}の隣は、とても落ち着きます」', '「……手を、離さないでいてくださいね」'],
+  regal: ['「……今宵は、{I}の隣にいることを許す」', '「……{you}の手は、温かいな」'],
+  rough: ['「……べ、別に、手ぐらい繋いだっていいだろ」', '「……{you}の隣、悪くねえな」'],
+  old: ['「……ふふ、こうしておると落ち着くのう」', '「……今宵は、手を離さぬぞ」'],
+  cool: ['「……もう少しだけ、このままでいて」', '「……{you}の手は、温かい」'],
+  bright: ['「えへへ……こうしてると、あったかいね」', '「ねえ、明日もこうしてていい？」'],
+  mute: [],
+};
+const PLATONIC_MORNINGS = [
+  '翌朝、目を覚ますと、二人の手はまだ繋がれたままだった。{s}が照れくさそうに笑う。',
+  '朝の光の中、{s}が「おはよう」と小さく言った。パスを流れる魔力は、かつてないほど満ちている。',
+];
+function platonicNight() {
+  NOTES = [];
+  mp(50); shp(20); hp(15); bond(3); od(10);
+  const v = voiceOf(servantOf(G));
+  const whisper = PLATONIC_WHISPER[v.reg] || [];
+  const body = [
+    fmt(pick(PLATONIC_NIGHTS)),
+    whisper.length ? `<p class="quote">${fmt(pick(whisper))}</p>` : `（${SV()}が、あなたの手をそっと握った）`,
+    fmt(pick(PLATONIC_MORNINGS)),
+    `<span class="note">手を繋いで過ごした夜。（${SV()}の魔力+50 HP+20　あなたのHP+15 オド+10 絆+3）</span>`,
+    ...takeNotes(),
+  ];
+  next('二人の夜', paras(body), advance, '朝を迎える', 'LOVERS');
+}
+// 恋人の夜：英霊の姿に応じて描写を変える
+function loversNight() { return isYouthful(servantOf(G)) ? platonicNight() : loverNight(); }
 
 // =============================================================
 //  メインシナリオ（決まった日に必ず起きる物語イベント）
@@ -4111,7 +4152,7 @@ function warNightActions() {
     { label: '拠点で迎え撃つ', hint: `陣地Lv${G.workshop}・罠${G.traps}で待ち構える`, fn: defendBase },
     { label: `${SV()}と語らう`, hint: G.servant.bond >= 70 && !G.servant.special ? '何かが起きそうだ' : '絆↑', fn: nightTalk },
     G.servant.special === 'lover' && canBeLover(servantOf(G))
-      ? { label: `${SV()}と夜を過ごす`, hint: '恋人同士の魔力供給・魔力大回復（夜襲の危険）', icon: 'bond', fn: nightRest }
+      ? { label: `${SV()}と夜を過ごす`, hint: `恋人同士の魔力供給${isYouthful(servantOf(G)) ? '（手を繋いで）' : ''}・魔力大回復（夜襲の危険）`, icon: 'bond', fn: nightRest }
       : { label: '魔力を回復して休む', hint: '魔力・HP回復（夜襲の危険）', fn: nightRest },
   );
   return acts;
@@ -4224,7 +4265,7 @@ function defendBase() {
   actResult('待機', () => { mp(15); shp(10); od(10); return '敵は現れなかった。結界の内で魔力を蓄えた。（魔力+15 HP+10 オド+10）'; });
 }
 function nightRest() {
-  if (G.servant.special === 'lover' && canBeLover(servantOf(G))) return maybeRaided(loverNight);   // 恋人同士の魔力供給
+  if (G.servant.special === 'lover' && canBeLover(servantOf(G))) return maybeRaided(loversNight);   // 恋人同士の魔力供給
   maybeRaided(() => actResult('休息', () => { mp(30); shp(15); hp(15); bond(1);
     return `パスを通じて${SV()}に魔力を送りながら眠った。（魔力+30 ${SV()}のHP+15 HP+15）`; }));
 }

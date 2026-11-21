@@ -235,7 +235,7 @@ function warNightActions() {
     { label: '拠点で迎え撃つ', hint: `陣地Lv${G.workshop}・罠${G.traps}で待ち構える`, fn: defendBase },
     { label: `${SV()}と語らう`, hint: G.servant.bond >= 70 && !G.servant.special ? '何かが起きそうだ' : '絆↑', fn: nightTalk },
     G.servant.special === 'lover' && canBeLover(servantOf(G))
-      ? { label: `${SV()}と夜を過ごす`, hint: '恋人同士の魔力供給・魔力大回復（夜襲の危険）', icon: 'bond', fn: nightRest }
+      ? { label: `${SV()}と夜を過ごす`, hint: `恋人同士の魔力供給${isYouthful(servantOf(G)) ? '（手を繋いで）' : ''}・魔力大回復（夜襲の危険）`, icon: 'bond', fn: nightRest }
       : { label: '魔力を回復して休む', hint: '魔力・HP回復（夜襲の危険）', fn: nightRest },
   );
   return acts;
@@ -348,7 +348,7 @@ function defendBase() {
   actResult('待機', () => { mp(15); shp(10); od(10); return '敵は現れなかった。結界の内で魔力を蓄えた。（魔力+15 HP+10 オド+10）'; });
 }
 function nightRest() {
-  if (G.servant.special === 'lover' && canBeLover(servantOf(G))) return maybeRaided(loverNight);   // 恋人同士の魔力供給
+  if (G.servant.special === 'lover' && canBeLover(servantOf(G))) return maybeRaided(loversNight);   // 恋人同士の魔力供給
   maybeRaided(() => actResult('休息', () => { mp(30); shp(15); hp(15); bond(1);
     return `パスを通じて${SV()}に魔力を送りながら眠った。（魔力+30 ${SV()}のHP+15 HP+15）`; }));
 }
