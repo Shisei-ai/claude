@@ -213,7 +213,7 @@ const EVENTS = [
       { label: () => `${SVname()}に調べてもらう`, hint: 'サーヴァント魔力判定', run: () => {
           const r = schk(3, 55);
           if (r.ok) { const t = intelRandom(1); bond(1); return [r.text, t || '既知の情報ばかりだった。']; }
-          return [r.text, `「……駄目だ、痕跡が消されている」と${SV()}は首を振った。`];
+          return [r.text, `${say('traceFail')}<br>${SV()}は首を振った。`];
         } },
     ],
   },
@@ -279,7 +279,7 @@ const EVENTS = [
     title: 'サーヴァントの夢',
     text: () => `眠りの中で、あなたは${SV()}の記憶を見た。<br>――${servantOf(G).desc}<br>その生涯の、誰にも語られなかった一場面。喜びと、痛みと、決して届かなかった願い。`,
     choices: [
-      { label: '夢のことを話す', run: () => { bond(6); return `${SV()}は少し驚いた顔をした。「……見たのか。いや、責めはしない。マスターとサーヴァントは、時に夢で繋がるという」（絆+6）`; } },
+      { label: '夢のことを話す', run: () => { bond(6); return `${SV()}は少し驚いた顔をした。${say('dreamSeen')}（絆+6）`; } },
       { label: '胸の内にしまっておく', run: () => { bond(3); return 'あの記憶は、本人が話したくなった時に聞けばいい。あなたは何も言わなかった。（絆+3）'; } },
     ],
   },
@@ -294,7 +294,7 @@ const EVENTS = [
           hp(-30); return [c.text, `刃が脇腹を裂いた。${SV()}が駆けつけ、襲撃者は撤退した。（HP-30）`];
         } },
       { label: () => `${SVname()}を信じる`, hint: '絆40以上で確実', run: () => {
-          if (G.servant.bond >= 40) { bond(3); return `あなたが動くより早く、${SV()}が刃を弾き飛ばしていた。「私のマスターに手を出すな」（絆+3）`; }
+          if (G.servant.bond >= 40) { bond(3); return `あなたが動くより早く、${SV()}が刃を弾き飛ばしていた。${say('protect')}（絆+3）`; }
           const c = schk(2, 60);
           if (c.ok) return [c.text, `${SV()}が間一髪で割って入った。`];
           hp(-30); return [c.text, '間に合わなかった。（HP-30）'];
@@ -306,7 +306,7 @@ const EVENTS = [
     title: '魔力不足',
     text: () => `${SV()}の顔色が悪い。連戦で魔力が底を突きかけている。このままでは実体化を保つのも難しい。`,
     choices: [
-      { label: '自分の生命力を魔力に変えて渡す', hint: 'HP -20 / 魔力大回復', run: () => { hp(-20); mp(50); bond(4); return `あなたの魔力が、パスを通じて${SV()}に流れ込んでいく。「……無茶をする。だが、ありがとう」（魔力+50 絆+4）`; } },
+      { label: '自分の生命力を魔力に変えて渡す', hint: 'HP -20 / 魔力大回復', run: () => { hp(-20); mp(50); bond(4); return `あなたの魔力が、パスを通じて${SV()}に流れ込んでいく。${say('thanksMana')}（魔力+50 絆+4）`; } },
       { label: '霊脈から魔力を汲み上げる', hint: '魔力判定', run: () => {
           const c = chk('mag', 55);
           if (c.ok) { mp(40); return [c.text, '天降山の霊脈から魔力を引き込むことに成功した。（魔力+40）']; }
@@ -326,7 +326,7 @@ const EVENTS = [
         } },
       { label: () => `${SVname()}に聖杯の気配を探らせる`, hint: 'サーヴァント魔力判定', run: () => {
           const c = schk(3, 60);
-          if (c.ok) { G.flags.grailTruth = true; bond(2); return [c.text, `「……マスター。この聖杯からは、底知れない悪意を感じる」${SV()}の表情は険しい。<b>聖杯は汚染されている。</b>`]; }
+          if (c.ok) { G.flags.grailTruth = true; bond(2); return [c.text, `${say('grailEvil')}${SV()}の表情は険しい。<b>聖杯は汚染されている。</b>`]; }
           return [c.text, '聖杯の在処そのものが掴めなかった。'];
         } },
     ],
@@ -337,7 +337,7 @@ const EVENTS = [
     text: () => '今夜は旧城下町で「冬灯り祭り」が開かれている。無数の灯籠が、石畳の通りを幻想的に照らしていた。',
     choices: [
       { label: () => `${SVname()}と祭りを回る`, hint: '資金 -1', cond: () => G.master.money >= 1,
-        run: () => { money(-1); bond(8); return `${SV()}は灯籠の光を見上げ、小さく息をついた。「……美しいな。この景色を守るために戦うのも、悪くない」（絆+8）`; } },
+        run: () => { money(-1); bond(8); return `${SV()}は灯籠の光を見上げ、小さく息をついた。${say('beautiful')}（絆+8）`; } },
       { label: '人混みに紛れて偵察する', hint: '知力判定', run: () => {
           const c = chk('int', 55);
           if (c.ok) { const t = intelRandom(1); return [c.text, t || '収穫はなかった。']; }
@@ -396,17 +396,17 @@ const EVENTS = [
   {
     id: 'servant_argue', phase: 'war', time: 'night', once: true, weight: 2,
     title: '単独行動の申し出',
-    text: () => `「マスター、今夜は一人で行かせてくれ。敵の陣地を探ってくる」<br>${SV()}は譲らない様子だ。`,
+    text: () => `${say('soloRequest')}<br>${SV()}は譲らない様子だ。`,
     choices: [
       { label: '信じて任せる', hint: '混沌', run: () => {
           tone('chaos'); const c = schk(2, 55);
-          if (c.ok) { bond(4); const t = intelRandom(1); return [c.text, `夜明け前、${SV()}は無事に戻ってきた。「収穫はあったぞ」（絆+4）`, t || '']; }
-          shp(-20); bond(2); return [c.text, `${SV()}は傷を負って戻ってきた。「……すまない、深追いしすぎた」（サーヴァントHP-20）`];
+          if (c.ok) { bond(4); const t = intelRandom(1); return [c.text, `夜明け前、${SV()}は無事に戻ってきた。${say('soloBack')}（絆+4）`, t || '']; }
+          shp(-20); bond(2); return [c.text, `${SV()}は傷を負って戻ってきた。${say('soloHurt')}（サーヴァントHP-20）`];
         } },
-      { label: '危険だと止める', hint: '秩序', run: () => { tone('law'); return `「……分かった。マスターの判断に従おう」${SV()}は渋々頷いた。`; } },
+      { label: '危険だと止める', hint: '秩序', run: () => { tone('law'); return `${say('obey')}<br>${SV()}は渋々頷いた。`; } },
       { label: '一緒に行く', hint: '体力判定', run: () => {
           const c = chk('phy', 55);
-          if (c.ok) { bond(5); const t = intelRandom(1); return [c.text, `二人で夜の街を駆けた。「全く、無茶なマスターだ」${SV()}は呆れつつも笑っていた。（絆+5）`, t || '']; }
+          if (c.ok) { bond(5); const t = intelRandom(1); return [c.text, `二人で夜の街を駆けた。${say('reckless')}${SV()}は呆れつつも笑っていた。（絆+5）`, t || '']; }
           hp(-15); bond(3); return [c.text, '足手まといになってしまった。それでも、隣を走ったことに意味はあった。（HP-15 絆+3）'];
         } },
     ],

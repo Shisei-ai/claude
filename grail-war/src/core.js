@@ -53,7 +53,11 @@ function servantOf(o) { return SV_BY_ID[o.servantId || (o.servant && o.servant.i
 function SV() { return G.servant ? servantOf(G).short : 'サーヴァント'; }
 const SVname = SV;
 function birthOf() { return BIRTHS.find(x => x.id === G.master.birth); }
-function fmt(s) { return s.replaceAll('{m}', M()).replaceAll('{s}', SV()); }
+function fmt(s) {
+  let t = s.replaceAll('{m}', M()).replaceAll('{s}', SV());
+  if (G && G.servant) t = fmtVoice(t, servantOf(G));   // 一人称・二人称を英霊の口調に
+  return t;
+}
 function aliveRivals() { return (G.rivals || []).filter(r => r.alive); }
 function hostileRivals() { return aliveRivals().filter(r => !r.ally); }
 function randomAliveRival() { return pick(aliveRivals()); }

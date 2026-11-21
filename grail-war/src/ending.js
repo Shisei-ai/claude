@@ -26,7 +26,7 @@ function finalBattleIntro() {
     '<p>残る陣営は、あと一つ。天降山の頂、霊脈の集う古社の境内に、聖杯の器が姿を現しつつある。</p>',
     `<p>雪の舞う石段を登りきると、最後の敵が待っていた。${rivalLabel(r)}陣営――マスター、${esc(r.master)}。</p>`,
     `<p class="quote">「${r.quote}」</p>`,
-    `<p class="quote">${fmt(pick(PERSONAS[servantOf(G).persona].high))}</p>`,
+    `<p class="quote">${fmt(pick(V().high))}</p>`,
     `<p class="note">${SV()} HP ${G.servant.hp}/${servantHpMax()}・魔力 ${G.servant.mp}　敵HP ${r.hp}/${r.hpMax}　撤退はできない。</p>`,
   ], choices });
 }
@@ -46,7 +46,7 @@ function victoryScene() {
   const choices = [];
   if (G.flags.grailTruth) choices.push({ label: '聖杯を破壊する', hint: '呪いそのものとの戦いになる', cls: 'danger', fn: bossIntro });
   if (G.servant.special) choices.push({ label: `${sv.short}の受肉を願う`, hint: `「${RELATIONS[G.servant.special].name}」として共に生きる`, cls: 'primary', fn: () => ending('together') });
-  if (G.flags.knowWish && !G.flags.grailTruth) choices.push({ label: `${sv.short}に聖杯を託す`, hint: `「${SERVANT_WISH[sv.persona].slice(0, 18)}…」`, fn: () => ending('servantWish') });
+  if (G.flags.knowWish && !G.flags.grailTruth) choices.push({ label: `${sv.short}に聖杯を託す`, hint: `「${fmt(SERVANT_WISH[sv.persona]).slice(0, 18)}…」`, fn: () => ending('servantWish') });
   choices.push({ label: `「${b.wish}」を願う`, hint: 'マスターの願い', fn: () => ending(G.flags.grailTruth ? 'wishKnown' : 'wish') });
   choices.push({ label: '何も願わない', fn: () => ending('none') });
   scene({ title: '聖杯降臨', sub: '第三幕　降臨', body: [
@@ -54,7 +54,7 @@ function victoryScene() {
     G.flags.grailTruth ? '<p>だが、あなたは知っている。その黄金の内側には、六十年分の呪いが渦巻いていることを。</p>'
       : G.flags.grailHint ? '<p>その輝きは眩い。……けれど、なぜだろう。杯の底に、黒い影が揺れた気がした。</p>'
         : '<p>その輝きは眩く、どんな願いでも叶えてくれそうに見えた。</p>',
-    `<p class="quote">${fmt(pick(PERSONAS[sv.persona].high))}</p>`,
+    `<p class="quote">${fmt(pick(V(sv).high))}</p>`,
     '<p>あなたが願うのは――</p>',
   ], choices });
 }
@@ -65,7 +65,7 @@ function bossIntro() {
     `<p>「${SV()}、聖杯を――壊して」</p>`,
     '<p>その言葉に応えるように、黄金の杯がひび割れた。溢れ出したのは、六十年分の呪い。黒い泥が渦を巻き、巨大な影となって立ち上がる。</p>',
     '<p class="quote">「ネガイヲ……ネガイヲ、ヨコセ……」</p>',
-    G.flags.resolve === 'destroy' ? `<p>${SV()}が剣を構える。「決めていたことだ。最後まで付き合おう」</p>` : `<p>${SV()}が前に出る。「――下がっていろ。これは、私の戦いでもある」</p>`,
+    G.flags.resolve === 'destroy' ? `<p>${SV()}が構えを取る。${say('withYou')}</p>` : `<p>${SV()}が前に出る。${say('stayBack')}</p>`,
     `<p class="note">${SV()} HP ${G.servant.hp}/${servantHpMax()}・魔力 ${G.servant.mp}　令呪 ${G.master.seals}画。撤退はできない。</p>`,
   ], () => startBattle(boss, { boss: true }), '聖杯に挑む', 'FINAL');
 }
@@ -73,7 +73,7 @@ function bossIntro() {
 function ending(kind) {
   G.phase = 'end'; clearSave();
   const sv = G.servant ? servantOf(G) : null; const rel = G.servant && G.servant.special ? RELATIONS[G.servant.special] : null;
-  const per = sv ? PERSONAS[sv.persona] : null;
+  const per = sv ? V(sv) : null;
   const E = {
     dead: () => ({ title: '終幕：血に染まる冬', text: [`<p>深見市の冬の夜に、${M()}の命は散った。</p>`, sv ? `<p>契約者を失った${sv.short}もまた、光の粒となって消えていく。最後に、何かを言いかけたように見えた。</p>` : '', '<p>聖杯戦争は、あなたのいないまま続いていく。</p>'] }),
     lost: () => ({ title: '終幕：脱落', text: [`<p>${sv.short}の霊基は砕け、聖杯戦争からの脱落が決まった。</p>`, `<p class="quote">${fmt(per.farewell)}</p>`,
@@ -86,7 +86,7 @@ function ending(kind) {
       `<p>消えゆく${sv.short}の姿を見送りながら、あなたは悟る。この聖杯は、最初から呪われていたのだと。</p>`, '<p class="note">ヒント：聖杯の真実を知っていれば、別の選択肢があったかもしれない。</p>'] }),
     wishKnown: () => ({ title: '終幕：承知の上の願い', text: ['<p>呪われた聖杯と知りながら、あなたは願った。泥が溢れ、街に災いが降りかかる。</p>', `<p>${sv.short}は何も言わず、ただ悲しげにあなたを見つめていた。</p>`] }),
     servantWish: () => ({ title: '終幕：託された願い', text: [`<p>「${sv.short}。この聖杯は、君のものだ」</p>`, `<p>${sv.short}は驚き、それから静かに杯を受け取った。</p>`,
-      `<p class="quote">「${SERVANT_WISH[sv.persona]}」</p>`, '<p>黄金の光が夜空に広がる。その願いがどんな形で叶ったのか、あなたには分からない。けれど、光の中で振り返った顔は、確かに笑っていた。</p>',
+      `<p class="quote">「${fmt(SERVANT_WISH[sv.persona])}」</p>`, '<p>黄金の光が夜空に広がる。その願いがどんな形で叶ったのか、あなたには分からない。けれど、光の中で振り返った顔は、確かに笑っていた。</p>',
       G.flags.grailHint ? '<p class="note">杯の底に揺れた黒い影のことを、あなたは最後まで考えないようにした。</p>' : ''] }),
     destroy: () => ({ title: '終幕：冬の終わり', text: [`<p>${sv.short}の最後の一撃が、黒き聖杯を光の中に消し去った。呪いは霧散し、天降山に朝日が昇る。</p>`,
       `<p class="quote">${fmt(per.farewell)}</p>`, `<p>聖杯を手にすることはなかった。けれど、あなたは確かにこの街を救ったのだ。河川敷では、${CAST.old}が一人、深く頭を下げていた。</p>`] }),

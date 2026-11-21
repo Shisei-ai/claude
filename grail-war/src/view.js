@@ -182,7 +182,7 @@ function viewSummon() {
 function servantCard(sv) {
   return `<div class="svcard" style="--cc:${classColor(sv.cls)}"><div class="svcard-emblem">${emblem(sv.cls, 64)}</div><div class="svclass">${CLASS_EN[sv.cls] || sv.cls}</div>
     <div class="svname">${sv.name}</div>
-    <div><span class="tag gold">${sv.cls}</span><span class="tag">${sv.align}</span><span class="tag">性格：${PERSONAS[sv.persona].label}</span></div>
+    <div><span class="tag gold">${sv.cls}</span><span class="tag">${sv.align}</span><span class="tag">性格：${PERSONAS[sv.persona].label}</span><span class="tag">口調：${voiceOf(sv).label}</span></div>
     <p style="font-size:13px;color:var(--muted);margin:8px 0 12px">${sv.desc}</p>
     ${paramGrid(sv.p, G && G.servant && G.servant.id === sv.id ? servantParam : null)}
     <div class="np"><div class="np-ruby">${sv.npRuby}</div><div class="np-name">${sv.np}</div></div></div>`;

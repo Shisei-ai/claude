@@ -42,7 +42,7 @@ function startBattle(rival, opt = {}) {
   if (seen) pre.push(`<p>${seen}</p>`);
   if (isFuji() && servantOf(rival).persona !== 'berserker' && rival.servantId !== 'ori' && !rival.recognized && Math.random() < 0.5) {
     rival.recognized = true;
-    pre.push(`<p class="quote">「……${M()}？ まさか、こんな所で会うとはな。だが、今は敵のマスターに喚ばれた身だ。――手加減はしない」</p>`);
+    pre.push(`<p class="quote">${recognizeLine(servantOf(rival))}</p>`);
   }
   if (opt.defend && G.traps > 0) {
     G.traps--; rival.hp = Math.max(1, rival.hp - 20);
@@ -320,7 +320,7 @@ function afterRoundCore(log) {
   if (sv.hp <= 0) {
     if (sv.special && !B.miracle) {
       B.miracle = true; sv.hp = 25;
-      extra.push(`<p class="quote">「……まだだ。${M()}を残して、消えるわけにはいかない！」</p><p>絆の力が、消えかけた霊基を繋ぎ止めた。（HP 25で踏みとどまった）</p>`);
+      extra.push(`<p class="quote">${say('notYet')}</p><p>絆の力が、消えかけた霊基を繋ぎ止めた。（HP 25で踏みとどまった）</p>`);
     } else return battleLoseChoice(extra);
   }
   planEnemy();

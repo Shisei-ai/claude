@@ -32,7 +32,7 @@ const SERVANT_WISH = {
   knight: '果たせなかった誓いを、もう一度果たしたい',
   king: '我が治世の続きを見届けること',
   warrior: '心ゆくまで戦える、最高の好敵手との一戦',
-  cool: '……さあな。強いて言えば、君の願いが叶うところを見てみたい',
+  cool: '……さあな。強いて言えば、{you}の願いが叶うところを見てみたい',
   gentle: '大切な人たちが、笑って暮らせる世界',
   free: 'もう一度、思いっきり生きてみたい！',
   dark: '奪われたものへの、最後の決着',
@@ -157,7 +157,7 @@ const STORY = [
     choices: [
       { label: '「戦う。巻き込まれたままで終わりたくない」', hint: '大胆・教会に登録', run: () => {
           tone('bold'); G.flags.registered = true; bond(5);
-          return `${SV()}が、わずかに口元を緩めた。「……いい答えだ、マスター」<br>あなたはマスターとして、正式に聖杯戦争への参加を登録した。（絆+5）`;
+          return `${SV()}が、わずかに口元を緩めた。${say('goodAnswer')}<br>あなたはマスターとして、正式に聖杯戦争への参加を登録した。（絆+5）`;
         } },
       { label: '令呪を手放し、保護を求める', hint: '戦いから降りる', run: () => ({ text: `${SV()}は何も言わず、あなたの答えを待っている。`, then: abstainConfirm }) },
       { label: '「少し、考えさせてほしい」', hint: '慎重', run: () => {
@@ -169,18 +169,18 @@ const STORY = [
     id: 's_morning', phase: 'war', day: 1, slot: 0, after: 'hub',
     title: '最初の朝', chapter: '第一幕　開幕',
     text: () => isFuji()
-      ? `召喚から一夜。台所に立つと、${SV()}が窓辺から冬の街を眺めていた。まるで、あの頃の朝のように。<br>「おはよう、マスター。……日常に帰ったはずの君が、また令呪を宿すことになるとはね。それで――<b>今度の聖杯には、何を願う？</b>」`
-      : `召喚から一夜。台所に立つと、${SV()}が窓辺から冬の街を眺めていた。<br>「おはよう、マスター。……一つ聞いておきたい。<b>君は聖杯に、何を願う？</b>」`,
+      ? `召喚から一夜。台所に立つと、${SV()}が窓辺から冬の街を眺めていた。まるで、あの頃の朝のように。<br>${say('askWishFuji')}`
+      : `召喚から一夜。台所に立つと、${SV()}が窓辺から冬の街を眺めていた。<br>${say('askWish')}`,
     choices: [
       { label: () => `「${birthOf().wish}」と答える`, hint: '自分の願いを語る', run: () => {
           bond(4); G.flags.toldWish = true;
-          return [`あなたは自分の願いを、正直に語った。`, `<p class="quote">${fmt(pick(PERSONAS[servantOf(G).persona].mid))}</p>`, `${SV()}は静かに頷いた。（絆+4）`];
+          return [`あなたは自分の願いを、正直に語った。`, `<p class="quote">${fmt(pick(V().mid))}</p>`, `${SV()}は静かに頷いた。（絆+4）`];
         } },
       { label: () => isFuji() ? '「あの頃みたいに、君の願いを聞かせて」' : '「君こそ、何を願うんだ？」', hint: 'サーヴァントの願いを聞く', run: () => {
           bond(3); G.flags.knowWish = true;
-          return [`${SV()}は少し意外そうな顔をして、それから遠くを見た。`, `<p class="quote">「${SERVANT_WISH[servantOf(G).persona]}」</p>`, '（絆+3　サーヴァントの願いを知った）'];
+          return [`${SV()}は少し意外そうな顔をして、それから遠くを見た。`, `<p class="quote">「${fmt(SERVANT_WISH[servantOf(G).persona])}」</p>`, '（絆+3　サーヴァントの願いを知った）'];
         } },
-      { label: '「今は勝つことだけ考えよう」', hint: '大胆', run: () => { tone('bold'); return `「……ああ、それも一つの答えだ」${SV()}は口の端を上げた。`; } },
+      { label: '「今は勝つことだけ考えよう」', hint: '大胆', run: () => { tone('bold'); return `${say('agree')}<br>${SV()}は口の端を上げた。`; } },
     ],
   },
   {
@@ -192,7 +192,7 @@ const STORY = [
       return `買い出しの帰り道、街灯が一斉に明滅した。<br>人払いの結界。気付けば、通りには誰もいない。<br>電柱の上に、<b>${r.cls}</b>のサーヴァントが立っていた。傍らには、マスターの${esc(r.master)}――${r.type}。${seen ? '<br>' + seen : ''}<br><p class="quote">「${r.quote}」</p>`;
     },
     choices: [
-      { label: '迎え撃つ', hint: '戦闘', cls: 'danger', run: () => ({ text: `${SV()}が実体化し、あなたの前に立った。「下がっていろ、マスター」`, then: () => startBattle(G.storyRival, {}) }) },
+      { label: '迎え撃つ', hint: '戦闘', cls: 'danger', run: () => ({ text: `${SV()}が実体化し、あなたの前に立った。${say('stayBack')}`, then: () => startBattle(G.storyRival, {}) }) },
       { label: '名乗りを上げ、一騎打ちを挑む', hint: '秩序・大胆 / 初撃に補正', cls: 'danger', run: () => {
           tone('law'); tone('bold');
           return { text: `${SV()}が一歩前に出て、堂々とクラスを名乗った。敵もそれに応じ、空気が張り詰める。`, then: () => startBattle(G.storyRival, { duel: true }) };
@@ -252,7 +252,7 @@ const STORY = [
   {
     id: 's_shadow', phase: 'war', day: 6, slot: 1, after: 'advance',
     title: '黒い影', chapter: '第二幕　侵蝕',
-    text: () => `${G.flags.investigate ? '昏睡事件を追って' : '偶然通りかかった'}港の倉庫街で、あなたは見た。<br>路地に倒れた男の上に、<b>黒い泥のような影</b>が覆いかぶさっている。影は男から何かを吸い上げ、脈打つように膨らんでいく。<br>「マスター、下がれ。あれは――サーヴァントではない」${SV()}の声が、かすかに震えていた。`,
+    text: () => `${G.flags.investigate ? '昏睡事件を追って' : '偶然通りかかった'}港の倉庫街で、あなたは見た。<br>路地に倒れた男の上に、<b>黒い泥のような影</b>が覆いかぶさっている。影は男から何かを吸い上げ、脈打つように膨らんでいく。<br>${say('warnShadow')}${SV()}の声が、かすかに張り詰めていた。`,
     choices: [
       { label: '影を討つ', hint: 'サーヴァント魔力判定', cls: 'danger', run: () => {
           const c = schk(3, 60);
@@ -299,7 +299,7 @@ const STORY = [
       { label: () => `${SVname()}に聖杯の気配を探らせる`, hint: 'サーヴァント魔力判定', run: () => {
           const c = schk(3, 58);
           if (c.ok) { G.flags.grailTruth = true; bond(2);
-            return [c.text, `天降山を見上げた${SV()}が、険しい顔で言った。「……あの山の下に、底なしの悪意が溜まっている。聖杯は、呪われている」`]; }
+            return [c.text, `天降山を見上げた${SV()}が、険しい顔で言った。${say('grailEvil')}<br><b>聖杯は、呪われている。</b>`]; }
           return [c.text, '聖杯の気配は、霊脈の奥深くに隠れていて掴めなかった。'];
         } },
     ],
@@ -337,30 +337,29 @@ const STORY = [
   {
     id: 's_eveFinal', phase: 'war', day: 10, slot: 1, after: 'hub',
     title: '決戦前夜', chapter: '第三幕　降臨',
-    text: () => `天降山の頂が、夜空にうっすらと光っている。聖杯の降臨が近い。<br>拠点の屋根の上で、${SV()}が月を見上げていた。隣に座ると、${SV()}はぽつりと言った。<br><p class="quote">${fmt(pick(PERSONAS[servantOf(G).persona][bondTier()]))}</p>「……マスター。最後の戦いの前に、君の覚悟を聞かせてくれ」`,
+    text: () => `天降山の頂が、夜空にうっすらと光っている。聖杯の降臨が近い。<br>拠点の屋根の上で、${SV()}が月を見上げていた。隣に座ると、${SV()}はぽつりと言った。<br><p class="quote">${fmt(pick(V()[bondTier()]))}</p>${say('askResolve')}`,
     choices: [
       { label: '「必ず勝とう。二人で」', hint: '決戦で能力補正', run: () => { G.flags.resolve = 'win'; bond(4); tone('bold');
-          return `「ああ。必ずだ」${SV()}は拳を差し出した。あなたはそれに、自分の拳を合わせた。（絆+4 決戦で能力補正）`; } },
+          return `${say('promise')}${SV()}は拳を差し出した。あなたはそれに、自分の拳を合わせた。（絆+4 決戦で能力補正）`; } },
       { label: '「君の願いを叶えたい」', hint: '新たなエンディングが開く', run: () => { G.flags.resolve = 'servant'; G.flags.knowWish = true; bond(8);
-          return [`${SV()}は驚いたように目を見開き、それから、ゆっくりと笑った。`, `<p class="quote">「${SERVANT_WISH[servantOf(G).persona]}……それが、願いだ。覚えていてくれたら嬉しい」</p>`, '（絆+8 聖杯をサーヴァントに託せるようになった）']; } },
+          return [`${SV()}は驚いたように目を見開き、それから、ゆっくりと笑った。`, voiceOf(servantOf(G)).reg === 'mute' ? `<p>（${SV()}の瞳が、遠いどこかを見つめていた。その奥に、一つの願いが映っている――「${fmt(SERVANT_WISH[servantOf(G).persona])}」）</p>` : `<p class="quote">「${fmt(SERVANT_WISH[servantOf(G).persona])}${say('wishShare')}」</p>`, '（絆+8 聖杯をサーヴァントに託せるようになった）']; } },
       { label: '「聖杯を壊そう」', hint: '聖杯の真実を知っている時のみ', cond: () => G.flags.grailTruth, run: () => { G.flags.resolve = 'destroy'; bond(5); tone('good');
-          return `「……それが君の答えか」${SV()}は長い沈黙の後、頷いた。「付き合おう。最後まで」（絆+5 聖杯との戦いで能力補正）`; } },
+          return `${SV()}は長い沈黙の後、頷いた。${say('withYou')}（絆+5 聖杯との戦いで能力補正）`; } },
     ],
   },
 ];
 
 // 巻き込まれた者が、戦いから降りるかどうか
 function abstainConfirm() {
-  const per = PERSONAS[servantOf(G).persona];
   scene({ title: '選択', sub: '第一幕　開幕', reveal: true, body: paras([
     `本当に、これでいいのだろうか。右手の令呪を見つめる。昨夜、${SV()}はあなたの命を救ってくれた。`,
-    `<p class="quote">${fmt(per.low[0])}</p>`,
+    `<p class="quote">${fmt(V().low[0])}</p>`,
     '令呪を手放せば、日常に戻れる。けれど、この街で始まった戦いが止まるわけではない。',
   ]), choices: [
     { label: '令呪を手放す', hint: '聖杯戦争から降りる（エンディング）', icon: 'flee', fn: () => ending('abstain') },
     { label: '……やっぱり、戦う', hint: '絆↑', cls: 'primary', icon: 'battle', fn: () => {
       NOTES = []; G.flags.registered = true; bond(8);
-      next('決意', paras([`令呪を握りしめ、顔を上げた。${SV()}が、静かに頷く。「――では、改めて。よろしく頼む、マスター」`, ...takeNotes()]), startSlot);
+      next('決意', paras([`令呪を握りしめ、顔を上げた。${SV()}が、静かに頷く。${say('again')}`, ...takeNotes()]), startSlot);
     } },
   ] });
 }

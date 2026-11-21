@@ -403,7 +403,7 @@ function specialEvent() {
       '<p class="note">さらに絆が深まれば、また機会が訪れるだろう。</p>'], advance);
   } });
   scene({ title: '月下の告白', sub: 'SPECIAL', body: [`<p>月の綺麗な夜だった。${SV()}がふと、真剣な顔であなたを見つめた。</p>`,
-    `<p class="quote">${fmt(per.special)}</p>`, '<p>あなたは――</p>'], choices });
+    `<p class="quote">${fmt(V().special)}</p>`, '<p>あなたは――</p>'], choices });
 }
 
 // =============================================================
@@ -517,8 +517,7 @@ function caughtFirstFight() {
   const r = G.storyRival;
   scene({ title: '契約', sub: 'PROLOGUE', reveal: true, body: paras([
     `光が収まると、あなたの前に${SV()}が立っていた。振り下ろされた${r.cls}の刃を、片手で受け止めて。`,
-    servantOf(G).persona === 'berserker' ? `（${SV()}は低く唸り、あなたを背に庇うように立ちはだかった）`
-      : `<p class="quote">「状況は分からないが、一つだけ確かなことがある。――君が、マスターだ」</p>`,
+    say('firstContract'),
     `${esc(r.master)}が舌打ちした。「最後の一騎が、こんな素人に喚ばれるとはな」`,
     '何が起きているのか、何一つ分からない。けれど、今は――',
   ]), choices: [
