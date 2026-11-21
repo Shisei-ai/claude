@@ -418,6 +418,12 @@ body:not(.fx-on) #snow { display: none; }
 .birth-facts b { color: var(--fg); font-weight: 700; font-size: 14px; }
 .grow-stats { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--bg-2); margin: 6px 0 4px; }
 
+/* ---------- 召喚の詠唱 ---------- */
+.scene-body .chant { font-family: var(--font-display); font-size: 16px; line-height: 2; text-align: center; margin: 0 0 16px;
+  padding: 10px 6px; border-top: 1px solid #d2ad5f33; color: var(--fg); text-shadow: 0 0 14px #d2ad5f33; }
+.scene-body .rv:last-child .chant { color: var(--gold); font-weight: 700; }
+.scene-body .chant rt { font-size: 9px; color: var(--gold); letter-spacing: .1em; }
+
 </style>
 <div id="app"></div>
 <script>
@@ -2988,16 +2994,31 @@ function specialEvent() {
 // =============================================================
 //  召喚
 // =============================================================
+// 英霊召喚の詠唱（原作『Fate/stay night』準拠）
+const SUMMON_CHANT = [
+  '素に銀と鉄。礎に石と契約の大公。<br>降り立つ風には壁を。四方の門は閉じ、王冠より出で、王国に至る三叉路は循環せよ。',
+  '<ruby>閉じよ<rt>みたせ</rt></ruby>。<ruby>閉じよ<rt>みたせ</rt></ruby>。<ruby>閉じよ<rt>みたせ</rt></ruby>。<br><ruby>閉じよ<rt>みたせ</rt></ruby>。<ruby>閉じよ<rt>みたせ</rt></ruby>。<br>繰り返すつどに五度。<br>ただ、満たされる刻を破却する。',
+  '――――告げる。<br>汝の身は我が下に、我が命運は汝の剣に。<br>聖杯の寄るべに従い、この意、この理に従うならば応えよ。',
+  '誓いを此処に。<br>我は常世総ての善と成る者、<br>我は常世総ての悪を敷く者。',
+  '汝三大の言霊を纏う七天、<br>抑止の輪より来たれ、天秤の守り手よ――！',
+];
 function summonScene() {
-  const choices = G.catalysts.map(id => ({ label: `「${SV_BY_ID[id].catalyst}」を使う`, hint: '縁ある英霊を喚ぶ', fn: () => doSummon(id) }));
-  choices.push({ label: '触媒を使わない', hint: `${alignLabel()}の自分に似た英霊が応える`, fn: () => doSummon(null) });
+  const choices = G.catalysts.map(id => ({ label: `「${SV_BY_ID[id].catalyst}」を使う`, hint: '縁ある英霊を喚ぶ', fn: () => chantScene(id) }));
+  choices.push({ label: '触媒を使わない', hint: `${alignLabel()}の自分に似た英霊が応える`, fn: () => chantScene(null) });
   const place = { heir: '家の工房', mission: G.master.birth === 'mercenary' ? '借り受けた倉庫' : '教会の地下聖堂', seeker: '自室の床' }[G.route] || '工房';
   scene({ title: '召喚の夜', sub: 'SUMMONING', body: [
     `<p>${G.route === 'seeker' ? '独学と教えを頼りに、ここまで来た。' : '準備の日々は終わった。'}今宵、聖杯戦争が始まる。</p>`,
     `<p>${place}に描いた召喚陣の前に立つ。右手の令呪が、熱を帯びて脈打っている。${G.ritual >= 3 ? '陣は完璧に仕上がっている。' : G.ritual > 0 ? '陣の準備はまずまずだ。' : '急ごしらえの陣だが、やるしかない。'}</p>`,
-    '<p class="quote">「――天に満ちる星よ、地に眠る霊脈よ。我が血と令呪を標とし、契約の門を開け。応えよ、英霊。この呼び声に、この願いに」</p>',
     G.catalysts.length ? '<p>手元には触媒がある。どれを使おうか。</p>' : '<p>触媒は手に入らなかった。縁に任せるしかない。</p>',
   ], choices });
+}
+// 詠唱：一節ずつ現れる
+function chantScene(catalystId) {
+  const lead = catalystId ? `召喚陣の中心に<b>「${SV_BY_ID[catalystId].catalyst}」</b>を置き、` : '触媒は置かない。陣の中心に立ち、';
+  scene({ title: '英霊召喚', sub: 'SUMMONING', reveal: true, body: [
+    `<p>${lead}右手を掲げる。全身の魔術回路に、魔力を巡らせていく。</p>`,
+    ...SUMMON_CHANT.map(t => `<p class="chant">${t}</p>`),
+  ], choices: [{ label: '詠唱を終える', cls: 'primary', icon: 'ritual', fn: () => doSummon(catalystId) }] });
 }
 function doSummon(catalystId, opt = {}) {
   let sv;

@@ -413,3 +413,9 @@ body:not(.fx-on) #snow { display: none; }
 .birth-facts span { display: block; font-size: 11px; color: var(--muted); }
 .birth-facts b { color: var(--fg); font-weight: 700; font-size: 14px; }
 .grow-stats { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--bg-2); margin: 6px 0 4px; }
+
+/* ---------- 召喚の詠唱 ---------- */
+.scene-body .chant { font-family: var(--font-display); font-size: 16px; line-height: 2; text-align: center; margin: 0 0 16px;
+  padding: 10px 6px; border-top: 1px solid #d2ad5f33; color: var(--fg); text-shadow: 0 0 14px #d2ad5f33; }
+.scene-body .rv:last-child .chant { color: var(--gold); font-weight: 700; }
+.scene-body .chant rt { font-size: 9px; color: var(--gold); letter-spacing: .1em; }
