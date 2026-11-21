@@ -4,6 +4,7 @@
 //  ・大人の姿の英霊：Fate原作の「魔力供給」に準拠した、官能的だが露骨ではない描写（loverNight）
 //    英霊ごとの個別の場面は data_lover_sv.js（LOVER_SV）にあり、あればそちらを優先する
 //  ・少年少女の姿の英霊（YOUTHFUL）：信頼し合うプラトニックな恋人としての夜（platonicNight）
+//    英霊ごとの個別の場面は data_platonic_sv.js（PLATONIC_SV）
 //  ・子どもの英霊（CHILDREN）：恋人関係そのものを選べない（相棒・主従・家族は可）
 // =============================================================
 
@@ -92,9 +93,18 @@ const PLATONIC_MORNINGS = [
 function platonicNight() {
   NOTES = [];
   mp(50); shp(20); hp(15); bond(3); od(10);
-  const v = voiceOf(servantOf(G));
+  const sv = servantOf(G);
+  const v = voiceOf(sv);
+  const own = (typeof PLATONIC_SV !== 'undefined') ? PLATONIC_SV[sv.id] : null;
   const whisper = PLATONIC_WHISPER[v.reg] || [];
-  const body = [
+  // 英霊ごとの個別の場面があれば優先（初回は必ず、以降は4回に3回）
+  const useOwn = own && (!G.loverSeen || !G.loverSeen[sv.id] || Math.random() < 0.75);
+  if (own) { G.loverSeen = G.loverSeen || {}; G.loverSeen[sv.id] = true; }
+  const body = useOwn ? [
+    fmt(own[0]),
+    /^（/.test(own[1]) ? fmt(own[1]) : `<p class="quote">${fmt(own[1])}</p>`,
+    fmt(own[2]),
+  ] : [
     fmt(pick(PLATONIC_NIGHTS)),
     whisper.length ? `<p class="quote">${fmt(pick(whisper))}</p>` : `（${SV()}が、あなたの手をそっと握った）`,
     fmt(pick(PLATONIC_MORNINGS)),
