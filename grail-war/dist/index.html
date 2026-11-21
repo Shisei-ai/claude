@@ -446,6 +446,15 @@ body:not(.fx-on) #snow { display: none; }
 .pick-cls .chip { min-height: 40px; flex-direction: row; align-items: center; gap: 4px; }
 .pick-cls .chip small { margin-left: 4px; }
 
+/* ---- 聖杯の真相・調査手帳 ---- */
+.truth { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 10px 0; line-height: 1.8; }
+.truth.cursed { border-color: #d43c4c88; background: #d43c4c14; }
+.truth.pure { border-color: #d2ad5f88; background: #d2ad5f14; }
+.clue-list { list-style: none; padding: 0; margin: 6px 0; }
+.clue-list li { border-left: 2px solid var(--gold); padding: 4px 0 4px 10px; margin: 8px 0; font-size: 13px; line-height: 1.7; }
+.clue-list li span { color: var(--muted); font-size: 11px; margin-left: 6px; }
+.clue-list li em { color: var(--muted); font-style: normal; font-size: 11px; }
+
 </style>
 </head>
 <body>
@@ -1732,6 +1741,7 @@ const SAY = {
   stayBack: { polite: '「お下がりください、{call}。ここは{I}が」', regal: '「下がっておれ、{call}。ここは{I}の戦場だ」', rough: '「下がってな、{call}。ここは任せとけ」', cool: '「下がっていろ、{call}」', bright: '「下がってて、{call}！」', old: '「下がっておれ、{call}。ここは{I}に任せい」', mute: '（{s}があなたの前に立ちはだかった）' },
   orders: { polite: '「{call}、ご指示を」', regal: '「{call}、命じるがよい」', rough: '「{call}、指示をくれ」', cool: '「{call}、指示を」', bright: '「{call}、どうする？」', old: '「{call}、指図をくれ」', mute: '（{s}が、あなたの命令を待っている）' },
   grailEvil: { polite: '「……{call}。この聖杯からは、底知れない悪意を感じます」', regal: '「……{call}。あの杯、腐っておるぞ」', rough: '「……{call}。あの聖杯、とんでもねえ悪意を孕んでやがる」', cool: '「……{call}。この聖杯からは、底知れない悪意を感じる」', bright: '「……{call}。あの聖杯、なんだかすごく嫌な感じがする」', old: '「……{call}。あの聖杯、とんでもない悪意を孕んでおるぞ」', mute: '（{s}が、天降山に向かって激しく唸った）' },
+  grailPure: { polite: '「……おかしいですね。あの聖杯からは、濁りを感じません。悪意があるのは――この街の、どこか別の場所です」', regal: '「……妙だな。あの杯は澄んでおる。悪意の出所は、街の中だ」', rough: '「……変だな。あの聖杯、嫌な感じがしねえ。臭えのは街の方だ」', cool: '「……妙だ。あの聖杯に濁りはない。悪意は、街の中にある」', bright: '「……あれ？ あの聖杯、全然嫌な感じがしないよ。嫌な感じがするのは、街の方……」', old: '「……妙じゃな。あの杯は澄んでおる。悪意の出所は、街の中じゃ」', mute: '（{s}は天降山を見上げて首を傾げ、それから街の方へ向かって低く唸った）' },
   protect2: { polite: '「……{call}を狙う者がいるなら、{I}がお守りするだけです」', regal: '「{call}を狙うとは不遜な。{I}が叩き潰してくれよう」', rough: '「{call}を狙う奴がいるなら、ぶっ飛ばすだけだ」', cool: '「……{you}を狙う者がいるなら、守るだけだ」', bright: '「{call}を狙うなんて許さない！ {I}が守るから！」', old: '「{call}を狙う輩がおるなら、叩き斬るまでじゃ」', mute: '（{s}が、あなたの傍らで静かに唸った）' },
   dreamSeen: { polite: '「……ご覧になったのですね。いえ、責めはしません。マスターとサーヴァントは、時に夢で繋がるそうですから」', regal: '「……{I}の過去を覗いたか。まあよい、許す」', rough: '「……見ちまったか。ま、別に怒りゃしねえよ」', cool: '「……見たのか。いや、責めはしない。マスターとサーヴァントは、時に夢で繋がるという」', bright: '「……見ちゃった？ えへへ、ちょっと恥ずかしいな」', old: '「……見てしもうたか。まあよい、怒りはせんよ」', mute: '（{s}は、どこか照れくさそうに目を逸らした）' },
 };
@@ -2128,7 +2138,8 @@ const STORY = [
       { label: '当時のことを詳しく尋ねる', hint: '知力判定', run: () => {
           const r = chk('int', 55);
           if (r.ok) { G.flags.grailHint = true; G.flags.oldTrust = true; gain('int', 3);
-            return [r.text, '「最後に残ったのは、わしと――名前のない、呪いのような英霊じゃった。あれが聖杯に呑まれた瞬間、山が黒く染まった」<br>「あの聖杯は、願いを<b>歪めて</b>叶える。……気をつけなされ」（知力+3）']; }
+            const t = '「最後に残ったのは、わしと――名前のない、呪いのような英霊じゃった。最後の夜、山が黒く染まった。……あの聖杯は、願いを歪めるかもしれん」<br>老人はそれ以上を語らず、目を逸らした。何かを隠しているようにも見える。';
+            return [r.text, t + '（知力+3）', addClue('rumor_old', '老人の昔語り', '六十年前、最後に残ったのは「呪いのような英霊」。最後の夜、山が黒く染まった。老人は何かを隠している様子だった。', 0)]; }
           return [r.text, '老人の話は昔語りと愚痴が入り混じり、肝心なところが分からなかった。'];
         } },
       { label: '戦いの心得を教わる', hint: '体力・精神↑', run: () => { gain('phy', 2); gain('spi', 3); G.flags.oldTrust = true;
@@ -2244,99 +2255,113 @@ const STORY = [
   {
     id: 's_coma', phase: 'war', day: 4, slot: 0, after: 'hub',
     title: '昏睡事件', chapter: '第二幕　侵蝕',
-    text: () => `朝のニュースが、市内で原因不明の昏睡事件が相次いでいると報じていた。被害者はこの三日で十二人。全員、夜の街で倒れているのを発見されたという。<br>昼過ぎ、${CAST.sister}から連絡が入った。<br>「魂喰い――魔力の略奪の可能性があります。ですが、どのサーヴァントの痕跡とも一致しないのです」`,
+    text: () => `朝のニュースが、市内で原因不明の昏睡事件が相次いでいると報じていた。被害者はこの三日で十二人。全員、夜の街で倒れているのを発見されたという。<br>昼過ぎ、${CAST.sister}から連絡が入った。<br>「魂喰い――魔力の略奪の可能性があります。ですが、痕跡は奇妙に乱れていて、何の仕業なのかすら分からないのです」`,
     choices: [
       { label: '調査を引き受ける', hint: '善', run: () => { tone('good'); G.flags.investigate = true;
-          return `「感謝します。何か分かれば、教会にも知らせてください」<br><span class="note">夜の巡回や偵察で、事件の手がかりが見つかりやすくなった。</span>`; } },
+          return `「感謝します。何か分かれば、教会にも知らせてください」<br><span class="note">夜の巡回で敵の情報が見つかりやすくなった。昼の「真相を調べる」に事件現場と病院が加わり、夜には現場に張り込めるようになった。</span>`; } },
       { label: '他陣営の仕業として利用する', hint: '悪 / 敵の情報を得る', run: () => {
           tone('evil'); const r = randomHostile();
           if (r) { r.intel = Math.max(r.intel, 1); r.bounty = true;
             return `あなたは「${r.cls}陣営が怪しい」と監督役に吹き込んだ。教会は${r.cls}陣営に討伐令を出した。<br><span class="note">討伐すれば令呪が一画もらえる。</span>`; }
           return '利用できそうな陣営は見当たらなかった。';
         } },
-      { label: '静観する', hint: '慎重', run: () => { tone('cautious'); return '他陣営の動きを見極めるまで、下手に動くべきではない。'; } },
+      { label: '静観する', hint: '慎重', run: () => { tone('cautious'); return '他陣営の動きを見極めるまで、下手に動くべきではない。<br><span class="note">事件の現場は、昼の「真相を調べる」から自分で調べることもできる。</span>'; } },
     ],
   },
   {
     id: 's_shadow', phase: 'war', day: 6, slot: 1, after: 'advance',
     title: '黒い影', chapter: '第二幕　侵蝕',
+    // 見た目はどちらの真相でも同じ。何を見抜けるかは、選んだ行動と判定次第
     text: () => `${G.flags.investigate ? '昏睡事件を追って' : '偶然通りかかった'}港の倉庫街で、あなたは見た。<br>路地に倒れた男の上に、<b>黒い泥のような影</b>が覆いかぶさっている。影は男から何かを吸い上げ、脈打つように膨らんでいく。<br>${say('warnShadow')}${SV()}の声が、かすかに張り詰めていた。`,
     choices: [
       { label: '影を討つ', hint: 'サーヴァント魔力判定', cls: 'danger', run: () => {
-          const c = schk(3, 60);
-          G.flags.grailHint = true;
+          const c = schk(3, 60); G.flags.grailHint = true;
           if (c.ok) { bond(3); gain('spi', 1);
-            return [c.text, `${SV()}の一撃が影を引き裂いた。影は悲鳴のような音を立てて霧散し、残滓は――天降山の方角へと流れていった。<br>男は衰弱しているが、息はある。（絆+3）`]; }
-          shp(-25); return [c.text, `影は${SV()}の攻撃を呑み込み、触れた部分の霊基を侵した。どうにか追い払ったが、${SV()}の顔色は悪い。（サーヴァントHP-25）<br>逃げていく影は、天降山の方角へ消えた。`];
+            const t = isCursed()
+              ? `${SV()}の一撃が影を引き裂いた。影は悲鳴のような音を立てて霧散し、残滓は霊脈に溶けて――天降山の方角へと流れていった。`
+              : `${SV()}の一撃が影を引き裂いた。霧散する寸前、影の背から<b>細い魔力の糸</b>が伸びているのが見えた。糸は${mys().area}の方へ、するすると引き戻されていった。`;
+            return [c.text, t + '<br>男は衰弱しているが、息はある。（絆+3）',
+              addClue('shadow_cut', '斬られた影', isCursed() ? '黒い影を斬ると、残滓は霊脈に溶けて天降山の方へ流れた。操る者の気配はなかった。' : `黒い影は魔力の糸で操られていた。糸は${mys().area}の方へ引き戻された。`, 1)]; }
+          shp(-25); return [c.text, `影は${SV()}の攻撃を呑み込み、触れた部分の霊基を侵した。どうにか追い払ったが、${SV()}の顔色は悪い。（サーヴァントHP-25）`];
         } },
       { label: '倒れた男を連れて逃げる', hint: '善', run: () => {
           tone('good'); G.flags.grailHint = true; shp(-10); gain('luk', 2);
-          return `${SV()}が影を牽制する間に、男を担いで大通りまで走った。振り返ると、影は霊脈の流れに沿って山の方へ退いていった。（サーヴァントHP-10 幸運+2）`;
+          return `${SV()}が影を牽制する間に、男を担いで大通りまで走った。振り返ると、影はもう路地の闇に溶けていた。（サーヴァントHP-10 幸運+2）`;
         } },
       { label: '影を追跡する', hint: '知力判定', run: () => {
           const c = chk('int', 60); G.flags.grailHint = true;
-          if (c.ok) { G.flags.shadowTrail = true;
-            return [c.text, '距離を取って影の後を追った。影は霊脈を遡り、天降山の古社――聖杯が降臨するはずの場所へと吸い込まれていった。<br><b>影の正体は、聖杯そのものから漏れ出したものだ。</b>']; }
-          hp(-15); return [c.text, '影を見失い、気付けば足元から泥が這い上がっていた。慌てて振り払う。（HP-15）'];
+          if (!c.ok) { hp(-15); return [c.text, '影を見失い、気付けば足元から泥が這い上がっていた。慌てて振り払う。（HP-15）']; }
+          if (isCursed()) { G.flags.shadowTrail = true;
+            return [c.text, '距離を取って影の後を追った。影は霊脈を遡り、天降山の古社――聖杯が降臨するはずの場所へと吸い込まれていった。',
+              addClue('shadow_trail', '影の帰る場所', '黒い影は霊脈を遡り、聖杯が降臨するはずの天降山の古社へ吸い込まれていった。', 2)]; }
+          const r = culprit(); if (r) r.intel = Math.max(r.intel, 2);
+          return [c.text, `距離を取って影の後を追った。影は人目を避けて路地を渡り、${mys().area}にある<b>魔術師の拠点</b>へと消えた。`,
+            revealCulprit('影の追跡'), r ? '拠点の場所も分かった。' : '',
+            addClue('shadow_trail', '影の帰る場所', `黒い影は、${mys().area}にある魔術師の拠点へ帰っていった。聖杯のある天降山とは逆の方角だ。`, 2)];
         } },
     ],
   },
   {
-    id: 's_past', phase: 'war', day: 8, slot: 0, after: 'hub', cond: () => !G.flags.grailTruth,
+    id: 's_past', phase: 'war', day: 8, slot: 0, after: 'hub', cond: () => !solved(),
     title: '六十年前の真実', chapter: '第二幕　侵蝕',
-    text: () => `${G.flags.grailHint ? '黒い影、霊脈の異変、六十年前の戦争。' : '街の異変が、何かと繋がっている気がする。'}点と点を繋ぐために、どこを調べるべきだろうか。`,
+    text: () => `${G.flags.grailHint ? '黒い影、霊脈の異変、六十年前の戦争。' : '街の異変が、何かと繋がっている気がする。'}点と点を繋ぐために、どこを調べるべきだろうか。<br><span class="note">ここで得られる手がかりは、普段の調査よりも重い（手がかり+2）。</span>`,
     choices: [
-      { label: () => `${CAST.old}を訪ねる`, hint: '交渉判定', run: () => {
+      { label: () => `${CAST.old}を訪ねる`, hint: '交渉判定', cond: () => siteOpen('oldman'), run: () => {
           const c = chk('cha', G.flags.oldTrust ? 40 : 62);
-          if (c.ok) { G.flags.grailTruth = true;
-            return [c.text, `老人は長い沈黙の後、口を開いた。<br>「最後の英霊は、人の悪意を形にした<b>呪いそのもの</b>じゃった。聖杯はそれを呑み込み……中身ごと腐った。あの影は、聖杯から溢れた呪いじゃよ」<br>「頼む。あれを、二度と世に出してはならん」`]; }
+          if (c.ok) return [c.text, ...siteResult('oldman', 2)];
           return [c.text, '「……話すことは何もない」老人は背を向けた。'];
         } },
-      { label: '天降神社の古文書を調べる', hint: '知力判定', run: () => {
+      { label: '天降神社の古文書を調べる', hint: '知力判定', cond: () => siteOpen('shrine'), run: () => {
           const c = chk('int', G.flags.metMiko ? 45 : 60);
-          if (c.ok) { G.flags.grailTruth = true;
-            return [c.text, `${G.flags.metMiko ? `${CAST.miko}が蔵を開けてくれた。` : ''}古文書には、聖杯の器が「呪いを孕み、黒く染まった」と記されていた。<br><b>この聖杯は汚染されている。願いは、破滅の形でしか叶わない。</b>`]; }
+          if (c.ok) return [c.text, G.flags.metMiko ? `${CAST.miko}が蔵を開けてくれた。` : '', ...siteResult('shrine', 2)];
           return [c.text, '崩し字が読めず、決定的な記述を見つけられなかった。'];
         } },
-      { label: '教会の記録庫に忍び込む', hint: '幸運判定（混沌）', run: () => {
+      { label: '教会の記録庫に忍び込む', hint: '幸運判定（混沌）', cond: () => siteOpen('church'), run: () => {
           tone('chaos'); const c = chk('luk', 55);
-          if (c.ok) { G.flags.grailTruth = true; G.flags.sisterSecret = true;
-            return [c.text, `封印された書庫の奥に、前回の報告書があった。「聖杯の汚染を確認。ただし、儀式の継続を優先する」――署名は教会上層部のものだ。<br><b>教会は、聖杯が汚染されていると知っていた。</b>`]; }
+          if (c.ok) return [c.text, '封印された書庫の奥に、前回の報告書があった。', ...siteResult('church', 2)];
           gain('spi', -3); return [c.text, `足音。${CAST.sister}だ。「……ここは立入禁止です」咎めはしなかったが、その目は冷たかった。（精神-3）`];
         } },
       { label: () => `${SVname()}に聖杯の気配を探らせる`, hint: 'サーヴァント魔力判定', run: () => {
           const c = schk(3, 58);
-          if (c.ok) { G.flags.grailTruth = true; bond(2);
-            return [c.text, `天降山を見上げた${SV()}が、険しい顔で言った。${say('grailEvil')}<br><b>聖杯は、呪われている。</b>`]; }
-          return [c.text, '聖杯の気配は、霊脈の奥深くに隠れていて掴めなかった。'];
+          if (!c.ok) return [c.text, '聖杯の気配は、霊脈の奥深くに隠れていて掴めなかった。'];
+          bond(2);
+          return isCursed()
+            ? [c.text, `天降山を見上げた${SV()}が、険しい顔で言った。${say('grailEvil')}`, addClue('sense', '英霊の直感', `${SV()}は、天降山の聖杯から底知れない悪意を感じ取った。`, 2)]
+            : [c.text, `天降山を見上げた${SV()}が、怪訝そうに言った。${say('grailPure')}`, addClue('sense', '英霊の直感', `${SV()}は、天降山の聖杯に濁りを感じなかった。悪意は、街の中にあるという。`, 2)];
         } },
     ],
   },
   {
-    id: 's_devoured', phase: 'war', day: 9, slot: 1, after: 'advance', cond: () => hostileRivals().length >= 3,
+    id: 's_devoured', phase: 'war', day: 9, slot: 1, after: 'advance', cond: () => hostileRivals().length >= 3 && (isCursed() || culpritAlive()),
     title: '呑まれた陣営', chapter: '第二幕　侵蝕',
     text: () => {
-      const r = G.storyRival = hostileRivals().reduce((a, b) => (a.hp / a.hpMax) <= (b.hp / b.hpMax) ? a : b);
-      return `城跡公園に駆けつけた時には、もう遅かった。<br>傷ついた<b>${rivalLabel(r)}</b>のサーヴァントに、地面から湧き出した黒い泥が絡みついている。泥は霊基を喰らいながら、ずぶずぶと地中へ引きずり込んでいく。<br>マスターの${esc(r.master)}が、悲鳴を上げて手を伸ばしていた。`;
+      const cu = culprit();
+      const r = G.storyRival = hostileRivals().filter(x => x !== cu).reduce((a, b) => (a.hp / a.hpMax) <= (b.hp / b.hpMax) ? a : b);
+      return `城跡公園に駆けつけた時には、もう遅かった。<br>傷ついた<b>${rivalLabel(r)}</b>のサーヴァントに、地面から湧き出した<b>黒い泥のような影</b>が絡みついている。影は霊基を喰らいながら、ずぶずぶと闇へ引きずり込んでいく。<br>マスターの${esc(r.master)}が、悲鳴を上げて手を伸ばしていた。`;
     },
     choices: [
-      { label: '泥を断ち切り、助ける', hint: 'サーヴァント筋力判定（善）', cls: 'danger', run: () => {
+      { label: '断ち切って、助ける', hint: 'サーヴァント筋力判定（善）', cls: 'danger', run: () => {
           tone('good'); const r = G.storyRival; const c = schk(0, 62);
-          r.alive = false; r.hp = 0; addLog(`${rivalLabel(r)}陣営、黒い泥に呑まれて脱落。`);
+          r.alive = false; r.hp = 0; addLog(`${rivalLabel(r)}陣営、黒い影に呑まれて脱落。`);
           if (c.ok) { for (const x of aliveRivals()) x.intel = Math.min(3, x.intel + 1);
-            return [c.text, `${SV()}が泥を断ち切った。サーヴァントは救えなかったが、${esc(r.master)}は助け出せた。<br>「……借りができた。知っていることは全部話す」<br>彼の情報で、<b>残る全陣営の情報が一段階進んだ。</b>`]; }
-          shp(-20); return [c.text, `泥は重く、${SV()}の刃は届かなかった。${rivalLabel(r)}陣営は、跡形もなく呑み込まれた。（サーヴァントHP-20）`];
+            return [c.text, `${SV()}が影を断ち切った。サーヴァントは救えなかったが、${esc(r.master)}は助け出せた。<br>「……借りができた。知っていることは全部話す」<br>彼の情報で、<b>残る全陣営の情報が一段階進んだ。</b>`,
+              isCursed() ? '' : revealCulprit('助けたマスターの証言')]; }
+          shp(-20); return [c.text, `${SV()}の刃は届かなかった。${rivalLabel(r)}陣営は、跡形もなく呑み込まれた。（サーヴァントHP-20）`];
         } },
-      { label: '泥の動きを観察する', hint: '知力判定', run: () => {
+      { label: '動きを観察する', hint: '知力判定', run: () => {
           const r = G.storyRival; const c = chk('int', 55);
-          r.alive = false; r.hp = 0; addLog(`${rivalLabel(r)}陣営、黒い泥に呑まれて脱落。`);
-          if (c.ok) { G.flags.mudKnown = true;
-            return [c.text, `泥は<b>傷ついたサーヴァント</b>を狙う。聖杯は、脱落者の魂を貪って満ちていく――。<br><span class="note">この戦いの仕組みが分かった。決戦で有利になるだろう。</span>`]; }
-          return [c.text, `為す術もなく、${rivalLabel(r)}陣営が呑み込まれていくのを見ていることしかできなかった。`];
+          r.alive = false; r.hp = 0; addLog(`${rivalLabel(r)}陣営、黒い影に呑まれて脱落。`);
+          if (!c.ok) return [c.text, `為す術もなく、${rivalLabel(r)}陣営が呑み込まれていくのを見ていることしかできなかった。`];
+          if (isCursed()) { G.flags.mudKnown = true;
+            return [c.text, `泥は<b>傷ついたサーヴァント</b>を狙う。そして喰らった霊基を、霊脈を通じて天降山へ運んでいく――聖杯は、脱落者の魂を貪って満ちていくのだ。<br><span class="note">この戦いの仕組みが分かった。聖杯との戦いで有利になるだろう。</span>`,
+              addClue('devoured', '喰われた霊基', '黒い泥は傷ついたサーヴァントを狙い、喰らった霊基を天降山へ運んでいった。', 1)]; }
+          G.flags.shadowKnown = true;
+          return [c.text, `影は一匹残らず、喰らった魔力を抱えて同じ方角へ戻っていく。術者がいる。そして、その術者は脱落した英霊の魔力まで貯め込んでいる。<br><span class="note">影の手口を見切った。犯人の陣営との戦いで有利になるだろう。</span>`,
+            revealCulprit('影の観察'), addClue('devoured', '喰われた霊基', '黒い影は、喰らった英霊の魔力を抱えて術者のもとへ戻っていった。', 1)];
         } },
       { label: '今のうちに立ち去る', hint: '慎重', run: () => {
-          tone('cautious'); const r = G.storyRival; r.alive = false; r.hp = 0; addLog(`${rivalLabel(r)}陣営、黒い泥に呑まれて脱落。`);
-          return '背後で、何かが地面に沈む音がした。あなたは振り返らなかった。';
+          tone('cautious'); const r = G.storyRival; r.alive = false; r.hp = 0; addLog(`${rivalLabel(r)}陣営、黒い影に呑まれて脱落。`);
+          return '背後で、何かが闇に沈む音がした。あなたは振り返らなかった。';
         } },
     ],
   },
@@ -2351,6 +2376,8 @@ const STORY = [
           return `${say('promise')}${SV()}は拳を差し出した。あなたはそれに、自分の拳を合わせた。（絆+4 決戦で能力補正）`; } },
       { label: '「君の願いを叶えたい」', hint: '新たなエンディングが開く', run: () => { G.flags.resolve = 'servant'; G.flags.knowWish = true; bond(8);
           return [`${SV()}は驚いたように目を見開き、それから、ゆっくりと笑った。`, voiceOf(servantOf(G)).reg === 'mute' ? `<p>（${SV()}の瞳が、遠いどこかを見つめていた。その奥に、一つの願いが映っている――「${fmt(SERVANT_WISH[servantOf(G).persona])}」）</p>` : `<p class="quote">「${fmt(SERVANT_WISH[servantOf(G).persona])}${say('wishShare')}」</p>`, '（絆+8 聖杯をサーヴァントに託せるようになった）']; } },
+      { label: '「この聖杯になら、願いを託せる」', hint: '聖杯が正規のものだと知っている時のみ', cond: () => G.flags.grailPure, run: () => { G.flags.resolve = 'pure'; bond(5); tone('law');
+          return `${SV()}は天降山の澄んだ光を見上げ、静かに頷いた。${say('promise')}（絆+5 決戦で能力補正）`; } },
       { label: '「聖杯を壊そう」', hint: '聖杯の真実を知っている時のみ', cond: () => G.flags.grailTruth, run: () => { G.flags.resolve = 'destroy'; bond(5); tone('good');
           return `${SV()}は長い沈黙の後、頷いた。${say('withYou')}（絆+5 聖杯との戦いで能力補正）`; } },
     ],
@@ -2824,7 +2851,11 @@ STORY.push(
     choices: [
       { label: '記録を解読し、計画の全貌を探る', hint: '知力判定', run: () => {
           const c = chk('int', 55);
-          if (c.ok) { G.flags.grailTruth = true; G.flags.grailHint = true; return [c.text, '六十年前に汚染された聖杯に、あなたの「縁」を注ぎ込めば、呪いは世界を呑むほどに膨れ上がる。<b>この聖杯は、決して完成させてはならない。</b>']; }
+          if (c.ok) { G.flags.grailHint = true;
+            if (isCursed()) return [c.text, '「汚れた杯に縁を注げ。呪いは縁を喰らい、世界を呑むほどに膨れ上がる」――蒐集者は、聖杯が呪われていることを<b>知っている</b>らしい。',
+              addClue('curator_note', '蒐集者の羊皮紙', '蒐集者の計画書。「汚れた杯に縁を注げ。呪いは縁を喰らい、世界を呑む」とあった。', 2)];
+            return [c.text, '「無垢なる杯に縁を注げ。英霊の座への門が開き、すべての英霊は我が蒐集品となる」――蒐集者の狙いは、<b>完全な聖杯</b>そのものらしい。',
+              addClue('curator_note', '蒐集者の羊皮紙', '蒐集者の計画書。「無垢なる杯に縁を注げ。英霊の座への門が開く」とあった。', 2)]; }
           G.flags.grailHint = true; return [c.text, '暗号の大半は読めなかった。だが、聖杯が何か恐ろしいものだということだけは分かった。'];
         } },
       { label: () => `${SVname()}と対策を練る`, hint: '絆↑', run: () => { bond(5); G.flags.grailHint = true;
@@ -2954,8 +2985,8 @@ const EVENTS = [
       { label: '内容を確かめる', run: () => {
           const b = G.master.birth;
           if (b === 'clocktower') { const c = giveCatalyst(); money(3); return `小包の中には<b>${c}</b>と、当座の資金が入っていた。（資金+3）`; }
-          if (b === 'noble' || b === 'fallen') { gain('int', 5); G.flags.grailHint = true; return '日記には「聖杯は無色にあらず」と記されていた。……どういう意味だろう。（知力+5）'; }
-          G.flags.grailHint = true; gain('spi', 2); return '不気味な警告だ。だが、この街の聖杯に何か秘密があるのは確かなようだ。（精神+2）';
+          if (b === 'noble' || b === 'fallen') { gain('int', 5); G.flags.grailHint = true; return ['日記には「聖杯は無色にあらず」と記されていた。……どういう意味だろう。（知力+5）', addClue('rumor_diary', '曾祖父の日記', '前回の聖杯戦争の記録。「聖杯は無色にあらず」とだけ書かれていた。', 0)]; }
+          G.flags.grailHint = true; gain('spi', 2); return ['不気味な警告だ。だが、この街の聖杯に何か秘密があるのは確かなようだ。（精神+2）', addClue('rumor_letter', '焼け焦げた手紙', '差出人不明。「聖杯戦争に関わるな。この街の聖杯は――」その先は焼けて読めない。', 0)];
         } },
     ],
   },
@@ -3190,20 +3221,17 @@ const EVENTS = [
     ],
   },
   {
-    id: 'grail_truth', phase: 'war', time: 'any', once: true, weight: 2, cond: () => G.flags.grailHint && !G.flags.grailTruth,
-    title: '聖杯の真実',
-    text: () => '集めた断片を繋ぎ合わせると、一つの仮説が浮かび上がった。この街の聖杯は、六十年前の戦いで「何か」に汚染されている――。',
+    id: 'grail_truth', phase: 'war', time: 'any', once: true, weight: 2, cond: () => G.flags.grailHint && !solved() && mys().ev < MYSTERY_CORE_EV,
+    title: '断片',
+    text: () => '集めた断片を、頭の中で並べ直してみる。黒い霧、昏睡事件、六十年前の戦争。……この街の聖杯には、何か秘密がある。それが何なのかは、まだ分からない。',
     choices: [
-      { label: '天降神社の古文書で確かめる', hint: '知力判定', run: () => {
-          const c = chk('int', 60);
-          if (c.ok) { G.flags.grailTruth = true; return [c.text, '古文書には、前回の聖杯戦争で呼ばれた「呪いそのもの」の英霊が、聖杯の内に溶けたと記されていた。<b>この聖杯は、願いを破滅の形でしか叶えない。</b>']; }
-          return [c.text, '決定的な記述は見つからなかった。'];
+      { label: '天降山の霊脈を調べに行く', hint: 'サーヴァント魔力判定', cond: () => siteOpen('mountain'), run: () => {
+          const c = schk(3, 58);
+          if (c.ok) return [c.text, ...siteResult('mountain', 1)];
+          return [c.text, '霊脈の気配は掴みきれなかった。'];
         } },
-      { label: () => `${SVname()}に聖杯の気配を探らせる`, hint: 'サーヴァント魔力判定', run: () => {
-          const c = schk(3, 60);
-          if (c.ok) { G.flags.grailTruth = true; bond(2); return [c.text, `${say('grailEvil')}${SV()}の表情は険しい。<b>聖杯は汚染されている。</b>`]; }
-          return [c.text, '聖杯の在処そのものが掴めなかった。'];
-        } },
+      { label: () => `${SVname()}の意見を聞く`, hint: '絆↑', run: () => { bond(3);
+          return `${SV()}は少し考えてから言った。「憶測で決めつけるのは危うい。確かめるなら、自分の目で、だ」<br><span class="note">昼の「真相を調べる」で、街の謎を調べられる。（絆+3）</span>`; } },
     ],
   },
   {
@@ -3299,6 +3327,377 @@ const EVENTS = [
 ];
 
 // =============================================================
+//  data_mystery.js … 聖杯の真相（2つのシナリオ）と、TRPG的な調査
+//
+//  ・ゲーム開始時に、プレイヤーには見えない形で「真相」が決まる
+//      cursed … 聖杯は六十年前に呪われた（既存のシナリオ）。昏睡事件は聖杯から漏れた黒い泥の仕業
+//      pure   … 聖杯は正規のもの。昏睡事件は、ある陣営（犯人）が魂喰いをしている
+//  ・どちらなのかは、プレイヤーが「調査」をしない限り分からない
+//      調査で得られる手がかりの中身が、真相によって変わる（同じ場所を調べても、見えるものが違う）
+//      手がかりは「調査手帳」に記録され、プレイヤー自身が読み比べて推理できる
+//  ・手がかりが十分に集まると、真相を確定させる方法が2つ開く
+//      核心の調査（天降山の古社で聖杯の器を直接調べる：危険）
+//      推理（手帳を整理して結論を出す：知力判定）
+//  ・判定は TRPG 風：同じ場所でも「どの技能で調べるか」を選べる。
+//      大成功（目標を25以上上回る）でおまけの発見、大失敗（25以上下回る）で厄介ごとが起きる
+// =============================================================
+
+const MYSTERY_CORE_EV = 3;     // 核心の調査に必要な手がかりの数
+const MYSTERY_DEDUCE_EV = 4;   // 推理に必要な手がかりの数
+
+function isCursed() { return G.truth !== 'pure'; }
+function solved() { return !!(G.flags.grailTruth || G.flags.grailPure); }
+function mys() {
+  if (!G.mys) G.mys = { ev: 0, clues: [], done: {}, culprit: null, culpritKnown: false, area: null, stopped: false };
+  return G.mys;
+}
+
+// ---- 正規の聖杯の場合の「犯人」陣営（最初に必要になった時に決める） ----
+function culprit() {
+  if (isCursed() || !G.rivals.length) return null;
+  const m = mys();
+  if (!m.culprit) {
+    const pool = G.rivals.filter(r => r.alive && !r.friend);
+    if (!pool.length) return null;
+    // 魂喰いをするのは、好戦的で悪辣な陣営ほどありえる
+    const r = wpick(pool, x => 0.4 + x.aggr);
+    m.culprit = r.id; m.area = pick(['旧城下町', '港の倉庫街', '駅前の再開発地区', '御影川の下流', '城跡公園の北側']);
+  }
+  return G.rivals.find(r => r.id === m.culprit) || null;
+}
+function culpritAlive() { const r = culprit(); return !!(r && r.alive); }
+function culpritLabel() { const r = culprit(); return r ? `${r.cls}陣営` : '某陣営'; }
+
+// ---- 手がかりを手帳に記録する ----
+// ev：真相への手がかりとしての重み（0 は噂・真偽不明の情報）
+function addClue(id, title, text, ev = 1) {
+  const m = mys();
+  if (m.clues.some(c => c.id === id)) return '';
+  m.clues.push({ id, title, text, ev, when: whenShort() });
+  m.ev += ev;
+  const left = solved() ? '' : m.ev >= MYSTERY_DEDUCE_EV ? '　推理で真相を確かめられる。'
+    : m.ev >= MYSTERY_CORE_EV ? '　天降山の古社を調べられるようになった。' : '';
+  return `<span class="note">📓 調査手帳に記録：「${title}」${ev ? `（手がかり ${m.ev}）` : '（真偽不明の情報）'}${left}</span>`;
+}
+// 犯人の陣営が判明する
+function revealCulprit(how) {
+  const r = culprit(); if (!r) return '';
+  const m = mys(); if (m.culpritKnown) return '';
+  m.culpritKnown = true; r.intel = Math.max(r.intel, 1);
+  addLog(`昏睡事件の犯人は${r.cls}陣営と判明（${how}）。`);
+  return `<b>昏睡事件の犯人は、${rivalLabel(r)}陣営だ。</b>マスターは${esc(r.master)}――${r.type}。`;
+}
+
+// ---- 真相が確定する ----
+function solveMystery(how) {
+  if (solved()) return '';
+  if (isCursed()) {
+    G.flags.grailTruth = true; G.flags.grailHint = true;
+    addLog(`聖杯の真相に辿り着く：聖杯は呪われている（${how}）。`);
+    return '<div class="truth cursed"><b>真相：この聖杯は、呪われている。</b><br>六十年前の戦いで「呪いそのもの」を呑み込んだ聖杯は、願いを破滅の形でしか叶えない。昏睡事件は、聖杯から溢れた黒い泥の仕業だった。</div>';
+  }
+  G.flags.grailPure = true;
+  addLog(`聖杯の真相に辿り着く：聖杯は正規のもの（${how}）。`);
+  const r = culprit(); const who = r ? revealCulprit(how) : '';
+  return `<div class="truth pure"><b>真相：この聖杯は、正しい聖杯だ。</b><br>六十年前の儀式は器が満ちる前に途絶え、聖杯は無垢のまま霊脈の底に眠っていた。願いは、願ったとおりに叶う。<br>昏睡事件は、聖杯ではなく――人の仕業だ。${who ? '<br>' + who : ''}</div>`;
+}
+
+// =============================================================
+//  調査の場所（昼の行動「真相を調べる」）
+//  stages：その場所で得られる手がかりの段階数
+//  ways：調べ方（技能）。diff は目標値、risk は大失敗時の厄介ごと
+// =============================================================
+const MYSTERY_SITES = [
+  {
+    id: 'scene', name: '昏睡事件の現場', place: '港の倉庫街', stages: 2, cond: () => !!G.used.s_coma,
+    lead: '被害者が倒れていた路地。魔力の残滓が残っているかもしれない。',
+    ways: [
+      { label: '現場を霊視する', stat: 'mag', diff: 56 },
+      { label: '痕跡を分析する', stat: 'int', diff: 56 },
+      { label: '目撃者を探して聞き込む', stat: 'cha', diff: 52 },
+      { label: () => `${SV()}に残滓を辿らせる`, sv: 3, diff: 58 },
+    ],
+    clue: (stage) => isCursed()
+      ? stage === 1 ? ['残滓の正体', '路地に残っていたのは、サーヴァントの魔力ではなかった。粘つくような、悪意そのものの残滓――人の怨念を煮詰めたような<b>呪詛</b>だ。']
+        : ['残滓の行き先', '残滓を辿ると、地下の霊脈に沿って北へ――<b>天降山の方角</b>へ続いていた。どの陣営の拠点とも、方角が合わない。']
+      : stage === 1 ? ['残滓の正体', '路地に残っていたのは、確かに<b>サーヴァントの魔力</b>だった。何者かが、使い魔を通じて人の魂を吸い上げている。手口は魔術師のものだ。']
+        : ['残滓の行き先', `残滓を辿ると、霊脈ではなく人の手で引かれた魔力の糸が、<b>${mys().area}</b>の方へ続いていた。……誰かの拠点がある。`],
+    extra: (stage) => !isCursed() && stage === 2 ? revealCulprit('現場の調査') : '',
+    risk: { text: '残滓に触れた瞬間、何かがこちらを「見た」。……こちらの存在が、誰かに知られたかもしれない。', run: () => { G.servant.exposed = true; } },
+  },
+  {
+    id: 'hospital', name: '市民病院', place: '被害者の病室', stages: 1, cond: () => !!G.used.s_coma,
+    lead: '昏睡状態の被害者たちが運び込まれている。直接、体を診られれば。',
+    ways: [
+      { label: '見舞い客を装って面会する', stat: 'cha', diff: 55 },
+      { label: '魔術で被害者を診る', stat: 'mag', diff: 52 },
+      { label: '夜間に忍び込む', stat: 'luk', diff: 50, tone: 'chaos' },
+    ],
+    clue: () => isCursed()
+      ? ['被害者の容態', '被害者の魂には、<b>黒い澱</b>のようなものがこびりついていた。ただ魔力を奪われたのではない。何かに「侵されて」いる。']
+      : ['被害者の容態', '被害者は魔力を抜き取られているだけで、魂そのものは<b>穢れていない</b>。抜き取りの跡には、術式で吸い上げた几帳面な痕がある。'],
+    risk: { text: '看護師に見咎められた。病院から警察に連絡が入り、しばらく近寄れそうにない。（精神-3）', run: () => { gain('spi', -3); } },
+  },
+  {
+    id: 'shrine', name: '天降神社の蔵', place: '古文書', stages: 1,
+    lead: '古くから霊脈を守ってきた神社。前回の聖杯戦争の記録が残っているかもしれない。',
+    ways: [
+      { label: '古文書を読み解く', stat: 'int', diff: () => G.flags.metMiko || G.master.birth === 'shrine' ? 45 : 60 },
+      { label: () => `${CAST.miko}に蔵を開けてもらう`, stat: 'cha', diff: () => G.flags.metMiko || G.master.birth === 'shrine' ? 40 : 62 },
+    ],
+    clue: () => isCursed()
+      ? ['神社の古文書', '六十年前の記録には、こうあった。「器、呪ひを孕み、黒く染まりぬ。願ひし者、ことごとく災ひに遭ふ」']
+      : ['神社の古文書', '六十年前の記録には、こうあった。「器、満つる前に儀絶えたり。無垢のまま霊脈の底に鎮め奉る」――聖杯は、<b>完成する前に封じられていた</b>。'],
+    risk: { text: '古い蔵の棚が崩れ、下敷きになりかけた。（HP-15）', run: () => { hp(-15); } },
+  },
+  {
+    id: 'oldman', name: () => `${CAST.old}の証言`, place: '御影川の河川敷', stages: 1,
+    lead: '六十年前の聖杯戦争の、ただ一人の生き残り。',
+    ways: [
+      { label: '当時のことを問い詰める', stat: 'cha', diff: () => G.flags.oldTrust ? 42 : 60 },
+      { label: '黙って隣で釣り糸を垂れる', stat: 'spi', diff: () => G.flags.oldTrust ? 40 : 58 },
+    ],
+    clue: () => isCursed()
+      ? ['生き残りの証言', `${CAST.old}は重い口を開いた。「最後の夜、わしは見た。あの呪いのような英霊が、<b>聖杯に呑まれる</b>ところを。……杯は、あれを喰らって黒く染まったんじゃ」`]
+      : ['生き残りの証言', `${CAST.old}は長い沈黙の後、震える声で言った。「……あの呪いのような英霊はな、聖杯に呑まれる前に、<b>わしが令呪で自害させた</b>んじゃ。六十年、誰にも言えなんだ。杯は――あれを呑んではおらん」`],
+    extra: () => { G.flags.oldTrust = true; return ''; },
+    risk: { text: `「帰れ！」${CAST.old}は声を荒らげた。しばらくは話を聞いてくれないだろう。`, run: () => { G.flags.oldTrust = false; } },
+  },
+  {
+    id: 'church', name: '教会の記録庫', place: '聖ヨハネ教会', stages: 1,
+    lead: '監督役の教会には、前回の報告書が保管されているはずだ。',
+    ways: [
+      { label: () => `${CAST.sister}に閲覧を願い出る`, stat: 'cha', diff: () => G.flags.registered ? 58 : 72, tone: 'law' },
+      { label: '記録庫に忍び込む', stat: 'luk', diff: 55, tone: 'chaos' },
+    ],
+    clue: () => isCursed()
+      ? ['教会の報告書', '前回の報告書：「聖杯の汚染を確認。ただし、儀式の継続を優先する」――署名は教会上層部のものだ。<b>教会は、知っていて黙っていた。</b>']
+      : ['教会の報告書', '前回の報告書：「聖杯に汚染の兆候なし。儀式は器の完成前に中断」。添付の資料には、魔術協会の手配書が一枚――<b>他人の魂を喰らって魔力を蓄える魔術師</b>の手口が記されていた。'],
+    extra: () => { if (isCursed()) G.flags.sisterSecret = true; return ''; },
+    risk: { text: `足音。${CAST.sister}だ。「……ここは立入禁止です」その目は冷たかった。（教会からの信用を失った）`, run: () => { G.flags.registered = false; } },
+  },
+  {
+    id: 'mountain', name: '天降山の霊脈', place: '山道', stages: 2,
+    lead: '街を流れる霊脈の源。子どもの頃から、黒い霧の噂が絶えない。',
+    ways: [
+      { label: '山道を登り、霊脈の要を探す', stat: 'phy', diff: 55 },
+      { label: '霊脈の流れを読む', stat: 'mag', diff: () => G.flags.leyline || G.master.birth === 'shrine' ? 45 : 60 },
+      { label: () => `${SV()}に霊脈の気配を探らせる`, sv: 3, diff: 58 },
+    ],
+    clue: (stage) => isCursed()
+      ? stage === 1 ? ['霊脈の濁り', '山の霊脈は、底の方で<b>濁っていた</b>。黒い霧は、地の底から滲み出す何かの「吐息」のようだ。']
+        : ['霊脈の底', '霊脈の要に耳を澄ますと、地の底で何かが<b>脈打っている</b>のが分かった。黒い泥だ。……それは、街で倒れた人々から奪った魔力を、ゆっくりと呑み込んでいた。']
+      : stage === 1 ? ['霊脈の濁り', '霊脈そのものは<b>澄んでいた</b>。黒い霧は、霊脈が吐き出す古い瘴気――六十年前の儀式の名残で、悪意は感じられない。']
+        : ['霊脈の底', '霊脈の要の奥深くに、静かに眠る黄金の気配があった。濁りはない。<b>街で奪われた魔力は、ここには流れ込んでいない</b>。'],
+    risk: { text: '足を滑らせ、凍った斜面を転げ落ちた。（HP-20）', run: () => { hp(-20); } },
+  },
+];
+
+// 物語の場面から、調査の場所の手がかりを得る（その場所は調査済みになる）
+function siteOpen(id) { const s = MYSTERY_SITES.find(x => x.id === id); return (mys().done[id] || 0) < s.stages; }
+function siteResult(id, ev = 1) {
+  const s = MYSTERY_SITES.find(x => x.id === id); const m = mys();
+  const stage = (m.done[id] || 0) + 1; m.done[id] = stage;
+  const [title, text] = s.clue(stage); const ex = s.extra && s.extra(stage);
+  return [text, addClue(`${id}${stage}`, title, text, ev), ex].filter(Boolean);
+}
+
+// 調査の判定（マスターの技能か、サーヴァントのパラメータか）
+function mysteryCheck(w) {
+  const diff = typeof w.diff === 'function' ? w.diff() : w.diff;
+  return w.sv != null ? schk(w.sv, diff) : chk(w.stat, diff);
+}
+function wayHint(w) {
+  const diff = typeof w.diff === 'function' ? w.diff() : w.diff;
+  const who = w.sv != null ? `${SV()}の${PARAM_NAMES[w.sv]}` : `${STAT_LABEL[w.stat]}${G.master.stats[w.stat]}`;
+  return `${who}判定・目標${diff}${w.tone === 'chaos' ? '・混沌' : w.tone === 'law' ? '・秩序' : ''}`;
+}
+const lab = x => typeof x === 'function' ? x() : x;
+
+function mysteryMenu() {
+  const m = mys();
+  const sites = MYSTERY_SITES.filter(s => (!s.cond || s.cond()) && (m.done[s.id] || 0) < s.stages);
+  const choices = sites.map(s => ({
+    label: `${lab(s.name)}`, hint: `${s.place}${s.stages > 1 ? `・${(m.done[s.id] || 0) + 1}/${s.stages}段階目` : ''}`, icon: 'study',
+    fn: () => siteMenu(s),
+  }));
+  if (!solved() && m.ev >= MYSTERY_CORE_EV) choices.push({ label: '天降山の古社に潜入する', hint: `核心の調査・危険（手がかり${m.ev}）`, cls: 'danger', fn: coreMenu });
+  if (!solved() && m.ev >= MYSTERY_DEDUCE_EV) choices.push({ label: '調査手帳を整理して推理する', hint: `知力判定 目標${deduceDiff()}`, cls: 'primary', fn: deduce });
+  if (!isCursed() && m.culpritKnown && culpritAlive() && G.flags.registered && !culprit().bounty)
+    choices.push({ label: `${culpritLabel()}を教会に告発する`, hint: '交渉判定・討伐令（令呪の報酬）', fn: accuse });
+  const body = [
+    '<p>この街で起きていることの真相を探る。どこを、どうやって調べる？</p>',
+    `<p class="note">調べ方（技能）によって目標値が変わる。大成功ならおまけの発見があり、大失敗なら厄介ごとが起きる。手がかり<b>${m.ev}</b>${solved() ? '（真相は判明済み）' : `：${MYSTERY_CORE_EV}で核心の調査、${MYSTERY_DEDUCE_EV}で推理ができる`}。</p>`,
+  ];
+  if (!sites.length && !choices.length) body.push('<p class="empty">今調べられる場所は、もう無い。</p>');
+  submenu('真相を調べる', 'INVESTIGATE', body, choices);
+}
+function siteMenu(s) {
+  const m = mys(); const stage = (m.done[s.id] || 0) + 1;
+  scene({ title: lab(s.name), sub: 'INVESTIGATE', body: paras([`${s.place}。${s.lead}`, '<p>どうやって調べる？</p>']),
+    choices: s.ways.map(w => ({ label: lab(w.label), hint: wayHint(w), fn: () => actResult(lab(s.name), () => {
+      if (w.tone) tone(w.tone);
+      const c = mysteryCheck(w);
+      if (!c.ok) {
+        if (c.margin <= -25 && s.risk) { s.risk.run(); return [c.text, '<b>大失敗！</b>', s.risk.text]; }
+        return [c.text, '手がかりは掴めなかった。……別の調べ方を試すべきかもしれない。'];
+      }
+      m.done[s.id] = stage;
+      const [title, text] = s.clue(stage);
+      const out = [c.text, text, addClue(`${s.id}${stage}`, title, text, 1)];
+      const ex = s.extra && s.extra(stage); if (ex) out.push(ex);
+      if (c.margin >= 25) { out.push('<b>大成功！</b>', criticalBonus(s)); }
+      return out;
+    }) })).concat([{ label: 'やめる', fn: mysteryMenu }]) });
+}
+// 大成功のおまけ
+function criticalBonus(s) {
+  const m = mys();
+  if (s.stages > 1 && (m.done[s.id] || 0) < s.stages) {
+    m.done[s.id]++; const [title, text] = s.clue(m.done[s.id]);
+    const ex = s.extra && s.extra(m.done[s.id]);
+    return [`勢いのまま、さらに奥まで調べ上げた。<br>${text}`, addClue(`${s.id}${m.done[s.id]}`, title, text, 1), ex].filter(Boolean).join('<br>');
+  }
+  gain('int', 2); lore(1);
+  return '調べるうちに、魔術の世界の理解も深まった。（知力+2）';
+}
+
+// ---- 核心の調査：天降山の古社 ----
+function coreMenu() {
+  const m = mys(); const d = Math.max(45, 75 - m.ev * 4);
+  scene({ title: '天降山の古社', sub: 'INVESTIGATE', body: paras([
+    '天降山の頂、霊脈の集う古社。聖杯が降臨するはずの場所だ。強い結界が張られ、近づくだけで肌が粟立つ。',
+    '器そのものを調べれば、真相は分かる。だが、無事で済む保証はない。',
+  ]), choices: [
+    { label: () => `${SV()}と共に結界を破る`, hint: `${SV()}の魔力判定 目標${d}`, cls: 'danger', fn: () => coreTry(schk(3, d)) },
+    { label: '結界の綻びを探して忍び込む', hint: `知力判定 目標${d + 5}`, fn: () => coreTry(chk('int', d + 5)) },
+    { label: 'やめる', fn: mysteryMenu },
+  ] });
+}
+function coreTry(c) {
+  actResult('古社の器', () => {
+    if (!c.ok) {
+      shp(-20); hp(-15);
+      return [c.text, isCursed() ? '結界に弾かれた瞬間、足元から黒い何かが這い上がってきた。辛うじて逃げ延びたが、体の芯が冷えきっている。（HP-15 サーヴァントHP-20）'
+        : '結界は思った以上に堅く、跳ね返された魔力が二人を打ち据えた。（HP-15 サーヴァントHP-20）', '<span class="note">手がかりがもっと集まれば、結界の綻びも見えてくるはずだ。</span>'];
+    }
+    const seen = isCursed()
+      ? '結界の奥、霊脈の要に半ば埋もれて、黄金の杯があった。――その内側で、<b>黒い泥</b>が渦を巻いている。杯の縁から溢れた泥が、細い筋となって街の方へ流れ出していた。'
+      : '結界の奥、霊脈の要に半ば埋もれて、黄金の杯があった。澄んだ光。濁りも、悪意もない。……そして杯の周りには、<b>何者かが聖杯を探って回った魔術の痕跡</b>が残されていた。';
+    return [c.text, seen, solveMystery('古社の調査')];
+  });
+}
+// ---- 推理 ----
+function deduceDiff() { return Math.max(40, 72 - mys().ev * 4); }
+function deduce() {
+  const m = mys();
+  const list = m.clues.filter(c => c.ev).map(c => `<li><b>${c.title}</b>：${c.text}</li>`).join('');
+  scene({ title: '推理', sub: 'DEDUCTION', body: [
+    '<p>集めた手がかりを、一つずつ手帳に並べていく。</p>', `<ul class="clue-list">${list}</ul>`,
+    '<p>これらが指し示す真相は――？</p>',
+  ], choices: [
+    { label: '「聖杯は呪われている」', hint: `知力判定 目標${deduceDiff()}`, fn: () => deduceTry('cursed') },
+    { label: '「聖杯は正規のもの。事件は人の仕業だ」', hint: `知力判定 目標${deduceDiff()}`, fn: () => deduceTry('pure') },
+    { label: 'まだ結論を出さない', fn: mysteryMenu },
+  ] });
+}
+function deduceTry(guess) {
+  actResult('推理', () => {
+    const c = chk('int', deduceDiff());
+    const unsure = '筋は通っている気がする。だが、確信には一歩届かなかった。……思い込みで決めつけていないか、もう一度手帳を見直すべきかもしれない。';
+    if (!c.ok) return [c.text, unsure];
+    // 間違った仮説：判定に成功していれば、矛盾に気付ける（精神的に堪える）
+    if (guess !== G.truth) { gain('spi', -2);
+      return [c.text, '仮説を組み立てようとして、手が止まった。いくつかの手がかりが、どうしても噛み合わない。……どこかで、思い込みをしていたようだ。（精神-2）']; }
+    return [c.text, '散らばっていた手がかりが、一本の線で繋がった。', solveMystery('推理')];
+  });
+}
+// ---- 犯人の告発（正規の聖杯の場合） ----
+function accuse() {
+  actResult('告発', () => {
+    const r = culprit(); const c = chk('cha', 50);
+    if (!c.ok) return [c.text, `「証拠が不十分です」${CAST.sister}は首を振った。「確かな証拠を揃えてから来てください」`];
+    r.bounty = true; r.intel = Math.max(r.intel, 2);
+    return [c.text, `${CAST.sister}は手帳を確かめ、静かに頷いた。「……神秘の秘匿を破り、一般人を喰らう行為。見過ごせません」<br>教会は${rivalLabel(r)}陣営に討伐令を出した。拠点の場所も提供された。<span class="note">討伐すれば令呪+1。</span>`];
+  });
+}
+
+// =============================================================
+//  夜の調査：事件現場に張り込む
+// =============================================================
+function stakeoutMenu() {
+  submenu('張り込み', 'STAKEOUT', '<p>夜の街で、昏睡事件の「瞬間」を押さえる。どう張り込む？</p>', [
+    { label: '物陰から見張る', hint: `知力判定 目標55`, fn: () => stakeout(chk('int', 55), 'watch') },
+    { label: '使い魔を街中に放つ', hint: `魔力判定 目標52・オド-10（残${G.master.od}）`, disabled: G.master.od < 10, fn: () => { od(-10); stakeout(chk('mag', 52), 'familiar'); } },
+    { label: '自ら囮になる', hint: '体力判定 目標50・危険・大胆', cls: 'danger', fn: () => { tone('bold'); stakeout(chk('phy', 50), 'bait'); } },
+  ]);
+}
+function stakeout(c, mode) {
+  NOTES = [];
+  const r = culprit();
+  if (!c.ok) {
+    if (c.margin <= -25) {
+      if (!isCursed() && r && r.alive && engageable().includes(r)) {
+        return next('張り込み', paras([c.text, '<b>大失敗！</b>', `背後に気配――逆に、こちらが見つかっていた。${rivalLabel(r)}陣営のサーヴァントが迫る！`]), () => startBattle(r, { enemyFirst: true }), '戦う');
+      }
+      hp(-15); shp(-15);
+      return next('張り込み', paras([c.text, '<b>大失敗！</b>', '暗がりから伸びた黒い影に、足を取られた。どうにか振り払ったが、無傷では済まなかった。（HP-15 サーヴァントHP-15）', ...takeNotes()]), advance);
+    }
+    return next('張り込み', paras([c.text, '冷たい夜風の中、明け方まで粘ったが、今夜は何も起きなかった。', ...takeNotes()]), advance);
+  }
+  if (isCursed()) {
+    const t = '深夜二時。路地のマンホールの隙間から、<b>黒い泥</b>が這い出してきた。泥は酔い潰れた男に覆いかぶさり、魔力を吸い上げ始める。' +
+      `${SV()}が斬り払うと、泥は悲鳴のような音を立て、地下の霊脈へ逃げ込んだ。……誰かが操っている気配は、まったく無かった。`;
+    return next('張り込み', paras([c.text, t, addClue('stakeout', '夜の泥', '昏睡事件の瞬間を目撃した。人を襲ったのは、誰にも操られていない黒い泥だった。泥は霊脈へ逃げ込んだ。', 1), ...takeNotes()]), advance);
+  }
+  const t = `深夜二時。${mys().area}の路地で、影のような<b>使い魔</b>が通行人に取りついていた。使い魔から伸びる魔力の糸は、どこかの拠点へと続いている。`;
+  const clue = addClue('stakeout', '夜の使い魔', '昏睡事件の瞬間を目撃した。人を襲ったのは、魔術師が操る使い魔だった。魔力の糸がどこかの拠点へ続いていた。', 1);
+  if (mode === 'bait' && r && r.alive && engageable().includes(r)) {
+    const who = revealCulprit('張り込み');
+    return scene({ title: '張り込み', sub: 'STAKEOUT', body: paras([c.text, t, '囮になったあなたに使い魔が群がった瞬間、糸の先から術者のサーヴァントが姿を現した。', who, clue, ...takeNotes()]),
+      choices: [
+        { label: 'このまま仕掛ける', hint: '戦闘（相手は不意を突かれている）', cls: 'danger', fn: () => startBattle(r, { ambush: true }) },
+        { label: '顔を覚えて退く', fn: advance },
+      ] });
+  }
+  const who = c.margin >= 15 || mode === 'familiar' ? revealCulprit('張り込み') : '';
+  return next('張り込み', paras([c.text, t, who || '糸の先までは辿りきれなかった。', clue, ...takeNotes()]), advance);
+}
+
+// =============================================================
+//  毎朝のニュース（昏睡事件の続報）：真相によって、事件の起き方が違う
+// =============================================================
+function mysteryDaily() {
+  if (G.phase !== 'war' || !G.used.s_coma) return;
+  const m = mys();
+  if (isCursed()) {
+    if (Math.random() < 0.5) G.news.push(`昏睡事件の被害者が、また見つかった。発見現場は<b>天降山の麓</b>から、川沿いに街の中心へと広がっているという。`);
+    return;
+  }
+  if (culpritAlive()) { if (Math.random() < 0.5) G.news.push(`昏睡事件の被害者が、また見つかった。現場は<b>${m.area}</b>の周辺に集中しているという。`); return; }
+  if (!m.stopped) {
+    m.stopped = true;
+    G.news.push('ここ数日、昏睡事件の新たな被害者が出ていない。ニュースは「事件は収束に向かっている」と報じていた。');
+    if (G.flags.investigate || m.ev) {
+      const n = addClue('stopped', '止んだ事件', `${culpritLabel()}が脱落してから、昏睡事件はぴたりと止んだ。`, 1);
+      if (n) G.news.push(n);
+    }
+  }
+}
+
+// ---- 手帳の表示（ステータス画面） ----
+function viewNotebook() {
+  const m = mys();
+  const state = G.flags.grailTruth ? '<span class="tag red">聖杯は呪われている</span>'
+    : G.flags.grailPure ? '<span class="tag green">聖杯は正規のもの</span>'
+      : G.flags.grailHint ? '<span class="tag">聖杯には何か秘密がある……？</span>' : '<span class="tag">聖杯の真相は不明</span>';
+  const who = !isCursed() && m.culpritKnown ? `<span class="tag red">昏睡事件の犯人：${culpritLabel()}</span>` : '';
+  const list = m.clues.length ? `<ul class="clue-list">${m.clues.map(c => `<li><b>${c.title}</b>${c.ev ? '' : '<em>（噂）</em>'}<span>${c.when}</span><br>${c.text}</li>`).join('')}</ul>`
+    : '<p class="empty">まだ何も記録していない。昼の「真相を調べる」で、街の謎を調べられる。</p>';
+  return `<h3>調査手帳</h3><p>${state}${who}<span class="tag">手がかり ${m.ev}</span></p>${list}`;
+}
+
+// =============================================================
 //  fx.js … 演出（設定・効果音・カットイン・空と雪・アイコン・エンディング記録）
 // =============================================================
 
@@ -3317,7 +3716,7 @@ let REVEAL_UNTIL = 0;                    // 文章の表示演出が終わる時
 // ---------------- エンディングの記録 ----------------
 const ENDING_LIST = [
   ['destroySpecial', '夜明けの約束'], ['destroy', '冬の終わり'], ['together', '共に生きる'], ['servantWish', '託された願い'],
-  ['none', '願いなき勝者'], ['abstain', '日常への帰還'], ['wish', '歪んだ願い'], ['wishKnown', '承知の上の願い'], ['devoured', '黒い夜明け'],
+  ['wishPure', '叶えられた願い'], ['none', '願いなき勝者'], ['destroyPure', '砕かれた奇跡'], ['abstain', '日常への帰還'], ['wish', '歪んだ願い'], ['wishKnown', '承知の上の願い'], ['devoured', '黒い夜明け'],
   ['lost', '脱落'], ['dead', '血に染まる冬'],
 ];
 function seenEndings() { try { return JSON.parse(localStorage.getItem(END_KEY) || '[]'); } catch (e) { return []; } }
@@ -3666,6 +4065,7 @@ function newGame(master) {
     v: 3, phase: 'growth', day: 1, slot: 0, master, servant: null, growth: { stage: 0 }, friend: null,
     catalysts: [], items: { potion: 1, gem: 0, crystal: 0, smoke: 1 }, flags: {}, used: {}, rivals: [], log: [], news: [],
     ritual: 0, workshop: 0, traps: 0, kills: 0, battles: 0, tmpRival: null, storyRival: null,
+    truth: Math.random() < 0.5 ? 'cursed' : 'pure',   // 聖杯の真相（プレイヤーには見えない。data_mystery.js）
   };
   G.master.od = odMax();
   G.lore = BIRTHS.find(b => b.id === master.birth).magic ? 5 : 0;   // 魔術世界をどれだけ知っているか
@@ -3772,6 +4172,7 @@ function dailyUpdate() {
     shp(10 + G.workshop * 3);
     for (const r of aliveRivals()) { r.hp = Math.min(r.hpMax, r.hp + 18); r.mp = Math.min(100, r.mp + 30); }
     simulateRivals();
+    mysteryDaily();
   }
 }
 
@@ -3944,6 +4345,7 @@ function warDayActions() {
   const acts = [
     { label: `${SV()}と過ごす`, hint: '絆↑（好みに合わせると大きく上がる）', fn: hangoutMenu },
     { label: '情報を集める', hint: '敵の正体・拠点・真名を探る', fn: intelMenu },
+    { label: '真相を調べる', hint: solved() ? `真相は判明済み・手がかり${mys().ev}` : `街の謎と聖杯の秘密・手がかり${mys().ev}`, icon: 'study', fn: mysteryMenu },
     { label: '拠点を整える', hint: '結界・罠・霊脈', fn: baseMenu },
     { label: '買い出し', hint: '戦闘用の道具', fn: shopMenu },
     { label: 'マスターの鍛錬', hint: '体力・魔力・知力', fn: trainMenu },
@@ -4065,6 +4467,9 @@ function warNightActions() {
     { label: '夜の巡回', hint: none ? '敵は天降山に籠城中' : '慎重 or 挑発。敵を探す', disabled: none, fn: patrolMenu, cls: 'danger' },
     { label: `${SV()}に偵察させる`, hint: none ? '敵は天降山に籠城中' : '敏捷判定で情報↑・失敗すると戦闘', disabled: none, fn: scoutMenu },
   ];
+  const so = mys();   // 張り込み：呪いなら一度目撃するまで、正規なら犯人が判明するまで
+  if (G.used.s_coma && ((isCursed() && !solved() && !so.clues.some(c => c.id === 'stakeout')) || (!isCursed() && culpritAlive() && !so.culpritKnown)))
+    acts.push({ label: '事件現場に張り込む', hint: '昏睡事件の瞬間を押さえる・調査', icon: 'observe', fn: stakeoutMenu });
   if (targets.length) acts.push({ label: '敵の拠点を襲撃する', hint: '作戦を選んで仕掛ける', fn: assaultMenu, cls: 'danger' });
   acts.push(
     { label: '拠点で迎え撃つ', hint: `陣地Lv${G.workshop}・罠${G.traps}で待ち構える`, fn: defendBase },
@@ -4349,6 +4754,7 @@ function afterSummon() {
   next('聖杯戦争、開幕', [
     '<p>こうして、深見市における聖杯戦争が幕を開けた。七騎のサーヴァントと七人のマスター。生き残るのは、ただ一組。</p>',
     `<p class="note">昼は情報・陣地・道具・絆を整える時間。夜は戦いの時間。敵の真名を暴き、作戦を選んで仕掛け、最後の一組となれ。期限は${WAR_DAYS}日。</p>`,
+    '<p class="note">そして――この街の聖杯には、何か秘密があるのかもしれない。それを確かめられるのは、自分の足で調べた者だけだ。（昼の「真相を調べる」）</p>',
   ], startSlot, '戦いへ', '第一幕　開幕');
 }
 
@@ -4936,7 +5342,8 @@ function battleRound(cmd) {
   const myMod = classAffinity(me.cls, r.cls) + Math.floor(sv.bond / 8) + (sv.special ? 5 : 0) + Math.floor(G.master.stats.mag / 20)
     + (['mercenary', 'executor'].includes(G.master.birth) ? 4 : 0) + (G.master.birth === 'fujimaru' ? 6 : 0) + (knowsName(r) ? 8 : 0)
     + (first && B.opt.ambush ? 15 : 0) + (first && B.opt.duel ? 6 : 0) + (B.opt.defend ? G.workshop * 3 : 0)
-    + (B.final && G.flags.resolve === 'win' ? 6 : 0) + (B.boss && G.flags.resolve === 'destroy' ? 8 : 0) + (B.boss && G.flags.mudKnown ? 5 : 0)
+    + (B.final && G.flags.resolve === 'win' ? 6 : 0) + (B.boss && G.flags.resolve === 'destroy' ? 8 : 0) + (B.boss && G.flags.mudKnown ? 5 : 0) + (B.final && G.flags.resolve === 'pure' ? 5 : 0)
+    + (!B.boss && r.id === mys().culprit && mys().culpritKnown ? 3 + (G.flags.shadowKnown ? 3 : 0) : 0)
     + sealBoost + mBonus + B.charge;
   const enMod = classAffinity(r.cls, me.cls) + r.power + (sv.exposed ? 6 : 0) + (first && B.opt.enemyFirst ? 12 : 0) + eSeal + B.echarge;
   B.charge = 0; B.echarge = 0;
@@ -5167,23 +5574,26 @@ function deadlineScene() {
   const strongest = alive.reduce((a, b) => (a.power + a.hp) >= (b.power + b.hp) ? a : b);
   for (const r of alive) if (r !== strongest) { r.alive = false; addLog(`${rivalLabel(r)}陣営、混戦の中で脱落。`); }
   next('最終局面', ['<p>聖杯の器が満ちようとしている。監督役から全陣営へ通達が届いた。「聖杯の降臨は今宵。残る者は天降山へ」</p>',
-    '<p>天降山へ向かう途中の混戦で、いくつもの陣営が黒い泥に呑まれていった。生き残ったのは――</p>'], finalBattleIntro);
+    '<p>天降山へ向かう途中の混戦で、いくつもの陣営が脱落していった。生き残ったのは――</p>'], finalBattleIntro);
 }
 
 function victoryScene() {
   G.phase = 'end';
   const sv = servantOf(G); const b = birthOf();
   const choices = [];
+  // 聖杯を壊す：真相を知っていれば迷いなく。知らなければ、疑いだけを頼りに賭けることになる
   if (G.flags.grailTruth) choices.push({ label: '聖杯を破壊する', hint: '呪いそのものとの戦いになる', cls: 'danger', fn: bossIntro });
+  else if (!G.flags.grailPure && G.flags.grailHint) choices.push({ label: '聖杯を破壊する', hint: '真相は確かめていない……疑いに賭ける', cls: 'danger', fn: () => isCursed() ? bossIntro() : ending('destroyPure') });
   if (G.servant.special) choices.push({ label: `${sv.short}の受肉を願う`, hint: `「${RELATIONS[G.servant.special].name}」として共に生きる`, cls: 'primary', fn: () => ending('together') });
   if (G.flags.knowWish && !G.flags.grailTruth) choices.push({ label: `${sv.short}に聖杯を託す`, hint: `「${fmt(SERVANT_WISH[sv.persona]).slice(0, 18)}…」`, fn: () => ending('servantWish') });
-  choices.push({ label: `「${b.wish}」を願う`, hint: 'マスターの願い', fn: () => ending(G.flags.grailTruth ? 'wishKnown' : 'wish') });
+  choices.push({ label: `「${b.wish}」を願う`, hint: 'マスターの願い', fn: () => ending(G.flags.grailTruth ? 'wishKnown' : isCursed() ? 'wish' : 'wishPure') });
   choices.push({ label: '何も願わない', fn: () => ending('none') });
   scene({ title: '聖杯降臨', sub: '第三幕　降臨', body: [
     '<p>最後の敵が消え、天降山の頂に黄金の杯が降りてきた。万能の願望機――聖杯。</p>',
     G.flags.grailTruth ? '<p>だが、あなたは知っている。その黄金の内側には、六十年分の呪いが渦巻いていることを。</p>'
-      : G.flags.grailHint ? '<p>その輝きは眩い。……けれど、なぜだろう。杯の底に、黒い影が揺れた気がした。</p>'
-        : '<p>その輝きは眩く、どんな願いでも叶えてくれそうに見えた。</p>',
+      : G.flags.grailPure ? '<p>澄みきった光だった。調べ上げた真実が、この杯に偽りはないと告げている。</p>'
+        : G.flags.grailHint ? '<p>その輝きは眩い。……けれど、杯の底に何が眠っているのか、あなたは確かめていない。</p>'
+          : '<p>その輝きは眩く、どんな願いでも叶えてくれそうに見えた。</p>',
     `<p class="quote">${highLine(sv)}</p>`,
     '<p>あなたが願うのは――</p>',
   ], choices });
@@ -5215,9 +5625,16 @@ function ending(kind) {
     wish: () => ({ title: '終幕：歪んだ願い', text: ['<p>聖杯は願いを聞き届けた。――最悪の形で。</p>', '<p>溢れ出した黒い泥が天降山を覆い、深見市の夜空が赤く染まる。願いは確かに「叶った」。だが、その代償はあまりにも大きかった。</p>',
       `<p>消えゆく${sv.short}の姿を見送りながら、あなたは悟る。この聖杯は、最初から呪われていたのだと。</p>`, '<p class="note">ヒント：聖杯の真実を知っていれば、別の選択肢があったかもしれない。</p>'] }),
     wishKnown: () => ({ title: '終幕：承知の上の願い', text: ['<p>呪われた聖杯と知りながら、あなたは願った。泥が溢れ、街に災いが降りかかる。</p>', `<p>${sv.short}は何も言わず、ただ悲しげにあなたを見つめていた。</p>`] }),
+    wishPure: () => ({ title: '終幕：叶えられた願い', text: [`<p>「${birthOf().wish}」</p>`, '<p>聖杯は、静かに願いを聞き届けた。歪みも、代償もなく。黄金の光が冬の夜空に広がり、深見市の上に降り注いでいく。</p>',
+      `<p>光の中で、${sv.short}が振り返った。</p>`, `<p class="quote">${farewellLine(sv)}</p>`,
+      G.flags.grailPure ? '<p>自分の足で真相を確かめたからこそ、迷わずに願えた。――あの冬の調査は、無駄ではなかったのだ。</p>'
+        : '<p class="note">あなたは知らない。この聖杯が、本当に正しいものだったのかどうかを。……結果として、願いは叶ったけれど。</p>'] }),
+    destroyPure: () => ({ title: '終幕：砕かれた奇跡', text: [`<p>「${sv.short}、聖杯を――壊して」</p>`, '<p>一撃で、黄金の杯は砕け散った。溢れたのは呪いではなく、ただ澄んだ光だった。</p>',
+      `<p>${sv.short}が、驚いたように光の欠片を見つめている。</p>`, '<p>この聖杯は、呪われてなどいなかった。六十年待ち続けた奇跡を、あなたは自分の手で壊したのだ。</p>',
+      '<p class="note">ヒント：真相を確かめていれば、別の選択ができたかもしれない。昼の「真相を調べる」で、聖杯の秘密を調べられる。</p>'] }),
     servantWish: () => ({ title: '終幕：託された願い', text: [`<p>「${sv.short}。この聖杯は、君のものだ」</p>`, `<p>${sv.short}は驚き、それから静かに杯を受け取った。</p>`,
       `<p class="quote">「${fmt(SERVANT_WISH[sv.persona])}」</p>`, '<p>黄金の光が夜空に広がる。その願いがどんな形で叶ったのか、あなたには分からない。けれど、光の中で振り返った顔は、確かに笑っていた。</p>',
-      G.flags.grailHint ? '<p class="note">杯の底に揺れた黒い影のことを、あなたは最後まで考えないようにした。</p>' : ''] }),
+      G.flags.grailPure ? '<p class="note">正しい聖杯だと確かめていたから、迷いはなかった。</p>' : G.flags.grailHint ? '<p class="note">杯の底に何が眠っていたのか、あなたは最後まで考えないようにした。</p>' : ''] }),
     destroy: () => ({ title: '終幕：冬の終わり', text: [`<p>${sv.short}の最後の一撃が、黒き聖杯を光の中に消し去った。呪いは霧散し、天降山に朝日が昇る。</p>`,
       `<p class="quote">${farewellLine(sv)}</p>`, `<p>聖杯を手にすることはなかった。けれど、あなたは確かにこの街を救ったのだ。河川敷では、${CAST.old}が一人、深く頭を下げていた。</p>`] }),
     destroySpecial: () => ({ title: '終幕：夜明けの約束', text: [`<p>二人で選んだ答えは、聖杯の破壊だった。${sv.short}の一撃が呪いを焼き払い、夜が明けていく。</p>`,
@@ -5240,12 +5657,23 @@ function ending(kind) {
   const fe = fujiEpilogue(kind);
   if (fe) E.text.push(fe);
   addLog(E.title); markEnding(kind);
-  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain'].includes(kind);
+  const me = mysteryEpilogue(kind);
+  if (me) E.text.push(me);
+  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure'].includes(kind);
   sfx(good ? 'win' : 'lose');
   showCard({ kicker: good ? 'ENDING' : 'BAD END', title: E.title.replace('終幕：', ''), cls: good ? 'dawn' : 'blood', ms: 2200 }, () => {
     SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good };
     TAB = 'story'; render();
   });
+}
+
+// 聖杯の真相のその後（昏睡事件の結末）
+function mysteryEpilogue(kind) {
+  if (!G.used.s_coma || ['dead', 'abstain'].includes(kind)) return '';
+  if (isCursed()) return '';
+  const r = culprit(); if (!r || r.alive) return '';
+  if (mys().culpritKnown) return `<p class="note">昏睡事件の犯人は、${r.cls}陣営のマスター・${esc(r.master)}だった。被害者たちは、春を待たずに目を覚ましていった。</p>`;
+  return '<p class="note">昏睡事件はいつの間にか止んでいた。誰の仕業だったのか、あなたは最後まで知らないままだった。</p>';
 }
 
 // 幼馴染のその後
@@ -5474,10 +5902,10 @@ function viewMaster() {
     ${G.servant ? '' : viewExtraOmens()}
     <h3>所持している触媒</h3>${G.catalysts.length ? G.catalysts.map(id => `<span class="tag gold">${SV_BY_ID[id].catalyst}</span>`).join('') : '<p class="empty">まだ無い</p>'}
     <h3>判明している事実</h3>
-      ${G.flags.grailTruth ? '<span class="tag red">聖杯は汚染されている</span>' : G.flags.grailHint ? '<span class="tag">聖杯には何か秘密がある……</span>' : '<p class="empty">特になし</p>'}
       ${G.flags.registered ? '<span class="tag green">教会に登録済み</span>' : ''}
       ${G.flags.mudKnown ? '<span class="tag red">黒い泥は傷ついた英霊を狙う</span>' : ''}
       ${G.flags.knowWish && G.servant ? `<span class="tag gold">${SV()}の願い：${SERVANT_WISH[servantOf(G).persona]}</span>` : ''}
+    ${G.phase === 'growth' ? '' : viewNotebook()}
   </section>`;
 }
 function viewServant() {

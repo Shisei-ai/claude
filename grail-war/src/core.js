@@ -173,6 +173,7 @@ function newGame(master) {
     v: 3, phase: 'growth', day: 1, slot: 0, master, servant: null, growth: { stage: 0 }, friend: null,
     catalysts: [], items: { potion: 1, gem: 0, crystal: 0, smoke: 1 }, flags: {}, used: {}, rivals: [], log: [], news: [],
     ritual: 0, workshop: 0, traps: 0, kills: 0, battles: 0, tmpRival: null, storyRival: null,
+    truth: Math.random() < 0.5 ? 'cursed' : 'pure',   // 聖杯の真相（プレイヤーには見えない。data_mystery.js）
   };
   G.master.od = odMax();
   G.lore = BIRTHS.find(b => b.id === master.birth).magic ? 5 : 0;   // 魔術世界をどれだけ知っているか
@@ -279,6 +280,7 @@ function dailyUpdate() {
     shp(10 + G.workshop * 3);
     for (const r of aliveRivals()) { r.hp = Math.min(r.hpMax, r.hp + 18); r.mp = Math.min(100, r.mp + 30); }
     simulateRivals();
+    mysteryDaily();
   }
 }
 

@@ -79,8 +79,8 @@ const EVENTS = [
       { label: '内容を確かめる', run: () => {
           const b = G.master.birth;
           if (b === 'clocktower') { const c = giveCatalyst(); money(3); return `小包の中には<b>${c}</b>と、当座の資金が入っていた。（資金+3）`; }
-          if (b === 'noble' || b === 'fallen') { gain('int', 5); G.flags.grailHint = true; return '日記には「聖杯は無色にあらず」と記されていた。……どういう意味だろう。（知力+5）'; }
-          G.flags.grailHint = true; gain('spi', 2); return '不気味な警告だ。だが、この街の聖杯に何か秘密があるのは確かなようだ。（精神+2）';
+          if (b === 'noble' || b === 'fallen') { gain('int', 5); G.flags.grailHint = true; return ['日記には「聖杯は無色にあらず」と記されていた。……どういう意味だろう。（知力+5）', addClue('rumor_diary', '曾祖父の日記', '前回の聖杯戦争の記録。「聖杯は無色にあらず」とだけ書かれていた。', 0)]; }
+          G.flags.grailHint = true; gain('spi', 2); return ['不気味な警告だ。だが、この街の聖杯に何か秘密があるのは確かなようだ。（精神+2）', addClue('rumor_letter', '焼け焦げた手紙', '差出人不明。「聖杯戦争に関わるな。この街の聖杯は――」その先は焼けて読めない。', 0)];
         } },
     ],
   },
@@ -315,20 +315,17 @@ const EVENTS = [
     ],
   },
   {
-    id: 'grail_truth', phase: 'war', time: 'any', once: true, weight: 2, cond: () => G.flags.grailHint && !G.flags.grailTruth,
-    title: '聖杯の真実',
-    text: () => '集めた断片を繋ぎ合わせると、一つの仮説が浮かび上がった。この街の聖杯は、六十年前の戦いで「何か」に汚染されている――。',
+    id: 'grail_truth', phase: 'war', time: 'any', once: true, weight: 2, cond: () => G.flags.grailHint && !solved() && mys().ev < MYSTERY_CORE_EV,
+    title: '断片',
+    text: () => '集めた断片を、頭の中で並べ直してみる。黒い霧、昏睡事件、六十年前の戦争。……この街の聖杯には、何か秘密がある。それが何なのかは、まだ分からない。',
     choices: [
-      { label: '天降神社の古文書で確かめる', hint: '知力判定', run: () => {
-          const c = chk('int', 60);
-          if (c.ok) { G.flags.grailTruth = true; return [c.text, '古文書には、前回の聖杯戦争で呼ばれた「呪いそのもの」の英霊が、聖杯の内に溶けたと記されていた。<b>この聖杯は、願いを破滅の形でしか叶えない。</b>']; }
-          return [c.text, '決定的な記述は見つからなかった。'];
+      { label: '天降山の霊脈を調べに行く', hint: 'サーヴァント魔力判定', cond: () => siteOpen('mountain'), run: () => {
+          const c = schk(3, 58);
+          if (c.ok) return [c.text, ...siteResult('mountain', 1)];
+          return [c.text, '霊脈の気配は掴みきれなかった。'];
         } },
-      { label: () => `${SVname()}に聖杯の気配を探らせる`, hint: 'サーヴァント魔力判定', run: () => {
-          const c = schk(3, 60);
-          if (c.ok) { G.flags.grailTruth = true; bond(2); return [c.text, `${say('grailEvil')}${SV()}の表情は険しい。<b>聖杯は汚染されている。</b>`]; }
-          return [c.text, '聖杯の在処そのものが掴めなかった。'];
-        } },
+      { label: () => `${SVname()}の意見を聞く`, hint: '絆↑', run: () => { bond(3);
+          return `${SV()}は少し考えてから言った。「憶測で決めつけるのは危うい。確かめるなら、自分の目で、だ」<br><span class="note">昼の「真相を調べる」で、街の謎を調べられる。（絆+3）</span>`; } },
     ],
   },
   {

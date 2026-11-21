@@ -435,3 +435,12 @@ body:not(.fx-on) #snow { display: none; }
 .pick-cls { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
 .pick-cls .chip { min-height: 40px; flex-direction: row; align-items: center; gap: 4px; }
 .pick-cls .chip small { margin-left: 4px; }
+
+/* ---- 聖杯の真相・調査手帳 ---- */
+.truth { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 10px 0; line-height: 1.8; }
+.truth.cursed { border-color: #d43c4c88; background: #d43c4c14; }
+.truth.pure { border-color: #d2ad5f88; background: #d2ad5f14; }
+.clue-list { list-style: none; padding: 0; margin: 6px 0; }
+.clue-list li { border-left: 2px solid var(--gold); padding: 4px 0 4px 10px; margin: 8px 0; font-size: 13px; line-height: 1.7; }
+.clue-list li span { color: var(--muted); font-size: 11px; margin-left: 6px; }
+.clue-list li em { color: var(--muted); font-style: normal; font-size: 11px; }

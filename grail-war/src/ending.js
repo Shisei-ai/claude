@@ -37,23 +37,26 @@ function deadlineScene() {
   const strongest = alive.reduce((a, b) => (a.power + a.hp) >= (b.power + b.hp) ? a : b);
   for (const r of alive) if (r !== strongest) { r.alive = false; addLog(`${rivalLabel(r)}陣営、混戦の中で脱落。`); }
   next('最終局面', ['<p>聖杯の器が満ちようとしている。監督役から全陣営へ通達が届いた。「聖杯の降臨は今宵。残る者は天降山へ」</p>',
-    '<p>天降山へ向かう途中の混戦で、いくつもの陣営が黒い泥に呑まれていった。生き残ったのは――</p>'], finalBattleIntro);
+    '<p>天降山へ向かう途中の混戦で、いくつもの陣営が脱落していった。生き残ったのは――</p>'], finalBattleIntro);
 }
 
 function victoryScene() {
   G.phase = 'end';
   const sv = servantOf(G); const b = birthOf();
   const choices = [];
+  // 聖杯を壊す：真相を知っていれば迷いなく。知らなければ、疑いだけを頼りに賭けることになる
   if (G.flags.grailTruth) choices.push({ label: '聖杯を破壊する', hint: '呪いそのものとの戦いになる', cls: 'danger', fn: bossIntro });
+  else if (!G.flags.grailPure && G.flags.grailHint) choices.push({ label: '聖杯を破壊する', hint: '真相は確かめていない……疑いに賭ける', cls: 'danger', fn: () => isCursed() ? bossIntro() : ending('destroyPure') });
   if (G.servant.special) choices.push({ label: `${sv.short}の受肉を願う`, hint: `「${RELATIONS[G.servant.special].name}」として共に生きる`, cls: 'primary', fn: () => ending('together') });
   if (G.flags.knowWish && !G.flags.grailTruth) choices.push({ label: `${sv.short}に聖杯を託す`, hint: `「${fmt(SERVANT_WISH[sv.persona]).slice(0, 18)}…」`, fn: () => ending('servantWish') });
-  choices.push({ label: `「${b.wish}」を願う`, hint: 'マスターの願い', fn: () => ending(G.flags.grailTruth ? 'wishKnown' : 'wish') });
+  choices.push({ label: `「${b.wish}」を願う`, hint: 'マスターの願い', fn: () => ending(G.flags.grailTruth ? 'wishKnown' : isCursed() ? 'wish' : 'wishPure') });
   choices.push({ label: '何も願わない', fn: () => ending('none') });
   scene({ title: '聖杯降臨', sub: '第三幕　降臨', body: [
     '<p>最後の敵が消え、天降山の頂に黄金の杯が降りてきた。万能の願望機――聖杯。</p>',
     G.flags.grailTruth ? '<p>だが、あなたは知っている。その黄金の内側には、六十年分の呪いが渦巻いていることを。</p>'
-      : G.flags.grailHint ? '<p>その輝きは眩い。……けれど、なぜだろう。杯の底に、黒い影が揺れた気がした。</p>'
-        : '<p>その輝きは眩く、どんな願いでも叶えてくれそうに見えた。</p>',
+      : G.flags.grailPure ? '<p>澄みきった光だった。調べ上げた真実が、この杯に偽りはないと告げている。</p>'
+        : G.flags.grailHint ? '<p>その輝きは眩い。……けれど、杯の底に何が眠っているのか、あなたは確かめていない。</p>'
+          : '<p>その輝きは眩く、どんな願いでも叶えてくれそうに見えた。</p>',
     `<p class="quote">${highLine(sv)}</p>`,
     '<p>あなたが願うのは――</p>',
   ], choices });
@@ -85,9 +88,16 @@ function ending(kind) {
     wish: () => ({ title: '終幕：歪んだ願い', text: ['<p>聖杯は願いを聞き届けた。――最悪の形で。</p>', '<p>溢れ出した黒い泥が天降山を覆い、深見市の夜空が赤く染まる。願いは確かに「叶った」。だが、その代償はあまりにも大きかった。</p>',
       `<p>消えゆく${sv.short}の姿を見送りながら、あなたは悟る。この聖杯は、最初から呪われていたのだと。</p>`, '<p class="note">ヒント：聖杯の真実を知っていれば、別の選択肢があったかもしれない。</p>'] }),
     wishKnown: () => ({ title: '終幕：承知の上の願い', text: ['<p>呪われた聖杯と知りながら、あなたは願った。泥が溢れ、街に災いが降りかかる。</p>', `<p>${sv.short}は何も言わず、ただ悲しげにあなたを見つめていた。</p>`] }),
+    wishPure: () => ({ title: '終幕：叶えられた願い', text: [`<p>「${birthOf().wish}」</p>`, '<p>聖杯は、静かに願いを聞き届けた。歪みも、代償もなく。黄金の光が冬の夜空に広がり、深見市の上に降り注いでいく。</p>',
+      `<p>光の中で、${sv.short}が振り返った。</p>`, `<p class="quote">${farewellLine(sv)}</p>`,
+      G.flags.grailPure ? '<p>自分の足で真相を確かめたからこそ、迷わずに願えた。――あの冬の調査は、無駄ではなかったのだ。</p>'
+        : '<p class="note">あなたは知らない。この聖杯が、本当に正しいものだったのかどうかを。……結果として、願いは叶ったけれど。</p>'] }),
+    destroyPure: () => ({ title: '終幕：砕かれた奇跡', text: [`<p>「${sv.short}、聖杯を――壊して」</p>`, '<p>一撃で、黄金の杯は砕け散った。溢れたのは呪いではなく、ただ澄んだ光だった。</p>',
+      `<p>${sv.short}が、驚いたように光の欠片を見つめている。</p>`, '<p>この聖杯は、呪われてなどいなかった。六十年待ち続けた奇跡を、あなたは自分の手で壊したのだ。</p>',
+      '<p class="note">ヒント：真相を確かめていれば、別の選択ができたかもしれない。昼の「真相を調べる」で、聖杯の秘密を調べられる。</p>'] }),
     servantWish: () => ({ title: '終幕：託された願い', text: [`<p>「${sv.short}。この聖杯は、君のものだ」</p>`, `<p>${sv.short}は驚き、それから静かに杯を受け取った。</p>`,
       `<p class="quote">「${fmt(SERVANT_WISH[sv.persona])}」</p>`, '<p>黄金の光が夜空に広がる。その願いがどんな形で叶ったのか、あなたには分からない。けれど、光の中で振り返った顔は、確かに笑っていた。</p>',
-      G.flags.grailHint ? '<p class="note">杯の底に揺れた黒い影のことを、あなたは最後まで考えないようにした。</p>' : ''] }),
+      G.flags.grailPure ? '<p class="note">正しい聖杯だと確かめていたから、迷いはなかった。</p>' : G.flags.grailHint ? '<p class="note">杯の底に何が眠っていたのか、あなたは最後まで考えないようにした。</p>' : ''] }),
     destroy: () => ({ title: '終幕：冬の終わり', text: [`<p>${sv.short}の最後の一撃が、黒き聖杯を光の中に消し去った。呪いは霧散し、天降山に朝日が昇る。</p>`,
       `<p class="quote">${farewellLine(sv)}</p>`, `<p>聖杯を手にすることはなかった。けれど、あなたは確かにこの街を救ったのだ。河川敷では、${CAST.old}が一人、深く頭を下げていた。</p>`] }),
     destroySpecial: () => ({ title: '終幕：夜明けの約束', text: [`<p>二人で選んだ答えは、聖杯の破壊だった。${sv.short}の一撃が呪いを焼き払い、夜が明けていく。</p>`,
@@ -110,12 +120,23 @@ function ending(kind) {
   const fe = fujiEpilogue(kind);
   if (fe) E.text.push(fe);
   addLog(E.title); markEnding(kind);
-  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain'].includes(kind);
+  const me = mysteryEpilogue(kind);
+  if (me) E.text.push(me);
+  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure'].includes(kind);
   sfx(good ? 'win' : 'lose');
   showCard({ kicker: good ? 'ENDING' : 'BAD END', title: E.title.replace('終幕：', ''), cls: good ? 'dawn' : 'blood', ms: 2200 }, () => {
     SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good };
     TAB = 'story'; render();
   });
+}
+
+// 聖杯の真相のその後（昏睡事件の結末）
+function mysteryEpilogue(kind) {
+  if (!G.used.s_coma || ['dead', 'abstain'].includes(kind)) return '';
+  if (isCursed()) return '';
+  const r = culprit(); if (!r || r.alive) return '';
+  if (mys().culpritKnown) return `<p class="note">昏睡事件の犯人は、${r.cls}陣営のマスター・${esc(r.master)}だった。被害者たちは、春を待たずに目を覚ましていった。</p>`;
+  return '<p class="note">昏睡事件はいつの間にか止んでいた。誰の仕業だったのか、あなたは最後まで知らないままだった。</p>';
 }
 
 // 幼馴染のその後

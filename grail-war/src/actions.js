@@ -109,6 +109,7 @@ function warDayActions() {
   const acts = [
     { label: `${SV()}と過ごす`, hint: '絆↑（好みに合わせると大きく上がる）', fn: hangoutMenu },
     { label: '情報を集める', hint: '敵の正体・拠点・真名を探る', fn: intelMenu },
+    { label: '真相を調べる', hint: solved() ? `真相は判明済み・手がかり${mys().ev}` : `街の謎と聖杯の秘密・手がかり${mys().ev}`, icon: 'study', fn: mysteryMenu },
     { label: '拠点を整える', hint: '結界・罠・霊脈', fn: baseMenu },
     { label: '買い出し', hint: '戦闘用の道具', fn: shopMenu },
     { label: 'マスターの鍛錬', hint: '体力・魔力・知力', fn: trainMenu },
@@ -230,6 +231,9 @@ function warNightActions() {
     { label: '夜の巡回', hint: none ? '敵は天降山に籠城中' : '慎重 or 挑発。敵を探す', disabled: none, fn: patrolMenu, cls: 'danger' },
     { label: `${SV()}に偵察させる`, hint: none ? '敵は天降山に籠城中' : '敏捷判定で情報↑・失敗すると戦闘', disabled: none, fn: scoutMenu },
   ];
+  const so = mys();   // 張り込み：呪いなら一度目撃するまで、正規なら犯人が判明するまで
+  if (G.used.s_coma && ((isCursed() && !solved() && !so.clues.some(c => c.id === 'stakeout')) || (!isCursed() && culpritAlive() && !so.culpritKnown)))
+    acts.push({ label: '事件現場に張り込む', hint: '昏睡事件の瞬間を押さえる・調査', icon: 'observe', fn: stakeoutMenu });
   if (targets.length) acts.push({ label: '敵の拠点を襲撃する', hint: '作戦を選んで仕掛ける', fn: assaultMenu, cls: 'danger' });
   acts.push(
     { label: '拠点で迎え撃つ', hint: `陣地Lv${G.workshop}・罠${G.traps}で待ち構える`, fn: defendBase },
@@ -514,6 +518,7 @@ function afterSummon() {
   next('聖杯戦争、開幕', [
     '<p>こうして、深見市における聖杯戦争が幕を開けた。七騎のサーヴァントと七人のマスター。生き残るのは、ただ一組。</p>',
     `<p class="note">昼は情報・陣地・道具・絆を整える時間。夜は戦いの時間。敵の真名を暴き、作戦を選んで仕掛け、最後の一組となれ。期限は${WAR_DAYS}日。</p>`,
+    '<p class="note">そして――この街の聖杯には、何か秘密があるのかもしれない。それを確かめられるのは、自分の足で調べた者だけだ。（昼の「真相を調べる」）</p>',
   ], startSlot, '戦いへ', '第一幕　開幕');
 }
 

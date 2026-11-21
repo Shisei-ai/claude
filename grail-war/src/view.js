@@ -204,10 +204,10 @@ function viewMaster() {
     ${G.servant ? '' : viewExtraOmens()}
     <h3>所持している触媒</h3>${G.catalysts.length ? G.catalysts.map(id => `<span class="tag gold">${SV_BY_ID[id].catalyst}</span>`).join('') : '<p class="empty">まだ無い</p>'}
     <h3>判明している事実</h3>
-      ${G.flags.grailTruth ? '<span class="tag red">聖杯は汚染されている</span>' : G.flags.grailHint ? '<span class="tag">聖杯には何か秘密がある……</span>' : '<p class="empty">特になし</p>'}
       ${G.flags.registered ? '<span class="tag green">教会に登録済み</span>' : ''}
       ${G.flags.mudKnown ? '<span class="tag red">黒い泥は傷ついた英霊を狙う</span>' : ''}
       ${G.flags.knowWish && G.servant ? `<span class="tag gold">${SV()}の願い：${SERVANT_WISH[servantOf(G).persona]}</span>` : ''}
+    ${G.phase === 'growth' ? '' : viewNotebook()}
   </section>`;
 }
 function viewServant() {

@@ -161,7 +161,11 @@ STORY.push(
     choices: [
       { label: '記録を解読し、計画の全貌を探る', hint: '知力判定', run: () => {
           const c = chk('int', 55);
-          if (c.ok) { G.flags.grailTruth = true; G.flags.grailHint = true; return [c.text, '六十年前に汚染された聖杯に、あなたの「縁」を注ぎ込めば、呪いは世界を呑むほどに膨れ上がる。<b>この聖杯は、決して完成させてはならない。</b>']; }
+          if (c.ok) { G.flags.grailHint = true;
+            if (isCursed()) return [c.text, '「汚れた杯に縁を注げ。呪いは縁を喰らい、世界を呑むほどに膨れ上がる」――蒐集者は、聖杯が呪われていることを<b>知っている</b>らしい。',
+              addClue('curator_note', '蒐集者の羊皮紙', '蒐集者の計画書。「汚れた杯に縁を注げ。呪いは縁を喰らい、世界を呑む」とあった。', 2)];
+            return [c.text, '「無垢なる杯に縁を注げ。英霊の座への門が開き、すべての英霊は我が蒐集品となる」――蒐集者の狙いは、<b>完全な聖杯</b>そのものらしい。',
+              addClue('curator_note', '蒐集者の羊皮紙', '蒐集者の計画書。「無垢なる杯に縁を注げ。英霊の座への門が開く」とあった。', 2)]; }
           G.flags.grailHint = true; return [c.text, '暗号の大半は読めなかった。だが、聖杯が何か恐ろしいものだということだけは分かった。'];
         } },
       { label: () => `${SVname()}と対策を練る`, hint: '絆↑', run: () => { bond(5); G.flags.grailHint = true;
