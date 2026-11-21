@@ -2,17 +2,19 @@
 //  恋人関係の夜：魔力供給
 //  ・「恋人」関係のとき、夜の「魔力を回復して休む」が二人で過ごす夜になり、回復量も大きい
 //  ・大人の姿の英霊：Fate原作の「魔力供給」に準拠した、官能的だが露骨ではない描写（loverNight）
+//    英霊ごとの個別の場面は data_lover_sv.js（LOVER_SV）にあり、あればそちらを優先する
 //  ・少年少女の姿の英霊（YOUTHFUL）：信頼し合うプラトニックな恋人としての夜（platonicNight）
 //  ・子どもの英霊（CHILDREN）：恋人関係そのものを選べない（相棒・主従・家族は可）
 // =============================================================
 
 // 子どもの英霊：恋人関係は選べない
-const CHILDREN = new Set(['jack', 'nursery', 'abigail', 'andersen']);
+const CHILDREN = new Set(['jack', 'nursery', 'abigail', 'andersen', 'wu_zetian']);
 // 官能的な描写の対象外（恋人関係はプラトニックなものになる）
 // （原作で肉体年齢が若いとされる英霊、少年少女の姿で現界する英霊）
 const YOUTHFUL = new Set(['jack', 'nursery', 'abigail', 'andersen', 'medea_lily', 'elizabeth', 'kiyohime', 'euryale', 'ibaraki',
   'ushiwakamaru', 'passionlip', 'meltryllis', 'bb', 'mash', 'astolfo', 'artoria', 'artoria_alter', 'artoria_caster', 'mordred',
-  'marie', 'ishtar', 'parvati', 'suzuka', 'shuten', 'nemo', 'serenity']);
+  'marie', 'ishtar', 'parvati', 'suzuka', 'shuten', 'nemo', 'serenity',
+  'wu_zetian', 'frankenstein', 'blavatsky', 'nobunaga', 'danzo', 'kotaro', 'amakusa']);
 function isYouthful(sv) { return YOUTHFUL.has((sv || servantOf(G)).id); }
 function canBeLover(sv) { return !CHILDREN.has((sv || servantOf(G)).id); }
 
@@ -46,9 +48,18 @@ const LOVER_MORNINGS = [
 function loverNight() {
   NOTES = [];
   mp(60); shp(25); hp(15); bond(3); od(10);
-  const v = voiceOf(servantOf(G));
+  const sv = servantOf(G);
+  const v = voiceOf(sv);
+  const own = (typeof LOVER_SV !== 'undefined') ? LOVER_SV[sv.id] : null;
   const whisper = LOVER_WHISPER[v.reg] || [];
-  const body = [
+  // 英霊ごとの個別の場面があれば優先（毎回同じにならないよう、4回に1回は共通の場面）
+  const useOwn = own && (!G.loverSeen || !G.loverSeen[sv.id] || Math.random() < 0.75);
+  if (own) { G.loverSeen = G.loverSeen || {}; G.loverSeen[sv.id] = true; }
+  const body = useOwn ? [
+    fmt(own[0]),
+    /^（/.test(own[1]) ? fmt(own[1]) : `<p class="quote">${fmt(own[1])}</p>`,
+    fmt(own[2]),
+  ] : [
     fmt(pick(LOVER_NIGHTS)),
     whisper.length ? `<p class="quote">${fmt(pick(whisper))}</p>` : `（${SV()}の腕が、言葉の代わりにあなたを強く抱きしめた）`,
     fmt(pick(LOVER_MORNINGS)),
