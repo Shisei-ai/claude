@@ -76,6 +76,7 @@ function item(k, n) { G.items[k] = clamp((G.items[k] || 0) + n, 0, ITEM_MAX); }
 function bond(n) {
   if (!G.servant || n === 0) return;
   if (n > 0 && G.master.birth === 'civilian') n = Math.round(n * 1.3);
+  if (n > 0 && G.master.birth === 'fujimaru') n = Math.round(n * 1.5);   // 数多の英霊と絆を結んできた
   const before = Math.floor(G.servant.bond / 10);
   G.servant.bond = clamp(G.servant.bond + n, 0, 100);
   const after = Math.floor(G.servant.bond / 10);
@@ -171,7 +172,7 @@ function whenShort() {
 // 触媒：まだ持っていない英霊の触媒からランダムに1つ
 function giveCatalyst() {
   const owned = new Set(G.catalysts);
-  const pool = SERVANTS.filter(s => s.catalyst && !owned.has(s.id));
+  const pool = SERVANTS.filter(s => s.catalyst && !owned.has(s.id) && (!s.chaldea || isFuji()));
   const s = pick(pool); G.catalysts.push(s.id);
   addLog(`触媒「${s.catalyst}」を入手。`);
   return s.catalyst;

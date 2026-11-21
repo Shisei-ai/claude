@@ -326,6 +326,7 @@ const EXTRA_CLASSES = {
             ['偽りを厭わない（秩序-30以下）', () => G.master.align.law <= -30]] },
 };
 function extraOpen(cls) {
+  if (typeof isFuji === 'function' && isFuji()) return true;   // 藤丸シナリオは制限なし
   const e = EXTRA_CLASSES[cls];
   if (!e) return true;
   return (e.alt && e.alt[1]()) || e.conds.every(c => c[1]());

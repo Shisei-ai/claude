@@ -15,6 +15,7 @@ const ROUTES = {
   seeker:    { name: '探求者', desc: '自ら街の秘密に辿り着き、参戦を選んだ' },
   caught:    { name: '巻き込まれた者', desc: '何も知らないまま、聖杯戦争に巻き込まれた' },
   reluctant: { name: '背を向けた者', desc: '魔術の道に背を向けながら、令呪に選ばれた' },
+  fujimaru:  { name: '元・人類最後のマスター', desc: '旅を終えて日常に帰還し、陰謀の聖杯戦争に招かれた' },
 };
 function lore(n) { G.lore = (G.lore || 0) + n; }
 function routeName() {
@@ -24,6 +25,7 @@ function routeName() {
 
 function decideRoute() {
   const b = birthOf().id; const f = G.flags;
+  if (b === 'fujimaru') return 'fujimaru';
   if (f.rebel) return 'reluctant';
   if (b === 'mercenary') return 'mission';
   if (b === 'executor' && f.churchPath) return 'mission';
@@ -35,19 +37,20 @@ function decideRoute() {
 // ---------------- 18歳の冬 ----------------
 function comingOfAge() {
   const b = birthOf(); const m = G.master;
-  m.age = ADULT_AGE; m.hp = m.hpMax; m.od = odMax();
+  if (!isFuji()) m.age = ADULT_AGE;
+  m.hp = m.hpMax; m.od = odMax();
   G.route = decideRoute();
   G.phase = 'prep'; G.day = 1; G.slot = 0;   // ヘッダー表示用（行動選択は beginPrep から）
   const top = Object.entries(m.stats).sort((a, c) => c[1] - a[1]).slice(0, 2).map(([k]) => STAT_LABEL[k]);
   G.summary = `<span class="note">得意なこと：${top.join('・')}　／　在り方：${alignLabel()}</span>`;
   chapterCard('序章　令呪の冬', () => {
     G.lastChapter = '序章　令呪の冬';
-    ({ heir: heirPrologue, mission: missionPrologue, seeker: seekerPrologue, caught: () => caughtPrologue(false), reluctant: reluctantPrologue })[G.route]();
+    ({ heir: heirPrologue, mission: missionPrologue, seeker: seekerPrologue, caught: () => caughtPrologue(false), reluctant: reluctantPrologue, fujimaru: fujimaruPrologue })[G.route]();
   });
 }
 function beginPrep() {
   G.phase = 'prep'; G.day = 1; G.slot = 0; SLOT = {};
-  addLog(`${ADULT_AGE}歳の冬、右手に令呪が現れる。（${routeName()}）`);
+  addLog(`${G.master.age}歳の冬、右手に令呪が現れる。（${routeName()}）`);
   startSlot();
 }
 function catalystLine() {
@@ -178,4 +181,17 @@ function caughtSummon() {
   if (G.catalysts.length) id = G.catalysts[0];
   addLog(`${ADULT_AGE}歳の冬、聖杯戦争に巻き込まれる。`);
   doSummon(id, { emergency: true });
+}
+
+// ---- 元・人類最後のマスター：招待状 ----
+function fujimaruPrologue() {
+  item('potion', 1);
+  next('11月', paras([
+    '七ヶ月が過ぎた。大学の講義、アルバイト、新しい友人たち。ありふれた日々は、驚くほど穏やかに流れていった。', G.summary,
+    'その朝、右手の甲に焼けるような痛みが走った。<br>浮かび上がったのは、三画の紋様。かつて見慣れた、けれど少しだけ形の違う――<b>聖杯戦争の令呪</b>。',
+    '郵便受けには、封蝋で閉じられた一通の手紙が届いていた。差出人の名は『蒐集者』。<br>「人類最後のマスター殿。深見の聖杯戦争にご招待いたします」',
+    '「……また、か」<br>苦笑して、手紙を握りしめる。日常に帰ってきても、どうやら自分は、こういう運命らしい。',
+    catalystLine(),
+    `<span class="note">【特殊シナリオ】召喚の夜まで${PREP_DAYS}日。英霊召喚の制限はすべて解除されている。召喚の際には英霊を指名することもできる。</span>`,
+  ]), beginPrep, '準備を始める', 'PROLOGUE');
 }

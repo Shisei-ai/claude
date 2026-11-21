@@ -57,11 +57,11 @@ function skipReveal() {
 }
 function viewTop() {
   const night = G.slot === 1;
-  const dayText = G.phase === 'growth' ? `${G.master.age}歳` : G.phase === 'prep' ? `18歳・${G.day}日目` : G.phase === 'summon' || (G.phase === 'war' && G.day === 0) ? '開幕前夜' : G.phase === 'end' ? '終幕' : `${G.day}日目`;
+  const dayText = G.phase === 'growth' ? (isFuji() ? `20歳・${stageLabel()}` : `${G.master.age}歳`) : G.phase === 'prep' ? `18歳・${G.day}日目` : G.phase === 'summon' || (G.phase === 'war' && G.day === 0) ? '開幕前夜' : G.phase === 'end' ? '終幕' : `${G.day}日目`;
   const seals = [0, 1, 2].map(i => `<svg class="seal ${i < G.master.seals ? '' : 'used'}" viewBox="0 0 18 22" aria-hidden="true"><path d="${SEAL_PATH}"/></svg>`).join('');
   const extraSeals = G.master.seals > 3 ? `<span class="tag red">+${G.master.seals - 3}</span>` : '';
   const sv = G.servant;
-  const prog = G.phase === 'growth' ? G.master.age / ADULT_AGE : G.phase === 'prep' ? (G.day - 1 + G.slot * 0.5) / PREP_DAYS : G.phase === 'war' ? (G.day - 1 + G.slot * 0.5) / WAR_DAYS : 1;
+  const prog = G.phase === 'growth' ? (isFuji() ? G.growth.stage / STAGES_F.length : G.master.age / ADULT_AGE) : G.phase === 'prep' ? (G.day - 1 + G.slot * 0.5) / PREP_DAYS : G.phase === 'war' ? (G.day - 1 + G.slot * 0.5) / WAR_DAYS : 1;
   return `<header class="topbar">
     <div class="topbar-row">
       <div class="when"><span class="when-phase">${chapterOf().replace('　', ' ')}</span><span class="when-day">${dayText}</span>
@@ -174,6 +174,7 @@ function viewSummon() {
     ${SCENE.emergency ? '<p class="note" style="text-align:center;margin:10px 0 0">召喚陣も詠唱もないまま、令呪の光が英霊を呼び寄せた。</p>' : ''}
     ${SCENE.failed ? `<p class="note" style="text-align:center;margin:10px 0 0">「${SCENE.failed.catalyst}」は確かに縁を結んだ。だが、${SCENE.failed.cls}の霊基は、今のあなたには応えなかった。<br>代わりに、別の英霊が呼び声に応えた――。</p>` : ''}
     ${!BASE_CLASSES.includes(sv.cls) ? `<p class="extra-badge">特殊クラス　${sv.cls}</p>` : ''}
+    ${SCENE.reunion ? '<p class="note" style="text-align:center;margin:8px 0 0">――どこか、懐かしい気配がした。夢に見た、あの英霊だ。（絆+15）</p>' : ''}
     <p class="quote summon-line">「${sv.line}」</p>
     <div class="summon-card">${servantCard(sv)}
       <div class="choices"><button class="choice primary" data-act="aftersummon">${actIcon('seal')}<span class="c-label">契約を結ぶ</span></button></div></div>
@@ -272,7 +273,7 @@ function viewEnding() {
 // ---------------- 操作（タップ） ----------------
 document.addEventListener('click', e => {
   if (REVEAL_UNTIL > Date.now() && e.target.closest('.main')) { skipReveal(); return; }   // 表示中のタップは全文表示
-  const t = e.target.closest('[data-choice],[data-tab],[data-act],[data-mact],[data-cfg]');
+  const t = e.target.closest('[data-choice],[data-tab],[data-act],[data-mact],[data-cfg],[data-pickcls]');
   if (!t || t.disabled) return;
   sfx('tick');
   if (t.dataset.cfg) {
@@ -281,6 +282,7 @@ document.addEventListener('click', e => {
     render(); return;
   }
   if (t.dataset.mact) { if (B) { B.mact = t.dataset.mact; battleScene(); } return; }
+  if (t.dataset.pickcls) { pickServantScene(t.dataset.pickcls); return; }
   if (t.dataset.tab) { TAB = t.dataset.tab; if (SCENE) SCENE.confirmReset = false; render(); return; }
   if (t.dataset.choice !== undefined) { const c = SCENE.choices[+t.dataset.choice]; if (c && !c.disabled) c.fn(); return; }
   const a = t.dataset.act;
@@ -292,6 +294,7 @@ document.addEventListener('click', e => {
   else if (a === 'start') {
     const name = document.getElementById('mname').value.trim() || SCENE.master.name;
     SCENE.master.name = name.slice(0, 16);
+    if (isFujiName(name)) SCENE.master = fujimaruMaster(SCENE.master.name);
     newGame(SCENE.master);
     growthStart();
   }
@@ -320,12 +323,20 @@ else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});
 
 // 特殊クラスの兆し（召喚前に、条件の達成状況を表示）
 function viewExtraOmens() {
+  if (isFuji()) return '<h3>特殊クラスの兆し</h3><p class="note" style="font-size:12px;color:var(--gold)">特殊シナリオ：すべての召喚制限が解除されている。カルデアゆかりの英霊（★）も召喚できる。</p>';
   return `<h3>特殊クラスの兆し</h3><p class="note" style="font-size:12px;color:var(--muted);margin:0 0 8px">条件をすべて満たすと、そのクラスの英霊が召喚に応えるようになる。触媒を使っても、条件を満たしていなければ応えない。</p>
-    <div class="omens">${Object.entries(EXTRA_CLASSES).map(([cls, e]) => {
+    <div class="omens">${Object.entries(EXTRA_CLASSES).filter(([cls]) => SERVANTS.some(s => s.cls === cls && !s.chaldea)).map(([cls, e]) => {
       const open = extraOpen(cls);
       return `<div class="omen ${open ? 'open' : ''}" style="--cc:${classColor(cls)}">
         <div class="omen-head">${emblem(cls, 16)}<b>${cls}</b><span>${open ? '応える' : e.omen}</span></div>
         <ul>${e.conds.map(([t, f]) => `<li class="${f() ? 'ok' : ''}">${f() ? '✓' : '・'} ${t}</li>`).join('')}
         ${e.alt ? `<li class="${e.alt[1]() ? 'ok' : ''}">${e.alt[1]() ? '✓' : '・'} または：${e.alt[0]}</li>` : ''}</ul></div>`;
     }).join('')}</div>`;
+}
+
+// 藤丸 立香（FGO準拠の基本ステータス）
+function fujimaruMaster(name) {
+  const b = BIRTHS.find(x => x.id === 'fujimaru');
+  return { name: name || '藤丸　立香', birth: 'fujimaru', stats: { ...b.stats }, hp: 100, hpMax: 100, money: b.money, age: 20,
+    talent: 'cha', seals: 3, od: 0, align: { law: 5, good: 35 }, element: '不明', circuits: 27 };
 }

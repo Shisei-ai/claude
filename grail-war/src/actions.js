@@ -417,13 +417,16 @@ const SUMMON_CHANT = [
   '誓いを此処に。<br>我は常世総ての善と成る者、<br>我は常世総ての悪を敷く者。',
   '汝三大の言霊を纏う七天、<br>抑止の輪より来たれ、天秤の守り手よ――！',
 ];
+// 召喚できる英霊か（カルデアゆかりの英霊は藤丸シナリオのみ / 特殊クラスは条件付き）
+function summonable(s) { return (!s.chaldea || isFuji()) && extraOpen(s.cls); }
 function summonScene() {
   const choices = G.catalysts.map(id => {
     const c = SV_BY_ID[id].cls; const ex = !!EXTRA_CLASSES[c];
     return { label: `「${SV_BY_ID[id].catalyst}」を使う`, hint: ex ? `特殊な気配……${extraOpen(c) ? '縁が強く応えている' : '何かが足りない気がする'}` : '縁ある英霊を喚ぶ', fn: () => chantScene(id) };
   });
   choices.push({ label: '触媒を使わない', hint: `${alignLabel()}の自分に似た英霊が応える`, fn: () => chantScene(null) });
-  const place = { heir: '家の工房', mission: G.master.birth === 'mercenary' ? '借り受けた倉庫' : '教会の地下聖堂', seeker: '自室の床' }[G.route] || '工房';
+  if (isFuji()) choices.unshift({ label: '英霊を指名して召喚する', hint: '全131騎＋カルデアゆかりの英霊から選ぶ', cls: 'primary', fn: () => pickServantScene() });
+  const place = { fujimaru: 'アパートの床', heir: '家の工房', mission: G.master.birth === 'mercenary' ? '借り受けた倉庫' : '教会の地下聖堂', seeker: '自室の床' }[G.route] || '工房';
   scene({ title: '召喚の夜', sub: 'SUMMONING', body: [
     `<p>${G.route === 'seeker' ? '独学と教えを頼りに、ここまで来た。' : '準備の日々は終わった。'}今宵、聖杯戦争が始まる。</p>`,
     `<p>${place}に描いた召喚陣の前に立つ。右手の令呪が、熱を帯びて脈打っている。${G.ritual >= 3 ? '陣は完璧に仕上がっている。' : G.ritual > 0 ? '陣の準備はまずまずだ。' : '急ごしらえの陣だが、やるしかない。'}</p>`,
@@ -447,18 +450,19 @@ function doSummon(catalystId, opt = {}) {
   if (!sv) {
     const a = alignLabel().split('・');
     const taken = new Set(G.rivals.map(r => r.servantId));
-    sv = wpick(SERVANTS.filter(s => !taken.has(s.id) && extraOpen(s.cls) && s !== failed), s => {
+    sv = wpick(SERVANTS.filter(s => !taken.has(s.id) && summonable(s) && s !== failed), s => {
       const [o, m] = s.align.split('・');
       let w = 1;
       if (o === a[0]) w += 1.5;
       if (m === a[1]) w += 1.5;
       // 条件を満たした特殊クラスは、クラス全体でおよそ3回に1回応えるくらいの重み
-      if (!BASE_CLASSES.includes(s.cls)) w *= 60 / SERVANTS.filter(x => x.cls === s.cls).length;
+      if (!BASE_CLASSES.includes(s.cls)) w *= 60 / SERVANTS.filter(x => x.cls === s.cls && summonable(x)).length;
       if (G.flags.vision === s.id) w *= G.flags.visionStrong ? 6 : 2.5;
       return w;
     });
   }
-  G.servant = { id: sv.id, hp: 0, mp: 60 + G.ritual * 13, bond: (opt.emergency ? 15 : 5) + G.ritual * 4, special: null, exposed: false };
+  const reunion = isFuji() && G.flags.fujiDream === sv.id;
+  G.servant = { id: sv.id, hp: 0, mp: 60 + G.ritual * 13, bond: (opt.emergency ? 15 : 5) + G.ritual * 4 + (reunion ? 15 : 0), special: null, exposed: false };
   G.servant.hp = servantHpMax();
   if (!G.rivals.length) setupRivals();
   else fitRivalsToServant(sv);
@@ -468,7 +472,8 @@ function doSummon(catalystId, opt = {}) {
   if (G.flags.earlyIntel) intelRandom(1);
   if (failed) addLog(`「${failed.catalyst}」の縁は、${failed.cls}の条件を満たさず届かなかった。`);
   if (!BASE_CLASSES.includes(sv.cls)) addLog(`特殊クラス「${sv.cls}」の英霊が応えた。`);
-  SCENE = { kind: 'summon', sv, emergency: !!opt.emergency, failed }; TAB = 'story'; render(); sfx('summon');
+  if (reunion) addLog(`夢に見た英霊「${sv.name}」と再会する。`);
+  SCENE = { kind: 'summon', sv, emergency: !!opt.emergency, failed, reunion }; TAB = 'story'; render(); sfx('summon');
 }
 function setupRivals() {
   // 召喚前（巻き込まれルート）は7陣営すべてを用意し、召喚後に1つ減らす
@@ -477,7 +482,7 @@ function setupRivals() {
   if (mine && classes.length > 6) classes = shuffle(classes).slice(0, 6);
   const types = shuffle(RIVAL_TYPES);
   G.rivals = classes.map((cls, i) => {
-    const pool = SERVANTS.filter(s => s.cls === cls && (!G.servant || s.id !== G.servant.id));
+    const pool = SERVANTS.filter(s => s.cls === cls && !s.chaldea && (!G.servant || s.id !== G.servant.id));
     const s = pick(pool); const t = types[i];
     const r = { id: 'r' + i, cls, servantId: s.id, master: randomName(t.foreign), type: t.type, power: t.power + rand(-1, 1),
       aggr: t.aggr, quote: t.quote, alive: true, hp: 0, hpMax: 0, mp: 100, intel: 0, clues: 0, seals: 2 + rand(0, 1),
@@ -530,4 +535,19 @@ function fitRivalsToServant(sv) {
   const keep = r => r === G.storyRival || r.friend;
   const victim = G.rivals.find(r => r.cls === sv.cls && !keep(r)) || G.rivals.find(r => !keep(r));
   G.rivals.splice(G.rivals.indexOf(victim), 1);
+}
+
+// 英霊を指名して召喚する（藤丸シナリオ）
+function pickServantScene(cls) {
+  const classes = [...new Set(SERVANTS.filter(summonable).map(s => s.cls))];
+  cls = cls || classes[0];
+  const list = SERVANTS.filter(s => s.cls === cls && summonable(s));
+  scene({ title: '英霊の指名', sub: 'SUMMONING', body: [
+    '<p>これまでの旅で結んだ、数え切れない縁。その中から、たった一騎を選ぶ。</p>',
+    `<div class="pick-cls">${classes.map(c => `<button class="chip ${c === cls ? 'on' : ''}" data-pickcls="${c}" aria-pressed="${c === cls}">${emblem(c, 14)}${c}<small>${SERVANTS.filter(s => s.cls === c && summonable(s)).length}騎</small></button>`).join('')}</div>`,
+  ], choices: list.map(s => ({
+    label: `${s.name}${s.chaldea ? '　★' : ''}${G.flags.fujiDream === s.id ? '　（夢）' : ''}`,
+    hint: `${s.p.map((r, i) => PARAM_NAMES[i][0] + r).join(' ')}`,
+    fn: () => chantScene(s.id),
+  })).concat([{ label: '戻る', icon: 'flee', fn: summonScene }]) });
 }

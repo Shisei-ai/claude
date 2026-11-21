@@ -207,7 +207,7 @@ function battleRound(cmd) {
   // ---- 補正値 ----
   const first = B.round === 1;
   const myMod = classAffinity(me.cls, r.cls) + Math.floor(sv.bond / 8) + (sv.special ? 5 : 0) + Math.floor(G.master.stats.mag / 20)
-    + (['mercenary', 'executor'].includes(G.master.birth) ? 4 : 0) + (r.intel >= 3 ? 8 : 0)
+    + (['mercenary', 'executor'].includes(G.master.birth) ? 4 : 0) + (G.master.birth === 'fujimaru' ? 6 : 0) + (r.intel >= 3 ? 8 : 0)
     + (first && B.opt.ambush ? 15 : 0) + (first && B.opt.duel ? 6 : 0) + (B.opt.defend ? G.workshop * 3 : 0)
     + (B.final && G.flags.resolve === 'win' ? 6 : 0) + (B.boss && G.flags.resolve === 'destroy' ? 8 : 0) + (B.boss && G.flags.mudKnown ? 5 : 0)
     + sealBoost + mBonus + B.charge;

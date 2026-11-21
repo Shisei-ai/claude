@@ -112,7 +112,7 @@ function playQueue(q, then) { if (!q.length) { if (then) then(); return; } const
 const KANJI_NUM = ['〇', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二', '十三', '十四', '十五'];
 function chapterOf() {
   if (!G) return '';
-  if (G.phase === 'growth') return `生い立ち　${STAGES[G.growth.stage] ? STAGES[G.growth.stage].band : ''}`;
+  if (G.phase === 'growth') { const st = stageList()[G.growth.stage]; return `${isFuji() ? '日常' : '生い立ち'}　${st ? st.band : ''}`; }
   if (G.phase === 'prep' || G.phase === 'summon') return '序章　令呪の冬';
   if (G.phase === 'end') return '終幕';
   return G.day < 4 ? '第一幕　開幕' : G.day < 10 ? '第二幕　侵蝕' : '第三幕　降臨';

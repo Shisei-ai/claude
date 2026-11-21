@@ -14,15 +14,23 @@ function kanjiNum(n) {
   if (n < 20) return '十' + d[n - 10];
   return d[Math.floor(n / 10)] + '十' + (n % 10 ? d[n % 10] : '');
 }
-function currentStage() { return STAGES[G.growth.stage]; }
+// 藤丸シナリオかどうか（成長の節目・過ごし方・出来事が切り替わる）
+function isFuji() { return !!G && G.master.birth === 'fujimaru'; }
+function stageList() { return isFuji() ? STAGES_F : STAGES; }
+function currentStage() { return stageList()[G.growth.stage]; }
+function stageLabel(st = currentStage()) { return st.label || `${st.age}歳`; }
 
 // 伸びやすさ（産まれ × 生まれつきの得意 × ゆらぎ）を掛けて能力を伸ばす
 function growthMul(stat) { return (birthOf().growth[stat] || 1) * (G.master.talent === stat ? 1.3 : 1); }
 const GROW_RATE = 1.2;   // 成長全体の倍率（大きくすると18歳時点の能力が高くなる）
-function grow(stat, base) { const n = Math.max(1, Math.round(base * GROW_RATE * growthMul(stat) * (0.85 + Math.random() * 0.3))); gain(stat, n); return n; }
+function grow(stat, base) {
+  const rate = isFuji() ? FUJI_RATE : GROW_RATE;
+  const n = Math.max(1, Math.round(base * rate * growthMul(stat) * (0.85 + Math.random() * 0.3))); gain(stat, n); return n;
+}
 
 // ---------------- 誕生（0歳） ----------------
 function growthStart() {
+  if (isFuji()) return fujimaruStart();
   const b = birthOf(); const m = G.master;
   G.lastChapter = '誕生';
   chapterCard('第零幕　生い立ち', () => {
@@ -33,61 +41,85 @@ function growthStart() {
     ]), choices: [{ label: '産声を上げる', cls: 'primary', icon: 'next', fn: () => nextStage() }] });
   });
 }
+// ---------------- 藤丸：帰還 ----------------
+function fujimaruStart() {
+  const m = G.master;
+  G.lastChapter = '日常';
+  chapterCard('特殊シナリオ　藤丸立香', () => {
+    scene({ title: '帰還', sub: '20歳・春', reveal: true, body: paras([
+      '長い、長い旅だった。<br>焼却された未来。剪定された世界。数え切れない英霊たちとの出会いと、別れ。',
+      'その全てを終えて、あなたは「日常」に帰ってきた。<br>人類最後のマスター――その肩書きは、もう誰も口にしない。',
+      '春。深見市の大学に入学し、小さな学生アパートで一人暮らしを始めた。<br>右手の甲には、もう令呪はない。……はずだった。',
+      `<div class="birth-facts"><div><span>魔術回路</span><b>${m.circuits}本（平凡）</b></div><div><span>魔術属性</span><b>${m.element}</b></div><div><span>得意</span><b>${TALENTS[m.talent]}</b></div></div>`,
+      '<span class="note">特殊シナリオ：英霊召喚の制限はすべて解除されている。召喚の際には、英霊を指名することもできる。<br>11月までの7ヶ月の過ごし方が、あなたの力になる。</span>',
+    ]), choices: [{ label: '日常を始める', cls: 'primary', icon: 'next', fn: () => nextStage() }] });
+  });
+}
 
 // ---------------- 成長の節目 ----------------
+function focusList() {
+  if (isFuji()) return Object.entries(FOCUS_F);
+  const b = birthOf();
+  return Object.entries(FOCUS).filter(([, f]) =>
+    G.master.age >= f.ages[0] && G.master.age <= f.ages[1] &&
+    (!f.magic || hasMagic()) && (!f.births || f.births.includes(b.id)));
+}
+function focusDef(k) { return (isFuji() ? FOCUS_F : FOCUS)[k]; }
 function growthStage() {
   const st = currentStage();
   saveGame();
   const b = birthOf();
-  const list = Object.entries(FOCUS).filter(([, f]) =>
-    G.master.age >= f.ages[0] && G.master.age <= f.ages[1] &&
-    (!f.magic || hasMagic()) && (!f.births || f.births.includes(b.id)));
-  const choices = list.map(([k, f]) => ({
+  const choices = focusList().map(([k, f]) => ({
     label: f.name,
     hint: Object.entries(f.gains).map(([s, v]) => `${STAT_LABEL[s]}${growthMul(s) >= 1.2 ? '↑↑' : '↑'}`).join(' ') + (f.money ? ' 資金↑' : '') + (f.catalyst ? ' 触媒?' : '') + (f.friend && G.friend ? ' 友情↑' : ''),
     icon: guessIcon(f.name) || 'train',
     fn: () => applyFocus(k),
   }));
-  scene({ title: `${G.master.age}歳`, sub: `${st.band}　${b.home}`, body: [
+  scene({ title: stageLabel(st), sub: `${st.band}　${b.home}`, body: [
     `<p>${st.text}</p>`,
     `<div class="grow-stats">${statBars(G.master.stats)}</div>`,
-    `<p class="note">この数年を、どう過ごす？　↑↑は伸びやすい能力。</p>`,
+    `<p class="note">${isFuji() ? 'このひと月を' : 'この数年を'}、どう過ごす？　↑↑は伸びやすい能力。</p>`,
   ], choices });
 }
 function applyFocus(k) {
-  const f = FOCUS[k]; NOTES = [];
+  const f = focusDef(k); NOTES = [];
   const res = [];
   const ups = Object.entries(f.gains).map(([s, v]) => `${STAT_LABEL[s]}+${grow(s, v)}`);
   if (f.money) money(f.money);
   if (f.friend) friend(f.friend);
   if (f.tone) tone(f.tone);
+  if (f.lore) lore(f.lore);
   money(Math.max(1, Math.round(birthOf().money / 7)));   // おこづかい・仕送り
-  res.push(`${G.master.age}歳からの数年間は、「${f.name}」日々だった。`);
+  res.push(isFuji() ? `${stageLabel()}は、「${f.name}」ひと月だった。` : `${G.master.age}歳からの数年間は、「${f.name}」日々だった。`);
   res.push(`<span class="note">${ups.join('　')}${f.money ? `　資金+${f.money}` : ''}</span>`);
-  if (f.catalyst && Math.random() < f.catalyst) { const c = giveCatalyst(); res.push(`調べものの途中で、古い品を手に入れた。<b>${c}</b>だ。`); }
-  addLog(`${G.master.age}歳：${f.name}。`);
-  next(`${G.master.age}歳`, paras(res.concat(takeNotes())), growthEvent, '次へ', currentStage().band);
+  if (f.catalyst && Math.random() < f.catalyst) { const c = giveCatalyst(); res.push(`街の古道具屋で、妙に惹かれる品を手に入れた。<b>${c}</b>だ。`); }
+  addLog(`${stageLabel()}：${f.name}。`);
+  next(stageLabel(), paras(res.concat(takeNotes())), growthEvent, '次へ', currentStage().band);
 }
 function growthEvent() {
-  const age = G.master.age; const b = birthOf().id;
+  const age = G.master.age; const b = birthOf().id; const idx = G.growth.stage;
   const ok = e => !G.used[e.id] && (!e.births || e.births.includes(b)) && (!e.magic || hasMagic()) && (!e.cond || e.cond());
-  let ev = GROWTH_EVENTS.find(e => e.fixed && e.ages[0] === age && ok(e));
-  if (!ev) {
-    const pool = GROWTH_EVENTS.filter(e => !e.fixed && age >= e.ages[0] && age <= e.ages[1] && ok(e));
-    if (pool.length) ev = pick(pool);
+  let ev;
+  if (isFuji()) {
+    ev = GROWTH_EVENTS_F.find(e => e.fixed && e.stages.includes(idx) && ok(e));
+    if (!ev) { const pool = GROWTH_EVENTS_F.filter(e => !e.fixed && e.stages.includes(idx) && ok(e)); if (pool.length) ev = pick(pool); }
+  } else {
+    ev = GROWTH_EVENTS.find(e => e.fixed && e.ages[0] === age && ok(e));
+    if (!ev) { const pool = GROWTH_EVENTS.filter(e => !e.fixed && age >= e.ages[0] && age <= e.ages[1] && ok(e)); if (pool.length) ev = pick(pool); }
   }
   if (!ev) return nextStage();
-  showEvent({ ...ev, chapter: `${currentStage().band}・${age}歳` }, nextStage);
+  showEvent({ ...ev, chapter: `${currentStage().band}・${stageLabel()}` }, nextStage);
 }
 function nextStage() {
   G.growth.stage++;
-  if (G.growth.stage >= STAGES.length) return comingOfAge();
+  if (G.growth.stage >= stageList().length) return comingOfAge();
   const st = currentStage();
-  G.master.age = st.age;
+  if (!isFuji()) G.master.age = st.age;
   const go = () => growthStage();
   if (!CFG.fx) return go();
-  if (st.band !== G.lastChapter) { G.lastChapter = st.band; return showCard({ kicker: st.band, title: `${kanjiNum(st.age)}歳`, sub: st.text, cls: 'chapter', ms: 1800 }, go); }
-  showCard({ kicker: st.band, title: `${kanjiNum(st.age)}歳`, cls: 'day', ms: 1100 }, go);
+  const title = isFuji() ? st.label : `${kanjiNum(st.age)}歳`;
+  if (st.band !== G.lastChapter) { G.lastChapter = st.band; return showCard({ kicker: st.band, title, sub: st.text, cls: 'chapter', ms: 1800 }, go); }
+  showCard({ kicker: st.band, title, cls: 'day', ms: 1100 }, go);
 }
 
 // 18歳の冬（令呪の発現）は routes.js の comingOfAge() へ

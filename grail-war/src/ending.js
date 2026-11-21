@@ -107,6 +107,8 @@ function ending(kind) {
   }[kind]();
   const ep = friendEpilogue(kind);
   if (ep) E.text.push(ep);
+  const fe = fujiEpilogue(kind);
+  if (fe) E.text.push(fe);
   addLog(E.title); markEnding(kind);
   const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain'].includes(kind);
   sfx(good ? 'win' : 'lose');
@@ -126,4 +128,12 @@ function friendEpilogue(kind) {
   if (G.flags.friendDefeated) return `<p class="note">戦いの後、${n}から一通のメッセージが届いた。「おかえり。……また、ココア飲みに来なよ」</p>`;
   if (r.alive) return `<p class="note">${n}は最後まで、あなたの味方でいてくれた。</p>`;
   return `<p class="note">${n}は無事だった。教会で再会した時、二人はしばらく言葉もなく、ただ抱き合った。</p>`;
+}
+
+// 藤丸シナリオのその後
+function fujiEpilogue(kind) {
+  if (!isFuji() || kind === 'dead') return '';
+  const cur = G.rivals.find(r => r.curator);
+  const curLine = cur && !cur.alive ? '蒐集者の企みは潰えた。時計塔の監視官は報告書の最後に、「対象は、今もなお人類の味方である」と書き記したという。' : '蒐集者の行方は、今も分からない。';
+  return `<p class="note">${curLine}<br>そして、元・人類最後のマスターは、また日常へ帰っていく。――次の旅が始まる、その日まで。</p>`;
 }
