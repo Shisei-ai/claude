@@ -15,7 +15,7 @@ const EVENT_CHANCE = { prep: 0.25, war: 0.22 };   // コマの始めにランダ
 const STAT_LABEL = { mag: '魔力', phy: '体力', int: '知力', spi: '精神', cha: '交渉', luk: '幸運' };
 const CLASS_EN = { 'セイバー': 'SABER', 'アーチャー': 'ARCHER', 'ランサー': 'LANCER', 'ライダー': 'RIDER',
   'キャスター': 'CASTER', 'アサシン': 'ASSASSIN', 'バーサーカー': 'BERSERKER', 'ルーラー': 'RULER', 'アヴェンジャー': 'AVENGER', '聖杯': 'GRAIL',
-  'アルターエゴ': 'ALTER EGO', 'ムーンキャンサー': 'MOON CANCER', 'フォーリナー': 'FOREIGNER', 'シールダー': 'SHIELDER', 'プリテンダー': 'PRETENDER' };
+  'アルターエゴ': 'ALTER EGO', 'ビーストⅧ': 'BEAST VIII', 'ムーンキャンサー': 'MOON CANCER', 'フォーリナー': 'FOREIGNER', 'シールダー': 'SHIELDER', 'プリテンダー': 'PRETENDER' };
 
 // 道具（買い出しで入手。主に戦闘中に「マスターの行動」として使う）
 const ITEMS = {
@@ -45,7 +45,7 @@ function wpick(items, wf) {
   return items[items.length - 1];
 }
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS]).map(s => [s.id, s]));
+const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS, BEAST8]).map(s => [s.id, s]));
 
 // ---------------- 名前・参照 ----------------
 function M() { return esc(G.master.name); }
@@ -189,7 +189,7 @@ function newGame(master) {
     v: 3, phase: 'growth', day: 1, slot: 0, master, servant: null, growth: { stage: 0 }, friend: null,
     catalysts: [], items: { potion: 1, gem: 0, crystal: 0, smoke: 1 }, flags: {}, used: {}, rivals: [], log: [], news: [],
     ritual: 0, workshop: 0, traps: 0, kills: 0, battles: 0, tmpRival: null, storyRival: null,
-    truth: Math.random() < 0.5 ? 'cursed' : 'pure',   // 聖杯の真相（プレイヤーには見えない。data_mystery.js）
+    truth: pick(['cursed', 'pure', 'beast']),   // 聖杯の真相（プレイヤーには見えない。data_mystery.js）：呪い／正規／人類悪の寄生
   };
   G.master.od = odMax();
   G.lore = BIRTHS.find(b => b.id === master.birth).magic ? 5 : 0;   // 魔術世界をどれだけ知っているか

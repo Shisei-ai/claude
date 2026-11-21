@@ -463,3 +463,5 @@ body:not(.fx-on) #snow { display: none; }
 .talk.shirou { border-left-color: #c8553d; }
 .talk.saber { border-left-color: #4f7fd6; }
 .talk.enemy { border-left-color: var(--gold); background: #d2ad5f10; }
+
+.truth.beast { border-color: #b9e3c688; background: #b9e3c612; }

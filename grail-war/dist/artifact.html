@@ -468,6 +468,8 @@ body:not(.fx-on) #snow { display: none; }
 .talk.saber { border-left-color: #4f7fd6; }
 .talk.enemy { border-left-color: var(--gold); background: #d2ad5f10; }
 
+.truth.beast { border-color: #b9e3c688; background: #b9e3c612; }
+
 </style>
 <div id="app"></div>
 <script>
@@ -2293,11 +2295,12 @@ const STORY = [
       { label: '影を討つ', hint: 'サーヴァント魔力判定', cls: 'danger', run: () => {
           const c = schk(3, 60); G.flags.grailHint = true;
           if (c.ok) { bond(3); gain('spi', 1);
-            const t = isCursed()
+            const t = isBeast() ? `${SV()}の一撃が影を引き裂いた。影は悲鳴も上げず、白い鱗のような光の粒に解けて、霊脈へ吸い込まれていった。……呪いの気配は、まるでなかった。`
+              : isCursed()
               ? `${SV()}の一撃が影を引き裂いた。影は悲鳴のような音を立てて霧散し、残滓は霊脈に溶けて――天降山の方角へと流れていった。`
               : `${SV()}の一撃が影を引き裂いた。霧散する寸前、影の背から<b>細い魔力の糸</b>が伸びているのが見えた。糸は${mys().area}の方へ、するすると引き戻されていった。`;
             return [c.text, t + '<br>男は衰弱しているが、息はある。（絆+3）',
-              addClue('shadow_cut', '斬られた影', isCursed() ? '黒い影を斬ると、残滓は霊脈に溶けて天降山の方へ流れた。操る者の気配はなかった。' : `黒い影は魔力の糸で操られていた。糸は${mys().area}の方へ引き戻された。`, 1)]; }
+              addClue('shadow_cut', '斬られた影', isBeast() ? '黒い影を斬ると、白い光の粒に解けて霊脈へ吸い込まれた。呪いの気配はなかった。' : isCursed() ? '黒い影を斬ると、残滓は霊脈に溶けて天降山の方へ流れた。操る者の気配はなかった。' : `黒い影は魔力の糸で操られていた。糸は${mys().area}の方へ引き戻された。`, 1)]; }
           shp(-25); return [c.text, `影は${SV()}の攻撃を呑み込み、触れた部分の霊基を侵した。どうにか追い払ったが、${SV()}の顔色は悪い。（サーヴァントHP-25）`];
         } },
       { label: '倒れた男を連れて逃げる', hint: '善', run: () => {
@@ -2307,6 +2310,8 @@ const STORY = [
       { label: '影を追跡する', hint: '知力判定', run: () => {
           const c = chk('int', 60); G.flags.grailHint = true;
           if (!c.ok) { hp(-15); return [c.text, '影を見失い、気付けば足元から泥が這い上がっていた。慌てて振り払う。（HP-15）']; }
+          if (isBeast()) return [c.text, '距離を取って影の後を追った。影は霊脈を遡り、天降山の古社へと消えた。……だが、聖杯から漏れた呪いならあるはずの、あの重い悪意が、どこにもない。',
+            addClue('shadow_trail', '影の帰る場所', '黒い影は天降山の古社へ帰っていった。だが、呪いの気配はなかった。', 2)];
           if (isCursed()) { G.flags.shadowTrail = true;
             return [c.text, '距離を取って影の後を追った。影は霊脈を遡り、天降山の古社――聖杯が降臨するはずの場所へと吸い込まれていった。',
               addClue('shadow_trail', '影の帰る場所', '黒い影は霊脈を遡り、聖杯が降臨するはずの天降山の古社へ吸い込まれていった。', 2)]; }
@@ -2341,6 +2346,8 @@ const STORY = [
           const c = schk(3, 58);
           if (!c.ok) return [c.text, '聖杯の気配は、霊脈の奥深くに隠れていて掴めなかった。'];
           bond(2);
+          if (isBeast()) return [c.text, `天降山を見上げた${SV()}が、怪訝そうに言った。${say('grailPure')}<br>……けれど、${SV()}は眉をひそめたまま、しばらく山から目を離さなかった。「杯の奥で、何かが脈打っている気がする」`,
+            addClue('sense', '英霊の直感', `${SV()}は聖杯に濁りを感じなかった。だが、杯の奥で何かが脈打っている気がするという。`, 2)];
           return isCursed()
             ? [c.text, `天降山を見上げた${SV()}が、険しい顔で言った。${say('grailEvil')}`, addClue('sense', '英霊の直感', `${SV()}は、天降山の聖杯から底知れない悪意を感じ取った。`, 2)]
             : [c.text, `天降山を見上げた${SV()}が、怪訝そうに言った。${say('grailPure')}`, addClue('sense', '英霊の直感', `${SV()}は、天降山の聖杯に濁りを感じなかった。悪意は、街の中にあるという。`, 2)];
@@ -2348,7 +2355,7 @@ const STORY = [
     ],
   },
   {
-    id: 's_devoured', phase: 'war', day: 9, slot: 1, after: 'advance', cond: () => hostileRivals().length >= 3 && (isCursed() || culpritAlive()),
+    id: 's_devoured', phase: 'war', day: 9, slot: 1, after: 'advance', cond: () => hostileRivals().length >= 3 && (!isPure() || culpritAlive()),
     title: '呑まれた陣営', chapter: '第二幕　侵蝕',
     text: () => {
       const cu = culprit();
@@ -2361,13 +2368,16 @@ const STORY = [
           r.alive = false; r.hp = 0; addLog(`${rivalLabel(r)}陣営、黒い影に呑まれて脱落。`);
           if (c.ok) { for (const x of aliveRivals()) x.intel = Math.min(3, x.intel + 1);
             return [c.text, `${SV()}が影を断ち切った。サーヴァントは救えなかったが、${esc(r.master)}は助け出せた。<br>「……借りができた。知っていることは全部話す」<br>彼の情報で、<b>残る全陣営の情報が一段階進んだ。</b>`,
-              isCursed() ? '' : revealCulprit('助けたマスターの証言')]; }
+              isPure() ? revealCulprit('助けたマスターの証言') : '']; }
           shp(-20); return [c.text, `${SV()}の刃は届かなかった。${rivalLabel(r)}陣営は、跡形もなく呑み込まれた。（サーヴァントHP-20）`];
         } },
       { label: '動きを観察する', hint: '知力判定', run: () => {
           const r = G.storyRival; const c = chk('int', 55);
           r.alive = false; r.hp = 0; addLog(`${rivalLabel(r)}陣営、黒い影に呑まれて脱落。`);
           if (!c.ok) return [c.text, `為す術もなく、${rivalLabel(r)}陣営が呑み込まれていくのを見ていることしかできなかった。`];
+          if (isBeast()) { G.flags.serpentKnown = true;
+            return [c.text, `影は傷ついたサーヴァントに絡みつき、その霊基を<b>呑み込んだ</b>。喰らうのではなく、満たされるように。影の中に、一瞬だけ、白い大蛇のような輪郭が見えた。<br><span class="note">得体の知れない「何か」の動きを見た。最後の戦いで役に立つかもしれない。</span>`,
+              addClue('devoured', '呑まれた霊基', '黒い影は、傷ついたサーヴァントの霊基を「満たされるように」呑み込んだ。影の中に白い大蛇の輪郭が見えた。', 1)]; }
           if (isCursed()) { G.flags.mudKnown = true;
             return [c.text, `泥は<b>傷ついたサーヴァント</b>を狙う。そして喰らった霊基を、霊脈を通じて天降山へ運んでいく――聖杯は、脱落者の魂を貪って満ちていくのだ。<br><span class="note">この戦いの仕組みが分かった。聖杯との戦いで有利になるだろう。</span>`,
               addClue('devoured', '喰われた霊基', '黒い泥は傷ついたサーヴァントを狙い、喰らった霊基を天降山へ運んでいった。', 1)]; }
@@ -2392,6 +2402,8 @@ const STORY = [
           return `${say('promise')}${SV()}は拳を差し出した。あなたはそれに、自分の拳を合わせた。（絆+4 決戦で能力補正）`; } },
       { label: '「君の願いを叶えたい」', hint: '新たなエンディングが開く', run: () => { G.flags.resolve = 'servant'; G.flags.knowWish = true; bond(8);
           return [`${SV()}は驚いたように目を見開き、それから、ゆっくりと笑った。`, voiceOf(servantOf(G)).reg === 'mute' ? `<p>（${SV()}の瞳が、遠いどこかを見つめていた。その奥に、一つの願いが映っている――「${fmt(SERVANT_WISH[servantOf(G).persona])}」）</p>` : `<p class="quote">「${fmt(SERVANT_WISH[servantOf(G).persona])}${say('wishShare')}」</p>`, '（絆+8 聖杯をサーヴァントに託せるようになった）']; } },
+      { label: '「聖杯に巣食うものを、討とう」', hint: '人類悪の存在を知っている時のみ', cond: () => G.flags.grailBeast, run: () => { G.flags.resolve = 'beast'; bond(5); tone('good');
+          return `${SV()}は、静かに頷いた。${say('withYou')}（絆+5 人類悪との戦いで能力補正）`; } },
       { label: '「この聖杯になら、願いを託せる」', hint: '聖杯が正規のものだと知っている時のみ', cond: () => G.flags.grailPure, run: () => { G.flags.resolve = 'pure'; bond(5); tone('law');
           return `${SV()}は天降山の澄んだ光を見上げ、静かに頷いた。${say('promise')}（絆+5 決戦で能力補正）`; } },
       { label: '「聖杯を壊そう」', hint: '聖杯の真実を知っている時のみ', cond: () => G.flags.grailTruth, run: () => { G.flags.resolve = 'destroy'; bond(5); tone('good');
@@ -2868,6 +2880,8 @@ STORY.push(
       { label: '記録を解読し、計画の全貌を探る', hint: '知力判定', run: () => {
           const c = chk('int', 55);
           if (c.ok) { G.flags.grailHint = true;
+            if (isBeast()) return [c.text, '「無垢なる杯に縁を注げ。――だが、器の底の『あれ』には気を付けよ」……最後の一行だけ、筆跡が震えていた。蒐集者すら、何かを恐れているらしい。',
+              addClue('curator_note', '蒐集者の羊皮紙', '蒐集者の計画書。「器の底の『あれ』には気を付けよ」とあった。', 2)];
             if (isCursed()) return [c.text, '「汚れた杯に縁を注げ。呪いは縁を喰らい、世界を呑むほどに膨れ上がる」――蒐集者は、聖杯が呪われていることを<b>知っている</b>らしい。',
               addClue('curator_note', '蒐集者の羊皮紙', '蒐集者の計画書。「汚れた杯に縁を注げ。呪いは縁を喰らい、世界を呑む」とあった。', 2)];
             return [c.text, '「無垢なる杯に縁を注げ。英霊の座への門が開き、すべての英霊は我が蒐集品となる」――蒐集者の狙いは、<b>完全な聖杯</b>そのものらしい。',
@@ -3129,6 +3143,8 @@ STORY.push(
           const c = chk('int', 55);
           if (!c.ok) return [c.text, '通信は途中で途切れた。地上と月の距離は、思った以上に遠い。'];
           if (solved()) { gain('int', 5); return [c.text, '解析結果は、あなたが地上で確かめた真相を裏付けていた。（知力+5）']; }
+          if (isBeast()) { mys().beastSign = true; return [c.text, '「地上の聖杯に、汚染は検出されず。ただし、器の魔力量が観測のたびに減少。外部への<b>流出</b>を検出。――警告。この反応は、人類悪の幼体に類似」',
+            addClue('moonlink', 'ムーンセルの解析', '地上の聖杯に汚染はない。だが、器の魔力が何者かに吸い出されている。人類悪の幼体に似た反応がある。', 2)]; }
           return isCursed()
             ? [c.text, '「地上の聖杯の内部に、月でいう『ウイルス』に近い汚染を検出。六十年前に取り込まれたものと推定」',
               addClue('moonlink', 'ムーンセルの解析', '地上の聖杯の内部に、ウイルスのような汚染がある。六十年前に取り込まれたものらしい。', 2)]
@@ -3665,8 +3681,20 @@ const EVENTS = [
 const MYSTERY_CORE_EV = 3;     // 核心の調査に必要な手がかりの数
 const MYSTERY_DEDUCE_EV = 4;   // 推理に必要な手がかりの数
 
-function isCursed() { return G.truth !== 'pure'; }
-function solved() { return !!(G.flags.grailTruth || G.flags.grailPure); }
+function isCursed() { return G.truth !== 'pure' && G.truth !== 'beast'; }
+function isPure() { return G.truth === 'pure'; }
+function isBeast() { return G.truth === 'beast'; }
+// 真相ごとに値を選ぶ（人類悪の場合、省略すると「正規の聖杯」と同じに見える）
+function T(cursed, pure, beast) { return isCursed() ? cursed : isBeast() ? (beast === undefined ? pure : beast) : pure; }
+function solved() { return !!(G.flags.grailTruth || G.flags.grailPure || G.flags.grailBeast); }
+
+// ---- 人類悪：ビーストⅧ（第三の真相のラスボス） ----
+const BEAST8 = {
+  id: 'beast8', name: 'アダム=サーペント', short: 'アダム=サーペント', cls: 'ビーストⅧ',
+  p: ['A+', 'EX', 'B', 'EX', 'A', 'EX'], align: '―', persona: 'berserker',
+  np: '満ち足りよ、原初の楽園', npRuby: 'エデン・サチュレーション', catalyst: null,
+  line: '', desc: '人類悪の一つ。理は【飽和】。知恵の実を齧った最初の人間と、彼を唆した蛇。「満たされたい」という人類の原初の欲求そのもの。聖杯に寄生し、その魔力を吸い上げて孵化を待っていた。',
+};
 function mys() {
   if (!G.mys) G.mys = { ev: 0, clues: [], done: {}, culprit: null, culpritKnown: false, area: null, stopped: false };
   return G.mys;
@@ -3674,7 +3702,7 @@ function mys() {
 
 // ---- 正規の聖杯の場合の「犯人」陣営（最初に必要になった時に決める） ----
 function culprit() {
-  if (isCursed() || !G.rivals.length) return null;
+  if (!isPure() || !G.rivals.length) return null;
   const m = mys();
   if (!m.culprit) {
     const pool = G.rivals.filter(r => r.alive && !r.friend);
@@ -3716,6 +3744,11 @@ function solveMystery(how) {
     addLog(`聖杯の真相に辿り着く：聖杯は呪われている（${how}）。`);
     return '<div class="truth cursed"><b>真相：この聖杯は、呪われている。</b><br>六十年前の戦いで「呪いそのもの」を呑み込んだ聖杯は、願いを破滅の形でしか叶えない。昏睡事件は、聖杯から溢れた黒い泥の仕業だった。</div>';
   }
+  if (isBeast()) {
+    G.flags.grailBeast = true; G.flags.grailHint = true;
+    addLog(`聖杯の真相に辿り着く：聖杯に人類悪が寄生している（${how}）。`);
+    return '<div class="truth beast"><b>真相：この聖杯は正しい聖杯だ。――だが、その中に「何か」が巣食っている。</b><br>器の底に潜む、白い蛇のようなもの。それは六十年かけて聖杯の魔力を吸い上げ、孵化の時を待っている。昏睡事件の被害者が皆、満ち足りた顔で眠り続けているのも、そのせいだ。<br>人類の原初の欲求――「満たされたい」という願いの化身。<b>人類悪</b>。</div>';
+  }
   G.flags.grailPure = true;
   addLog(`聖杯の真相に辿り着く：聖杯は正規のもの（${how}）。`);
   const r = culprit(); const who = r ? revealCulprit(how) : '';
@@ -3740,6 +3773,8 @@ const MYSTERY_SITES = [
     clue: (stage) => isCursed()
       ? stage === 1 ? ['残滓の正体', '路地に残っていたのは、サーヴァントの魔力ではなかった。粘つくような、悪意そのものの残滓――人の怨念を煮詰めたような<b>呪詛</b>だ。']
         : ['残滓の行き先', '残滓を辿ると、地下の霊脈に沿って北へ――<b>天降山の方角</b>へ続いていた。どの陣営の拠点とも、方角が合わない。']
+      : isBeast() ? (stage === 1 ? ['残滓の正体', '路地に残っていたのは、澄んだ魔力の残滓だった。呪詛ではない。サーヴァントのものとも、どこか違う。<b>穢れは、どこにもない</b>。']
+        : ['残滓の行き先', '残滓を辿ると、霊脈に沿って天降山の方へ続いていた。……けれど、呪いの気配はまるでない。ただ、何かが<b>細く長く</b>、山の方へ這っていった跡のようにも見えた。'])
       : stage === 1 ? ['残滓の正体', '路地に残っていたのは、確かに<b>サーヴァントの魔力</b>だった。何者かが、使い魔を通じて人の魂を吸い上げている。手口は魔術師のものだ。']
         : ['残滓の行き先', `残滓を辿ると、霊脈ではなく人の手で引かれた魔力の糸が、<b>${mys().area}</b>の方へ続いていた。……誰かの拠点がある。`],
     extra: (stage) => !isCursed() && stage === 2 ? revealCulprit('現場の調査') : '',
@@ -3755,6 +3790,7 @@ const MYSTERY_SITES = [
     ],
     clue: () => isCursed()
       ? ['被害者の容態', '被害者の魂には、<b>黒い澱</b>のようなものがこびりついていた。ただ魔力を奪われたのではない。何かに「侵されて」いる。']
+      : isBeast() ? ['被害者の容態', '被害者の魂は<b>穢れていない</b>。それどころか、誰もが<b>幸せそうな顔</b>で眠っていた。まるで、願いがすべて叶った夢を見ているかのように。']
       : ['被害者の容態', '被害者は魔力を抜き取られているだけで、魂そのものは<b>穢れていない</b>。抜き取りの跡には、術式で吸い上げた几帳面な痕がある。'],
     risk: { text: '看護師に見咎められた。病院から警察に連絡が入り、しばらく近寄れそうにない。（精神-3）', run: () => { gain('spi', -3); } },
   },
@@ -3792,6 +3828,7 @@ const MYSTERY_SITES = [
     ],
     clue: () => isCursed()
       ? ['教会の報告書', '前回の報告書：「聖杯の汚染を確認。ただし、儀式の継続を優先する」――署名は教会上層部のものだ。<b>教会は、知っていて黙っていた。</b>']
+      : isBeast() ? ['教会の報告書', '前回の報告書：「聖杯に汚染の兆候なし。儀式は器の完成前に中断」。……最後の頁の隅に、誰かの走り書きがあった。「器の底に、何か――」その先は、インクが滲んで読めない。']
       : ['教会の報告書', '前回の報告書：「聖杯に汚染の兆候なし。儀式は器の完成前に中断」。添付の資料には、魔術協会の手配書が一枚――<b>他人の魂を喰らって魔力を蓄える魔術師</b>の手口が記されていた。'],
     extra: () => { if (isCursed()) G.flags.sisterSecret = true; return ''; },
     risk: { text: `足音。${CAST.sister}だ。「……ここは立入禁止です」その目は冷たかった。（教会からの信用を失った）`, run: () => { G.flags.registered = false; } },
@@ -3808,8 +3845,31 @@ const MYSTERY_SITES = [
       ? stage === 1 ? ['霊脈の濁り', '山の霊脈は、底の方で<b>濁っていた</b>。黒い霧は、地の底から滲み出す何かの「吐息」のようだ。']
         : ['霊脈の底', '霊脈の要に耳を澄ますと、地の底で何かが<b>脈打っている</b>のが分かった。黒い泥だ。……それは、街で倒れた人々から奪った魔力を、ゆっくりと呑み込んでいた。']
       : stage === 1 ? ['霊脈の濁り', '霊脈そのものは<b>澄んでいた</b>。黒い霧は、霊脈が吐き出す古い瘴気――六十年前の儀式の名残で、悪意は感じられない。']
+        : isBeast() ? ['霊脈の底', '霊脈の要の奥深くに、黄金の気配があった。濁りはない。……ただ、<b>六十年分の魔力にしては、あまりにも弱々しい</b>。']
         : ['霊脈の底', '霊脈の要の奥深くに、静かに眠る黄金の気配があった。濁りはない。<b>街で奪われた魔力は、ここには流れ込んでいない</b>。'],
     risk: { text: '足を滑らせ、凍った斜面を転げ落ちた。（HP-20）', run: () => { hp(-20); } },
+  },
+  {
+    id: 'sister', name: () => `監督役・${CAST.sister}`, place: '聖ヨハネ教会', stages: 3, cond: () => (mys().sisterDay || 0) < G.day,
+    lead: '聖杯の器を観測しているのは、監督役の教会だ。何度か話を聞けば、何か分かるかもしれない。（1日1度まで）',
+    ways: [
+      { label: '聖杯の様子を尋ねる', stat: 'cha', diff: () => G.flags.registered ? 42 : 55, tone: 'law' },
+      { label: '世間話から、それとなく探る', stat: 'spi', diff: 48 },
+    ],
+    clue: (stage) => {
+      const S = CAST.sister;
+      if (stage === 1) return ['監督役の話・一', T(`${S}は言葉を選びながら言った。「器の観測は、順調です。……ただ、ときおり、計器が妙な揺れ方をします」`,
+        `${S}は穏やかに答えた。「器の観測は順調です。脱落者が出るたびに、きちんと満ちていっています」`,
+        `${S}は少しだけ首を傾げた。「器の観測は……順調、のはずです。ただ、脱落者が出ても、計器の針があまり動かないのです」`), 1];
+      if (stage === 2) return ['監督役の話・二', T(`${S}の表情が曇った。「器の周りの空気が、重いのです。……上の者は、問題ないと言うのですが」`,
+        `「器は順調に満ちています」${S}はきっぱりと言った。「事件を起こしているのは、聖杯ではなく、参加者の誰かでしょう」`,
+        `${S}は帳簿を何度も見返していた。「おかしいのです。器に注がれるはずの魔力が、日に日に<b>減っている</b>。……満ちるどころか、痩せていく」`), 1];
+      return ['監督役の話・三', T(`${S}は、意を決したように声を潜めた。「……前回の儀式の記録には、封印された頁があります。器が『何か』を取り込んだ、と」`,
+        `${S}は微笑んだ。「心配は無用です。この聖杯は、正しく機能しています。……どうか、正しい願いを」`,
+        `${S}は、青ざめた顔で一枚の観測図を差し出した。「昨夜、器の底から、魔力が<b>外へ吸い出されている</b>のを観測しました。――聖杯に、何かが寄生しています。私たちの誰も、気付かないうちに」`), 2];
+    },
+    extra: (stage) => { const m = mys(); m.sisterDay = G.day; if (stage === 3 && isBeast()) { m.beastSign = true; return '<span class="note">「聖杯に、何かが寄生している」――推理の新しい仮説が立てられるようになった。</span>'; } return ''; },
+    risk: { text: `「……今日は、お引き取りください」${CAST.sister}は、珍しく疲れた顔で扉を閉じた。`, run: () => { mys().sisterDay = G.day; } },
   },
 ];
 
@@ -3818,8 +3878,8 @@ function siteOpen(id) { const s = MYSTERY_SITES.find(x => x.id === id); return (
 function siteResult(id, ev = 1) {
   const s = MYSTERY_SITES.find(x => x.id === id); const m = mys();
   const stage = (m.done[id] || 0) + 1; m.done[id] = stage;
-  const [title, text] = s.clue(stage); const ex = s.extra && s.extra(stage);
-  return [text, addClue(`${id}${stage}`, title, text, ev), ex].filter(Boolean);
+  const [title, text, w] = s.clue(stage); const ex = s.extra && s.extra(stage);
+  return [text, addClue(`${id}${stage}`, title, text, Math.max(ev, w || 1)), ex].filter(Boolean);
 }
 
 // 調査の判定（マスターの技能か、サーヴァントのパラメータか）
@@ -3863,8 +3923,8 @@ function siteMenu(s) {
         return [c.text, '手がかりは掴めなかった。……別の調べ方を試すべきかもしれない。'];
       }
       m.done[s.id] = stage;
-      const [title, text] = s.clue(stage);
-      const out = [c.text, text, addClue(`${s.id}${stage}`, title, text, 1)];
+      const [title, text, wt] = s.clue(stage);
+      const out = [c.text, text, addClue(`${s.id}${stage}`, title, text, wt || 1)];
       const ex = s.extra && s.extra(stage); if (ex) out.push(ex);
       if (c.margin >= 25) { out.push('<b>大成功！</b>', criticalBonus(s)); }
       return out;
@@ -3873,7 +3933,7 @@ function siteMenu(s) {
 // 大成功のおまけ
 function criticalBonus(s) {
   const m = mys();
-  if (s.stages > 1 && (m.done[s.id] || 0) < s.stages) {
+  if (s.stages > 1 && (m.done[s.id] || 0) < s.stages && s.id !== 'sister') {   // 監督役の話は、一度に一歩ずつ
     m.done[s.id]++; const [title, text] = s.clue(m.done[s.id]);
     const ex = s.extra && s.extra(m.done[s.id]);
     return [`勢いのまま、さらに奥まで調べ上げた。<br>${text}`, addClue(`${s.id}${m.done[s.id]}`, title, text, 1), ex].filter(Boolean).join('<br>');
@@ -3901,6 +3961,12 @@ function coreTry(c) {
       return [c.text, isCursed() ? '結界に弾かれた瞬間、足元から黒い何かが這い上がってきた。辛うじて逃げ延びたが、体の芯が冷えきっている。（HP-15 サーヴァントHP-20）'
         : '結界は思った以上に堅く、跳ね返された魔力が二人を打ち据えた。（HP-15 サーヴァントHP-20）', '<span class="note">手がかりがもっと集まれば、結界の綻びも見えてくるはずだ。</span>'];
     }
+    if (isBeast() && !mys().beastSign) {
+      return [c.text, '結界の奥、霊脈の要に半ば埋もれて、黄金の杯があった。澄んだ光。濁りも、悪意もない。……ただ、器の中身が、驚くほど<b>少ない</b>。六十年分の魔力が溜まっているとは、とても思えなかった。',
+        addClue('core_beast', '空っぽに近い器', '聖杯の器は澄んでいたが、中身が驚くほど少なかった。六十年分の魔力が溜まっているとは思えない。', 1),
+        '<span class="note">……何かを見落としている。聖杯を観測している監督役なら、何か知っているかもしれない。</span>'];
+    }
+    if (isBeast()) return [c.text, '結界の奥の黄金の杯。その底に、白く濡れた<b>蛇の尾</b>のようなものが、ずるりと沈んでいくのが見えた。杯の縁から、細い光の糸が、その「何か」へと吸い込まれ続けている。', solveMystery('古社の調査')];
     const seen = isCursed()
       ? '結界の奥、霊脈の要に半ば埋もれて、黄金の杯があった。――その内側で、<b>黒い泥</b>が渦を巻いている。杯の縁から溢れた泥が、細い筋となって街の方へ流れ出していた。'
       : '結界の奥、霊脈の要に半ば埋もれて、黄金の杯があった。澄んだ光。濁りも、悪意もない。……そして杯の周りには、<b>何者かが聖杯を探って回った魔術の痕跡</b>が残されていた。';
@@ -3918,6 +3984,7 @@ function deduce() {
   ], choices: [
     { label: '「聖杯は呪われている」', hint: `知力判定 目標${deduceDiff()}`, fn: () => deduceTry('cursed') },
     { label: '「聖杯は正規のもの。事件は人の仕業だ」', hint: `知力判定 目標${deduceDiff()}`, fn: () => deduceTry('pure') },
+    ...(m.beastSign ? [{ label: '「聖杯に、何かが寄生している」', hint: `知力判定 目標${deduceDiff()}`, cls: 'danger', fn: () => deduceTry('beast') }] : []),
     { label: 'まだ結論を出さない', fn: mysteryMenu },
   ] });
 }
@@ -3928,7 +3995,8 @@ function deduceTry(guess) {
     if (!c.ok) return [c.text, unsure];
     // 間違った仮説：判定に成功していれば、矛盾に気付ける（精神的に堪える）
     if (guess !== G.truth) { gain('spi', -2);
-      return [c.text, '仮説を組み立てようとして、手が止まった。いくつかの手がかりが、どうしても噛み合わない。……どこかで、思い込みをしていたようだ。（精神-2）']; }
+      return [c.text, '仮説を組み立てようとして、手が止まった。いくつかの手がかりが、どうしても噛み合わない。……どこかで、思い込みをしていたようだ。（精神-2）',
+        isBeast() && !mys().beastSign ? '<span class="note">聖杯を観測している監督役に、何度か話を聞いてみるべきかもしれない。</span>' : '']; }
     return [c.text, '散らばっていた手がかりが、一本の線で繋がった。', solveMystery('推理')];
   });
 }
@@ -3965,6 +4033,10 @@ function stakeout(c, mode) {
     }
     return next('張り込み', paras([c.text, '冷たい夜風の中、明け方まで粘ったが、今夜は何も起きなかった。', ...takeNotes()]), advance);
   }
+  if (isBeast()) {
+    const t = '深夜二時。酔い潰れて眠る男の胸の上に、半透明の<b>白い蛇</b>のような影がとぐろを巻いていた。影は男の胸から淡い光を吸い上げ、霊脈へ溶けるように消えた。<br>男は、幸せそうに微笑んだまま、目を覚まさなかった。操る者の気配は、どこにもなかった。';
+    return next('張り込み', paras([c.text, t, addClue('stakeout', '白い影', '昏睡事件の瞬間を目撃した。人を襲ったのは、白い蛇のような影だった。被害者は幸せそうに微笑んだまま眠り続けた。', 1), ...takeNotes()]), advance);
+  }
   if (isCursed()) {
     const t = '深夜二時。路地のマンホールの隙間から、<b>黒い泥</b>が這い出してきた。泥は酔い潰れた男に覆いかぶさり、魔力を吸い上げ始める。' +
       `${SV()}が斬り払うと、泥は悲鳴のような音を立て、地下の霊脈へ逃げ込んだ。……誰かが操っている気配は、まったく無かった。`;
@@ -3990,6 +4062,10 @@ function stakeout(c, mode) {
 function mysteryDaily() {
   if (G.phase !== 'war' || !G.used.s_coma) return;
   const m = mys();
+  if (isBeast()) {
+    if (Math.random() < 0.5) G.news.push('昏睡事件の被害者が、また見つかった。医師によれば、被害者は皆<b>穏やかに微笑んだまま</b>眠り続けており、「まるで幸せな夢を見ているようだ」という。');
+    return;
+  }
   if (isCursed()) {
     if (Math.random() < 0.5) G.news.push(`昏睡事件の被害者が、また見つかった。発見現場は<b>天降山の麓</b>から、川沿いに街の中心へと広がっているという。`);
     return;
@@ -4009,9 +4085,10 @@ function mysteryDaily() {
 function viewNotebook() {
   const m = mys();
   const state = G.flags.grailTruth ? '<span class="tag red">聖杯は呪われている</span>'
+    : G.flags.grailBeast ? '<span class="tag red">聖杯に人類悪が寄生している</span>'
     : G.flags.grailPure ? '<span class="tag green">聖杯は正規のもの</span>'
       : G.flags.grailHint ? '<span class="tag">聖杯には何か秘密がある……？</span>' : '<span class="tag">聖杯の真相は不明</span>';
-  const who = !isCursed() && m.culpritKnown ? `<span class="tag red">昏睡事件の犯人：${culpritLabel()}</span>` : '';
+  const who = isPure() && m.culpritKnown ? `<span class="tag red">昏睡事件の犯人：${culpritLabel()}</span>` : '';
   const list = m.clues.length ? `<ul class="clue-list">${m.clues.map(c => `<li><b>${c.title}</b>${c.ev ? '' : '<em>（噂）</em>'}<span>${c.when}</span><br>${c.text}</li>`).join('')}</ul>`
     : '<p class="empty">まだ何も記録していない。昼の「真相を調べる」で、街の謎を調べられる。</p>';
   return `<h3>調査手帳</h3><p>${state}${who}<span class="tag">手がかり ${m.ev}</span></p>${list}`;
@@ -4606,7 +4683,8 @@ const EPI = {
   // ------------------------------------------------- 別れの後
   parted: [
     { y: 0, title: '冬の終わり',
-      text: () => (G.epi.kind === 'wishPure' ? `願いは叶い、聖杯戦争は終わった。光の中で、${SV()}は座へと還っていった。`
+      text: () => (G.epi.kind === 'beastSlain' ? `人類悪は倒れ、空になった聖杯と共に、${SV()}もまた座へと還っていった。`
+        : G.epi.kind === 'wishPure' ? `願いは叶い、聖杯戦争は終わった。光の中で、${SV()}は座へと還っていった。`
         : G.epi.kind === 'servantWish' ? `${SV()}は、願いを抱いて座へと還っていった。最後に見せた笑顔が、まぶたの裏に焼き付いている。`
           : G.epi.kind === 'none' ? `聖杯は誰の手にも渡らず、${SV()}は静かに座へと還っていった。`
             : `聖杯は砕け、${SV()}もまた、光の中へと消えていった。`) + `<br>右手の令呪の痕だけが、あの冬が夢ではなかったと告げている。` + relText({
@@ -4652,7 +4730,9 @@ const EPI = {
   // ------------------------------------------------- 災厄の後
   ruin: [
     { y: 0, title: '災厄の朝',
-      text: () => `夜が明けた。天降山から溢れた黒い泥は、街の北側を呑み込んで止まった。<br>あなたは生き延びた。だが、その代償は、あまりにも大きかった。`,
+      text: () => G.epi.kind === 'saturated'
+        ? '夜が明けた。あなたは、甘い夢から目を覚ました――街でただ一人。<br>深見の人々は、皆、微笑んだまま眠り続けている。白い大蛇は、満ち足りたように天降山の奥へ沈んでいった。'
+        : `夜が明けた。天降山から溢れた黒い泥は、街の北側を呑み込んで止まった。<br>あなたは生き延びた。だが、その代償は、あまりにも大きかった。`,
       choices: [
         { label: '救助に加わる', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '災厄の救助に加わった') || `瓦礫の中から、何人もの人を助け出した。誰も、あなたがこの災厄の原因に関わっていたことを知らない。` },
         { label: '真実を、教会に告白する', hint: '絆・遺したもの↑', run: () => epiGain({ legacy: 2, bond: 1 }, '災厄の真実を告白した') || `${CAST.sister}は、長い沈黙の後で言った。「……罪を背負うと言うのなら、その命で、この街に償いなさい」` },
@@ -4792,7 +4872,7 @@ function epiTrackOf(kind) {
   const rel = G.servant.special;
   if (isKishi() && kind !== 'together') return 'kishi_return';
   if (kind === 'together' && rel) return 'together_' + rel;
-  if (['wish', 'wishKnown', 'devoured'].includes(kind)) return 'ruin';
+  if (['wish', 'wishKnown', 'devoured', 'saturated'].includes(kind)) return 'ruin';
   if (kind === 'abstain') return 'abstain';
   if (kind === 'lost') return 'lost';
   return 'parted';
@@ -5028,6 +5108,8 @@ STORY.unshift(
           const c = chk('int', 50);
           if (!c.ok) return [c.text, '「……要領を得ないわね。もうちょっと調べてから電話しなさい」切られた。'];
           if (solved()) { gain('int', 4); return [c.text, '「なるほどね。……やるじゃない、士郎」（知力+4）']; }
+          if (isBeast()) return [c.text, '「記録を見る限り、深見の聖杯は綺麗なものよ。……ただ、変なのよね。六十年分にしては、器に溜まってる魔力が少なすぎる。誰かが、こっそり汲み出してるみたいに」',
+            addClue('rin_call', '遠坂の調査', '深見の聖杯は綺麗だが、六十年分にしては器の魔力が少なすぎる。誰かが汲み出しているようだという。', 2)];
           return isCursed()
             ? [c.text, '「六十年前、深見の聖杯は『何か』を取り込んだ記録がある。……冬木の大聖杯と、同じ匂いがするのよ」',
               addClue('rin_call', '遠坂の調査', '六十年前、深見の聖杯は何かを取り込んだ記録がある。冬木の大聖杯と同じ「匂い」がするという。', 2)]
@@ -5528,7 +5610,7 @@ let REVEAL_UNTIL = 0;                    // 文章の表示演出が終わる時
 const ENDING_LIST = [
   ['destroySpecial', '夜明けの約束'], ['destroy', '冬の終わり'], ['together', '共に生きる'], ['servantWish', '託された願い'],
   ['wishPure', '叶えられた願い'], ['none', '願いなき勝者'], ['destroyPure', '砕かれた奇跡'], ['abstain', '日常への帰還'], ['wish', '歪んだ願い'], ['wishKnown', '承知の上の願い'], ['devoured', '黒い夜明け'],
-  ['lost', '脱落'], ['dead', '血に染まる冬'], ['avalon', '隠し：Garden of Avalon'],
+  ['lost', '脱落'], ['dead', '血に染まる冬'], ['beastSlain', '楽園の外で'], ['saturated', '飽和'], ['avalon', '隠し：Garden of Avalon'],
 ];
 function seenEndings() { try { return JSON.parse(localStorage.getItem(END_KEY) || '[]'); } catch (e) { return []; } }
 function markEnding(k) {
@@ -5538,6 +5620,7 @@ function markEnding(k) {
 
 // ---------------- クラスの紋章と色 ----------------
 const CLASS_COLOR = {
+  'ビーストⅧ': '#9fd8b4',
   'セイバー': '#7fa7e0', 'アーチャー': '#d8796a', 'ランサー': '#5cbca8', 'ライダー': '#d1a253', 'キャスター': '#ad88dc',
   'アサシン': '#97a0b5', 'バーサーカー': '#e0644a', 'ルーラー': '#e6d6a0', 'アヴェンジャー': '#8a74c8', '聖杯': '#b04050',
   'アルターエゴ': '#d985bd', 'ムーンキャンサー': '#c3b2f0', 'フォーリナー': '#6fb3a8', 'シールダー': '#b8c6d8', 'プリテンダー': '#9fd36f',
@@ -5719,7 +5802,7 @@ const EVENT_CHANCE = { prep: 0.25, war: 0.22 };   // コマの始めにランダ
 const STAT_LABEL = { mag: '魔力', phy: '体力', int: '知力', spi: '精神', cha: '交渉', luk: '幸運' };
 const CLASS_EN = { 'セイバー': 'SABER', 'アーチャー': 'ARCHER', 'ランサー': 'LANCER', 'ライダー': 'RIDER',
   'キャスター': 'CASTER', 'アサシン': 'ASSASSIN', 'バーサーカー': 'BERSERKER', 'ルーラー': 'RULER', 'アヴェンジャー': 'AVENGER', '聖杯': 'GRAIL',
-  'アルターエゴ': 'ALTER EGO', 'ムーンキャンサー': 'MOON CANCER', 'フォーリナー': 'FOREIGNER', 'シールダー': 'SHIELDER', 'プリテンダー': 'PRETENDER' };
+  'アルターエゴ': 'ALTER EGO', 'ビーストⅧ': 'BEAST VIII', 'ムーンキャンサー': 'MOON CANCER', 'フォーリナー': 'FOREIGNER', 'シールダー': 'SHIELDER', 'プリテンダー': 'PRETENDER' };
 
 // 道具（買い出しで入手。主に戦闘中に「マスターの行動」として使う）
 const ITEMS = {
@@ -5749,7 +5832,7 @@ function wpick(items, wf) {
   return items[items.length - 1];
 }
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS]).map(s => [s.id, s]));
+const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS, BEAST8]).map(s => [s.id, s]));
 
 // ---------------- 名前・参照 ----------------
 function M() { return esc(G.master.name); }
@@ -5893,7 +5976,7 @@ function newGame(master) {
     v: 3, phase: 'growth', day: 1, slot: 0, master, servant: null, growth: { stage: 0 }, friend: null,
     catalysts: [], items: { potion: 1, gem: 0, crystal: 0, smoke: 1 }, flags: {}, used: {}, rivals: [], log: [], news: [],
     ritual: 0, workshop: 0, traps: 0, kills: 0, battles: 0, tmpRival: null, storyRival: null,
-    truth: Math.random() < 0.5 ? 'cursed' : 'pure',   // 聖杯の真相（プレイヤーには見えない。data_mystery.js）
+    truth: pick(['cursed', 'pure', 'beast']),   // 聖杯の真相（プレイヤーには見えない。data_mystery.js）：呪い／正規／人類悪の寄生
   };
   G.master.od = odMax();
   G.lore = BIRTHS.find(b => b.id === master.birth).magic ? 5 : 0;   // 魔術世界をどれだけ知っているか
@@ -6298,7 +6381,7 @@ function warNightActions() {
     { label: `${SV()}に偵察させる`, hint: none ? '敵は天降山に籠城中' : '敏捷判定で情報↑・失敗すると戦闘', disabled: none, fn: scoutMenu },
   ];
   const so = mys();   // 張り込み：呪いなら一度目撃するまで、正規なら犯人が判明するまで
-  if (G.used.s_coma && ((isCursed() && !solved() && !so.clues.some(c => c.id === 'stakeout')) || (!isCursed() && culpritAlive() && !so.culpritKnown)))
+  if (G.used.s_coma && ((!isPure() && !solved() && !so.clues.some(c => c.id === 'stakeout')) || (isPure() && culpritAlive() && !so.culpritKnown)))
     acts.push({ label: '事件現場に張り込む', hint: '昏睡事件の瞬間を押さえる・調査', icon: 'observe', fn: stakeoutMenu });
   if (targets.length) acts.push({ label: '敵の拠点を襲撃する', hint: '作戦を選んで仕掛ける', fn: assaultMenu, cls: 'danger' });
   acts.push(
@@ -7016,7 +7099,7 @@ function startBattle(rival, opt = {}) {
   if (isShirou() && !rival.fifthTalked && FIFTH_TALK[rival.servantId] && rival.servantId !== 'ori')
     return fifthTalkScene(rival, () => startBattle(rival, opt));
   G.battles++;
-  B = { r: rival, round: 0, opt, final: !!(opt.final || opt.boss), boss: !!opt.boss, miracle: false,
+  B = { r: rival, round: 0, opt, final: !!(opt.final || opt.boss), boss: !!opt.boss, beast: !!opt.beast, miracle: false,
     enemyNext: null, tell: null, sure: false, charge: 0, echarge: 0, mact: 'command', extra: null, enemySeal: false };
   const pre = [];
   const seen = meet(rival);
@@ -7088,7 +7171,7 @@ function battleScene(extra) {
     if (aff > 0 && me.cls !== 'バーサーカー' && r.cls !== 'バーサーカー') mods.push('クラス相性◎');
     if (aff < 0) mods.push('クラス相性×');
     if (B.final && G.flags.resolve === 'win') mods.push('決意');
-    body.push(`<p>${B.boss ? '聖杯の内から、黒い泥が形を成して立ち上がる。' : B.final ? '聖杯を賭けた、最後の戦いが始まる。' : '戦闘開始。'}${mods.length ? `<br><span class="note">補正：${mods.join('・')}</span>` : ''}</p>`);
+    body.push(`<p>${B.beast ? '白い大蛇が、楽園の香りと共に鎌首をもたげる。――人類悪との戦いが始まる。' : B.boss ? '聖杯の内から、黒い泥が形を成して立ち上がる。' : B.final ? '聖杯を賭けた、最後の戦いが始まる。' : '戦闘開始。'}${mods.length ? `<br><span class="note">補正：${mods.join('・')}</span>` : ''}</p>`);
   }
   if (B.extra) body.push(...B.extra);
   if (B.tell) body.push(`<p class="tell">${B.tell}</p>`);
@@ -7115,7 +7198,7 @@ function battleScene(extra) {
   if (!B.boss) choices.push({ label: '敵マスターを狙う', hint: `${isAssassin() ? '気配遮断で有利' : '成功率低'}・悪`, cls: 'danger', fn: () => battleRound('master'), icon: 'target' });
   choices.push({ label: `令呪（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu, icon: 'seal' });
   if (!B.final) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
-  scene({ title: B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
+  scene({ title: B.beast ? 'ビーストⅧ' : B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
   animateBattle();
 }
 // 衛宮士郎の戦闘画面：士郎の行動を選ぶ。セイバーは自分の判断で戦う
@@ -7139,7 +7222,7 @@ function shirouBattleScene(body) {
   choices.push({ label: 'セイバーに指示を出す', hint: '次の手番の戦い方を決める', icon: 'observe', fn: saberOrderMenu });
   choices.push({ label: `令呪（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu, icon: 'seal' });
   if (!B.final) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
-  scene({ title: B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
+  scene({ title: B.beast ? 'ビーストⅧ' : B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
   animateBattle();
 }
 function sealMenu() {
@@ -7215,15 +7298,18 @@ function battleRound(cmd) {
   let eSeal = 0;
   if (!B.enemySeal && r.seals > 0 && r.hp < r.hpMax * 0.35 && Math.random() < 0.6) {
     B.enemySeal = true; r.seals--; eSeal = 25; r.hp = Math.min(r.hpMax, r.hp + 25);
-    log.push(`<span class="note">${B.boss ? '泥が脈打ち、傷が塞がっていく。' : `敵マスターの令呪が輝いた！ ${E}の傷が癒え、力が増す。`}（敵HP+25）</span>`);
+    log.push(`<span class="note">${B.beast ? '白い鱗が脈打ち、傷が満たされていく。' : B.boss ? '泥が脈打ち、傷が塞がっていく。' : `敵マスターの令呪が輝いた！ ${E}の傷が癒え、力が増す。`}（敵HP+25）</span>`);
   }
+
+  // 人類悪：正体を知らなければ、聖杯の残り香から魔力を吸い上げる
+  if (B.beast && !G.flags.grailBeast && B.round <= 4) { r.hp = Math.min(r.hpMax, r.hp + 10); log.push('<span class="note">獣が、空の杯から最後の魔力を吸い上げた。（敵HP+10）</span>'); }
 
   // ---- 補正値 ----
   const first = B.round === 1;
   const myMod = classAffinity(me.cls, r.cls) + Math.floor(sv.bond / 8) + (sv.special ? 5 : 0) + Math.floor(G.master.stats.mag / 20)
     + (['mercenary', 'executor'].includes(G.master.birth) ? 4 : 0) + (G.master.birth === 'fujimaru' ? 6 : 0) + (G.master.birth === 'kishinami' ? 8 : 0) + (knowsName(r) ? 8 : 0)
     + (first && B.opt.ambush ? 15 : 0) + (first && B.opt.duel ? 6 : 0) + (B.opt.defend ? G.workshop * 3 : 0)
-    + (B.final && G.flags.resolve === 'win' ? 6 : 0) + (B.boss && G.flags.resolve === 'destroy' ? 8 : 0) + (B.boss && G.flags.mudKnown ? 5 : 0) + (B.final && G.flags.resolve === 'pure' ? 5 : 0) + (G.flags.partnerCombo && sv.special === 'partner' ? 3 : 0)
+    + (B.final && G.flags.resolve === 'win' ? 6 : 0) + (B.boss && G.flags.resolve === 'destroy' ? 8 : 0) + (B.boss && G.flags.mudKnown ? 5 : 0) + (B.final && G.flags.resolve === 'pure' ? 5 : 0) + (B.beast ? (G.flags.resolve === 'beast' ? 8 : 0) + (G.flags.grailBeast ? 5 : 0) + (G.flags.serpentKnown ? 4 : 0) : 0) + (G.flags.partnerCombo && sv.special === 'partner' ? 3 : 0)
     + (!B.boss && r.id === mys().culprit && mys().culpritKnown ? 3 + (G.flags.shadowKnown ? 3 : 0) : 0)
     + sealBoost + mBonus + B.charge;
   const enMod = classAffinity(r.cls, me.cls) + r.power + (sv.exposed ? 6 : 0) + (first && B.opt.enemyFirst ? 12 : 0) + eSeal + B.echarge;
@@ -7347,14 +7433,15 @@ function battleLoseChoice(extra) {
   if (G.items.potion > 0 && !B.final) choices.push({ label: '霊薬を飲ませて退く', hint: '霊薬-1・撤退', fn: () => {
     item('potion', -1); G.servant.hp = 15; escape([`霊薬で辛うじて霊基を保ち、${SV()}は最後の力であなたを抱えて退いた。`]);
   } });
-  choices.push({ label: '……ここまでか', fn: () => { const boss = B.boss; B = null; ending(boss ? 'devoured' : 'lost'); } });
+  choices.push({ label: '……ここまでか', fn: () => { const boss = B.boss, beast = B.beast; B = null; ending(beast ? 'saturated' : boss ? 'devoured' : 'lost'); } });
   sfx('lose');
   scene({ title: '霊核の危機', sub: 'CRISIS', body: [...extra, `<p>${SV()}が膝をつく。霊基が崩れ始めている――このままでは消滅する！</p>`], choices });
 }
 function battleWin(extra) {
-  const r = B.r; const wasFinal = B.final; const boss = B.boss; B = null;
+  const r = B.r; const wasFinal = B.final; const boss = B.boss; const beast = B.beast; B = null;
   sfx('win');
   if (!boss) showCard({ kicker: 'VICTORY', title: '勝利', sub: `${rivalLabel(r)}陣営を撃破`, cls: 'victory', ms: 1300 });
+  if (beast) return ending('beastSlain');
   if (boss) return ending(G.servant.special ? 'destroySpecial' : 'destroy');
   r.alive = false; r.hp = 0; G.kills++;
   NOTES = []; bond(5);
@@ -7461,6 +7548,7 @@ function deadlineScene() {
 }
 
 function victoryScene() {
+  if (isBeast()) return beastReveal();   // 第三の真相：聖杯に寄生していた人類悪が姿を現す
   G.phase = 'end';
   const sv = servantOf(G); const b = birthOf();
   const choices = [];
@@ -7480,6 +7568,22 @@ function victoryScene() {
     `<p class="quote">${highLine(sv)}</p>`,
     '<p>あなたが願うのは――</p>',
   ], choices });
+}
+// ---- 人類悪：ビーストⅧ「アダム=サーペント」 ----
+function beastReveal() {
+  G.phase = 'end';
+  next('聖杯降臨', [
+    '<p>最後の敵が消え、天降山の頂に黄金の杯が降りてきた。――はずだった。</p>',
+    '<p>杯は、<b>空っぽ</b>だった。六十年かけて満ちるはずだった魔力は、一滴も残っていない。</p>',
+    '<p>杯の底から、白く濡れた何かが、ずるりと這い出してきた。大蛇の胴。人の腕。どこからか、熟れた林檎の甘い香りが漂う。</p>',
+    '<p class="quote">「――ようやく、満ちた。七騎の願いと、六十年の祈り。すべて、ワタシの糧となった」</p>',
+    G.flags.grailBeast ? '<p>知っている。これが、聖杯に巣食っていたもの。聖杯の魔力を吸い尽くし、孵化の時を待っていた――<b>人類悪</b>。</p>'
+      : '<p>なんだ、これは。英霊ではない。呪いでもない。もっと古く、もっと根源的な、何か。</p>',
+    '<p class="quote">「我が名はアダム=サーペント。理は【飽和】。満たされよ、人の子。汝らの願い、すべて叶えよう。――その果てに、もう何一つ、望まぬように」</p>',
+    `<p>${SV()}が、あなたの前に立った。${say('stayBack')}</p>`,
+    `<p class="note">ビーストⅧとの決戦。${SV()} HP ${G.servant.hp}/${servantHpMax()}・魔力 ${G.servant.mp}　令呪 ${G.master.seals}画。撤退はできない。${G.flags.grailBeast ? '<br>正体を突き止めている。聖杯との繋がりを断ち、戦いを有利に進められる。' : '<br>正体を知らないまま戦う。獣は聖杯の残り香から、しばらく魔力を吸い上げ続けるだろう。'}</p>`,
+  ], () => startBattle({ id: 'beast', cls: 'ビーストⅧ', servantId: 'beast8', master: '―', type: '', quote: '', power: 9, aggr: 1, alive: true,
+    hp: 240, hpMax: 240, mp: 100, intel: 3, clues: 0, seals: 1, ally: false, named: true }, { boss: true, beast: true }), '人類悪に挑む', 'BEAST');
 }
 function bossIntro() {
   const boss = { id: 'boss', cls: '聖杯', servantId: 'ori', master: '―', type: '', quote: '', power: 7, aggr: 1, alive: true,
@@ -7526,6 +7630,15 @@ function ending(kind) {
     together: () => ({ title: `終幕：${rel ? rel.name : ''}として`, text: [`<p>「${sv.short}に、この世界で生きる体を」</p>`, '<p>聖杯は願いを聞き届けた。黄金の光が霊基を包み、英霊は肉体を得て現世に降り立つ。</p>',
       `<p>冬が終わり、深見市に春が来た。桜並木の下を、${sv.short}と並んで歩く。「${rel ? rel.name : ''}」と呼び合う二人の、新しい日々が始まる。</p>`,
       G.flags.grailTruth ? '<p class="note">聖杯の呪いは今も山の下に眠っている。いつか、二人で向き合う日が来るだろう。</p>' : ''] }),
+    beastSlain: () => ({ title: '終幕：楽園の外で', text: [`<p>${sv.short}の最後の一撃が、白い大蛇を貫いた。人類悪は、甘い林檎の香りだけを残して、光の中に崩れていった。</p>`,
+      '<p>天降山の頂には、空っぽの杯だけが残された。願いを叶える魔力は、もうどこにもない。</p>',
+      rel ? `<p>魔力の尽きた聖杯では、${sv.short}を現世に繋ぎ止めることもできない。消えゆく体で、${sv.short}は「${rel.name}」として、あなたの手を強く握った。</p>` : `<p>聖杯からの魔力が途絶え、${sv.short}の体が、少しずつ光の粒に変わっていく。</p>`,
+      `<p class="quote">${farewellLine(sv)}</p>`,
+      '<p>願いは、叶わなかった。けれど――願う自由は、守られた。眠り続けていた人々が、一人、また一人と、目を覚ましていく。</p>',
+      G.flags.grailBeast ? '<p class="note">聖杯に巣食う獣の正体を突き止めていたからこそ、辿り着けた結末だった。</p>' : ''] }),
+    saturated: () => ({ title: '終幕：飽和', text: ['<p>白い大蛇が、天降山を呑み込んだ。</p>', '<p>甘い林檎の香りが、街に満ちていく。深見の人々は、一人、また一人と、穏やかに微笑んだまま眠りについた。誰もが、願いの叶った夢の中にいる。</p>',
+      `<p>${sv.short}の霊基もまた、その甘い夢に溶けていった。</p>`, '<p>満たされた世界には、もう、何一つ望むものはない。――それが、人類悪【飽和】の救済だった。</p>',
+      '<p class="note">ヒント：「一見正しい聖杯」でも、何度か監督役に話を聞けば、異変に気付けるかもしれない。正体を知っていれば、獣との戦いは有利になる。</p>'] }),
     abstain: () => ({ title: '終幕：日常への帰還', text: ['<p>「……ごめん。戦えない」</p>',
       `<p>${sv.short}は少しだけ目を伏せ、それから穏やかに笑った。</p>`, `<p class="quote">${farewellLine(sv)}</p>`,
       `<p>令呪は教会に預けられ、${sv.short}の姿は光の粒となって消えた。</p>`,
@@ -7546,7 +7659,7 @@ function ending(kind) {
   addLog(E.title); markEnding(kind);
   const me = mysteryEpilogue(kind);
   if (me) E.text.push(me);
-  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure'].includes(kind);
+  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure', 'saturated'].includes(kind);
   sfx(good ? 'win' : 'lose');
   showCard({ kicker: good ? 'ENDING' : 'BAD END', title: E.title.replace('終幕：', ''), cls: good ? 'dawn' : 'blood', ms: 2200 }, () => {
     SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good };
@@ -7557,7 +7670,7 @@ function ending(kind) {
 // 聖杯の真相のその後（昏睡事件の結末）
 function mysteryEpilogue(kind) {
   if (!G.used.s_coma || ['dead', 'abstain'].includes(kind)) return '';
-  if (isCursed()) return '';
+  if (!isPure()) return '';
   const r = culprit(); if (!r || r.alive) return '';
   if (mys().culpritKnown) return `<p class="note">昏睡事件の犯人は、${r.cls}陣営のマスター・${esc(r.master)}だった。被害者たちは、春を待たずに目を覚ましていった。</p>`;
   return '<p class="note">昏睡事件はいつの間にか止んでいた。誰の仕業だったのか、あなたは最後まで知らないままだった。</p>';

@@ -41,6 +41,7 @@ function deadlineScene() {
 }
 
 function victoryScene() {
+  if (isBeast()) return beastReveal();   // 第三の真相：聖杯に寄生していた人類悪が姿を現す
   G.phase = 'end';
   const sv = servantOf(G); const b = birthOf();
   const choices = [];
@@ -60,6 +61,22 @@ function victoryScene() {
     `<p class="quote">${highLine(sv)}</p>`,
     '<p>あなたが願うのは――</p>',
   ], choices });
+}
+// ---- 人類悪：ビーストⅧ「アダム=サーペント」 ----
+function beastReveal() {
+  G.phase = 'end';
+  next('聖杯降臨', [
+    '<p>最後の敵が消え、天降山の頂に黄金の杯が降りてきた。――はずだった。</p>',
+    '<p>杯は、<b>空っぽ</b>だった。六十年かけて満ちるはずだった魔力は、一滴も残っていない。</p>',
+    '<p>杯の底から、白く濡れた何かが、ずるりと這い出してきた。大蛇の胴。人の腕。どこからか、熟れた林檎の甘い香りが漂う。</p>',
+    '<p class="quote">「――ようやく、満ちた。七騎の願いと、六十年の祈り。すべて、ワタシの糧となった」</p>',
+    G.flags.grailBeast ? '<p>知っている。これが、聖杯に巣食っていたもの。聖杯の魔力を吸い尽くし、孵化の時を待っていた――<b>人類悪</b>。</p>'
+      : '<p>なんだ、これは。英霊ではない。呪いでもない。もっと古く、もっと根源的な、何か。</p>',
+    '<p class="quote">「我が名はアダム=サーペント。理は【飽和】。満たされよ、人の子。汝らの願い、すべて叶えよう。――その果てに、もう何一つ、望まぬように」</p>',
+    `<p>${SV()}が、あなたの前に立った。${say('stayBack')}</p>`,
+    `<p class="note">ビーストⅧとの決戦。${SV()} HP ${G.servant.hp}/${servantHpMax()}・魔力 ${G.servant.mp}　令呪 ${G.master.seals}画。撤退はできない。${G.flags.grailBeast ? '<br>正体を突き止めている。聖杯との繋がりを断ち、戦いを有利に進められる。' : '<br>正体を知らないまま戦う。獣は聖杯の残り香から、しばらく魔力を吸い上げ続けるだろう。'}</p>`,
+  ], () => startBattle({ id: 'beast', cls: 'ビーストⅧ', servantId: 'beast8', master: '―', type: '', quote: '', power: 9, aggr: 1, alive: true,
+    hp: 240, hpMax: 240, mp: 100, intel: 3, clues: 0, seals: 1, ally: false, named: true }, { boss: true, beast: true }), '人類悪に挑む', 'BEAST');
 }
 function bossIntro() {
   const boss = { id: 'boss', cls: '聖杯', servantId: 'ori', master: '―', type: '', quote: '', power: 7, aggr: 1, alive: true,
@@ -106,6 +123,15 @@ function ending(kind) {
     together: () => ({ title: `終幕：${rel ? rel.name : ''}として`, text: [`<p>「${sv.short}に、この世界で生きる体を」</p>`, '<p>聖杯は願いを聞き届けた。黄金の光が霊基を包み、英霊は肉体を得て現世に降り立つ。</p>',
       `<p>冬が終わり、深見市に春が来た。桜並木の下を、${sv.short}と並んで歩く。「${rel ? rel.name : ''}」と呼び合う二人の、新しい日々が始まる。</p>`,
       G.flags.grailTruth ? '<p class="note">聖杯の呪いは今も山の下に眠っている。いつか、二人で向き合う日が来るだろう。</p>' : ''] }),
+    beastSlain: () => ({ title: '終幕：楽園の外で', text: [`<p>${sv.short}の最後の一撃が、白い大蛇を貫いた。人類悪は、甘い林檎の香りだけを残して、光の中に崩れていった。</p>`,
+      '<p>天降山の頂には、空っぽの杯だけが残された。願いを叶える魔力は、もうどこにもない。</p>',
+      rel ? `<p>魔力の尽きた聖杯では、${sv.short}を現世に繋ぎ止めることもできない。消えゆく体で、${sv.short}は「${rel.name}」として、あなたの手を強く握った。</p>` : `<p>聖杯からの魔力が途絶え、${sv.short}の体が、少しずつ光の粒に変わっていく。</p>`,
+      `<p class="quote">${farewellLine(sv)}</p>`,
+      '<p>願いは、叶わなかった。けれど――願う自由は、守られた。眠り続けていた人々が、一人、また一人と、目を覚ましていく。</p>',
+      G.flags.grailBeast ? '<p class="note">聖杯に巣食う獣の正体を突き止めていたからこそ、辿り着けた結末だった。</p>' : ''] }),
+    saturated: () => ({ title: '終幕：飽和', text: ['<p>白い大蛇が、天降山を呑み込んだ。</p>', '<p>甘い林檎の香りが、街に満ちていく。深見の人々は、一人、また一人と、穏やかに微笑んだまま眠りについた。誰もが、願いの叶った夢の中にいる。</p>',
+      `<p>${sv.short}の霊基もまた、その甘い夢に溶けていった。</p>`, '<p>満たされた世界には、もう、何一つ望むものはない。――それが、人類悪【飽和】の救済だった。</p>',
+      '<p class="note">ヒント：「一見正しい聖杯」でも、何度か監督役に話を聞けば、異変に気付けるかもしれない。正体を知っていれば、獣との戦いは有利になる。</p>'] }),
     abstain: () => ({ title: '終幕：日常への帰還', text: ['<p>「……ごめん。戦えない」</p>',
       `<p>${sv.short}は少しだけ目を伏せ、それから穏やかに笑った。</p>`, `<p class="quote">${farewellLine(sv)}</p>`,
       `<p>令呪は教会に預けられ、${sv.short}の姿は光の粒となって消えた。</p>`,
@@ -126,7 +152,7 @@ function ending(kind) {
   addLog(E.title); markEnding(kind);
   const me = mysteryEpilogue(kind);
   if (me) E.text.push(me);
-  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure'].includes(kind);
+  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure', 'saturated'].includes(kind);
   sfx(good ? 'win' : 'lose');
   showCard({ kicker: good ? 'ENDING' : 'BAD END', title: E.title.replace('終幕：', ''), cls: good ? 'dawn' : 'blood', ms: 2200 }, () => {
     SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good };
@@ -137,7 +163,7 @@ function ending(kind) {
 // 聖杯の真相のその後（昏睡事件の結末）
 function mysteryEpilogue(kind) {
   if (!G.used.s_coma || ['dead', 'abstain'].includes(kind)) return '';
-  if (isCursed()) return '';
+  if (!isPure()) return '';
   const r = culprit(); if (!r || r.alive) return '';
   if (mys().culpritKnown) return `<p class="note">昏睡事件の犯人は、${r.cls}陣営のマスター・${esc(r.master)}だった。被害者たちは、春を待たずに目を覚ましていった。</p>`;
   return '<p class="note">昏睡事件はいつの間にか止んでいた。誰の仕業だったのか、あなたは最後まで知らないままだった。</p>';

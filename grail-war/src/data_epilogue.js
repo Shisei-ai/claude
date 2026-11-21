@@ -244,7 +244,8 @@ const EPI = {
   // ------------------------------------------------- 別れの後
   parted: [
     { y: 0, title: '冬の終わり',
-      text: () => (G.epi.kind === 'wishPure' ? `願いは叶い、聖杯戦争は終わった。光の中で、${SV()}は座へと還っていった。`
+      text: () => (G.epi.kind === 'beastSlain' ? `人類悪は倒れ、空になった聖杯と共に、${SV()}もまた座へと還っていった。`
+        : G.epi.kind === 'wishPure' ? `願いは叶い、聖杯戦争は終わった。光の中で、${SV()}は座へと還っていった。`
         : G.epi.kind === 'servantWish' ? `${SV()}は、願いを抱いて座へと還っていった。最後に見せた笑顔が、まぶたの裏に焼き付いている。`
           : G.epi.kind === 'none' ? `聖杯は誰の手にも渡らず、${SV()}は静かに座へと還っていった。`
             : `聖杯は砕け、${SV()}もまた、光の中へと消えていった。`) + `<br>右手の令呪の痕だけが、あの冬が夢ではなかったと告げている。` + relText({
@@ -290,7 +291,9 @@ const EPI = {
   // ------------------------------------------------- 災厄の後
   ruin: [
     { y: 0, title: '災厄の朝',
-      text: () => `夜が明けた。天降山から溢れた黒い泥は、街の北側を呑み込んで止まった。<br>あなたは生き延びた。だが、その代償は、あまりにも大きかった。`,
+      text: () => G.epi.kind === 'saturated'
+        ? '夜が明けた。あなたは、甘い夢から目を覚ました――街でただ一人。<br>深見の人々は、皆、微笑んだまま眠り続けている。白い大蛇は、満ち足りたように天降山の奥へ沈んでいった。'
+        : `夜が明けた。天降山から溢れた黒い泥は、街の北側を呑み込んで止まった。<br>あなたは生き延びた。だが、その代償は、あまりにも大きかった。`,
       choices: [
         { label: '救助に加わる', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '災厄の救助に加わった') || `瓦礫の中から、何人もの人を助け出した。誰も、あなたがこの災厄の原因に関わっていたことを知らない。` },
         { label: '真実を、教会に告白する', hint: '絆・遺したもの↑', run: () => epiGain({ legacy: 2, bond: 1 }, '災厄の真実を告白した') || `${CAST.sister}は、長い沈黙の後で言った。「……罪を背負うと言うのなら、その命で、この街に償いなさい」` },
@@ -430,7 +433,7 @@ function epiTrackOf(kind) {
   const rel = G.servant.special;
   if (isKishi() && kind !== 'together') return 'kishi_return';
   if (kind === 'together' && rel) return 'together_' + rel;
-  if (['wish', 'wishKnown', 'devoured'].includes(kind)) return 'ruin';
+  if (['wish', 'wishKnown', 'devoured', 'saturated'].includes(kind)) return 'ruin';
   if (kind === 'abstain') return 'abstain';
   if (kind === 'lost') return 'lost';
   return 'parted';

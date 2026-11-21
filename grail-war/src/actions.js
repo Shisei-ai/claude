@@ -234,7 +234,7 @@ function warNightActions() {
     { label: `${SV()}に偵察させる`, hint: none ? '敵は天降山に籠城中' : '敏捷判定で情報↑・失敗すると戦闘', disabled: none, fn: scoutMenu },
   ];
   const so = mys();   // 張り込み：呪いなら一度目撃するまで、正規なら犯人が判明するまで
-  if (G.used.s_coma && ((isCursed() && !solved() && !so.clues.some(c => c.id === 'stakeout')) || (!isCursed() && culpritAlive() && !so.culpritKnown)))
+  if (G.used.s_coma && ((!isPure() && !solved() && !so.clues.some(c => c.id === 'stakeout')) || (isPure() && culpritAlive() && !so.culpritKnown)))
     acts.push({ label: '事件現場に張り込む', hint: '昏睡事件の瞬間を押さえる・調査', icon: 'observe', fn: stakeoutMenu });
   if (targets.length) acts.push({ label: '敵の拠点を襲撃する', hint: '作戦を選んで仕掛ける', fn: assaultMenu, cls: 'danger' });
   acts.push(

@@ -17,8 +17,20 @@
 const MYSTERY_CORE_EV = 3;     // 核心の調査に必要な手がかりの数
 const MYSTERY_DEDUCE_EV = 4;   // 推理に必要な手がかりの数
 
-function isCursed() { return G.truth !== 'pure'; }
-function solved() { return !!(G.flags.grailTruth || G.flags.grailPure); }
+function isCursed() { return G.truth !== 'pure' && G.truth !== 'beast'; }
+function isPure() { return G.truth === 'pure'; }
+function isBeast() { return G.truth === 'beast'; }
+// 真相ごとに値を選ぶ（人類悪の場合、省略すると「正規の聖杯」と同じに見える）
+function T(cursed, pure, beast) { return isCursed() ? cursed : isBeast() ? (beast === undefined ? pure : beast) : pure; }
+function solved() { return !!(G.flags.grailTruth || G.flags.grailPure || G.flags.grailBeast); }
+
+// ---- 人類悪：ビーストⅧ（第三の真相のラスボス） ----
+const BEAST8 = {
+  id: 'beast8', name: 'アダム=サーペント', short: 'アダム=サーペント', cls: 'ビーストⅧ',
+  p: ['A+', 'EX', 'B', 'EX', 'A', 'EX'], align: '―', persona: 'berserker',
+  np: '満ち足りよ、原初の楽園', npRuby: 'エデン・サチュレーション', catalyst: null,
+  line: '', desc: '人類悪の一つ。理は【飽和】。知恵の実を齧った最初の人間と、彼を唆した蛇。「満たされたい」という人類の原初の欲求そのもの。聖杯に寄生し、その魔力を吸い上げて孵化を待っていた。',
+};
 function mys() {
   if (!G.mys) G.mys = { ev: 0, clues: [], done: {}, culprit: null, culpritKnown: false, area: null, stopped: false };
   return G.mys;
@@ -26,7 +38,7 @@ function mys() {
 
 // ---- 正規の聖杯の場合の「犯人」陣営（最初に必要になった時に決める） ----
 function culprit() {
-  if (isCursed() || !G.rivals.length) return null;
+  if (!isPure() || !G.rivals.length) return null;
   const m = mys();
   if (!m.culprit) {
     const pool = G.rivals.filter(r => r.alive && !r.friend);
@@ -68,6 +80,11 @@ function solveMystery(how) {
     addLog(`聖杯の真相に辿り着く：聖杯は呪われている（${how}）。`);
     return '<div class="truth cursed"><b>真相：この聖杯は、呪われている。</b><br>六十年前の戦いで「呪いそのもの」を呑み込んだ聖杯は、願いを破滅の形でしか叶えない。昏睡事件は、聖杯から溢れた黒い泥の仕業だった。</div>';
   }
+  if (isBeast()) {
+    G.flags.grailBeast = true; G.flags.grailHint = true;
+    addLog(`聖杯の真相に辿り着く：聖杯に人類悪が寄生している（${how}）。`);
+    return '<div class="truth beast"><b>真相：この聖杯は正しい聖杯だ。――だが、その中に「何か」が巣食っている。</b><br>器の底に潜む、白い蛇のようなもの。それは六十年かけて聖杯の魔力を吸い上げ、孵化の時を待っている。昏睡事件の被害者が皆、満ち足りた顔で眠り続けているのも、そのせいだ。<br>人類の原初の欲求――「満たされたい」という願いの化身。<b>人類悪</b>。</div>';
+  }
   G.flags.grailPure = true;
   addLog(`聖杯の真相に辿り着く：聖杯は正規のもの（${how}）。`);
   const r = culprit(); const who = r ? revealCulprit(how) : '';
@@ -92,6 +109,8 @@ const MYSTERY_SITES = [
     clue: (stage) => isCursed()
       ? stage === 1 ? ['残滓の正体', '路地に残っていたのは、サーヴァントの魔力ではなかった。粘つくような、悪意そのものの残滓――人の怨念を煮詰めたような<b>呪詛</b>だ。']
         : ['残滓の行き先', '残滓を辿ると、地下の霊脈に沿って北へ――<b>天降山の方角</b>へ続いていた。どの陣営の拠点とも、方角が合わない。']
+      : isBeast() ? (stage === 1 ? ['残滓の正体', '路地に残っていたのは、澄んだ魔力の残滓だった。呪詛ではない。サーヴァントのものとも、どこか違う。<b>穢れは、どこにもない</b>。']
+        : ['残滓の行き先', '残滓を辿ると、霊脈に沿って天降山の方へ続いていた。……けれど、呪いの気配はまるでない。ただ、何かが<b>細く長く</b>、山の方へ這っていった跡のようにも見えた。'])
       : stage === 1 ? ['残滓の正体', '路地に残っていたのは、確かに<b>サーヴァントの魔力</b>だった。何者かが、使い魔を通じて人の魂を吸い上げている。手口は魔術師のものだ。']
         : ['残滓の行き先', `残滓を辿ると、霊脈ではなく人の手で引かれた魔力の糸が、<b>${mys().area}</b>の方へ続いていた。……誰かの拠点がある。`],
     extra: (stage) => !isCursed() && stage === 2 ? revealCulprit('現場の調査') : '',
@@ -107,6 +126,7 @@ const MYSTERY_SITES = [
     ],
     clue: () => isCursed()
       ? ['被害者の容態', '被害者の魂には、<b>黒い澱</b>のようなものがこびりついていた。ただ魔力を奪われたのではない。何かに「侵されて」いる。']
+      : isBeast() ? ['被害者の容態', '被害者の魂は<b>穢れていない</b>。それどころか、誰もが<b>幸せそうな顔</b>で眠っていた。まるで、願いがすべて叶った夢を見ているかのように。']
       : ['被害者の容態', '被害者は魔力を抜き取られているだけで、魂そのものは<b>穢れていない</b>。抜き取りの跡には、術式で吸い上げた几帳面な痕がある。'],
     risk: { text: '看護師に見咎められた。病院から警察に連絡が入り、しばらく近寄れそうにない。（精神-3）', run: () => { gain('spi', -3); } },
   },
@@ -144,6 +164,7 @@ const MYSTERY_SITES = [
     ],
     clue: () => isCursed()
       ? ['教会の報告書', '前回の報告書：「聖杯の汚染を確認。ただし、儀式の継続を優先する」――署名は教会上層部のものだ。<b>教会は、知っていて黙っていた。</b>']
+      : isBeast() ? ['教会の報告書', '前回の報告書：「聖杯に汚染の兆候なし。儀式は器の完成前に中断」。……最後の頁の隅に、誰かの走り書きがあった。「器の底に、何か――」その先は、インクが滲んで読めない。']
       : ['教会の報告書', '前回の報告書：「聖杯に汚染の兆候なし。儀式は器の完成前に中断」。添付の資料には、魔術協会の手配書が一枚――<b>他人の魂を喰らって魔力を蓄える魔術師</b>の手口が記されていた。'],
     extra: () => { if (isCursed()) G.flags.sisterSecret = true; return ''; },
     risk: { text: `足音。${CAST.sister}だ。「……ここは立入禁止です」その目は冷たかった。（教会からの信用を失った）`, run: () => { G.flags.registered = false; } },
@@ -160,8 +181,31 @@ const MYSTERY_SITES = [
       ? stage === 1 ? ['霊脈の濁り', '山の霊脈は、底の方で<b>濁っていた</b>。黒い霧は、地の底から滲み出す何かの「吐息」のようだ。']
         : ['霊脈の底', '霊脈の要に耳を澄ますと、地の底で何かが<b>脈打っている</b>のが分かった。黒い泥だ。……それは、街で倒れた人々から奪った魔力を、ゆっくりと呑み込んでいた。']
       : stage === 1 ? ['霊脈の濁り', '霊脈そのものは<b>澄んでいた</b>。黒い霧は、霊脈が吐き出す古い瘴気――六十年前の儀式の名残で、悪意は感じられない。']
+        : isBeast() ? ['霊脈の底', '霊脈の要の奥深くに、黄金の気配があった。濁りはない。……ただ、<b>六十年分の魔力にしては、あまりにも弱々しい</b>。']
         : ['霊脈の底', '霊脈の要の奥深くに、静かに眠る黄金の気配があった。濁りはない。<b>街で奪われた魔力は、ここには流れ込んでいない</b>。'],
     risk: { text: '足を滑らせ、凍った斜面を転げ落ちた。（HP-20）', run: () => { hp(-20); } },
+  },
+  {
+    id: 'sister', name: () => `監督役・${CAST.sister}`, place: '聖ヨハネ教会', stages: 3, cond: () => (mys().sisterDay || 0) < G.day,
+    lead: '聖杯の器を観測しているのは、監督役の教会だ。何度か話を聞けば、何か分かるかもしれない。（1日1度まで）',
+    ways: [
+      { label: '聖杯の様子を尋ねる', stat: 'cha', diff: () => G.flags.registered ? 42 : 55, tone: 'law' },
+      { label: '世間話から、それとなく探る', stat: 'spi', diff: 48 },
+    ],
+    clue: (stage) => {
+      const S = CAST.sister;
+      if (stage === 1) return ['監督役の話・一', T(`${S}は言葉を選びながら言った。「器の観測は、順調です。……ただ、ときおり、計器が妙な揺れ方をします」`,
+        `${S}は穏やかに答えた。「器の観測は順調です。脱落者が出るたびに、きちんと満ちていっています」`,
+        `${S}は少しだけ首を傾げた。「器の観測は……順調、のはずです。ただ、脱落者が出ても、計器の針があまり動かないのです」`), 1];
+      if (stage === 2) return ['監督役の話・二', T(`${S}の表情が曇った。「器の周りの空気が、重いのです。……上の者は、問題ないと言うのですが」`,
+        `「器は順調に満ちています」${S}はきっぱりと言った。「事件を起こしているのは、聖杯ではなく、参加者の誰かでしょう」`,
+        `${S}は帳簿を何度も見返していた。「おかしいのです。器に注がれるはずの魔力が、日に日に<b>減っている</b>。……満ちるどころか、痩せていく」`), 1];
+      return ['監督役の話・三', T(`${S}は、意を決したように声を潜めた。「……前回の儀式の記録には、封印された頁があります。器が『何か』を取り込んだ、と」`,
+        `${S}は微笑んだ。「心配は無用です。この聖杯は、正しく機能しています。……どうか、正しい願いを」`,
+        `${S}は、青ざめた顔で一枚の観測図を差し出した。「昨夜、器の底から、魔力が<b>外へ吸い出されている</b>のを観測しました。――聖杯に、何かが寄生しています。私たちの誰も、気付かないうちに」`), 2];
+    },
+    extra: (stage) => { const m = mys(); m.sisterDay = G.day; if (stage === 3 && isBeast()) { m.beastSign = true; return '<span class="note">「聖杯に、何かが寄生している」――推理の新しい仮説が立てられるようになった。</span>'; } return ''; },
+    risk: { text: `「……今日は、お引き取りください」${CAST.sister}は、珍しく疲れた顔で扉を閉じた。`, run: () => { mys().sisterDay = G.day; } },
   },
 ];
 
@@ -170,8 +214,8 @@ function siteOpen(id) { const s = MYSTERY_SITES.find(x => x.id === id); return (
 function siteResult(id, ev = 1) {
   const s = MYSTERY_SITES.find(x => x.id === id); const m = mys();
   const stage = (m.done[id] || 0) + 1; m.done[id] = stage;
-  const [title, text] = s.clue(stage); const ex = s.extra && s.extra(stage);
-  return [text, addClue(`${id}${stage}`, title, text, ev), ex].filter(Boolean);
+  const [title, text, w] = s.clue(stage); const ex = s.extra && s.extra(stage);
+  return [text, addClue(`${id}${stage}`, title, text, Math.max(ev, w || 1)), ex].filter(Boolean);
 }
 
 // 調査の判定（マスターの技能か、サーヴァントのパラメータか）
@@ -215,8 +259,8 @@ function siteMenu(s) {
         return [c.text, '手がかりは掴めなかった。……別の調べ方を試すべきかもしれない。'];
       }
       m.done[s.id] = stage;
-      const [title, text] = s.clue(stage);
-      const out = [c.text, text, addClue(`${s.id}${stage}`, title, text, 1)];
+      const [title, text, wt] = s.clue(stage);
+      const out = [c.text, text, addClue(`${s.id}${stage}`, title, text, wt || 1)];
       const ex = s.extra && s.extra(stage); if (ex) out.push(ex);
       if (c.margin >= 25) { out.push('<b>大成功！</b>', criticalBonus(s)); }
       return out;
@@ -225,7 +269,7 @@ function siteMenu(s) {
 // 大成功のおまけ
 function criticalBonus(s) {
   const m = mys();
-  if (s.stages > 1 && (m.done[s.id] || 0) < s.stages) {
+  if (s.stages > 1 && (m.done[s.id] || 0) < s.stages && s.id !== 'sister') {   // 監督役の話は、一度に一歩ずつ
     m.done[s.id]++; const [title, text] = s.clue(m.done[s.id]);
     const ex = s.extra && s.extra(m.done[s.id]);
     return [`勢いのまま、さらに奥まで調べ上げた。<br>${text}`, addClue(`${s.id}${m.done[s.id]}`, title, text, 1), ex].filter(Boolean).join('<br>');
@@ -253,6 +297,12 @@ function coreTry(c) {
       return [c.text, isCursed() ? '結界に弾かれた瞬間、足元から黒い何かが這い上がってきた。辛うじて逃げ延びたが、体の芯が冷えきっている。（HP-15 サーヴァントHP-20）'
         : '結界は思った以上に堅く、跳ね返された魔力が二人を打ち据えた。（HP-15 サーヴァントHP-20）', '<span class="note">手がかりがもっと集まれば、結界の綻びも見えてくるはずだ。</span>'];
     }
+    if (isBeast() && !mys().beastSign) {
+      return [c.text, '結界の奥、霊脈の要に半ば埋もれて、黄金の杯があった。澄んだ光。濁りも、悪意もない。……ただ、器の中身が、驚くほど<b>少ない</b>。六十年分の魔力が溜まっているとは、とても思えなかった。',
+        addClue('core_beast', '空っぽに近い器', '聖杯の器は澄んでいたが、中身が驚くほど少なかった。六十年分の魔力が溜まっているとは思えない。', 1),
+        '<span class="note">……何かを見落としている。聖杯を観測している監督役なら、何か知っているかもしれない。</span>'];
+    }
+    if (isBeast()) return [c.text, '結界の奥の黄金の杯。その底に、白く濡れた<b>蛇の尾</b>のようなものが、ずるりと沈んでいくのが見えた。杯の縁から、細い光の糸が、その「何か」へと吸い込まれ続けている。', solveMystery('古社の調査')];
     const seen = isCursed()
       ? '結界の奥、霊脈の要に半ば埋もれて、黄金の杯があった。――その内側で、<b>黒い泥</b>が渦を巻いている。杯の縁から溢れた泥が、細い筋となって街の方へ流れ出していた。'
       : '結界の奥、霊脈の要に半ば埋もれて、黄金の杯があった。澄んだ光。濁りも、悪意もない。……そして杯の周りには、<b>何者かが聖杯を探って回った魔術の痕跡</b>が残されていた。';
@@ -270,6 +320,7 @@ function deduce() {
   ], choices: [
     { label: '「聖杯は呪われている」', hint: `知力判定 目標${deduceDiff()}`, fn: () => deduceTry('cursed') },
     { label: '「聖杯は正規のもの。事件は人の仕業だ」', hint: `知力判定 目標${deduceDiff()}`, fn: () => deduceTry('pure') },
+    ...(m.beastSign ? [{ label: '「聖杯に、何かが寄生している」', hint: `知力判定 目標${deduceDiff()}`, cls: 'danger', fn: () => deduceTry('beast') }] : []),
     { label: 'まだ結論を出さない', fn: mysteryMenu },
   ] });
 }
@@ -280,7 +331,8 @@ function deduceTry(guess) {
     if (!c.ok) return [c.text, unsure];
     // 間違った仮説：判定に成功していれば、矛盾に気付ける（精神的に堪える）
     if (guess !== G.truth) { gain('spi', -2);
-      return [c.text, '仮説を組み立てようとして、手が止まった。いくつかの手がかりが、どうしても噛み合わない。……どこかで、思い込みをしていたようだ。（精神-2）']; }
+      return [c.text, '仮説を組み立てようとして、手が止まった。いくつかの手がかりが、どうしても噛み合わない。……どこかで、思い込みをしていたようだ。（精神-2）',
+        isBeast() && !mys().beastSign ? '<span class="note">聖杯を観測している監督役に、何度か話を聞いてみるべきかもしれない。</span>' : '']; }
     return [c.text, '散らばっていた手がかりが、一本の線で繋がった。', solveMystery('推理')];
   });
 }
@@ -317,6 +369,10 @@ function stakeout(c, mode) {
     }
     return next('張り込み', paras([c.text, '冷たい夜風の中、明け方まで粘ったが、今夜は何も起きなかった。', ...takeNotes()]), advance);
   }
+  if (isBeast()) {
+    const t = '深夜二時。酔い潰れて眠る男の胸の上に、半透明の<b>白い蛇</b>のような影がとぐろを巻いていた。影は男の胸から淡い光を吸い上げ、霊脈へ溶けるように消えた。<br>男は、幸せそうに微笑んだまま、目を覚まさなかった。操る者の気配は、どこにもなかった。';
+    return next('張り込み', paras([c.text, t, addClue('stakeout', '白い影', '昏睡事件の瞬間を目撃した。人を襲ったのは、白い蛇のような影だった。被害者は幸せそうに微笑んだまま眠り続けた。', 1), ...takeNotes()]), advance);
+  }
   if (isCursed()) {
     const t = '深夜二時。路地のマンホールの隙間から、<b>黒い泥</b>が這い出してきた。泥は酔い潰れた男に覆いかぶさり、魔力を吸い上げ始める。' +
       `${SV()}が斬り払うと、泥は悲鳴のような音を立て、地下の霊脈へ逃げ込んだ。……誰かが操っている気配は、まったく無かった。`;
@@ -342,6 +398,10 @@ function stakeout(c, mode) {
 function mysteryDaily() {
   if (G.phase !== 'war' || !G.used.s_coma) return;
   const m = mys();
+  if (isBeast()) {
+    if (Math.random() < 0.5) G.news.push('昏睡事件の被害者が、また見つかった。医師によれば、被害者は皆<b>穏やかに微笑んだまま</b>眠り続けており、「まるで幸せな夢を見ているようだ」という。');
+    return;
+  }
   if (isCursed()) {
     if (Math.random() < 0.5) G.news.push(`昏睡事件の被害者が、また見つかった。発見現場は<b>天降山の麓</b>から、川沿いに街の中心へと広がっているという。`);
     return;
@@ -361,9 +421,10 @@ function mysteryDaily() {
 function viewNotebook() {
   const m = mys();
   const state = G.flags.grailTruth ? '<span class="tag red">聖杯は呪われている</span>'
+    : G.flags.grailBeast ? '<span class="tag red">聖杯に人類悪が寄生している</span>'
     : G.flags.grailPure ? '<span class="tag green">聖杯は正規のもの</span>'
       : G.flags.grailHint ? '<span class="tag">聖杯には何か秘密がある……？</span>' : '<span class="tag">聖杯の真相は不明</span>';
-  const who = !isCursed() && m.culpritKnown ? `<span class="tag red">昏睡事件の犯人：${culpritLabel()}</span>` : '';
+  const who = isPure() && m.culpritKnown ? `<span class="tag red">昏睡事件の犯人：${culpritLabel()}</span>` : '';
   const list = m.clues.length ? `<ul class="clue-list">${m.clues.map(c => `<li><b>${c.title}</b>${c.ev ? '' : '<em>（噂）</em>'}<span>${c.when}</span><br>${c.text}</li>`).join('')}</ul>`
     : '<p class="empty">まだ何も記録していない。昼の「真相を調べる」で、街の謎を調べられる。</p>';
   return `<h3>調査手帳</h3><p>${state}${who}<span class="tag">手がかり ${m.ev}</span></p>${list}`;

@@ -37,7 +37,7 @@ function startBattle(rival, opt = {}) {
   if (isShirou() && !rival.fifthTalked && FIFTH_TALK[rival.servantId] && rival.servantId !== 'ori')
     return fifthTalkScene(rival, () => startBattle(rival, opt));
   G.battles++;
-  B = { r: rival, round: 0, opt, final: !!(opt.final || opt.boss), boss: !!opt.boss, miracle: false,
+  B = { r: rival, round: 0, opt, final: !!(opt.final || opt.boss), boss: !!opt.boss, beast: !!opt.beast, miracle: false,
     enemyNext: null, tell: null, sure: false, charge: 0, echarge: 0, mact: 'command', extra: null, enemySeal: false };
   const pre = [];
   const seen = meet(rival);
@@ -109,7 +109,7 @@ function battleScene(extra) {
     if (aff > 0 && me.cls !== 'バーサーカー' && r.cls !== 'バーサーカー') mods.push('クラス相性◎');
     if (aff < 0) mods.push('クラス相性×');
     if (B.final && G.flags.resolve === 'win') mods.push('決意');
-    body.push(`<p>${B.boss ? '聖杯の内から、黒い泥が形を成して立ち上がる。' : B.final ? '聖杯を賭けた、最後の戦いが始まる。' : '戦闘開始。'}${mods.length ? `<br><span class="note">補正：${mods.join('・')}</span>` : ''}</p>`);
+    body.push(`<p>${B.beast ? '白い大蛇が、楽園の香りと共に鎌首をもたげる。――人類悪との戦いが始まる。' : B.boss ? '聖杯の内から、黒い泥が形を成して立ち上がる。' : B.final ? '聖杯を賭けた、最後の戦いが始まる。' : '戦闘開始。'}${mods.length ? `<br><span class="note">補正：${mods.join('・')}</span>` : ''}</p>`);
   }
   if (B.extra) body.push(...B.extra);
   if (B.tell) body.push(`<p class="tell">${B.tell}</p>`);
@@ -136,7 +136,7 @@ function battleScene(extra) {
   if (!B.boss) choices.push({ label: '敵マスターを狙う', hint: `${isAssassin() ? '気配遮断で有利' : '成功率低'}・悪`, cls: 'danger', fn: () => battleRound('master'), icon: 'target' });
   choices.push({ label: `令呪（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu, icon: 'seal' });
   if (!B.final) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
-  scene({ title: B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
+  scene({ title: B.beast ? 'ビーストⅧ' : B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
   animateBattle();
 }
 // 衛宮士郎の戦闘画面：士郎の行動を選ぶ。セイバーは自分の判断で戦う
@@ -160,7 +160,7 @@ function shirouBattleScene(body) {
   choices.push({ label: 'セイバーに指示を出す', hint: '次の手番の戦い方を決める', icon: 'observe', fn: saberOrderMenu });
   choices.push({ label: `令呪（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu, icon: 'seal' });
   if (!B.final) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
-  scene({ title: B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
+  scene({ title: B.beast ? 'ビーストⅧ' : B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
   animateBattle();
 }
 function sealMenu() {
@@ -236,15 +236,18 @@ function battleRound(cmd) {
   let eSeal = 0;
   if (!B.enemySeal && r.seals > 0 && r.hp < r.hpMax * 0.35 && Math.random() < 0.6) {
     B.enemySeal = true; r.seals--; eSeal = 25; r.hp = Math.min(r.hpMax, r.hp + 25);
-    log.push(`<span class="note">${B.boss ? '泥が脈打ち、傷が塞がっていく。' : `敵マスターの令呪が輝いた！ ${E}の傷が癒え、力が増す。`}（敵HP+25）</span>`);
+    log.push(`<span class="note">${B.beast ? '白い鱗が脈打ち、傷が満たされていく。' : B.boss ? '泥が脈打ち、傷が塞がっていく。' : `敵マスターの令呪が輝いた！ ${E}の傷が癒え、力が増す。`}（敵HP+25）</span>`);
   }
+
+  // 人類悪：正体を知らなければ、聖杯の残り香から魔力を吸い上げる
+  if (B.beast && !G.flags.grailBeast && B.round <= 4) { r.hp = Math.min(r.hpMax, r.hp + 10); log.push('<span class="note">獣が、空の杯から最後の魔力を吸い上げた。（敵HP+10）</span>'); }
 
   // ---- 補正値 ----
   const first = B.round === 1;
   const myMod = classAffinity(me.cls, r.cls) + Math.floor(sv.bond / 8) + (sv.special ? 5 : 0) + Math.floor(G.master.stats.mag / 20)
     + (['mercenary', 'executor'].includes(G.master.birth) ? 4 : 0) + (G.master.birth === 'fujimaru' ? 6 : 0) + (G.master.birth === 'kishinami' ? 8 : 0) + (knowsName(r) ? 8 : 0)
     + (first && B.opt.ambush ? 15 : 0) + (first && B.opt.duel ? 6 : 0) + (B.opt.defend ? G.workshop * 3 : 0)
-    + (B.final && G.flags.resolve === 'win' ? 6 : 0) + (B.boss && G.flags.resolve === 'destroy' ? 8 : 0) + (B.boss && G.flags.mudKnown ? 5 : 0) + (B.final && G.flags.resolve === 'pure' ? 5 : 0) + (G.flags.partnerCombo && sv.special === 'partner' ? 3 : 0)
+    + (B.final && G.flags.resolve === 'win' ? 6 : 0) + (B.boss && G.flags.resolve === 'destroy' ? 8 : 0) + (B.boss && G.flags.mudKnown ? 5 : 0) + (B.final && G.flags.resolve === 'pure' ? 5 : 0) + (B.beast ? (G.flags.resolve === 'beast' ? 8 : 0) + (G.flags.grailBeast ? 5 : 0) + (G.flags.serpentKnown ? 4 : 0) : 0) + (G.flags.partnerCombo && sv.special === 'partner' ? 3 : 0)
     + (!B.boss && r.id === mys().culprit && mys().culpritKnown ? 3 + (G.flags.shadowKnown ? 3 : 0) : 0)
     + sealBoost + mBonus + B.charge;
   const enMod = classAffinity(r.cls, me.cls) + r.power + (sv.exposed ? 6 : 0) + (first && B.opt.enemyFirst ? 12 : 0) + eSeal + B.echarge;
@@ -368,14 +371,15 @@ function battleLoseChoice(extra) {
   if (G.items.potion > 0 && !B.final) choices.push({ label: '霊薬を飲ませて退く', hint: '霊薬-1・撤退', fn: () => {
     item('potion', -1); G.servant.hp = 15; escape([`霊薬で辛うじて霊基を保ち、${SV()}は最後の力であなたを抱えて退いた。`]);
   } });
-  choices.push({ label: '……ここまでか', fn: () => { const boss = B.boss; B = null; ending(boss ? 'devoured' : 'lost'); } });
+  choices.push({ label: '……ここまでか', fn: () => { const boss = B.boss, beast = B.beast; B = null; ending(beast ? 'saturated' : boss ? 'devoured' : 'lost'); } });
   sfx('lose');
   scene({ title: '霊核の危機', sub: 'CRISIS', body: [...extra, `<p>${SV()}が膝をつく。霊基が崩れ始めている――このままでは消滅する！</p>`], choices });
 }
 function battleWin(extra) {
-  const r = B.r; const wasFinal = B.final; const boss = B.boss; B = null;
+  const r = B.r; const wasFinal = B.final; const boss = B.boss; const beast = B.beast; B = null;
   sfx('win');
   if (!boss) showCard({ kicker: 'VICTORY', title: '勝利', sub: `${rivalLabel(r)}陣営を撃破`, cls: 'victory', ms: 1300 });
+  if (beast) return ending('beastSlain');
   if (boss) return ending(G.servant.special ? 'destroySpecial' : 'destroy');
   r.alive = false; r.hp = 0; G.kills++;
   NOTES = []; bond(5);

@@ -18,7 +18,7 @@ let REVEAL_UNTIL = 0;                    // 文章の表示演出が終わる時
 const ENDING_LIST = [
   ['destroySpecial', '夜明けの約束'], ['destroy', '冬の終わり'], ['together', '共に生きる'], ['servantWish', '託された願い'],
   ['wishPure', '叶えられた願い'], ['none', '願いなき勝者'], ['destroyPure', '砕かれた奇跡'], ['abstain', '日常への帰還'], ['wish', '歪んだ願い'], ['wishKnown', '承知の上の願い'], ['devoured', '黒い夜明け'],
-  ['lost', '脱落'], ['dead', '血に染まる冬'], ['avalon', '隠し：Garden of Avalon'],
+  ['lost', '脱落'], ['dead', '血に染まる冬'], ['beastSlain', '楽園の外で'], ['saturated', '飽和'], ['avalon', '隠し：Garden of Avalon'],
 ];
 function seenEndings() { try { return JSON.parse(localStorage.getItem(END_KEY) || '[]'); } catch (e) { return []; } }
 function markEnding(k) {
@@ -28,6 +28,7 @@ function markEnding(k) {
 
 // ---------------- クラスの紋章と色 ----------------
 const CLASS_COLOR = {
+  'ビーストⅧ': '#9fd8b4',
   'セイバー': '#7fa7e0', 'アーチャー': '#d8796a', 'ランサー': '#5cbca8', 'ライダー': '#d1a253', 'キャスター': '#ad88dc',
   'アサシン': '#97a0b5', 'バーサーカー': '#e0644a', 'ルーラー': '#e6d6a0', 'アヴェンジャー': '#8a74c8', '聖杯': '#b04050',
   'アルターエゴ': '#d985bd', 'ムーンキャンサー': '#c3b2f0', 'フォーリナー': '#6fb3a8', 'シールダー': '#b8c6d8', 'プリテンダー': '#9fd36f',
