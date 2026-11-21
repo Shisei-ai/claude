@@ -467,6 +467,13 @@ body:not(.fx-on) #snow { display: none; }
 .epi-scores span { display: block; font-size: 11px; color: var(--muted); }
 .epi-scores b { font-size: 20px; color: var(--gold); }
 
+/* ---- 会話（話し手つき） ---- */
+.talk { margin: 6px 0; padding: 6px 10px; border-left: 3px solid var(--line); border-radius: 4px; line-height: 1.8; }
+.talk b { display: inline-block; min-width: 5.5em; color: var(--muted); font-weight: 600; margin-right: 4px; }
+.talk.shirou { border-left-color: #c8553d; }
+.talk.saber { border-left-color: #4f7fd6; }
+.talk.enemy { border-left-color: var(--gold); background: #d2ad5f10; }
+
 </style>
 </head>
 <body>
@@ -5006,17 +5013,18 @@ STORY.unshift(
     ],
   },
   {
-    id: 'sh_archer', phase: 'war', day: 3, slot: 1, after: 'advance', cond: () => G.route === 'shirou' && G.rivals.some(r => r.servantId === 'emiya' && r.alive && !r.ally),
+    id: 'sh_archer', phase: 'war', day: 3, slot: 1, after: 'advance', cond: () => G.route === 'shirou' && G.rivals.some(r => r.servantId === 'emiya' && r.alive && !r.ally && !r.fifthTalked),
     title: '赤い外套', chapter: '第一幕　開幕',
-    text: () => { const r = G.storyRival = G.rivals.find(x => x.servantId === 'emiya'); r.named = true; r.intel = Math.max(r.intel, 2);
-      return `夜の城跡公園。街灯の上に、赤い外套の男が立っていた。<br>白と黒の双剣。鋼のような目。――知っている。あの男を、俺は知っている。<br><p class="quote">「……やれやれ。まさか、こんな所で君に会うとはな。衛宮士郎」</p>男の傍らで、マスターの${esc(r.master)}が怪訝そうな顔をしている。`; },
+    text: () => { const r = G.storyRival = G.rivals.find(x => x.servantId === 'emiya'); r.fifthTalked = true; r.intel = Math.max(r.intel, 2);
+      const seen = shirouMeet(r) || FIFTH_LINE.emiya;
+      const who = { shirou: '士郎', saber: 'アルトリア', enemy: 'エミヤ' };
+      return `夜の城跡公園。街灯の上に、赤い外套の男が立っていた。<br>${seen}<br>男の傍らで、マスターの${esc(r.master)}が怪訝そうな顔をしている。` +
+        FIFTH_TALK.emiya.map(([sp, t]) => `<p class="talk ${sp}"><b>${who[sp]}</b>「${t}」</p>`).join(''); },
     choices: [
-      { label: '双剣を投影し、正面から挑む', hint: '戦闘（士郎の行動に補正）', cls: 'danger', run: () => { G.flags.archerDuel = true;
+      { label: '双剣を投影し、受けて立つ', hint: '戦闘（士郎の行動に補正）', cls: 'danger', run: () => { G.flags.archerDuel = true;
           return { text: '「――投影、開始（トレース・オン）」<br>同じ剣が、同じ手の中に現れる。あいつが、口の端だけで笑った。', then: () => startBattle(G.storyRival, { duel: true }) }; } },
-      { label: '「答えは、得たのか」と問う', hint: '精神↑↑', run: () => { gain('spi', 6); bond(2);
-          return '<p class="quote">「……さてな。だが、君の顔を見る限り――私のようには、ならずに済みそうだ」</p>男はそれだけ言って、夜の闇に消えた。（精神+6 絆+2）'; } },
-      { label: 'セイバーと共に退く', hint: '慎重', run: () => { tone('cautious');
-          return `「シロウ、あれは……」セイバーの問いに、首を横に振った。「……いつか、決着をつける相手だ」`; } },
+      { label: '「決着は、また今度だ」と剣を収める', hint: '精神↑↑・絆↑', run: () => { gain('spi', 6); bond(2); tone('cautious');
+          return '<p class="quote">「……ふん。いいだろう。せいぜい、その答えを貫いてみせることだ」</p>赤い外套は、夜の闇に溶けるように消えた。（精神+6 絆+2）'; } },
     ],
   },
   {
@@ -5413,6 +5421,99 @@ function avalonEnding() {
     ] };
     TAB = 'story'; render();
   });
+}
+
+// =============================================================
+//  第五次聖杯戦争の英霊との再会：初めて剣を交える前の会話
+//   [話し手, 台詞]　話し手：shirou / saber / enemy / narr（地の文）
+//   原作（Fate/stay night 各ルート）での出来事・関係を踏まえた会話
+// =============================================================
+const FIFTH_SPEAKER = { cuchulainn: 'ランサー', medusa: 'ライダー', medea: 'キャスター', kojiro: 'アサシン', heracles: 'バーサーカー', emiya: 'エミヤ', hassan: 'アサシン', gilgamesh: 'ギルガメッシュ' };
+const FIFTH_TALK = {
+  emiya: [
+    ['enemy', '……貴様、なぜここにいる'],
+    ['shirou', 'こっちのセリフだ！'],
+    ['enemy', '……妙だとは思ったが。連鎖召喚のようなものか'],
+    ['saber', 'アーチャー……よもや再び相対することになろうとは'],
+    ['enemy', '君までいるのか、セイバー。まったく、出来の悪い悪夢のような気分だよ'],
+    ['saber', '……貴方には色々と聞きたいことがありましたが、昔の話です。剣を向けると言うのであれば、私も、聖剣を以って迎え撃ちましょう'],
+    ['enemy', '……時に、小僧'],
+    ['shirou', '小僧って……いや、なんだよ？'],
+    ['enemy', '貴様はまだ、正義の味方なんてものを目指しているのか？'],
+    ['shirou', '……ああ。でも、遠坂にも桜にも助けられてる。お前のようには、ならないさ'],
+    ['enemy', '──ふっ。ならば心置きなく、聖杯戦争に興じるとしよう'],
+  ],
+  cuchulainn: [
+    ['narr', '街灯の上で、赤い槍を肩に担いだ男が、にやりと笑った。'],
+    ['enemy', 'よう、坊主。まだ生きてやがったか'],
+    ['shirou', '……ランサー。お前に心臓を貫かれた夜のこと、忘れてないぞ'],
+    ['enemy', 'ははっ、根に持つねえ。ま、あの時の坊主が、ずいぶんいい面構えになったもんだ'],
+    ['saber', 'ランサー。あの夜の決着は、まだついていませんでしたね'],
+    ['enemy', 'おうよ、セイバー。前のマスターには散々邪魔されたからな。今度は令呪の横槍もなしだ。存分にやり合おうぜ'],
+    ['shirou', '……相変わらずだな、お前'],
+    ['enemy', 'マスターが変わろうが、喚ばれた街が違おうが、俺は俺だ。――さあ、構えな。今度こそ、心臓を貰い受ける'],
+  ],
+  medusa: [
+    ['narr', '長い髪を夜風になびかせ、眼帯の女が音もなく降り立った。'],
+    ['enemy', '……衛宮士郎。それに、セイバー'],
+    ['shirou', 'ライダー……！ お前まで、なんでここに'],
+    ['enemy', '喚ばれたから来た。それだけです'],
+    ['saber', 'ライダー。……サクラは、元気にしています。今は冬木で、穏やかに暮らしている'],
+    ['narr', '眼帯の下で、女の口元が、ほんのわずかに緩んだ。'],
+    ['enemy', '……そうですか。それなら、いいのです。あの子を泣かせたら許さない――そう言うつもりでしたが、その必要はなさそうですね'],
+    ['shirou', 'ああ。桜は、ちゃんと笑ってるよ'],
+    ['enemy', 'ですが、今の私には今のマスターがいる。……手加減はしません、士郎'],
+    ['shirou', '望むところだ。桜に土産話ができるくらい、いい勝負にしよう'],
+  ],
+  medea: [
+    ['narr', 'フードの奥で、紫の唇が妖しく笑った。'],
+    ['enemy', 'あら……セイバーじゃない。まさか、また会えるなんて'],
+    ['saber', '……キャスター。その目つき。まさか、また良からぬことを'],
+    ['enemy', 'ふふ。あの時用意した衣装、とても似合っていたのに。今度こそ最後まで着せてあげるわ'],
+    ['shirou', '……セイバー、冬木で何があったんだ？'],
+    ['saber', 'シロウは知らなくていいことです'],
+    ['enemy', '坊やは黙ってなさい。……でも、そうね。あなた、あの時よりずっといい目をするようになったわ。魔術師としては、まだまだ半人前だけれど'],
+    ['shirou', '……お前に褒められると、なんか落ち着かないな'],
+    ['enemy', '褒めてなんかいないわ。――さあ、神代の魔術というものを、もう一度教えてあげる'],
+  ],
+  kojiro: [
+    ['narr', '月明かりの下、物干し竿のような長刀を携えた侍が、静かに佇んでいた。'],
+    ['enemy', 'ほう。山門の外で、そなたらと剣を交えることになろうとはな'],
+    ['saber', 'アサシン……佐々木小次郎。貴方との決着は、あの石段の上で'],
+    ['enemy', '然り。だが此度は、門番の務めもない。月も良し、風も良し。存分に、剣の道を語らおうではないか'],
+    ['shirou', '……あの燕返し、まだ目に焼き付いてる'],
+    ['enemy', 'ほう、小僧。そなたも剣を握るようになったか。……良い目だ。あの夜、ただ見ていただけの少年とは思えぬ'],
+    ['saber', 'シロウ、下がって。この剣士は、私が'],
+    ['enemy', 'いや、二人まとめて来るがよい。――秘剣、燕返し。今宵は、その身で味わうといい'],
+  ],
+  heracles: [
+    ['narr', '鉛色の巨躯が、夜の闇から姿を現した。地を揺るがす咆哮。'],
+    ['enemy', '（■■■■■■――！）'],
+    ['shirou', '……バーサーカー。イリヤの……'],
+    ['saber', 'シロウ、下がって。あの英雄は、マスターが変わろうと最強です'],
+    ['narr', '狂戦士の瞳が、一瞬だけ士郎を捉えた。……まるでそこに、白い髪の少女の面影を探すように。'],
+    ['shirou', '……イリヤは、ここにはいない。お前が守ろうとしたあの子は――'],
+    ['narr', '咆哮が止んだ。ほんの一瞬だけ。巨躯が、静かに斧剣を構え直す。'],
+    ['saber', 'あの冬、一度は越えた壁です。シロウ。――もう一度、二人で越えましょう'],
+    ['shirou', 'ああ。今度は、最初から全力だ'],
+  ],
+  hassan: [
+    ['narr', '闇の中に、白い髑髏の仮面が浮かび上がった。'],
+    ['enemy', '……衛宮士郎。そして、騎士王。まさかこの地で相見えるとは'],
+    ['saber', 'アサシン……。あの冬の夜、影の中に潜んでいた暗殺者ですね'],
+    ['enemy', 'いかにも。だが今宵は、主の命により、正面から仕る'],
+    ['shirou', '……暗殺者が正面から、か。気をつけろ、セイバー'],
+  ],
+};
+// 会話の場面（初めて剣を交える前に一度だけ）
+function fifthTalkScene(r, then) {
+  r.fifthTalked = true;
+  const seen = shirouMeet(r);
+  const who = { shirou: '士郎', saber: 'アルトリア', enemy: FIFTH_SPEAKER[r.servantId] || '敵' };
+  const lines = FIFTH_TALK[r.servantId].map(([sp, t]) => sp === 'narr' ? `<p>${t}</p>` : `<p class="talk ${sp}"><b>${who[sp]}</b>「${t}」</p>`);
+  addLog(`第五次聖杯戦争の英霊「${servantOf(r).name}」と再会。`);
+  scene({ title: '再会', sub: `${rivalLabel(r)}・${r.cls}`, reveal: true, body: [seen ? `<p>${seen}</p>` : '', ...lines].filter(Boolean),
+    choices: [{ label: '剣を構える', cls: 'primary', icon: 'battle', fn: then }] });
 }
 
 // =============================================================
@@ -6920,6 +7021,8 @@ const MASTER_ACTS = {
 let B = null; // 戦闘中の状態（セーブしない）
 
 function startBattle(rival, opt = {}) {
+  if (isShirou() && !rival.fifthTalked && FIFTH_TALK[rival.servantId] && rival.servantId !== 'ori')
+    return fifthTalkScene(rival, () => startBattle(rival, opt));
   G.battles++;
   B = { r: rival, round: 0, opt, final: !!(opt.final || opt.boss), boss: !!opt.boss, miracle: false,
     enemyNext: null, tell: null, sure: false, charge: 0, echarge: 0, mact: 'command', extra: null, enemySeal: false };
@@ -7028,13 +7131,19 @@ function shirouBattleScene(body) {
   const auto = B.forceTac || saberAuto();
   body.push(`<div class="mact"><div class="mact-head">士郎 <span>HP ${G.master.hp}/${G.master.hpMax}　オド ${G.master.od}/${odMax()}${B.shirouDown ? '　<b>満身創痍</b>' : ''}</span></div>
     <p class="note" style="margin:4px 0 0">セイバーの構え：<b>${TACTICS[auto].name}</b>${B.forceTac ? '（指示）' : '（自分の判断）'}</p></div>`);
+  // 道具（他のシナリオと同じく、行動と一緒に使う）
+  const ik = ['command', 'potion', 'gem', 'crystal'].filter(k => k === 'command' || G.items[MASTER_ACTS[k].item] > 0);
+  if (!ik.includes(B.mact)) B.mact = 'command';
+  if (ik.length > 1) body.push(`<div class="mact"><div class="mact-head">道具 <span>行動と一緒に使う</span></div><div class="mact-row">${ik.map(k => {
+    const a = MASTER_ACTS[k]; const name = k === 'command' ? '使わない' : `${a.name}×${G.items[a.item]}`; const hint = k === 'command' ? '' : a.hint;
+    return `<button class="chip ${B.mact === k ? 'on' : ''}" data-mact="${k}" aria-pressed="${B.mact === k}">${name}<small>${hint}</small></button>`;
+  }).join('')}</div></div>`);
   body.push(triangleSVG(B.tell ? B.tellKey : null));
   const choices = Object.entries(SHIROU_ACTS).map(([k, a]) => ({
     label: a.ruby ? `${a.name}` : a.name, hint: a.ruby ? `${a.ruby}・${a.hint}` : a.hint, disabled: !shirouActAvailable(k),
     cls: k === 'ubw' ? 'primary wide' : ['calad', 'nine'].includes(k) ? 'danger' : '', icon: { blades: 'str', bow: 'target', aias: 'guard', calad: 'np', nine: 'np', ubw: 'np', support: 'bond' }[k],
     fn: () => shirouRound(k),
   }));
-  if (G.items.potion > 0) choices.push({ label: '治癒の霊薬を使う', hint: `セイバーHP+35（×${G.items.potion}）`, icon: 'guard', fn: () => { item('potion', -1); shp(35); B.forceTac = 'guard'; shirouRound('support'); } });
   choices.push({ label: 'セイバーに指示を出す', hint: '次の手番の戦い方を決める', icon: 'observe', fn: saberOrderMenu });
   choices.push({ label: `令呪（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu, icon: 'seal' });
   if (!B.final) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
@@ -7086,13 +7195,13 @@ function battleRound(cmd) {
   }
 
   // マスターの行動
-  let mBonus = 0; const ma = isShirou() ? null : B.mact; B.mact = 'command';
+  let mBonus = 0; const ma = isShirou() ? (['potion', 'gem', 'crystal'].includes(B.mact) ? B.mact : null) : B.mact; B.mact = 'command';
   if (isShirou()) mBonus = applyShirouAct(log, E);
   if (ma === 'command') mBonus = 5;
   if (ma === 'boost') { od(-15); mBonus = 14; log.push(`強化魔術で${P}の霊基を後押しした。`); }
   if (ma === 'heal') { od(-20); shp(25); log.push(`治癒魔術で${P}の傷を塞いだ。（HP+25）`); }
   if (ma === 'potion') { item('potion', -1); shp(35); log.push(`治癒の霊薬を使った。（HP+35）`); }
-  if (ma === 'gem') { item('gem', -1); mBonus = 12; r.hp -= 10; log.push(`宝石を投げ放つ。炸裂した魔力が${E}を撃った！（10ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: 10 }); }
+  if (ma === 'gem') { item('gem', -1); mBonus += 12; r.hp -= 10; log.push(`宝石を投げ放つ。炸裂した魔力が${E}を撃った！（10ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: 10 }); }
   if (ma === 'crystal') { item('crystal', -1); mp(40); log.push(`魔力結晶を砕き、${P}に魔力を流し込んだ。（魔力+40）`); }
 
   // 宝具の宣言

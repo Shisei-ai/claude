@@ -34,6 +34,8 @@ const MASTER_ACTS = {
 let B = null; // 戦闘中の状態（セーブしない）
 
 function startBattle(rival, opt = {}) {
+  if (isShirou() && !rival.fifthTalked && FIFTH_TALK[rival.servantId] && rival.servantId !== 'ori')
+    return fifthTalkScene(rival, () => startBattle(rival, opt));
   G.battles++;
   B = { r: rival, round: 0, opt, final: !!(opt.final || opt.boss), boss: !!opt.boss, miracle: false,
     enemyNext: null, tell: null, sure: false, charge: 0, echarge: 0, mact: 'command', extra: null, enemySeal: false };
@@ -142,13 +144,19 @@ function shirouBattleScene(body) {
   const auto = B.forceTac || saberAuto();
   body.push(`<div class="mact"><div class="mact-head">士郎 <span>HP ${G.master.hp}/${G.master.hpMax}　オド ${G.master.od}/${odMax()}${B.shirouDown ? '　<b>満身創痍</b>' : ''}</span></div>
     <p class="note" style="margin:4px 0 0">セイバーの構え：<b>${TACTICS[auto].name}</b>${B.forceTac ? '（指示）' : '（自分の判断）'}</p></div>`);
+  // 道具（他のシナリオと同じく、行動と一緒に使う）
+  const ik = ['command', 'potion', 'gem', 'crystal'].filter(k => k === 'command' || G.items[MASTER_ACTS[k].item] > 0);
+  if (!ik.includes(B.mact)) B.mact = 'command';
+  if (ik.length > 1) body.push(`<div class="mact"><div class="mact-head">道具 <span>行動と一緒に使う</span></div><div class="mact-row">${ik.map(k => {
+    const a = MASTER_ACTS[k]; const name = k === 'command' ? '使わない' : `${a.name}×${G.items[a.item]}`; const hint = k === 'command' ? '' : a.hint;
+    return `<button class="chip ${B.mact === k ? 'on' : ''}" data-mact="${k}" aria-pressed="${B.mact === k}">${name}<small>${hint}</small></button>`;
+  }).join('')}</div></div>`);
   body.push(triangleSVG(B.tell ? B.tellKey : null));
   const choices = Object.entries(SHIROU_ACTS).map(([k, a]) => ({
     label: a.ruby ? `${a.name}` : a.name, hint: a.ruby ? `${a.ruby}・${a.hint}` : a.hint, disabled: !shirouActAvailable(k),
     cls: k === 'ubw' ? 'primary wide' : ['calad', 'nine'].includes(k) ? 'danger' : '', icon: { blades: 'str', bow: 'target', aias: 'guard', calad: 'np', nine: 'np', ubw: 'np', support: 'bond' }[k],
     fn: () => shirouRound(k),
   }));
-  if (G.items.potion > 0) choices.push({ label: '治癒の霊薬を使う', hint: `セイバーHP+35（×${G.items.potion}）`, icon: 'guard', fn: () => { item('potion', -1); shp(35); B.forceTac = 'guard'; shirouRound('support'); } });
   choices.push({ label: 'セイバーに指示を出す', hint: '次の手番の戦い方を決める', icon: 'observe', fn: saberOrderMenu });
   choices.push({ label: `令呪（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu, icon: 'seal' });
   if (!B.final) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
@@ -200,13 +208,13 @@ function battleRound(cmd) {
   }
 
   // マスターの行動
-  let mBonus = 0; const ma = isShirou() ? null : B.mact; B.mact = 'command';
+  let mBonus = 0; const ma = isShirou() ? (['potion', 'gem', 'crystal'].includes(B.mact) ? B.mact : null) : B.mact; B.mact = 'command';
   if (isShirou()) mBonus = applyShirouAct(log, E);
   if (ma === 'command') mBonus = 5;
   if (ma === 'boost') { od(-15); mBonus = 14; log.push(`強化魔術で${P}の霊基を後押しした。`); }
   if (ma === 'heal') { od(-20); shp(25); log.push(`治癒魔術で${P}の傷を塞いだ。（HP+25）`); }
   if (ma === 'potion') { item('potion', -1); shp(35); log.push(`治癒の霊薬を使った。（HP+35）`); }
-  if (ma === 'gem') { item('gem', -1); mBonus = 12; r.hp -= 10; log.push(`宝石を投げ放つ。炸裂した魔力が${E}を撃った！（10ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: 10 }); }
+  if (ma === 'gem') { item('gem', -1); mBonus += 12; r.hp -= 10; log.push(`宝石を投げ放つ。炸裂した魔力が${E}を撃った！（10ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: 10 }); }
   if (ma === 'crystal') { item('crystal', -1); mp(40); log.push(`魔力結晶を砕き、${P}に魔力を流し込んだ。（魔力+40）`); }
 
   // 宝具の宣言
