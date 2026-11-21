@@ -9,13 +9,10 @@
 // =============================================================
 
 // 子どもの英霊：恋人関係は選べない
-const CHILDREN = new Set(['jack', 'nursery', 'abigail', 'andersen', 'wu_zetian']);
+const CHILDREN = new Set(['jack', 'nursery', 'abigail', 'andersen']);
 // 官能的な描写の対象外（恋人関係はプラトニックなものになる）
 // （原作で肉体年齢が若いとされる英霊、少年少女の姿で現界する英霊）
-const YOUTHFUL = new Set(['jack', 'nursery', 'abigail', 'andersen', 'medea_lily', 'elizabeth', 'kiyohime', 'euryale', 'ibaraki',
-  'ushiwakamaru', 'passionlip', 'meltryllis', 'bb', 'mash', 'astolfo', 'artoria', 'artoria_alter', 'artoria_caster', 'mordred',
-  'marie', 'ishtar', 'parvati', 'suzuka', 'shuten', 'nemo', 'serenity',
-  'wu_zetian', 'frankenstein', 'blavatsky', 'nobunaga', 'danzo', 'kotaro', 'amakusa']);
+const YOUTHFUL = new Set(['jack', 'nursery', 'abigail', 'andersen']);
 function isYouthful(sv) { return YOUTHFUL.has((sv || servantOf(G)).id); }
 function canBeLover(sv) { return !CHILDREN.has((sv || servantOf(G)).id); }
 
@@ -25,7 +22,7 @@ const LOVER_NIGHTS = [
   '「……魔力が、足りないんだ」<br>そう言った{s}の瞳は、魔力だけを求めているようには見えなかった。引き寄せられるまま寝台に沈み、互いの体温を確かめ合う。首筋に落ちる口づけ、背に回された腕の強さ。夜の静けさの中で、二人の境界がゆっくりと溶けていく。',
   '魔力供給――マスターとサーヴァントが、最も深く繋がるための方法。<br>知識としては知っていた。けれど、{s}の肌の熱も、耳元で零れる甘い声も、知識の中にはなかった。何度も名前を呼び合いながら、二人は夜の底へと沈んでいった。',
   '雪明かりが、肌を重ねる二人の輪郭を淡く浮かび上がらせる。<br>{s}の指が、あなたの頬から首筋へ、胸元へと、確かめるようにゆっくりと辿っていく。重なった鼓動が速くなるほど、パスを流れる魔力は熱を帯びていった。夜が明けるまで、{s}はあなたを離さなかった。',
-  '囁きとともに、熱い唇が重なった。<br>乱れた呼吸、絡み合う指、シーツを掴む手。魂ごと溶け合うような感覚の中で、魔力が奔流となって流れ込んでくる。どちらからともなく、もう一度、互いを求め合った――。',
+  '囁きとともに、熱い唇が重なった。<br>乱れた呼吸、絡み合う指、シーツを掴む手。互いに刺激しあい、気持ちを高める。<br>やがて怒張した肉棒を、濡れた秘部へと突き刺した。次第にあまりの快感に嬌声が漏れ、卑猥な水音が部屋に響く。<br>愛する人の淫らな姿に興奮は高まり、動きが加速していく。<br>────白濁の魔力が放たれ、蜜壺を満たしていく。片や絶頂に身を捩じらせ、艶やかに痙攣する。<br>しばらく、余韻に浸る。<br>しかし欲求が収まることはなく、魂ごと溶け合うような感覚の中で何度も互いの肉体を貪り、愛と快楽に溺れ続けた────。',
 ];
 
 // 囁き（話し方ごと。{I}＝一人称 / {you}＝相手の呼び方）
