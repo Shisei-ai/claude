@@ -250,7 +250,13 @@ function voiceOf(sv) {
 // 今のサーヴァント（または指定した英霊）の台詞集
 function V(sv) { return VOICES[voiceOf(sv || servantOf(G)).voice]; }
 // 決まった場面の台詞を、今のサーヴァントの話し方で
-function say(key) { const t = SAY[key][voiceOf(servantOf(G)).reg]; return t ? applyTic(fmt(t)) : ''; }
+function say(key) {
+  const sv = servantOf(G);
+  // 英霊ごとの台詞があればそれを使う（藤丸シナリオの朝の問いかけも、その英霊自身の言葉で）
+  const own = SAY_SV[sv.id]; const idx = SAY_KEYS.indexOf(key === 'askWishFuji' ? 'askWish' : key);
+  if (own && idx >= 0 && own[idx]) return fmt(own[idx]);
+  const t = SAY[key][voiceOf(sv).reg]; return t ? applyTic(fmt(t)) : '';
+}
 // 台詞の記号を置き換える
 function fmtVoice(s, sv) {
   const v = voiceOf(sv);

@@ -13,7 +13,7 @@ SRC = ROOT / "src"
 DIST = ROOT / "dist"
 
 # 読み込み順が大事：データ → 本体
-SCRIPTS = ["data_servants.js", "data_servants2.js", "data_world.js", "data_voices.js", "data_sig.js", "data_story.js", "data_growth.js", "data_fujimaru.js", "data_events.js",
+SCRIPTS = ["data_servants.js", "data_servants2.js", "data_say_keys.js", "data_say_1.js", "data_say_2.js", "data_say_3.js", "data_say_4.js", "data_world.js", "data_voices.js", "data_sig.js", "data_story.js", "data_growth.js", "data_fujimaru.js", "data_events.js",
            "fx.js", "core.js", "actions.js", "growth.js", "routes.js", "battle.js", "ending.js", "view.js"]
 
 FONTS = ('<link rel="preconnect" href="https://fonts.googleapis.com">'
