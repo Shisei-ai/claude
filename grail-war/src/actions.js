@@ -124,7 +124,7 @@ function warDayActions() {
 // ---- 情報収集：方法によって得意・不得意がある ----
 function intelMenu() {
   const can = G.flags.registered && (G.flags.churchDay || 0) + 3 <= G.day;
-  const research = hostileRivals().filter(r => r.intel >= 1 && r.intel < 3);
+  const research = hostileRivals().filter(r => r.intel >= 1 && !knowsName(r));
   submenu('情報を集める', 'INTEL', [
     '<p>どうやって探る？　情報は①マスター判明 → ②拠点判明（襲撃できる） → ③真名判明（戦闘で大きく有利）の順に進む。</p>',
   ], [
@@ -150,7 +150,7 @@ function intelMenu() {
   ]);
 }
 function researchMenu() {
-  const list = hostileRivals().filter(r => r.intel >= 1 && r.intel < 3);
+  const list = hostileRivals().filter(r => r.intel >= 1 && !knowsName(r));
   submenu('文献調査', 'RESEARCH', '<p>どの陣営のサーヴァントを調べる？　戦ったり、見切ったりした回数（手がかり）が多いほど成功しやすい。</p>',
     list.map(r => {
       const diff = researchDiff(r);
@@ -260,14 +260,14 @@ function patrol(mode) {
   const p = mode === 'bold' ? 0.75 : 0.4;
   if (Math.random() < p && foes.length) {
     const r = wpick(foes, x => 0.5 + x.aggr);
-    r.intel = Math.max(r.intel, 1);
+    const seen = meet(r);
     if (mode === 'bold') {
       NOTES = []; tone('bold');
       return next('遭遇', paras([`${pick(CITY.places)}で魔力を解き放つと、すぐに応える気配があった。`,
-        `――<b>${rivalLabel(r)}</b>のサーヴァントだ。マスターの${esc(r.master)}の姿もある。`, `<p class="quote">「${r.quote}」</p>`, ...takeNotes()]),
+        `――<b>${rivalLabel(r)}</b>のサーヴァントだ。マスターの${esc(r.master)}の姿もある。`, seen, `<p class="quote">「${r.quote}」</p>`, ...takeNotes()]),
         () => startBattle(r, {}), '戦う');
     }
-    return scene({ title: '発見', sub: 'PATROL', body: paras([`${pick(CITY.places)}の暗がりで、先に敵の姿を捉えた。<b>${rivalLabel(r)}</b>陣営だ。まだこちらには気付いていない。`]),
+    return scene({ title: '発見', sub: 'PATROL', body: paras([`${pick(CITY.places)}の暗がりで、先に敵の姿を捉えた。<b>${rivalLabel(r)}</b>陣営だ。まだこちらには気付いていない。`, seen]),
       choices: [
         { label: '奇襲を仕掛ける', hint: '最初の手番に大きな補正', cls: 'danger', fn: () => startBattle(r, { ambush: true }) },
         { label: '尾行して情報を得る', hint: '情報+1', fn: () => actResult('尾行', () => { r.intel = Math.min(3, r.intel + 1); r.clues = (r.clues || 0) + 1;
@@ -333,7 +333,7 @@ function assaultPlan(r) {
       next('暗殺失敗', paras([c.text, `寸前で敵サーヴァントが割って入った！`, ...takeNotes()]), () => startBattle(r, { enemyFirst: true }), '戦う');
     } },
   ];
-  submenu(`${rivalLabel(r)}陣営への襲撃`, 'PLAN', [`<p>作戦を決めよう。${r.intel >= 3 ? `敵の真名は${servantOf(r).name}。` : ''}</p>`], choices);
+  submenu(`${rivalLabel(r)}陣営への襲撃`, 'PLAN', [`<p>作戦を決めよう。${knowsName(r) ? `敵の真名は${servantOf(r).name}。` : ''}</p>`], choices);
 }
 function advanceOrVictory() { if (aliveRivals().length === 0) return victoryScene(); advance(); }
 
@@ -351,14 +351,14 @@ function nightRest() {
 }
 
 // ---- サーヴァントと過ごす ----
-function bondTier() { const b = G.servant.bond; return b < 30 ? 'low' : b < 60 ? 'mid' : 'high'; }
+function bondTier() { const b = G.servant.bond; if (isFuji() && b < 60) return 'mid'; return b < 30 ? 'low' : b < 60 ? 'mid' : 'high'; }   // 藤丸の英霊は初対面ではない
 function hangoutMenu() {
   const choices = Object.entries(ACTIVITIES).map(([k, a]) => ({
     label: a.name, hint: `${a.place}${a.cost ? `・資金-${a.cost}` : ''}`, disabled: G.master.money < a.cost,
     fn: () => hangout(k),
   }));
   submenu(`${SV()}と過ごす`, 'BOND', [`<p>今日はどう過ごそうか。${SV()}にも好みがあるようだ。</p>`,
-    G.servant.bond >= 20 ? `<p class="note">${SV()}が好きそうなこと：${PERSONAS[servantOf(G).persona].likes.map(k => ACTIVITIES[k].name).join('、')}</p>` :
+    G.servant.bond >= 20 || isFuji() ? `<p class="note">${SV()}が好きそうなこと：${PERSONAS[servantOf(G).persona].likes.map(k => ACTIVITIES[k].name).join('、')}</p>` :
       '<p class="note">絆が深まれば、好みも分かってくるだろう。</p>'], choices);
 }
 function hangout(k) {
@@ -372,7 +372,7 @@ function hangout(k) {
   const statGain = { eat: ['cha', 1], train: ['phy', 2], walk: ['luk', 1], talk: ['int', 1], shop: ['cha', 1], quiet: ['spi', 2] }[k];
   gain(statGain[0], statGain[1]);
   bond(n);
-  const line = fmt(pick(per[bondTier()]));
+  const line = talkLine(per);
   next(a.name, [`<p>${a.place}で${SV()}と過ごした。${react}</p>`, `<p class="quote">${line}</p>`,
     `<p class="note">絆+${n}　${STAT_LABEL[statGain[0]]}+${statGain[1]}</p>`, ...paras(takeNotes())], advance);
 }
@@ -383,7 +383,7 @@ function nightTalk() {
     NOTES = [];
     const n = rand(3, 5); bond(n); mp(5);
     const per = PERSONAS[servantOf(G).persona];
-    next('夜の語らい', [`<p>静かな夜。拠点の縁側で、${SV()}と言葉を交わした。</p>`, `<p class="quote">${fmt(pick(per[bondTier()]))}</p>`,
+    next('夜の語らい', [`<p>静かな夜。拠点の縁側で、${SV()}と言葉を交わした。</p>`, `<p class="quote">${talkLine(per)}</p>`,
       `<p class="note">絆+${n}</p>`, ...paras(takeNotes())], advance);
   });
 }
@@ -462,7 +462,7 @@ function doSummon(catalystId, opt = {}) {
     });
   }
   const reunion = isFuji() && G.flags.fujiDream === sv.id;
-  G.servant = { id: sv.id, hp: 0, mp: 60 + G.ritual * 13, bond: (opt.emergency ? 15 : 5) + G.ritual * 4 + (reunion ? 15 : 0), special: null, exposed: false };
+  G.servant = { id: sv.id, hp: 0, mp: 60 + G.ritual * 13, bond: (opt.emergency ? 15 : 5) + G.ritual * 4 + (reunion ? 15 : 0) + (isFuji() ? FUJI_MEMORY_BOND : 0), special: null, exposed: false };
   G.servant.hp = servantHpMax();
   if (!G.rivals.length) setupRivals();
   else fitRivalsToServant(sv);
@@ -501,6 +501,11 @@ function setupRivals() {
 }
 function afterSummon() {
   if (G.route === 'caught' && G.day === 0) return caughtFirstFight();
+  if (isFuji()) return next('聖杯戦争、開幕', [
+    `<p>かつての旅の記憶を取り戻した${SV()}と、改めて契約を交わした。言葉はいらない。互いの戦い方は、もう知っている。</p>`,
+    '<p>七騎のサーヴァントと七人のマスター。そしてこの戦いの裏には、あなたを招いた『蒐集者』がいる。</p>',
+    `<p class="note">歴戦のマスターであるあなたの下では、英霊は十二分に力を振るえる。対面した敵サーヴァントの真名も、一目で見抜けるだろう。期限は${WAR_DAYS}日。</p>`,
+  ], startSlot, '戦いへ', '第一幕　開幕');
   next('聖杯戦争、開幕', [
     '<p>こうして、深見市における聖杯戦争が幕を開けた。七騎のサーヴァントと七人のマスター。生き残るのは、ただ一組。</p>',
     `<p class="note">昼は情報・陣地・道具・絆を整える時間。夜は戦いの時間。敵の真名を暴き、作戦を選んで仕掛け、最後の一組となれ。期限は${WAR_DAYS}日。</p>`,

@@ -60,7 +60,18 @@ function randomAliveRival() { return pick(aliveRivals()); }
 function randomHostile() { return pick(hostileRivals()); }
 // 今戦える敵（天降山に籠城した最後の陣営は除く）
 function engageable() { return hostileRivals().filter(r => !r.siege); }
-function rivalLabel(r) { return r.intel >= 3 ? servantOf(r).short : r.cls; }
+// 敵の真名を知っているか（情報③、または藤丸が対面して看破した）
+function knowsName(r) { return r.intel >= 3 || !!r.named; }
+// 敵サーヴァントと対面した：藤丸なら一目で真名を看破する。看破した時は説明文を返す
+function meet(r) {
+  r.intel = Math.max(r.intel, 1);
+  if (typeof isFuji === 'function' && isFuji() && !knowsName(r) && r.servantId !== 'ori') {
+    r.named = true; addLog(`${r.cls}の真名「${servantOf(r).name}」を一目で看破。`);
+    return `一目で分かった。あの姿、あの武具――<b>${servantOf(r).name}</b>だ。かつての旅で、共に戦ったことのある英霊。`;
+  }
+  return '';
+}
+function rivalLabel(r) { return knowsName(r) ? servantOf(r).short : r.cls; }
 function isAssassin() { return G.servant && servantOf(G).cls === 'アサシン'; }
 
 // ---------------- 状態を変える関数（イベントからも使う） ----------------
@@ -126,6 +137,7 @@ function schk(i, diff) {
 
 // マスターの魔力がサーヴァントの性能に影響する（Fateの設定に準拠）
 function masterCorrection() {
+  if (G.master.birth === 'fujimaru') return 6;   // 歴戦のマスター：英霊は十二分に力を振るえる
   const m = G.master.stats.mag;
   if (m < 25) return -8; if (m < 40) return -4; if (m < 70) return 0; if (m < 85) return 3; return 5;
 }

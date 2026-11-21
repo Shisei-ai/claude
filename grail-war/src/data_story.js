@@ -168,13 +168,15 @@ const STORY = [
   {
     id: 's_morning', phase: 'war', day: 1, slot: 0, after: 'hub',
     title: '最初の朝', chapter: '第一幕　開幕',
-    text: () => `召喚から一夜。台所に立つと、${SV()}が窓辺から冬の街を眺めていた。<br>「おはよう、マスター。……一つ聞いておきたい。<b>君は聖杯に、何を願う？</b>」`,
+    text: () => isFuji()
+      ? `召喚から一夜。台所に立つと、${SV()}が窓辺から冬の街を眺めていた。まるで、あの頃の朝のように。<br>「おはよう、マスター。……日常に帰ったはずの君が、また令呪を宿すことになるとはね。それで――<b>今度の聖杯には、何を願う？</b>」`
+      : `召喚から一夜。台所に立つと、${SV()}が窓辺から冬の街を眺めていた。<br>「おはよう、マスター。……一つ聞いておきたい。<b>君は聖杯に、何を願う？</b>」`,
     choices: [
       { label: () => `「${birthOf().wish}」と答える`, hint: '自分の願いを語る', run: () => {
           bond(4); G.flags.toldWish = true;
           return [`あなたは自分の願いを、正直に語った。`, `<p class="quote">${fmt(pick(PERSONAS[servantOf(G).persona].mid))}</p>`, `${SV()}は静かに頷いた。（絆+4）`];
         } },
-      { label: '「君こそ、何を願うんだ？」', hint: 'サーヴァントの願いを聞く', run: () => {
+      { label: () => isFuji() ? '「あの頃みたいに、君の願いを聞かせて」' : '「君こそ、何を願うんだ？」', hint: 'サーヴァントの願いを聞く', run: () => {
           bond(3); G.flags.knowWish = true;
           return [`${SV()}は少し意外そうな顔をして、それから遠くを見た。`, `<p class="quote">「${SERVANT_WISH[servantOf(G).persona]}」</p>`, '（絆+3　サーヴァントの願いを知った）'];
         } },
@@ -186,8 +188,8 @@ const STORY = [
     title: '最初の邂逅', chapter: '第一幕　開幕',
     text: () => {
       const r = G.storyRival = hostileRivals().reduce((a, b) => a.aggr >= b.aggr ? a : b);
-      r.intel = Math.max(r.intel, 1);
-      return `買い出しの帰り道、街灯が一斉に明滅した。<br>人払いの結界。気付けば、通りには誰もいない。<br>電柱の上に、<b>${r.cls}</b>のサーヴァントが立っていた。傍らには、マスターの${esc(r.master)}――${r.type}。<br><p class="quote">「${r.quote}」</p>`;
+      const seen = meet(r);
+      return `買い出しの帰り道、街灯が一斉に明滅した。<br>人払いの結界。気付けば、通りには誰もいない。<br>電柱の上に、<b>${r.cls}</b>のサーヴァントが立っていた。傍らには、マスターの${esc(r.master)}――${r.type}。${seen ? '<br>' + seen : ''}<br><p class="quote">「${r.quote}」</p>`;
     },
     choices: [
       { label: '迎え撃つ', hint: '戦闘', cls: 'danger', run: () => ({ text: `${SV()}が実体化し、あなたの前に立った。「下がっていろ、マスター」`, then: () => startBattle(G.storyRival, {}) }) },

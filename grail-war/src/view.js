@@ -174,8 +174,7 @@ function viewSummon() {
     ${SCENE.emergency ? '<p class="note" style="text-align:center;margin:10px 0 0">召喚陣も詠唱もないまま、令呪の光が英霊を呼び寄せた。</p>' : ''}
     ${SCENE.failed ? `<p class="note" style="text-align:center;margin:10px 0 0">「${SCENE.failed.catalyst}」は確かに縁を結んだ。だが、${SCENE.failed.cls}の霊基は、今のあなたには応えなかった。<br>代わりに、別の英霊が呼び声に応えた――。</p>` : ''}
     ${!BASE_CLASSES.includes(sv.cls) ? `<p class="extra-badge">特殊クラス　${sv.cls}</p>` : ''}
-    ${SCENE.reunion ? '<p class="note" style="text-align:center;margin:8px 0 0">――どこか、懐かしい気配がした。夢に見た、あの英霊だ。（絆+15）</p>' : ''}
-    <p class="quote summon-line">「${sv.line}」</p>
+    ${isFuji() ? `<p class="quote summon-line">${fujiReunionLine(sv)}</p><p class="note" style="text-align:center;margin:-6px 0 12px">――かつてカルデアであなたに喚ばれた記憶が、英霊の中で目を覚ました。（絆+${FUJI_MEMORY_BOND}）${SCENE.reunion ? '<br>夢に見た、あの英霊だ。再会の想いが、さらに縁を深める。（絆+15）' : ''}</p>` : `<p class="quote summon-line">「${sv.line}」</p>`}
     <div class="summon-card">${servantCard(sv)}
       <div class="choices"><button class="choice primary" data-act="aftersummon">${actIcon('seal')}<span class="c-label">契約を結ぶ</span></button></div></div>
   </article>`;
@@ -221,8 +220,8 @@ function viewServant() {
       <div class="bar-row"><span>絆</span><div class="bar bond"><i style="width:${s.bond}%"></i></div><span class="num">Lv${Math.floor(s.bond / 10)}</span></div></div>
     <dl class="kv" style="margin-top:10px"><dt>関係</dt><dd>${s.special ? `<span class="tag red">${RELATIONS[s.special].name}</span>` : s.bond >= 70 ? '夜に語らえば、何かが起きるかもしれない' : 'マスターとサーヴァント（絆Lv7で変化）'}</dd>
       <dt>真名</dt><dd>${s.exposed ? '<span class="tag red">敵に知られている</span>' : '秘匿中'}</dd>
-      <dt>好み</dt><dd>${s.bond >= 20 ? per.likes.map(k => ACTIVITIES[k].name).join('、') : '絆Lv2で判明'}</dd>
-      <dt>苦手</dt><dd>${s.bond >= 40 ? per.dislikes.map(k => ACTIVITIES[k].name).join('、') : '絆Lv4で判明'}</dd></dl>
+      <dt>好み</dt><dd>${s.bond >= 20 || isFuji() ? per.likes.map(k => ACTIVITIES[k].name).join('、') : '絆Lv2で判明'}</dd>
+      <dt>苦手</dt><dd>${s.bond >= 40 || isFuji() ? per.dislikes.map(k => ACTIVITIES[k].name).join('、') : '絆Lv4で判明'}</dd></dl>
     <p class="note" style="font-size:12px;color:var(--muted);margin-top:12px">パラメータの「→」はマスター補正後の実効ランク。判定ではランクを数値（E=10〜EX=65）にして使う。</p>
   </section>`;
 }
@@ -232,12 +231,12 @@ function viewRivals() {
     <div class="rivals">${G.rivals.map(r => {
       const s = servantOf(r);
       return `<div class="rival ${r.alive ? '' : 'out'}">
-        <div class="rival-head"><span class="rival-cls">${emblem(r.cls, 16)}${r.intel >= 3 ? s.name : r.cls}</span>
+        <div class="rival-head"><span class="rival-cls">${emblem(r.cls, 16)}${knowsName(r) ? s.name : r.cls}</span>
           <span>${!r.alive ? '<span class="tag">脱落</span>' : r.ally ? '<span class="tag green">同盟</span>' : ''}${r.bounty && r.alive ? '<span class="tag red">討伐令</span>' : ''}
           <span class="intel" aria-label="情報段階${r.intel}">${[1, 2, 3].map(i => `<i class="${r.intel >= i ? 'on' : ''}"></i>`).join('')}</span></span></div>
         <p>${r.cls}　マスター：${r.intel >= 1 ? `${esc(r.master)}（${r.type}）` : '不明'}</p>
         ${r.intel >= 2 && r.alive ? `<div class="bar-row" style="margin-top:6px"><span>HP</span><div class="bar enemy"><i style="width:${(r.hp / r.hpMax) * 100}%"></i></div><span class="num">${r.hp}</span></div>` : ''}
-        ${r.intel >= 3 ? `<div style="margin-top:8px">${paramGrid(s.p)}</div><p>宝具：${s.np}（${s.npRuby}）</p>` : ''}
+        ${knowsName(r) ? `<div style="margin-top:8px">${paramGrid(s.p)}</div><p>宝具：${s.np}（${s.npRuby}）</p>` : ''}
       </div>`;
     }).join('')}</div></section>`;
 }

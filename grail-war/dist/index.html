@@ -1512,13 +1512,15 @@ const STORY = [
   {
     id: 's_morning', phase: 'war', day: 1, slot: 0, after: 'hub',
     title: '最初の朝', chapter: '第一幕　開幕',
-    text: () => `召喚から一夜。台所に立つと、${SV()}が窓辺から冬の街を眺めていた。<br>「おはよう、マスター。……一つ聞いておきたい。<b>君は聖杯に、何を願う？</b>」`,
+    text: () => isFuji()
+      ? `召喚から一夜。台所に立つと、${SV()}が窓辺から冬の街を眺めていた。まるで、あの頃の朝のように。<br>「おはよう、マスター。……日常に帰ったはずの君が、また令呪を宿すことになるとはね。それで――<b>今度の聖杯には、何を願う？</b>」`
+      : `召喚から一夜。台所に立つと、${SV()}が窓辺から冬の街を眺めていた。<br>「おはよう、マスター。……一つ聞いておきたい。<b>君は聖杯に、何を願う？</b>」`,
     choices: [
       { label: () => `「${birthOf().wish}」と答える`, hint: '自分の願いを語る', run: () => {
           bond(4); G.flags.toldWish = true;
           return [`あなたは自分の願いを、正直に語った。`, `<p class="quote">${fmt(pick(PERSONAS[servantOf(G).persona].mid))}</p>`, `${SV()}は静かに頷いた。（絆+4）`];
         } },
-      { label: '「君こそ、何を願うんだ？」', hint: 'サーヴァントの願いを聞く', run: () => {
+      { label: () => isFuji() ? '「あの頃みたいに、君の願いを聞かせて」' : '「君こそ、何を願うんだ？」', hint: 'サーヴァントの願いを聞く', run: () => {
           bond(3); G.flags.knowWish = true;
           return [`${SV()}は少し意外そうな顔をして、それから遠くを見た。`, `<p class="quote">「${SERVANT_WISH[servantOf(G).persona]}」</p>`, '（絆+3　サーヴァントの願いを知った）'];
         } },
@@ -1530,8 +1532,8 @@ const STORY = [
     title: '最初の邂逅', chapter: '第一幕　開幕',
     text: () => {
       const r = G.storyRival = hostileRivals().reduce((a, b) => a.aggr >= b.aggr ? a : b);
-      r.intel = Math.max(r.intel, 1);
-      return `買い出しの帰り道、街灯が一斉に明滅した。<br>人払いの結界。気付けば、通りには誰もいない。<br>電柱の上に、<b>${r.cls}</b>のサーヴァントが立っていた。傍らには、マスターの${esc(r.master)}――${r.type}。<br><p class="quote">「${r.quote}」</p>`;
+      const seen = meet(r);
+      return `買い出しの帰り道、街灯が一斉に明滅した。<br>人払いの結界。気付けば、通りには誰もいない。<br>電柱の上に、<b>${r.cls}</b>のサーヴァントが立っていた。傍らには、マスターの${esc(r.master)}――${r.type}。${seen ? '<br>' + seen : ''}<br><p class="quote">「${r.quote}」</p>`;
     },
     choices: [
       { label: '迎え撃つ', hint: '戦闘', cls: 'danger', run: () => ({ text: `${SV()}が実体化し、あなたの前に立った。「下がっていろ、マスター」`, then: () => startBattle(G.storyRival, {}) }) },
@@ -2077,13 +2079,13 @@ const GROWTH_EVENTS_F = [
       { label: '「放っておいてほしい」', hint: '混沌', run: () => { tone('chaos'); return '「そうはいきません。……ですが、邪魔はしませんよ」監視官はそう言って、雑踏に消えた。'; } },
     ] },
   { id: 'f_dream', stages: [1, 2, 3, 4, 5, 6, 7], title: '旅の夢',
-    text: () => '夢を見た。あの旅の、ある日の記憶。<br>焚き火の向こうで、一騎の英霊が笑っている。――誰だっただろう。',
+    text: () => '夢を見た。あの旅の、ある日の記憶。<br>焚き火の向こうで、一騎の英霊が笑っている。――忘れるはずもない、あの顔だ。',
     choices: [
       { label: '夢の中の英霊に、手を伸ばす', hint: '再会の縁を結ぶ', run: () => {
           const pool = SERVANTS.filter(s => s.id !== 'mash');
           const s = SV_BY_ID[G.flags.fujiDream] || pick(pool); G.flags.fujiDream = s.id; gain('spi', 3);
-          return [`――${s.name}。${s.desc}`, `目が覚めても、その笑顔だけははっきりと覚えていた。（精神+3）`,
-            '<span class="note">この英霊を召喚すると、最初から絆が深い状態で始まる。</span>'];
+          return [`――${s.name}。あの旅で、何度も背中を預けた英霊。`, `目が覚めると、頬が濡れていた。「……また、会いたいな」（精神+3）`,
+            '<span class="note">この英霊を召喚すると、さらに絆が深い状態で始まる。</span>'];
         } },
       { label: 'そっと目を閉じ直す', hint: '精神↑', run: () => { gain('spi', 5); return 'もう少しだけ、この夢の中にいたかった。（精神+5）'; } },
     ] },
@@ -2172,8 +2174,8 @@ STORY.push(
     text: () => {
       const r = G.storyRival = hostileRivals().reduce((a, b) => a.power >= b.power ? a : b);
       Object.assign(r, { curator: true, master: 'クラウス・アイゼンベルク', type: '時計塔の蒐集者', quote: 'ようやくお会いできましたね、人類最後のマスター。あなたの記録、頂戴いたします。' });
-      r.power += 2; r.intel = Math.max(r.intel, 2);
-      return `夜の城跡公園。月明かりの下に、仕立ての良い外套の男が立っていた。<br>「初めまして。私が『蒐集者』――クラウス・アイゼンベルクです」<br>男の背後に、<b>${r.cls}</b>のサーヴァントが控えている。<br><p class="quote">「${r.quote}」</p>`;
+      r.power += 2; r.intel = Math.max(r.intel, 2); meet(r);
+      return `夜の城跡公園。月明かりの下に、仕立ての良い外套の男が立っていた。<br>「初めまして。私が『蒐集者』――クラウス・アイゼンベルクです」<br>男の背後に、<b>${servantOf(r).name}</b>が控えている。かつての旅で、肩を並べたこともある英霊だ。<br><p class="quote">「${r.quote}」</p>`;
     },
     choices: [
       { label: '今ここで決着をつける', hint: '戦闘', cls: 'danger', run: () => ({ text: `${SV()}が前に出る。「マスター、指示を」`, then: () => startBattle(G.storyRival, {}) }) },
@@ -2190,6 +2192,46 @@ STORY.push(
     ],
   },
 );
+
+// ---- 召喚した英霊が、カルデアで喚ばれていた記憶を思い出す ----
+// 性格ごとの再会の台詞（個別の台詞がある英霊は FUJI_REUNION_SV を優先）
+const FUJI_REUNION = {
+  knight: '「……ああ、思い出しました。マスター、またこうして貴方の剣となれるとは。今度の戦いも、共に」',
+  king: '「ほう、お前か。カルデアの……ふん、王を二度も喚びつけるとは、相変わらず図太い奴よ。よかろう、付き合ってやる」',
+  warrior: '「おっ……マスターじゃねえか！ なんだよ、また厄介ごとか？ ハハッ、いいぜ、任せとけ！」',
+  cool: '「……やれやれ。日常に帰ったと聞いていたが。また君に喚ばれるとは、つくづく縁が切れないな、マスター」',
+  gentle: '「マスター……！ よかった、お元気そうで。また、あなたのお役に立てるのですね」',
+  free: '「えっ、マスター！？ 久しぶり！ ねえねえ、日常ってどんな感じ？ あとで全部聞かせてね！」',
+  dark: '「……貴様か。人理の果てまで付き合ってやったというのに、まだ戦いの中にいるとはな。いいだろう、また共に往こう」',
+  scholar: '「おや、君か。あの旅の続きを読めるとは思わなかった。……いいだろう、この章にも付き合おう」',
+  berserker: '（{s}が、あなたを見て動きを止めた。狂気の奥で、確かに何かを思い出している。低い唸り声は、どこか嬉しそうだった）',
+};
+const FUJI_REUNION_SV = {
+  mash: '「先輩……！ 本当に、先輩なんですね。……はい。シールダー、マシュ・キリエライト。もう一度、あなたの盾になります」',
+  oberon: '「……やあ、マスター。日常に帰った君が、またこんな所にいるとはね。いいよ、付き合ってあげる。――最後まで」',
+  artoria_caster: '「わ、マスター！ 本当にマスターだ！ ……えへへ、また一緒に旅ができるんだね。今度は、楽しい旅になるといいな」',
+  davinci: '「やあやあ、我らがマスター！ 天才ダ・ヴィンチちゃん、再び参上さ。日常の話、たっぷり聞かせてもらうよ？」',
+  nemo: '「マスター、乗艦を確認。……また君の航海に付き合えるなら、船長として光栄だ」',
+};
+// 旅の記憶にまつわる会話（一緒に過ごす・夜の語らいで混ざる）
+const FUJI_TALK = {
+  knight: ['「カルデアでの日々を覚えていますか。あの食堂の騒がしさが、今は少し懐かしい」', '「貴方は変わりませんね、マスター。……それが、何よりも嬉しい」'],
+  king: ['「あの旅は、王の目から見ても悪くない見世物であったぞ」', '「日常とやらはどうだ。退屈しているなら、また王が彩ってやろう」'],
+  warrior: ['「シミュレーターで散々やり合ったよな！ 今度は本番だ、腕は鈍ってねえだろうな？」', '「あの頃の厨房の飯、また食いてえなあ」'],
+  cool: ['「君は無茶ばかりしていたな。……今回は、少しは自分を大事にしてくれ」', '「あの旅を覚えていられるというのは、案外悪くない」'],
+  gentle: ['「また一緒にいられるなんて、夢みたいです」', '「旅の皆さんのこと、時々思い出すんです。マスターも、ですよね？」'],
+  free: ['「ねえ、あの頃の皆、元気かなあ？ マスターは会ったりしてる？」', '「日常って楽しい？ 今度、案内してよ！」'],
+  dark: ['「……あの旅で、復讐以外の何かを知った。お前のせいだ」', '「日常に戻ったお前の顔は、少しだけ穏やかになったな」'],
+  scholar: ['「君の旅の記録は、どんな物語より読み応えがあった」', '「日常という章も、なかなか悪くない筋書きだ」'],
+  berserker: ['（{s}が、かつてのように、あなたの隣に静かに座った）', '（{s}の唸り声が、懐かしい子守唄のように聞こえる）'],
+};
+const FUJI_MEMORY_BOND = 30;   // 記憶を取り戻した英霊の、最初の絆の上乗せ
+function fujiReunionLine(sv) { return fmt(FUJI_REUNION_SV[sv.id] || FUJI_REUNION[sv.persona]); }
+// 会話の台詞：藤丸シナリオでは旅の記憶が混ざる
+function talkLine(per) {
+  if (isFuji() && Math.random() < 0.5) return fmt(pick(FUJI_TALK[servantOf(G).persona]));
+  return fmt(pick(per[bondTier()]));
+}
 
 // =============================================================
 //  ランダムイベント
@@ -2871,7 +2913,18 @@ function randomAliveRival() { return pick(aliveRivals()); }
 function randomHostile() { return pick(hostileRivals()); }
 // 今戦える敵（天降山に籠城した最後の陣営は除く）
 function engageable() { return hostileRivals().filter(r => !r.siege); }
-function rivalLabel(r) { return r.intel >= 3 ? servantOf(r).short : r.cls; }
+// 敵の真名を知っているか（情報③、または藤丸が対面して看破した）
+function knowsName(r) { return r.intel >= 3 || !!r.named; }
+// 敵サーヴァントと対面した：藤丸なら一目で真名を看破する。看破した時は説明文を返す
+function meet(r) {
+  r.intel = Math.max(r.intel, 1);
+  if (typeof isFuji === 'function' && isFuji() && !knowsName(r) && r.servantId !== 'ori') {
+    r.named = true; addLog(`${r.cls}の真名「${servantOf(r).name}」を一目で看破。`);
+    return `一目で分かった。あの姿、あの武具――<b>${servantOf(r).name}</b>だ。かつての旅で、共に戦ったことのある英霊。`;
+  }
+  return '';
+}
+function rivalLabel(r) { return knowsName(r) ? servantOf(r).short : r.cls; }
 function isAssassin() { return G.servant && servantOf(G).cls === 'アサシン'; }
 
 // ---------------- 状態を変える関数（イベントからも使う） ----------------
@@ -2937,6 +2990,7 @@ function schk(i, diff) {
 
 // マスターの魔力がサーヴァントの性能に影響する（Fateの設定に準拠）
 function masterCorrection() {
+  if (G.master.birth === 'fujimaru') return 6;   // 歴戦のマスター：英霊は十二分に力を振るえる
   const m = G.master.stats.mag;
   if (m < 25) return -8; if (m < 40) return -4; if (m < 70) return 0; if (m < 85) return 3; return 5;
 }
@@ -3260,7 +3314,7 @@ function warDayActions() {
 // ---- 情報収集：方法によって得意・不得意がある ----
 function intelMenu() {
   const can = G.flags.registered && (G.flags.churchDay || 0) + 3 <= G.day;
-  const research = hostileRivals().filter(r => r.intel >= 1 && r.intel < 3);
+  const research = hostileRivals().filter(r => r.intel >= 1 && !knowsName(r));
   submenu('情報を集める', 'INTEL', [
     '<p>どうやって探る？　情報は①マスター判明 → ②拠点判明（襲撃できる） → ③真名判明（戦闘で大きく有利）の順に進む。</p>',
   ], [
@@ -3286,7 +3340,7 @@ function intelMenu() {
   ]);
 }
 function researchMenu() {
-  const list = hostileRivals().filter(r => r.intel >= 1 && r.intel < 3);
+  const list = hostileRivals().filter(r => r.intel >= 1 && !knowsName(r));
   submenu('文献調査', 'RESEARCH', '<p>どの陣営のサーヴァントを調べる？　戦ったり、見切ったりした回数（手がかり）が多いほど成功しやすい。</p>',
     list.map(r => {
       const diff = researchDiff(r);
@@ -3396,14 +3450,14 @@ function patrol(mode) {
   const p = mode === 'bold' ? 0.75 : 0.4;
   if (Math.random() < p && foes.length) {
     const r = wpick(foes, x => 0.5 + x.aggr);
-    r.intel = Math.max(r.intel, 1);
+    const seen = meet(r);
     if (mode === 'bold') {
       NOTES = []; tone('bold');
       return next('遭遇', paras([`${pick(CITY.places)}で魔力を解き放つと、すぐに応える気配があった。`,
-        `――<b>${rivalLabel(r)}</b>のサーヴァントだ。マスターの${esc(r.master)}の姿もある。`, `<p class="quote">「${r.quote}」</p>`, ...takeNotes()]),
+        `――<b>${rivalLabel(r)}</b>のサーヴァントだ。マスターの${esc(r.master)}の姿もある。`, seen, `<p class="quote">「${r.quote}」</p>`, ...takeNotes()]),
         () => startBattle(r, {}), '戦う');
     }
-    return scene({ title: '発見', sub: 'PATROL', body: paras([`${pick(CITY.places)}の暗がりで、先に敵の姿を捉えた。<b>${rivalLabel(r)}</b>陣営だ。まだこちらには気付いていない。`]),
+    return scene({ title: '発見', sub: 'PATROL', body: paras([`${pick(CITY.places)}の暗がりで、先に敵の姿を捉えた。<b>${rivalLabel(r)}</b>陣営だ。まだこちらには気付いていない。`, seen]),
       choices: [
         { label: '奇襲を仕掛ける', hint: '最初の手番に大きな補正', cls: 'danger', fn: () => startBattle(r, { ambush: true }) },
         { label: '尾行して情報を得る', hint: '情報+1', fn: () => actResult('尾行', () => { r.intel = Math.min(3, r.intel + 1); r.clues = (r.clues || 0) + 1;
@@ -3469,7 +3523,7 @@ function assaultPlan(r) {
       next('暗殺失敗', paras([c.text, `寸前で敵サーヴァントが割って入った！`, ...takeNotes()]), () => startBattle(r, { enemyFirst: true }), '戦う');
     } },
   ];
-  submenu(`${rivalLabel(r)}陣営への襲撃`, 'PLAN', [`<p>作戦を決めよう。${r.intel >= 3 ? `敵の真名は${servantOf(r).name}。` : ''}</p>`], choices);
+  submenu(`${rivalLabel(r)}陣営への襲撃`, 'PLAN', [`<p>作戦を決めよう。${knowsName(r) ? `敵の真名は${servantOf(r).name}。` : ''}</p>`], choices);
 }
 function advanceOrVictory() { if (aliveRivals().length === 0) return victoryScene(); advance(); }
 
@@ -3487,14 +3541,14 @@ function nightRest() {
 }
 
 // ---- サーヴァントと過ごす ----
-function bondTier() { const b = G.servant.bond; return b < 30 ? 'low' : b < 60 ? 'mid' : 'high'; }
+function bondTier() { const b = G.servant.bond; if (isFuji() && b < 60) return 'mid'; return b < 30 ? 'low' : b < 60 ? 'mid' : 'high'; }   // 藤丸の英霊は初対面ではない
 function hangoutMenu() {
   const choices = Object.entries(ACTIVITIES).map(([k, a]) => ({
     label: a.name, hint: `${a.place}${a.cost ? `・資金-${a.cost}` : ''}`, disabled: G.master.money < a.cost,
     fn: () => hangout(k),
   }));
   submenu(`${SV()}と過ごす`, 'BOND', [`<p>今日はどう過ごそうか。${SV()}にも好みがあるようだ。</p>`,
-    G.servant.bond >= 20 ? `<p class="note">${SV()}が好きそうなこと：${PERSONAS[servantOf(G).persona].likes.map(k => ACTIVITIES[k].name).join('、')}</p>` :
+    G.servant.bond >= 20 || isFuji() ? `<p class="note">${SV()}が好きそうなこと：${PERSONAS[servantOf(G).persona].likes.map(k => ACTIVITIES[k].name).join('、')}</p>` :
       '<p class="note">絆が深まれば、好みも分かってくるだろう。</p>'], choices);
 }
 function hangout(k) {
@@ -3508,7 +3562,7 @@ function hangout(k) {
   const statGain = { eat: ['cha', 1], train: ['phy', 2], walk: ['luk', 1], talk: ['int', 1], shop: ['cha', 1], quiet: ['spi', 2] }[k];
   gain(statGain[0], statGain[1]);
   bond(n);
-  const line = fmt(pick(per[bondTier()]));
+  const line = talkLine(per);
   next(a.name, [`<p>${a.place}で${SV()}と過ごした。${react}</p>`, `<p class="quote">${line}</p>`,
     `<p class="note">絆+${n}　${STAT_LABEL[statGain[0]]}+${statGain[1]}</p>`, ...paras(takeNotes())], advance);
 }
@@ -3519,7 +3573,7 @@ function nightTalk() {
     NOTES = [];
     const n = rand(3, 5); bond(n); mp(5);
     const per = PERSONAS[servantOf(G).persona];
-    next('夜の語らい', [`<p>静かな夜。拠点の縁側で、${SV()}と言葉を交わした。</p>`, `<p class="quote">${fmt(pick(per[bondTier()]))}</p>`,
+    next('夜の語らい', [`<p>静かな夜。拠点の縁側で、${SV()}と言葉を交わした。</p>`, `<p class="quote">${talkLine(per)}</p>`,
       `<p class="note">絆+${n}</p>`, ...paras(takeNotes())], advance);
   });
 }
@@ -3598,7 +3652,7 @@ function doSummon(catalystId, opt = {}) {
     });
   }
   const reunion = isFuji() && G.flags.fujiDream === sv.id;
-  G.servant = { id: sv.id, hp: 0, mp: 60 + G.ritual * 13, bond: (opt.emergency ? 15 : 5) + G.ritual * 4 + (reunion ? 15 : 0), special: null, exposed: false };
+  G.servant = { id: sv.id, hp: 0, mp: 60 + G.ritual * 13, bond: (opt.emergency ? 15 : 5) + G.ritual * 4 + (reunion ? 15 : 0) + (isFuji() ? FUJI_MEMORY_BOND : 0), special: null, exposed: false };
   G.servant.hp = servantHpMax();
   if (!G.rivals.length) setupRivals();
   else fitRivalsToServant(sv);
@@ -3637,6 +3691,11 @@ function setupRivals() {
 }
 function afterSummon() {
   if (G.route === 'caught' && G.day === 0) return caughtFirstFight();
+  if (isFuji()) return next('聖杯戦争、開幕', [
+    `<p>かつての旅の記憶を取り戻した${SV()}と、改めて契約を交わした。言葉はいらない。互いの戦い方は、もう知っている。</p>`,
+    '<p>七騎のサーヴァントと七人のマスター。そしてこの戦いの裏には、あなたを招いた『蒐集者』がいる。</p>',
+    `<p class="note">歴戦のマスターであるあなたの下では、英霊は十二分に力を振るえる。対面した敵サーヴァントの真名も、一目で見抜けるだろう。期限は${WAR_DAYS}日。</p>`,
+  ], startSlot, '戦いへ', '第一幕　開幕');
   next('聖杯戦争、開幕', [
     '<p>こうして、深見市における聖杯戦争が幕を開けた。七騎のサーヴァントと七人のマスター。生き残るのは、ただ一組。</p>',
     `<p class="note">昼は情報・陣地・道具・絆を整える時間。夜は戦いの時間。敵の真名を暴き、作戦を選んで仕掛け、最後の一組となれ。期限は${WAR_DAYS}日。</p>`,
@@ -4051,8 +4110,13 @@ function startBattle(rival, opt = {}) {
   G.battles++;
   B = { r: rival, round: 0, opt, final: !!(opt.final || opt.boss), boss: !!opt.boss, miracle: false,
     enemyNext: null, tell: null, sure: false, charge: 0, echarge: 0, mact: 'command', extra: null, enemySeal: false };
-  rival.intel = Math.max(rival.intel, 1);
   const pre = [];
+  const seen = meet(rival);
+  if (seen) pre.push(`<p>${seen}</p>`);
+  if (isFuji() && servantOf(rival).persona !== 'berserker' && rival.servantId !== 'ori' && !rival.recognized && Math.random() < 0.5) {
+    rival.recognized = true;
+    pre.push(`<p class="quote">「……${M()}？ まさか、こんな所で会うとはな。だが、今は敵のマスターに喚ばれた身だ。――手加減はしない」</p>`);
+  }
   if (opt.defend && G.traps > 0) {
     G.traps--; rival.hp = Math.max(1, rival.hp - 20);
     pre.push(`<p>仕掛けておいた罠が炸裂した！ ${enemyName()}に20ダメージ。（残りの罠 ${G.traps}）</p>`);
@@ -4060,7 +4124,7 @@ function startBattle(rival, opt = {}) {
   planEnemy();
   battleScene(pre);
 }
-function enemyName() { return B.r.intel >= 3 ? servantOf(B.r).short : `敵${B.r.cls}`; }
+function enemyName() { return knowsName(B.r) ? servantOf(B.r).short : `敵${B.r.cls}`; }
 
 // 敵の次の行動を決め、「構え」として見せるかどうかを決める
 function planEnemy() {
@@ -4071,7 +4135,7 @@ function planEnemy() {
   else t = wpick(['str', 'agi', 'mag'], k => Math.pow(rivalParam(r, TACTICS[k].stat), 1.5));
   B.enemyNext = t;
   if (B.sure) { B.tell = `【見切り】${enemyName()}は${TACTICS[t].tell}`; B.tellKey = t; B.sure = false; return; }
-  const seeChance = t === 'np' ? 0.9 : 0.3 + G.master.stats.int / 200 + (r.intel >= 3 ? 0.2 : 0);
+  const seeChance = t === 'np' ? 0.9 : 0.3 + G.master.stats.int / 200 + (knowsName(r) ? 0.2 : 0);
   if (Math.random() < seeChance) {
     const shown = t === 'np' || Math.random() < 0.75 ? t : pick(['str', 'agi', 'mag', 'guard']);
     B.tell = `${enemyName()}は${TACTICS[shown].tell}`; B.tellKey = shown;
@@ -4097,9 +4161,9 @@ function battleScene(extra) {
         <div class="bar hp"><i class="lag" style="width:${meFrom}%"></i><i data-w="${meW}" style="width:${meFrom}%"></i></div>
         <div class="bar mp thin"><i style="width:${sv.mp}%"></i></div></div>
       <div class="vs">VS</div>
-      <div class="fighter enemy" id="f-en" style="--cc:${classColor(r.cls)}"><div class="fighter-top"><span class="fighter-name">${emblem(r.cls, 18)}${enemyName()}</span><span>${r.cls}${r.intel >= 3 ? '' : '（真名不明）'}　HP ${Math.max(0, r.hp)}/${r.hpMax}</span></div>
+      <div class="fighter enemy" id="f-en" style="--cc:${classColor(r.cls)}"><div class="fighter-top"><span class="fighter-name">${emblem(r.cls, 18)}${enemyName()}</span><span>${r.cls}${knowsName(r) ? '' : '（真名不明）'}　HP ${Math.max(0, r.hp)}/${r.hpMax}</span></div>
         <div class="bar enemy"><i class="lag" style="width:${enFrom}%"></i><i data-w="${enW}" style="width:${enFrom}%"></i></div>
-        ${r.intel >= 3 ? `<div class="enemy-params">${PARAM_NAMES.map((n, i) => `${n}<b>${servantOf(r).p[i]}</b>`).join('')}</div>` : ''}</div>
+        ${knowsName(r) ? `<div class="enemy-params">${PARAM_NAMES.map((n, i) => `${n}<b>${servantOf(r).p[i]}</b>`).join('')}</div>` : ''}</div>
     </div>`,
   ];
   if (B.round === 0) {
@@ -4108,7 +4172,7 @@ function battleScene(extra) {
     if (B.opt.enemyFirst) mods.push('先手を取られた');
     if (B.opt.duel) mods.push('一騎打ち');
     if (B.opt.defend && G.workshop) mods.push(`陣地Lv${G.workshop}`);
-    if (r.intel >= 3) mods.push('真名看破');
+    if (knowsName(r)) mods.push('真名看破');
     if (G.servant.exposed) mods.push('こちらの真名が露見');
     const aff = classAffinity(me.cls, r.cls);
     if (aff > 0 && me.cls !== 'バーサーカー' && r.cls !== 'バーサーカー') mods.push('クラス相性◎');
@@ -4208,7 +4272,7 @@ function battleRound(cmd) {
     const en = servantOf(r);
     log.push(`${E}が宝具を解き放つ。<b>「${en.np}（${en.npRuby}）！」</b>`);
     B.fxq.push({ type: 'np', side: 'en', name: en.np, ruby: en.npRuby, who: en.short, cls: r.cls });
-    if (r.intel < 3) { r.intel = 3; log.push(`<span class="note">その宝具は――${en.name}！ 敵の真名が判明した。</span>`); addLog(`${r.cls}の真名「${en.name}」が判明。`); }
+    if (!knowsName(r)) { r.intel = 3; log.push(`<span class="note">その宝具は――${en.name}！ 敵の真名が判明した。</span>`); addLog(`${r.cls}の真名「${en.name}」が判明。`); }
   }
 
   // 敵マスターの令呪（追い詰められると使う）
@@ -4221,7 +4285,7 @@ function battleRound(cmd) {
   // ---- 補正値 ----
   const first = B.round === 1;
   const myMod = classAffinity(me.cls, r.cls) + Math.floor(sv.bond / 8) + (sv.special ? 5 : 0) + Math.floor(G.master.stats.mag / 20)
-    + (['mercenary', 'executor'].includes(G.master.birth) ? 4 : 0) + (G.master.birth === 'fujimaru' ? 6 : 0) + (r.intel >= 3 ? 8 : 0)
+    + (['mercenary', 'executor'].includes(G.master.birth) ? 4 : 0) + (G.master.birth === 'fujimaru' ? 6 : 0) + (knowsName(r) ? 8 : 0)
     + (first && B.opt.ambush ? 15 : 0) + (first && B.opt.duel ? 6 : 0) + (B.opt.defend ? G.workshop * 3 : 0)
     + (B.final && G.flags.resolve === 'win' ? 6 : 0) + (B.boss && G.flags.resolve === 'destroy' ? 8 : 0) + (B.boss && G.flags.mudKnown ? 5 : 0)
     + sealBoost + mBonus + B.charge;
@@ -4292,7 +4356,7 @@ function battleRound(cmd) {
       if (theirs > mine) hitMe(dmgCalc(theirs - mine, et, servantParam(1), rivalParam(r, 4), 0.8), et);
       else log.push(`${P}は紙一重で攻撃をかわし、${E}の動きを見極めた。`);
     } else log.push(`互いに出方を窺う。${P}は${E}の癖を観察した。`);
-    if (r.intel < 3 && !B.boss) {
+    if (!knowsName(r) && !B.boss) {
       const c = chk('int', 82 - r.clues * 6);
       if (c.ok) { r.intel = 3; log.push(c.text, `あの構え、あの武具――間違いない。真名は<b>${servantOf(r).name}</b>だ！`); addLog(`${r.cls}の真名「${servantOf(r).name}」を看破。`); }
       else log.push('<span class="note">真名の手がかりを得た。（手がかり+1）</span>');
@@ -4731,8 +4795,7 @@ function viewSummon() {
     ${SCENE.emergency ? '<p class="note" style="text-align:center;margin:10px 0 0">召喚陣も詠唱もないまま、令呪の光が英霊を呼び寄せた。</p>' : ''}
     ${SCENE.failed ? `<p class="note" style="text-align:center;margin:10px 0 0">「${SCENE.failed.catalyst}」は確かに縁を結んだ。だが、${SCENE.failed.cls}の霊基は、今のあなたには応えなかった。<br>代わりに、別の英霊が呼び声に応えた――。</p>` : ''}
     ${!BASE_CLASSES.includes(sv.cls) ? `<p class="extra-badge">特殊クラス　${sv.cls}</p>` : ''}
-    ${SCENE.reunion ? '<p class="note" style="text-align:center;margin:8px 0 0">――どこか、懐かしい気配がした。夢に見た、あの英霊だ。（絆+15）</p>' : ''}
-    <p class="quote summon-line">「${sv.line}」</p>
+    ${isFuji() ? `<p class="quote summon-line">${fujiReunionLine(sv)}</p><p class="note" style="text-align:center;margin:-6px 0 12px">――かつてカルデアであなたに喚ばれた記憶が、英霊の中で目を覚ました。（絆+${FUJI_MEMORY_BOND}）${SCENE.reunion ? '<br>夢に見た、あの英霊だ。再会の想いが、さらに縁を深める。（絆+15）' : ''}</p>` : `<p class="quote summon-line">「${sv.line}」</p>`}
     <div class="summon-card">${servantCard(sv)}
       <div class="choices"><button class="choice primary" data-act="aftersummon">${actIcon('seal')}<span class="c-label">契約を結ぶ</span></button></div></div>
   </article>`;
@@ -4778,8 +4841,8 @@ function viewServant() {
       <div class="bar-row"><span>絆</span><div class="bar bond"><i style="width:${s.bond}%"></i></div><span class="num">Lv${Math.floor(s.bond / 10)}</span></div></div>
     <dl class="kv" style="margin-top:10px"><dt>関係</dt><dd>${s.special ? `<span class="tag red">${RELATIONS[s.special].name}</span>` : s.bond >= 70 ? '夜に語らえば、何かが起きるかもしれない' : 'マスターとサーヴァント（絆Lv7で変化）'}</dd>
       <dt>真名</dt><dd>${s.exposed ? '<span class="tag red">敵に知られている</span>' : '秘匿中'}</dd>
-      <dt>好み</dt><dd>${s.bond >= 20 ? per.likes.map(k => ACTIVITIES[k].name).join('、') : '絆Lv2で判明'}</dd>
-      <dt>苦手</dt><dd>${s.bond >= 40 ? per.dislikes.map(k => ACTIVITIES[k].name).join('、') : '絆Lv4で判明'}</dd></dl>
+      <dt>好み</dt><dd>${s.bond >= 20 || isFuji() ? per.likes.map(k => ACTIVITIES[k].name).join('、') : '絆Lv2で判明'}</dd>
+      <dt>苦手</dt><dd>${s.bond >= 40 || isFuji() ? per.dislikes.map(k => ACTIVITIES[k].name).join('、') : '絆Lv4で判明'}</dd></dl>
     <p class="note" style="font-size:12px;color:var(--muted);margin-top:12px">パラメータの「→」はマスター補正後の実効ランク。判定ではランクを数値（E=10〜EX=65）にして使う。</p>
   </section>`;
 }
@@ -4789,12 +4852,12 @@ function viewRivals() {
     <div class="rivals">${G.rivals.map(r => {
       const s = servantOf(r);
       return `<div class="rival ${r.alive ? '' : 'out'}">
-        <div class="rival-head"><span class="rival-cls">${emblem(r.cls, 16)}${r.intel >= 3 ? s.name : r.cls}</span>
+        <div class="rival-head"><span class="rival-cls">${emblem(r.cls, 16)}${knowsName(r) ? s.name : r.cls}</span>
           <span>${!r.alive ? '<span class="tag">脱落</span>' : r.ally ? '<span class="tag green">同盟</span>' : ''}${r.bounty && r.alive ? '<span class="tag red">討伐令</span>' : ''}
           <span class="intel" aria-label="情報段階${r.intel}">${[1, 2, 3].map(i => `<i class="${r.intel >= i ? 'on' : ''}"></i>`).join('')}</span></span></div>
         <p>${r.cls}　マスター：${r.intel >= 1 ? `${esc(r.master)}（${r.type}）` : '不明'}</p>
         ${r.intel >= 2 && r.alive ? `<div class="bar-row" style="margin-top:6px"><span>HP</span><div class="bar enemy"><i style="width:${(r.hp / r.hpMax) * 100}%"></i></div><span class="num">${r.hp}</span></div>` : ''}
-        ${r.intel >= 3 ? `<div style="margin-top:8px">${paramGrid(s.p)}</div><p>宝具：${s.np}（${s.npRuby}）</p>` : ''}
+        ${knowsName(r) ? `<div style="margin-top:8px">${paramGrid(s.p)}</div><p>宝具：${s.np}（${s.npRuby}）</p>` : ''}
       </div>`;
     }).join('')}</div></section>`;
 }

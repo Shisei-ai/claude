@@ -37,8 +37,13 @@ function startBattle(rival, opt = {}) {
   G.battles++;
   B = { r: rival, round: 0, opt, final: !!(opt.final || opt.boss), boss: !!opt.boss, miracle: false,
     enemyNext: null, tell: null, sure: false, charge: 0, echarge: 0, mact: 'command', extra: null, enemySeal: false };
-  rival.intel = Math.max(rival.intel, 1);
   const pre = [];
+  const seen = meet(rival);
+  if (seen) pre.push(`<p>${seen}</p>`);
+  if (isFuji() && servantOf(rival).persona !== 'berserker' && rival.servantId !== 'ori' && !rival.recognized && Math.random() < 0.5) {
+    rival.recognized = true;
+    pre.push(`<p class="quote">「……${M()}？ まさか、こんな所で会うとはな。だが、今は敵のマスターに喚ばれた身だ。――手加減はしない」</p>`);
+  }
   if (opt.defend && G.traps > 0) {
     G.traps--; rival.hp = Math.max(1, rival.hp - 20);
     pre.push(`<p>仕掛けておいた罠が炸裂した！ ${enemyName()}に20ダメージ。（残りの罠 ${G.traps}）</p>`);
@@ -46,7 +51,7 @@ function startBattle(rival, opt = {}) {
   planEnemy();
   battleScene(pre);
 }
-function enemyName() { return B.r.intel >= 3 ? servantOf(B.r).short : `敵${B.r.cls}`; }
+function enemyName() { return knowsName(B.r) ? servantOf(B.r).short : `敵${B.r.cls}`; }
 
 // 敵の次の行動を決め、「構え」として見せるかどうかを決める
 function planEnemy() {
@@ -57,7 +62,7 @@ function planEnemy() {
   else t = wpick(['str', 'agi', 'mag'], k => Math.pow(rivalParam(r, TACTICS[k].stat), 1.5));
   B.enemyNext = t;
   if (B.sure) { B.tell = `【見切り】${enemyName()}は${TACTICS[t].tell}`; B.tellKey = t; B.sure = false; return; }
-  const seeChance = t === 'np' ? 0.9 : 0.3 + G.master.stats.int / 200 + (r.intel >= 3 ? 0.2 : 0);
+  const seeChance = t === 'np' ? 0.9 : 0.3 + G.master.stats.int / 200 + (knowsName(r) ? 0.2 : 0);
   if (Math.random() < seeChance) {
     const shown = t === 'np' || Math.random() < 0.75 ? t : pick(['str', 'agi', 'mag', 'guard']);
     B.tell = `${enemyName()}は${TACTICS[shown].tell}`; B.tellKey = shown;
@@ -83,9 +88,9 @@ function battleScene(extra) {
         <div class="bar hp"><i class="lag" style="width:${meFrom}%"></i><i data-w="${meW}" style="width:${meFrom}%"></i></div>
         <div class="bar mp thin"><i style="width:${sv.mp}%"></i></div></div>
       <div class="vs">VS</div>
-      <div class="fighter enemy" id="f-en" style="--cc:${classColor(r.cls)}"><div class="fighter-top"><span class="fighter-name">${emblem(r.cls, 18)}${enemyName()}</span><span>${r.cls}${r.intel >= 3 ? '' : '（真名不明）'}　HP ${Math.max(0, r.hp)}/${r.hpMax}</span></div>
+      <div class="fighter enemy" id="f-en" style="--cc:${classColor(r.cls)}"><div class="fighter-top"><span class="fighter-name">${emblem(r.cls, 18)}${enemyName()}</span><span>${r.cls}${knowsName(r) ? '' : '（真名不明）'}　HP ${Math.max(0, r.hp)}/${r.hpMax}</span></div>
         <div class="bar enemy"><i class="lag" style="width:${enFrom}%"></i><i data-w="${enW}" style="width:${enFrom}%"></i></div>
-        ${r.intel >= 3 ? `<div class="enemy-params">${PARAM_NAMES.map((n, i) => `${n}<b>${servantOf(r).p[i]}</b>`).join('')}</div>` : ''}</div>
+        ${knowsName(r) ? `<div class="enemy-params">${PARAM_NAMES.map((n, i) => `${n}<b>${servantOf(r).p[i]}</b>`).join('')}</div>` : ''}</div>
     </div>`,
   ];
   if (B.round === 0) {
@@ -94,7 +99,7 @@ function battleScene(extra) {
     if (B.opt.enemyFirst) mods.push('先手を取られた');
     if (B.opt.duel) mods.push('一騎打ち');
     if (B.opt.defend && G.workshop) mods.push(`陣地Lv${G.workshop}`);
-    if (r.intel >= 3) mods.push('真名看破');
+    if (knowsName(r)) mods.push('真名看破');
     if (G.servant.exposed) mods.push('こちらの真名が露見');
     const aff = classAffinity(me.cls, r.cls);
     if (aff > 0 && me.cls !== 'バーサーカー' && r.cls !== 'バーサーカー') mods.push('クラス相性◎');
@@ -194,7 +199,7 @@ function battleRound(cmd) {
     const en = servantOf(r);
     log.push(`${E}が宝具を解き放つ。<b>「${en.np}（${en.npRuby}）！」</b>`);
     B.fxq.push({ type: 'np', side: 'en', name: en.np, ruby: en.npRuby, who: en.short, cls: r.cls });
-    if (r.intel < 3) { r.intel = 3; log.push(`<span class="note">その宝具は――${en.name}！ 敵の真名が判明した。</span>`); addLog(`${r.cls}の真名「${en.name}」が判明。`); }
+    if (!knowsName(r)) { r.intel = 3; log.push(`<span class="note">その宝具は――${en.name}！ 敵の真名が判明した。</span>`); addLog(`${r.cls}の真名「${en.name}」が判明。`); }
   }
 
   // 敵マスターの令呪（追い詰められると使う）
@@ -207,7 +212,7 @@ function battleRound(cmd) {
   // ---- 補正値 ----
   const first = B.round === 1;
   const myMod = classAffinity(me.cls, r.cls) + Math.floor(sv.bond / 8) + (sv.special ? 5 : 0) + Math.floor(G.master.stats.mag / 20)
-    + (['mercenary', 'executor'].includes(G.master.birth) ? 4 : 0) + (G.master.birth === 'fujimaru' ? 6 : 0) + (r.intel >= 3 ? 8 : 0)
+    + (['mercenary', 'executor'].includes(G.master.birth) ? 4 : 0) + (G.master.birth === 'fujimaru' ? 6 : 0) + (knowsName(r) ? 8 : 0)
     + (first && B.opt.ambush ? 15 : 0) + (first && B.opt.duel ? 6 : 0) + (B.opt.defend ? G.workshop * 3 : 0)
     + (B.final && G.flags.resolve === 'win' ? 6 : 0) + (B.boss && G.flags.resolve === 'destroy' ? 8 : 0) + (B.boss && G.flags.mudKnown ? 5 : 0)
     + sealBoost + mBonus + B.charge;
@@ -278,7 +283,7 @@ function battleRound(cmd) {
       if (theirs > mine) hitMe(dmgCalc(theirs - mine, et, servantParam(1), rivalParam(r, 4), 0.8), et);
       else log.push(`${P}は紙一重で攻撃をかわし、${E}の動きを見極めた。`);
     } else log.push(`互いに出方を窺う。${P}は${E}の癖を観察した。`);
-    if (r.intel < 3 && !B.boss) {
+    if (!knowsName(r) && !B.boss) {
       const c = chk('int', 82 - r.clues * 6);
       if (c.ok) { r.intel = 3; log.push(c.text, `あの構え、あの武具――間違いない。真名は<b>${servantOf(r).name}</b>だ！`); addLog(`${r.cls}の真名「${servantOf(r).name}」を看破。`); }
       else log.push('<span class="note">真名の手がかりを得た。（手がかり+1）</span>');
