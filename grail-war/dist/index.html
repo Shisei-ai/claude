@@ -4634,7 +4634,7 @@ const EPI = {
       }),
       choices: [
         { label: () => relText({ lover: '新しい人の手を取る', partner: '新しい仲間を作る', oath: '弟子を取り、誓いを継がせる', family: '新しい家族を作る', none: '新しい出会いを大切にする' }), hint: '幸福↑↑', run: () => epiGain({ joy: 3 }, relText({ lover: '新しい人と歩み始めた', partner: '新しい仲間を得た', oath: '弟子に誓いを継がせた', family: '新しい家族を作った', none: '新しい出会いを得た' })) || `一歩を踏み出した。きっと${SV()}も、背中を押してくれている。` },
-        { label: () => relText({ lover: `${SVN()}を想い続ける`, partner: '一人で戦い続ける', oath: '誓いを一人で守り続ける', family: '思い出と共に生きる', none: 'あの冬を胸に生きる' }), hint: '絆↑↑', run: () => epiGain({ bond: 3 }, relText({ lover: `${SVN()}を想い続けた`, partner: '相棒の不在を背負って戦い続けた', oath: '誓いを一人で守り続けた', family: '思い出と共に生きた', none: 'あの冬を胸に生きた' })) || `あの冬を、心の一番奥にしまっておく。それが、あなたの選んだ生き方だった。` },
+        { label: () => relText({ lover: `${SVN()}を想い続ける`, partner: '一人で戦い続ける', oath: '誓いを一人で守り続ける', family: '思い出と共に生きる', none: 'あの冬を胸に生きる' }), hint: '絆↑↑', run: () => (G.epi.yearn = G.servant.special === 'lover', '') || epiGain({ bond: 3 }, relText({ lover: `${SVN()}を想い続けた`, partner: '相棒の不在を背負って戦い続けた', oath: '誓いを一人で守り続けた', family: '思い出と共に生きた', none: 'あの冬を胸に生きた' })) || `あの冬を、心の一番奥にしまっておく。それが、あなたの選んだ生き方だった。` },
       ] },
     { y: 30, title: '召喚陣の夢',
       text: () => `三十年が過ぎたある夜、夢を見た。<br>あの冬の工房。床に描かれた召喚陣が、淡く光っている。その向こうで、${SV()}がこちらを見ていた。<p class="quote">${reunionLine(servantOf(G))}</p>`,
@@ -4818,7 +4818,9 @@ function startEpilogue(kind) {
 function epiNext() {
   const e = G.epi; e.i++;
   if (e.i >= e.steps.length) return epiFinale();
-  const st = e.steps[e.i]; e.year = st.y;
+  let st = e.steps[e.i];
+  if (st.final && typeof avalonEligible === 'function' && avalonEligible()) st = e.steps[e.i] = EPI_MERLIN;   // 隠しエンディングへの分岐
+  e.year = st.y;
   const go = () => scene({ title: st.title, sub: `エピローグ・${epiAgeLabel()}`, reveal: true,
     body: paras([fmt(st.text())]),
     choices: st.choices.filter(c => !c.cond || c.cond()).map(c => ({
@@ -4830,6 +4832,7 @@ function epiNext() {
 }
 function epiFinale() {
   const e = G.epi;
+  if (e.avalon) return avalonEnding();
   const best = ['joy', 'bond', 'legacy'].reduce((a, b) => e[b] > e[a] ? b : a, 'joy');
   const total = e.joy + e.bond + e.legacy;
   const kind = { joy: '幸福に満ちた生涯', bond: '絆に生きた生涯', legacy: '多くを遺した生涯' }[best];
@@ -4916,9 +4919,9 @@ const GROWTH_EVENTS_S = [
   { id: 'sg_depart', stages: [1], fixed: true, title: '旅立ちの朝',
     text: () => '冬木を発つ朝。衛宮邸の門の前に、見送りの人たちが集まっていた。<br>「ちゃんとご飯食べるのよ、士郎！」と藤ねえ。「……先輩。いってらっしゃい」と桜。<br>そして遠坂が、腕を組んで言った。「いい？ 無茶したら承知しないから。……ちゃんと、帰ってきなさいよ」',
     choices: [
-      { label: '「行ってきます」と、笑って答える', hint: '精神・交渉↑', run: () => { gain('spi', 3); gain('cha', 3); return '三人の顔を目に焼き付けて、門をくぐった。――必ず、帰ってくる。（精神+3 交渉+3）'; } },
-      { label: '桜に、家のことを頼む', hint: '幸運↑・道具', run: () => { gain('luk', 3); item('potion', 1); return '「はい。先輩の帰る場所は、私が守ります」桜は、小さな包みを差し出した。中身は手作りの薬と、お守りだった。（幸運+3 治癒の霊薬+1）'; } },
-      { label: '遠坂に、改めて礼を言う', hint: '魔力↑', run: () => { gain('mag', 4); return '「な、何よ急に。……いいから、さっさと行きなさい」遠坂は顔を背けたまま、宝石を一つ押し付けてきた。（魔力+4）'; } },
+      { label: '「行ってきます」と、笑って答える', hint: '精神・交渉↑', run: () => { gain('spi', 3); gain('cha', 3); hero('rin', 5); hero('sakura', 5); return '三人の顔を目に焼き付けて、門をくぐった。――必ず、帰ってくる。（精神+3 交渉+3）'; } },
+      { label: '桜に、家のことを頼む', hint: '幸運↑・道具', run: () => { gain('luk', 3); item('potion', 1); hero('sakura', 10); return '「はい。先輩の帰る場所は、私が守ります」桜は、小さな包みを差し出した。中身は手作りの薬と、お守りだった。（幸運+3 治癒の霊薬+1）'; } },
+      { label: '遠坂に、改めて礼を言う', hint: '魔力↑', run: () => { gain('mag', 4); hero('rin', 10); return '「な、何よ急に。……いいから、さっさと行きなさい」遠坂は顔を背けたまま、宝石を一つ押し付けてきた。（魔力+4）'; } },
     ] },
   { id: 'sg_ubw', stages: [6], fixed: true, title: '剣の丘',
     text: () => '夢を見た。赤い荒野。空には歯車。無数の剣が、墓標のように突き立っている。<br>――知っている。ここは、俺の心の中の景色だ。<br>あの赤い外套の背中が、丘の上で振り返った気がした。',
@@ -4931,8 +4934,8 @@ const GROWTH_EVENTS_S = [
   { id: 'sg_letter', stages: [2, 3, 4, 5, 6, 7], title: '遠坂からの手紙',
     text: () => '旅先の安宿に、遠坂からの手紙が届いた。小言が三枚。近況が一枚。最後の一行だけ、字が少し小さかった。「……で、いつ帰ってくるのよ」',
     choices: [
-      { label: '同封の宝石を、大切に持っておく', hint: '道具を得る', run: () => { item('gem', 1); return '手紙には、魔力の籠もった宝石が一つ入っていた。（魔力を込めた宝石+1）'; } },
-      { label: '長い返事を書く', hint: '交渉・知力↑', run: () => { gain('cha', 3); gain('int', 2); return '旅のこと、出会った人のこと。気付けば便箋が五枚になっていた。（交渉+3 知力+2）'; } },
+      { label: '同封の宝石を、大切に持っておく', hint: '道具を得る', run: () => { item('gem', 1); return ['手紙には、魔力の籠もった宝石が一つ入っていた。（魔力を込めた宝石+1）', heroNote('rin', 4)]; } },
+      { label: '長い返事を書く', hint: '交渉・知力↑', run: () => { gain('cha', 3); gain('int', 2); return ['旅のこと、出会った人のこと。気付けば便箋が五枚になっていた。（交渉+3 知力+2）', heroNote('rin', 8)]; } },
     ] },
   { id: 'sg_dilemma', stages: [2, 3, 4, 5, 6, 7], title: '天秤',
     text: () => '燃える村。崩れかけた家に、子どもが一人。反対側の通りでは、十人が瓦礫の下にいる。<br>どちらかしか、間に合わない。',
@@ -5031,9 +5034,9 @@ STORY.unshift(
             : [c.text, '「深見の聖杯、記録を見る限り綺麗なものよ。冬木とは違う。……怪しいのは、参加者の方ね」',
               addClue('rin_call', '遠坂の調査', '深見の聖杯の記録に、汚染の痕跡はない。怪しいのは参加者の方だという。', 2)];
         } },
-      { label: '宝石を送ってもらう', hint: '宝石+2', run: () => { item('gem', 2);
+      { label: '宝石を送ってもらう', hint: '宝石+2', run: () => { item('gem', 2); hero('rin', 4);
           return '「……高いのよ、これ。後で絶対返しなさいよね」翌日、宝石が二つ、速達で届いた。（魔力を込めた宝石+2）'; } },
-      { label: '「桜と藤ねえは元気か」と聞く', hint: '精神↑・絆↑', run: () => { gain('spi', 4); bond(2);
+      { label: '「桜と藤ねえは元気か」と聞く', hint: '精神↑・絆↑', run: () => { gain('spi', 4); bond(2); hero('rin', 6); hero('sakura', 4);
           return '「元気よ。桜なんて、毎日あんたの部屋を掃除してるわ。……だから、さっさと終わらせて帰ってきなさい」（精神+4 絆+2）'; } },
     ],
   },
@@ -5236,6 +5239,183 @@ const EPI_SHIROU_B = { y: 20, title: '衛宮邸の桜',
   ] };
 
 // =============================================================
+//  遠坂凛・間桐桜との絆（衛宮士郎シナリオのみ）
+//   旅の間や深見での日々で、二人と交流すると絆が深まる。
+//   絆が HEROINE_LOVE 以上なら、エピローグで恋人として共に生きる道を選べる
+// =============================================================
+const HEROINE_LOVE = 60;
+const HEROINES = { rin: '遠坂凛', sakura: '間桐桜' };
+function heroines() { if (!G.heroines) G.heroines = { rin: 30, sakura: 30 }; return G.heroines; }
+function hero(k, n) {
+  if (!isShirou()) return '';
+  const h = heroines(); const before = h[k]; h[k] = clamp(h[k] + n, 0, 100);
+  return h[k] >= HEROINE_LOVE && before < HEROINE_LOVE ? `<span class="note">${HEROINES[k]}との絆が、とても深まった。</span>` : '';
+}
+function heroNote(k, n) { const t = hero(k, n); return `<span class="note">（${HEROINES[k]}との絆+${n}）</span>${t}`; }
+
+// ---- 旅の間の出来事（追加） ----
+GROWTH_EVENTS_S.push(
+  { id: 'sg_london', stages: [2], fixed: true, title: '時計塔の日々',
+    text: () => 'ロンドン。遠坂の弟子兼、雑用係兼、料理番として、時計塔の近くの下宿で暮らした。<br>「士郎、紅茶！」「士郎、この資料、三十分で！」……文句を言いながらも、遠坂はいつも、最後には「ありがと」と小さく言った。',
+    choices: [
+      { label: '遠坂の研究を手伝い続ける', hint: '魔力・知力↑・遠坂との絆↑↑', run: () => { gain('mag', 3); gain('int', 3); return ['深夜まで、二人で宝石の術式と格闘した。気付けば、遠坂は机に突っ伏して眠っていた。毛布をかけると、「……ばか」と寝言が聞こえた。（魔力+3 知力+3）', heroNote('rin', 12)]; } },
+      { label: '休みの日に、遠坂をロンドン観光に連れ出す', hint: '交渉・幸運↑・遠坂との絆↑↑', run: () => { gain('cha', 3); gain('luk', 3); return ['「た、たまには息抜きも必要よね！」遠坂は、誰よりもはしゃいでいた。（交渉+3 幸運+3）', heroNote('rin', 12)]; } },
+    ] },
+  { id: 'sg_sakura', stages: [3, 4, 5, 6, 7], title: '桜からの荷物',
+    text: () => '旅先の宿に、冬木から荷物が届いた。差出人は桜。中には、手編みのマフラーと、日持ちのする手作りの保存食。<br>手紙には、丁寧な字で一言。「先輩、ちゃんと食べてくださいね。……待っています」',
+    choices: [
+      { label: 'すぐに、お礼の電話をかける', hint: '精神↑・桜との絆↑↑', run: () => { gain('spi', 3); return ['「せ、先輩!? 国際電話なんて、高いのに……」電話の向こうで、桜が慌てて、それから嬉しそうに笑った。（精神+3）', heroNote('sakura', 12)]; } },
+      { label: 'マフラーを巻いて、旅を続ける', hint: '体力↑・桜との絆↑', run: () => { gain('phy', 3); hp(20); return ['寒い夜も、桜のマフラーがあれば平気だった。（体力+3 HP+20）', heroNote('sakura', 8)]; } },
+    ] },
+);
+
+// ---- 深見での日々：冬木に電話する（昼の行動） ----
+function callHomeMenu() {
+  submenu('冬木に電話する', 'CALL', '<p>携帯を取り出す。誰に電話しよう？</p>', [
+    { label: '遠坂に電話する', hint: `遠坂凛との絆 ${heroines().rin}・知力↑`, fn: () => actResult('電話', () => { gain('int', 3);
+      return [pick(['「何よ、こんな時間に。……べ、別に待ってたわけじゃないわよ」', '「戦況は？ ……そう。無茶はしてないでしょうね」', '「あんたの声聞いたら、なんか安心したわ。……今のなし！」']) + '<br>遠坂は文句を言いながら、結局一時間も話に付き合ってくれた。（知力+3）', heroNote('rin', rand(8, 12))]; }) },
+    { label: '桜に電話する', hint: `間桐桜との絆 ${heroines().sakura}・精神↑`, fn: () => actResult('電話', () => { gain('spi', 3); hp(10);
+      return [pick(['「先輩！ ……ちゃんと、ご飯食べてますか？」', '「今日、先輩の部屋の窓を拭いたんです。いつ帰ってきてもいいように」', '「先輩の声が聞けて、嬉しいです。……あの、また電話してもいいですか？」']) + '<br>桜の穏やかな声を聞いていると、戦いの疲れが溶けていくようだった。（精神+3 HP+10）', heroNote('sakura', rand(8, 12))]; }) },
+  ]);
+}
+
+// ---- 深見での日々：桜の来訪（9日目の昼） ----
+STORY.unshift({
+  id: 'sh_sakura', phase: 'war', day: 9, slot: 0, after: 'hub', cond: () => G.route === 'shirou',
+  title: '桜の来訪', chapter: '第二幕　侵蝕',
+  text: () => '拠点の屋敷の門の前に、見覚えのある姿があった。大きな風呂敷包みを抱えた――桜だ。<br>「来ちゃいました。……先輩、絶対まともなもの食べてないと思って」<br>セイバーが、桜の顔と風呂敷包みを交互に見て、ぱっと表情を明るくした。「……サクラ！ お久しぶりです」',
+  choices: [
+    { label: '三人で食卓を囲む', hint: '絆↑・桜との絆↑↑', run: () => { bond(4); mp(20); return ['桜の料理に、セイバーは目を輝かせた。「……サクラ、腕を上げましたね」「えへへ、先輩に教わったんです」（絆+4 魔力+20）', heroNote('sakura', 12)]; } },
+    { label: '「危ないから、すぐ冬木に帰れ」と叱る', hint: '精神↑・桜との絆↑', run: () => { gain('spi', 3); return ['桜は少しだけ俯いて、それから笑った。「……はい。先輩が、無事に帰ってくるなら」駅まで送ると、桜は電車の窓から、ずっと手を振っていた。（精神+3）', heroNote('sakura', 8)]; } },
+    { label: '二人きりで、少し話す', hint: '桜との絆↑↑↑', run: () => ['縁側で、桜と並んで座った。冬木のこと、藤ねえのこと、それから――あの冬のこと。<br>「先輩。……私、先輩が帰ってくる場所でいたいんです」', heroNote('sakura', 18)] },
+  ],
+});
+
+// ---- エピローグ：遠坂凛と歩む人生 ----
+const sab = () => G.servant && G.epi && G.epi.track && /together/.test(G.epi.origin || '');
+EPI.shirou_rin = [
+  { y: 2, title: 'ロンドンの春',
+    text: () => '遠坂に誘われて、もう一度ロンドンへ渡った。今度は弟子としてではなく――恋人として。<br>「……勘違いしないでよね。あんたを一人にすると、また無茶するから。監視よ、監視」' + (sab() ? '<br>セイバーは「凛、素直になるべきです」と言って、遠坂に睨まれていた。' : ''),
+    choices: [
+      { label: '宝石魔術の研究を、二人で進める', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '凛と宝石魔術の研究を進めた') || '投影と宝石魔術。二人の魔術を組み合わせた論文は、時計塔をちょっとした騒ぎにした。' },
+      { label: '休日は、二人でロンドンの街を歩く', hint: '幸福↑↑', run: () => epiGain({ joy: 3 }, '凛とロンドンの街を歩いた') || 'テムズ川沿いの散歩道。遠坂が、何も言わずに手を繋いできた。' },
+    ] },
+  { y: 5, title: 'うっかりの求婚',
+    text: () => '五年目の冬。指輪を用意して、完璧な計画を立てていた。……のに、遠坂のうっかりで、レストランの予約が消えていた。<br>「ご、ごめん！ 私としたことが……！」雪の降る夜道で、遠坂は珍しく本気で落ち込んでいる。',
+    choices: [
+      { label: '雪の中で、そのまま指輪を差し出す', hint: '幸福・絆↑↑', run: () => epiGain({ joy: 2, bond: 2 }, '雪の夜道で凛に結婚を申し込んだ') || '「……遠坂。結婚しよう」<br>遠坂は顔を真っ赤にして、しばらく口をぱくぱくさせて――それから、思いきり抱きついてきた。「……遅いのよ、ばか士郎！」' },
+      { label: '「遠坂らしいな」と笑ってから申し込む', hint: '絆↑↑', run: () => epiGain({ bond: 3 }, 'いつも通りの二人で凛に結婚を申し込んだ') || '「何笑ってるのよ！」「いや、遠坂のそういうところが好きなんだ」<br>……数秒の沈黙の後、遠坂は小さく「……私も」と答えた。' },
+    ] },
+  { y: 6, title: '遠坂家の結婚式',
+    text: () => '式は、冬木の遠坂邸で挙げた。桜が涙を拭いながらブーケを受け取り、藤ねえは誰よりも号泣していた。' + (sab() ? '<br>セイバーは騎士の礼装で、誇らしげに二人の誓いを見届けた。' : ''),
+    choices: [
+      { label: '桜に、二人の家族でいてほしいと頼む', hint: '絆・幸福↑', run: () => epiGain({ bond: 2, joy: 1 }, '桜を家族として迎えた') || '「……はい。ずっと、お姉ちゃんと先輩の家族です」桜は、泣きながら笑った。' },
+      { label: '遠坂家の魔術を継ぐ覚悟を伝える', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '遠坂家の魔術を共に背負うと誓った') || '「……ばか。あんたが継ぐのは、私の隣だけでいいのよ」' },
+    ] },
+  { y: 20, title: '第二魔法への挑戦',
+    text: () => '二十年が過ぎた。遠坂は時計塔でも指折りの魔術師になり、遠坂家の悲願――第二魔法への研究を続けている。<br>「士郎。……もし辿り着けたら、あんたが見たいもの、見せてあげる」',
+    choices: [
+      { label: '研究を最後まで支える', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '凛の第二魔法の研究を支え続けた') || '二人の研究は、ついに一つの「窓」を開いた。宝石の向こうに、見たことのない無数の世界が瞬いていた。' },
+      { label: '研究より、家族の時間を', hint: '幸福↑↑', run: () => epiGain({ joy: 3 }, '凛と家族の時間を大切にした') || '「……そうね。宝石より大事なものは、ここにあったわ」遠坂は、研究室の明かりを消した。' },
+    ] },
+  { y: 58, title: '最期の日', final: true,
+    text: () => `${epiAgeLabel()}。衛宮邸の縁側で、遠坂の手を握っていた。<br>白髪になっても、その瞳の強さは変わらない。「……ねえ、士郎。あんた、正義の味方になれた？」`,
+    choices: [
+      { label: '「遠坂の隣で、なれたよ」', hint: '最後の言葉', run: () => epiGain({ bond: 3 }, '「遠坂の隣で、正義の味方になれた」と答えた') || '「……そう。なら、合格ね」遠坂は泣きながら、あの頃と同じ顔で笑った。' },
+      { label: '「ありがとう、凛」', hint: '最後の言葉', run: () => epiGain({ joy: 3 }, '最後に「凛」と名前を呼んだ') || '初めて名前で呼ぶと、遠坂は一瞬きょとんとして、それから顔を覆った。「……今さら、ずるいわよ」' },
+    ] },
+];
+
+// ---- エピローグ：間桐桜と歩む人生 ----
+EPI.shirou_sakura = [
+  { y: 2, title: '衛宮邸の春',
+    text: () => '冬木に戻り、衛宮邸で桜と暮らし始めた。<br>朝、台所に立つと、もう桜が味噌汁を作っている。「おはようございます、先輩。……あ、今日は先輩の番でしたね。ふふ、どっちでもいいですよね」' + (sab() ? '<br>セイバーは、二人分の朝食を真剣な顔で待っている。' : ''),
+    choices: [
+      { label: '毎朝、二人で台所に立つ', hint: '幸福・絆↑↑', run: () => epiGain({ joy: 2, bond: 2 }, '桜と毎朝台所に立った') || '肩が触れ合うほど狭い台所で、二人で朝食を作る。それだけで、一日が幸せに始まった。' },
+      { label: '桜と、庭に花を植える', hint: '幸福↑↑', run: () => epiGain({ joy: 3 }, '桜と庭に花を植えた') || '春が来るたびに、庭の花は増えていった。' },
+    ] },
+  { y: 4, title: '桜の影',
+    text: () => 'ある夜、桜がうなされていた。間桐の家で過ごした日々の記憶は、今も時々、桜を苦しめる。<br>「……ごめんなさい、先輩。私、まだ……」',
+    choices: [
+      { label: '「桜は、桜のままでいい」と抱きしめる', hint: '絆↑↑↑', run: () => epiGain({ bond: 4 }, '桜の過去ごと受け止めた') || '桜は、子どものように泣いた。泣き疲れて眠るまで、ずっと抱きしめていた。……その夜を境に、桜がうなされることは、少しずつ減っていった。' },
+      { label: '遠坂と三人で、間桐の家と向き合う', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '凛と共に間桐の因縁を断った') || '遠坂と三人で、古い屋敷の地下を封じた。「……もう、ここには何も残っていないわ」遠坂の言葉に、桜は静かに頷いた。' },
+    ] },
+  { y: 6, title: '桜の下で',
+    text: () => '衛宮邸の庭の桜が、満開になった日。桜が、少し緊張した顔で言った。「先輩。……ずっと、言えなかったことがあるんです」',
+    choices: [
+      { label: '先に、自分から結婚を申し込む', hint: '幸福・絆↑↑', run: () => epiGain({ joy: 2, bond: 2 }, '桜に結婚を申し込んだ') || '「桜。――俺と、結婚してほしい」<br>桜は目を丸くして、それからぽろぽろと涙をこぼした。「……私が、先に言おうと思ってたのに」' },
+      { label: '桜の言葉を、最後まで待つ', hint: '絆↑↑↑', run: () => epiGain({ bond: 4 }, '桜の想いを受け止めた') || '「先輩の、お嫁さんにしてください」<br>震える声で、それでもまっすぐに。迷わず頷いた。' },
+    ] },
+  { y: 20, title: '帰る場所',
+    text: () => '二十年が過ぎた。衛宮邸には、いつも笑い声がある。遠坂は「実家みたいなものよ」と言って毎週のように押しかけ、藤ねえは相変わらず夕食を食べに来る。' + (sab() ? '<br>セイバーは、家族の真ん中で、穏やかに茶を啜っていた。' : ''),
+    choices: [
+      { label: '子どもたちに、料理を教える', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '子どもたちに衛宮家の味を伝えた') || '「お父さんとお母さんの味、覚えてね」桜が笑い、子どもたちは真剣な顔で包丁を握った。' },
+      { label: '桜と二人で、冬木の街を歩く', hint: '幸福↑↑', run: () => epiGain({ joy: 3 }, '桜と冬木の街を歩いた') || '坂道、商店街、公園。あの冬に通った道を、今は二人で、ゆっくりと歩いていく。' },
+    ] },
+  { y: 58, title: '最期の日', final: true,
+    text: () => `${epiAgeLabel()}。衛宮邸の縁側で、桜があなたの手を握っていた。<br>「先輩。……あなたは、ちゃんと帰ってきてくれました。ずっと、約束を守ってくれた」`,
+    choices: [
+      { label: '「ただいま、桜」', hint: '最後の言葉', run: () => epiGain({ bond: 3 }, '最後に「ただいま」と告げた') || '「……おかえりなさい、先輩」桜は、あの頃と同じ顔で、優しく微笑んだ。' },
+      { label: '「桜が、俺の帰る場所だった」', hint: '最後の言葉', run: () => epiGain({ joy: 3 }, '桜こそが帰る場所だったと伝えた') || '桜は涙をこぼしながら、何度も、何度も頷いた。' },
+    ] },
+];
+EPI_TITLES.shirou_rin = '遠坂凛と歩む人生';
+EPI_TITLES.shirou_sakura = '間桐桜と歩む人生';
+
+// 冬木の再会：絆が深ければ、凛や桜と恋人として生きる道を選べる（セイバーと恋人として生きている場合を除く）
+function heroineChoice(k) {
+  return { label: k === 'rin' ? '遠坂の想いに、応える' : '桜の想いに、応える', hint: `${HEROINES[k]}と恋人として生きる（絆${HEROINE_LOVE}以上で選べる）`,
+    cond: () => isShirou() && heroines()[k] >= HEROINE_LOVE && G.epi.track !== 'together_lover',
+    run: () => { G.epi.origin = G.epi.track; epiGain({ bond: 2, joy: 1 }, `${HEROINES[k]}と恋人になった`);
+      G.epi.track = 'shirou_' + k; G.epi.steps = EPI['shirou_' + k].slice(); G.epi.i = -1;
+      if (!G.epi.steps.includes(EPI_SHIROU_B)) { const i = G.epi.steps.findIndex(x => x.y > EPI_SHIROU_B.y); G.epi.steps.splice(i, 0, EPI_SHIROU_B); }
+      return k === 'rin'
+        ? 'その夜、縁側で遠坂がぽつりと言った。「……ねえ、士郎。私、ずっと待ってたんだけど」<br>顔を真っ赤にして、それでもまっすぐにこちらを見る。その手を、そっと取った。'
+        : 'その夜、台所で洗い物をしていると、桜が背中にそっと額を寄せてきた。「……先輩。もう、どこにも行かないでください」<br>振り返って、桜の手を握った。'; } };
+}
+EPI_SHIROU_A.choices.push(heroineChoice('rin'), heroineChoice('sakura'));
+
+// =============================================================
+//  隠しエンディング：Last Episode／Garden of Avalon
+//   衛宮士郎 × アルトリアと恋人 × 絆Lv10 × 受肉せずに還った × エピローグで想い続けた
+// =============================================================
+function avalonEligible() {
+  return isShirou() && G.servant && G.servant.id === 'artoria' && G.servant.special === 'lover' && G.servant.bond >= 100
+    && G.epi && G.epi.track === 'parted' && !!G.epi.yearn;
+}
+const EPI_MERLIN = { y: 60, title: '星の内海', final: true,
+  text: () => `${epiAgeLabel()}。長い人生の終わりに、衛宮士郎は静かに目を閉じた。<br>――気付くと、一面の花畑に立っていた。<br>どこまでも続く白い花。遠くに、霞む塔。花びらが、風もないのに舞っている。<br>花の中に、白いローブの男が座っていた。柔らかな笑み。どこか、この世のものではない気配。<br><p class="quote">「やあ、はじめまして。僕は魔術師マーリン――ということにしておこうか」</p>男は、楽しそうに首を傾げた。<p class="quote">「君は、星の内海に探し物はあるかい？」</p>`,
+  choices: [
+    { label: '「ああ。──かけがえのない、俺の半身だ」', hint: '答える', run: () => { G.epi.avalon = true; return '<p class="quote">「……うん。そう言うと思っていたよ」</p>マーリンは立ち上がり、花畑の向こうを杖で指した。「ついておいで。彼女は、ずっと待っている」'; } },
+    { label: '「いいや。──あいつとの記憶は、俺の中で鮮明に輝いてる」', hint: '答える', run: () => { epiGain({ joy: 2, legacy: 2 }, '記憶を胸に、星の内海を後にした');
+        return '<p class="quote">「悪くない。──けど、足りないね」</p>マーリンは少しだけ寂しそうに笑い、花びらの向こうに消えた。<br>記憶は確かに輝いている。けれど、その輝きの先にあったはずのものに、手を伸ばすことはなかった。'; } },
+  ] };
+function avalonEnding() {
+  markEpilogue('avalon'); markEnding('avalon'); addLog('隠しエンディング「Last Episode／Garden of Avalon」');
+  sfx('win');
+  showCard({ kicker: 'HIDDEN ENDING', title: 'Garden of Avalon', cls: 'dawn', ms: 2600 }, () => {
+    SCENE = { kind: 'ending', endKind: 'avalon', epilogue: true, good: true, title: '隠しエンディング：Last Episode／Garden of Avalon', text: [
+      '<p>マーリンの背を追って、花畑を歩いた。どれだけ歩いたのか分からない。けれど、足は少しも疲れなかった。</p>',
+      '<p>やがて、花の海の真ん中に、一本の林檎の木が見えた。その根元に、小さな人影が座っている。</p>',
+      '<p>鎧はない。王冠もない。剣も、もう持っていない。<br>白いドレスの裾を風に揺らして、金砂の髪の少女が、ゆっくりとこちらを振り返った。</p>',
+      '<p>王という責務から解き放たれた、ただの少女――アルトリア。</p>',
+      '<p class="quote">「…………シロウ」</p>',
+      '<p>約束を抱えて、追い求め続けた。正義の味方として生きた長い年月の、その果てに。<br>青年は、もう一度、その名を呼んだ。</p>',
+      '<p class="quote">「――ただいま、セイバー。……いや、アルトリア」</p>',
+      '<p>少女は立ち上がり、駆け寄って、その胸に飛び込んだ。</p>',
+      '<p class="quote">「ずいぶん、待ちました。……ずいぶん、待たせてしまいました」</p>',
+      '<p>理想郷アヴァロン。永遠に春が続く、星の内海の楽園。<br>そこには、もう戦いも、別れも、果たすべき責務もない。</p>',
+      '<p>二人は林檎の木の下に並んで座り、他愛のない話をした。あの冬の土蔵のこと。朝焼けの丘のこと。離れていた間のこと。<br>話しても、話しても、話は尽きなかった。時間は、いくらでもあった。</p>',
+      '<p class="quote">「シロウ。お腹が空きました」<br>「……ああ。今日は、何を作ろうか」</p>',
+      '<p>花の向こうで、マーリンが満足げに微笑んで、そっと姿を消した。</p>',
+      '<p><b>――そうして、少女と青年は、理想郷で幸福な時を過ごし続けた。いつまでも、いつまでも。</b></p>',
+      '<p class="note">隠しエンディングに到達しました。</p>',
+    ] };
+    TAB = 'story'; render();
+  });
+}
+
+// =============================================================
 //  fx.js … 演出（設定・効果音・カットイン・空と雪・アイコン・エンディング記録）
 // =============================================================
 
@@ -5255,7 +5435,7 @@ let REVEAL_UNTIL = 0;                    // 文章の表示演出が終わる時
 const ENDING_LIST = [
   ['destroySpecial', '夜明けの約束'], ['destroy', '冬の終わり'], ['together', '共に生きる'], ['servantWish', '託された願い'],
   ['wishPure', '叶えられた願い'], ['none', '願いなき勝者'], ['destroyPure', '砕かれた奇跡'], ['abstain', '日常への帰還'], ['wish', '歪んだ願い'], ['wishKnown', '承知の上の願い'], ['devoured', '黒い夜明け'],
-  ['lost', '脱落'], ['dead', '血に染まる冬'],
+  ['lost', '脱落'], ['dead', '血に染まる冬'], ['avalon', '隠し：Garden of Avalon'],
 ];
 function seenEndings() { try { return JSON.parse(localStorage.getItem(END_KEY) || '[]'); } catch (e) { return []; } }
 function markEnding(k) {
@@ -5903,7 +6083,8 @@ function warDayActions() {
     { label: '真相を調べる', hint: solved() ? `真相は判明済み・手がかり${mys().ev}` : `街の謎と聖杯の秘密・手がかり${mys().ev}`, icon: 'study', fn: mysteryMenu },
     { label: '拠点を整える', hint: '結界・罠・霊脈', fn: baseMenu },
     { label: '買い出し', hint: '戦闘用の道具', fn: shopMenu },
-    ...(isShirou() ? [{ label: 'セイバーに食事を作る', hint: '絆↑・英霊の魔力↑（魔力供給の代わり）', icon: 'bond', fn: cookForSaber }] : []),
+    ...(isShirou() ? [{ label: 'セイバーに食事を作る', hint: '絆↑・英霊の魔力↑（魔力供給の代わり）', icon: 'bond', fn: cookForSaber },
+      { label: '冬木に電話する', hint: `遠坂${heroines().rin}・桜${heroines().sakura}（絆）`, icon: 'bond', fn: callHomeMenu }] : []),
     { label: 'マスターの鍛錬', hint: '体力・魔力・知力', fn: trainMenu },
   ];
   const allyTargets = hostileRivals().filter(r => r.intel >= 1);
@@ -7504,6 +7685,7 @@ function viewMaster() {
       <dt>性別</dt><dd>${GENDERS[m.gender || 'n']}</dd><dt>願い</dt><dd>${b.wish}</dd><dt>特徴</dt><dd>${b.perk}</dd>
       <dt>属性値</dt><dd>秩序 ${m.align.law > 0 ? '+' : ''}${m.align.law}／善 ${m.align.good > 0 ? '+' : ''}${m.align.good}</dd></dl>
     <h3>能力値</h3>${statBars(m.stats)}
+    ${isShirou() ? `<h3>冬木の絆</h3>${Object.entries(HEROINES).map(([k, n]) => `<div class="bar-row"><span style="white-space:nowrap">${n}</span><div class="bar bond"><i style="width:${heroines()[k]}%"></i></div><span class="num">${heroines()[k]}</span></div>`).join('')}<p class="note" style="font-size:12px;color:var(--muted)">絆が${HEROINE_LOVE}以上なら、エピローグで恋人として共に生きる道を選べる。</p>` : ''}
     ${G.friend ? `<h3>幼馴染</h3><div class="bar-row"><span style="white-space:nowrap">${friendName()}</span><div class="bar bond"><i style="width:${G.friend.bond}%"></i></div><span class="num">${G.friend.bond}</span></div>` : ''}
     ${G.servant ? `<p class="note" style="font-size:12px;color:var(--muted)">マスターの魔力による英霊パラメータ補正：${masterCorrection() > 0 ? '+' : ''}${masterCorrection()}（魔力が低いとサーヴァントの性能が落ちる）</p>` : ''}
     <h3>道具</h3><div class="item-list">${Object.entries(ITEMS).map(([k, it]) => `<div><b>${it.name} ×${G.items[k] || 0}</b><span>${it.desc}</span></div>`).join('')}</div>

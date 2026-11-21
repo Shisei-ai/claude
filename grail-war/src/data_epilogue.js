@@ -271,7 +271,7 @@ const EPI = {
       }),
       choices: [
         { label: () => relText({ lover: '新しい人の手を取る', partner: '新しい仲間を作る', oath: '弟子を取り、誓いを継がせる', family: '新しい家族を作る', none: '新しい出会いを大切にする' }), hint: '幸福↑↑', run: () => epiGain({ joy: 3 }, relText({ lover: '新しい人と歩み始めた', partner: '新しい仲間を得た', oath: '弟子に誓いを継がせた', family: '新しい家族を作った', none: '新しい出会いを得た' })) || `一歩を踏み出した。きっと${SV()}も、背中を押してくれている。` },
-        { label: () => relText({ lover: `${SVN()}を想い続ける`, partner: '一人で戦い続ける', oath: '誓いを一人で守り続ける', family: '思い出と共に生きる', none: 'あの冬を胸に生きる' }), hint: '絆↑↑', run: () => epiGain({ bond: 3 }, relText({ lover: `${SVN()}を想い続けた`, partner: '相棒の不在を背負って戦い続けた', oath: '誓いを一人で守り続けた', family: '思い出と共に生きた', none: 'あの冬を胸に生きた' })) || `あの冬を、心の一番奥にしまっておく。それが、あなたの選んだ生き方だった。` },
+        { label: () => relText({ lover: `${SVN()}を想い続ける`, partner: '一人で戦い続ける', oath: '誓いを一人で守り続ける', family: '思い出と共に生きる', none: 'あの冬を胸に生きる' }), hint: '絆↑↑', run: () => (G.epi.yearn = G.servant.special === 'lover', '') || epiGain({ bond: 3 }, relText({ lover: `${SVN()}を想い続けた`, partner: '相棒の不在を背負って戦い続けた', oath: '誓いを一人で守り続けた', family: '思い出と共に生きた', none: 'あの冬を胸に生きた' })) || `あの冬を、心の一番奥にしまっておく。それが、あなたの選んだ生き方だった。` },
       ] },
     { y: 30, title: '召喚陣の夢',
       text: () => `三十年が過ぎたある夜、夢を見た。<br>あの冬の工房。床に描かれた召喚陣が、淡く光っている。その向こうで、${SV()}がこちらを見ていた。<p class="quote">${reunionLine(servantOf(G))}</p>`,
@@ -455,7 +455,9 @@ function startEpilogue(kind) {
 function epiNext() {
   const e = G.epi; e.i++;
   if (e.i >= e.steps.length) return epiFinale();
-  const st = e.steps[e.i]; e.year = st.y;
+  let st = e.steps[e.i];
+  if (st.final && typeof avalonEligible === 'function' && avalonEligible()) st = e.steps[e.i] = EPI_MERLIN;   // 隠しエンディングへの分岐
+  e.year = st.y;
   const go = () => scene({ title: st.title, sub: `エピローグ・${epiAgeLabel()}`, reveal: true,
     body: paras([fmt(st.text())]),
     choices: st.choices.filter(c => !c.cond || c.cond()).map(c => ({
@@ -467,6 +469,7 @@ function epiNext() {
 }
 function epiFinale() {
   const e = G.epi;
+  if (e.avalon) return avalonEnding();
   const best = ['joy', 'bond', 'legacy'].reduce((a, b) => e[b] > e[a] ? b : a, 'joy');
   const total = e.joy + e.bond + e.legacy;
   const kind = { joy: '幸福に満ちた生涯', bond: '絆に生きた生涯', legacy: '多くを遺した生涯' }[best];

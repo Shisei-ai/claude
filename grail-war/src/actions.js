@@ -112,7 +112,8 @@ function warDayActions() {
     { label: '真相を調べる', hint: solved() ? `真相は判明済み・手がかり${mys().ev}` : `街の謎と聖杯の秘密・手がかり${mys().ev}`, icon: 'study', fn: mysteryMenu },
     { label: '拠点を整える', hint: '結界・罠・霊脈', fn: baseMenu },
     { label: '買い出し', hint: '戦闘用の道具', fn: shopMenu },
-    ...(isShirou() ? [{ label: 'セイバーに食事を作る', hint: '絆↑・英霊の魔力↑（魔力供給の代わり）', icon: 'bond', fn: cookForSaber }] : []),
+    ...(isShirou() ? [{ label: 'セイバーに食事を作る', hint: '絆↑・英霊の魔力↑（魔力供給の代わり）', icon: 'bond', fn: cookForSaber },
+      { label: '冬木に電話する', hint: `遠坂${heroines().rin}・桜${heroines().sakura}（絆）`, icon: 'bond', fn: callHomeMenu }] : []),
     { label: 'マスターの鍛錬', hint: '体力・魔力・知力', fn: trainMenu },
   ];
   const allyTargets = hostileRivals().filter(r => r.intel >= 1);
