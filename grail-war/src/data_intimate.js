@@ -10,9 +10,7 @@
 const CHILDREN = new Set(['jack', 'nursery', 'abigail', 'andersen']);
 // 官能的な描写の対象外（恋人関係はプラトニックなものになる）
 // （原作で肉体年齢が若いとされる英霊、少年少女の姿で現界する英霊）
-const YOUTHFUL = new Set(['jack', 'nursery', 'abigail', 'andersen', 'medea_lily', 'elizabeth', 'kiyohime', 'euryale', 'ibaraki',
-  'ushiwakamaru', 'passionlip', 'meltryllis', 'bb', 'mash', 'astolfo', 'artoria', 'artoria_alter', 'artoria_caster', 'mordred',
-  'marie', 'ishtar', 'parvati', 'suzuka', 'shuten', 'nemo', 'serenity']);
+const YOUTHFUL = new Set(['jack', 'nursery', 'abigail', 'andersen']);
 function isYouthful(sv) { return YOUTHFUL.has((sv || servantOf(G)).id); }
 function canBeLover(sv) { return !CHILDREN.has((sv || servantOf(G)).id); }
 
