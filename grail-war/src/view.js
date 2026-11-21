@@ -218,7 +218,7 @@ function viewServant() {
       <div class="bar-row"><span>HP</span><div class="bar hp"><i style="width:${(s.hp / servantHpMax()) * 100}%"></i></div><span class="num">${s.hp}</span></div>
       <div class="bar-row"><span>魔力</span><div class="bar mp"><i style="width:${s.mp}%"></i></div><span class="num">${s.mp}</span></div>
       <div class="bar-row"><span>絆</span><div class="bar bond"><i style="width:${s.bond}%"></i></div><span class="num">Lv${Math.floor(s.bond / 10)}</span></div></div>
-    <dl class="kv" style="margin-top:10px"><dt>関係</dt><dd>${s.special ? `<span class="tag red">${RELATIONS[s.special].name}</span>` : s.bond >= 70 ? '夜に語らえば、何かが起きるかもしれない' : 'マスターとサーヴァント（絆Lv7で変化）'}</dd>
+    <dl class="kv" style="margin-top:10px"><dt>関係</dt><dd>${s.special ? `<span class="tag red">${RELATIONS[s.special].name}</span>` : s.bond >= 70 ? '夜に語らえば、何かが起きるかもしれない' : 'マスターとサーヴァント（絆Lv7で変化）'}${s.bond >= BOND_LINK ? '<br><span class="tag gold">絆の繋がり</span> 休息の回復量アップ' : ''}</dd>
       <dt>真名</dt><dd>${s.exposed ? '<span class="tag red">敵に知られている</span>' : '秘匿中'}</dd>
       <dt>好み</dt><dd>${s.bond >= 20 || isFuji() ? per.likes.map(k => ACTIVITIES[k].name).join('、') : '絆Lv2で判明'}</dd>
       <dt>苦手</dt><dd>${s.bond >= 40 || isFuji() ? per.dislikes.map(k => ACTIVITIES[k].name).join('、') : '絆Lv4で判明'}</dd></dl>

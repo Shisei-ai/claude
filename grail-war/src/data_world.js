@@ -275,6 +275,12 @@ const PERSONAS = {
 };
 
 // ---- 特別な関係 ----
+// 子どもの英霊とは「恋人」関係を選べない（相棒・主従・家族は可）
+const CHILDREN = new Set(['jack', 'nursery', 'abigail', 'andersen', 'wu_zetian']);
+function canBeLover(sv) { return !CHILDREN.has((sv || servantOf(G)).id); }
+// 絆の繋がり：絆Lv7（絆70）以上で休息の回復量が上がる
+const BOND_LINK = 70;
+function bondLinked() { return !!G.servant && G.servant.bond >= BOND_LINK; }
 const RELATIONS = {
   lover:   { name: '恋人', verb: '想いを伝える',
              text: '{s}は一瞬目を見開き、それから、これまでで一番柔らかな表情を見せた。重ねた手のぬくもりは、英霊も人も変わらなかった。' },

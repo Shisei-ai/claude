@@ -1,5 +1,7 @@
 # 深見市聖杯戦争 — 作業メモ
 
+- このブランチ（`claude/grail-war-all-ages`）は「性的描写無し版」。性的な描写は加えない。元の版はブランチ `claude/pensive-dijkstra-2t4ha8` にそのまま保持している。
+
 - ソースは `src/`、`python3 build.py` で `dist/index.html`（単体で遊べる）と `dist/artifact.html`（アーティファクト用）を生成する。
 - 変更のたびに必ず：
   1. `python3 build.py` → 生成された JS を `node --check` で構文確認
