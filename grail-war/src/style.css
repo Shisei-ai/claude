@@ -444,3 +444,9 @@ body:not(.fx-on) #snow { display: none; }
 .clue-list li { border-left: 2px solid var(--gold); padding: 4px 0 4px 10px; margin: 8px 0; font-size: 13px; line-height: 1.7; }
 .clue-list li span { color: var(--muted); font-size: 11px; margin-left: 6px; }
 .clue-list li em { color: var(--muted); font-style: normal; font-size: 11px; }
+
+/* ---- 性別の選択 ---- */
+.seg { display: flex; gap: 6px; }
+.seg-btn { flex: 1; font: inherit; font-size: 14px; padding: 9px 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-3); color: var(--muted); cursor: pointer; }
+.seg-btn.on { color: var(--fg); border-color: var(--gold); background: #d2ad5f22; font-weight: 600; }
+.seg-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }

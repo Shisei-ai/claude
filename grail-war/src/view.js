@@ -147,6 +147,7 @@ function viewCreate() {
       <p class="note" style="font-size:12px;color:var(--muted);margin-top:8px">ここから18歳までの過ごし方で、能力は大きく伸びていく。</p>
     </div>
     <div class="field"><label for="mname">あなたの名前</label><input id="mname" maxlength="16" value="${esc(m.name)}" autocomplete="off"></div>
+    <div class="field"><label>性別</label><div class="seg" role="group" aria-label="性別">${Object.entries(GENDERS).map(([k, l]) => `<button class="seg-btn${(m.gender || 'n') === k ? ' on' : ''}" data-gender="${k}" aria-pressed="${(m.gender || 'n') === k}">${l}</button>`).join('')}</div></div>
     <div class="choices">
       <button class="choice primary" data-act="start">${actIcon('ritual')}<span class="c-label">この運命に生まれる</span></button>
       <button class="choice" data-act="reroll">${actIcon('walk')}<span class="c-label">運命を引き直す</span><span class="c-hint">家・素質を再抽選</span></button>
@@ -195,7 +196,7 @@ function viewMaster() {
     <dl class="kv" style="margin-top:10px"><dt>令呪</dt><dd>${m.seals}画</dd><dt>資金</dt><dd>${m.money}万円</dd><dt>魔術回路</dt><dd>${m.circuits}本</dd>
       <dt>オド</dt><dd>${m.od} / ${odMax()}（マスター自身の魔力。戦闘の支援魔術や使い魔に使う）</dd>
       <dt>陣地</dt><dd>Lv ${G.workshop}・罠${G.traps}${G.flags.leyline || m.birth === 'shrine' ? '（霊脈の知識あり）' : ''}</dd>
-      <dt>願い</dt><dd>${b.wish}</dd><dt>特徴</dt><dd>${b.perk}</dd>
+      <dt>性別</dt><dd>${GENDERS[m.gender || 'n']}</dd><dt>願い</dt><dd>${b.wish}</dd><dt>特徴</dt><dd>${b.perk}</dd>
       <dt>属性値</dt><dd>秩序 ${m.align.law > 0 ? '+' : ''}${m.align.law}／善 ${m.align.good > 0 ? '+' : ''}${m.align.good}</dd></dl>
     <h3>能力値</h3>${statBars(m.stats)}
     ${G.friend ? `<h3>幼馴染</h3><div class="bar-row"><span style="white-space:nowrap">${friendName()}</span><div class="bar bond"><i style="width:${G.friend.bond}%"></i></div><span class="num">${G.friend.bond}</span></div>` : ''}
@@ -272,12 +273,20 @@ function viewEnding() {
 // ---------------- 操作（タップ） ----------------
 document.addEventListener('click', e => {
   if (REVEAL_UNTIL > Date.now() && e.target.closest('.main')) { skipReveal(); return; }   // 表示中のタップは全文表示
-  const t = e.target.closest('[data-choice],[data-tab],[data-act],[data-mact],[data-cfg],[data-pickcls]');
+  const t = e.target.closest('[data-choice],[data-tab],[data-act],[data-mact],[data-cfg],[data-pickcls],[data-gender]');
   if (!t || t.disabled) return;
   sfx('tick');
   if (t.dataset.cfg) {
     const [k, v] = t.dataset.cfg.split(':'); CFG[k] = k === 'speed' ? +v : v === 'true'; saveCfg();
     if (k === 'sound' && CFG.sound) sfx('page');
+    render(); return;
+  }
+  if (t.dataset.gender && SCENE && SCENE.kind === 'create') {
+    const name = document.getElementById('mname').value.trim(); const m = SCENE.master;
+    // 自動で付いた名前のままなら、選んだ性別に合う名前に付け直す（自分で入力した名前はそのまま）
+    m.gender = t.dataset.gender;
+    if (!name || name === m.autoName) m.name = m.autoName = randomName(false, m.gender);
+    else m.name = name.slice(0, 16);
     render(); return;
   }
   if (t.dataset.mact) { if (B) { B.mact = t.dataset.mact; battleScene(); } return; }
@@ -286,14 +295,14 @@ document.addEventListener('click', e => {
   if (t.dataset.choice !== undefined) { const c = SCENE.choices[+t.dataset.choice]; if (c && !c.disabled) c.fn(); return; }
   const a = t.dataset.act;
   if (a === 'new') createScreen();
-  else if (a === 'reroll') { const name = document.getElementById('mname').value.trim(); const m = rollMaster(); if (name) m.name = name; createScreen(m); }
+  else if (a === 'reroll') { const name = document.getElementById('mname').value.trim(); const m = rollMaster(null, SCENE.master.gender); if (name) m.name = name; createScreen(m); }
   else if (a === 'title' || a === 'totitle') titleScreen();
   else if (a === 'settings') { SCENE = { kind: 'settings' }; render(); }
   else if (a === 'gallery') { SCENE = { kind: 'gallery' }; render(); }
   else if (a === 'start') {
     const name = document.getElementById('mname').value.trim() || SCENE.master.name;
     SCENE.master.name = name.slice(0, 16);
-    if (isFujiName(name)) SCENE.master = fujimaruMaster(SCENE.master.name);
+    if (isFujiName(name)) SCENE.master = { ...fujimaruMaster(SCENE.master.name), gender: SCENE.master.gender };
     newGame(SCENE.master);
     growthStart();
   }

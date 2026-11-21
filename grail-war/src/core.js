@@ -154,15 +154,23 @@ function servantHpMax() { return 70 + rankValue(servantOf(G).p[1]); }
 function rivalParam(r, i) { const base = rankValue(servantOf(r).p[i]); return i === 4 ? base : base + (r.power - 6); }
 
 // ---------------- 新しいゲーム ----------------
-function randomName(foreign) {
-  return foreign ? `${pick(NAMES.foreignGiven)}・${pick(NAMES.foreignFamily)}` : `${pick(NAMES.family)} ${pick(NAMES.given)}`;
+function randomName(foreign, gender) {
+  const given = gender === 'm' ? NAMES.givenM : gender === 'f' ? NAMES.givenF : NAMES.given;
+  return foreign ? `${pick(NAMES.foreignGiven)}・${pick(NAMES.foreignFamily)}` : `${pick(NAMES.family)} ${pick(given)}`;
 }
-function rollMaster(name) {
+// ---- 主人公の性別（m：男性 / f：女性 / n：指定しない） ----
+const GENDERS = { m: '男性', f: '女性', n: '指定しない' };
+function gender() { return (G && G.master && G.master.gender) || 'n'; }
+// 性別で言い方が変わる言葉：gw('男の子', '女の子', '子ども')
+function gw(m, f, n) { const g = gender(); return g === 'm' ? m : g === 'f' ? f : n; }
+function rollMaster(name, gen) {
   const b = wpick(BIRTHS, x => x.weight);
+  const g = gen || pick(['m', 'f']);
+  const auto = randomName(false, g);
   const stats = {};
   for (const k in b.stats) stats[k] = clamp(Math.round(b.stats[k] * 0.3) + rand(-3, 3), 3, 40);   // 0歳時点の素質
   return {
-    name: name || randomName(false), birth: b.id, stats, hp: 100, hpMax: 100, money: 0, age: 0,
+    name: name || auto, autoName: auto, gender: g, birth: b.id, stats, hp: 100, hpMax: 100, money: 0, age: 0,
     talent: pick(Object.keys(TALENTS)),
     seals: 3, od: 0, align: { law: rand(-20, 20), good: rand(-10, 25) },
     element: wpick(ELEMENTS, e => e.w).name, circuits: rand(b.circuits[0], b.circuits[1]),

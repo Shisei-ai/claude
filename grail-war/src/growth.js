@@ -16,7 +16,8 @@ function kanjiNum(n) {
 }
 // 藤丸シナリオかどうか（成長の節目・過ごし方・出来事が切り替わる）
 function isFuji() { return !!G && G.master.birth === 'fujimaru'; }
-function stageList() { return isFuji() ? STAGES_F : STAGES; }
+// 章の名前は性別で変わることがある（少年期／少女期）
+function stageList() { return (isFuji() ? STAGES_F : STAGES).map(st => typeof st.band === 'function' ? { ...st, band: st.band() } : st); }
 function currentStage() { return stageList()[G.growth.stage]; }
 function stageLabel(st = currentStage()) { return st.label || `${st.age}歳`; }
 
@@ -36,6 +37,7 @@ function growthStart() {
   chapterCard('第零幕　生い立ち', () => {
     scene({ title: '誕生', sub: '0歳', reveal: true, body: paras([
       b.origin,
+      `元気な${gw('男の子', '女の子', '赤ん坊')}だった。${M()}――そう名付けられた。`,
       `<div class="birth-facts"><div><span>魔術属性</span><b>${m.element}</b></div><div><span>魔術回路</span><b>${m.circuits}本</b></div><div><span>生まれつきの得意</span><b>${TALENTS[m.talent]}</b></div></div>`,
       `<span class="note">これから18歳になるまでの日々が、あなたの能力を形作る。どう育つかは、あなた次第だ。</span>`,
     ]), choices: [{ label: '産声を上げる', cls: 'primary', icon: 'next', fn: () => nextStage() }] });
