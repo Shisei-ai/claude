@@ -237,7 +237,7 @@ function warNightActions() {
   if (targets.length) acts.push({ label: '敵の拠点を襲撃する', hint: '作戦を選んで仕掛ける', fn: assaultMenu, cls: 'danger' });
   acts.push(
     { label: '拠点で迎え撃つ', hint: `陣地Lv${G.workshop}・罠${G.traps}で待ち構える`, fn: defendBase },
-    { label: `${SV()}と語らう`, hint: G.servant.bond >= 70 && !G.servant.special ? '何かが起きそうだ' : '絆↑', fn: nightTalk },
+    { label: `${SV()}と語らう`, hint: G.servant.bond >= 70 && !G.servant.special ? '何かが起きそうだ' : relationEvent() ? `絆↑・「${RELATIONS[G.servant.special].name}」の出来事が起きるかも` : '絆↑', fn: nightTalk },
     bondLinked()
       ? { label: '魔力を回復して休む', hint: '絆の繋がり：魔力・HP大回復（夜襲の危険）', icon: 'bond', fn: nightRest }
       : { label: '魔力を回復して休む', hint: '魔力・HP回復（夜襲の危険）', fn: nightRest },
@@ -388,6 +388,9 @@ function hangout(k) {
 function nightTalk() {
   const sv = G.servant;
   if (sv.bond >= 70 && !sv.special && sv.bond >= (G.flags.specialNext || 0)) return specialEvent();
+  // 特別な関係になった後は、関係ごとのイベントが起きやすい（data_bond_events.js）
+  const rev = relationEvent();
+  if (rev && Math.random() < 0.6) return maybeRaided(() => showEvent(rev, advance));
   maybeRaided(() => {
     NOTES = [];
     const n = rand(3, 5); bond(n); mp(5);
