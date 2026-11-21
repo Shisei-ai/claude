@@ -226,10 +226,10 @@ const VOICE_OF = {
   // アサシン
   kojiro: ['cool_m', '私', 'マスター'], hassan: ['knight', '私', '魔術師殿', '魔術師殿'], jack: ['child', 'わたしたち', 'おかあさん', 'おかあさん'],
   jingke: ['cool_m', '私', 'お前'], shiki: ['cool_f', '私', 'あんた'], serenity: ['lady', 'わたし', 'マスター'], hundred: ['knight', '我ら', '主殿', '主殿'],
-  shuten: ['queen', 'うち', '旦那はん'], kotaro: ['knight', '私', '主殿', '主殿'], danzo: ['knight', '段蔵', 'マスター'], izo: ['elder', 'わし', 'マスター'],
+  shuten: ['lady', 'うち', '旦那はん', '旦那はん'], kotaro: ['knight', '私', '主殿', '主殿'], danzo: ['knight', '段蔵', 'マスター'], izo: ['elder', 'わし', 'マスター'],
   yan_qing: ['bro', '俺', '主'], wu_zetian: ['king', '朕', 'お前'],
   // バーサーカー（会話ができる者）
-  kintoki: ['bro', 'オレ', '大将', '大将'], kiyohime: ['lady', '私', 'ますたぁ', 'ますたぁ'], tamamo_cat: ['cheer', 'キャット', 'ご主人', 'ご主人'],
+  kintoki: ['bro', 'オレ', '大将', '大将'], spartacus: ['king', '私', '君', '同志'], kiyohime: ['lady', '私', 'ますたぁ', 'ますたぁ'], tamamo_cat: ['cheer', 'キャット', 'ご主人', 'ご主人'],
   beowulf: ['bro', '俺', 'マスター'], vlad_berserker: ['dark', '余', 'お前'], ibaraki: ['child', '吾', '汝'], raikou: ['lady', '母', 'あなた'],
   hijikata: ['bro', '俺', 'お前'], nightingale: ['cool_m', '私', 'あなた'], penthesilea: ['cool_m', '私', 'お前'],
   // エクストラクラス
@@ -250,7 +250,7 @@ function voiceOf(sv) {
 // 今のサーヴァント（または指定した英霊）の台詞集
 function V(sv) { return VOICES[voiceOf(sv || servantOf(G)).voice]; }
 // 決まった場面の台詞を、今のサーヴァントの話し方で
-function say(key) { const t = SAY[key][voiceOf(servantOf(G)).reg]; return t ? fmt(t) : ''; }
+function say(key) { const t = SAY[key][voiceOf(servantOf(G)).reg]; return t ? applyTic(fmt(t)) : ''; }
 // 台詞の記号を置き換える
 function fmtVoice(s, sv) {
   const v = voiceOf(sv);

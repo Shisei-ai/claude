@@ -174,7 +174,7 @@ const STORY = [
     choices: [
       { label: () => `「${birthOf().wish}」と答える`, hint: '自分の願いを語る', run: () => {
           bond(4); G.flags.toldWish = true;
-          return [`あなたは自分の願いを、正直に語った。`, `<p class="quote">${fmt(pick(V().mid))}</p>`, `${SV()}は静かに頷いた。（絆+4）`];
+          return [`あなたは自分の願いを、正直に語った。`, `<p class="quote">${tierLine()}</p>`, `${SV()}は静かに頷いた。（絆+4）`];
         } },
       { label: () => isFuji() ? '「あの頃みたいに、君の願いを聞かせて」' : '「君こそ、何を願うんだ？」', hint: 'サーヴァントの願いを聞く', run: () => {
           bond(3); G.flags.knowWish = true;
@@ -337,7 +337,7 @@ const STORY = [
   {
     id: 's_eveFinal', phase: 'war', day: 10, slot: 1, after: 'hub',
     title: '決戦前夜', chapter: '第三幕　降臨',
-    text: () => `天降山の頂が、夜空にうっすらと光っている。聖杯の降臨が近い。<br>拠点の屋根の上で、${SV()}が月を見上げていた。隣に座ると、${SV()}はぽつりと言った。<br><p class="quote">${fmt(pick(V()[bondTier()]))}</p>${say('askResolve')}`,
+    text: () => `天降山の頂が、夜空にうっすらと光っている。聖杯の降臨が近い。<br>拠点の屋根の上で、${SV()}が月を見上げていた。隣に座ると、${SV()}はぽつりと言った。<br><p class="quote">${tierLine()}</p>${say('askResolve')}`,
     choices: [
       { label: '「必ず勝とう。二人で」', hint: '決戦で能力補正', run: () => { G.flags.resolve = 'win'; bond(4); tone('bold');
           return `${say('promise')}${SV()}は拳を差し出した。あなたはそれに、自分の拳を合わせた。（絆+4 決戦で能力補正）`; } },
@@ -353,7 +353,7 @@ const STORY = [
 function abstainConfirm() {
   scene({ title: '選択', sub: '第一幕　開幕', reveal: true, body: paras([
     `本当に、これでいいのだろうか。右手の令呪を見つめる。昨夜、${SV()}はあなたの命を救ってくれた。`,
-    `<p class="quote">${fmt(V().low[0])}</p>`,
+    `<p class="quote">${lowLine()}</p>`,
     '令呪を手放せば、日常に戻れる。けれど、この街で始まった戦いが止まるわけではない。',
   ]), choices: [
     { label: '令呪を手放す', hint: '聖杯戦争から降りる（エンディング）', icon: 'flee', fn: () => ending('abstain') },

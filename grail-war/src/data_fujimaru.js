@@ -203,9 +203,9 @@ const FUJI_REUNION_SV = {
   nemo: '「マスター、乗艦を確認。……また君の航海に付き合えるなら、船長として光栄だ」',
 };
 const FUJI_MEMORY_BOND = 30;   // 記憶を取り戻した英霊の、最初の絆の上乗せ
-function fujiReunionLine(sv) { return fmt(FUJI_REUNION_SV[sv.id] || V(sv).reunion); }
+function fujiReunionLine(sv) { return FUJI_REUNION_SV[sv.id] ? fmt(FUJI_REUNION_SV[sv.id]) : reunionLine(sv); }
 // 会話の台詞：藤丸シナリオでは旅の記憶が混ざる
 function talkLine() {
-  if (isFuji() && Math.random() < 0.5) return fmt(pick(V().talk));
-  return fmt(pick(V()[bondTier()]));
+  if (isFuji() && !sigOnly() && Math.random() < 0.35) return fmt(pick(V().talk));   // 旅の思い出話
+  return tierLine();
 }

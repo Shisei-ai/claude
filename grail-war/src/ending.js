@@ -26,7 +26,7 @@ function finalBattleIntro() {
     '<p>残る陣営は、あと一つ。天降山の頂、霊脈の集う古社の境内に、聖杯の器が姿を現しつつある。</p>',
     `<p>雪の舞う石段を登りきると、最後の敵が待っていた。${rivalLabel(r)}陣営――マスター、${esc(r.master)}。</p>`,
     `<p class="quote">「${r.quote}」</p>`,
-    `<p class="quote">${fmt(pick(V().high))}</p>`,
+    `<p class="quote">${highLine()}</p>`,
     `<p class="note">${SV()} HP ${G.servant.hp}/${servantHpMax()}・魔力 ${G.servant.mp}　敵HP ${r.hp}/${r.hpMax}　撤退はできない。</p>`,
   ], choices });
 }
@@ -54,7 +54,7 @@ function victoryScene() {
     G.flags.grailTruth ? '<p>だが、あなたは知っている。その黄金の内側には、六十年分の呪いが渦巻いていることを。</p>'
       : G.flags.grailHint ? '<p>その輝きは眩い。……けれど、なぜだろう。杯の底に、黒い影が揺れた気がした。</p>'
         : '<p>その輝きは眩く、どんな願いでも叶えてくれそうに見えた。</p>',
-    `<p class="quote">${fmt(pick(V(sv).high))}</p>`,
+    `<p class="quote">${highLine(sv)}</p>`,
     '<p>あなたが願うのは――</p>',
   ], choices });
 }
@@ -76,7 +76,7 @@ function ending(kind) {
   const per = sv ? V(sv) : null;
   const E = {
     dead: () => ({ title: '終幕：血に染まる冬', text: [`<p>深見市の冬の夜に、${M()}の命は散った。</p>`, sv ? `<p>契約者を失った${sv.short}もまた、光の粒となって消えていく。最後に、何かを言いかけたように見えた。</p>` : '', '<p>聖杯戦争は、あなたのいないまま続いていく。</p>'] }),
-    lost: () => ({ title: '終幕：脱落', text: [`<p>${sv.short}の霊基は砕け、聖杯戦争からの脱落が決まった。</p>`, `<p class="quote">${fmt(per.farewell)}</p>`,
+    lost: () => ({ title: '終幕：脱落', text: [`<p>${sv.short}の霊基は砕け、聖杯戦争からの脱落が決まった。</p>`, `<p class="quote">${farewellLine(sv)}</p>`,
       G.flags.registered ? `<p>あなたは教会に保護され、戦いの結末を遠くから聞くことになった。${CAST.sister}が淹れてくれた紅茶は、少しだけ苦かった。</p>` : '<p>あなたは傷ついた体を引きずり、冬の街へと消えた。</p>',
       '<p>右手の痣だけが、あの日々が夢ではなかったと告げている。</p>'] }),
     devoured: () => ({ title: '終幕：黒い夜明け', text: ['<p>泥は全てを呑み込んだ。', `${sv.short}の霊基も、あなたの叫びも。</p>`,
@@ -89,20 +89,20 @@ function ending(kind) {
       `<p class="quote">「${fmt(SERVANT_WISH[sv.persona])}」</p>`, '<p>黄金の光が夜空に広がる。その願いがどんな形で叶ったのか、あなたには分からない。けれど、光の中で振り返った顔は、確かに笑っていた。</p>',
       G.flags.grailHint ? '<p class="note">杯の底に揺れた黒い影のことを、あなたは最後まで考えないようにした。</p>' : ''] }),
     destroy: () => ({ title: '終幕：冬の終わり', text: [`<p>${sv.short}の最後の一撃が、黒き聖杯を光の中に消し去った。呪いは霧散し、天降山に朝日が昇る。</p>`,
-      `<p class="quote">${fmt(per.farewell)}</p>`, `<p>聖杯を手にすることはなかった。けれど、あなたは確かにこの街を救ったのだ。河川敷では、${CAST.old}が一人、深く頭を下げていた。</p>`] }),
+      `<p class="quote">${farewellLine(sv)}</p>`, `<p>聖杯を手にすることはなかった。けれど、あなたは確かにこの街を救ったのだ。河川敷では、${CAST.old}が一人、深く頭を下げていた。</p>`] }),
     destroySpecial: () => ({ title: '終幕：夜明けの約束', text: [`<p>二人で選んだ答えは、聖杯の破壊だった。${sv.short}の一撃が呪いを焼き払い、夜が明けていく。</p>`,
-      `<p>消えゆく体で、${sv.short}はあなたの手を握った。「${rel ? rel.name : ''}」として過ごした日々が、指先から伝わってくる。</p>`, `<p class="quote">${fmt(per.farewell)}</p>`,
+      `<p>消えゆく体で、${sv.short}はあなたの手を握った。「${rel ? rel.name : ''}」として過ごした日々が、指先から伝わってくる。</p>`, `<p class="quote">${farewellLine(sv)}</p>`,
       '<p>朝日の中に消えた姿を、あなたは決して忘れない。――いつかまた、どこかの空の下で。</p>'] }),
     together: () => ({ title: `終幕：${rel ? rel.name : ''}として`, text: [`<p>「${sv.short}に、この世界で生きる体を」</p>`, '<p>聖杯は願いを聞き届けた。黄金の光が霊基を包み、英霊は肉体を得て現世に降り立つ。</p>',
       `<p>冬が終わり、深見市に春が来た。桜並木の下を、${sv.short}と並んで歩く。「${rel ? rel.name : ''}」と呼び合う二人の、新しい日々が始まる。</p>`,
       G.flags.grailTruth ? '<p class="note">聖杯の呪いは今も山の下に眠っている。いつか、二人で向き合う日が来るだろう。</p>' : ''] }),
     abstain: () => ({ title: '終幕：日常への帰還', text: ['<p>「……ごめん。戦えない」</p>',
-      `<p>${sv.short}は少しだけ目を伏せ、それから穏やかに笑った。</p>`, `<p class="quote">${fmt(per.farewell)}</p>`,
+      `<p>${sv.short}は少しだけ目を伏せ、それから穏やかに笑った。</p>`, `<p class="quote">${farewellLine(sv)}</p>`,
       `<p>令呪は教会に預けられ、${sv.short}の姿は光の粒となって消えた。</p>`,
       '<p>春が来た。あの冬、この街で何が起きたのか、あなたは知らない。ニュースは時々、原因不明の事故や昏睡事件を報じていた。</p>',
       '<p>右手の甲には、今もうっすらと三画の痣が残っている。</p>',
       '<p class="note">ヒント：戦う道を選べば、別の結末が待っている。</p>'] }),
-    none: () => ({ title: '終幕：願いなき勝者', text: ['<p>あなたは何も願わなかった。聖杯は誰の手にも渡らぬまま、静かに消えていった。</p>', `<p class="quote">${fmt(per.farewell)}</p>`,
+    none: () => ({ title: '終幕：願いなき勝者', text: ['<p>あなたは何も願わなかった。聖杯は誰の手にも渡らぬまま、静かに消えていった。</p>', `<p class="quote">${farewellLine(sv)}</p>`,
       '<p>勝者の手に残ったのは、戦いの記憶と、確かに結ばれた絆だけだった。</p>'] }),
   }[kind]();
   const ep = friendEpilogue(kind);

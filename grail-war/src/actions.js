@@ -403,7 +403,7 @@ function specialEvent() {
       '<p class="note">さらに絆が深まれば、また機会が訪れるだろう。</p>'], advance);
   } });
   scene({ title: '月下の告白', sub: 'SPECIAL', body: [`<p>月の綺麗な夜だった。${SV()}がふと、真剣な顔であなたを見つめた。</p>`,
-    `<p class="quote">${fmt(V().special)}</p>`, '<p>あなたは――</p>'], choices });
+    `<p class="quote">${specialLine()}</p>`, '<p>あなたは――</p>'], choices });
 }
 
 // =============================================================
