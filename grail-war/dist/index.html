@@ -2001,6 +2001,62 @@ function reunionLine(sv) { const s = sigOf(sv); return fmt((s && s[5]) || V(sv).
 function applyTic(line, sv) { const t = TICS[(sv || servantOf(G)).id]; return t && line.startsWith('「') ? t(line) : line; }
 
 // =============================================================
+//  恋人関係の夜：魔力供給（Fate原作の「魔力供給」に準拠した、官能的だが露骨ではない描写）
+//  ・「恋人」関係のとき、夜の「魔力を回復して休む」がこの描写になり、回復量も大きい
+//  ・未成年、または外見・設定上それに近い英霊は対象外（恋人関係そのものを選べない）
+// =============================================================
+
+// 恋人関係・官能的な描写の対象外とする英霊
+// （子どもの英霊、原作で肉体年齢が未成年とされる英霊、少年少女の姿で現界する英霊）
+const YOUTHFUL = new Set(['jack', 'nursery', 'abigail', 'andersen', 'medea_lily', 'elizabeth', 'kiyohime', 'euryale', 'ibaraki',
+  'ushiwakamaru', 'passionlip', 'meltryllis', 'bb', 'mash', 'astolfo', 'artoria', 'artoria_alter', 'artoria_caster', 'mordred',
+  'marie', 'ishtar', 'parvati', 'suzuka', 'shuten', 'nemo', 'serenity']);
+function isYouthful(sv) { return YOUTHFUL.has((sv || servantOf(G)).id); }
+function canBeLover(sv) { return !isYouthful(sv); }
+
+// 夜の情景（{s}＝英霊の名前）
+const LOVER_NIGHTS = [
+  'その夜、{s}はいつもより長くあなたを見つめていた。<br>灯りを落とした部屋。触れ合った指先から、パスを通じてかすかな熱が流れ込む。言葉の続きは、重ねられた唇の中に溶けていった。',
+  '魔力供給――それは本来、マスターとサーヴァントを繋ぐための儀式にすぎない。<br>けれど今夜のそれは、儀式と呼ぶにはあまりにも甘かった。{s}の腕に抱き寄せられ、首筋に熱い吐息がかかる。重なった鼓動が、ゆっくりと一つの律動になっていく。',
+  '窓の外では、音もなく雪が降り続いていた。<br>毛布の中で寄り添う{s}の体は、驚くほど熱い。額を合わせ、唇を重ね、魂の奥まで深く繋がっていく感覚――。もう、言葉は必要なかった。',
+  '冷えたあなたの指先を、{s}がそっと自分の胸元へと導いた。<br>触れ合った場所から、魔力が、想いが、溶け合うように流れていく。互いの名前を何度も呼び合ううちに、夜は静かに更けていった。',
+  '月明かりが、寝台の上の二人を淡く照らしている。<br>{s}の吐息が、肌をなぞるように近づいてくる。パスの向こうで、相手の鼓動が自分のものと重なり合うのが分かった。――今夜は、どちらも相手を離そうとはしなかった。',
+];
+
+// 囁き（話し方ごと。{I}＝一人称 / {you}＝相手の呼び方）
+const LOVER_WHISPER = {
+  polite: ['「……今夜は、{you}のすべてで、満たしてください」', '「……恥ずかしいです。でも、{you}となら」'],
+  regal: ['「光栄に思え。{I}がこの身を委ねるのは、{you}だけだ」', '「……今宵は、{I}から離れることを許さぬ」'],
+  rough: ['「……そんな顔すんなよ。……ほら、来いよ」', '「……今夜くらい、全部{I}に預けとけ」'],
+  old: ['「……ふふ、照れるのう。じゃが、今宵は離さぬぞ」', '「……近う寄れ。冷えた体を、温めてやろう」'],
+  cool: ['「……今夜だけは、何も考えなくていい。{I}だけを見ていて」', '「……{you}の熱を、もっと近くで感じたい」'],
+  bright: ['「えへへ……ドキドキするね。でも、{you}となら平気」', '「……ねえ、もっとくっついていい？」'],
+  mute: [],
+};
+// 翌朝
+const LOVER_MORNINGS = [
+  '翌朝、目を覚ますと、{s}が隣であなたの寝顔を見つめていた。目が合うと、少しだけ照れたように微笑む。',
+  '朝の光の中、{s}はまだあなたの手を握ったまま眠っていた。パスを流れる魔力は、かつてないほど満ちている。',
+  '目覚めると、毛布の温もりと、{s}の穏やかな寝息がそこにあった。体の奥まで、魔力が満ちているのが分かる。',
+];
+
+// 恋人と過ごす夜（休息の代わり）
+function loverNight() {
+  NOTES = [];
+  mp(60); shp(25); hp(15); bond(3); od(10);
+  const v = voiceOf(servantOf(G));
+  const whisper = LOVER_WHISPER[v.reg] || [];
+  const body = [
+    fmt(pick(LOVER_NIGHTS)),
+    whisper.length ? `<p class="quote">${fmt(pick(whisper))}</p>` : `（${SV()}の腕が、言葉の代わりにあなたを強く抱きしめた）`,
+    fmt(pick(LOVER_MORNINGS)),
+    `<span class="note">恋人同士の魔力供給。（${SV()}の魔力+60 HP+25　あなたのHP+15 オド+10 絆+3）</span>`,
+    ...takeNotes(),
+  ];
+  next('二人の夜', paras(body), advance, '朝を迎える', 'LOVERS');
+}
+
+// =============================================================
 //  メインシナリオ（決まった日に必ず起きる物語イベント）
 //  三幕構成：
 //   生い立ち          … 0〜17歳（growth.js / data_growth.js）
@@ -4062,7 +4118,9 @@ function warNightActions() {
   acts.push(
     { label: '拠点で迎え撃つ', hint: `陣地Lv${G.workshop}・罠${G.traps}で待ち構える`, fn: defendBase },
     { label: `${SV()}と語らう`, hint: G.servant.bond >= 70 && !G.servant.special ? '何かが起きそうだ' : '絆↑', fn: nightTalk },
-    { label: '魔力を回復して休む', hint: '魔力・HP回復（夜襲の危険）', fn: nightRest },
+    G.servant.special === 'lover' && canBeLover(servantOf(G))
+      ? { label: `${SV()}と夜を過ごす`, hint: '恋人同士の魔力供給・魔力大回復（夜襲の危険）', icon: 'bond', fn: nightRest }
+      : { label: '魔力を回復して休む', hint: '魔力・HP回復（夜襲の危険）', fn: nightRest },
   );
   return acts;
 }
@@ -4174,6 +4232,7 @@ function defendBase() {
   actResult('待機', () => { mp(15); shp(10); od(10); return '敵は現れなかった。結界の内で魔力を蓄えた。（魔力+15 HP+10 オド+10）'; });
 }
 function nightRest() {
+  if (G.servant.special === 'lover' && canBeLover(servantOf(G))) return maybeRaided(loverNight);   // 恋人同士の魔力供給
   maybeRaided(() => actResult('休息', () => { mp(30); shp(15); hp(15); bond(1);
     return `パスを通じて${SV()}に魔力を送りながら眠った。（魔力+30 ${SV()}のHP+15 HP+15）`; }));
 }
@@ -4217,7 +4276,7 @@ function nightTalk() {
 }
 function specialEvent() {
   const per = PERSONAS[servantOf(G).persona];
-  const choices = Object.entries(RELATIONS).map(([k, r]) => ({
+  const choices = Object.entries(RELATIONS).filter(([k]) => k !== 'lover' || canBeLover(servantOf(G))).map(([k, r]) => ({
     label: r.verb, hint: `関係：${r.name}`, fn: () => {
       G.servant.special = k; NOTES = []; bond(10);
       addLog(`${servantOf(G).name}と「${r.name}」の関係になる。`);
