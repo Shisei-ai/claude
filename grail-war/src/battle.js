@@ -44,6 +44,7 @@ function startBattle(rival, opt = {}) {
     rival.recognized = true;
     pre.push(`<p class="quote">${recognizeLine(servantOf(rival))}</p>`);
   }
+  const mx = kishiMatrix(rival); if (mx) pre.push(`<p>${mx}</p>`);
   if (opt.defend && G.traps > 0) {
     G.traps--; rival.hp = Math.max(1, rival.hp - 20);
     pre.push(`<p>仕掛けておいた罠が炸裂した！ ${enemyName()}に20ダメージ。（残りの罠 ${G.traps}）</p>`);
@@ -62,6 +63,7 @@ function planEnemy() {
   else t = wpick(['str', 'agi', 'mag'], k => Math.pow(rivalParam(r, TACTICS[k].stat), 1.5));
   B.enemyNext = t;
   if (B.sure) { B.tell = `【見切り】${enemyName()}は${TACTICS[t].tell}`; B.tellKey = t; B.sure = false; return; }
+  if (isKishi()) { B.tell = `【戦略眼】${enemyName()}は${TACTICS[t].tell}`; B.tellKey = t; return; }   // 岸波白野：敵の手を必ず読む
   const seeChance = t === 'np' ? 0.9 : 0.3 + G.master.stats.int / 200 + (knowsName(r) ? 0.2 : 0);
   if (Math.random() < seeChance) {
     const shown = t === 'np' || Math.random() < 0.75 ? t : pick(['str', 'agi', 'mag', 'guard']);
@@ -212,7 +214,7 @@ function battleRound(cmd) {
   // ---- 補正値 ----
   const first = B.round === 1;
   const myMod = classAffinity(me.cls, r.cls) + Math.floor(sv.bond / 8) + (sv.special ? 5 : 0) + Math.floor(G.master.stats.mag / 20)
-    + (['mercenary', 'executor'].includes(G.master.birth) ? 4 : 0) + (G.master.birth === 'fujimaru' ? 6 : 0) + (knowsName(r) ? 8 : 0)
+    + (['mercenary', 'executor'].includes(G.master.birth) ? 4 : 0) + (G.master.birth === 'fujimaru' ? 6 : 0) + (G.master.birth === 'kishinami' ? 8 : 0) + (knowsName(r) ? 8 : 0)
     + (first && B.opt.ambush ? 15 : 0) + (first && B.opt.duel ? 6 : 0) + (B.opt.defend ? G.workshop * 3 : 0)
     + (B.final && G.flags.resolve === 'win' ? 6 : 0) + (B.boss && G.flags.resolve === 'destroy' ? 8 : 0) + (B.boss && G.flags.mudKnown ? 5 : 0) + (B.final && G.flags.resolve === 'pure' ? 5 : 0) + (G.flags.partnerCombo && sv.special === 'partner' ? 3 : 0)
     + (!B.boss && r.id === mys().culprit && mys().culpritKnown ? 3 + (G.flags.shadowKnown ? 3 : 0) : 0)

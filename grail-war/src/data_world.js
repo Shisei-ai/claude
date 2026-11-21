@@ -335,6 +335,7 @@ const EXTRA_CLASSES = {
 };
 function extraOpen(cls) {
   if (typeof isFuji === 'function' && isFuji()) return true;   // 藤丸シナリオは制限なし
+  if (typeof isKishi === 'function' && isKishi()) return true;   // 岸波白野：月の英霊はムーンセルの縁で応える
   const e = EXTRA_CLASSES[cls];
   if (!e) return true;
   return (e.alt && e.alt[1]()) || e.conds.every(c => c[1]());

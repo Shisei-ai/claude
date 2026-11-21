@@ -49,7 +49,12 @@ const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS]).map(s => [s.id, s]))
 
 // ---------------- 名前・参照 ----------------
 function M() { return esc(G.master.name); }
-function servantOf(o) { return SV_BY_ID[o.servantId || (o.servant && o.servant.id)]; }
+function servantOf(o) {
+  const s = SV_BY_ID[o.servantId || (o.servant && o.servant.id)];
+  // 岸波白野のシナリオでは、自分のエミヤは「無銘」として現れる
+  if (o === G && s && s.id === 'emiya' && typeof isKishi === 'function' && isKishi()) return { ...s, ...MUMEI };
+  return s;
+}
 function SV() { return G.servant ? servantOf(G).short : 'サーヴァント'; }
 const SVname = SV;
 function birthOf() { return BIRTHS.find(x => x.id === G.master.birth); }
@@ -91,7 +96,8 @@ function item(k, n) { G.items[k] = clamp((G.items[k] || 0) + n, 0, ITEM_MAX); }
 function bond(n) {
   if (!G.servant || n === 0) return;
   if (n > 0 && G.master.birth === 'civilian') n = Math.round(n * 1.3);
-  if (n > 0 && G.master.birth === 'fujimaru') n = Math.round(n * 1.5);   // 数多の英霊と絆を結んできた
+  if (n > 0 && G.master.birth === 'fujimaru') n = Math.round(n * 1.5);
+  if (n > 0 && G.master.birth === 'kishinami') n = Math.round(n * 1.3);   // 月で結んだ絆   // 数多の英霊と絆を結んできた
   const before = Math.floor(G.servant.bond / 10);
   G.servant.bond = clamp(G.servant.bond + n, 0, 100);
   const after = Math.floor(G.servant.bond / 10);
@@ -142,7 +148,7 @@ function schk(i, diff) {
 
 // マスターの魔力がサーヴァントの性能に影響する（Fateの設定に準拠）
 function masterCorrection() {
-  if (G.master.birth === 'fujimaru') return 6;   // 歴戦のマスター：英霊は十二分に力を振るえる
+  if (G.master.birth === 'fujimaru' || G.master.birth === 'kishinami') return 6;   // 歴戦のマスター：英霊は十二分に力を振るえる
   const m = G.master.stats.mag;
   if (m < 25) return -8; if (m < 40) return -4; if (m < 70) return 0; if (m < 85) return 3; return 5;
 }

@@ -243,7 +243,8 @@ const VOICE_OF = {
 
 // 英霊の口調情報 { voice, reg, I, you, call }
 function voiceOf(sv) {
-  const v = VOICE_OF[sv.id] || [];
+  let v = VOICE_OF[sv.id] || [];
+  if (sv.id === 'nero' && typeof isKishi === 'function' && isKishi() && G.servant && G.servant.id === 'nero') v = ['king', '余', '奏者', '奏者'];
   const voice = v[0] || PERSONA_VOICE[sv.persona] || 'cool_m';
   const d = VOICE_DEF[voice];
   return { voice, reg: d.reg, I: v[1] || d.fp, you: v[2] || d.sp, call: v[3] || d.call, label: d.label };

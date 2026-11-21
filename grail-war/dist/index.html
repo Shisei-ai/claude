@@ -1550,6 +1550,7 @@ const EXTRA_CLASSES = {
 };
 function extraOpen(cls) {
   if (typeof isFuji === 'function' && isFuji()) return true;   // 藤丸シナリオは制限なし
+  if (typeof isKishi === 'function' && isKishi()) return true;   // 岸波白野：月の英霊はムーンセルの縁で応える
   const e = EXTRA_CLASSES[cls];
   if (!e) return true;
   return (e.alt && e.alt[1]()) || e.conds.every(c => c[1]());
@@ -1800,7 +1801,8 @@ const VOICE_OF = {
 
 // 英霊の口調情報 { voice, reg, I, you, call }
 function voiceOf(sv) {
-  const v = VOICE_OF[sv.id] || [];
+  let v = VOICE_OF[sv.id] || [];
+  if (sv.id === 'nero' && typeof isKishi === 'function' && isKishi() && G.servant && G.servant.id === 'nero') v = ['king', '余', '奏者', '奏者'];
   const voice = v[0] || PERSONA_VOICE[sv.persona] || 'cool_m';
   const d = VOICE_DEF[voice];
   return { voice, reg: d.reg, I: v[1] || d.fp, you: v[2] || d.sp, call: v[3] || d.call, label: d.label };
@@ -2910,6 +2912,310 @@ function fujiReunionLine(sv) { return FUJI_REUNION_SV[sv.id] ? fmt(FUJI_REUNION_
 function talkLine() {
   if (isFuji() && !sigOnly() && Math.random() < 0.35) return fmt(pick(V().talk));   // 旅の思い出話
   return tierLine();
+}
+
+// =============================================================
+//  特殊シナリオ：岸波 白野
+//  名前を「岸波 白野」にすると始まる。Fate/EXTRA シリーズを下地にした主人公のシナリオ。
+//
+//  月の聖杯戦争を勝ち抜き「月の王」となった岸波白野が、ムーンセルを通して見た
+//  不穏な世界線――深見の聖杯戦争。その介入がどんな結末をもたらすのかは、宝石翁のみぞ知る。
+//
+//   ・月の玉座での「観測」と「干渉」の7期間で能力を育て（成長期の代わり）、深見へ降下する
+//   ・召喚できる英霊は、性別で変わる（月で契約した英霊たち）
+//       男性：ネロ、玉藻の前、アルテラ、シャルルマーニュ、BB
+//       女性：無銘（エミヤ）、ギルガメッシュ、アルテラ、シャルルマーニュ、BB
+//       指定しない：上の全員
+//   ・歴戦のマスターにして、超高レベルの戦略眼の持ち主
+//       英霊は十二分に力を振るえる（パラメータ補正+6）、戦闘の補正が大きい
+//       【戦略眼】敵の次の手を、毎手番必ず読み切る
+//       【マトリクス】対面するたびに敵の情報を解析し、2度目の対面で真名を暴く
+// =============================================================
+
+const KISHI_NAME = '岸波白野';
+function isKishiName(name) { return String(name).replace(/[\s　]/g, '') === KISHI_NAME; }
+function isKishi() { return !!G && G.master.birth === 'kishinami'; }
+// 彼／彼女（性別を指定しない場合は名前で呼ぶ）
+function kp() { return gw('彼', '彼女', '岸波白野'); }
+
+BIRTHS.push({ id: 'kishinami', name: '月の王', weight: 0, magic: true, home: 'ムーンセル・オートマトン　月の玉座',
+  origin: '', text: '月の聖杯戦争を勝ち抜き、ムーンセルの主となった。',
+  stats: { mag: 38, phy: 38, int: 72, spi: 78, cha: 56, luk: 50 },
+  growth: { int: 1.15, spi: 1.15, cha: 1.05, mag: 0.9 },
+  money: 6, circuits: [25, 35], wish: 'この世界線の結末を、見届けること',
+  perk: '月の聖杯戦争の覇者。超高レベルの戦略眼を持つ（戦闘の補正が大きく、敵の次の手を必ず読む。対面を重ねるほど敵を解析する）。' });
+
+// ---- 月で契約した英霊たち（性別で変わる） ----
+const KISHI_LINEUP = { m: ['nero', 'tamamo', 'altera', 'charlemagne', 'bb'], f: ['emiya', 'gilgamesh', 'altera', 'charlemagne', 'bb'] };
+function kishiLineup() {
+  const g = gender();
+  return g === 'm' ? KISHI_LINEUP.m : g === 'f' ? KISHI_LINEUP.f : [...new Set(KISHI_LINEUP.m.concat(KISHI_LINEUP.f))];
+}
+
+// ---- アルテラ（この特殊シナリオと藤丸シナリオでのみ召喚できる） ----
+SERVANTS.push(sv('altera', 'アルテラ', 'アルテラ', 'セイバー', ['B', 'A', 'A', 'B', 'A', 'A+'], '混沌・善', 'cool',
+  '軍神の剣', 'フォトン・レイ', '三色の光を宿す剣の欠片',
+  'セイバー、アルテラ。……私は、フンヌの戦士である。この西の世界を、滅ぼしに――いや、今は、お前の剣だ。',
+  'フン族の王アッティラ。文明を破壊する「神の鞭」と恐れられた。戦うこと以外を知らずに生きた大王。'));
+SERVANTS.find(x => x.id === 'altera').chaldea = true;   // 通常シナリオには出てこない
+VOICE_OF.altera = ['cool_f', '私', 'お前'];
+SIG.altera = [
+  '「……私は、戦うことしか知らない。だが、お前の隣でなら、他のことも覚えられる気がする」',
+  '「{m}。この時代の甘いものは、良い文明だ。……もう一つ、くれないか」',
+  '「{m}。私は破壊しかできないと思っていた。だが、お前を守ることはできる。それが、嬉しい」',
+  '「{m}。……私は、お前が好きだ。これは、破壊すべきではない、良い気持ちだ」',
+  '「さよならだ、{m}。お前と過ごした日々は、壊したくない、私の宝物だ」',
+  '「……{m}。また会えた。月で、お前と見た星の数を、私はまだ覚えている」',
+];
+SAY_SV.altera = [
+  '「おはよう、マスター。一つ聞きたい。……お前は聖杯に、何を願う？」', '「そうか。分かりやすいのは、良いことだ」',
+  '「下がれ、マスター。あれは英霊ではない。……壊すべきものだ」', '「……痕跡が、消されている。小賢しい」',
+  '「無茶をするな。……だが、礼を言う」', '「マスター。今夜は私一人で、敵を探ってくる」', '「戻った。敵の様子は、見てきた」',
+  '「……少し、斬られた。問題ない」', '「……分かった。命令なら、従う」', '「無茶をするマスターだ。……だが、嫌いではない」',
+  '「私のマスターに、触れるな」', '「……綺麗だ。この景色は、壊したくない」', '「サーヴァント、セイバー。お前が、私のマスターか」',
+  '「良い答えだ」', '「改めて。セイバー、アルテラ。お前の剣になろう」', '「マスター。最後の戦いの前に、お前の心を聞かせてくれ」',
+  '「約束する」', '……それが、私の願いだ', '「……それが、お前の答えなら。最後まで、共に」',
+  '「まだだ……。私は、まだ、壊れていない」', '「下がっていろ、マスター」', '「マスター、命令を」',
+  '「……マスター。あの聖杯からは、文明を喰らう悪意を感じる」', '「お前を狙う者は、私が壊す」',
+  '「……見たのか。私の、過去を。……構わない。お前になら」',
+];
+FUJI_REUNION_SV.altera = '「……マスター。また、お前の剣になれるのだな。良い文明だ」';
+
+// ---- 再会の言葉（月での記憶を持ったまま応える） ----
+const KISHI_REUNION_SV = {
+  nero: '「うむ！ 呼んだな、奏者よ！ 月の玉座を空けてまで地上に降りるとは、そなたも物好きよな。……だが、余はそういうそなたが好きだ！」',
+  tamamo: '「ご主人様ぁ～！ はい、良妻狐、地上出張でも全力でお供いたします！ ……他の女のサーヴァント、いませんよね？」',
+  altera: '「マスター。月の外に出るのは、初めてだ。……お前と一緒なら、怖くない」',
+  charlemagne: '「よっ、マスター！ 月の王が地上に殴り込みか？ カッコいいじゃねえか、付き合うぜ！」',
+  bb: '「はーい、センパイ♪ 地上なんて退屈な場所に降りるなんて、BBちゃん心配で付いてきちゃいました！」',
+  emiya: '「……やれやれ。月の王になっても、君の無茶は変わらないな、マスター。いいだろう、今度も私が君の剣だ」',
+  gilgamesh: '「フン。月の王などと名乗りながら、地上の小競り合いに首を突っ込むか。……よい、我が見届けてやろう。お前の物語の続きをな」',
+};
+const KISHI_MEMORY_BOND = 35;   // 月での記憶を持つ英霊の、最初の絆の上乗せ
+function kishiReunionLine(sv) { return KISHI_REUNION_SV[sv.id] ? fmt(KISHI_REUNION_SV[sv.id]) : reunionLine(sv); }
+
+// エミヤはこのシナリオでは「無銘」として現れる（月で出会った、名前を持たない弓兵）
+const MUMEI = { name: '無銘', short: 'アーチャー', desc: '月の聖杯戦争で岸波白野と契約した、名を持たない弓兵。正義の味方を目指した、ある男の成れの果て。' };
+
+// ---- 月の玉座での日々（成長の代わり） ----
+const STAGES_K = [
+  { label: '月の玉座', band: '月の王' },
+  { label: '観測・一', band: '観測', text: 'ムーンセルの膨大な記録の中に、一つの世界線が引っかかった。地上の、冬の地方都市――深見市。' },
+  { label: '観測・二', band: '観測', text: '深見の霊脈には、六十年前の不自然な「空白」がある。まるで誰かが、記録を消したかのように。' },
+  { label: '観測・三', band: '観測', text: '観測を続けるほど、世界線の揺らぎは大きくなる。このままでは、何かが起きる。' },
+  { label: '干渉・一', band: '干渉', text: '月の王として、地上に降りる準備を始めた。霊子の体を、地上の理に合わせて組み直していく。' },
+  { label: '干渉・二', band: '干渉', text: '並行世界への道は、ムーンセルの力だけでは開けない。――万華鏡の主の手が要る。' },
+  { label: '降下前夜', band: '降下', text: '月の庭で、英霊たちが見送りの支度をしている。' },
+  { label: '降下', band: '降下', text: '霊子の体が、少しずつ地上の重さを帯びていく。' },
+];
+const KISHI_RATE = 0.85;
+
+const FOCUS_K = {
+  tactics: { name: '月の聖杯戦争の記録を読み返す', gains: { int: 10, spi: 3 } },
+  arena:   { name: 'アリーナで模擬戦を重ねる', gains: { phy: 9, int: 4 } },
+  code:    { name: 'コードキャストを組み直す', gains: { mag: 10, int: 3 } },
+  court:   { name: '英霊たちと語らう', gains: { cha: 9, spi: 4 } },
+  observe: { name: '深見の世界線を観測する', gains: { int: 6, luk: 6 }, lore: 1 },
+  garden:  { name: '月の庭で、静かに過ごす', gains: { spi: 9, luk: 4 } },
+  body:    { name: '地上で動く体を鍛える', gains: { phy: 10, spi: 3 } },
+};
+
+const lineupNames = () => kishiLineup().map(id => SV_BY_ID[id].short).join('・');
+const GROWTH_EVENTS_K = [
+  { id: 'k_court', stages: [1], fixed: true, title: '月の王の宮廷',
+    text: () => `月の玉座の間。今日も英霊たちが、あなたの周りで賑やかに過ごしている。<br>${lineupNames()}――月の聖杯戦争を共に駆け抜けた、かけがえのない英霊たち。<br>その中の一騎が、あなたの顔を覗き込んだ。「何か、気になることでもあるのか？」`,
+    choices: [] },   // 選択肢は下で、今の英霊たちから作る
+  { id: 'k_zelretch', stages: [5], fixed: true, title: '万華鏡の主',
+    text: () => '月の庭に、ありえない来客があった。<br>白髪の老紳士が、宝石の付いた杖をついて、楽しげに笑っている。<br>「ほう、これが月の王か。面白い。実に面白い。――並行世界の小さな街を、覗き見ておったな？」<br>魔道元帥キシュア・ゼルレッチ・シュバインオーグ。第二魔法の使い手、「宝石翁」。',
+    choices: [
+      { label: '「深見へ行く道を、開いてほしい」', hint: '交渉判定・宝石を得る', run: () => {
+          const c = chk('cha', 60); G.flags.zelretch = true;
+          if (c.ok) { item('gem', 2); gain('cha', 3); return [c.text, '「よかろう。ただし、何が起きても儂は手を貸さんぞ。――ああ、これは餞別だ」<br>老人は宝石を二つ、あなたの掌に落とした。（魔力を込めた宝石+2 交渉+3）']; }
+          item('gem', 1); return [c.text, '「頼み方がなっとらん。……が、まあよい。面白そうだからな」（魔力を込めた宝石+1）'];
+        } },
+      { label: '「あなたは、あの世界線の何を知っている？」', hint: '知力判定・街の秘密', run: () => {
+          const c = chk('int', 62); G.flags.zelretch = true; G.flags.grailHint = true;
+          if (c.ok) { gain('int', 4); lore(2); return [c.text, '「さてな。あの街の杯が呪われておるか否か――それは、行って確かめるのが筋というものだ」<br>老人は、意味ありげに片目をつぶった。（知力+4）']; }
+          return [c.text, '「知りたければ、自分の目で見るがよい」はぐらかされた。'];
+        } },
+      { label: '「面白がっているだけでしょう」', hint: '精神↑・混沌', run: () => { tone('chaos'); gain('spi', 5); G.flags.zelretch = true;
+          return '「はっはっは！ その通りだ！」老人は愉快そうに笑い、杖で空間を叩いた。万華鏡のような光の向こうに、冬の街が見えた。（精神+5）'; } },
+    ] },
+  { id: 'k_log', stages: [2, 3, 4, 5, 6, 7], title: '観測ログ',
+    text: () => 'ムーンセルの観測ログに、深見市の夜の記録が流れていく。<br>天降山の斜面から滲み出す黒い霧。原因不明の小さな事故。六十年前の、記録の空白。',
+    choices: [
+      { label: 'ログを徹底的に解析する', hint: '知力↑・街の秘密', run: () => { gain('int', 4); G.flags.grailHint = true; lore(1);
+          return '解析を重ねるほど、あの街の聖杯に「何か」があることだけは確かになった。それが何なのかは、地上で確かめるしかない。（知力+4）'; } },
+      { label: '霊脈の流れを写し取る', hint: '魔力↑・霊脈の知識', run: () => { gain('mag', 3); G.flags.leyline = true;
+          return '深見の霊脈の地図を、霊子の記憶に焼き付けた。地上に降りたら、陣地作りに役立つはずだ。（魔力+3 陣地作成が得意になった）'; } },
+    ] },
+  { id: 'k_code', stages: [2, 3, 4, 5, 6, 7], title: 'コードキャスト',
+    text: () => '月の聖杯戦争で使い慣れた礼装の術式――コードキャスト。地上の理に合わせて、一つずつ組み直していく。',
+    choices: [
+      { label: '回復の術式 heal() を組む', hint: '道具を得る', run: () => { item('potion', 1); item('crystal', 1); gain('mag', 2); return '治癒と魔力補給の術式を、地上でも使える形に変換した。（治癒の霊薬+1 魔力結晶+1 魔力+2）'; } },
+      { label: '強化の術式 gain_str() を組む', hint: '魔力・知力↑', run: () => { gain('mag', 4); gain('int', 2); return 'サーヴァントの力を引き出す強化の術式を、より精密に磨き上げた。（魔力+4 知力+2）'; } },
+    ] },
+  { id: 'k_memory', stages: [2, 3, 4, 5, 6, 7], title: '月の記憶',
+    text: () => '月の聖杯戦争の記憶が、ふと蘇る。<br>百二十八人のマスター。勝ち進むたびに消えていった、名前も知らない誰か。――そして、何度倒れても立ち上がった、自分自身。',
+    choices: [
+      { label: '敗れた者たちのことを思う', hint: '精神↑↑', run: () => { gain('spi', 6); return '彼らの願いの上に、今の自分がいる。それを忘れないことが、勝ち残った者の務めだ。（精神+6）'; } },
+      { label: 'あの頃の戦術を振り返る', hint: '知力↑↑', run: () => { gain('int', 6); return '敵の手を読み、一手先を打つ。あの戦いで磨いた眼は、今も衰えていない。（知力+6）'; } },
+    ] },
+  { id: 'k_arena', stages: [2, 3, 4, 5, 6], title: 'アリーナの夜',
+    text: () => 'SE.RA.PHの迷宮――アリーナ。かつて幾度も潜ったその場所で、地上を想定した模擬戦を行う。',
+    choices: [
+      { label: 'エネミーの群れに挑む', hint: '体力判定', run: () => {
+          const c = chk('phy', 50);
+          if (c.ok) { gain('phy', 4); gain('luk', 2); return [c.text, '霊子の体が、少しずつ戦いの勘を取り戻していく。（体力+4 幸運+2）']; }
+          hp(-10); gain('spi', 3); return [c.text, '手痛い一撃をもらった。だが、諦めずに最後まで立っていた。（HP-10 精神+3）'];
+        } },
+      { label: '英霊の戦いぶりを観察する', hint: '知力↑', run: () => { gain('int', 4); return `${lineupNames()}――英霊たちの戦い方を、一つずつ頭に叩き込んだ。（知力+4）`; } },
+    ] },
+  { id: 'k_bb', stages: [3, 4, 5, 6, 7], title: '月の裏側からの通信', cond: () => kishiLineup().includes('bb'),
+    text: () => '玉座の間に、ノイズ混じりの通信が割り込んできた。「センパイ、聞こえてますー？ 地上なんて、つまらない場所に行くつもりですか？ BBちゃん、反対でーす♪」',
+    choices: [
+      { label: '「一緒に来てくれると心強い」', hint: '交渉・幸運↑', run: () => { gain('cha', 3); gain('luk', 3); G.flags.kishiBond = G.flags.kishiBond || 'bb';
+          return '「……ふーん。センパイがそこまで言うなら、考えてあげてもいいですよ？」通信は、少しだけ嬉しそうな声で切れた。（交渉+3 幸運+3）'; } },
+      { label: '通信を切る', hint: '精神↑', run: () => { gain('spi', 4); return '「ちょ、センパイ!? ひど――」ぷつん。……後で埋め合わせをしよう。（精神+4）'; } },
+    ] },
+  { id: 'k_fukami', stages: [6, 7], title: '深見の夜',
+    text: () => '降下の前に、もう一度だけ深見の夜を観測した。<br>雪の降る街。旧城下町の灯り。天降山の頂に、黒い霧がわだかまっている。<br>――あの街で、もうすぐ聖杯戦争が始まる。',
+    choices: [
+      { label: '黒い霧を、さらに深く観測する', hint: '魔力判定・秘密に触れる', run: () => {
+          const c = chk('mag', 50); G.flags.grailHint = true; lore(2);
+          if (c.ok) { G.flags.touchedMist = true; gain('mag', 3); return [c.text, '霧の奥に、聖杯の器らしきものが見えた。……それが穢れているのか、澄んでいるのか。月からでは、まだ分からない。（魔力+3）']; }
+          return [c.text, '観測にノイズが走り、霧の奥は見えなかった。'];
+        } },
+      { label: '街の人々の暮らしを眺める', hint: '精神・交渉↑', run: () => { gain('spi', 3); gain('cha', 3);
+          return '笑い合う家族、帰り道の学生たち、店じまいをする老人。――守る理由は、それで十分だった。（精神+3 交渉+3）'; } },
+    ] },
+];
+// 宮廷の出来事：選択肢は今の英霊たちから作る
+GROWTH_EVENTS_K[0].choices = KISHI_LINEUP.m.concat(KISHI_LINEUP.f).filter((x, i, a) => a.indexOf(x) === i).map(id => ({
+  label: () => `${SV_BY_ID[id].id === 'emiya' ? '無銘' : SV_BY_ID[id].short}と話す`, hint: 'この英霊との縁が深まる',
+  cond: () => kishiLineup().includes(id),
+  run: () => { G.flags.kishiBond = id; gain('cha', 3); gain('spi', 3);
+    return [`${id === 'emiya' ? '無銘' : SV_BY_ID[id].short}に、深見の世界線のことを打ち明けた。`, `<p class="quote">${fmt(KISHI_REUNION_SV[id] || '「……分かった」')}</p>`,
+      '（交渉+3 精神+3）', '<span class="note">地上でこの英霊を喚ぶと、さらに絆が深い状態で始まる。</span>']; },
+}));
+
+// ---- 物語 ----
+STORY.push(
+  {
+    id: 'k_prep_descent', phase: 'prep', day: 1, slot: 0, after: 'hub', cond: () => G.route === 'kishinami',
+    title: '降下', chapter: '序章　令呪の冬',
+    text: () => `目を開けると、冬の匂いがした。<br>霊子の体は、地上の理に馴染んでいる。駅前の雑踏、白い息、遠くに見える天降山。――深見市。<br>右手の甲には、ムーンセルの紋様に似た、三画の令呪が浮かんでいた。<br>どこかで、宝石翁の笑い声が聞こえた気がした。`,
+    choices: [
+      { label: '教会に、マスターとして名乗り出る', hint: '秩序・教会に登録', run: () => { tone('law'); G.flags.registered = true;
+          return `${CAST.sister}は名簿を確かめ、首を傾げた。「……奇妙ですね。あなたの記録は、この世界のどこにもありません」<br>それでも彼女は、あなたの名を名簿に書き加えた。（教会に登録）`; } },
+      { label: '街を観測し、霊脈の要を探る', hint: '知力↑・霊脈の知識', run: () => { gain('int', 3); G.flags.leyline = true;
+          return '月から写し取った霊脈の地図と、実際の街を照らし合わせた。拠点にすべき場所が、手に取るように分かる。（知力+3 陣地作成が得意になった）'; } },
+      { label: '宝石翁の置き土産を確かめる', hint: '道具を得る', run: () => { item('potion', 1); item('smoke', 1); money(3);
+          return 'コートのポケットに、見覚えのない財布と小瓶が入っていた。メモには一言。「せいぜい楽しませてくれ」（治癒の霊薬+1 煙幕の護符+1 資金+3）'; } },
+    ],
+  },
+  {
+    id: 'k_moonlink', phase: 'war', day: 5, slot: 0, after: 'hub', cond: () => G.route === 'kishinami',
+    title: 'ムーンセルの解析', chapter: '第二幕　侵蝕',
+    text: () => `夜明け前、頭の奥にノイズが走った。月に残してきたムーンセルからの、細い通信だ。<br>「――地上の聖杯の、解析結果を送信します」`,
+    choices: [
+      { label: '解析結果を読み解く', hint: '知力判定・真相の手がかり+2', run: () => {
+          const c = chk('int', 55);
+          if (!c.ok) return [c.text, '通信は途中で途切れた。地上と月の距離は、思った以上に遠い。'];
+          if (solved()) { gain('int', 5); return [c.text, '解析結果は、あなたが地上で確かめた真相を裏付けていた。（知力+5）']; }
+          return isCursed()
+            ? [c.text, '「地上の聖杯の内部に、月でいう『ウイルス』に近い汚染を検出。六十年前に取り込まれたものと推定」',
+              addClue('moonlink', 'ムーンセルの解析', '地上の聖杯の内部に、ウイルスのような汚染がある。六十年前に取り込まれたものらしい。', 2)]
+            : [c.text, '「地上の聖杯に、汚染は検出されず。ただし、市内の複数地点で、魔術師による魂の収奪の痕跡を確認」',
+              addClue('moonlink', 'ムーンセルの解析', '地上の聖杯に汚染はない。代わりに、市内で魔術師による魂の収奪の痕跡がある。', 2)];
+        } },
+      { label: () => `${SVname()}と、月の戦いを思い出す`, hint: '絆↑・精神↑', run: () => { bond(5); gain('spi', 4);
+          return `「月で戦っていた頃と、同じ顔をしているな」${SV()}が、小さく笑った。（絆+5 精神+4）`; } },
+    ],
+  },
+  {
+    id: 'k_jewel', phase: 'war', day: 7, slot: 0, after: 'hub', cond: () => G.route === 'kishinami',
+    title: '宝石翁の気まぐれ', chapter: '第二幕　侵蝕',
+    text: () => `城跡公園のベンチに、見覚えのある老紳士が座っていた。<br>「やあ、月の王。なかなか良い顔で戦っておるな」宝石翁は、楽しげに杖を回した。「褒美というわけではないが――少しばかり、助けてやろう」`,
+    choices: [
+      { label: '「力を貸してほしい」', hint: '魔力・知力↑↑', run: () => { gain('mag', 8); gain('int', 5); return '老人が杖で地面を叩くと、霊子の体に、並行世界の自分たちの経験が流れ込んできた。（魔力+8 知力+5）'; } },
+      { label: '「この戦いの結末を教えてほしい」', hint: '交渉判定', run: () => {
+          const c = chk('cha', 65);
+          if (c.ok) { G.master.seals = Math.min(3, G.master.seals + 1); return [c.text, '「結末は教えられん。だが――これくらいはよかろう」<br>右手が熱を帯び、失われた令呪が一画、蘇った。（令呪+1、最大3画）']; }
+          return [c.text, '「それを知ってしまっては、つまらんだろう？」老人は笑って姿を消した。'];
+        } },
+      { label: '「見ていてください。最後まで」', hint: '精神↑↑・絆↑', run: () => { gain('spi', 8); bond(5);
+          return `「……ふむ。その目だ。諦めを知らぬ目。だからこそ、儂は月の王を面白いと思うのだ」<br>宝石翁は満足げに頷き、雑踏の中に消えた。（精神+8 絆+5）`; } },
+    ],
+  },
+);
+
+// ---- 降下の序章 ----
+function kishinamiStart() {
+  const m = G.master;
+  G.lastChapter = '月の王';
+  chapterCard('特殊シナリオ　岸波白野', () => {
+    scene({ title: '月の玉座', sub: '月の王', reveal: true, body: paras([
+      '月の聖杯戦争。百二十八人のマスターが、願望機ムーンセルを巡って競い合った電脳の戦い。<br>その頂に立ったのは、記憶も願いも持たなかった、一人のマスターだった。',
+      `岸波白野。月の王となった${kp()}は、ムーンセルの玉座から、無数の世界線を観測し続けている。`,
+      'ある日、観測の網に、一つの不穏な世界線が掛かった。<br>地上の、冬の地方都市。<b>深見の聖杯戦争</b>。',
+      `${kp()}の介入は、果たしてどのような結果をもたらすのか。……それは、宝石翁のみぞ知る。`,
+      `<div class="birth-facts"><div><span>共に戦う英霊</span><b>${lineupNames()}</b></div><div><span>戦略眼</span><b>超高レベル</b></div><div><span>得意</span><b>${TALENTS[m.talent]}</b></div></div>`,
+      '<span class="note">特殊シナリオ：月の玉座での7つの期間の過ごし方が、あなたの力になる。召喚できるのは、月で契約した英霊たちだ。</span>',
+    ]), choices: [{ label: '観測を始める', cls: 'primary', icon: 'next', fn: () => nextStage() }] });
+  });
+}
+function kishiMaster(name, g) {
+  const b = BIRTHS.find(x => x.id === 'kishinami');
+  return { name: name || '岸波　白野', gender: g || 'n', birth: 'kishinami', stats: { ...b.stats }, hp: 100, hpMax: 100, money: b.money, age: 18,
+    talent: 'int', seals: 3, od: 0, align: { law: 10, good: 30 }, element: '霊子', circuits: 30 };
+}
+function kishinamiPrologue() {
+  next('降下', paras([
+    '七つの期間が過ぎた。観測と干渉を重ね、霊子の体は地上の理に馴染んだ。', G.summary,
+    '宝石翁の開いた万華鏡の道を抜けて、月の王は地上へと降りる。',
+    '深見市。冬。――聖杯戦争が始まる、三日前。',
+    `<span class="note">【特殊シナリオ】召喚の夜まで${PREP_DAYS}日。召喚できるのは月で契約した英霊（${lineupNames()}）。<br>【戦略眼】戦闘では敵の次の手を必ず読み切る。【マトリクス】敵と対面するたびに情報を解析し、2度目の対面で真名を暴く。</span>`,
+  ]), beginPrep, '準備を始める', 'PROLOGUE');
+}
+// 召喚：月で契約した英霊を、霊子の縁で喚び寄せる
+function kishiSummonScene() {
+  scene({ title: '召喚の夜', sub: 'SUMMONING', body: [
+    '<p>準備の日々は終わった。今宵、聖杯戦争が始まる。</p>',
+    '<p>召喚陣の前に立ち、目を閉じる。月の玉座と、霊子の糸でまだ繋がっている。その先に、月で契約した英霊たちがいる。</p>',
+    '<p>誰の名を呼ぶ？</p>',
+  ], choices: kishiLineup().map(id => {
+    const s = SV_BY_ID[id];
+    return { label: `${id === 'emiya' ? '無銘' : s.name}（${s.cls}）${G.flags.kishiBond === id ? '　★' : ''}`, hint: s.p.map((r, i) => PARAM_NAMES[i][0] + r).join(' '), fn: () => kishiChant(id) };
+  }).concat([{ label: '縁に任せる', hint: '月の英霊の誰かが応える', fn: () => kishiChant(pick(kishiLineup())) }]) });
+}
+function kishiChant(id) {
+  scene({ title: '英霊召喚', sub: 'SUMMONING', reveal: true, body: [
+    '<p>右手を掲げる。令呪と、月から伸びる霊子の糸が重なる。</p>',
+    ...SUMMON_CHANT.map(t => `<p class="chant">${t}</p>`),
+    '<p class="chant">――月の王の名において。応えよ、我が英霊！</p>',
+  ], choices: [{ label: '詠唱を終える', cls: 'primary', icon: 'ritual', fn: () => doSummon(id) }] });
+}
+function kishiAfterSummon() {
+  next('聖杯戦争、開幕', [
+    `<p>月の記憶を持ったまま応えた${SV()}と、地上での契約を交わした。互いの戦い方は、もう知り尽くしている。</p>`,
+    '<p>七騎のサーヴァントと七人のマスター。月の聖杯戦争とは違う、地上の戦い。けれど、やることは変わらない。――最後まで、諦めないこと。</p>',
+    `<p class="note">【戦略眼】戦闘では敵の次の手を必ず読み切り、大きな補正がかかる。【マトリクス】敵と対面するたびに情報を解析し、2度目の対面で真名を暴く。期限は${WAR_DAYS}日。</p>`,
+  ], startSlot, '戦いへ', '第一幕　開幕');
+}
+// マトリクス：対面するたびに敵を解析する
+function kishiMatrix(r) {
+  if (!isKishi() || r.servantId === 'ori' || knowsName(r)) return '';
+  r.matrix = (r.matrix || 0) + 1;
+  if (r.matrix >= 2) { r.named = true; r.intel = Math.max(r.intel, 2); addLog(`マトリクス解析：${r.cls}の真名「${servantOf(r).name}」。`);
+    return `<span class="note">【マトリクス解析・完了】${r.cls}の真名は<b>${servantOf(r).name}</b>。宝具「${servantOf(r).np}」――手の内は、すべて読めた。</span>`; }
+  r.clues = (r.clues || 0) + 2;
+  return `<span class="note">【マトリクス解析・1/2】${r.cls}の戦い方、パラメータの傾向を記録した。次に対面すれば、真名まで暴ける。</span>`;
+}
+// エピローグ
+function kishiEpilogue(kind) {
+  if (!isKishi() || kind === 'dead') return '';
+  return `<p class="note">戦いが終わり、霊子の体が、少しずつ月へと還っていく。深見の世界線は、確かに一つの結末を迎えた。<br>月の玉座に戻った${kp()}を、英霊たちが迎える。遠く、宝石翁の愉快そうな笑い声が聞こえた気がした。<br>――月の王の観測は、まだ続いていく。</p>`;
 }
 
 // =============================================================
@@ -4162,7 +4468,7 @@ function playQueue(q, then) { if (!q.length) { if (then) then(); return; } const
 const KANJI_NUM = ['〇', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二', '十三', '十四', '十五'];
 function chapterOf() {
   if (!G) return '';
-  if (G.phase === 'growth') { const st = stageList()[G.growth.stage]; return `${isFuji() ? '日常' : '生い立ち'}　${st ? st.band : ''}`; }
+  if (G.phase === 'growth') { const st = stageList()[G.growth.stage]; return `${isFuji() ? '日常' : isKishi() ? '月の玉座' : '生い立ち'}　${st ? st.band : ''}`; }
   if (G.phase === 'prep' || G.phase === 'summon') return '序章　令呪の冬';
   if (G.phase === 'end') return '終幕';
   return G.day < 4 ? '第一幕　開幕' : G.day < 10 ? '第二幕　侵蝕' : '第三幕　降臨';
@@ -4292,7 +4598,12 @@ const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS]).map(s => [s.id, s]))
 
 // ---------------- 名前・参照 ----------------
 function M() { return esc(G.master.name); }
-function servantOf(o) { return SV_BY_ID[o.servantId || (o.servant && o.servant.id)]; }
+function servantOf(o) {
+  const s = SV_BY_ID[o.servantId || (o.servant && o.servant.id)];
+  // 岸波白野のシナリオでは、自分のエミヤは「無銘」として現れる
+  if (o === G && s && s.id === 'emiya' && typeof isKishi === 'function' && isKishi()) return { ...s, ...MUMEI };
+  return s;
+}
 function SV() { return G.servant ? servantOf(G).short : 'サーヴァント'; }
 const SVname = SV;
 function birthOf() { return BIRTHS.find(x => x.id === G.master.birth); }
@@ -4334,7 +4645,8 @@ function item(k, n) { G.items[k] = clamp((G.items[k] || 0) + n, 0, ITEM_MAX); }
 function bond(n) {
   if (!G.servant || n === 0) return;
   if (n > 0 && G.master.birth === 'civilian') n = Math.round(n * 1.3);
-  if (n > 0 && G.master.birth === 'fujimaru') n = Math.round(n * 1.5);   // 数多の英霊と絆を結んできた
+  if (n > 0 && G.master.birth === 'fujimaru') n = Math.round(n * 1.5);
+  if (n > 0 && G.master.birth === 'kishinami') n = Math.round(n * 1.3);   // 月で結んだ絆   // 数多の英霊と絆を結んできた
   const before = Math.floor(G.servant.bond / 10);
   G.servant.bond = clamp(G.servant.bond + n, 0, 100);
   const after = Math.floor(G.servant.bond / 10);
@@ -4385,7 +4697,7 @@ function schk(i, diff) {
 
 // マスターの魔力がサーヴァントの性能に影響する（Fateの設定に準拠）
 function masterCorrection() {
-  if (G.master.birth === 'fujimaru') return 6;   // 歴戦のマスター：英霊は十二分に力を振るえる
+  if (G.master.birth === 'fujimaru' || G.master.birth === 'kishinami') return 6;   // 歴戦のマスター：英霊は十二分に力を振るえる
   const m = G.master.stats.mag;
   if (m < 25) return -8; if (m < 40) return -4; if (m < 70) return 0; if (m < 85) return 3; return 5;
 }
@@ -4955,14 +5267,14 @@ function nightRest() {
 }
 
 // ---- サーヴァントと過ごす ----
-function bondTier() { const b = G.servant.bond; if (isFuji() && b < 60) return 'mid'; return b < 30 ? 'low' : b < 60 ? 'mid' : 'high'; }   // 藤丸の英霊は初対面ではない
+function bondTier() { const b = G.servant.bond; if ((isFuji() || isKishi()) && b < 60) return 'mid'; return b < 30 ? 'low' : b < 60 ? 'mid' : 'high'; }   // 藤丸の英霊は初対面ではない
 function hangoutMenu() {
   const choices = Object.entries(ACTIVITIES).map(([k, a]) => ({
     label: a.name, hint: `${a.place}${a.cost ? `・資金-${a.cost}` : ''}`, disabled: G.master.money < a.cost,
     fn: () => hangout(k),
   }));
   submenu(`${SV()}と過ごす`, 'BOND', [`<p>今日はどう過ごそうか。${SV()}にも好みがあるようだ。</p>`,
-    G.servant.bond >= 20 || isFuji() ? `<p class="note">${SV()}が好きそうなこと：${PERSONAS[servantOf(G).persona].likes.map(k => ACTIVITIES[k].name).join('、')}</p>` :
+    G.servant.bond >= 20 || isFuji() || isKishi() ? `<p class="note">${SV()}が好きそうなこと：${PERSONAS[servantOf(G).persona].likes.map(k => ACTIVITIES[k].name).join('、')}</p>` :
       '<p class="note">絆が深まれば、好みも分かってくるだろう。</p>'], choices);
 }
 function hangout(k) {
@@ -5025,14 +5337,15 @@ const SUMMON_CHANT = [
   '汝三大の言霊を纏う七天、<br>抑止の輪より来たれ、天秤の守り手よ――！',
 ];
 // 召喚できる英霊か（カルデアゆかりの英霊は藤丸シナリオのみ / 特殊クラスは条件付き）
-function summonable(s) { return (!s.chaldea || isFuji()) && extraOpen(s.cls); }
+function summonable(s) { if (isKishi()) return kishiLineup().includes(s.id); return (!s.chaldea || isFuji()) && extraOpen(s.cls); }
 function summonScene() {
+  if (isKishi()) return kishiSummonScene();
   const choices = G.catalysts.map(id => {
     const c = SV_BY_ID[id].cls; const ex = !!EXTRA_CLASSES[c];
     return { label: `「${SV_BY_ID[id].catalyst}」を使う`, hint: ex ? `特殊な気配……${extraOpen(c) ? '縁が強く応えている' : '何かが足りない気がする'}` : '縁ある英霊を喚ぶ', fn: () => chantScene(id) };
   });
   choices.push({ label: '触媒を使わない', hint: `${alignLabel()}の自分に似た英霊が応える`, fn: () => chantScene(null) });
-  if (isFuji()) choices.unshift({ label: '英霊を指名して召喚する', hint: '全131騎＋カルデアゆかりの英霊から選ぶ', cls: 'primary', fn: () => pickServantScene() });
+  if (isFuji()) choices.unshift({ label: '英霊を指名して召喚する', hint: `全${SERVANTS.filter(summonable).length}騎（カルデアゆかりの英霊を含む）から選ぶ`, cls: 'primary', fn: () => pickServantScene() });
   const place = { fujimaru: 'アパートの床', heir: '家の工房', mission: G.master.birth === 'mercenary' ? '借り受けた倉庫' : '教会の地下聖堂', seeker: '自室の床' }[G.route] || '工房';
   scene({ title: '召喚の夜', sub: 'SUMMONING', body: [
     `<p>${G.route === 'seeker' ? '独学と教えを頼りに、ここまで来た。' : '準備の日々は終わった。'}今宵、聖杯戦争が始まる。</p>`,
@@ -5068,19 +5381,19 @@ function doSummon(catalystId, opt = {}) {
       return w;
     });
   }
-  const reunion = isFuji() && G.flags.fujiDream === sv.id;
-  G.servant = { id: sv.id, hp: 0, mp: 60 + G.ritual * 13, bond: (opt.emergency ? 15 : 5) + G.ritual * 4 + (reunion ? 15 : 0) + (isFuji() ? FUJI_MEMORY_BOND : 0), special: null, exposed: false };
+  const reunion = (isFuji() && G.flags.fujiDream === sv.id) || (isKishi() && G.flags.kishiBond === sv.id);
+  G.servant = { id: sv.id, hp: 0, mp: 60 + G.ritual * 13, bond: (opt.emergency ? 15 : 5) + G.ritual * 4 + (reunion ? 15 : 0) + (isFuji() ? FUJI_MEMORY_BOND : 0) + (isKishi() ? KISHI_MEMORY_BOND : 0), special: null, exposed: false };
   G.servant.hp = servantHpMax();
   if (!G.rivals.length) setupRivals();
   else fitRivalsToServant(sv);
   G.phase = 'war'; SLOT = {};
   if (opt.emergency) { G.day = 0; G.slot = 1; } else { G.day = 1; G.slot = 0; }
-  addLog(`${sv.cls}「${sv.name}」を召喚。`);
+  addLog(`${sv.cls}「${servantOf(G).name}」を召喚。`);
   if (G.flags.earlyIntel) intelRandom(1);
   if (failed) addLog(`「${failed.catalyst}」の縁は、${failed.cls}の条件を満たさず届かなかった。`);
   if (!BASE_CLASSES.includes(sv.cls)) addLog(`特殊クラス「${sv.cls}」の英霊が応えた。`);
   if (reunion) addLog(`夢に見た英霊「${sv.name}」と再会する。`);
-  SCENE = { kind: 'summon', sv, emergency: !!opt.emergency, failed, reunion }; TAB = 'story'; render(); sfx('summon');
+  SCENE = { kind: 'summon', sv: servantOf(G), emergency: !!opt.emergency, failed, reunion }; TAB = 'story'; render(); sfx('summon');
 }
 function setupRivals() {
   // 召喚前（巻き込まれルート）は7陣営すべてを用意し、召喚後に1つ減らす
@@ -5089,7 +5402,7 @@ function setupRivals() {
   if (mine && classes.length > 6) classes = shuffle(classes).slice(0, 6);
   const types = shuffle(RIVAL_TYPES);
   G.rivals = classes.map((cls, i) => {
-    const pool = SERVANTS.filter(s => s.cls === cls && !s.chaldea && (!G.servant || s.id !== G.servant.id));
+    const pool = SERVANTS.filter(s => s.cls === cls && !s.chaldea && (!G.servant || s.id !== G.servant.id) && !(isKishi() && kishiLineup().includes(s.id)));
     const s = pick(pool); const t = types[i];
     const r = { id: 'r' + i, cls, servantId: s.id, master: randomName(t.foreign), type: t.type, power: t.power + rand(-1, 1),
       aggr: t.aggr, quote: t.quote, alive: true, hp: 0, hpMax: 0, mp: 100, intel: 0, clues: 0, seals: 2 + rand(0, 1),
@@ -5108,6 +5421,7 @@ function setupRivals() {
 }
 function afterSummon() {
   if (G.route === 'caught' && G.day === 0) return caughtFirstFight();
+  if (isKishi()) return kishiAfterSummon();
   if (isFuji()) return next('聖杯戦争、開幕', [
     `<p>かつての旅の記憶を取り戻した${SV()}と、改めて契約を交わした。言葉はいらない。互いの戦い方は、もう知っている。</p>`,
     '<p>七騎のサーヴァントと七人のマスター。そしてこの戦いの裏には、あなたを招いた『蒐集者』がいる。</p>',
@@ -5183,7 +5497,7 @@ function kanjiNum(n) {
 // 藤丸シナリオかどうか（成長の節目・過ごし方・出来事が切り替わる）
 function isFuji() { return !!G && G.master.birth === 'fujimaru'; }
 // 章の名前は性別で変わることがある（少年期／少女期）
-function stageList() { return (isFuji() ? STAGES_F : STAGES).map(st => typeof st.band === 'function' ? { ...st, band: st.band() } : st); }
+function stageList() { return (isFuji() ? STAGES_F : isKishi() ? STAGES_K : STAGES).map(st => typeof st.band === 'function' ? { ...st, band: st.band() } : st); }
 function currentStage() { return stageList()[G.growth.stage]; }
 function stageLabel(st = currentStage()) { return st.label || `${st.age}歳`; }
 
@@ -5191,13 +5505,14 @@ function stageLabel(st = currentStage()) { return st.label || `${st.age}歳`; }
 function growthMul(stat) { return (birthOf().growth[stat] || 1) * (G.master.talent === stat ? 1.3 : 1); }
 const GROW_RATE = 1.2;   // 成長全体の倍率（大きくすると18歳時点の能力が高くなる）
 function grow(stat, base) {
-  const rate = isFuji() ? FUJI_RATE : GROW_RATE;
+  const rate = isFuji() ? FUJI_RATE : isKishi() ? KISHI_RATE : GROW_RATE;
   const n = Math.max(1, Math.round(base * rate * growthMul(stat) * (0.85 + Math.random() * 0.3))); gain(stat, n); return n;
 }
 
 // ---------------- 誕生（0歳） ----------------
 function growthStart() {
   if (isFuji()) return fujimaruStart();
+  if (isKishi()) return kishinamiStart();
   const b = birthOf(); const m = G.master;
   G.lastChapter = '誕生';
   chapterCard('第零幕　生い立ち', () => {
@@ -5227,12 +5542,13 @@ function fujimaruStart() {
 // ---------------- 成長の節目 ----------------
 function focusList() {
   if (isFuji()) return Object.entries(FOCUS_F);
+  if (isKishi()) return Object.entries(FOCUS_K);
   const b = birthOf();
   return Object.entries(FOCUS).filter(([, f]) =>
     G.master.age >= f.ages[0] && G.master.age <= f.ages[1] &&
     (!f.magic || hasMagic()) && (!f.births || f.births.includes(b.id)));
 }
-function focusDef(k) { return (isFuji() ? FOCUS_F : FOCUS)[k]; }
+function focusDef(k) { return (isFuji() ? FOCUS_F : isKishi() ? FOCUS_K : FOCUS)[k]; }
 function growthStage() {
   const st = currentStage();
   saveGame();
@@ -5246,7 +5562,7 @@ function growthStage() {
   scene({ title: stageLabel(st), sub: `${st.band}　${b.home}`, body: [
     `<p>${st.text}</p>`,
     `<div class="grow-stats">${statBars(G.master.stats)}</div>`,
-    `<p class="note">${isFuji() ? 'このひと月を' : 'この数年を'}、どう過ごす？　↑↑は伸びやすい能力。</p>`,
+    `<p class="note">${isFuji() ? 'このひと月を' : isKishi() ? 'この期間を' : 'この数年を'}、どう過ごす？　↑↑は伸びやすい能力。</p>`,
   ], choices });
 }
 function applyFocus(k) {
@@ -5258,7 +5574,7 @@ function applyFocus(k) {
   if (f.tone) tone(f.tone);
   if (f.lore) lore(f.lore);
   money(Math.max(1, Math.round(birthOf().money / 7)));   // おこづかい・仕送り
-  res.push(isFuji() ? `${stageLabel()}は、「${f.name}」ひと月だった。` : `${G.master.age}歳からの数年間は、「${f.name}」日々だった。`);
+  res.push(isFuji() ? `${stageLabel()}は、「${f.name}」ひと月だった。` : isKishi() ? `${stageLabel()}の期間は、「${f.name}」ことに費やした。` : `${G.master.age}歳からの数年間は、「${f.name}」日々だった。`);
   res.push(`<span class="note">${ups.join('　')}${f.money ? `　資金+${f.money}` : ''}</span>`);
   if (f.catalyst && Math.random() < f.catalyst) { const c = giveCatalyst(); res.push(`街の古道具屋で、妙に惹かれる品を手に入れた。<b>${c}</b>だ。`); }
   addLog(`${stageLabel()}：${f.name}。`);
@@ -5268,9 +5584,10 @@ function growthEvent() {
   const age = G.master.age; const b = birthOf().id; const idx = G.growth.stage;
   const ok = e => !G.used[e.id] && (!e.births || e.births.includes(b)) && (!e.magic || hasMagic()) && (!e.cond || e.cond());
   let ev;
-  if (isFuji()) {
-    ev = GROWTH_EVENTS_F.find(e => e.fixed && e.stages.includes(idx) && ok(e));
-    if (!ev) { const pool = GROWTH_EVENTS_F.filter(e => !e.fixed && e.stages.includes(idx) && ok(e)); if (pool.length) ev = pick(pool); }
+  if (isFuji() || isKishi()) {
+    const list = isFuji() ? GROWTH_EVENTS_F : GROWTH_EVENTS_K;
+    ev = list.find(e => e.fixed && e.stages.includes(idx) && ok(e));
+    if (!ev) { const pool = list.filter(e => !e.fixed && e.stages.includes(idx) && ok(e)); if (pool.length) ev = pick(pool); }
   } else {
     ev = GROWTH_EVENTS.find(e => e.fixed && e.ages[0] === age && ok(e));
     if (!ev) { const pool = GROWTH_EVENTS.filter(e => !e.fixed && age >= e.ages[0] && age <= e.ages[1] && ok(e)); if (pool.length) ev = pick(pool); }
@@ -5282,10 +5599,10 @@ function nextStage() {
   G.growth.stage++;
   if (G.growth.stage >= stageList().length) return comingOfAge();
   const st = currentStage();
-  if (!isFuji()) G.master.age = st.age;
+  if (!isFuji() && !isKishi()) G.master.age = st.age;
   const go = () => growthStage();
   if (!CFG.fx) return go();
-  const title = isFuji() ? st.label : `${kanjiNum(st.age)}歳`;
+  const title = isFuji() || isKishi() ? st.label : `${kanjiNum(st.age)}歳`;
   if (st.band !== G.lastChapter) { G.lastChapter = st.band; return showCard({ kicker: st.band, title, sub: st.text, cls: 'chapter', ms: 1800 }, go); }
   showCard({ kicker: st.band, title, cls: 'day', ms: 1100 }, go);
 }
@@ -5310,6 +5627,7 @@ const ROUTES = {
   caught:    { name: '巻き込まれた者', desc: '何も知らないまま、聖杯戦争に巻き込まれた' },
   reluctant: { name: '背を向けた者', desc: '魔術の道に背を向けながら、令呪に選ばれた' },
   fujimaru:  { name: '元・人類最後のマスター', desc: '旅を終えて日常に帰還し、陰謀の聖杯戦争に招かれた' },
+  kishinami: { name: '月の王', desc: 'ムーンセルから不穏な世界線を観測し、自ら地上へ降り立った' },
 };
 function lore(n) { G.lore = (G.lore || 0) + n; }
 function routeName() {
@@ -5320,6 +5638,7 @@ function routeName() {
 function decideRoute() {
   const b = birthOf().id; const f = G.flags;
   if (b === 'fujimaru') return 'fujimaru';
+  if (b === 'kishinami') return 'kishinami';
   if (f.rebel) return 'reluctant';
   if (b === 'mercenary') return 'mission';
   if (b === 'executor' && f.churchPath) return 'mission';
@@ -5339,7 +5658,7 @@ function comingOfAge() {
   G.summary = `<span class="note">得意なこと：${top.join('・')}　／　在り方：${alignLabel()}</span>`;
   chapterCard('序章　令呪の冬', () => {
     G.lastChapter = '序章　令呪の冬';
-    ({ heir: heirPrologue, mission: missionPrologue, seeker: seekerPrologue, caught: () => caughtPrologue(false), reluctant: reluctantPrologue, fujimaru: fujimaruPrologue })[G.route]();
+    ({ heir: heirPrologue, mission: missionPrologue, seeker: seekerPrologue, caught: () => caughtPrologue(false), reluctant: reluctantPrologue, fujimaru: fujimaruPrologue, kishinami: kishinamiPrologue })[G.route]();
   });
 }
 function beginPrep() {
@@ -5536,6 +5855,7 @@ function startBattle(rival, opt = {}) {
     rival.recognized = true;
     pre.push(`<p class="quote">${recognizeLine(servantOf(rival))}</p>`);
   }
+  const mx = kishiMatrix(rival); if (mx) pre.push(`<p>${mx}</p>`);
   if (opt.defend && G.traps > 0) {
     G.traps--; rival.hp = Math.max(1, rival.hp - 20);
     pre.push(`<p>仕掛けておいた罠が炸裂した！ ${enemyName()}に20ダメージ。（残りの罠 ${G.traps}）</p>`);
@@ -5554,6 +5874,7 @@ function planEnemy() {
   else t = wpick(['str', 'agi', 'mag'], k => Math.pow(rivalParam(r, TACTICS[k].stat), 1.5));
   B.enemyNext = t;
   if (B.sure) { B.tell = `【見切り】${enemyName()}は${TACTICS[t].tell}`; B.tellKey = t; B.sure = false; return; }
+  if (isKishi()) { B.tell = `【戦略眼】${enemyName()}は${TACTICS[t].tell}`; B.tellKey = t; return; }   // 岸波白野：敵の手を必ず読む
   const seeChance = t === 'np' ? 0.9 : 0.3 + G.master.stats.int / 200 + (knowsName(r) ? 0.2 : 0);
   if (Math.random() < seeChance) {
     const shown = t === 'np' || Math.random() < 0.75 ? t : pick(['str', 'agi', 'mag', 'guard']);
@@ -5704,7 +6025,7 @@ function battleRound(cmd) {
   // ---- 補正値 ----
   const first = B.round === 1;
   const myMod = classAffinity(me.cls, r.cls) + Math.floor(sv.bond / 8) + (sv.special ? 5 : 0) + Math.floor(G.master.stats.mag / 20)
-    + (['mercenary', 'executor'].includes(G.master.birth) ? 4 : 0) + (G.master.birth === 'fujimaru' ? 6 : 0) + (knowsName(r) ? 8 : 0)
+    + (['mercenary', 'executor'].includes(G.master.birth) ? 4 : 0) + (G.master.birth === 'fujimaru' ? 6 : 0) + (G.master.birth === 'kishinami' ? 8 : 0) + (knowsName(r) ? 8 : 0)
     + (first && B.opt.ambush ? 15 : 0) + (first && B.opt.duel ? 6 : 0) + (B.opt.defend ? G.workshop * 3 : 0)
     + (B.final && G.flags.resolve === 'win' ? 6 : 0) + (B.boss && G.flags.resolve === 'destroy' ? 8 : 0) + (B.boss && G.flags.mudKnown ? 5 : 0) + (B.final && G.flags.resolve === 'pure' ? 5 : 0) + (G.flags.partnerCombo && sv.special === 'partner' ? 3 : 0)
     + (!B.boss && r.id === mys().culprit && mys().culpritKnown ? 3 + (G.flags.shadowKnown ? 3 : 0) : 0)
@@ -6020,6 +6341,8 @@ function ending(kind) {
   if (ep) E.text.push(ep);
   const fe = fujiEpilogue(kind);
   if (fe) E.text.push(fe);
+  const ke = kishiEpilogue(kind);
+  if (ke) E.text.push(ke);
   addLog(E.title); markEnding(kind);
   const me = mysteryEpilogue(kind);
   if (me) E.text.push(me);
@@ -6119,11 +6442,11 @@ function skipReveal() {
 }
 function viewTop() {
   const night = G.slot === 1;
-  const dayText = G.phase === 'growth' ? (isFuji() ? `20歳・${stageLabel()}` : `${G.master.age}歳`) : G.phase === 'prep' ? `18歳・${G.day}日目` : G.phase === 'summon' || (G.phase === 'war' && G.day === 0) ? '開幕前夜' : G.phase === 'end' ? '終幕' : `${G.day}日目`;
+  const dayText = G.phase === 'growth' ? (isFuji() ? `20歳・${stageLabel()}` : isKishi() ? `月の王・${stageLabel()}` : `${G.master.age}歳`) : G.phase === 'prep' ? `18歳・${G.day}日目` : G.phase === 'summon' || (G.phase === 'war' && G.day === 0) ? '開幕前夜' : G.phase === 'end' ? '終幕' : `${G.day}日目`;
   const seals = [0, 1, 2].map(i => `<svg class="seal ${i < G.master.seals ? '' : 'used'}" viewBox="0 0 18 22" aria-hidden="true"><path d="${SEAL_PATH}"/></svg>`).join('');
   const extraSeals = G.master.seals > 3 ? `<span class="tag red">+${G.master.seals - 3}</span>` : '';
   const sv = G.servant;
-  const prog = G.phase === 'growth' ? (isFuji() ? G.growth.stage / STAGES_F.length : G.master.age / ADULT_AGE) : G.phase === 'prep' ? (G.day - 1 + G.slot * 0.5) / PREP_DAYS : G.phase === 'war' ? (G.day - 1 + G.slot * 0.5) / WAR_DAYS : 1;
+  const prog = G.phase === 'growth' ? (isFuji() || isKishi() ? G.growth.stage / stageList().length : G.master.age / ADULT_AGE) : G.phase === 'prep' ? (G.day - 1 + G.slot * 0.5) / PREP_DAYS : G.phase === 'war' ? (G.day - 1 + G.slot * 0.5) / WAR_DAYS : 1;
   return `<header class="topbar">
     <div class="topbar-row">
       <div class="when"><span class="when-phase">${chapterOf().replace('　', ' ')}</span><span class="when-day">${dayText}</span>
@@ -6237,7 +6560,7 @@ function viewSummon() {
     ${SCENE.emergency ? '<p class="note" style="text-align:center;margin:10px 0 0">召喚陣も詠唱もないまま、令呪の光が英霊を呼び寄せた。</p>' : ''}
     ${SCENE.failed ? `<p class="note" style="text-align:center;margin:10px 0 0">「${SCENE.failed.catalyst}」は確かに縁を結んだ。だが、${SCENE.failed.cls}の霊基は、今のあなたには応えなかった。<br>代わりに、別の英霊が呼び声に応えた――。</p>` : ''}
     ${!BASE_CLASSES.includes(sv.cls) ? `<p class="extra-badge">特殊クラス　${sv.cls}</p>` : ''}
-    ${isFuji() ? `<p class="quote summon-line">${fujiReunionLine(sv)}</p><p class="note" style="text-align:center;margin:-6px 0 12px">――かつてカルデアであなたに喚ばれた記憶が、英霊の中で目を覚ました。（絆+${FUJI_MEMORY_BOND}）${SCENE.reunion ? '<br>夢に見た、あの英霊だ。再会の想いが、さらに縁を深める。（絆+15）' : ''}</p>` : `<p class="quote summon-line">「${sv.line}」</p>`}
+    ${isKishi() ? `<p class="quote summon-line">${kishiReunionLine(sv)}</p><p class="note" style="text-align:center;margin:-6px 0 12px">――月の聖杯戦争を共に戦った記憶を持ったまま、英霊は応えた。（絆+${KISHI_MEMORY_BOND}）${SCENE.reunion ? '<br>月の玉座で言葉を交わした英霊だ。縁は、さらに深い。（絆+15）' : ''}</p>` : isFuji() ? `<p class="quote summon-line">${fujiReunionLine(sv)}</p><p class="note" style="text-align:center;margin:-6px 0 12px">――かつてカルデアであなたに喚ばれた記憶が、英霊の中で目を覚ました。（絆+${FUJI_MEMORY_BOND}）${SCENE.reunion ? '<br>夢に見た、あの英霊だ。再会の想いが、さらに縁を深める。（絆+15）' : ''}</p>` : `<p class="quote summon-line">「${sv.line}」</p>`}
     <div class="summon-card">${servantCard(sv)}
       <div class="choices"><button class="choice primary" data-act="aftersummon">${actIcon('seal')}<span class="c-label">契約を結ぶ</span></button></div></div>
   </article>`;
@@ -6365,6 +6688,7 @@ document.addEventListener('click', e => {
     const name = document.getElementById('mname').value.trim() || SCENE.master.name;
     SCENE.master.name = name.slice(0, 16);
     if (isFujiName(name)) SCENE.master = { ...fujimaruMaster(SCENE.master.name), gender: SCENE.master.gender };
+    if (isKishiName(name)) SCENE.master = kishiMaster(SCENE.master.name, SCENE.master.gender);
     newGame(SCENE.master);
     growthStart();
   }
@@ -6393,6 +6717,7 @@ else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});
 
 // 特殊クラスの兆し（召喚前に、条件の達成状況を表示）
 function viewExtraOmens() {
+  if (isKishi()) return `<h3>月の英霊</h3><p class="note" style="font-size:12px;color:var(--gold)">特殊シナリオ：召喚できるのは、月で契約した英霊たち（${lineupNames()}）。</p>`;
   if (isFuji()) return '<h3>特殊クラスの兆し</h3><p class="note" style="font-size:12px;color:var(--gold)">特殊シナリオ：すべての召喚制限が解除されている。カルデアゆかりの英霊（★）も召喚できる。</p>';
   return `<h3>特殊クラスの兆し</h3><p class="note" style="font-size:12px;color:var(--muted);margin:0 0 8px">条件をすべて満たすと、そのクラスの英霊が召喚に応えるようになる。触媒を使っても、条件を満たしていなければ応えない。</p>
     <div class="omens">${Object.entries(EXTRA_CLASSES).filter(([cls]) => SERVANTS.some(s => s.cls === cls && !s.chaldea)).map(([cls, e]) => {

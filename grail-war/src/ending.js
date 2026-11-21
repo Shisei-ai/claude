@@ -119,6 +119,8 @@ function ending(kind) {
   if (ep) E.text.push(ep);
   const fe = fujiEpilogue(kind);
   if (fe) E.text.push(fe);
+  const ke = kishiEpilogue(kind);
+  if (ke) E.text.push(ke);
   addLog(E.title); markEnding(kind);
   const me = mysteryEpilogue(kind);
   if (me) E.text.push(me);

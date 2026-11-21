@@ -16,6 +16,7 @@ const ROUTES = {
   caught:    { name: '巻き込まれた者', desc: '何も知らないまま、聖杯戦争に巻き込まれた' },
   reluctant: { name: '背を向けた者', desc: '魔術の道に背を向けながら、令呪に選ばれた' },
   fujimaru:  { name: '元・人類最後のマスター', desc: '旅を終えて日常に帰還し、陰謀の聖杯戦争に招かれた' },
+  kishinami: { name: '月の王', desc: 'ムーンセルから不穏な世界線を観測し、自ら地上へ降り立った' },
 };
 function lore(n) { G.lore = (G.lore || 0) + n; }
 function routeName() {
@@ -26,6 +27,7 @@ function routeName() {
 function decideRoute() {
   const b = birthOf().id; const f = G.flags;
   if (b === 'fujimaru') return 'fujimaru';
+  if (b === 'kishinami') return 'kishinami';
   if (f.rebel) return 'reluctant';
   if (b === 'mercenary') return 'mission';
   if (b === 'executor' && f.churchPath) return 'mission';
@@ -45,7 +47,7 @@ function comingOfAge() {
   G.summary = `<span class="note">得意なこと：${top.join('・')}　／　在り方：${alignLabel()}</span>`;
   chapterCard('序章　令呪の冬', () => {
     G.lastChapter = '序章　令呪の冬';
-    ({ heir: heirPrologue, mission: missionPrologue, seeker: seekerPrologue, caught: () => caughtPrologue(false), reluctant: reluctantPrologue, fujimaru: fujimaruPrologue })[G.route]();
+    ({ heir: heirPrologue, mission: missionPrologue, seeker: seekerPrologue, caught: () => caughtPrologue(false), reluctant: reluctantPrologue, fujimaru: fujimaruPrologue, kishinami: kishinamiPrologue })[G.route]();
   });
 }
 function beginPrep() {

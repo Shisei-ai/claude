@@ -17,7 +17,7 @@ function kanjiNum(n) {
 // 藤丸シナリオかどうか（成長の節目・過ごし方・出来事が切り替わる）
 function isFuji() { return !!G && G.master.birth === 'fujimaru'; }
 // 章の名前は性別で変わることがある（少年期／少女期）
-function stageList() { return (isFuji() ? STAGES_F : STAGES).map(st => typeof st.band === 'function' ? { ...st, band: st.band() } : st); }
+function stageList() { return (isFuji() ? STAGES_F : isKishi() ? STAGES_K : STAGES).map(st => typeof st.band === 'function' ? { ...st, band: st.band() } : st); }
 function currentStage() { return stageList()[G.growth.stage]; }
 function stageLabel(st = currentStage()) { return st.label || `${st.age}歳`; }
 
@@ -25,13 +25,14 @@ function stageLabel(st = currentStage()) { return st.label || `${st.age}歳`; }
 function growthMul(stat) { return (birthOf().growth[stat] || 1) * (G.master.talent === stat ? 1.3 : 1); }
 const GROW_RATE = 1.2;   // 成長全体の倍率（大きくすると18歳時点の能力が高くなる）
 function grow(stat, base) {
-  const rate = isFuji() ? FUJI_RATE : GROW_RATE;
+  const rate = isFuji() ? FUJI_RATE : isKishi() ? KISHI_RATE : GROW_RATE;
   const n = Math.max(1, Math.round(base * rate * growthMul(stat) * (0.85 + Math.random() * 0.3))); gain(stat, n); return n;
 }
 
 // ---------------- 誕生（0歳） ----------------
 function growthStart() {
   if (isFuji()) return fujimaruStart();
+  if (isKishi()) return kishinamiStart();
   const b = birthOf(); const m = G.master;
   G.lastChapter = '誕生';
   chapterCard('第零幕　生い立ち', () => {
@@ -61,12 +62,13 @@ function fujimaruStart() {
 // ---------------- 成長の節目 ----------------
 function focusList() {
   if (isFuji()) return Object.entries(FOCUS_F);
+  if (isKishi()) return Object.entries(FOCUS_K);
   const b = birthOf();
   return Object.entries(FOCUS).filter(([, f]) =>
     G.master.age >= f.ages[0] && G.master.age <= f.ages[1] &&
     (!f.magic || hasMagic()) && (!f.births || f.births.includes(b.id)));
 }
-function focusDef(k) { return (isFuji() ? FOCUS_F : FOCUS)[k]; }
+function focusDef(k) { return (isFuji() ? FOCUS_F : isKishi() ? FOCUS_K : FOCUS)[k]; }
 function growthStage() {
   const st = currentStage();
   saveGame();
@@ -80,7 +82,7 @@ function growthStage() {
   scene({ title: stageLabel(st), sub: `${st.band}　${b.home}`, body: [
     `<p>${st.text}</p>`,
     `<div class="grow-stats">${statBars(G.master.stats)}</div>`,
-    `<p class="note">${isFuji() ? 'このひと月を' : 'この数年を'}、どう過ごす？　↑↑は伸びやすい能力。</p>`,
+    `<p class="note">${isFuji() ? 'このひと月を' : isKishi() ? 'この期間を' : 'この数年を'}、どう過ごす？　↑↑は伸びやすい能力。</p>`,
   ], choices });
 }
 function applyFocus(k) {
@@ -92,7 +94,7 @@ function applyFocus(k) {
   if (f.tone) tone(f.tone);
   if (f.lore) lore(f.lore);
   money(Math.max(1, Math.round(birthOf().money / 7)));   // おこづかい・仕送り
-  res.push(isFuji() ? `${stageLabel()}は、「${f.name}」ひと月だった。` : `${G.master.age}歳からの数年間は、「${f.name}」日々だった。`);
+  res.push(isFuji() ? `${stageLabel()}は、「${f.name}」ひと月だった。` : isKishi() ? `${stageLabel()}の期間は、「${f.name}」ことに費やした。` : `${G.master.age}歳からの数年間は、「${f.name}」日々だった。`);
   res.push(`<span class="note">${ups.join('　')}${f.money ? `　資金+${f.money}` : ''}</span>`);
   if (f.catalyst && Math.random() < f.catalyst) { const c = giveCatalyst(); res.push(`街の古道具屋で、妙に惹かれる品を手に入れた。<b>${c}</b>だ。`); }
   addLog(`${stageLabel()}：${f.name}。`);
@@ -102,9 +104,10 @@ function growthEvent() {
   const age = G.master.age; const b = birthOf().id; const idx = G.growth.stage;
   const ok = e => !G.used[e.id] && (!e.births || e.births.includes(b)) && (!e.magic || hasMagic()) && (!e.cond || e.cond());
   let ev;
-  if (isFuji()) {
-    ev = GROWTH_EVENTS_F.find(e => e.fixed && e.stages.includes(idx) && ok(e));
-    if (!ev) { const pool = GROWTH_EVENTS_F.filter(e => !e.fixed && e.stages.includes(idx) && ok(e)); if (pool.length) ev = pick(pool); }
+  if (isFuji() || isKishi()) {
+    const list = isFuji() ? GROWTH_EVENTS_F : GROWTH_EVENTS_K;
+    ev = list.find(e => e.fixed && e.stages.includes(idx) && ok(e));
+    if (!ev) { const pool = list.filter(e => !e.fixed && e.stages.includes(idx) && ok(e)); if (pool.length) ev = pick(pool); }
   } else {
     ev = GROWTH_EVENTS.find(e => e.fixed && e.ages[0] === age && ok(e));
     if (!ev) { const pool = GROWTH_EVENTS.filter(e => !e.fixed && age >= e.ages[0] && age <= e.ages[1] && ok(e)); if (pool.length) ev = pick(pool); }
@@ -116,10 +119,10 @@ function nextStage() {
   G.growth.stage++;
   if (G.growth.stage >= stageList().length) return comingOfAge();
   const st = currentStage();
-  if (!isFuji()) G.master.age = st.age;
+  if (!isFuji() && !isKishi()) G.master.age = st.age;
   const go = () => growthStage();
   if (!CFG.fx) return go();
-  const title = isFuji() ? st.label : `${kanjiNum(st.age)}歳`;
+  const title = isFuji() || isKishi() ? st.label : `${kanjiNum(st.age)}歳`;
   if (st.band !== G.lastChapter) { G.lastChapter = st.band; return showCard({ kicker: st.band, title, sub: st.text, cls: 'chapter', ms: 1800 }, go); }
   showCard({ kicker: st.band, title, cls: 'day', ms: 1100 }, go);
 }
