@@ -103,6 +103,7 @@ function applyFocus(k) {
   next(stageLabel(), paras(res.concat(takeNotes())), growthEvent, '次へ', currentStage().band);
 }
 function growthEvent() {
+  if (pendingSpellTier()) return spellLearnScene(growthEvent);   // 魔力が一定値を超えたら、魔術を習得する
   const age = G.master.age; const b = birthOf().id; const idx = G.growth.stage;
   const ok = e => !G.used[e.id] && (!e.births || e.births.includes(b)) && (!e.magic || hasMagic()) && (!e.cond || e.cond());
   let ev;

@@ -75,7 +75,7 @@ function planEnemy() {
 }
 
 function mactAvailable(k) {
-  const a = MASTER_ACTS[k];
+  const a = allMasterActs()[k]; if (!a) return false;
   if (a.od && G.master.od < a.od) return false;
   if (a.item && !(G.items[a.item] > 0)) return false;
   return true;
@@ -116,10 +116,11 @@ function battleScene(extra) {
   if (B.tell) body.push(`<p class="tell">${B.tell}</p>`);
   if (isShirou()) return shirouBattleScene(body);
   // マスターの行動（トグル）
-  const mk = Object.keys(MASTER_ACTS).filter(k => !MASTER_ACTS[k].item || G.items[MASTER_ACTS[k].item] > 0);
+  const ACTS = allMasterActs();
+  const mk = Object.keys(ACTS).filter(k => !ACTS[k].item || G.items[ACTS[k].item] > 0);
   if (!mactAvailable(B.mact)) B.mact = 'command';
   body.push(`<div class="mact"><div class="mact-head">マスターの行動 <span>オド ${G.master.od}/${odMax()}</span></div><div class="mact-row">${mk.map(k => {
-    const a = MASTER_ACTS[k]; const cnt = a.item ? `×${G.items[a.item]}` : '';
+    const a = ACTS[k]; const cnt = a.item ? `×${G.items[a.item]}` : '';
     return `<button class="chip ${B.mact === k ? 'on' : ''}" data-mact="${k}" ${mactAvailable(k) ? '' : 'disabled'} aria-pressed="${B.mact === k}">${a.name}${cnt}<small>${a.hint}</small></button>`;
   }).join('')}</div></div>`);
   body.push(skillRowHTML());
@@ -218,6 +219,7 @@ function battleRound(cmd) {
   if (ma === 'heal') { od(-20); shp(25); log.push(`治癒魔術で${P}の傷を塞いだ。（HP+25）`); }
   if (ma === 'potion') { item('potion', -1); shp(35); log.push(`治癒の霊薬を使った。（HP+35）`); }
   if (ma === 'gem') { item('gem', -1); mBonus += 12; r.hp -= 10; log.push(`宝石を投げ放つ。炸裂した魔力が${E}を撃った！（10ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: 10 }); }
+  if (ma && ma.startsWith('sp_')) mBonus += castSpell(ma.slice(3), log, E);
   if (ma === 'crystal') { item('crystal', -1); mp(40); log.push(`魔力結晶を砕き、${P}に魔力を流し込んだ。（魔力+40）`); }
 
   // スキル（自分が選んだもの・敵のAI）と、行動封じ

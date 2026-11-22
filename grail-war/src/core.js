@@ -279,6 +279,7 @@ function startSlot() {
     if (isNight() && G.day >= FINAL_DAY) return finalBattleIntro();
     if (!last.siege) return siegeScene(last);
   }
+  if (!SLOT.spell && pendingSpellTier()) { SLOT.spell = true; return spellLearnScene(startSlot); }
   if (!SLOT.event) {
     SLOT.event = true;
     if (Math.random() < EVENT_CHANCE[G.phase]) { const ev = drawEvent(); if (ev) return showEvent(ev, startSlot); }
