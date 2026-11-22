@@ -18,7 +18,7 @@ function kidCalls() { return gw('お父さん', 'お母さん', 'あなた'); }
 function kidLooks() {
   const t = G.epi.track;
   return t === 'shirou_rin' ? '遠坂によく似た、意志の強い瞳' : t === 'shirou_sakura' ? '桜によく似た、柔らかな笑顔'
-    : t === 'together_lover' ? `${SV()}によく似た瞳。英霊の血を引くその子は、時々、驚くほど大人びた顔をする` : 'あなたとその人の、両方によく似た顔';
+    : t === 'together_lover' ? `${SV()}によく似た瞳` : 'あなたとその人の、両方によく似た顔';
 }
 
 const EPI_LOVE = { y: 8, title: '二人の未来',
@@ -34,7 +34,7 @@ const EPI_LOVE = { y: 8, title: '二人の未来',
     { label: '愛を確かめる', hint: '子が産まれる', run: () => {
         const g = pick(['m', 'f']); const name = pick(g === 'm' ? NAMES.givenM : NAMES.givenF); G.epi.child = { name, g };
         epiGain({ joy: 2, legacy: 3 }, `子の${name}が生まれた`);
-        return `互いの想いを、言葉よりも確かな温もりで、もう一度確かめ合った。<br>――翌年の春。小さな命が、この世界にやって来た。<br>元気な${g === 'm' ? '男の子' : '女の子'}だった。<b>${name}</b>と名付けた。${kidLooks()}をしていた。<br>${partnerName()}は、生まれたばかりの${name}を抱いて、泣きながら笑っていた。`;
+        return `互いの想いを、言葉よりも確かな温もりで、もう一度確かめ合った。<br>――翌年の春。小さな命が、この世界にやって来た。<br>元気な${g === 'm' ? '男の子' : '女の子'}だった。<b>${name}</b>と名付けた。${kidLooks()}をしていた。${G.epi.track === 'together_lover' ? '英霊の血を引くその子は、時々、驚くほど大人びた顔をする。' : ''}<br>${partnerName()}は、生まれたばかりの${name}を抱いて、泣きながら笑っていた。`;
       } },
     { label: '2人で生きていく', hint: '二人きりの人生', run: () => {
         G.epi.child = null; G.epi.twoOnly = true; epiGain({ bond: 3, joy: 1 }, '二人きりで生きていくと決めた');

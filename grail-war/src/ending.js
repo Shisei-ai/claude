@@ -49,7 +49,7 @@ function victoryScene() {
   if (G.flags.grailTruth) choices.push({ label: '聖杯を破壊する', hint: '呪いそのものとの戦いになる', cls: 'danger', fn: bossIntro });
   else if (!G.flags.grailPure && G.flags.grailHint) choices.push({ label: '聖杯を破壊する', hint: '真相は確かめていない……疑いに賭ける', cls: 'danger', fn: () => isCursed() ? bossIntro() : ending('destroyPure') });
   if (G.servant.special) choices.push({ label: `${sv.short}の受肉を願う`, hint: `「${RELATIONS[G.servant.special].name}」として共に生きる`, cls: 'primary', fn: () => ending('together') });
-  if (G.flags.knowWish && !G.flags.grailTruth) choices.push({ label: `${sv.short}に聖杯を託す`, hint: `「${fmt(SERVANT_WISH[sv.persona]).slice(0, 18)}…」`, fn: () => ending('servantWish') });
+  if (G.flags.knowWish && !G.flags.grailTruth) choices.push({ label: `${sv.short}に聖杯を託す`, hint: `「${fmt(svWish(sv)).slice(0, 18)}…」`, fn: () => ending('servantWish') });
   choices.push({ label: `「${b.wish}」を願う`, hint: 'マスターの願い', fn: () => ending(G.flags.grailTruth ? 'wishKnown' : isCursed() ? 'wish' : 'wishPure') });
   choices.push({ label: '何も願わない', fn: () => ending('none') });
   scene({ title: '聖杯降臨', sub: '第三幕　降臨', body: [
@@ -113,7 +113,7 @@ function ending(kind) {
       `<p>${sv.short}が、驚いたように光の欠片を見つめている。</p>`, '<p>この聖杯は、呪われてなどいなかった。六十年待ち続けた奇跡を、あなたは自分の手で壊したのだ。</p>',
       '<p class="note">ヒント：真相を確かめていれば、別の選択ができたかもしれない。昼の「真相を調べる」で、聖杯の秘密を調べられる。</p>'] }),
     servantWish: () => ({ title: '終幕：託された願い', text: [`<p>「${sv.short}。この聖杯は、君のものだ」</p>`, `<p>${sv.short}は驚き、それから静かに杯を受け取った。</p>`,
-      `<p class="quote">「${fmt(SERVANT_WISH[sv.persona])}」</p>`, '<p>黄金の光が夜空に広がる。その願いがどんな形で叶ったのか、あなたには分からない。けれど、光の中で振り返った顔は、確かに笑っていた。</p>',
+      `<p class="quote">「${fmt(svWish(sv))}」</p>`, '<p>黄金の光が夜空に広がる。その願いがどんな形で叶ったのか、あなたには分からない。けれど、光の中で振り返った顔は、確かに笑っていた。</p>',
       G.flags.grailPure ? '<p class="note">正しい聖杯だと確かめていたから、迷いはなかった。</p>' : G.flags.grailHint ? '<p class="note">杯の底に何が眠っていたのか、あなたは最後まで考えないようにした。</p>' : ''] }),
     destroy: () => ({ title: '終幕：冬の終わり', text: [`<p>${sv.short}の最後の一撃が、黒き聖杯を光の中に消し去った。呪いは霧散し、天降山に朝日が昇る。</p>`,
       `<p class="quote">${farewellLine(sv)}</p>`, `<p>聖杯を手にすることはなかった。けれど、あなたは確かにこの街を救ったのだ。河川敷では、${CAST.old}が一人、深く頭を下げていた。</p>`] }),

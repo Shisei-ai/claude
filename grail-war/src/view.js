@@ -213,7 +213,7 @@ function viewMaster() {
     <h3>判明している事実</h3>
       ${G.flags.registered ? '<span class="tag green">教会に登録済み</span>' : ''}
       ${G.flags.mudKnown ? '<span class="tag red">黒い泥は傷ついた英霊を狙う</span>' : ''}
-      ${G.flags.knowWish && G.servant ? `<span class="tag gold">${SV()}の願い：${SERVANT_WISH[servantOf(G).persona]}</span>` : ''}
+      ${G.flags.knowWish && G.servant ? `<span class="tag gold">${SV()}の願い：${svWish()}</span>` : ''}
     ${G.phase === 'growth' ? '' : viewNotebook()}
   </section>`;
 }

@@ -40,6 +40,16 @@ const SERVANT_WISH = {
   berserker: '（言葉はない。だが、その眼差しは確かに何かを求めている）',
 };
 
+// 英霊ごとの願い（あれば性格ごとの願いより優先。藤丸シナリオでは「<id>_c」を優先）
+const SERVANT_WISH_SV = {
+  mash: '先輩と一緒に、まだ見たことのない世界の綺麗なものを、一つでも多く見ること',
+  artoria_caster: '誰かに決められた役目じゃなくて、わたしが選んだ明日を、生きてみること',
+  meltryllis: '……この恋心を、溶かさずに持っていたいの。私だけの、宝物として',
+  meltryllis_c: '……秘密よ。強いて言うなら、この恋心を、溶かさずに持っていたいの。――ずっと、あなたの隣で',
+  oberon: '願い？ ……そんなもの、ないよ。強いて言えば、全部終わったら静かに眠りたい。誰にも起こされない場所でね',
+};
+function svWish(sv) { sv = sv || servantOf(G); return (typeof isFuji === 'function' && isFuji() && SERVANT_WISH_SV[sv.id + '_c']) || SERVANT_WISH_SV[sv.id] || SERVANT_WISH[sv.persona]; }
+
 const STORY = [
   // ===================== 序章 =====================
   {
@@ -179,7 +189,7 @@ const STORY = [
         } },
       { label: () => isFuji() ? '「あの頃みたいに、君の願いを聞かせて」' : '「君こそ、何を願うんだ？」', hint: 'サーヴァントの願いを聞く', run: () => {
           bond(3); G.flags.knowWish = true;
-          return [`${SV()}は少し意外そうな顔をして、それから遠くを見た。`, `<p class="quote">「${fmt(SERVANT_WISH[servantOf(G).persona])}」</p>`, '（絆+3　サーヴァントの願いを知った）'];
+          return [`${SV()}は少し意外そうな顔をして、それから遠くを見た。`, `<p class="quote">「${fmt(svWish())}」</p>`, '（絆+3　サーヴァントの願いを知った）'];
         } },
       { label: '「今は勝つことだけ考えよう」', hint: '大胆', run: () => { tone('bold'); return `${say('agree')}<br>${SV()}は口の端を上げた。`; } },
     ],
@@ -365,7 +375,7 @@ const STORY = [
       { label: '「必ず勝とう。二人で」', hint: '決戦で能力補正', run: () => { G.flags.resolve = 'win'; bond(4); tone('bold');
           return `${say('promise')}${SV()}は拳を差し出した。あなたはそれに、自分の拳を合わせた。（絆+4 決戦で能力補正）`; } },
       { label: '「君の願いを叶えたい」', hint: '新たなエンディングが開く', run: () => { G.flags.resolve = 'servant'; G.flags.knowWish = true; bond(8);
-          return [`${SV()}は驚いたように目を見開き、それから、ゆっくりと笑った。`, voiceOf(servantOf(G)).reg === 'mute' ? `<p>（${SV()}の瞳が、遠いどこかを見つめていた。その奥に、一つの願いが映っている――「${fmt(SERVANT_WISH[servantOf(G).persona])}」）</p>` : `<p class="quote">「${fmt(SERVANT_WISH[servantOf(G).persona])}${say('wishShare')}」</p>`, '（絆+8 聖杯をサーヴァントに託せるようになった）']; } },
+          return [`${SV()}は驚いたように目を見開き、それから、ゆっくりと笑った。`, voiceOf(servantOf(G)).reg === 'mute' ? `<p>（${SV()}の瞳が、遠いどこかを見つめていた。その奥に、一つの願いが映っている――「${fmt(svWish())}」）</p>` : `<p class="quote">「${fmt(svWish())}${say('wishShare')}」</p>`, '（絆+8 聖杯をサーヴァントに託せるようになった）']; } },
       { label: '「聖杯に巣食うものを、討とう」', hint: '人類悪の存在を知っている時のみ', cond: () => G.flags.grailBeast, run: () => { G.flags.resolve = 'beast'; bond(5); tone('good');
           return `${SV()}は、静かに頷いた。${say('withYou')}（絆+5 人類悪との戦いで能力補正）`; } },
       { label: '「この聖杯になら、願いを託せる」', hint: '聖杯が正規のものだと知っている時のみ', cond: () => G.flags.grailPure, run: () => { G.flags.resolve = 'pure'; bond(5); tone('law');
