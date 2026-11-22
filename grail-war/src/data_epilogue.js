@@ -462,7 +462,7 @@ function epiNext() {
   if (st.final && typeof avalonEligible === 'function' && avalonEligible()) st = e.steps[e.i] = EPI_MERLIN;   // 隠しエンディングへの分岐
   e.year = st.y;
   const go = () => scene({ title: st.title, sub: `エピローグ・${epiAgeLabel()}`, reveal: true,
-    body: paras([fmt(st.text())]),
+    body: paras([fmt(st.text() + (st.kidNote ? st.kidNote() : ''))]),   // 子の有無で細部が変わる（data_family.js）
     choices: st.choices.filter(c => !c.cond || c.cond()).map(c => ({
       label: typeof c.label === 'function' ? c.label() : c.label, hint: c.hint,
       fn: () => { NOTES = []; const r = [].concat(c.run()).map(x => fmt(String(x))); next(st.title, paras(r), epiNext, st.final ? '生涯を閉じる' : '時が流れる'); },
@@ -485,6 +485,7 @@ function epiFinale() {
       `<p>${M()}と${SV()}の物語は、こうして幕を下ろした。</p>`,
       `<div class="epi-scores"><div><span>幸福</span><b>${e.joy}</b></div><div><span>絆</span><b>${e.bond}</b></div><div><span>遺したもの</span><b>${e.legacy}</b></div></div>`,
       `<p><b>${kind}</b>${grade}</p>`,
+      e.child ? `<p class="note">子：${e.child.name}――その血と想いは、次の世代へ受け継がれていく。</p>` : e.twoOnly ? '<p class="note">二人きりで歩み抜いた、穏やかな一生だった。</p>' : '',
       `<h3>生涯の記録</h3><ul class="clue-list">${e.marks.map(m => `<li>${m}</li>`).join('')}</ul>`,
     ] };
     TAB = 'story'; render();
