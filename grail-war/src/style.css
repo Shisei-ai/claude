@@ -475,3 +475,5 @@ body:not(.fx-on) #snow { display: none; }
 .skill-list.cls > div { background: transparent; border-style: dashed; }
 .skill-use { display: inline-block; font-size: 13px; color: var(--gold); }
 .skill-use.en { color: #f3b7bd; }
+/* オベロン：仮面の奥の声（ヴォーティガーン） */
+.scene-body .vort { display: block; margin-top: 8px; padding-top: 6px; border-top: 1px dashed rgba(160, 120, 220, .45); color: #b9a2e6; font-size: 14px; }
