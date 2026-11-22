@@ -429,7 +429,7 @@ const EPI_KISHI = { y: 0, title: '月か、地上か',
 
 // ---- どの人生になるか ----
 function epiTrackOf(kind) {
-  if (kind === 'dead' || !G.servant) return null;
+  if (kind === 'dead' || kind === 'sealed' || !G.servant) return null;
   const rel = G.servant.special;
   if (isKishi() && kind !== 'together') return 'kishi_return';
   if (kind === 'together' && rel) return 'together_' + rel;

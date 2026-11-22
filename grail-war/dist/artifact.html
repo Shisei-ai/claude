@@ -4878,7 +4878,7 @@ const EPI_KISHI = { y: 0, title: '月か、地上か',
 
 // ---- どの人生になるか ----
 function epiTrackOf(kind) {
-  if (kind === 'dead' || !G.servant) return null;
+  if (kind === 'dead' || kind === 'sealed' || !G.servant) return null;
   const rel = G.servant.special;
   if (isKishi() && kind !== 'together') return 'kishi_return';
   if (kind === 'together' && rel) return 'together_' + rel;
@@ -6210,6 +6210,156 @@ function spellListHTML() {
 }
 
 // =============================================================
+//  data_enforcer.js … 封印指定執行者の襲来
+//
+//  魔術の系統を奥義（研鑽Lv5）まで極めると、その魔術は魔術協会に「封印指定」の対象として目を付けられる。
+//  稀少な魔術を持つ魔術師を、その魔術ごと「標本」として保存するための制度だ。
+//   1. 警告（翌日の昼）：協会の動きを知らせる者が現れる。どう備えるかを選ぶ
+//   2. 襲来（その二日後の夜）：封印指定執行者との戦い。執行者はサーヴァントではなく、マスターを直接狙ってくる
+//        マスターのHPが尽きると「封印」――標本として連れ去られる（エンディング）
+//   3. 決着：執行者をどうするか（見逃す・協会への伝言・とどめを刺す）。結末にも影響する
+//  衛宮士郎は「無限の剣製」を修めた時点で対象になる（原作でも封印指定に値する魔術）。
+//  執行者は3人の中から、プレイごとに1人が現れる。
+// =============================================================
+
+const ENFORCERS = [
+  { id: 'enf_chain', name: 'ヘルガ・ノイマン', short: '鎖の執行者', cls: '封印指定執行者', p: ['B', 'B', 'B', 'C', 'C', 'A'], align: '秩序・中庸', persona: 'cool',
+    np: '封縛の鎖・千重', npRuby: 'フェッセルン・タウゼント', catalyst: null, epithet: '鎖の執行者',
+    desc: '時計塔の執行者。ルーンを刻んだ千の鎖で、対象を魔術ごと縛り上げる。私情を挟まず、任務を淡々とこなす。',
+    look: '黒い外套の女。両腕に、ルーンを刻んだ鈍色の鎖が幾重にも巻き付いている。',
+    quote: '貴方の魔術は、人類の財産として保存されるべきです。……抵抗は推奨しません。痛みが増えるだけですから。',
+    defeat: '「……任務、失敗。次は、もっと上手くやります」' },
+  { id: 'enf_specimen', name: 'ラザロ・ヴェイン', short: '標本師', cls: '封印指定執行者', p: ['C', 'B', 'C', 'A', 'B', 'A'], align: '混沌・中庸', persona: 'scholar',
+    np: '永久保存の檻', npRuby: 'エターナル・ホルマリン', catalyst: null, epithet: '標本師',
+    desc: '封印指定の対象を「生きたまま、永遠に美しく」保存することに執着する魔術師。防腐と結晶化の魔術を操る。',
+    look: '白衣の痩せた男。ガラスの小瓶をいくつも腰に提げ、うっとりとこちらを眺めている。',
+    quote: 'ああ、なんと見事な術式だ……。安心したまえ、君は永遠に、その美しさのまま保存される。私の標本棚でね。',
+    defeat: '「惜しい……実に惜しい。だが、標本は逃げない。またいずれ」' },
+  { id: 'enf_hound', name: 'ユーリ・コーベル', short: '灰色の猟犬', cls: '封印指定執行者', p: ['B', 'C', 'A', 'C', 'B', 'A'], align: '中立・悪', persona: 'dark',
+    np: '猟犬の魔弾', npRuby: 'グレイハウンド・バレット', catalyst: null, epithet: '灰色の猟犬',
+    desc: '魔術を「道具」と割り切る魔術使いの執行者。銃と礼装を使い分け、獲物を確実に仕留める。',
+    look: '灰色のコートの男。煙草をくわえ、両手には礼装を仕込んだ拳銃。',
+    quote: '悪いな。恨みはねえが、仕事なんでね。……サーヴァントの相手はしねえ。狙うのは、あんた一人だ。',
+    defeat: '「……ちっ、割に合わねえ仕事だ。報酬上乗せしてもらうぜ、協会さんよ」' },
+];
+// 執行者のスキル（data_skills.js の書式）
+Object.assign(SKILL_DATA, {
+  enf_chain: '対魔力B,気配遮断C|封印術:A:charm,ルーンの鎖:A:def,執行者の矜持:A:guts',
+  enf_specimen: '対魔力A,陣地作成B|防腐の魔術:A:debuff,結晶化:A:charm,標本への執着:B:heal',
+  enf_hound: '対魔力C,気配遮断A|早撃ち:A:agi,魔弾の装填:A:np,修羅場慣れ:A:guts',
+});
+
+function enforcer() { return ENFORCERS.find(e => e.id === (G.enf && G.enf.who)) || ENFORCERS[0]; }
+// 奥義まで極めたか（士郎は「無限の剣製」）
+function hasOugi() {
+  if (isShirou()) return !!G.flags.ubwMastered;
+  return !!G.magic && schoolIds().some(id => masteryLv(id) >= 5);
+}
+function ougiName() {
+  if (isShirou()) return '無限の剣製';
+  const id = schoolIds().find(x => masteryLv(x) >= 5); return id ? `${SCHOOLS[id].name}の奥義「${SCHOOLS[id].tech[2]}」` : '魔術';
+}
+
+// コマの始まりに呼ばれる（core.js の startSlot）
+function enforcerCheck() {
+  if (G.phase !== 'war' || G.day >= FINAL_DAY || !G.servant) return null;
+  const e = G.enf;
+  if (!e && hasOugi() && G.day >= 2 && G.slot === 0) return enforcerWarning;
+  if (e && e.stage === 'warned' && G.day >= e.day + 2 && G.slot === 1) return enforcerArrival;
+  return null;
+}
+
+// ---- 1. 警告 ----
+function enforcerWarning() {
+  G.enf = { stage: 'warned', day: G.day, who: pick(ENFORCERS).id, weak: 0, prep: 0 };
+  const who = enforcer(); const ougi = ougiName();
+  const intro = isShirou() ? `携帯が鳴った。遠坂だ。声が、いつになく険しい。<br>「士郎。……あんたの投影、協会にバレたわよ。<b>封印指定</b>の審議が始まってる。執行者が、もう日本に入ったって」`
+    : isFuji() ? `時計塔の監視官が、血相を変えて訪ねてきた。<br>「藤丸立香。あなたの礼装の運用記録が、協会の上層部の目に留まりました。……<b>封印指定</b>の執行者が、こちらに向かっています」`
+      : isKishi() ? `頭の奥に、月からの警告が響いた。<br>「――警告。魔術協会が、あなたのコードを『月の遺物』と認定。<b>封印指定</b>の執行者が、深見市に接近中」`
+        : `郵便受けに、封蝋で閉じられた一通の封書が入っていた。差出人は、ロンドン――魔術協会・時計塔。<br>「貴殿の修めた<b>${ougi}</b>は、稀少かつ再現不能な神秘と認定された。よって、<b>封印指定</b>の対象とする」`;
+  const choices = [
+    { label: '拠点の守りを固める', hint: '陣地Lv+1・罠+1', run: () => { G.workshop = Math.min(5, G.workshop + 1); G.traps = Math.min(3, G.traps + 1); G.enf.prep++;
+        return `結界を張り直し、罠を仕掛けた。いつ来ても、迎え撃てるように。（陣地Lv${G.workshop} 罠${G.traps}）`; } },
+    { label: () => `${SVname()}と、執行者への対策を練る`, hint: '絆↑・執行者の手の内を読む', run: () => { bond(4); G.enf.weak += 1; G.enf.known = true;
+        return [`${SV()}と、封印指定執行者という存在について話し合った。サーヴァントではなく、人間の魔術師。――狙われるのは、${SV()}ではなく、あなた自身だ。`,
+          `<span class="note">執行者は、戦闘中にマスターを直接狙ってくる。マスターのHPが尽きれば、封印される。（絆+4・執行者が少し弱まる）</span>`]; } },
+  ];
+  if (isShirou()) choices.push({ label: '遠坂に、力を貸してくれと頼む', hint: '宝石+2・執行者が弱まる', run: () => { item('gem', 2); G.enf.weak += 2; hero('rin', 6);
+    return '「……っ、仕方ないわね！ 協会への抗議文は、遠坂家の名前で出しておくわ。それと、これ。使いなさい」宝石が二つ、速達で届いた。（魔力を込めた宝石+2）'; } });
+  else if (isFuji() && G.flags.watcherAlly) choices.push({ label: '監視官に、協会へ掛け合ってもらう', hint: '執行者が大きく弱まる', run: () => { G.enf.weak += 3;
+    return '「……借りを返す時ですね」監視官は、執行者の装備と情報を流してくれた。執行者は、万全の態勢では来られないだろう。'; } });
+  else if (isKishi()) choices.push({ label: 'ムーンセルで、執行者を解析する', hint: '知力判定・執行者が大きく弱まる', run: () => { const c = chk('int', 50);
+    if (c.ok) { G.enf.weak += 3; return [c.text, `ムーンセルの演算が、執行者――${who.name}の戦闘データを洗い出した。手の内は、すべて読めている。`]; }
+    G.enf.weak += 1; return [c.text, '解析は途中で途切れた。それでも、いくつかの癖は掴めた。']; } });
+  if (G.flags.registered) choices.push({ label: `${CAST.sister}に、教会の仲裁を頼む`, hint: '交渉判定・執行者が弱まる', run: () => { const c = chk('cha', 55);
+    if (c.ok) { G.enf.weak += 2; return [c.text, `「聖杯戦争の最中に、参加者への干渉は認められません」${CAST.sister}は協会に正式な抗議を送ってくれた。執行者は、制約を背負って動くことになる。`]; }
+    return [c.text, '「……教会の立場では、協会の決定に口を出せません。申し訳ありません」']; } });
+  if (['noble', 'fallen', 'clocktower'].includes(G.master.birth)) choices.push({ label: '家の伝手で、協会の内情を探る', hint: '宝石+1・執行者が弱まる', run: () => { item('gem', 1); G.enf.weak += 1;
+    return `家の伝手を辿ると、送り込まれる執行者の名が分かった。<b>${who.name}</b>――「${who.epithet}」。（魔力を込めた宝石+1）`; } });
+  choices.push({ label: '逃げも隠れもしない', hint: '精神↑・大胆', run: () => { tone('bold'); gain('spi', 4); return 'この魔術は、自分が積み上げてきたものだ。誰にも、標本になどさせない。（精神+4）'; } });
+  showEvent({ id: 'enf_warning', title: '封印指定', chapter: '第二幕　侵蝕', text: () => intro +
+    '<br><span class="note">封印指定――稀少な魔術を持つ魔術師を、その魔術ごと「保存」するための、魔術協会の制度。実際には、捕らえて幽閉するに等しい。執行者は、二日後の夜に来るだろう。</span>',
+    choices }, startSlot);
+}
+
+// ---- 2. 襲来 ----
+function enforcerArrival() {
+  const who = enforcer(); G.enf.stage = 'arrived';
+  const r = { id: 'enforcer', cls: '封印指定執行者', servantId: who.id, master: who.name, type: '封印指定執行者', quote: who.quote,
+    power: 12 - G.enf.weak, aggr: 1, alive: true, hp: 240 - G.enf.weak * 18, hpMax: 240 - G.enf.weak * 18, mp: 70, intel: 3, clues: 0, seals: 0, ally: false, named: true };
+  G.enf.rival = r;
+  next('封印指定執行者', paras([
+    '夜。拠点の結界が、音もなく<b>切り裂かれた</b>。サーヴァントの気配ではない。――人間の、魔術師だ。',
+    `${who.look}`,
+    `<p class="quote">「${who.quote}」</p>`,
+    `「封印指定執行者、${who.name}。――『${who.epithet}』と呼ばれている」`,
+    `${SV()}が、あなたの前に立った。${say('stayBack')}`,
+    `<span class="note">執行者は、戦闘中に<b>マスターを直接狙ってくる</b>。マスターのHPが尽きれば、封印される（エンディング）。撤退はできない。${G.enf.weak ? `<br>警告の日の備えが効いている。（執行者が弱まっている：強さ-${G.enf.weak}）` : ''}</span>`,
+  ]), () => startBattle(r, { enforcer: true, defend: true }), '迎え撃つ', 'ENFORCER');
+}
+// 執行者の一撃：マスターを狙う（手番の終わりに）
+function enforcerStrike(log) {
+  if (!B || !B.enforcer || B.r.hp <= 0) return;
+  const np = B.enfNp; B.enfNp = false;
+  if (!np && Math.random() > 0.5) return;
+  const who = enforcer();
+  if (B.evade.me > 0 && !np) { B.evade.me--; log.push('<span class="note">執行者の狙いを、間一髪でかわした！</span>'); return; }
+  const def = buffSum('me', 'def');
+  const d = Math.max(4, (np ? 28 : rand(10, 18)) - Math.round(def / 2) - Math.round(G.master.stats.phy / 20));
+  hp(-d);
+  log.push(np ? `<b>${who.short}の切り札が、${SV()}をすり抜けてあなたに届いた！</b>（あなたのHP-${d}）`
+    : pick([`${who.short}の攻撃が、${SV()}の脇をすり抜けてあなたを狙った！（あなたのHP-${d}）`, `「本命はあんただ」――${who.short}の一撃が、あなたを捉えた！（あなたのHP-${d}）`]));
+}
+// ---- 3. 決着 ----
+function enforcerWin() {
+  const who = enforcer(); G.enf.stage = 'defeated'; B = null;
+  addLog(`封印指定執行者「${who.name}」を退ける。`);
+  scene({ title: '執行者の敗北', sub: 'ENFORCER', reveal: true, body: paras([
+    `${who.name}が、膝をついた。${who.defeat}`,
+    '執行者は、もう戦える状態ではない。――どうする？',
+  ]), choices: [
+    { label: '命までは取らない', hint: '善・協会との関係が和らぐ', fn: () => { NOTES = []; tone('good'); G.enf.fate = 'spared'; gain('cha', 3);
+      next('決着', paras([`「……甘い人ですね」${who.short}は、それでも、ほんの少しだけ表情を緩めた。「報告書には、『対象の魔術は封印に値せず』と書いておきます。……貸しにしておいてください」`,
+        '（交渉+3・封印指定は保留になる見込み）', ...takeNotes()]), advance); } },
+    { label: '「協会に伝えろ。二度と来るな」', hint: '大胆・戦利品', fn: () => { NOTES = []; tone('bold'); G.enf.fate = 'warned'; item('gem', 2); item('crystal', 1);
+      next('決着', paras([`${who.short}は、黙って装備の一部を置いていった。「……伝えましょう。ただし、協会が聞き入れるかは保証しない」`,
+        '（魔力を込めた宝石+2 魔力結晶+1）', ...takeNotes()]), advance); } },
+    { label: 'とどめを刺す', hint: '悪・後々に禍根を残す', cls: 'danger', fn: () => { NOTES = []; tone('evil'); G.enf.fate = 'killed'; gain('mag', 3);
+      next('決着', paras([`${SV()}が、何も言わずに視線を逸らした。……執行者は、二度と立ち上がらなかった。`,
+        '残された礼装から、わずかな魔力を取り込んだ。（魔力+3）<br><span class="note">協会は、このことを忘れないだろう。</span>', ...takeNotes()]), advance); } },
+  ] });
+}
+// エンディングに添える一文
+function enforcerEpilogue(kind) {
+  if (!G.enf || kind === 'dead' || kind === 'sealed') return '';
+  const who = enforcer();
+  if (G.enf.stage === 'warned') return '<p class="note">封印指定の執行者は、ついに現れなかった。聖杯戦争の終結と共に、協会は審議を「保留」としたらしい。</p>';
+  return { spared: `<p class="note">後日、時計塔から一通の通知が届いた。「封印指定、取り消し」――末尾には、${who.name}の署名があった。</p>`,
+    warned: '<p class="note">協会は、あなたの魔術を「監視対象」に留めた。執行者は、二度と来なかった。……少なくとも、今のところは。</p>',
+    killed: '<p class="note">協会は、執行者の死を忘れなかった。それからの人生、あなたは時折、背後に冷たい視線を感じることになる。</p>' }[G.enf.fate] || '';
+}
+
+// =============================================================
 //  fx.js … 演出（設定・効果音・カットイン・空と雪・アイコン・エンディング記録）
 // =============================================================
 
@@ -6229,7 +6379,7 @@ let REVEAL_UNTIL = 0;                    // 文章の表示演出が終わる時
 const ENDING_LIST = [
   ['destroySpecial', '夜明けの約束'], ['destroy', '冬の終わり'], ['together', '共に生きる'], ['servantWish', '託された願い'],
   ['wishPure', '叶えられた願い'], ['none', '願いなき勝者'], ['destroyPure', '砕かれた奇跡'], ['abstain', '日常への帰還'], ['wish', '歪んだ願い'], ['wishKnown', '承知の上の願い'], ['devoured', '黒い夜明け'],
-  ['lost', '脱落'], ['dead', '血に染まる冬'], ['beastSlain', '楽園の外で'], ['saturated', '飽和'], ['avalon', '隠し：Garden of Avalon'],
+  ['lost', '脱落'], ['dead', '血に染まる冬'], ['beastSlain', '楽園の外で'], ['saturated', '飽和'], ['sealed', '封印指定'], ['avalon', '隠し：Garden of Avalon'],
 ];
 function seenEndings() { try { return JSON.parse(localStorage.getItem(END_KEY) || '[]'); } catch (e) { return []; } }
 function markEnding(k) {
@@ -6239,6 +6389,7 @@ function markEnding(k) {
 
 // ---------------- クラスの紋章と色 ----------------
 const CLASS_COLOR = {
+  '封印指定執行者': '#9aa4b8',
   'ビーストⅧ': '#9fd8b4',
   'セイバー': '#7fa7e0', 'アーチャー': '#d8796a', 'ランサー': '#5cbca8', 'ライダー': '#d1a253', 'キャスター': '#ad88dc',
   'アサシン': '#97a0b5', 'バーサーカー': '#e0644a', 'ルーラー': '#e6d6a0', 'アヴェンジャー': '#8a74c8', '聖杯': '#b04050',
@@ -6421,7 +6572,7 @@ const EVENT_CHANCE = { prep: 0.25, war: 0.22 };   // コマの始めにランダ
 const STAT_LABEL = { mag: '魔力', phy: '体力', int: '知力', spi: '精神', cha: '交渉', luk: '幸運' };
 const CLASS_EN = { 'セイバー': 'SABER', 'アーチャー': 'ARCHER', 'ランサー': 'LANCER', 'ライダー': 'RIDER',
   'キャスター': 'CASTER', 'アサシン': 'ASSASSIN', 'バーサーカー': 'BERSERKER', 'ルーラー': 'RULER', 'アヴェンジャー': 'AVENGER', '聖杯': 'GRAIL',
-  'アルターエゴ': 'ALTER EGO', 'ビーストⅧ': 'BEAST VIII', 'ムーンキャンサー': 'MOON CANCER', 'フォーリナー': 'FOREIGNER', 'シールダー': 'SHIELDER', 'プリテンダー': 'PRETENDER' };
+  'アルターエゴ': 'ALTER EGO', 'ビーストⅧ': 'BEAST VIII', '封印指定執行者': 'ENFORCER', 'ムーンキャンサー': 'MOON CANCER', 'フォーリナー': 'FOREIGNER', 'シールダー': 'SHIELDER', 'プリテンダー': 'PRETENDER' };
 
 // 道具（買い出しで入手。主に戦闘中に「マスターの行動」として使う）
 const ITEMS = {
@@ -6451,7 +6602,7 @@ function wpick(items, wf) {
   return items[items.length - 1];
 }
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS, BEAST8]).map(s => [s.id, s]));
+const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS, BEAST8], ENFORCERS).map(s => [s.id, s]));
 
 // ---------------- 名前・参照 ----------------
 function M() { return esc(G.master.name); }
@@ -6684,6 +6835,7 @@ function startSlot() {
       return go();
     }
   }
+  if (!SLOT.enf) { SLOT.enf = true; const f = enforcerCheck(); if (f) return f(); }   // 封印指定執行者（data_enforcer.js）
   if (G.phase === 'war' && aliveRivals().length === 1) {
     const last = aliveRivals()[0];
     if (isNight() && G.day >= FINAL_DAY) return finalBattleIntro();
@@ -7731,7 +7883,7 @@ function startBattle(rival, opt = {}) {
   if (isShirou() && !rival.fifthTalked && FIFTH_TALK[rival.servantId] && rival.servantId !== 'ori')
     return fifthTalkScene(rival, () => startBattle(rival, opt));
   G.battles++;
-  B = { r: rival, round: 0, opt, final: !!(opt.final || opt.boss), boss: !!opt.boss, beast: !!opt.beast, miracle: false,
+  B = { r: rival, round: 0, opt, final: !!(opt.final || opt.boss), boss: !!opt.boss, beast: !!opt.beast, enforcer: !!opt.enforcer, miracle: false,
     enemyNext: null, tell: null, sure: false, charge: 0, echarge: 0, mact: 'command', extra: null, enemySeal: false };
   skillInit();
   const pre = [];
@@ -7804,7 +7956,7 @@ function battleScene(extra) {
     if (aff > 0 && me.cls !== 'バーサーカー' && r.cls !== 'バーサーカー') mods.push('クラス相性◎');
     if (aff < 0) mods.push('クラス相性×');
     if (B.final && G.flags.resolve === 'win') mods.push('決意');
-    body.push(`<p>${B.beast ? '白い大蛇が、楽園の香りと共に鎌首をもたげる。――人類悪との戦いが始まる。' : B.boss ? '聖杯の内から、黒い泥が形を成して立ち上がる。' : B.final ? '聖杯を賭けた、最後の戦いが始まる。' : '戦闘開始。'}${mods.length ? `<br><span class="note">補正：${mods.join('・')}</span>` : ''}</p>`);
+    body.push(`<p>${B.enforcer ? '封印指定執行者との戦い。狙われているのは、英霊ではなく――あなただ。' : B.beast ? '白い大蛇が、楽園の香りと共に鎌首をもたげる。――人類悪との戦いが始まる。' : B.boss ? '聖杯の内から、黒い泥が形を成して立ち上がる。' : B.final ? '聖杯を賭けた、最後の戦いが始まる。' : '戦闘開始。'}${mods.length ? `<br><span class="note">補正：${mods.join('・')}</span>` : ''}</p>`);
   }
   if (B.extra) body.push(...B.extra);
   if (B.tell) body.push(`<p class="tell">${B.tell}</p>`);
@@ -7830,10 +7982,10 @@ function battleScene(extra) {
     { label: '防御', hint: `${p(1)}・半減、防げば反撃`, fn: () => battleRound('guard'), icon: 'guard' },
     { label: '見切り', hint: '次の手を読む・真名の手がかり', fn: () => battleRound('observe'), icon: 'observe' },
   ];
-  if (!B.boss) choices.push({ label: '敵マスターを狙う', hint: `${isAssassin() ? '気配遮断で有利' : '成功率低'}・悪`, cls: 'danger', fn: () => battleRound('master'), icon: 'target' });
+  if (!B.boss && !B.enforcer) choices.push({ label: '敵マスターを狙う', hint: `${isAssassin() ? '気配遮断で有利' : '成功率低'}・悪`, cls: 'danger', fn: () => battleRound('master'), icon: 'target' });
   choices.push({ label: `令呪（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu, icon: 'seal' });
-  if (!B.final) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
-  scene({ title: B.beast ? 'ビーストⅧ' : B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
+  if (!B.final && !B.enforcer) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
+  scene({ title: B.enforcer ? '封印指定執行者' : B.beast ? 'ビーストⅧ' : B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
   animateBattle();
 }
 // 衛宮士郎の戦闘画面：士郎の行動を選ぶ。セイバーは自分の判断で戦う
@@ -7857,8 +8009,8 @@ function shirouBattleScene(body) {
   }));
   choices.push({ label: 'セイバーに指示を出す', hint: '次の手番の戦い方を決める', icon: 'observe', fn: saberOrderMenu });
   choices.push({ label: `令呪（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu, icon: 'seal' });
-  if (!B.final) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
-  scene({ title: B.beast ? 'ビーストⅧ' : B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
+  if (!B.final && !B.enforcer) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
+  scene({ title: B.enforcer ? '封印指定執行者' : B.beast ? 'ビーストⅧ' : B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
   animateBattle();
 }
 function sealMenu() {
@@ -7931,6 +8083,7 @@ function battleRound(cmd) {
     B.fxq.push({ type: 'np', side: 'me', name: me.np, ruby: me.npRuby, who: me.short, cls: me.cls });
   }
   if (et === 'np') {
+    if (B.enforcer) B.enfNp = true;
     r.mp -= 50;
     const en = servantOf(r);
     log.push(`${E}が宝具を解き放つ。<b>「${en.np}（${en.npRuby}）！」</b>`);
@@ -8052,12 +8205,14 @@ function winText(t, a, d) {
 }
 function afterRound(log) {
   if (isShirou() && B) { shirouCounter(log, B.enemyNext, enemyName()); shirouDownCheck(log); B.aias = false; }
+  if (B && B.enforcer) enforcerStrike(log);
   const cut = (B.fxq || []).filter(x => x.type === 'np' || x.type === 'seal');
   playQueue(cut.map(c => done => cutIn(c, done)), () => afterRoundCore(log));
 }
 function afterRoundCore(log) {
   const r = B.r; const sv = G.servant;
   const extra = [`<div class="blog">${log.map(t => `<p>${t}</p>`).join('')}</div>`];
+  if (B.enforcer && G.master.hp <= 0) { B = null; return ending('sealed'); }   // 封印された
   if (r.hp <= 0 && B.guts.en) { B.guts.en = false; r.hp = 20; extra.push(`<p class="note">${enemyName()}は、倒れる寸前で踏みとどまった！（戦闘続行）</p>`); }
   if (sv.hp <= 0 && B.guts.me) { B.guts.me = false; sv.hp = 20; extra.push(`<p class="note">${SV()}は、倒れる寸前で踏みとどまった！（戦闘続行）</p>`); }
   if (r.hp <= 0) return battleWin(extra);
@@ -8080,11 +8235,12 @@ function battleLoseChoice(extra) {
   if (G.items.potion > 0 && !B.final) choices.push({ label: '霊薬を飲ませて退く', hint: '霊薬-1・撤退', fn: () => {
     item('potion', -1); G.servant.hp = 15; escape([`霊薬で辛うじて霊基を保ち、${SV()}は最後の力であなたを抱えて退いた。`]);
   } });
-  choices.push({ label: '……ここまでか', fn: () => { const boss = B.boss, beast = B.beast; B = null; ending(beast ? 'saturated' : boss ? 'devoured' : 'lost'); } });
+  choices.push({ label: '……ここまでか', fn: () => { const boss = B.boss, beast = B.beast, enf = B.enforcer; B = null; ending(enf ? 'sealed' : beast ? 'saturated' : boss ? 'devoured' : 'lost'); } });
   sfx('lose');
   scene({ title: '霊核の危機', sub: 'CRISIS', body: [...extra, `<p>${SV()}が膝をつく。霊基が崩れ始めている――このままでは消滅する！</p>`], choices });
 }
 function battleWin(extra) {
+  if (B.enforcer) return enforcerWin();
   const r = B.r; const wasFinal = B.final; const boss = B.boss; const beast = B.beast; B = null;
   sfx('win');
   if (!boss) showCard({ kicker: 'VICTORY', title: '勝利', sub: `${rivalLabel(r)}陣営を撃破`, cls: 'victory', ms: 1300 });
@@ -8283,6 +8439,10 @@ function ending(kind) {
       `<p class="quote">${farewellLine(sv)}</p>`,
       '<p>願いは、叶わなかった。けれど――願う自由は、守られた。眠り続けていた人々が、一人、また一人と、目を覚ましていく。</p>',
       G.flags.grailBeast ? '<p class="note">聖杯に巣食う獣の正体を突き止めていたからこそ、辿り着けた結末だった。</p>' : ''] }),
+    sealed: () => ({ title: '終幕：封印指定', text: [`<p>執行者の術が、あなたの意識を絡め取った。最後に見えたのは、手を伸ばす${sv.short}の姿だった。</p>`,
+      '<p>――目を覚ますことは、もうない。あなたは、その魔術ごと「保存」された。時計塔の地下深く、ガラスの向こうで、永遠に眠り続ける標本として。</p>',
+      `<p>契約者を失った${sv.short}は、聖杯戦争の続きを戦うこともできず、静かに消えていった。</p>`,
+      '<p class="note">ヒント：封印指定執行者は、英霊ではなくマスターを狙ってくる。警告の日の備え、自分のHP、守りの魔術や回避が鍵になる。</p>'] }),
     saturated: () => ({ title: '終幕：飽和', text: ['<p>白い大蛇が、天降山を呑み込んだ。</p>', '<p>甘い林檎の香りが、街に満ちていく。深見の人々は、一人、また一人と、穏やかに微笑んだまま眠りについた。誰もが、願いの叶った夢の中にいる。</p>',
       `<p>${sv.short}の霊基もまた、その甘い夢に溶けていった。</p>`, '<p>満たされた世界には、もう、何一つ望むものはない。――それが、人類悪【飽和】の救済だった。</p>',
       '<p class="note">ヒント：「一見正しい聖杯」でも、何度か監督役に話を聞けば、異変に気付けるかもしれない。正体を知っていれば、獣との戦いは有利になる。</p>'] }),
@@ -8306,7 +8466,9 @@ function ending(kind) {
   addLog(E.title); markEnding(kind);
   const me = mysteryEpilogue(kind);
   if (me) E.text.push(me);
-  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure', 'saturated'].includes(kind);
+  const ee = enforcerEpilogue(kind);
+  if (ee) E.text.push(ee);
+  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure', 'saturated', 'sealed'].includes(kind);
   sfx(good ? 'win' : 'lose');
   showCard({ kicker: good ? 'ENDING' : 'BAD END', title: E.title.replace('終幕：', ''), cls: good ? 'dawn' : 'blood', ms: 2200 }, () => {
     SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good };

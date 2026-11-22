@@ -129,6 +129,10 @@ function ending(kind) {
       `<p class="quote">${farewellLine(sv)}</p>`,
       '<p>願いは、叶わなかった。けれど――願う自由は、守られた。眠り続けていた人々が、一人、また一人と、目を覚ましていく。</p>',
       G.flags.grailBeast ? '<p class="note">聖杯に巣食う獣の正体を突き止めていたからこそ、辿り着けた結末だった。</p>' : ''] }),
+    sealed: () => ({ title: '終幕：封印指定', text: [`<p>執行者の術が、あなたの意識を絡め取った。最後に見えたのは、手を伸ばす${sv.short}の姿だった。</p>`,
+      '<p>――目を覚ますことは、もうない。あなたは、その魔術ごと「保存」された。時計塔の地下深く、ガラスの向こうで、永遠に眠り続ける標本として。</p>',
+      `<p>契約者を失った${sv.short}は、聖杯戦争の続きを戦うこともできず、静かに消えていった。</p>`,
+      '<p class="note">ヒント：封印指定執行者は、英霊ではなくマスターを狙ってくる。警告の日の備え、自分のHP、守りの魔術や回避が鍵になる。</p>'] }),
     saturated: () => ({ title: '終幕：飽和', text: ['<p>白い大蛇が、天降山を呑み込んだ。</p>', '<p>甘い林檎の香りが、街に満ちていく。深見の人々は、一人、また一人と、穏やかに微笑んだまま眠りについた。誰もが、願いの叶った夢の中にいる。</p>',
       `<p>${sv.short}の霊基もまた、その甘い夢に溶けていった。</p>`, '<p>満たされた世界には、もう、何一つ望むものはない。――それが、人類悪【飽和】の救済だった。</p>',
       '<p class="note">ヒント：「一見正しい聖杯」でも、何度か監督役に話を聞けば、異変に気付けるかもしれない。正体を知っていれば、獣との戦いは有利になる。</p>'] }),
@@ -152,7 +156,9 @@ function ending(kind) {
   addLog(E.title); markEnding(kind);
   const me = mysteryEpilogue(kind);
   if (me) E.text.push(me);
-  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure', 'saturated'].includes(kind);
+  const ee = enforcerEpilogue(kind);
+  if (ee) E.text.push(ee);
+  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure', 'saturated', 'sealed'].includes(kind);
   sfx(good ? 'win' : 'lose');
   showCard({ kicker: good ? 'ENDING' : 'BAD END', title: E.title.replace('終幕：', ''), cls: good ? 'dawn' : 'blood', ms: 2200 }, () => {
     SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good };

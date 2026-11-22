@@ -37,7 +37,7 @@ function startBattle(rival, opt = {}) {
   if (isShirou() && !rival.fifthTalked && FIFTH_TALK[rival.servantId] && rival.servantId !== 'ori')
     return fifthTalkScene(rival, () => startBattle(rival, opt));
   G.battles++;
-  B = { r: rival, round: 0, opt, final: !!(opt.final || opt.boss), boss: !!opt.boss, beast: !!opt.beast, miracle: false,
+  B = { r: rival, round: 0, opt, final: !!(opt.final || opt.boss), boss: !!opt.boss, beast: !!opt.beast, enforcer: !!opt.enforcer, miracle: false,
     enemyNext: null, tell: null, sure: false, charge: 0, echarge: 0, mact: 'command', extra: null, enemySeal: false };
   skillInit();
   const pre = [];
@@ -110,7 +110,7 @@ function battleScene(extra) {
     if (aff > 0 && me.cls !== 'バーサーカー' && r.cls !== 'バーサーカー') mods.push('クラス相性◎');
     if (aff < 0) mods.push('クラス相性×');
     if (B.final && G.flags.resolve === 'win') mods.push('決意');
-    body.push(`<p>${B.beast ? '白い大蛇が、楽園の香りと共に鎌首をもたげる。――人類悪との戦いが始まる。' : B.boss ? '聖杯の内から、黒い泥が形を成して立ち上がる。' : B.final ? '聖杯を賭けた、最後の戦いが始まる。' : '戦闘開始。'}${mods.length ? `<br><span class="note">補正：${mods.join('・')}</span>` : ''}</p>`);
+    body.push(`<p>${B.enforcer ? '封印指定執行者との戦い。狙われているのは、英霊ではなく――あなただ。' : B.beast ? '白い大蛇が、楽園の香りと共に鎌首をもたげる。――人類悪との戦いが始まる。' : B.boss ? '聖杯の内から、黒い泥が形を成して立ち上がる。' : B.final ? '聖杯を賭けた、最後の戦いが始まる。' : '戦闘開始。'}${mods.length ? `<br><span class="note">補正：${mods.join('・')}</span>` : ''}</p>`);
   }
   if (B.extra) body.push(...B.extra);
   if (B.tell) body.push(`<p class="tell">${B.tell}</p>`);
@@ -136,10 +136,10 @@ function battleScene(extra) {
     { label: '防御', hint: `${p(1)}・半減、防げば反撃`, fn: () => battleRound('guard'), icon: 'guard' },
     { label: '見切り', hint: '次の手を読む・真名の手がかり', fn: () => battleRound('observe'), icon: 'observe' },
   ];
-  if (!B.boss) choices.push({ label: '敵マスターを狙う', hint: `${isAssassin() ? '気配遮断で有利' : '成功率低'}・悪`, cls: 'danger', fn: () => battleRound('master'), icon: 'target' });
+  if (!B.boss && !B.enforcer) choices.push({ label: '敵マスターを狙う', hint: `${isAssassin() ? '気配遮断で有利' : '成功率低'}・悪`, cls: 'danger', fn: () => battleRound('master'), icon: 'target' });
   choices.push({ label: `令呪（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu, icon: 'seal' });
-  if (!B.final) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
-  scene({ title: B.beast ? 'ビーストⅧ' : B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
+  if (!B.final && !B.enforcer) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
+  scene({ title: B.enforcer ? '封印指定執行者' : B.beast ? 'ビーストⅧ' : B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
   animateBattle();
 }
 // 衛宮士郎の戦闘画面：士郎の行動を選ぶ。セイバーは自分の判断で戦う
@@ -163,8 +163,8 @@ function shirouBattleScene(body) {
   }));
   choices.push({ label: 'セイバーに指示を出す', hint: '次の手番の戦い方を決める', icon: 'observe', fn: saberOrderMenu });
   choices.push({ label: `令呪（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu, icon: 'seal' });
-  if (!B.final) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
-  scene({ title: B.beast ? 'ビーストⅧ' : B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
+  if (!B.final && !B.enforcer) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
+  scene({ title: B.enforcer ? '封印指定執行者' : B.beast ? 'ビーストⅧ' : B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
   animateBattle();
 }
 function sealMenu() {
@@ -237,6 +237,7 @@ function battleRound(cmd) {
     B.fxq.push({ type: 'np', side: 'me', name: me.np, ruby: me.npRuby, who: me.short, cls: me.cls });
   }
   if (et === 'np') {
+    if (B.enforcer) B.enfNp = true;
     r.mp -= 50;
     const en = servantOf(r);
     log.push(`${E}が宝具を解き放つ。<b>「${en.np}（${en.npRuby}）！」</b>`);
@@ -358,12 +359,14 @@ function winText(t, a, d) {
 }
 function afterRound(log) {
   if (isShirou() && B) { shirouCounter(log, B.enemyNext, enemyName()); shirouDownCheck(log); B.aias = false; }
+  if (B && B.enforcer) enforcerStrike(log);
   const cut = (B.fxq || []).filter(x => x.type === 'np' || x.type === 'seal');
   playQueue(cut.map(c => done => cutIn(c, done)), () => afterRoundCore(log));
 }
 function afterRoundCore(log) {
   const r = B.r; const sv = G.servant;
   const extra = [`<div class="blog">${log.map(t => `<p>${t}</p>`).join('')}</div>`];
+  if (B.enforcer && G.master.hp <= 0) { B = null; return ending('sealed'); }   // 封印された
   if (r.hp <= 0 && B.guts.en) { B.guts.en = false; r.hp = 20; extra.push(`<p class="note">${enemyName()}は、倒れる寸前で踏みとどまった！（戦闘続行）</p>`); }
   if (sv.hp <= 0 && B.guts.me) { B.guts.me = false; sv.hp = 20; extra.push(`<p class="note">${SV()}は、倒れる寸前で踏みとどまった！（戦闘続行）</p>`); }
   if (r.hp <= 0) return battleWin(extra);
@@ -386,11 +389,12 @@ function battleLoseChoice(extra) {
   if (G.items.potion > 0 && !B.final) choices.push({ label: '霊薬を飲ませて退く', hint: '霊薬-1・撤退', fn: () => {
     item('potion', -1); G.servant.hp = 15; escape([`霊薬で辛うじて霊基を保ち、${SV()}は最後の力であなたを抱えて退いた。`]);
   } });
-  choices.push({ label: '……ここまでか', fn: () => { const boss = B.boss, beast = B.beast; B = null; ending(beast ? 'saturated' : boss ? 'devoured' : 'lost'); } });
+  choices.push({ label: '……ここまでか', fn: () => { const boss = B.boss, beast = B.beast, enf = B.enforcer; B = null; ending(enf ? 'sealed' : beast ? 'saturated' : boss ? 'devoured' : 'lost'); } });
   sfx('lose');
   scene({ title: '霊核の危機', sub: 'CRISIS', body: [...extra, `<p>${SV()}が膝をつく。霊基が崩れ始めている――このままでは消滅する！</p>`], choices });
 }
 function battleWin(extra) {
+  if (B.enforcer) return enforcerWin();
   const r = B.r; const wasFinal = B.final; const boss = B.boss; const beast = B.beast; B = null;
   sfx('win');
   if (!boss) showCard({ kicker: 'VICTORY', title: '勝利', sub: `${rivalLabel(r)}陣営を撃破`, cls: 'victory', ms: 1300 });

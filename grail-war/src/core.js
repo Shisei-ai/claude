@@ -15,7 +15,7 @@ const EVENT_CHANCE = { prep: 0.25, war: 0.22 };   // コマの始めにランダ
 const STAT_LABEL = { mag: '魔力', phy: '体力', int: '知力', spi: '精神', cha: '交渉', luk: '幸運' };
 const CLASS_EN = { 'セイバー': 'SABER', 'アーチャー': 'ARCHER', 'ランサー': 'LANCER', 'ライダー': 'RIDER',
   'キャスター': 'CASTER', 'アサシン': 'ASSASSIN', 'バーサーカー': 'BERSERKER', 'ルーラー': 'RULER', 'アヴェンジャー': 'AVENGER', '聖杯': 'GRAIL',
-  'アルターエゴ': 'ALTER EGO', 'ビーストⅧ': 'BEAST VIII', 'ムーンキャンサー': 'MOON CANCER', 'フォーリナー': 'FOREIGNER', 'シールダー': 'SHIELDER', 'プリテンダー': 'PRETENDER' };
+  'アルターエゴ': 'ALTER EGO', 'ビーストⅧ': 'BEAST VIII', '封印指定執行者': 'ENFORCER', 'ムーンキャンサー': 'MOON CANCER', 'フォーリナー': 'FOREIGNER', 'シールダー': 'SHIELDER', 'プリテンダー': 'PRETENDER' };
 
 // 道具（買い出しで入手。主に戦闘中に「マスターの行動」として使う）
 const ITEMS = {
@@ -45,7 +45,7 @@ function wpick(items, wf) {
   return items[items.length - 1];
 }
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS, BEAST8]).map(s => [s.id, s]));
+const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS, BEAST8], ENFORCERS).map(s => [s.id, s]));
 
 // ---------------- 名前・参照 ----------------
 function M() { return esc(G.master.name); }
@@ -278,6 +278,7 @@ function startSlot() {
       return go();
     }
   }
+  if (!SLOT.enf) { SLOT.enf = true; const f = enforcerCheck(); if (f) return f(); }   // 封印指定執行者（data_enforcer.js）
   if (G.phase === 'war' && aliveRivals().length === 1) {
     const last = aliveRivals()[0];
     if (isNight() && G.day >= FINAL_DAY) return finalBattleIntro();
