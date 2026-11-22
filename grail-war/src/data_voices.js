@@ -280,7 +280,7 @@ const VOICE_OF = {
   medusa: ['lady', '私', 'マスター'], iskandar: ['king', '余', 'お前'], astolfo: ['cheer', 'ボク', 'キミ'], ushiwakamaru: ['knight', '私', '主殿', '主殿'],
   drake: ['bro', 'アタシ', 'アンタ'], achilles: ['bro', '俺', 'マスター'], ozymandias: ['king', '余', '貴様'], teach: ['bro', '拙者', 'マスター氏'],
   columbus: ['bro', '俺', 'マスター'], medb: ['queen', '私', 'あなた'], boudica: ['cheer', '私', 'マスター'], taikobo: ['scholar', '僕', '君'],
-  ryoma: ['elder', 'わし', 'マスター'], nemo: ['cool_m', '僕', '君'],
+  ryoma: ['cool_m', '僕', '君', 'マスター'], nemo: ['cool_m', '僕', '君'],
   // キャスター
   medea: ['queen', '私', 'あなた'], gilles: ['dark', '私', '我が主', '我が主'], tamamo: ['lady', '私', 'ご主人様', 'ご主人様'], merlin: ['scholar', '私', 'キミ'],
   andersen: ['scholar', '俺', 'お前'], cu_caster: ['bro', 'オレ', 'アンタ'], shakespeare: ['scholar', '吾輩', 'マスター'], nursery: ['child', 'わたし', 'マスター'],
@@ -288,11 +288,11 @@ const VOICE_OF = {
   artoria_caster: ['castoria', 'わたし', 'マスター'], davinci: ['scholar', '私', '君'],
   // アサシン
   kojiro: ['cool_m', '私', 'マスター'], hassan: ['knight', '私', '魔術師殿', '魔術師殿'], jack: ['child', 'わたしたち', 'おかあさん', 'おかあさん'],
-  jingke: ['cool_m', '私', 'お前'], shiki: ['cool_f', '私', 'あんた'], serenity: ['lady', 'わたし', 'マスター'], hundred: ['knight', '我ら', '主殿', '主殿'],
+  jingke: ['cool_m', '私', 'お前'], shiki: ['cool_m', 'オレ', 'お前'], serenity: ['lady', 'わたし', 'マスター'], hundred: ['knight', '我ら', '主殿', '主殿'],
   shuten: ['lady', 'うち', '旦那はん', '旦那はん'], kotaro: ['knight', '私', '主殿', '主殿'], danzo: ['knight', '段蔵', 'マスター'], izo: ['elder', 'わし', 'マスター'],
   yan_qing: ['bro', '俺', '主'], wu_zetian: ['king', '朕', 'お前'],
   // バーサーカー（会話ができる者）
-  kintoki: ['bro', 'オレ', '大将', '大将'], spartacus: ['king', '私', '君', '同志'], kiyohime: ['lady', '私', 'ますたぁ', 'ますたぁ'], tamamo_cat: ['cheer', 'キャット', 'ご主人', 'ご主人'],
+  kintoki: ['bro', 'オレ', '大将', '大将'], spartacus: ['king', '私', '君', '同志'], kiyohime: ['lady', 'わたくし', 'ますたぁ', 'ますたぁ'], tamamo_cat: ['cheer', 'キャット', 'ご主人', 'ご主人'],
   beowulf: ['bro', '俺', 'マスター'], vlad_berserker: ['dark', '余', 'お前'], ibaraki: ['child', '吾', '汝'], raikou: ['lady', '母', 'あなた'],
   hijikata: ['bro', '俺', 'お前'], nightingale: ['cool_m', '私', 'あなた'], penthesilea: ['cool_m', '私', 'お前'],
   // エクストラクラス
@@ -300,7 +300,7 @@ const VOICE_OF = {
   holmes: ['scholar', '私', '君'], gorgon: ['dark_f', '私', 'お前'], salieri: ['dark', '我', 'お前'], meltryllis: ['melt', '私', 'あなた'],
   passionlip: ['lady', '私', 'マスター'], okita_alter: ['cool_f', '私', 'マスター'], doman: ['dark', '拙僧', 'マスター殿', 'マスター殿'],
   bb: ['cheer', 'BBちゃん', 'センパイ', 'センパイ'], abigail: ['child', 'わたし', 'マスター'], hokusai: ['cheer', 'おれ', 'マスター'],
-  mash: ['mash', 'わたし', '先輩', '先輩'], oberon: ['oberon', '僕', '君'],
+  mash: ['mash', 'わたし', '先輩', '先輩'], carmilla: ['dark_f', '私', 'あなた'], sanzang: ['cheer', '私', '弟子', '弟子'], oberon: ['oberon', '僕', '君'],
 };
 
 // 英霊の口調情報 { voice, reg, I, you, call }
