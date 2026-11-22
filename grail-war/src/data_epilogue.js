@@ -476,7 +476,8 @@ function epiFinale() {
   const best = ['joy', 'bond', 'legacy'].reduce((a, b) => e[b] > e[a] ? b : a, 'joy');
   const total = e.joy + e.bond + e.legacy;
   const kind = { joy: '幸福に満ちた生涯', bond: '絆に生きた生涯', legacy: '多くを遺した生涯' }[best];
-  const grade = total >= 16 ? '――満ち足りた、と言える一生だった。' : total >= 10 ? '――悔いはある。けれど、良い一生だった。' : '――決して平坦な道ではなかった。それでも、生き抜いた。';
+  const n = Math.max(1, e.steps.length);   // 章が増えても評価が釣り合うよう、章数に比例させる
+  const grade = total >= n * 3.05 ? '――満ち足りた、と言える一生だった。' : total >= n * 2.6 ? '――悔いはある。けれど、良い一生だった。' : '――決して平坦な道ではなかった。それでも、生き抜いた。';
   const title = `${EPI_TITLES[e.track] || 'その後の人生'}：${kind}`;
   markEpilogue(e.track); addLog(`エピローグ「${title}」`);
   sfx('win');
