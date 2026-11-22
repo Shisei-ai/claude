@@ -31,6 +31,7 @@ function grow(stat, base) {
 
 // ---------------- 誕生（0歳） ----------------
 function growthStart() {
+  arcPick();   // 人生の転機（data_lifearcs.js）
   if (isFuji()) return fujimaruStart();
   if (isKishi()) return kishinamiStart();
   if (isShirou()) return shirouStart();
@@ -113,7 +114,9 @@ function growthEvent() {
     if (!ev) { const pool = list.filter(e => !e.fixed && e.stages.includes(idx) && ok(e)); if (pool.length) ev = pick(pool); }
   } else {
     ev = GROWTH_EVENTS.find(e => e.fixed && e.ages[0] === age && ok(e));
-    if (!ev) { const pool = GROWTH_EVENTS.filter(e => !e.fixed && age >= e.ages[0] && age <= e.ages[1] && ok(e)); if (pool.length) ev = pick(pool); }
+    // 人生の転機：決まった出来事が無ければ、次の章を優先する
+    if (!ev && G.arc) { ev = GROWTH_EVENTS.find(e => e.arc === G.arc && e.step === (G.arcStep || 0) + 1 && age >= e.ages[0] && ok(e)); if (ev) G.arcStep = ev.step; }
+    if (!ev) { const pool = GROWTH_EVENTS.filter(e => !e.fixed && !e.arc && age >= e.ages[0] && age <= e.ages[1] && ok(e)); if (pool.length) ev = pick(pool); }
   }
   if (!ev) return nextStage();
   showEvent({ ...ev, chapter: `${currentStage().band}・${stageLabel()}` }, nextStage);

@@ -156,6 +156,8 @@ function ending(kind) {
   addLog(E.title); markEnding(kind);
   const me = mysteryEpilogue(kind);
   if (me) E.text.push(me);
+  const le = lifeEpilogue(kind);
+  if (le) E.text.push(le);
   const ee = enforcerEpilogue(kind);
   if (ee) E.text.push(ee);
   const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure', 'saturated', 'sealed'].includes(kind);

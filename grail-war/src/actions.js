@@ -509,6 +509,7 @@ function setupRivals() {
     r.hpMax = r.hp = 70 + rankValue(s.p[1]);
     return r;
   });
+  applyLifeRival();   // 人生の転機の因縁の相手
   // 幼馴染もマスターに選ばれていた
   if (G.friend) {
     const r = pick(G.rivals);

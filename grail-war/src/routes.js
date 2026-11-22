@@ -47,6 +47,8 @@ function comingOfAge() {
   G.phase = 'prep'; G.day = 1; G.slot = 0;   // ヘッダー表示用（行動選択は beginPrep から）
   const top = Object.entries(m.stats).sort((a, c) => c[1] - a[1]).slice(0, 2).map(([k]) => STAT_LABEL[k]);
   G.summary = `<span class="note">得意なこと：${top.join('・')}　／　在り方：${alignLabel()}</span>`;
+  if (G.marks && G.marks.length) G.summary += `<br><span class="note">人生の痕跡：${G.marks.map(m => m.title).join('・')}</span>`;
+  const sup = lifePrepSupport(); if (sup.length) G.summary += '<br>' + sup.join('<br>');
   chapterCard('序章　令呪の冬', () => {
     G.lastChapter = '序章　令呪の冬';
     ({ heir: heirPrologue, mission: missionPrologue, seeker: seekerPrologue, caught: () => caughtPrologue(false), reluctant: reluctantPrologue, fujimaru: fujimaruPrologue, kishinami: kishinamiPrologue, shirou: shirouPrologue })[G.route]();

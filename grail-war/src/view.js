@@ -204,6 +204,7 @@ function viewMaster() {
     <h3>能力値</h3>${statBars(m.stats)}
     ${spellListHTML()}
     ${isShirou() ? `<h3>冬木の絆</h3>${Object.entries(HEROINES).map(([k, n]) => `<div class="bar-row"><span style="white-space:nowrap">${n}</span><div class="bar bond"><i style="width:${heroines()[k]}%"></i></div><span class="num">${heroines()[k]}</span></div>`).join('')}<p class="note" style="font-size:12px;color:var(--muted)">絆が${HEROINE_LOVE}以上なら、エピローグで恋人として共に生きる道を選べる。</p>` : ''}
+    ${lifeMarksHTML()}
     ${G.friend ? `<h3>幼馴染</h3><div class="bar-row"><span style="white-space:nowrap">${friendName()}</span><div class="bar bond"><i style="width:${G.friend.bond}%"></i></div><span class="num">${G.friend.bond}</span></div>` : ''}
     ${G.servant ? `<p class="note" style="font-size:12px;color:var(--muted)">マスターの魔力による英霊パラメータ補正：${masterCorrection() > 0 ? '+' : ''}${masterCorrection()}（魔力が低いとサーヴァントの性能が落ちる）</p>` : ''}
     <h3>道具</h3><div class="item-list">${Object.entries(ITEMS).map(([k, it]) => `<div><b>${it.name} ×${G.items[k] || 0}</b><span>${it.desc}</span></div>`).join('')}</div>
