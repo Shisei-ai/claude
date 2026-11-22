@@ -449,7 +449,7 @@ function startEpilogue(kind) {
   const steps = EPI[track].slice();
   // 特殊シナリオの章を、年代順に差し込む
   const insert = st => { const i = steps.findIndex(x => x.y > st.y); steps.splice(i < 0 ? steps.length - 1 : i, 0, st); };
-  if (isFuji()) insert(EPI_FUJI);
+  if (isFuji()) { insert(EPI_FUJI); if (typeof trioDreamEligible === 'function' && trioDreamEligible()) insert(EPI_TRIO_DREAM); }   // 藤丸×オベロン／アルトリア・キャスター：レムレムの夢（data_oberon.js）
   if (isShirou()) { insert(EPI_SHIROU_A); insert(EPI_SHIROU_B); }
   if (isKishi() && kind === 'together') steps.unshift(EPI_KISHI);
   G.epi = { kind, track, steps, i: -1, year: 0, joy: 0, bond: 0, legacy: 0, marks: [] };
