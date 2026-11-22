@@ -203,6 +203,7 @@ function trainMenu() {
   submenu('マスターの鍛錬', 'TRAINING', [`<p>マスターの魔力はサーヴァントの性能に、知力は敵の構えを読む力に、体力は自分の身を守る力に関わる。</p>`], [
     { label: '体を鍛える', hint: '体力+3 HP+10', fn: () => actResult('鍛錬', () => { gain('phy', 3); hp(10); return `${SV()}に稽古をつけてもらった。（体力+3 HP+10）`; }) },
     { label: '魔術を磨く', hint: '魔力+3（オド上限も増える）', fn: () => actResult('鍛錬', () => { gain('mag', 3); return '工房に籠もり、術式を研ぎ澄ました。（魔力+3）'; }) },
+    ...(G.magic && schoolIds().length ? [{ label: '魔術の研鑽', hint: `一つの系統を深める（${schoolIds().map(id => `${SCHOOLS[id].name}Lv${masteryLv(id)}`).join('・')}）`, fn: studyMenu }] : []),
     { label: '戦術を学ぶ', hint: '知力+3', fn: () => actResult('鍛錬', () => { gain('int', 3); bond(1); return `${SV()}から、生前の戦の話を聞いた。（知力+3 絆+1）`; }) },
     { label: '資金を稼ぐ', hint: '資金+2〜4', fn: () => actResult('資金調達', () => { const c = chk('cha', 50); const n = c.ok ? 4 : 2; money(n);
       return [c.text, `日雇いの仕事をこなした。（資金+${n}万円）`]; }) },

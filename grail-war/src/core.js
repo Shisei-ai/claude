@@ -90,7 +90,11 @@ function isAssassin() { return G.servant && servantOf(G).cls === 'アサシン';
 
 // ---------------- 状態を変える関数（イベントからも使う） ----------------
 function note(t) { NOTES.push(t); }
-function gain(stat, n) { const st = G.master.stats; st[stat] = clamp(st[stat] + n, 1, 100); }
+function gain(stat, n) {
+  const st = G.master.stats; const before = st[stat]; st[stat] = clamp(st[stat] + n, 1, 100);
+  // 魔力が伸びると、修めた魔術系統の研鑽が進む（系統が多いほど一つあたりは浅く）
+  if (stat === 'mag' && st[stat] > before && G.magic && typeof magicResearch === 'function') magicResearch((st[stat] - before) * 2);
+}
 function money(n) { G.master.money = Math.max(0, G.master.money + n); }
 function hp(n) { G.master.hp = clamp(G.master.hp + n, 0, G.master.hpMax); }
 function od(n) { G.master.od = clamp(G.master.od + n, 0, odMax()); }
@@ -303,6 +307,7 @@ function dailyUpdate() {
     simulateRivals();
     mysteryDaily();
     skillDaily();
+    magicDaily();
   }
 }
 
