@@ -8,7 +8,7 @@
 function hub() {
   G.tmpRival = null;
   saveGame();
-  const flavor = pick(FLAVOR[isNight() ? 'night' : 'day']);
+  const flavor = flavorLine();
   const body = [`<p>${flavor}</p>`];
   let acts;
   if (G.phase === 'prep') {

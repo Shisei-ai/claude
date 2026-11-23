@@ -185,7 +185,9 @@ const STORY = [
     choices: [
       { label: () => `「${birthOf().wish}」と答える`, hint: '自分の願いを語る', run: () => {
           bond(4); G.flags.toldWish = true;
-          return [`あなたは自分の願いを、正直に語った。`, `<p class="quote">${tierLine()}</p>`, `${SV()}は静かに頷いた。（絆+4）`];
+          return voiceOf(servantOf(G)).reg === 'mute'
+            ? [`あなたは自分の願いを、正直に語った。${SV()}は黙って最後まで聞き、それから、大きく一度だけ頷いた。`, '（絆+4）']
+            : [`あなたは自分の願いを、正直に語った。${SV()}は、口を挟まずに最後まで聞いていた。`, `<p class="quote">${say('withYou')}</p>`, '（絆+4）'];
         } },
       { label: () => isFuji() ? '「あの頃みたいに、君の願いを聞かせて」' : '「君こそ、何を願うんだ？」', hint: 'サーヴァントの願いを聞く', run: () => {
           bond(3); G.flags.knowWish = true;
@@ -193,7 +195,7 @@ const STORY = [
             ? [`${SV()}は、しばらくあなたを見つめていた。やがて、パスを通じて、言葉にならない想いが流れ込んできた。`, `<p>（「${fmt(svWish())}」）</p>`, '（絆+3　サーヴァントの願いを知った）']
             : [`${SV()}は少し意外そうな顔をして、それから遠くを見た。`, `<p class="quote">「${fmt(svWish())}」</p>`, '（絆+3　サーヴァントの願いを知った）'];
         } },
-      { label: '「今は勝つことだけ考えよう」', hint: '大胆', run: () => { tone('bold'); return `${say('agree')}<br>${SV()}は口の端を上げた。`; } },
+      { label: '「今は勝つことだけ考えよう」', hint: '大胆', run: () => { tone('bold'); return voiceOf(servantOf(G)).reg === 'mute' ? `${SV()}は、短く唸って頷いた。……同じ考えらしい。` : say('agree'); } },
     ],
   },
   {
