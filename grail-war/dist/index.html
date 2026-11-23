@@ -2869,6 +2869,36 @@ const GROWTH_EVENTS = [
     ] },
 ];
 
+// ---- 成長期の過ごし方の情景（[幼い頃（〜9歳）, 12歳から]）。結果の数値の前に添える ----
+const FOCUS_SCENE = {
+  play: ['泥だらけで帰って、毎晩叱られた。膝の擦り傷は、治る前に新しいものが増えた。', '日が暮れるまで、知らない路地を駆け回った。'],
+  books: ['絵本を抱えたまま眠る夜が続いた。気付けば、図書館の司書さんに名前を覚えられていた。', '図書館の閉館時間まで、本の世界に浸った。読んだ本の数だけ、世界が広がっていく気がした。'],
+  family: ['食卓を囲み、他愛のない話をして笑った。何でもない毎日が、あなたの土台になっていった。', '家族と過ごす時間は、少し照れくさく、けれど確かに温かかった。'],
+  magic1: ['指先に小さな灯りがともった日、あなたは嬉しくて眠れなかった。', '魔術の基礎を、繰り返し体に叩き込んだ。'],
+  friends: ['毎日誰かの家に集まって、秘密基地を作ったり、喧嘩をしたり、仲直りをしたりした。', '放課後は、いつも誰かと一緒だった。くだらない話で、何時間でも笑っていられた。'],
+  martial: ['道場の床は冷たく、竹刀は重かった。それでも、毎週欠かさず通った。', '朝の稽古で、汗と一緒に迷いを流した。少しずつ、背筋が伸びていく。'],
+  shrines: ['休みの日は、古い神社やお寺を巡った。鳥居をくぐるたびに、空気が変わる気がした。', '古い社を巡り、手を合わせる。見えない何かと、少しずつ縁が結ばれていく。'],
+  merc: ['養父の背中を追いかけて、山を歩き、火の起こし方を覚えた。', '養父との訓練は、容赦がなかった。生き延びる術が、体に刻み込まれていく。'],
+  church: ['祈りと規律の毎日。夜明け前の聖堂は、いつも冷たかった。', '代行者としての訓練は過酷だった。祈りの言葉と、戦いの技を、同じ重さで覚えた。'],
+  study: ['机に向かう時間が、少しずつ長くなっていった。', '参考書の山を、一冊ずつ崩していった。答えが分かる瞬間が、たまらなく好きだった。'],
+  magic2: ['魔術回路が焼けるような痛みにも、少しずつ慣れていった。', '工房に籠もり、術式の精度を一つずつ高めていった。魔術師としての自分が、形になっていく。'],
+  mind: ['静かに目を閉じ、自分の呼吸だけを聞く時間が好きになった。', '冷たい水を浴び、心を鎮める。揺れなくなった心に、少しずつ芯が通っていく。'],
+  club: ['部活の仲間と、汗を流した。', '部活の仲間と、汗と涙を分け合った。最後の大会の夜、皆で泣きながら笑った。'],
+  council: ['クラスの話し合いで、自然とまとめ役になっていた。', '生徒会室の灯りは、いつも最後まで点いていた。人をまとめる難しさと、面白さを知った。'],
+  wander: ['夜の街を、あてもなく歩いた。', '夜の街を、あてもなく歩いた。ネオンの下で、昼には見えない街の顔を知った。'],
+  work: ['お手伝いをして、小さなお駄賃を貯めた。', '放課後はアルバイトに明け暮れた。自分で稼いだお金は、少しだけ重く感じた。'],
+  lore: ['街の古い言い伝えを、聞いて回った。', '郷土資料室に通い詰め、街の伝承と霊脈の地図を突き合わせた。この街には、何かが眠っている。'],
+};
+function focusScene(k) {
+  const s = FOCUS_SCENE[k]; if (!s) return '';
+  // 同じ過ごし方を続けた時は、前と違う文にする
+  const seen = (G.flags.focusSeen = G.flags.focusSeen || {});
+  let i = G.master.age < 12 ? 0 : 1;
+  if (seen[k + i]) i = 1 - i;
+  seen[k + i] = true;
+  return s[i];
+}
+
 // =============================================================
 //  data_lifearcs.js … 人生の転機（成長期のバリエーション）
 //
@@ -5605,7 +5635,7 @@ const FOCUS_S = {
   cook:   { name: '各地の料理を覚える', gains: { cha: 8, luk: 4 }, money: 1 },
 };
 const GROWTH_EVENTS_S = [
-  { id: 'sg_depart', stages: [1], fixed: true, title: '旅立ちの朝',
+  { id: 'sg_depart', stages: [], fixed: true, title: '旅立ちの朝',   // 「旅を始める」の直後に出す
     text: () => '冬木を発つ朝。衛宮邸の門の前に、見送りの人たちが集まっていた。<br>「ちゃんとご飯食べるのよ、士郎！」と藤ねえ。「……先輩。いってらっしゃい」と桜。<br>そして遠坂が、腕を組んで言った。「いい？ 無茶したら承知しないから。……ちゃんと、帰ってきなさいよ」',
     choices: [
       { label: '「行ってきます」と、笑って答える', hint: '精神・交渉↑', run: () => { gain('spi', 3); gain('cha', 3); hero('rin', 5); hero('sakura', 5); return '三人の顔を目に焼き付けて、門をくぐった。――必ず、帰ってくる。（精神+3 交渉+3）'; } },
@@ -5767,7 +5797,7 @@ function shirouStart() {
       '冬木市の聖杯戦争から数年。胸に燻る「正義の味方」への憧れと共に、衛宮士郎は世界を周っていた。',
       '投影魔術。そして、心の中に広がる剣の丘――「無限の剣製」。あの冬を越えて手にした力を携えて、助けを求める声のある場所へ。',
       '<span class="note">特殊シナリオ：世界を周った7つの年月の過ごし方が、あなたの力になる。マスターとしては未熟だが、士郎自身が英霊とある程度渡り合える。</span>',
-    ]), choices: [{ label: '旅を始める', cls: 'primary', icon: 'next', fn: () => nextStage() }] });
+    ]), choices: [{ label: '旅を始める', cls: 'primary', icon: 'next', fn: () => showEvent(GROWTH_EVENTS_S.find(e => e.id === 'sg_depart'), () => nextStage()) }] });
   });
 }
 function shirouMaster(name) {
@@ -5947,7 +5977,7 @@ function heroNote(k, n) { const t = hero(k, n); return `<span class="note">（${
 
 // ---- 旅の間の出来事（追加） ----
 GROWTH_EVENTS_S.push(
-  { id: 'sg_london', stages: [2], fixed: true, title: '時計塔の日々',
+  { id: 'sg_london', stages: [1], fixed: true, title: '時計塔の日々',
     text: () => 'ロンドン。遠坂の弟子兼、雑用係兼、料理番として、時計塔の近くの下宿で暮らした。<br>「士郎、紅茶！」「士郎、この資料、三十分で！」……文句を言いながらも、遠坂はいつも、最後には「ありがと」と小さく言った。',
     choices: [
       { label: '遠坂の研究を手伝い続ける', hint: '魔力・知力↑・遠坂との絆↑↑', run: () => { gain('mag', 3); gain('int', 3); return ['深夜まで、二人で宝石の術式と格闘した。気付けば、遠坂は机に突っ伏して眠っていた。毛布をかけると、「……ばか」と寝言が聞こえた。（魔力+3 知力+3）', heroNote('rin', 12)]; } },
@@ -17179,7 +17209,7 @@ function growthStage() {
     icon: guessIcon(f.name) || 'train',
     fn: () => applyFocus(k),
   }));
-  scene({ title: stageLabel(st), sub: `${st.band}　${b.home}`, body: [
+  scene({ title: stageLabel(st), sub: isShirou() ? st.band : `${st.band}　${b.home}`, body: [
     `<p>${st.text}</p>`,
     `<div class="grow-stats">${statBars(G.master.stats)}</div>`,
     `<p class="note">${isFuji() ? 'このひと月を' : isKishi() ? 'この期間を' : isShirou() ? 'この一年を' : 'この数年を'}、どう過ごす？　↑↑は伸びやすい能力。</p>`,
@@ -17195,6 +17225,7 @@ function applyFocus(k) {
   if (f.lore) lore(f.lore);
   money(Math.max(1, Math.round(birthOf().money / 7)));   // おこづかい・仕送り
   res.push(isFuji() ? `${stageLabel()}は、「${f.name}」ひと月だった。` : isKishi() ? `${stageLabel()}の期間は、「${f.name}」ことに費やした。` : isShirou() ? `${stageLabel()}――「${f.name}」一年だった。` : `${G.master.age}歳からの数年間は、「${f.name}」日々だった。`);
+  if (!isFuji() && !isKishi() && !isShirou() && focusScene(k)) res.push(focusScene(k));
   res.push(`<span class="note">${ups.join('　')}${f.money ? `　資金+${f.money}` : ''}</span>`);
   if (f.catalyst && Math.random() < f.catalyst) { const c = giveCatalyst(); res.push(`街の古道具屋で、妙に惹かれる品を手に入れた。<b>${c}</b>だ。`); }
   addLog(`${stageLabel()}：${f.name}。`);

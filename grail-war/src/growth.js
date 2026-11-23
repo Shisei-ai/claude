@@ -82,7 +82,7 @@ function growthStage() {
     icon: guessIcon(f.name) || 'train',
     fn: () => applyFocus(k),
   }));
-  scene({ title: stageLabel(st), sub: `${st.band}　${b.home}`, body: [
+  scene({ title: stageLabel(st), sub: isShirou() ? st.band : `${st.band}　${b.home}`, body: [
     `<p>${st.text}</p>`,
     `<div class="grow-stats">${statBars(G.master.stats)}</div>`,
     `<p class="note">${isFuji() ? 'このひと月を' : isKishi() ? 'この期間を' : isShirou() ? 'この一年を' : 'この数年を'}、どう過ごす？　↑↑は伸びやすい能力。</p>`,
@@ -98,6 +98,7 @@ function applyFocus(k) {
   if (f.lore) lore(f.lore);
   money(Math.max(1, Math.round(birthOf().money / 7)));   // おこづかい・仕送り
   res.push(isFuji() ? `${stageLabel()}は、「${f.name}」ひと月だった。` : isKishi() ? `${stageLabel()}の期間は、「${f.name}」ことに費やした。` : isShirou() ? `${stageLabel()}――「${f.name}」一年だった。` : `${G.master.age}歳からの数年間は、「${f.name}」日々だった。`);
+  if (!isFuji() && !isKishi() && !isShirou() && focusScene(k)) res.push(focusScene(k));
   res.push(`<span class="note">${ups.join('　')}${f.money ? `　資金+${f.money}` : ''}</span>`);
   if (f.catalyst && Math.random() < f.catalyst) { const c = giveCatalyst(); res.push(`街の古道具屋で、妙に惹かれる品を手に入れた。<b>${c}</b>だ。`); }
   addLog(`${stageLabel()}：${f.name}。`);

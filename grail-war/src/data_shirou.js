@@ -63,7 +63,7 @@ const FOCUS_S = {
   cook:   { name: '各地の料理を覚える', gains: { cha: 8, luk: 4 }, money: 1 },
 };
 const GROWTH_EVENTS_S = [
-  { id: 'sg_depart', stages: [1], fixed: true, title: '旅立ちの朝',
+  { id: 'sg_depart', stages: [], fixed: true, title: '旅立ちの朝',   // 「旅を始める」の直後に出す
     text: () => '冬木を発つ朝。衛宮邸の門の前に、見送りの人たちが集まっていた。<br>「ちゃんとご飯食べるのよ、士郎！」と藤ねえ。「……先輩。いってらっしゃい」と桜。<br>そして遠坂が、腕を組んで言った。「いい？ 無茶したら承知しないから。……ちゃんと、帰ってきなさいよ」',
     choices: [
       { label: '「行ってきます」と、笑って答える', hint: '精神・交渉↑', run: () => { gain('spi', 3); gain('cha', 3); hero('rin', 5); hero('sakura', 5); return '三人の顔を目に焼き付けて、門をくぐった。――必ず、帰ってくる。（精神+3 交渉+3）'; } },
@@ -225,7 +225,7 @@ function shirouStart() {
       '冬木市の聖杯戦争から数年。胸に燻る「正義の味方」への憧れと共に、衛宮士郎は世界を周っていた。',
       '投影魔術。そして、心の中に広がる剣の丘――「無限の剣製」。あの冬を越えて手にした力を携えて、助けを求める声のある場所へ。',
       '<span class="note">特殊シナリオ：世界を周った7つの年月の過ごし方が、あなたの力になる。マスターとしては未熟だが、士郎自身が英霊とある程度渡り合える。</span>',
-    ]), choices: [{ label: '旅を始める', cls: 'primary', icon: 'next', fn: () => nextStage() }] });
+    ]), choices: [{ label: '旅を始める', cls: 'primary', icon: 'next', fn: () => showEvent(GROWTH_EVENTS_S.find(e => e.id === 'sg_depart'), () => nextStage()) }] });
   });
 }
 function shirouMaster(name) {
@@ -405,7 +405,7 @@ function heroNote(k, n) { const t = hero(k, n); return `<span class="note">（${
 
 // ---- 旅の間の出来事（追加） ----
 GROWTH_EVENTS_S.push(
-  { id: 'sg_london', stages: [2], fixed: true, title: '時計塔の日々',
+  { id: 'sg_london', stages: [1], fixed: true, title: '時計塔の日々',
     text: () => 'ロンドン。遠坂の弟子兼、雑用係兼、料理番として、時計塔の近くの下宿で暮らした。<br>「士郎、紅茶！」「士郎、この資料、三十分で！」……文句を言いながらも、遠坂はいつも、最後には「ありがと」と小さく言った。',
     choices: [
       { label: '遠坂の研究を手伝い続ける', hint: '魔力・知力↑・遠坂との絆↑↑', run: () => { gain('mag', 3); gain('int', 3); return ['深夜まで、二人で宝石の術式と格闘した。気付けば、遠坂は机に突っ伏して眠っていた。毛布をかけると、「……ばか」と寝言が聞こえた。（魔力+3 知力+3）', heroNote('rin', 12)]; } },
