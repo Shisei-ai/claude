@@ -352,7 +352,7 @@ function defendBase() {
     return next('迎撃', [`<p>結界に反応。${rivalLabel(r)}陣営が攻めてきた！ 陣地の力で迎え撃つ。</p>`],
       () => startBattle(r, { defend: true }), '迎え撃つ');
   }
-  actResult('待機', () => { mp(15); shp(10); od(10); return '敵は現れなかった。結界の内で魔力を蓄えた。（魔力+15 HP+10 オド+10）'; });
+  actResult('待機', () => { mp(15); shp(10); od(10); return `敵は現れなかった。${G.workshop > 0 ? '結界の内で' : '灯りを落とした拠点で、息を潜めて'}魔力を蓄えた。（魔力+15 HP+10 オド+10）`; });
 }
 function nightRest() {
   // 絆Lv7以上：絆の繋がりが強く、パスを流れる魔力が増す

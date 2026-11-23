@@ -177,7 +177,7 @@ function sealMenu() {
   ];
   if (!B.final) choices.push({ label: '「退け」', hint: '確実に撤退', fn: () => battleRound('seal_retreat') });
   choices.push({ label: '戻る', fn: () => { B.anim = null; battleScene(); } });
-  scene({ title: '令呪', sub: `残り${G.master.seals}画`, body: [sealGlyphs(), '<p>右手の令呪が熱を帯びる。三画しかない絶対命令権――どう使う？</p>'], choices });
+  scene({ title: '令呪', sub: `残り${G.master.seals}画`, body: [sealGlyphs(), `<p>右手の令呪が熱を帯びる。残り${G.master.seals}画の絶対命令権――どう使う？</p>`], choices });
 }
 
 // ---------------- 1手番の処理 ----------------

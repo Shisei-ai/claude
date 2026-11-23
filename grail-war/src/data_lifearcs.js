@@ -409,8 +409,11 @@ function applyLifeRival() {
 function lifeEpilogue(kind) {
   if (!G.marks || !G.marks.length || kind === 'sealed') return '';
   const lr = G.lifeRival; const r = G.rivals.find(x => x.lifeRival);
-  const tail = lr && r ? (r.alive ? `${lr.name}とは、戦いの後に一度だけ言葉を交わした。` : `${lr.name}との因縁は、あの冬に決着がついた。`) : '';
-  return `<p class="note">${G.marks[G.marks.length - 1].text}${tail ? '<br>' + tail : ''}</p>`;
+  const tail = !lr || !r ? '' : !r.alive ? `${lr.name}との因縁は、あの冬に決着がついた。`
+    : r.ally ? `${lr.name}とは、戦いの後も連絡を取り合っている。あの冬、肩を並べたことは、二人だけの秘密だ。`
+    : lr.stance === 'hostile' ? `戦いの後、${lr.name}と一度だけ言葉を交わした。許されたのかどうかは、まだ分からない。`
+    : `${lr.name}とは、戦いの後に一度だけ言葉を交わした。互いに、少しだけ大人になっていた。`;
+  return `<p class="note">人生の痕跡――${G.marks[G.marks.length - 1].text}${tail ? '<br>' + tail : ''}</p>`;
 }
 // ステータス画面
 function lifeMarksHTML() {

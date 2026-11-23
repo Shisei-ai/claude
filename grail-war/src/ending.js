@@ -185,7 +185,10 @@ function friendEpilogue(kind) {
   if (G.flags.friendSaved) return `<p class="note">春。${n}と並んで、城跡公園の桜を見上げた。「約束、守ってくれたね」</p>`;
   if (r.killed) return `<p class="note">${n}の家の前を通るたび、あなたは足を止める。もう、あの笑顔が迎えてくれることはない。</p>`;
   if (G.flags.friendDefeated) return `<p class="note">戦いの後、${n}から一通のメッセージが届いた。「おかえり。……また、ココア飲みに来なよ」</p>`;
-  if (r.alive) return `<p class="note">${n}は最後まで、あなたの味方でいてくれた。</p>`;
+  if (r.alive && r.ally) return `<p class="note">${n}は最後まで、あなたの味方でいてくれた。春、二人で城跡公園を歩きながら、あの冬の話を少しだけした。</p>`;
+  if (r.alive) return kind === 'lost' || kind === 'abstain'
+    ? `<p class="note">あなたが戦いを降りた後も、${n}は最後まで戦い抜いた。春、二人で、黙ってココアを飲んだ。それで十分だった。</p>`
+    : `<p class="note">${n}も、あの冬を生きて越えた。「お互い、しぶといね」――そう言って笑う顔は、昔のままだった。</p>`;
   return `<p class="note">${n}は無事だった。教会で再会した時、二人はしばらく言葉もなく、ただ抱き合った。</p>`;
 }
 

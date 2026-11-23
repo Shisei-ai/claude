@@ -30,6 +30,7 @@ let G = null;          // ゲームの状態（セーブされる）
 let SCENE = null;      // 今表示している場面（セーブしない）
 let TAB = 'story';     // 選択中のタブ
 let NOTES = [];        // 判定結果などに付け足す小さな注記
+let TONE_NOTE = null;  // 直前の「英霊の反応」の注記（二重表示を防ぐ）
 let LAST_HUB = null;   // 最後に行動選択画面へ戻った時点のセーブデータ
 let SLOT = {};         // このコマで済ませた処理（ニュース・物語・イベント）
 
@@ -132,8 +133,14 @@ function tone(t) {
   const calm = ['cool', 'scholar'].includes(sv.persona);
   if (t === 'cautious') d += calm ? 1 : bold ? -1 : 0;
   if (t === 'bold') d += bold ? 1 : calm ? -1 : 0;
-  if (d > 0) { bond(d); note(`<span class="note">${SV()}は好ましく思ったようだ。（絆+${d}）</span>`); }
-  if (d < 0) { bond(d); note(`<span class="note">${SV()}は少し不満そうだ。（絆${d}）</span>`); }
+  if (!d) return;
+  bond(d);
+  // 一つの選択で傾向が二つ以上動いた時は、反応を1行にまとめる
+  if (TONE_NOTE && NOTES[NOTES.length - 1] === TONE_NOTE.text) { NOTES.pop(); d += TONE_NOTE.d; }
+  const text = d > 0 ? `<span class="note">${SV()}は好ましく思ったようだ。（絆+${d}）</span>`
+    : d < 0 ? `<span class="note">${SV()}は少し不満そうだ。（絆${d}）</span>`
+    : `<span class="note">${SV()}は、何とも言えない顔をした。</span>`;
+  TONE_NOTE = { text, d }; note(text);
 }
 function alignLabel(a = G.master.align) {
   const o = a.law > 25 ? '秩序' : a.law < -25 ? '混沌' : '中立';
