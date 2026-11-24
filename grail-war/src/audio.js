@@ -63,6 +63,11 @@ function voice(g, dest, o) {
     const osc = ctx.createOscillator(); osc.type = o.type || 'sine'; osc.frequency.setValueAtTime(o.f, t); osc.detune.value = dt;
     if (o.endF) osc.frequency.exponentialRampToValueAtTime(o.endF, t + (o.glide || dur));
     const og = ctx.createGain(); og.gain.value = 1 / dets.length; osc.connect(og); og.connect(out);
+    if (o.vib) {   // ビブラート（少し遅れてかかる）
+      const l = ctx.createOscillator(); l.frequency.value = o.vibRate || 5.4; const lg = ctx.createGain();
+      lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(o.f * o.vib, t + Math.min(0.5, dur * 0.6)); l.connect(lg); lg.connect(osc.frequency);
+      l.start(t); l.stop(t + dur + r + 0.1);
+    }
     osc.start(t); osc.stop(t + dur + r + 0.1);
   }
 }
@@ -145,10 +150,8 @@ const MOODS = {
              pad: { type: 'triangle', cut: 1400, vol: 0.029 }, bass: { vol: 0.065 }, pluck: { vol: 0.038 }, shaker: 0.012 },
   night:   { bpm: 62, bpc: 8, chords: [[40, 55, 59, 64], [36, 55, 60, 64], [45, 57, 60, 64], [47, 54, 59, 63]], scale: [64, 66, 67, 71, 72, 75, 76],
              pad: { type: 'sawtooth', cut: 600, vol: 0.032 }, bass: { vol: 0.072 }, drone: true, bell: { p: 0.14, vol: 0.038, low: true }, pulse: 0.05 },
-  battle:  { bpm: 144, bpc: 4, chords: [[50, 57, 62, 65], [46, 58, 62, 65], [48, 55, 60, 64], [45, 57, 61, 64]], scale: [62, 64, 65, 67, 69, 70, 73, 74],
-             pad: { type: 'sawtooth', cut: 1100, vol: 0.02 }, ostinato: { vol: 0.065 }, stab: { vol: 0.029 }, drums: 'battle', lead: { p: 0.35, vol: 0.032 } },
-  final:   { bpm: 152, bpc: 4, chords: [[47, 54, 59, 62], [43, 55, 59, 62], [40, 55, 59, 64], [42, 54, 58, 61]], scale: [59, 61, 62, 64, 66, 67, 70, 71],
-             pad: { type: 'sawtooth', cut: 1500, vol: 0.029, det: 14 }, ostinato: { vol: 0.072 }, stab: { vol: 0.032 }, drums: 'final', lead: { p: 0.45, vol: 0.035 } },
+  battle:  { bpm: 138, gain: 0.95, score: (mu, t, st, half) => battleScore(mu, t, st, half) },   // 「命のやり取り、信念のぶつかり合い」
+  final:   { bpm: 160, gain: 0.75, score: (mu, t, st, half) => finalScore(mu, t, st, half) },    // 「死ぬか、生きるか」
   dawn:    { bpm: 66, bpc: 8, chords: [[43, 55, 59, 62], [38, 54, 57, 62], [40, 55, 59, 64], [36, 55, 60, 64]], scale: [67, 69, 71, 74, 76, 78, 79, 83],
              pad: { type: 'triangle', cut: 2000, vol: 0.035 }, bass: { vol: 0.065 }, bell: { p: 0.3, vol: 0.043 } },
   sorrow:  { bpm: 54, bpc: 8, chords: [[45, 57, 60, 64], [41, 57, 60, 65], [38, 53, 57, 62], [40, 56, 59, 64]], scale: [69, 71, 72, 74, 76, 77, 80],
@@ -159,8 +162,8 @@ const MOODS = {
 class Music {
   constructor(g, mood) {
     this.g = g; this.m = MOODS[mood]; this.mood = mood;
-    this.out = g.ctx.createGain(); this.out.gain.value = 0; this.out.connect(g.bgm);
-    this.step = 0; this.next = g.ctx.currentTime + 0.1; this.mel = this.m.scale[Math.floor(this.m.scale.length / 2)];
+    this.out = g.ctx.createGain(); this.out.gain.value = 0; const lv = g.ctx.createGain(); lv.gain.value = this.m.gain || 1; this.out.connect(lv); lv.connect(g.bgm);
+    this.step = 0; this.next = g.ctx.currentTime + 0.1; this.mel = this.m.scale ? this.m.scale[Math.floor(this.m.scale.length / 2)] : 0;
   }
   fadeIn(sec = 2) { const t = this.g.ctx.currentTime; this.out.gain.setValueAtTime(0, t); this.out.gain.linearRampToValueAtTime(1, t + sec); }
   fadeOut(sec = 2) { const t = this.g.ctx.currentTime; this.out.gain.cancelScheduledValues(t); this.out.gain.setValueAtTime(this.out.gain.value, t); this.out.gain.linearRampToValueAtTime(0, t + sec); this.dead = t + sec + 0.2; setTimeout(() => { try { this.out.disconnect(); } catch (e) { } }, (sec + 3) * 1000); }
@@ -170,6 +173,7 @@ class Music {
   scheduleUntil(until) {
     const m = this.m; const g = this.g; const d = this.out; const spb = 60 / m.bpm; const half = spb / 2;
     while (this.next < until) {
+      if (m.score) { m.score(this, this.next, this.step, half); this.step++; this.next += half; continue; }   // 作曲された曲（戦闘・決戦）
       const t = this.next; const st = this.step; const beat = st / 2; const perChord = m.bpc * 2;
       const ci = Math.floor(st / perChord) % m.chords.length; const ch = m.chords[ci]; const inChord = st % perChord; const onBeat = st % 2 === 0;
       const chordDur = m.bpc * spb;
@@ -200,6 +204,109 @@ class Music {
     }
   }
 }
+// =============================================================
+//  戦闘曲「信念の刃」（ニ短調・138）
+//   A（1〜8小節）緊迫：低弦の16分の刻み・不協な6度・太鼓のシンコペーション。最後の2小節で音がせり上がる
+//   B（9〜16小節）覚悟：金管の主題が立ち上がり、和音は上へ上へと押し上げる。最後は属和音（イ長調）で張り詰めたまま頭へ戻る
+//  1小節＝8分音符8つ。和音は { r: ベースの音, n: 和音の音 }
+// =============================================================
+const CH = (r, ...n) => ({ r, n });
+const BATTLE_A = [CH(38, 57, 62, 65, 64), CH(38, 57, 62, 65, 69), CH(34, 58, 62, 65), CH(36, 55, 60, 64), CH(38, 57, 62, 65, 64), CH(38, 57, 62, 65, 69), CH(34, 58, 62, 65), CH(33, 57, 61, 64)];
+const BATTLE_B = [CH(34, 58, 62, 65), CH(36, 55, 60, 64), CH(38, 57, 62, 65), CH(38, 57, 62, 65), CH(34, 58, 62, 65), CH(36, 55, 60, 64), CH(33, 57, 61, 64), CH(33, 57, 62, 64)];
+// 覚悟の主題（[小節内の位置, 音, 長さ]、8分音符単位）
+const BATTLE_THEME = [
+  [[0, 74, 4], [4, 77, 2], [6, 76, 1], [7, 74, 1]], [[0, 72, 3], [3, 74, 1], [4, 76, 4]],
+  [[0, 77, 4], [4, 81, 4]], [[0, 81, 6], [6, 79, 1], [7, 77, 1]],
+  [[0, 79, 4], [4, 77, 2], [6, 74, 2]], [[0, 76, 3], [3, 77, 1], [4, 79, 4]],
+  [[0, 81, 8]], [[0, 85, 4], [4, 81, 2], [6, 76, 2]],
+];
+function crash(g, d, t, vol = 0.06) { noiseHit(g, d, { t, dur: 1.8, vol, f: 5500, ftype: 'highpass', send: 0.5 }); }
+function brass(g, d, n, t, dur, vol) {   // 金管（オクターブ下を重ねる）
+  voice(g, d, { f: mtof(n), t, dur, a: 0.03, r: 0.25, vol, type: 'sawtooth', det: 9, cut: 2600, q: 1.2, send: 0.35, vib: 0.006 });
+  voice(g, d, { f: mtof(n - 12), t, dur, a: 0.03, r: 0.25, vol: vol * 0.55, type: 'sawtooth', det: 6, cut: 1500, send: 0.25 });
+}
+function battleScore(mu, t, st, half) {
+  const g = mu.g, d = mu.out; const bar = Math.floor(st / 8) % 16; const pos = st % 8; const B2 = bar >= 8; const bi = bar % 8;
+  const ch = (B2 ? BATTLE_B : BATTLE_A)[bi]; const q = half / 2; const barDur = half * 8;
+  const minor = ch.n.includes(ch.r + 15) || ch.n.includes(ch.r + 27);   // 短和音か
+  // 和音（弦のパッド）：小節の頭
+  if (pos === 0) {
+    ch.n.forEach((n, k) => voice(g, d, { f: mtof(n), t, dur: barDur, a: B2 ? 0.08 : 0.25, r: 0.5, vol: B2 ? 0.016 : 0.013, type: 'sawtooth', det: 10, cut: B2 ? 1800 : 1000, send: 0.4, pan: (k - 1.5) * 0.3 }));
+    voice(g, d, { f: mtof(ch.r), t, dur: barDur, a: 0.02, r: 0.3, vol: 0.05, type: 'sine' });   // 低音の支え
+    if (bar === 8 || bar === 0) crash(g, d, t, bar === 8 ? 0.07 : 0.045);
+  }
+  // 低弦の16分の刻み（短和音では短6度を混ぜて緊迫させる）
+  const pat = B2 ? [0, 0, 12, 0, 0, 0, 7, 5, 0, 0, 12, 0, 0, 0, 10, 7] : [0, 0, 12, 0, 0, 0, minor ? 8 : 7, 7, 0, 0, 12, 0, 0, 0, minor ? 8 : 10, 7];
+  for (let s2 = 0; s2 < 2; s2++) { const i = pos * 2 + s2; const n = ch.r + 12 + pat[i]; voice(g, d, { f: mtof(n), t: t + s2 * q, dur: q * 0.7, a: 0.003, r: 0.05, vol: (i % 4 === 0 ? 0.05 : 0.036) * (B2 ? 1 : 0.8), type: 'sawtooth', cut: B2 ? 1100 : 850, cutEnd: 380, q: 2.5 }); }
+  // 太鼓：A は「ドン・ドドン」の切迫したシンコペーション、B は力強い四つ打ち
+  if (B2) { if (pos % 2 === 0) drum(g, d, t, pos === 0 ? 0.3 : 0.2, 120, 42, 0.3); if (pos === 2 || pos === 6) snare(g, d, t, 0.1); }
+  else { if ([0, 3, 4, 6].includes(pos)) drum(g, d, t, pos === 0 ? 0.3 : 0.2, 110, 40, 0.35); if (pos === 6) snare(g, d, t, 0.06); }
+  hat(g, d, t, pos % 2 ? 0.014 : 0.022); hat(g, d, t + q, 0.01, -0.2);
+  // A の終わり（7・8小節）：弦のトレモロがせり上がり、B へ
+  if (!B2 && bi >= 6) { const n = ch.n[ch.n.length - 1] + 12 + (bi === 7 ? Math.floor(pos / 2) : 0); for (let s2 = 0; s2 < 2; s2++) voice(g, d, { f: mtof(n), t: t + s2 * q, dur: q * 0.8, a: 0.004, r: 0.04, vol: 0.008 + pos * 0.0015, type: 'sawtooth', cut: 3200 }); }
+  if (!B2 && bi === 7 && pos === 0) noiseHit(g, d, { t, dur: barDur, vol: 0.05, f: 400, endF: 5000, ftype: 'bandpass', a: barDur * 0.9, send: 0.3 });
+  // B：覚悟の主題（金管）と、裏で鳴る弦の打ち込み
+  if (B2) {
+    for (const [p, n, len] of BATTLE_THEME[bi]) if (p === pos) brass(g, d, n, t, len * half * 0.95, 0.03);
+    if ([0, 3, 6].includes(pos)) ch.n.forEach(n => voice(g, d, { f: mtof(n + 12), t, dur: half * 0.45, a: 0.004, r: 0.08, vol: 0.011, type: 'sawtooth', det: 8, cut: 2800, send: 0.2 }));
+  } else if (pos === 0 && bi % 2 === 0) {
+    // A：遠くで鳴る、主題の断片（予感）
+    voice(g, d, { f: mtof(74), t: t + half * 2, dur: half * 3, a: 0.2, r: 0.6, vol: 0.012, type: 'triangle', send: 0.6, vib: 0.004 });
+  }
+}
+
+// =============================================================
+//  決戦曲「生と死の境界」（ロ短調・160）
+//   A（1〜8小節）極限：半音でぶつかる刻み（シ－ド）、フリギアの♭II（ハ長調）、♭9 の不協和音、
+//                     心臓の鼓動のような二連の太鼓、4小節ごとの弔いの鐘、低く唸る合唱
+//   B（9〜16小節）生への渇望：高音の弦と金管が、悲壮な主題を叫ぶ。最後の小節はティンパニの連打で頭へ
+// =============================================================
+const FINAL_A = [CH(35, 54, 59, 62, 66), CH(36, 55, 60, 64, 71), CH(35, 54, 59, 62, 66), CH(36, 55, 60, 64, 71), CH(31, 55, 59, 62, 67), CH(30, 54, 58, 61, 67), CH(35, 54, 59, 62, 66), CH(36, 55, 60, 64, 71)];
+const FINAL_B = [CH(31, 55, 59, 62, 67), CH(33, 57, 61, 64, 69), CH(35, 54, 59, 62, 66), CH(35, 54, 59, 62, 66), CH(31, 55, 59, 62, 67), CH(33, 57, 61, 64, 69), CH(30, 54, 58, 61, 66), CH(30, 54, 58, 61, 64)];
+const FINAL_THEME = [
+  [[0, 83, 4], [4, 86, 2], [6, 85, 1], [7, 83, 1]], [[0, 81, 3], [3, 83, 1], [4, 85, 4]],
+  [[0, 86, 6], [6, 90, 2]], [[0, 90, 4], [4, 88, 2], [6, 86, 2]],
+  [[0, 86, 4], [4, 83, 2], [6, 86, 2]], [[0, 88, 4], [4, 85, 4]],
+  [[0, 90, 8]], [[0, 82, 4], [4, 85, 2], [6, 78, 2]],
+];
+function choir(g, d, n, t, dur, vol) {   // 合唱（「アー」の声に近づけた和音）
+  voice(g, d, { f: mtof(n), t, dur, a: 0.4, r: 0.8, vol, type: 'sawtooth', det: 14, cut: 1100, q: 3, ftype: 'bandpass', send: 0.6, vib: 0.004, vibRate: 4.6 });
+}
+function finalScore(mu, t, st, half) {
+  const g = mu.g, d = mu.out; const cyc = Math.floor(st / 128); const bar = Math.floor(st / 8) % 16; const pos = st % 8; const B2 = bar >= 8; const bi = bar % 8;
+  const ch = (B2 ? FINAL_B : FINAL_A)[bi]; const q = half / 2; const barDur = half * 8;
+  if (pos === 0) {
+    ch.n.forEach((n, k) => choir(g, d, n, t, barDur, B2 ? 0.02 : 0.017));
+    voice(g, d, { f: mtof(ch.r), t, dur: barDur, a: 0.02, r: 0.3, vol: 0.06, type: 'sine' });
+    if (bar % 4 === 0 && !B2) bell(g, d, mtof(47), t, 3.5, 0.06, 0.7);   // 弔いの鐘
+    if (bar === 8 || bar === 12) crash(g, d, t, 0.08);
+  }
+  // 刻み：主音と半音上を行き来し、増4度で裂ける
+  const pat = B2 ? [0, 0, 12, 0, 0, 0, 7, 0, 0, 0, 12, 0, 0, 7, 10, 12] : [0, 1, 0, 12, 0, 1, 0, 7, 0, 1, 0, 12, 0, 1, 7, 6];
+  for (let s2 = 0; s2 < 2; s2++) { const i = pos * 2 + s2; const n = ch.r + 12 + pat[i]; voice(g, d, { f: mtof(n), t: t + s2 * q, dur: q * 0.7, a: 0.003, r: 0.04, vol: i % 4 === 0 ? 0.055 : 0.04, type: 'sawtooth', cut: 1000, cutEnd: 420, q: 3 }); }
+  // 心臓の鼓動（ドクン、ドクン）と、絶え間ない太鼓
+  if (pos % 2 === 0) { drum(g, d, t, 0.3, 95, 38, 0.32); drum(g, d, t + q * 0.75, 0.16, 85, 36, 0.25); }
+  else drum(g, d, t, 0.1, 140, 60, 0.15);
+  if (pos === 2 || pos === 6) snare(g, d, t, B2 ? 0.12 : 0.08);
+  hat(g, d, t, 0.02); hat(g, d, t + q, 0.012, -0.25);
+  // 高音の弦のトレモロ（張り詰めた糸）
+  const top = ch.n[ch.n.length - 1] + 12;
+  for (let s2 = 0; s2 < 2; s2++) voice(g, d, { f: mtof(top), t: t + s2 * q, dur: q * 0.8, a: 0.003, r: 0.03, vol: B2 ? 0.011 : 0.007, type: 'sawtooth', cut: 3800 });
+  if (B2) {
+    for (const [p, n, len] of FINAL_THEME[bi]) if (p === pos) {
+      voice(g, d, { f: mtof(n), t, dur: len * half * 0.95, a: 0.04, r: 0.3, vol: 0.022, type: 'sawtooth', det: 12, cut: 3400, send: 0.45, vib: 0.008 });   // 高音の弦
+      brass(g, d, n - 12, t, len * half * 0.95, 0.026);                                                                                                // 金管（オクターブ下）
+    }
+  } else if (bi === 5 && pos === 0) {
+    // ♭9 の不協和音を、金管が突き刺す
+    [54, 58, 61, 67].forEach(n => voice(g, d, { f: mtof(n + 12), t, dur: barDur * 0.9, a: 0.02, r: 0.4, vol: 0.016, type: 'sawtooth', det: 10, cut: 2400, send: 0.4 }));
+  }
+  // 最後の小節：ティンパニの連打で次の周へ
+  if (bar === 15) for (let s2 = 0; s2 < 2; s2++) drum(g, d, t + s2 * q, 0.12 + pos * 0.025, 75, 45, 0.2);
+  // 2周目以降は、A にも遠い主題の残響が混ざる（終わりの見えない戦い）
+  if (!B2 && cyc > 0 && pos === 0 && bi % 2 === 1) voice(g, d, { f: mtof(83), t, dur: barDur, a: 0.4, r: 0.8, vol: 0.01, type: 'triangle', send: 0.7, vib: 0.006 });
+}
+
 let MUSIC = null, MUSIC_TIMER = null;
 function bgmTick() {
   if (!MUSIC || !SND) return;
