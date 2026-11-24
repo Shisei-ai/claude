@@ -38,6 +38,8 @@ function startBattle(rival, opt = {}) {
     return fifthTalkScene(rival, () => startBattle(rival, opt));
   if (!opt.final && typeof encTalkFor === 'function' && encTalkFor(rival))   // 藤丸・岸波：かつての縁のある英霊との対面の会話（data_talks.js）
     return encounterTalkScene(rival, () => startBattle(rival, opt));
+  if (!opt.boss && !opt.beast && !opt.enforcer && typeof pairTalkFor === 'function' && pairTalkFor(rival))   // 縁ある英霊どうしの会話（data_pairtalk.js）
+    return pairTalkScene(rival, () => startBattle(rival, opt));
   G.battles++;
   B = { r: rival, round: 0, opt, final: !!(opt.final || opt.boss), boss: !!opt.boss, beast: !!opt.beast, enforcer: !!opt.enforcer, miracle: false,
     enemyNext: null, tell: null, sure: false, charge: 0, echarge: 0, mact: 'command', extra: null, enemySeal: false };

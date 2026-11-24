@@ -509,6 +509,7 @@ function setupRivals() {
     r.hpMax = r.hp = 70 + rankValue(s.p[1]);
     return r;
   });
+  if (typeof biasRivalsByBond === 'function') biasRivalsByBond();   // 縁ある英霊が、1騎だけ現れやすい（data_pairtalk.js）
   applyLifeRival();   // 人生の転機の因縁の相手
   // 幼馴染もマスターに選ばれていた
   if (G.friend) {
