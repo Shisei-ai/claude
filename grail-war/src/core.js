@@ -115,13 +115,12 @@ function bond(n) {
   if (before < BOND_LINK / 10 && after >= BOND_LINK / 10) note(`<span class="tag gold">絆の繋がりが強くなった</span> 休息で回復する魔力・HPが増える。`);
 }
 
-// 選択肢の「傾向」：マスターの属性が動き、サーヴァントの好き嫌いで絆も変わる
+// 選択肢の「傾向」：マスターの属性が1ずつ動き（data_align.js）、サーヴァントの好き嫌いで絆も変わる
 function tone(t) {
-  const a = G.master.align;
-  if (t === 'good') a.good = clamp(a.good + 8, -100, 100);
-  if (t === 'evil') a.good = clamp(a.good - 8, -100, 100);
-  if (t === 'law') a.law = clamp(a.law + 8, -100, 100);
-  if (t === 'chaos') a.law = clamp(a.law - 8, -100, 100);
+  if (t === 'good') alignShift(0, 1);
+  if (t === 'evil') alignShift(0, -1);
+  if (t === 'law') alignShift(1, 0);
+  if (t === 'chaos') alignShift(-1, 0);
   if (!G.servant) return;
   const sv = servantOf(G); const [order, moral] = sv.align.split('・');
   let d = 0;
@@ -142,9 +141,10 @@ function tone(t) {
     : `<span class="note">${SV()}は、何とも言えない顔をした。</span>`;
   TONE_NOTE = { text, d }; note(text);
 }
+// 属性：+3以上で秩序／善、-2〜+2で中立／中庸、-3以下で混沌／悪（ポイントはプレイヤーに見せない）
 function alignLabel(a = G.master.align) {
-  const o = a.law > 25 ? '秩序' : a.law < -25 ? '混沌' : '中立';
-  const m = a.good > 25 ? '善' : a.good < -25 ? '悪' : '中庸';
+  const o = a.law >= ALIGN_LINE ? '秩序' : a.law <= -ALIGN_LINE ? '混沌' : '中立';
+  const m = a.good >= ALIGN_LINE ? '善' : a.good <= -ALIGN_LINE ? '悪' : '中庸';
   return `${o}・${m}`;
 }
 
@@ -195,7 +195,7 @@ function rollMaster(name, gen) {
   return {
     name: name || auto, autoName: auto, gender: g, birth: b.id, stats, hp: 100, hpMax: 100, money: 0, age: 0,
     talent: pick(Object.keys(TALENTS)),
-    seals: 3, od: 0, align: { law: rand(-20, 20), good: rand(-10, 25) },
+    seals: 3, od: 0, align: { law: rand(-2, 2), good: rand(-1, 2) }, alignV: 2,
     element: wpick(ELEMENTS, e => e.w).name, circuits: rand(b.circuits[0], b.circuits[1]),
   };
 }

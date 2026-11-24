@@ -201,7 +201,7 @@ function viewMaster() {
       <dt>オド</dt><dd>${m.od} / ${odMax()}（マスター自身の魔力。戦闘の支援魔術や使い魔に使う）</dd>
       <dt>陣地</dt><dd>Lv ${G.workshop}・罠${G.traps}${G.flags.leyline || m.birth === 'shrine' ? '（霊脈の知識あり）' : ''}</dd>
       <dt>性別</dt><dd>${GENDERS[m.gender || 'n']}</dd><dt>願い</dt><dd>${b.wish}</dd><dt>特徴</dt><dd>${b.perk}</dd>
-      <dt>属性値</dt><dd>秩序 ${m.align.law > 0 ? '+' : ''}${m.align.law}／善 ${m.align.good > 0 ? '+' : ''}${m.align.good}</dd></dl>
+      <dt>属性</dt><dd>${alignLabel()}<span class="dd-note">これまでの選択で変わっていく</span></dd></dl>
     <h3>能力値</h3>${statBars(m.stats)}
     ${spellListHTML()}
     ${isShirou() ? `<h3>冬木の絆</h3>${Object.entries(HEROINES).map(([k, n]) => `<div class="bar-row"><span style="white-space:nowrap">${n}</span><div class="bar bond"><i style="width:${heroines()[k]}%"></i></div><span class="num">${heroines()[k]}</span></div>`).join('')}<p class="note" style="font-size:12px;color:var(--muted)">絆が${HEROINE_LOVE}以上なら、エピローグで恋人として共に生きる道を選べる。</p>` : ''}
@@ -327,6 +327,8 @@ document.addEventListener('click', e => {
   }
 });
 function startFromSave() {
+  // 古いセーブの属性（-100〜100）を、ポイント（-8〜8）に直す
+  if (G.master && G.master.align && !G.master.alignV) { const a = G.master.align; a.law = clamp(Math.round(a.law / 8), -ALIGN_MAX, ALIGN_MAX); a.good = clamp(Math.round(a.good / 8), -ALIGN_MAX, ALIGN_MAX); G.master.alignV = 2; }
   if (G.phase === 'growth') return growthStage();
   if (G.phase === 'summon') return summonScene();
   hub();
@@ -361,5 +363,5 @@ function viewExtraOmens() {
 function fujimaruMaster(name) {
   const b = BIRTHS.find(x => x.id === 'fujimaru');
   return { name: name || '藤丸　立香', birth: 'fujimaru', stats: { ...b.stats }, hp: 100, hpMax: 100, money: b.money, age: 20,
-    talent: 'cha', seals: 3, od: 0, align: { law: 5, good: 35 }, element: '不明', circuits: 27 };
+    talent: 'cha', seals: 3, od: 0, align: { law: 0, good: 4 }, alignV: 2, element: '不明', circuits: 27 };
 }

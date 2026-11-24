@@ -538,3 +538,9 @@ body:not(.fx-on) #snow { display: none; }
 .gloss-sec dl { margin: 0; padding: 0 12px 10px; font-size: 13px; line-height: 1.6; }
 .gloss-sec dt { color: var(--gold); font-weight: 700; margin-top: 8px; }
 .gloss-sec dd { margin: 2px 0 0; color: var(--fg); }
+
+/* ---------- 属性の変化（data_align.js） ---------- */
+.align-shift { display: block; border-left: 3px solid var(--gold); padding: 4px 0 4px 10px; margin: 4px 0; }
+.align-shift .tag { margin-right: 8px; }
+.align-shift small { color: var(--muted); font-size: 12px; }
+.dd-note { display: block; font-size: 11px; color: var(--muted); }

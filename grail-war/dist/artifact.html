@@ -543,6 +543,12 @@ body:not(.fx-on) #snow { display: none; }
 .gloss-sec dt { color: var(--gold); font-weight: 700; margin-top: 8px; }
 .gloss-sec dd { margin: 2px 0 0; color: var(--fg); }
 
+/* ---------- 属性の変化（data_align.js） ---------- */
+.align-shift { display: block; border-left: 3px solid var(--gold); padding: 4px 0 4px 10px; margin: 4px 0; }
+.align-shift .tag { margin-right: 8px; }
+.align-shift small { color: var(--muted); font-size: 12px; }
+.dd-note { display: block; font-size: 11px; color: var(--muted); }
+
 </style>
 <div id="app"></div>
 <script>
@@ -1605,14 +1611,14 @@ const FLAVOR = {
 const EXTRA_CLASSES = {
   'ルーラー': { omen: '聖杯戦争そのものの歪みを正す、裁定者',
     conds: [['聖杯の異変に気付いている', () => !!G.flags.grailHint],
-            ['秩序を重んじる（秩序+30以上）', () => G.master.align.law >= 30],
-            ['善を重んじる（善+30以上）', () => G.master.align.good >= 30]],
+            ['強く秩序を重んじる在り方', () => G.master.align.law >= 4],
+            ['強く善を重んじる在り方', () => G.master.align.good >= 4]],
     alt: ['教会の代行者として参戦する', () => G.route === 'mission' && G.master.birth === 'executor'] },
   'アヴェンジャー': { omen: '消えぬ憎悪と復讐を抱く者',
-    conds: [['深い怒りを抱いた、または悪に傾いた（善-30以下）', () => !!G.flags.grudge || G.master.align.good <= -30],
+    conds: [['深い怒りを抱いた、または強く悪に傾いた', () => !!G.flags.grudge || G.master.align.good <= -4],
             ['憎悪に呑まれない心（精神50以上）', () => G.master.stats.spi >= 50]] },
   'アルターエゴ': { omen: '複数の霊基が混ざり合った、歪な存在',
-    conds: [['極端な在り方（秩序か善のどちらかが±50以上）', () => Math.abs(G.master.align.law) >= 50 || Math.abs(G.master.align.good) >= 50],
+    conds: [['極端な在り方（秩序・混沌・善・悪のどれかに、とても強く傾いている）', () => Math.abs(G.master.align.law) >= 6 || Math.abs(G.master.align.good) >= 6],
             ['歪な霊基を受け止める魔力（魔力60以上）', () => G.master.stats.mag >= 60]] },
   'ムーンキャンサー': { omen: '月の裏側から来たもの',
     conds: [['異常な幸運（幸運75以上）', () => G.master.stats.luk >= 75],
@@ -1621,12 +1627,12 @@ const EXTRA_CLASSES = {
     conds: [['天降山の黒い霧に、自ら触れた', () => !!G.flags.touchedMist],
             ['魔術世界の秘密を深く知る（知った秘密6以上）', () => (G.lore || 0) >= 6]] },
   'シールダー': { omen: '誰かを守るために在る、盾の英霊',
-    conds: [['誰かを守りたい意志（善+40以上）', () => G.master.align.good >= 40],
+    conds: [['誰かを守りたい、とても強い善の心', () => G.master.align.good >= 5],
             ['守り抜く体（体力60以上）', () => G.master.stats.phy >= 60],
             ['守りたい人がいる（幼馴染との友情60以上か、約束）', () => !!G.friend && (G.friend.bond >= 60 || !!G.flags.friendPromise)]] },
   'プリテンダー': { omen: '偽りの名を纏う演者',
     conds: [['人を惹きつける話術（交渉75以上）', () => G.master.stats.cha >= 75],
-            ['偽りを厭わない（秩序-30以下）', () => G.master.align.law <= -30]] },
+            ['偽りを厭わない（強く混沌に傾いている）', () => G.master.align.law <= -4]] },
 };
 function extraOpen(cls) {
   if (typeof isFuji === 'function' && isFuji()) return true;   // 藤丸シナリオは制限なし
@@ -2953,6 +2959,169 @@ function focusScene(k) {
 }
 
 // =============================================================
+//  data_align.js … マスターの属性（方針：秩序・中立・混沌／性格：善・中庸・悪）
+//
+//  ・属性はポイントで決まる（プレイヤーには数値を見せない）
+//      方針：+3以上で秩序、-2〜+2で中立、-3以下で混沌
+//      性格：+3以上で善、  -2〜+2で中庸、-3以下で悪
+//  ・選択肢の「秩序・混沌・善・悪」の傾向で1ずつ動く（core.js の tone）
+//  ・成長期の節目ごとに「心の天秤」のイベントで在り方を測る（ここで1〜2動く）
+//  ・属性が切り替わったときだけ「属性が変化した」と表示する
+//  ・属性は、触媒を使わない召喚で応える英霊と、エクストラクラスの召喚条件に関わる
+// =============================================================
+
+const ALIGN_MAX = 8;   // ポイントの上限・下限（これより先には振れない）
+const ALIGN_LINE = 3;  // ここを超えると、秩序／混沌・善／悪になる
+
+// 「心の天秤」：成長期の節目（年齢）ごとの、在り方を測る出来事。同じ年齢に複数あるときは1つを選ぶ
+//   law：方針（+秩序／-混沌）、good：性格（+善／-悪）、mid：どちらにも寄らない（両方とも中立・中庸の側へ1戻る）
+const ALIGN_EVENTS = [
+  // ---- 6歳 ----
+  { id: 'al_vase', age: 6, title: '割れた花瓶',
+    text: '廊下で走り回っていたら、肘が棚に当たった。母が大切にしている花瓶が、床で粉々になっている。<br>まだ、誰も気づいていない。',
+    choices: [
+      { label: 'すぐに母のところへ謝りに行く', law: 1, good: 1, res: '泣きながら謝ると、母は少しだけ怒って、それから「怪我はない？」と手を確かめてくれた。' },
+      { label: '破片を片付けて、黙っておく', law: -1, res: '破片を新聞紙にくるんで、ゴミ袋の底に押し込んだ。夕飯の間じゅう、胸の奥がちくちくした。' },
+      { label: '「猫がやったんだよ」と言う', good: -2, res: '母は猫を叱った。猫は不思議そうな顔で、あなたを見ていた。' },
+      { label: '破片を集めて、新しい何かを作り始める', law: -2, res: '接着剤まみれの、花瓶とも何ともつかない置物ができた。母は怒るより先に、吹き出してしまった。' },
+    ] },
+  { id: 'al_sandbox', age: 6, title: '砂場の順番',
+    text: '公園の砂場。順番を待っていると、あとから来た小さな子が、あなたの使うはずだったシャベルを持っていってしまった。',
+    choices: [
+      { label: '「じゅんばんだよ」と教えてあげる', law: 2, res: 'その子はきょとんとして、それから素直にシャベルを返しにきた。並んで順番を待つのは、案外悪くなかった。' },
+      { label: '自分のおもちゃのバケツも貸してあげる', good: 2, res: 'その子は満面の笑みで、砂のお城を一緒に作ろうと言ってきた。' },
+      { label: '力ずくで取り返す', law: -1, good: -1, res: 'シャベルは取り返した。泣き出したその子の声が、しばらく耳に残った。' },
+      { label: '気にせず、ブランコで遊ぶことにする', mid: true, res: 'ブランコを思い切り漕ぐと、空が近くなった。砂場のことは、すぐに忘れた。' },
+    ] },
+  // ---- 9歳 ----
+  { id: 'al_wallet', age: 9, title: '拾った財布',
+    text: '帰り道、植え込みの陰に財布が落ちていた。中にはお札が何枚かと、知らない家族の写真が一枚。',
+    choices: [
+      { label: '交番に届ける', law: 2, res: 'お巡りさんは書類を書きながら「えらいね」と言った。三日後、持ち主から丁寧なお礼の手紙が届いた。' },
+      { label: '写真を頼りに、自分で持ち主を探す', law: -1, good: 2, res: '商店街を何軒も聞いて回り、夕方、ようやく持ち主のおばあさんに手渡せた。おばあさんは写真を胸に抱いて泣いていた。' },
+      { label: 'お礼がもらえるか考えながら、届けに行く', law: 1, good: -1, res: 'お礼は、思っていたより少なかった。なんとなく、損をした気分になった。' },
+      { label: '中のお金をもらってしまう', law: -1, good: -2, res: 'そのお金で買ったお菓子は、なぜかあまり美味しくなかった。' },
+    ] },
+  { id: 'al_base', age: 9, title: '秘密基地',
+    text: '友達と空き地に作った秘密基地。ある朝行ってみると、入口に「立入禁止」の看板が立っていた。',
+    choices: [
+      { label: '看板に従って、基地をあきらめる', law: 2, res: '最後にみんなで基地を眺めてから、空き地を後にした。決まりは、決まりだ。' },
+      { label: '持ち主の大人に、使わせてほしいと頼みに行く', law: 1, good: 1, res: '土地の持ち主は渋い顔をしたが、「危ないことはしない」と約束すると、夏の間だけ許してくれた。' },
+      { label: 'こっそり基地に通い続ける', law: -2, res: '看板の脇をすり抜ける時の、どきどきする気持ち。秘密基地は、本当の「秘密」になった。' },
+      { label: '「新しい場所を探そう」とみんなを誘う', mid: true, res: '裏山の大きな木の下に、もっといい場所が見つかった。前の基地のことは、いい思い出になった。' },
+    ] },
+  // ---- 12歳 ----
+  { id: 'al_bully', age: 12, title: '隠された上履き',
+    text: '教室の隅で、クラスの子の上履きが隠されているのを見てしまった。隠した子たちは、くすくす笑っている。',
+    choices: [
+      { label: '先生に知らせる', law: 2, good: 1, res: '先生はすぐに動いてくれた。ホームルームは長くなったが、上履きは持ち主の元に戻った。' },
+      { label: '自分で止めに入り、上履きを取り返す', law: -1, good: 2, res: '「やめなよ」と言った声は、少し震えていた。それでも上履きを渡すと、その子は小さく「ありがとう」と言った。' },
+      { label: '見なかったことにする', good: -1, res: '何も言えなかった。その日の帰り道は、いつもより長く感じた。' },
+      { label: '一緒になって笑ってしまう', good: -2, res: '笑いの輪の中は、居心地が良かった。……居心地が良いことが、少しだけ怖かった。' },
+    ] },
+  { id: 'al_test', age: 12, title: 'テストの答え',
+    text: '期末テストの前日。友達が小声で言った。「答案、手に入ったんだ。見せてやろうか」',
+    choices: [
+      { label: '断って、先生に伝える', law: 2, good: -1, res: 'テストは作り直しになった。友達はしばらく口をきいてくれなかったが、間違ったことはしていない――と思う。' },
+      { label: '断る。友達のことは黙っておく', mid: true, res: '自分の力だけで受けたテストは、思ったより良い点だった。友達がどうしたかは、聞かなかった。' },
+      { label: '見せてもらう', law: -2, res: '点数は良かった。でも、答案用紙が返ってきても、あまり嬉しくなかった。' },
+      { label: '勉強が苦手な子たちにも、こっそり回してあげる', law: -2, good: 1, res: '「助かった！」と何人もに感謝された。正しいことをしたのかは、分からない。' },
+    ] },
+  // ---- 14歳 ----
+  { id: 'al_park', age: 14, title: '夜の公園',
+    text: '塾の帰り、夜の公園を通りかかった。年上の不良たちが、年下の子を囲んでお金を巻き上げている。',
+    choices: [
+      { label: '離れた場所から、警察に通報する', law: 2, res: 'パトカーのサイレンが聞こえると、不良たちは散り散りに逃げていった。' },
+      { label: '割って入る', law: -1, good: 2, res: '殴られて口の中を切った。それでも、あの子は無事に逃げられた。' },
+      { label: '関わらずに立ち去る', good: -1, res: '足早に公園を出た。振り返らなかった。振り返れなかった。' },
+      { label: '不良たちに話をつけて、自分は見逃してもらう', law: -1, good: -1, res: '「話の分かるやつだな」と肩を叩かれた。うまく切り抜けた――はずなのに、手が冷たかった。' },
+    ] },
+  { id: 'al_curfew', age: 14, title: '門限と約束',
+    text: '夜、友達から電話があった。「今から会えない？ どうしても話したいことがあるんだ」<br>家の門限は、とっくに過ぎている。',
+    choices: [
+      { label: '家族に事情を話して、許しをもらう', law: 1, good: 1, res: '父は少し考えてから、車で送ってくれた。友達の話は、長い夜になった。' },
+      { label: '窓からこっそり抜け出す', law: -2, good: 1, res: '冬の夜道を走った。友達は泣いていて、あなたが来たことに、心から安堵していた。' },
+      { label: '門限を守り、「明日必ず聞く」と伝える', law: 2, res: '翌朝、一番に友達の家へ行った。話は一晩寝かせた分だけ、少し落ち着いていた。' },
+      { label: '「眠いから」と電話を切る', good: -2, res: 'すぐに眠った。友達が何を話したかったのかは、とうとう聞けずじまいだった。' },
+    ] },
+  // ---- 16歳 ----
+  { id: 'al_shop', age: 16, title: 'アルバイト先の秘密',
+    text: 'アルバイト先の店で、店長が売れ残りの惣菜のラベルを、新しい日付に貼り替えているのを見てしまった。',
+    choices: [
+      { label: 'しかるべき所に知らせる', law: 2, good: 1, res: '数日後、店に役所の人が来た。店長は、あなたの顔を見なかった。' },
+      { label: '店長に直接、やめてほしいと言う', good: 1, res: '店長は顔を赤くして黙り込み、それから「……そうだな」とラベルを剥がした。' },
+      { label: '口止めの「お小遣い」を受け取る', law: -1, good: -2, res: '封筒は、思ったより厚かった。それから、店の惣菜を食べなくなった。' },
+      { label: '捨てられる前の惣菜を、困っている人たちに配る', law: -2, good: 1, res: '駅の裏の路地で、惣菜はあっという間になくなった。店にはばれて、アルバイトはクビになった。' },
+      { label: '何も言わずに辞める', mid: true, res: '「一身上の都合」とだけ書いて、店を辞めた。それ以上のことは、自分の役目ではない気がした。' },
+    ] },
+  { id: 'al_vote', age: 16, title: '生徒会選挙',
+    text: '生徒会長に立候補した。投票の前日、誰かから匿名で、対立候補の失言を録った音声が送られてきた。',
+    choices: [
+      { label: '使わない。公約だけで正々堂々と戦う', law: 1, good: 1, res: '演説は拙かったが、真っ直ぐだった。結果がどうであれ、胸を張れる選挙だった。' },
+      { label: '対立候補に録音を渡し、気をつけるよう伝える', good: 2, res: '対立候補は驚いて、それから深く頭を下げた。選挙のあと、二人は良い友人になった。' },
+      { label: '録音を全校に公開する', law: -1, good: -1, res: '選挙は荒れに荒れた。勝ったのか負けたのか、もうどうでもいい気がした。' },
+      { label: '録音で脅して、立候補を取り下げさせる', law: -1, good: -2, res: '対立候補は黙って立候補を取り下げた。無投票の当選は、ひどく静かだった。' },
+      { label: '「選挙の仕組みそのものがおかしい」と訴える', law: -2, res: '演説は大きな拍手と、先生たちの渋い顔で迎えられた。学校中が、少しだけ騒がしくなった。' },
+    ] },
+  { id: 'al_path', age: 16, title: '進路の紙',
+    text: '進路希望の紙が配られた。周りの大人たちは、口を揃えて「安定した道」を勧めてくる。',
+    choices: [
+      { label: '大人たちの勧める道を書く', law: 2, res: '堅実な進路を書いた紙は、担任に「よく考えたな」と褒められた。' },
+      { label: '誰にも相談せず、自分だけの道を書く', law: -2, res: '提出した紙を見て、担任は眉をひそめた。けれど、あなたの胸は不思議と軽かった。' },
+      { label: '誰かの役に立てる道を書く', good: 2, res: '「人の役に立つ仕事」。書いてみると、それが前からずっと思っていたことのように思えた。' },
+      { label: '一番得をする道を書く', good: -2, res: '損得を計算すれば、答えは簡単だった。簡単すぎて、少しつまらなかった。' },
+      { label: '空欄のまま出す', mid: true, res: '「まだ決められません」とだけ書いた。答えを急がないことも、一つの答えだと思った。' },
+    ] },
+  // ---- 17歳 ----
+  { id: 'al_wish', age: 17, title: '冬の夜の問い',
+    text: '冬の夜。眠れずに窓の外を眺めていると、ふと、子どもの頃に読んだ物語を思い出した。<br>――どんな願いでも一つだけ叶える、魔法の杯の話。<br>もし今、それが目の前にあったら。あなたは、何を願う？',
+    choices: [
+      { label: '「この世界から、争いがなくなりますように」', good: 2, res: '口に出してみると、子どもじみた願いだと思った。それでも、取り消そうとは思わなかった。' },
+      { label: '「正しいことが、正しく報われる世界に」', law: 2, res: '決まりは、守る人のためにあるべきだ。窓ガラスに映る自分の顔は、少し大人びて見えた。' },
+      { label: '「誰にも縛られずに、自由に生きたい」', law: -2, res: '窓を開けると、冷たい風が吹き込んできた。どこへでも行ける気がした。' },
+      { label: '「欲しいものを、全部」', good: -2, res: '願いは、正直な方がいい。そう思って、あなたは少しだけ笑った。' },
+      { label: '「……自分の手で叶えるから、いらない」', mid: true, res: '杯に頼らずとも、歩いていける。そう思えたことが、何よりの答えだった。' },
+    ] },
+];
+
+// 属性を動かす（数値は見せず、属性が切り替わった時だけ知らせる）
+function alignShift(dl, dg) {
+  const a = G.master.align; const before = alignLabel(a);
+  a.law = clamp(a.law + dl, -ALIGN_MAX, ALIGN_MAX); a.good = clamp(a.good + dg, -ALIGN_MAX, ALIGN_MAX);
+  const after = alignLabel(a);
+  if (after !== before) {
+    const [o1, m1] = before.split('・'); const [o2, m2] = after.split('・');
+    const why = o1 !== o2 ? ALIGN_SHIFT_TEXT[o2] : ALIGN_SHIFT_TEXT[m2];
+    note(`<span class="align-shift"><span class="tag gold">属性が変化した</span>${before} → <b>${after}</b><br><small>${why}</small></span>`);
+    addLog(`属性が変化した：${before} → ${after}`);
+  }
+}
+const ALIGN_SHIFT_TEXT = {
+  秩序: '決まりや約束を重んじる心が、あなたの芯になりつつある。', 混沌: '何ものにも縛られない心が、あなたの中で育っている。', 中立: '決まりにも自由にも偏らない、自分なりの物差しを持ち始めた。',
+  善: '誰かのために動ける心が、あなたの在り方になりつつある。', 悪: '自分のためなら手段を選ばない冷たさが、あなたの中に芽生えている。', 中庸: '善にも悪にも振れすぎない、静かな均衡があなたの中にある。',
+};
+// どちらにも寄らない選択：両方とも中立・中庸の側へ1戻る
+function alignCenter() { const a = G.master.align; alignShift(-Math.sign(a.law), -Math.sign(a.good)); }
+
+// 成長期の節目の最後に「心の天秤」を出す（通常のシナリオのみ。特殊シナリオは人物像が決まっているため出さない）
+function alignCheck(then) {
+  if (isFuji() || isKishi() || isShirou()) return then();
+  const age = G.master.age;
+  const pool = ALIGN_EVENTS.filter(e => e.age === age && !G.used[e.id]);
+  if (!pool.length || ALIGN_EVENTS.some(e => e.age === age && G.used[e.id])) return then();
+  const e = pick(pool);
+  showEvent({
+    id: e.id, title: e.title, chapter: `心の天秤　${age}歳`,
+    text: `${e.text}<br><span class="note">――あなたの在り方が、静かに問われている。</span>`,
+    choices: e.choices.map(c => ({ label: c.label, run: () => {
+      if (c.mid) alignCenter(); else alignShift(c.law || 0, c.good || 0);
+      addLog(`${age}歳「${e.title}」：${c.label.replace(/[「」]/g, '')}`);
+      return [c.res];
+    } })),
+  }, then);
+}
+
+// =============================================================
 //  data_lifearcs.js … 人生の転機（成長期のバリエーション）
 //
 //  産まれた時に、その家庭に合った「人生の転機」が一つ決まる（産まれごとに2種類から）。
@@ -3869,7 +4038,7 @@ function kishinamiStart() {
 function kishiMaster(name, g) {
   const b = BIRTHS.find(x => x.id === 'kishinami');
   return { name: name || '岸波　白野', gender: g || 'n', birth: 'kishinami', stats: { ...b.stats }, hp: 100, hpMax: 100, money: b.money, age: 18,
-    talent: 'int', seals: 3, od: 0, align: { law: 10, good: 30 }, element: '霊子', circuits: 30 };
+    talent: 'int', seals: 3, od: 0, align: { law: 1, good: 4 }, alignV: 2, element: '霊子', circuits: 30 };
 }
 function kishinamiPrologue() {
   next('降下', paras([
@@ -5856,7 +6025,7 @@ function shirouStart() {
 function shirouMaster(name) {
   const b = BIRTHS.find(x => x.id === 'shirou');
   return { name: name || '衛宮　士郎', gender: 'm', birth: 'shirou', stats: { ...b.stats }, hp: 100, hpMax: 100, money: b.money, age: 17,
-    talent: 'spi', seals: 3, od: 0, align: { law: 15, good: 45 }, element: '剣', circuits: 27 };
+    talent: 'spi', seals: 3, od: 0, align: { law: 2, good: 5 }, alignV: 2, element: '剣', circuits: 27 };
 }
 function shirouPrologue() {
   next('遠坂からの連絡', paras([
@@ -17417,13 +17586,12 @@ function bond(n) {
   if (before < BOND_LINK / 10 && after >= BOND_LINK / 10) note(`<span class="tag gold">絆の繋がりが強くなった</span> 休息で回復する魔力・HPが増える。`);
 }
 
-// 選択肢の「傾向」：マスターの属性が動き、サーヴァントの好き嫌いで絆も変わる
+// 選択肢の「傾向」：マスターの属性が1ずつ動き（data_align.js）、サーヴァントの好き嫌いで絆も変わる
 function tone(t) {
-  const a = G.master.align;
-  if (t === 'good') a.good = clamp(a.good + 8, -100, 100);
-  if (t === 'evil') a.good = clamp(a.good - 8, -100, 100);
-  if (t === 'law') a.law = clamp(a.law + 8, -100, 100);
-  if (t === 'chaos') a.law = clamp(a.law - 8, -100, 100);
+  if (t === 'good') alignShift(0, 1);
+  if (t === 'evil') alignShift(0, -1);
+  if (t === 'law') alignShift(1, 0);
+  if (t === 'chaos') alignShift(-1, 0);
   if (!G.servant) return;
   const sv = servantOf(G); const [order, moral] = sv.align.split('・');
   let d = 0;
@@ -17444,9 +17612,10 @@ function tone(t) {
     : `<span class="note">${SV()}は、何とも言えない顔をした。</span>`;
   TONE_NOTE = { text, d }; note(text);
 }
+// 属性：+3以上で秩序／善、-2〜+2で中立／中庸、-3以下で混沌／悪（ポイントはプレイヤーに見せない）
 function alignLabel(a = G.master.align) {
-  const o = a.law > 25 ? '秩序' : a.law < -25 ? '混沌' : '中立';
-  const m = a.good > 25 ? '善' : a.good < -25 ? '悪' : '中庸';
+  const o = a.law >= ALIGN_LINE ? '秩序' : a.law <= -ALIGN_LINE ? '混沌' : '中立';
+  const m = a.good >= ALIGN_LINE ? '善' : a.good <= -ALIGN_LINE ? '悪' : '中庸';
   return `${o}・${m}`;
 }
 
@@ -17497,7 +17666,7 @@ function rollMaster(name, gen) {
   return {
     name: name || auto, autoName: auto, gender: g, birth: b.id, stats, hp: 100, hpMax: 100, money: 0, age: 0,
     talent: pick(Object.keys(TALENTS)),
-    seals: 3, od: 0, align: { law: rand(-20, 20), good: rand(-10, 25) },
+    seals: 3, od: 0, align: { law: rand(-2, 2), good: rand(-1, 2) }, alignV: 2,
     element: wpick(ELEMENTS, e => e.w).name, circuits: rand(b.circuits[0], b.circuits[1]),
   };
 }
@@ -18150,9 +18319,11 @@ function doSummon(catalystId, opt = {}) {
     const taken = new Set(G.rivals.map(r => r.servantId));
     sv = wpick(SERVANTS.filter(s => !taken.has(s.id) && summonable(s) && s !== failed), s => {
       const [o, m] = s.align.split('・');
+      // 属性が似ているほど応えやすい（方針・性格の両方が同じなら、とても応えやすい）
       let w = 1;
-      if (o === a[0]) w += 1.5;
-      if (m === a[1]) w += 1.5;
+      if (o === a[0]) w += 2;
+      if (m === a[1]) w += 2;
+      if (o === a[0] && m === a[1]) w += 3;
       // 条件を満たした特殊クラスは、クラス全体でおよそ3回に1回応えるくらいの重み
       if (!BASE_CLASSES.includes(s.cls)) w *= 60 / SERVANTS.filter(x => x.cls === s.cls && summonable(x)).length;
       if (G.flags.vision === s.id) w *= G.flags.visionStrong ? 6 : 2.5;
@@ -18382,8 +18553,9 @@ function growthEvent() {
     if (!ev && G.arc) { ev = GROWTH_EVENTS.find(e => e.arc === G.arc && e.step === (G.arcStep || 0) + 1 && age >= e.ages[0] && ok(e)); if (ev) G.arcStep = ev.step; }
     if (!ev) { const pool = GROWTH_EVENTS.filter(e => !e.fixed && !e.arc && age >= e.ages[0] && age <= e.ages[1] && ok(e)); if (pool.length) ev = pick(pool); }
   }
-  if (!ev) return nextStage();
-  showEvent({ ...ev, chapter: `${currentStage().band}・${stageLabel()}` }, nextStage);
+  const after = () => alignCheck(nextStage);   // 節目の最後に「心の天秤」（data_align.js）
+  if (!ev) return after();
+  showEvent({ ...ev, chapter: `${currentStage().band}・${stageLabel()}` }, after);
 }
 function nextStage() {
   G.growth.stage++;
@@ -19502,7 +19674,7 @@ function viewMaster() {
       <dt>オド</dt><dd>${m.od} / ${odMax()}（マスター自身の魔力。戦闘の支援魔術や使い魔に使う）</dd>
       <dt>陣地</dt><dd>Lv ${G.workshop}・罠${G.traps}${G.flags.leyline || m.birth === 'shrine' ? '（霊脈の知識あり）' : ''}</dd>
       <dt>性別</dt><dd>${GENDERS[m.gender || 'n']}</dd><dt>願い</dt><dd>${b.wish}</dd><dt>特徴</dt><dd>${b.perk}</dd>
-      <dt>属性値</dt><dd>秩序 ${m.align.law > 0 ? '+' : ''}${m.align.law}／善 ${m.align.good > 0 ? '+' : ''}${m.align.good}</dd></dl>
+      <dt>属性</dt><dd>${alignLabel()}<span class="dd-note">これまでの選択で変わっていく</span></dd></dl>
     <h3>能力値</h3>${statBars(m.stats)}
     ${spellListHTML()}
     ${isShirou() ? `<h3>冬木の絆</h3>${Object.entries(HEROINES).map(([k, n]) => `<div class="bar-row"><span style="white-space:nowrap">${n}</span><div class="bar bond"><i style="width:${heroines()[k]}%"></i></div><span class="num">${heroines()[k]}</span></div>`).join('')}<p class="note" style="font-size:12px;color:var(--muted)">絆が${HEROINE_LOVE}以上なら、エピローグで恋人として共に生きる道を選べる。</p>` : ''}
@@ -19628,6 +19800,8 @@ document.addEventListener('click', e => {
   }
 });
 function startFromSave() {
+  // 古いセーブの属性（-100〜100）を、ポイント（-8〜8）に直す
+  if (G.master && G.master.align && !G.master.alignV) { const a = G.master.align; a.law = clamp(Math.round(a.law / 8), -ALIGN_MAX, ALIGN_MAX); a.good = clamp(Math.round(a.good / 8), -ALIGN_MAX, ALIGN_MAX); G.master.alignV = 2; }
   if (G.phase === 'growth') return growthStage();
   if (G.phase === 'summon') return summonScene();
   hub();
@@ -19662,7 +19836,7 @@ function viewExtraOmens() {
 function fujimaruMaster(name) {
   const b = BIRTHS.find(x => x.id === 'fujimaru');
   return { name: name || '藤丸　立香', birth: 'fujimaru', stats: { ...b.stats }, hp: 100, hpMax: 100, money: b.money, age: 20,
-    talent: 'cha', seals: 3, od: 0, align: { law: 5, good: 35 }, element: '不明', circuits: 27 };
+    talent: 'cha', seals: 3, od: 0, align: { law: 0, good: 4 }, alignV: 2, element: '不明', circuits: 27 };
 }
 
 </script>

@@ -231,7 +231,7 @@ function shirouStart() {
 function shirouMaster(name) {
   const b = BIRTHS.find(x => x.id === 'shirou');
   return { name: name || '衛宮　士郎', gender: 'm', birth: 'shirou', stats: { ...b.stats }, hp: 100, hpMax: 100, money: b.money, age: 17,
-    talent: 'spi', seals: 3, od: 0, align: { law: 15, good: 45 }, element: '剣', circuits: 27 };
+    talent: 'spi', seals: 3, od: 0, align: { law: 2, good: 5 }, alignV: 2, element: '剣', circuits: 27 };
 }
 function shirouPrologue() {
   next('遠坂からの連絡', paras([

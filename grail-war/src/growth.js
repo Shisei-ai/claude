@@ -119,8 +119,9 @@ function growthEvent() {
     if (!ev && G.arc) { ev = GROWTH_EVENTS.find(e => e.arc === G.arc && e.step === (G.arcStep || 0) + 1 && age >= e.ages[0] && ok(e)); if (ev) G.arcStep = ev.step; }
     if (!ev) { const pool = GROWTH_EVENTS.filter(e => !e.fixed && !e.arc && age >= e.ages[0] && age <= e.ages[1] && ok(e)); if (pool.length) ev = pick(pool); }
   }
-  if (!ev) return nextStage();
-  showEvent({ ...ev, chapter: `${currentStage().band}・${stageLabel()}` }, nextStage);
+  const after = () => alignCheck(nextStage);   // 節目の最後に「心の天秤」（data_align.js）
+  if (!ev) return after();
+  showEvent({ ...ev, chapter: `${currentStage().band}・${stageLabel()}` }, after);
 }
 function nextStage() {
   G.growth.stage++;

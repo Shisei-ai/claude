@@ -254,7 +254,7 @@ function kishinamiStart() {
 function kishiMaster(name, g) {
   const b = BIRTHS.find(x => x.id === 'kishinami');
   return { name: name || '岸波　白野', gender: g || 'n', birth: 'kishinami', stats: { ...b.stats }, hp: 100, hpMax: 100, money: b.money, age: 18,
-    talent: 'int', seals: 3, od: 0, align: { law: 10, good: 30 }, element: '霊子', circuits: 30 };
+    talent: 'int', seals: 3, od: 0, align: { law: 1, good: 4 }, alignV: 2, element: '霊子', circuits: 30 };
 }
 function kishinamiPrologue() {
   next('降下', paras([

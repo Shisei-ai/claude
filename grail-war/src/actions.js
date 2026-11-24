@@ -469,9 +469,11 @@ function doSummon(catalystId, opt = {}) {
     const taken = new Set(G.rivals.map(r => r.servantId));
     sv = wpick(SERVANTS.filter(s => !taken.has(s.id) && summonable(s) && s !== failed), s => {
       const [o, m] = s.align.split('・');
+      // 属性が似ているほど応えやすい（方針・性格の両方が同じなら、とても応えやすい）
       let w = 1;
-      if (o === a[0]) w += 1.5;
-      if (m === a[1]) w += 1.5;
+      if (o === a[0]) w += 2;
+      if (m === a[1]) w += 2;
+      if (o === a[0] && m === a[1]) w += 3;
       // 条件を満たした特殊クラスは、クラス全体でおよそ3回に1回応えるくらいの重み
       if (!BASE_CLASSES.includes(s.cls)) w *= 60 / SERVANTS.filter(x => x.cls === s.cls && summonable(x)).length;
       if (G.flags.vision === s.id) w *= G.flags.visionStrong ? 6 : 2.5;

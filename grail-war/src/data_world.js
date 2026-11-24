@@ -310,14 +310,14 @@ const FLAVOR = {
 const EXTRA_CLASSES = {
   'ルーラー': { omen: '聖杯戦争そのものの歪みを正す、裁定者',
     conds: [['聖杯の異変に気付いている', () => !!G.flags.grailHint],
-            ['秩序を重んじる（秩序+30以上）', () => G.master.align.law >= 30],
-            ['善を重んじる（善+30以上）', () => G.master.align.good >= 30]],
+            ['強く秩序を重んじる在り方', () => G.master.align.law >= 4],
+            ['強く善を重んじる在り方', () => G.master.align.good >= 4]],
     alt: ['教会の代行者として参戦する', () => G.route === 'mission' && G.master.birth === 'executor'] },
   'アヴェンジャー': { omen: '消えぬ憎悪と復讐を抱く者',
-    conds: [['深い怒りを抱いた、または悪に傾いた（善-30以下）', () => !!G.flags.grudge || G.master.align.good <= -30],
+    conds: [['深い怒りを抱いた、または強く悪に傾いた', () => !!G.flags.grudge || G.master.align.good <= -4],
             ['憎悪に呑まれない心（精神50以上）', () => G.master.stats.spi >= 50]] },
   'アルターエゴ': { omen: '複数の霊基が混ざり合った、歪な存在',
-    conds: [['極端な在り方（秩序か善のどちらかが±50以上）', () => Math.abs(G.master.align.law) >= 50 || Math.abs(G.master.align.good) >= 50],
+    conds: [['極端な在り方（秩序・混沌・善・悪のどれかに、とても強く傾いている）', () => Math.abs(G.master.align.law) >= 6 || Math.abs(G.master.align.good) >= 6],
             ['歪な霊基を受け止める魔力（魔力60以上）', () => G.master.stats.mag >= 60]] },
   'ムーンキャンサー': { omen: '月の裏側から来たもの',
     conds: [['異常な幸運（幸運75以上）', () => G.master.stats.luk >= 75],
@@ -326,12 +326,12 @@ const EXTRA_CLASSES = {
     conds: [['天降山の黒い霧に、自ら触れた', () => !!G.flags.touchedMist],
             ['魔術世界の秘密を深く知る（知った秘密6以上）', () => (G.lore || 0) >= 6]] },
   'シールダー': { omen: '誰かを守るために在る、盾の英霊',
-    conds: [['誰かを守りたい意志（善+40以上）', () => G.master.align.good >= 40],
+    conds: [['誰かを守りたい、とても強い善の心', () => G.master.align.good >= 5],
             ['守り抜く体（体力60以上）', () => G.master.stats.phy >= 60],
             ['守りたい人がいる（幼馴染との友情60以上か、約束）', () => !!G.friend && (G.friend.bond >= 60 || !!G.flags.friendPromise)]] },
   'プリテンダー': { omen: '偽りの名を纏う演者',
     conds: [['人を惹きつける話術（交渉75以上）', () => G.master.stats.cha >= 75],
-            ['偽りを厭わない（秩序-30以下）', () => G.master.align.law <= -30]] },
+            ['偽りを厭わない（強く混沌に傾いている）', () => G.master.align.law <= -4]] },
 };
 function extraOpen(cls) {
   if (typeof isFuji === 'function' && isFuji()) return true;   // 藤丸シナリオは制限なし
