@@ -188,7 +188,7 @@ function servantCard(sv) {
     <div><span class="tag gold">${sv.cls}</span><span class="tag">${sv.align}</span><span class="tag">性格：${PERSONAS[sv.persona].label}</span><span class="tag">口調：${voiceOf(sv).label}</span></div>
     <p style="font-size:13px;color:var(--muted);margin:8px 0 12px">${sv.desc}</p>
     ${paramGrid(sv.p, G && G.servant && G.servant.id === sv.id ? servantParam : null)}
-    <div class="np"><div class="np-ruby">${sv.npRuby}</div><div class="np-name">${sv.np}</div></div>
+    <div class="np"><div class="np-ruby">${sv.npRuby}</div><div class="np-name">${sv.np}</div>${typeof npDetailHTML === 'function' ? npDetailHTML(sv) : ''}</div>
     ${typeof skillListHTML === 'function' && SKILL_DATA[sv.id] ? `<h3 style="margin-top:14px">保有スキル／クラススキル</h3>${skillListHTML(sv)}` : ''}</div>`;
 }
 function viewMaster() {
@@ -243,7 +243,7 @@ function viewRivals() {
           <span class="intel" aria-label="情報段階${r.intel}">${[1, 2, 3].map(i => `<i class="${r.intel >= i ? 'on' : ''}"></i>`).join('')}</span></span></div>
         <p>${r.cls}　マスター：${r.intel >= 1 ? `${esc(r.master)}（${r.type}）` : '不明'}</p>
         ${r.intel >= 2 && r.alive ? `<div class="bar-row" style="margin-top:6px"><span>HP</span><div class="bar enemy"><i style="width:${(r.hp / r.hpMax) * 100}%"></i></div><span class="num">${r.hp}</span></div>` : ''}
-        ${knowsName(r) ? `<div style="margin-top:8px">${paramGrid(s.p)}</div><p>宝具：${s.np}（${s.npRuby}）</p>${skillListHTML(s)}` : ''}
+        ${knowsName(r) ? `<div style="margin-top:8px">${paramGrid(s.p)}</div><p>宝具：${s.np}（${s.npRuby}）</p>${npDetailHTML(s)}${skillListHTML(s)}` : ''}
       </div>`;
     }).join('')}</div></section>`;
 }

@@ -245,7 +245,7 @@ function skillListHTML(sv) {
 //   side は 'me'（自分のサーヴァント）か 'en'（敵）
 // =============================================================
 function sideSv(side) { return side === 'me' ? servantOf(G) : servantOf(B.r); }
-function skillInit() { B.sk = { me: {}, en: {} }; B.buf = { me: [], en: [] }; B.guts = { me: false, en: false }; B.evade = { me: 0, en: 0 }; B.stun = { me: false, en: false }; B.skill = null; }
+function skillInit() { B.sk = { me: {}, en: {} }; B.buf = { me: [], en: [] }; B.guts = { me: 0, en: 0 }; B.npUsed = { me: false, en: false }; B.evade = { me: 0, en: 0 }; B.stun = { me: false, en: false }; B.skill = null; }
 function buffSum(side, code) { return (B.buf[side] || []).filter(b => b.code === code).reduce((s, b) => s + b.v, 0); }
 // スキルを使う
 function skillActivate(side, idx, log) {
@@ -257,7 +257,7 @@ function skillActivate(side, idx, log) {
   switch (s.code) {
     case 'heal': if (side === 'me') shp(s.v * 3); else B.r.hp = Math.min(B.r.hpMax, B.r.hp + s.v * 3); t = `HP+${s.v * 3}`; break;
     case 'charge': if (side === 'me') mp(s.v * 3); else B.r.mp = Math.min(100, B.r.mp + s.v * 3); t = `魔力+${s.v * 3}`; break;
-    case 'guts': B.guts[side] = true; t = '戦闘続行の加護'; break;
+    case 'guts': B.guts[side] = (B.guts[side] || 0) + 1; t = '戦闘続行の加護'; break;
     case 'evade': B.evade[side]++; t = '次の攻撃を回避する構え'; break;
     case 'insight': if (side === 'me') { B.sure = true; B.charge += s.v; } else B.echarge += s.v; t = '相手の動きを見切った'; break;
     case 'charm': if (resist()) t = '――だが、対魔力に阻まれた'; else { B.stun[foe] = Math.random() < 0.6; t = B.stun[foe] ? '相手の動きを封じた！' : '……相手は踏みとどまった'; } break;
@@ -299,9 +299,9 @@ function skillCrit(side) { return buffSum(side, 'crit') + classSkillV(sideSv(sid
 function skillPierce(side) { return buffSum(side, 'pierce') > 0; }
 // 受けるダメージの補正（回避・防御強化・狂化・女神の神核）
 function skillDamage(side, d, log) {
-  if (B.evade[side] > 0) { B.evade[side]--; log.push(`<span class="note">${side === 'me' ? servantOf(G).short : enemyName()}は攻撃を見切ってかわした！</span>`); return 0; }
+  if (B.evade[side] > 0 && !B.sureHit) { B.evade[side]--; log.push(`<span class="note">${side === 'me' ? servantOf(G).short : enemyName()}は攻撃を見切ってかわした！</span>`); return 0; }
   const sv = sideSv(side);
-  d = d - buffSum(side, 'def') + Math.ceil(classSkillV(sv, '狂化') / 4) - Math.ceil(classSkillV(sv, '女神の神核') / 4) - Math.ceil(classSkillV(sv, '領域外の生命') / 4);
+  d = d + buffSum(side === 'me' ? 'en' : 'me', 'expose') - buffSum(side, 'def') + Math.ceil(classSkillV(sv, '狂化') / 4) - Math.ceil(classSkillV(sv, '女神の神核') / 4) - Math.ceil(classSkillV(sv, '領域外の生命') / 4);
   return Math.max(1, d);
 }
 // 手番の終わり：効果の残り手番を減らし、魔力の自己回復

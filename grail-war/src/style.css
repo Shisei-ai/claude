@@ -474,6 +474,13 @@ body:not(.fx-on) #snow { display: none; }
 .skill-list span { display: block; color: var(--muted); font-size: 12px; }
 .skill-list.cls > div { background: transparent; border-style: dashed; }
 .skill-use { display: inline-block; font-size: 13px; color: var(--gold); }
+.np-fx { display: inline-block; font-size: 13px; color: #f7d98b; }
+.np-fx.en { color: #f3b7bd; }
+.np-line { font-size: 12.5px; color: var(--muted); margin: 6px 0; line-height: 1.6; }
+.np-line b { color: var(--gold); font-weight: 700; }
+.np-detail { margin-top: 6px; font-size: 12.5px; line-height: 1.6; display: flex; flex-direction: column; gap: 2px; }
+.np-detail b { color: var(--gold); font-weight: 700; }
+.np-detail em { font-style: normal; color: var(--muted); }
 .skill-use.en { color: #f3b7bd; }
 /* オベロン：仮面の奥の声（ヴォーティガーン） */
 .scene-body .vort { display: block; margin-top: 8px; padding-top: 6px; border-top: 1px dashed rgba(160, 120, 220, .45); color: #b9a2e6; font-size: 14px; }

@@ -308,7 +308,7 @@ function shirouActAvailable(k) {
 // セイバー自身の判断
 function saberAuto() {
   const r = B.r; const sv = G.servant;
-  if (sv.mp >= 50 && (r.hp <= r.hpMax * 0.45 || B.tellKey === 'np')) return 'np';
+  if (npUsable('me') && (r.hp <= r.hpMax * 0.45 || B.tellKey === 'np')) return 'np';
   if (B.tell && B.tellKey && TACTICS[B.tellKey] && ['str', 'agi', 'mag'].includes(B.tellKey))
     return Object.keys(TACTICS).find(k => TACTICS[k].beats === B.tellKey);
   return ['str', 'agi', 'mag'].reduce((b, k) => servantParam(TACTICS[k].stat) > servantParam(TACTICS[b].stat) ? k : b, 'str');
@@ -317,7 +317,7 @@ function shirouRound(act) { B.sact = act; const t = B.forceTac || saberAuto(); B
 function saberOrderMenu() {
   const p = i => `${PARAM_NAMES[i]}${valueRank(servantParam(i))}`;
   scene({ title: 'セイバーへの指示', sub: `ROUND ${B.round + 1}`, body: ['<p>この手番、セイバーにどう戦ってもらう？（次に士郎の行動を選ぶ）</p>'], choices: [
-    { label: `宝具「${servantOf(G).np}」`, hint: `${p(5)}・魔力-50`, disabled: G.servant.mp < 50, fn: () => { B.forceTac = 'np'; B.anim = null; battleScene(); } },
+    { label: `宝具「${servantOf(G).np}」`, hint: `${npInfo(servantOf(G)).kind}・${p(5)}・魔力-${npInfo(servantOf(G)).cost}`, disabled: !npUsable('me'), fn: () => { B.forceTac = 'np'; B.anim = null; battleScene(); } },
     { label: '白兵戦', hint: p(0), fn: () => { B.forceTac = 'str'; B.anim = null; battleScene(); } },
     { label: '機動戦', hint: p(2), fn: () => { B.forceTac = 'agi'; B.anim = null; battleScene(); } },
     { label: '魔術戦', hint: p(3), fn: () => { B.forceTac = 'mag'; B.anim = null; battleScene(); } },

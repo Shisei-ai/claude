@@ -5,7 +5,8 @@
 //  サーヴァントの行動
 //   攻撃：白兵（筋力）/ 機動（敏捷）/ 魔術（魔力） … 三すくみ
 //         白兵 ＞ 魔術 ＞ 機動 ＞ 白兵（有利な側に+15）
-//   宝具：魔力50を使う大技。三すくみを無視。ただし真名が敵に知られる
+//   宝具：三すくみを無視する大技。ただし真名が敵に知られる。
+//         種類・消費魔力・効果は宝具ごとに違う（data_np.js）。攻撃しない宝具は、使った手番は守りながら効果を出す
 //   防御：耐久で受け、ダメージ半減。防ぎ切れば次の手番に反撃補正
 //   見切り：攻撃しない代わりに、次の敵の行動を確実に読み、真名の手がかりを得る
 //   敵マスターを狙う：成功すれば一気に決着（アサシンが得意・悪）
@@ -65,7 +66,7 @@ function enemyName() { return knowsName(B.r) ? servantOf(B.r).short : `敵${B.r.
 function planEnemy() {
   const r = B.r;
   let t;
-  if (r.mp >= 50 && (r.hp < r.hpMax * 0.5 || Math.random() < 0.15)) t = 'np';
+  if (enemyWantsNp()) t = 'np';
   else if (B.echarge === 0 && Math.random() < (r.hp < r.hpMax * 0.35 ? 0.25 : 0.1)) t = 'guard';
   else t = wpick(['str', 'agi', 'mag'], k => Math.pow(rivalParam(r, TACTICS[k].stat), 1.5));
   B.enemyNext = t;
@@ -132,8 +133,10 @@ function battleScene(extra) {
 
   const p = i => `${PARAM_NAMES[i]}${valueRank(servantParam(i))}`;
   const mpAfter = sv.mp + (B.mact === 'crystal' ? 40 : 0);
+  const npi = npInfo(me); const npOnce = npi.has('once') && B.npUsed.me;
+  body.push(`<p class="np-line">宝具「${me.np}」：<b>${npSummary(npi)}</b>${npFxText(npi) ? `　${npFxText(npi)}` : ''}${npOnce ? '<br>（この戦闘ではもう使えない）' : ''}</p>`);
   const choices = [
-    { label: `宝具「${me.np}」`, hint: `${p(5)}・魔力-50${sv.exposed ? '' : '・真名が知られる'}`, disabled: mpAfter < 50, fn: () => battleRound('np'), cls: 'primary wide', icon: 'np' },
+    { label: `宝具「${me.np}」`, hint: `${npi.kind}・${p(5)}・魔力-${npi.cost}${sv.exposed ? '' : '・真名が知られる'}`, disabled: mpAfter < npi.cost || npOnce, fn: () => battleRound('np'), cls: 'primary wide', icon: 'np' },
     { label: '白兵戦', hint: `${p(0)}・魔術に強い`, fn: () => battleRound('str'), icon: 'str', cls: B.tellKey === 'agi' && B.tell ? 'warn' : '' },
     { label: '機動戦', hint: `${p(2)}・白兵に強い`, fn: () => battleRound('agi'), icon: 'agi', cls: B.tellKey === 'mag' && B.tell ? 'warn' : '' },
     { label: '魔術戦', hint: `${p(3)}・機動に強い`, fn: () => battleRound('mag'), icon: 'mag', cls: B.tellKey === 'str' && B.tell ? 'warn' : '' },
@@ -174,7 +177,7 @@ function shirouBattleScene(body) {
 function sealMenu() {
   const choices = [
     { label: '「全力で打ち倒せ」', hint: '最も得意な攻撃に+35', cls: 'danger', fn: () => battleRound('seal_power') },
-    { label: '「宝具を解き放て」', hint: '魔力を使わず宝具+20', cls: 'danger', fn: () => battleRound('seal_np') },
+    { label: '「宝具を解き放て」', hint: '魔力を使わず宝具+20', cls: 'danger', disabled: npInfo(servantOf(G)).has('once') && B.npUsed.me, fn: () => battleRound('seal_np') },
     { label: '「耐え抜け」', hint: 'HPを7割まで回復し、防御+30', fn: () => battleRound('seal_endure') },
   ];
   if (!B.final) choices.push({ label: '「退け」', hint: '確実に撤退', fn: () => battleRound('seal_retreat') });
@@ -229,25 +232,32 @@ function battleRound(cmd) {
   // スキル（自分が選んだもの・敵のAI）と、行動封じ
   if (B.skill != null) { skillActivate('me', B.skill, log); B.skill = null; }
   enemySkillAI(log);
-  let stunMe = 0, stunEn = 0;
-  if (B.stun.en) { B.stun.en = false; if (et !== 'guard') log.push(`<span class="note">${E}は身動きが取れない！</span>`); et = 'guard'; stunEn = -10; }
+  let stunMe = 0, stunEn = 0, enStunned = false;
+  if (B.stun.en) { B.stun.en = false; log.push(`<span class="note">${E}は身動きが取れない！ 守りもおぼつかない。</span>`); et = 'guard'; stunEn = -20; enStunned = true; }
   if (B.stun.me) { B.stun.me = false; stunMe = -12; log.push(`<span class="note">${P}の動きが鈍っている……！</span>`); }
+  npTick(log);
 
   // 宝具の宣言
   if (tac === 'np') {
-    if (!npFree) sv.mp -= 50;
+    if (!npFree) sv.mp -= npCost('me');
     if (!sv.exposed) { sv.exposed = true; log.push(`<span class="note">宝具の解放により、${P}の真名が敵に知られた。</span>`); }
     log.push(`<b>「${me.np}（${me.npRuby}）――！」</b>`);
     B.fxq.push({ type: 'np', side: 'me', name: me.np, ruby: me.npRuby, who: me.short, cls: me.cls });
+    npOnUse('me', log);
   }
   if (et === 'np') {
     if (B.enforcer) B.enfNp = true;
-    r.mp -= 50;
+    r.mp -= npCost('en');
     const en = servantOf(r);
     log.push(`${E}が宝具を解き放つ。<b>「${en.np}（${en.npRuby}）！」</b>`);
     B.fxq.push({ type: 'np', side: 'en', name: en.np, ruby: en.npRuby, who: en.short, cls: r.cls });
     if (!knowsName(r)) { r.intel = 3; log.push(`<span class="note">その宝具は――${en.name}！ 敵の真名が判明した。</span>`); addLog(`${r.cls}の真名「${en.name}」が判明。`); }
+    npOnUse('en', log);
   }
+  // 攻撃しない宝具：守護は守りの構えとして判定し、支援・弱体・結界は宝具の力を纏ったまま得意な戦い方で攻める
+  const follow = { me: false, en: false };   // 宝具の力を纏った攻め（判定+15・ダメージ+8）
+  if (tac === 'np' && !npOf('me').atk) { tac = npFollow('me'); follow.me = tac !== 'npg'; if (tac !== 'npg') log.push(`<span class="note">${P}は宝具の力を纏ったまま、${TACTICS[tac].name}で攻めかかる。</span>`); }
+  if (et === 'np' && !npOf('en').atk) { et = npFollow('en'); follow.en = et !== 'npg'; if (et !== 'npg') log.push(`<span class="note">${E}は宝具の力を纏ったまま、${TACTICS[et].name}で攻めかかる。</span>`); }
 
   // 敵マスターの令呪（追い詰められると使う）
   let eSeal = 0;
@@ -272,26 +282,32 @@ function battleRound(cmd) {
 
   const score = (side, t, mod) => {
     if (t === 'observe') return Math.round(servantParam(2) * 0.6) + rand(1, 30) + mod;
-    const base = side === 'me' ? servantParam(TACTICS[t].stat) : rivalParam(r, TACTICS[t].stat);
-    return base + (t === 'np' ? 25 : 0) + (t === 'guard' ? 5 : 0) + rand(1, 40) + mod;
+    const st = t === 'npg' ? 5 : TACTICS[t].stat;
+    const base = side === 'me' ? servantParam(st) : rivalParam(r, st);
+    return base + (t === 'np' ? npScoreBonus(side) : t === 'npg' ? npOf(side).score : follow[side] ? 15 : 0) + (t === 'guard' ? 5 : 0) + rand(1, 40) + mod;
   };
   const atk = t => ['str', 'agi', 'mag', 'np'].includes(t);
   let crit = false;
-  const dmgCalc = (diff, t, defEnd, luck, mul = 1) => {
-    let d = Math.round((10 + diff * 0.5 + (t === 'np' ? 22 : 0) - defEnd / 10) * mul);
+  const guardT = t => t === 'guard' || t === 'npg';
+  const dmgCalc = (diff, t, defEnd, luck, mul = 1, side = 'me') => {
+    let d = Math.round((10 + diff * 0.5 + (t === 'np' ? npDmgBonus(side) : follow[side] && t !== 'guard' ? 8 : 0) - defEnd / 10) * mul);
     crit = false;
     if (Math.random() * 100 < luck / 2) { d = Math.round(d * 1.5); log.push('会心の一撃！'); crit = true; }
     return Math.max(4, d);
   };
-  const hitEnemy = (d, t) => { d = skillDamage('en', d, log); r.hp -= d; log.push(winText(t, P, E) + `（${d}ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: d, crit }); };
-  const hitMe = (d, t) => { d = skillDamage('me', d, log); if (B.aias) { d = Math.max(1, Math.round(d * 0.3)); log.push('<span class="note">七枚の花弁が、攻撃の大半を受け止めた！</span>'); }
-    shp(-d); log.push(winText(t, E, P) + `（${d}ダメージ）`); B.fxq.push({ type: 'hit', side: 'me', dmg: d, crit }); };
+  const hitEnemy = (d, t) => { B.sureHit = t === 'np' && npOf('me').has('sure'); d = skillDamage('en', d, log); B.sureHit = false;
+    if (d <= 0) return; r.hp -= d; log.push(winText(t, P, E) + `（${d}ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: d, crit }); if (t === 'np') npOnHit('me', log); };
+  const hitMe = (d, t) => { B.sureHit = t === 'np' && npOf('en').has('sure'); d = skillDamage('me', d, log); B.sureHit = false;
+    if (d <= 0) return; if (B.aias) { d = Math.max(1, Math.round(d * 0.3)); log.push('<span class="note">七枚の花弁が、攻撃の大半を受け止めた！</span>'); }
+    shp(-d); log.push(winText(t, E, P) + `（${d}ダメージ）`); B.fxq.push({ type: 'hit', side: 'me', dmg: d, crit }); if (t === 'np') npOnHit('en', log); };
+  const tname = t => t === 'npg' ? '宝具' : TACTICS[t].name;
+  const pierceNp = (side, t) => t === 'np' && npOf(side).has('pierce');
 
   // ---- 敵マスターを狙う ----
   if (tac === 'master') {
     NOTES = []; tone('evil');
     const mine = servantParam(2) + rand(1, 40) + (isAssassin() ? 20 : -8) + mBonus + buffSum('me', 'master') + Math.ceil(classSkillV(me, '気配遮断') / 2);
-    const guardS = Math.round(rivalParam(r, 2) * 0.5) + r.power * 3 + rand(1, 40) + (et === 'guard' ? 15 : 0);
+    const guardS = Math.round(rivalParam(r, 2) * 0.5) + r.power * 3 + rand(1, 40) + (guardT(et) ? 15 : 0);
     log.push(`<span class="note">${P}：敵マスターへ（${mine}）　対　${E}：護衛（${guardS}）</span>`);
     if (mine >= guardS && (isAssassin() || r.hp <= r.hpMax * 0.4)) {
       r.hp = 0; r.masterDead = true; r.killed = true;
@@ -303,7 +319,7 @@ function battleRound(cmd) {
       log.push(`${esc(r.master)}に手傷を負わせた！ 支援が途切れ、${E}の動きが鈍る。（敵の強さ低下・12ダメージ）`);
     } else {
       log.push(`読まれていた！ ${E}がマスターを庇い、カウンターを放つ。`);
-      if (atk(et)) hitMe(dmgCalc(rand(5, 20), et, servantParam(1), rivalParam(r, 4), 1.2), et);
+      if (atk(et)) hitMe(dmgCalc(rand(5, 20), et, servantParam(1), rivalParam(r, 4), 1.2, 'en'), et);
     }
     log.push(...takeNotes()); return afterRound(log);
   }
@@ -319,20 +335,25 @@ function battleRound(cmd) {
     }
     log.push(`<span class="note">${P}：${TACTICS[tac].name}（${m2}）　対　${E}：${TACTICS[et].name}（${t2}）</span>`);
     if (m2 >= t2) hitEnemy(dmgCalc(m2 - t2, tac, rankValue(servantOf(r).p[1]), servantParam(4) + 2 * skillCrit('me')), tac);
-    else hitMe(dmgCalc(t2 - m2, et, servantParam(1), rivalParam(r, 4) + 2 * skillCrit('en')), et);
-  } else if (atk(tac) && et === 'guard') {
-    log.push(`<span class="note">${P}：${TACTICS[tac].name}（${mine}）　対　${E}：防御（${theirs}）</span>`);
-    if (mine >= theirs) hitEnemy(dmgCalc(mine - theirs, tac, rankValue(servantOf(r).p[1]), servantParam(4) + 2 * skillCrit('me'), skillPierce('me') ? 0.9 : tac === 'np' ? 0.7 : 0.5), tac);
+    else hitMe(dmgCalc(t2 - m2, et, servantParam(1), rivalParam(r, 4) + 2 * skillCrit('en'), 1, 'en'), et);
+  } else if (atk(tac) && guardT(et)) {
+    const pn = pierceNp('me', tac);
+    log.push(`<span class="note">${P}：${tname(tac)}（${mine}）　対　${E}：${et === 'npg' ? '宝具の守り' : '防御'}（${theirs}）</span>`);
+    if (pn) log.push(`<span class="note">宝具が、${E}の守りを貫いた！</span>`);
+    if (mine >= theirs) hitEnemy(dmgCalc(mine - theirs, tac, rankValue(servantOf(r).p[1]), servantParam(4) + 2 * skillCrit('me'), pn ? 1 : skillPierce('me') || enStunned ? 0.9 : tac === 'np' ? 0.7 : 0.5), tac);
+    else if (enStunned) log.push(`${E}は身動きが取れないまま、どうにか攻撃をしのいだ。`);
     else { B.echarge = 12; log.push(`${E}は攻撃を受け止めきった。反撃の気配がある。`); }
-  } else if (tac === 'guard' && atk(et)) {
-    log.push(`<span class="note">${P}：防御（${mine}）　対　${E}：${TACTICS[et].name}（${theirs}）</span>`);
-    if (theirs > mine) hitMe(dmgCalc(theirs - mine, et, servantParam(1), rivalParam(r, 4) + 2 * skillCrit('en'), skillPierce('en') ? 0.9 : et === 'np' ? 0.7 : 0.5), et);
+  } else if (guardT(tac) && atk(et)) {
+    const pn = pierceNp('en', et);
+    log.push(`<span class="note">${P}：${tac === 'npg' ? '宝具の守り' : '防御'}（${mine}）　対　${E}：${tname(et)}（${theirs}）</span>`);
+    if (pn) log.push(`<span class="note">敵の宝具が、${P}の守りを貫いた！</span>`);
+    if (theirs > mine) hitMe(dmgCalc(theirs - mine, et, servantParam(1), rivalParam(r, 4) + 2 * skillCrit('en'), pn ? 1 : skillPierce('en') ? 0.9 : et === 'np' ? 0.7 : 0.5, 'en'), et);
     else { B.charge = 12; log.push(`${P}は攻撃を完全に受け止めた！ 次の手番、反撃の好機だ。（+12）`); }
   } else if (tac === 'observe') {
     B.sure = true; B.charge = Math.max(B.charge, 8); r.clues = (r.clues || 0) + 1;
     if (atk(et)) {
       log.push(`<span class="note">${P}：見切り（回避${mine}）　対　${E}：${TACTICS[et].name}（${theirs}）</span>`);
-      if (theirs > mine) hitMe(dmgCalc(theirs - mine, et, servantParam(1), rivalParam(r, 4) + 2 * skillCrit('en'), 0.8), et);
+      if (theirs > mine) hitMe(dmgCalc(theirs - mine, et, servantParam(1), rivalParam(r, 4) + 2 * skillCrit('en'), 0.8, 'en'), et);
       else log.push(`${P}は紙一重で攻撃をかわし、${E}の動きを見極めた。`);
     } else log.push(`互いに出方を窺う。${P}は${E}の癖を観察した。`);
     if (!knowsName(r) && !B.boss) {
@@ -341,6 +362,9 @@ function battleRound(cmd) {
       else log.push('<span class="note">真名の手がかりを得た。（手がかり+1）</span>');
     }
     log.push('<span class="note">次の手番、敵の行動を確実に読める。（+8）</span>');
+  } else if (tac === 'npg' || et === 'npg') {
+    log.push(`互いに攻めの手を止め、宝具の力が戦場を満たしていく。`);
+    B.charge = 5; B.echarge = 5;
   } else {
     log.push(`互いに守りを固め、睨み合いが続く。`);
     B.charge = 5; B.echarge = 5;
@@ -371,8 +395,8 @@ function afterRoundCore(log) {
   const r = B.r; const sv = G.servant;
   const extra = [`<div class="blog">${log.map(t => `<p>${t}</p>`).join('')}</div>`];
   if (B.enforcer && G.master.hp <= 0) { B = null; return ending('sealed'); }   // 封印された
-  if (r.hp <= 0 && B.guts.en) { B.guts.en = false; r.hp = 20; extra.push(`<p class="note">${enemyName()}は、倒れる寸前で踏みとどまった！（戦闘続行）</p>`); }
-  if (sv.hp <= 0 && B.guts.me) { B.guts.me = false; sv.hp = 20; extra.push(`<p class="note">${SV()}は、倒れる寸前で踏みとどまった！（戦闘続行）</p>`); }
+  if (r.hp <= 0 && B.guts.en > 0) { B.guts.en--; r.hp = 20; extra.push(`<p class="note">${enemyName()}は、倒れる寸前で踏みとどまった！（戦闘続行）</p>`); }
+  if (sv.hp <= 0 && B.guts.me > 0) { B.guts.me--; sv.hp = 20; extra.push(`<p class="note">${SV()}は、倒れる寸前で踏みとどまった！（戦闘続行）</p>`); }
   if (r.hp <= 0) return battleWin(extra);
   if (sv.hp <= 0) {
     if (sv.special && !B.miracle) {
