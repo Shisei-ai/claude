@@ -94,7 +94,7 @@ function drum(g, dest, t, vol = 0.3, hi = 140, lo = 48, dur = 0.35) {
   noiseHit(g, dest, { t, dur: 0.05, vol: vol * 0.25, f: 900 });
 }
 function snare(g, dest, t, vol = 0.12) { noiseHit(g, dest, { t, dur: 0.16, vol, f: 1800, ftype: 'bandpass', q: 0.6, send: 0.15 }); voice(g, dest, { f: 210, endF: 160, t, dur: 0.02, r: 0.1, vol: vol * 0.6, type: 'triangle' }); }
-function hat(g, dest, t, vol = 0.03, pan = 0.2) { noiseHit(g, dest, { t, dur: 0.04, vol, f: 7500, ftype: 'highpass', pan }); }
+function hat(g, dest, t, vol = 0.03, pan = 0.2) { noiseHit(g, dest, { t, dur: 0.04, vol: vol * 1.3, f: 8500, ftype: 'bandpass', q: 0.9, pan }); }   // ハイハット（高域だけを通したノイズ）
 
 // ---------------- 効果音 ----------------
 const SFX = {
@@ -142,22 +142,15 @@ function sfx(name) {
 // ---------------- BGM ----------------
 // 曲調（場面ごと）。chords は和音（MIDIの音番号）、bpc は1つの和音の長さ（拍）、scale は旋律に使う音
 const MOODS = {
-  title:   { bpm: 56, bpc: 8, chords: [[50, 57, 62, 65], [46, 58, 62, 65], [53, 57, 60, 65], [48, 55, 60, 64]], scale: [62, 64, 65, 67, 69, 70, 72, 74, 76, 77],
-             pad: { type: 'sawtooth', cut: 900, vol: 0.032 }, bass: { vol: 0.072 }, bell: { p: 0.22, vol: 0.043 } },
-  growth:  { bpm: 80, bpc: 4, chords: [[53, 57, 60, 65], [48, 55, 60, 64], [50, 57, 62, 65], [46, 53, 58, 62]], scale: [72, 74, 76, 77, 79, 81, 84],
-             pad: { type: 'triangle', cut: 1600, vol: 0.029 }, bass: { vol: 0.058 }, box: { vol: 0.032 } },
-  day:     { bpm: 88, bpc: 4, chords: [[45, 57, 60, 64], [41, 57, 60, 65], [48, 55, 60, 64], [43, 55, 59, 62]], scale: [69, 71, 72, 74, 76, 79, 81],
-             pad: { type: 'triangle', cut: 1400, vol: 0.029 }, bass: { vol: 0.065 }, pluck: { vol: 0.038 }, shaker: 0.012 },
-  night:   { bpm: 62, bpc: 8, chords: [[40, 55, 59, 64], [36, 55, 60, 64], [45, 57, 60, 64], [47, 54, 59, 63]], scale: [64, 66, 67, 71, 72, 75, 76],
-             pad: { type: 'sawtooth', cut: 600, vol: 0.032 }, bass: { vol: 0.072 }, drone: true, bell: { p: 0.14, vol: 0.038, low: true }, pulse: 0.05 },
-  battle:  { bpm: 138, gain: 0.95, score: (mu, t, st, half) => battleScore(mu, t, st, half) },   // 「命のやり取り、信念のぶつかり合い」
-  final:   { bpm: 160, gain: 0.75, score: (mu, t, st, half) => finalScore(mu, t, st, half) },    // 「死ぬか、生きるか」
-  dawn:    { bpm: 66, bpc: 8, chords: [[43, 55, 59, 62], [38, 54, 57, 62], [40, 55, 59, 64], [36, 55, 60, 64]], scale: [67, 69, 71, 74, 76, 78, 79, 83],
-             pad: { type: 'triangle', cut: 2000, vol: 0.035 }, bass: { vol: 0.065 }, bell: { p: 0.3, vol: 0.043 } },
-  sorrow:  { bpm: 54, bpc: 8, chords: [[45, 57, 60, 64], [41, 57, 60, 65], [38, 53, 57, 62], [40, 56, 59, 64]], scale: [69, 71, 72, 74, 76, 77, 80],
-             pad: { type: 'sawtooth', cut: 700, vol: 0.029 }, bass: { vol: 0.065 }, piano: { p: 0.4, vol: 0.043 } },
-  epilogue:{ bpm: 72, bpc: 8, chords: [[41, 53, 57, 60], [36, 52, 55, 60], [38, 53, 57, 62], [34, 53, 58, 62]], scale: [65, 67, 69, 72, 74, 77, 79],
-             pad: { type: 'triangle', cut: 1800, vol: 0.032 }, bass: { vol: 0.058 }, box: { vol: 0.026 }, bell: { p: 0.15, vol: 0.029 } },
+  title:    { bpm: 60, score: (mu, t, st, half) => SONGS.title(mu, t, st, half) },      // 「聖杯の呼び声」
+  growth:   { bpm: 84, gain: 1.15, score: (mu, t, st, half) => SONGS.growth(mu, t, st, half) },     // 「小さな手のひら」
+  day:      { bpm: 92, gain: 1.5, score: (mu, t, st, half) => SONGS.day(mu, t, st, half) },        // 「冬の街、束の間の日常」
+  night:    { bpm: 66, gain: 1.5, score: (mu, t, st, half) => SONGS.night(mu, t, st, half) },      // 「月下の戦場」
+  battle:   { bpm: 138, gain: 0.95, score: (mu, t, st, half) => battleScore(mu, t, st, half) },   // 「信念の刃」
+  final:    { bpm: 160, gain: 0.75, score: (mu, t, st, half) => finalScore(mu, t, st, half) },    // 「生と死の境界」
+  dawn:     { bpm: 70, gain: 1.1, score: (mu, t, st, half) => SONGS.dawn(mu, t, st, half) },       // 「夜明け」
+  sorrow:   { bpm: 56, gain: 1.2, score: (mu, t, st, half) => SONGS.sorrow(mu, t, st, half) },     // 「喪失」
+  epilogue: { bpm: 76, gain: 1.2, score: (mu, t, st, half) => SONGS.epilogue(mu, t, st, half) },   // 「その後の日々」
 };
 class Music {
   constructor(g, mood) {
@@ -306,6 +299,158 @@ function finalScore(mu, t, st, half) {
   // 2周目以降は、A にも遠い主題の残響が混ざる（終わりの見えない戦い）
   if (!B2 && cyc > 0 && pos === 0 && bi % 2 === 1) voice(g, d, { f: mtof(83), t, dur: barDur, a: 0.4, r: 0.8, vol: 0.01, type: 'triangle', send: 0.7, vib: 0.006 });
 }
+
+// =============================================================
+//  場面の曲（すべて作曲済み。16小節＝前半A 8小節＋後半B 8小節を繰り返す）
+//   各小節は [和音, 旋律]。旋律は [小節内の位置, 音, 長さ]（8分音符単位）
+// =============================================================
+const INST = {
+  bell:    (g, d, n, t, dur, v) => bell(g, d, mtof(n), t, Math.max(1.4, dur * 1.6), v, 0.6),
+  box:     (g, d, n, t, dur, v) => { voice(g, d, { f: mtof(n), t, dur: 0.02, a: 0.002, r: 0.9, vol: v, type: 'triangle', send: 0.5 }); voice(g, d, { f: mtof(n + 12), t, dur: 0.01, a: 0.002, r: 0.45, vol: v * 0.3, type: 'sine', send: 0.5 }); },
+  celesta: (g, d, n, t, dur, v) => { voice(g, d, { f: mtof(n), t, dur: 0.03, a: 0.003, r: Math.max(0.9, dur), vol: v, type: 'sine', send: 0.55 }); voice(g, d, { f: mtof(n + 12), t, dur: 0.02, a: 0.003, r: 0.4, vol: v * 0.35, type: 'sine', send: 0.55 }); },
+  piano:   (g, d, n, t, dur, v) => { voice(g, d, { f: mtof(n), t, dur, a: 0.004, decay: 0.35, sus: 0.25, r: 0.7, vol: v, type: 'triangle', send: 0.4 }); voice(g, d, { f: mtof(n + 12), t, dur: dur * 0.5, a: 0.003, decay: 0.15, sus: 0.1, r: 0.3, vol: v * 0.22, type: 'sine', send: 0.4 }); },
+  harp:    (g, d, n, t, dur, v) => voice(g, d, { f: mtof(n), t, dur: 0.02, a: 0.002, r: 0.8, vol: v, type: 'triangle', cut: 3200, send: 0.55 }),
+  pluck:   (g, d, n, t, dur, v) => voice(g, d, { f: mtof(n), t, dur: 0.02, a: 0.002, r: 0.4, vol: v, type: 'triangle', cut: 2400, send: 0.3 }),
+  flute:   (g, d, n, t, dur, v) => { voice(g, d, { f: mtof(n), t, dur, a: 0.07, r: 0.3, vol: v, type: 'sine', send: 0.45, vib: 0.005 }); voice(g, d, { f: mtof(n), t, dur, a: 0.09, r: 0.25, vol: v * 0.25, type: 'triangle', send: 0.4 }); },
+  strings: (g, d, n, t, dur, v) => voice(g, d, { f: mtof(n), t, dur, a: 0.18, r: 0.5, vol: v, type: 'sawtooth', det: 10, cut: 2600, send: 0.5, vib: 0.006 }),
+  cello:   (g, d, n, t, dur, v) => voice(g, d, { f: mtof(n), t, dur, a: 0.15, r: 0.5, vol: v, type: 'sawtooth', det: 6, cut: 1300, send: 0.4, vib: 0.007 }),
+  horn:    (g, d, n, t, dur, v) => voice(g, d, { f: mtof(n), t, dur, a: 0.09, r: 0.4, vol: v, type: 'sawtooth', det: 5, cut: 1300, q: 1.2, send: 0.45, vib: 0.004 }),
+  choir:   (g, d, n, t, dur, v) => choir(g, d, n, t, dur, v),
+};
+// 曲の骨組み：和音と旋律を鳴らし、伴奏（layer）は曲ごとに書く
+function song(def) {
+  return (mu, t, st, half) => {
+    const bar = Math.floor(st / 8) % 16, pos = st % 8, B2 = bar >= 8, bi = bar % 8; const [ch, mel] = (B2 ? def.B : def.A)[bi];
+    const c = { g: mu.g, d: mu.out, bar, pos, B2, bi, ch, half, q: half / 2, barDur: half * 8, cyc: Math.floor(st / 128) };
+    def.layer(c, t);
+    const L = B2 ? def.leadB : def.leadA;
+    if (mel && L) for (const [p, n, len] of mel) if (p === pos) {
+      INST[L.inst](c.g, c.d, n + (L.oct || 0), t, len * half * 0.95, L.vol);
+      if (L.dbl) INST[L.dbl.inst](c.g, c.d, n + (L.dbl.oct || 0), t, len * half * 0.95, L.dbl.vol);
+    }
+  };
+}
+// 伴奏の部品
+function padAt(c, t, o) { if (c.pos === 0) c.ch.n.forEach((n, k) => voice(c.g, c.d, { f: mtof(n + (o.oct || 0)), t, dur: c.barDur, a: o.a ?? 0.4, r: o.r ?? 0.9, vol: o.vol, type: o.type || 'triangle', det: o.det ?? 7, cut: o.cut, send: 0.5, pan: (k - 1.5) * 0.3 })); }
+function bassAt(c, t, o) {
+  const play = (len) => { voice(c.g, c.d, { f: mtof(c.ch.r), t, dur: len, a: 0.02, r: 0.4, vol: o.vol, type: 'sine' }); voice(c.g, c.d, { f: mtof(c.ch.r + 12), t, dur: len, a: 0.02, r: 0.3, vol: o.vol * 0.4, type: 'triangle', cut: 700 }); };
+  if (o.style === 'hold' && c.pos === 0) play(c.barDur * 0.95);
+  if (o.style === 'half' && c.pos % 4 === 0) play(c.half * 3.6);
+  if (o.style === 'pulse' && c.pos % 2 === 0) play(c.half * 0.9);
+}
+function arpAt(c, t, pat, inst, vol, oct = 12) { const i = pat[c.pos % pat.length]; if (i == null) return; const ns = c.ch.n; INST[inst](c.g, c.d, ns[i % ns.length] + oct + (i >= ns.length ? 12 : 0), t, c.half, vol); }
+
+// 和音
+const C_ = {
+  Dm: CH(38, 57, 62, 65, 69), Bb: CH(34, 58, 62, 65, 70), Gm: CH(43, 58, 62, 67, 70), A: CH(33, 57, 61, 64, 69), F: CH(41, 57, 60, 65, 69), C: CH(36, 55, 60, 64, 67),
+  Em: CH(40, 55, 59, 64, 67), B: CH(35, 54, 59, 63, 66), Am: CH(33, 57, 60, 64, 69), G: CH(31, 55, 59, 62, 67), D: CH(38, 54, 57, 62, 66), E: CH(40, 56, 59, 64, 68),
+};
+const SONGS = {
+  // ---- タイトル・召喚「聖杯の呼び声」（ニ短調・60）：運命の始まり。前半は鐘と合唱が「運命の主題」を告げ、後半で弦とホルンが英霊たちの気配を広げる
+  title: song({
+    A: [[C_.Dm, [[0, 74, 4], [4, 69, 2], [6, 72, 2]]], [C_.Bb, [[0, 74, 6], [6, 77, 2]]], [C_.Gm, [[0, 79, 4], [4, 77, 2], [6, 74, 2]]], [C_.A, [[0, 76, 8]]],
+        [C_.Dm, [[0, 74, 4], [4, 69, 2], [6, 72, 2]]], [C_.Bb, [[0, 74, 4], [4, 77, 2], [6, 81, 2]]], [C_.Gm, [[0, 82, 4], [4, 81, 2], [6, 79, 2]]], [C_.A, [[0, 81, 4], [4, 73, 4]]]],
+    B: [[C_.Bb, [[0, 77, 4], [4, 74, 4]]], [C_.F, [[0, 72, 4], [4, 77, 4]]], [C_.C, [[0, 79, 6], [6, 76, 2]]], [C_.Dm, [[0, 74, 8]]],
+        [C_.Bb, [[0, 77, 4], [4, 81, 4]]], [C_.F, [[0, 84, 4], [4, 81, 4]]], [C_.Gm, [[0, 82, 4], [4, 79, 4]]], [C_.A, [[0, 81, 6], [6, 76, 2]]]],
+    leadA: { inst: 'bell', vol: 0.05 },
+    leadB: { inst: 'strings', vol: 0.024, dbl: { inst: 'horn', oct: -12, vol: 0.018 } },
+    layer: (c, t) => {
+      if (!c.B2) { if (c.pos === 0) c.ch.n.slice(0, 3).forEach(n => choir(c.g, c.d, n - 12, t, c.barDur, 0.014)); }
+      else padAt(c, t, { type: 'sawtooth', cut: 1500, vol: 0.012, a: 0.6 });
+      bassAt(c, t, { style: 'hold', vol: 0.05 });
+      arpAt(c, t, c.B2 ? [0, 1, 2, 3, 4, 3, 2, 1] : [0, null, 1, null, 2, null, 3, null], 'harp', c.B2 ? 0.016 : 0.013);
+      if ((c.bar === 0 || c.bar === 8) && c.pos === 0) drum(c.g, c.d, t, 0.18, 80, 40, 1.2);
+    },
+  }),
+  // ---- 生い立ち「小さな手のひら」（ヘ長調・84）：子ども時代の日々。前半はオルゴールの無邪気な旋律、後半はフルートが少し大人びた懐かしさを歌う
+  growth: song({
+    A: [[C_.F, [[0, 77, 2], [2, 81, 2], [4, 84, 4]]], [C_.C, [[0, 79, 4], [4, 76, 2], [6, 79, 2]]], [C_.Dm, [[0, 81, 2], [2, 77, 2], [4, 74, 4]]], [C_.Bb, [[0, 74, 2], [2, 77, 2], [4, 82, 4]]],
+        [C_.F, [[0, 81, 2], [2, 79, 2], [4, 77, 4]]], [C_.C, [[0, 76, 2], [2, 79, 2], [4, 84, 4]]], [C_.Bb, [[0, 82, 2], [2, 81, 2], [4, 77, 4]]], [C_.C, [[0, 79, 8]]]],
+    B: [[C_.Dm, [[0, 81, 6], [6, 79, 2]]], [C_.Bb, [[0, 77, 6], [6, 74, 2]]], [C_.F, [[0, 77, 4], [4, 81, 4]]], [C_.C, [[0, 79, 8]]],
+        [C_.Dm, [[0, 81, 4], [4, 84, 4]]], [C_.Bb, [[0, 86, 4], [4, 82, 4]]], [C_.Gm, [[0, 82, 4], [4, 79, 4]]], [C_.C, [[0, 76, 4], [4, 79, 4]]]],
+    leadA: { inst: 'box', oct: 12, vol: 0.04 },
+    leadB: { inst: 'flute', vol: 0.032 },
+    layer: (c, t) => {
+      padAt(c, t, { vol: c.B2 ? 0.014 : 0.01, cut: 1800, a: 0.5 });
+      bassAt(c, t, { style: 'half', vol: 0.04 });
+      arpAt(c, t, [0, 1, 2, 1, 3, 2, 1, 2], c.B2 ? 'harp' : 'box', c.B2 ? 0.013 : 0.012, c.B2 ? 12 : 24);
+    },
+  }),
+  // ---- 昼「冬の街、束の間の日常」（イ短調・92）：戦いの合間の穏やかな時間。明るい長調へ向かいながら、最後はいつも少しだけ影が差す
+  day: song({
+    A: [[C_.Am, [[0, 76, 3], [3, 72, 1], [4, 69, 4]]], [C_.F, [[0, 72, 3], [3, 74, 1], [4, 77, 4]]], [C_.C, [[0, 79, 3], [3, 76, 1], [4, 72, 4]]], [C_.G, [[0, 74, 6], [6, 71, 2]]],
+        [C_.Am, [[0, 76, 3], [3, 79, 1], [4, 81, 4]]], [C_.F, [[0, 81, 2], [2, 79, 2], [4, 77, 4]]], [C_.C, [[0, 76, 3], [3, 74, 1], [4, 72, 4]]], [C_.E, [[0, 71, 4], [4, 68, 4]]]],
+    B: [[C_.F, [[0, 72, 2], [2, 77, 2], [4, 81, 4]]], [C_.G, [[0, 79, 2], [2, 74, 2], [4, 71, 4]]], [C_.Em, [[0, 76, 2], [2, 79, 2], [4, 83, 4]]], [C_.Am, [[0, 81, 8]]],
+        [C_.F, [[0, 84, 3], [3, 81, 1], [4, 77, 4]]], [C_.G, [[0, 79, 3], [3, 83, 1], [4, 86, 4]]], [C_.C, [[0, 84, 4], [4, 79, 4]]], [C_.E, [[0, 80, 4], [4, 76, 4]]]],
+    leadA: { inst: 'piano', vol: 0.045 },
+    leadB: { inst: 'piano', vol: 0.045, dbl: { inst: 'strings', vol: 0.011 } },
+    layer: (c, t) => {
+      padAt(c, t, { vol: 0.009, cut: 1400, a: 0.6 });
+      bassAt(c, t, { style: 'pulse', vol: 0.038 });
+      arpAt(c, t, [0, 1, 2, 3, 1, 2, 3, 2], 'pluck', 0.02, 0);
+      if (c.pos % 2) hat(c.g, c.d, t, 0.009, -0.3);
+    },
+  }),
+  // ---- 夜「月下の戦場」（ホ短調・66）：静寂に潜む殺気。低い持続音と鼓動の上で、チェレスタが不穏な旋律（増4度）を落としていく。後半はナポリの和音（ヘ長調）でさらに闇が深まる
+  night: song({
+    A: [[C_.Em, [[0, 76, 2], [2, 79, 2], [4, 78, 4]]], [C_.Em, [[4, 71, 4]]], [C_.C, [[0, 79, 4], [4, 76, 4]]], [C_.B, [[0, 75, 4], [4, 78, 4]]],
+        [C_.Em, [[0, 76, 2], [2, 79, 2], [4, 82, 4]]], [C_.Em, [[0, 83, 4], [4, 79, 4]]], [C_.Am, [[0, 81, 4], [4, 77, 4]]], [C_.B, [[0, 75, 8]]]],
+    B: [[C_.C, [[0, 64, 4], [4, 67, 4]]], [C_.Am, [[0, 69, 4], [4, 72, 4]]], [C_.F, [[0, 77, 6], [6, 76, 2]]], [C_.B, [[0, 75, 4], [4, 71, 4]]],
+        [C_.C, [[0, 72, 4], [4, 76, 4]]], [C_.Am, [[0, 81, 4], [4, 77, 4]]], [C_.F, [[0, 77, 4], [4, 81, 4]]], [C_.B, [[0, 78, 4], [4, 75, 4]]]],
+    leadA: { inst: 'celesta', vol: 0.04 },
+    leadB: { inst: 'cello', oct: -12, vol: 0.034 },
+    layer: (c, t) => {
+      if (c.pos === 0) { voice(c.g, c.d, { f: mtof(28), t, dur: c.barDur, a: 1.2, r: 1.2, vol: 0.03 }); voice(c.g, c.d, { f: mtof(47), t, dur: c.barDur, a: 1.2, r: 1.2, vol: 0.012, type: 'triangle' }); }
+      padAt(c, t, { type: 'sawtooth', cut: 600, vol: 0.01, a: 1.0, oct: -12 });
+      if (c.pos === 0) { drum(c.g, c.d, t, 0.06, 70, 40, 0.4); drum(c.g, c.d, t + c.half * 0.9, 0.035, 70, 40, 0.3); }
+      if (c.bar % 4 === 2 && c.pos === 0) noiseHit(c.g, c.d, { t, dur: c.barDur, vol: 0.02, f: 300, endF: 1200, ftype: 'bandpass', a: c.barDur * 0.6, send: 0.5 });
+      if (c.B2) { const top = c.ch.n[c.ch.n.length - 1] + 12; for (let s2 = 0; s2 < 2; s2++) voice(c.g, c.d, { f: mtof(top), t: t + s2 * c.q, dur: c.q * 0.8, a: 0.004, r: 0.03, vol: 0.004, type: 'sawtooth', cut: 3600 }); }
+    },
+  }),
+  // ---- 良い結末「夜明け」（ト長調・70）：長い夜の終わり。ピアノが静かに朝日を告げ、後半は弦とホルンが希望と、少しの喪失を歌い上げる
+  dawn: song({
+    A: [[C_.G, [[0, 79, 4], [4, 83, 2], [6, 81, 2]]], [C_.D, [[0, 81, 6], [6, 78, 2]]], [C_.Em, [[0, 79, 4], [4, 76, 4]]], [C_.C, [[0, 76, 6], [6, 74, 2]]],
+        [C_.G, [[0, 79, 2], [2, 81, 2], [4, 83, 4]]], [C_.D, [[0, 86, 4], [4, 81, 4]]], [C_.C, [[0, 84, 4], [4, 79, 4]]], [C_.D, [[0, 81, 8]]]],
+    B: [[C_.Em, [[0, 83, 6], [6, 81, 2]]], [C_.C, [[0, 79, 6], [6, 76, 2]]], [C_.G, [[0, 79, 4], [4, 83, 4]]], [C_.D, [[0, 86, 8]]],
+        [C_.Em, [[0, 88, 4], [4, 86, 4]]], [C_.C, [[0, 84, 4], [4, 79, 4]]], [C_.Am, [[0, 81, 4], [4, 84, 4]]], [C_.D, [[0, 78, 4], [4, 81, 4]]]],
+    leadA: { inst: 'piano', vol: 0.045 },
+    leadB: { inst: 'strings', vol: 0.026, dbl: { inst: 'horn', oct: -12, vol: 0.016 } },
+    layer: (c, t) => {
+      padAt(c, t, { vol: c.B2 ? 0.014 : 0.01, cut: 2000, a: 0.7 });
+      bassAt(c, t, { style: 'hold', vol: 0.045 });
+      arpAt(c, t, [0, 2, 1, 3, 2, 1, 3, 2], 'piano', 0.012, 0);
+      if ((c.bar === 0 || c.bar === 8) && c.pos === 0) bell(c.g, c.d, mtof(91), t, 2.5, 0.025, 0.7);
+    },
+  }),
+  // ---- 悪い結末「喪失」（イ短調・56）：届かなかった願い。ピアノがひとりで哀しみを語り、後半は低いチェロが喪ったものを悼む
+  sorrow: song({
+    A: [[C_.Am, [[0, 76, 4], [4, 72, 2], [6, 71, 2]]], [C_.F, [[0, 72, 6], [6, 69, 2]]], [C_.Dm, [[0, 74, 4], [4, 77, 2], [6, 76, 2]]], [C_.E, [[0, 71, 6], [6, 68, 2]]],
+        [C_.Am, [[0, 72, 4], [4, 76, 2], [6, 81, 2]]], [C_.F, [[0, 81, 4], [4, 77, 4]]], [C_.Dm, [[0, 77, 4], [4, 74, 2], [6, 72, 2]]], [C_.E, [[0, 71, 8]]]],
+    B: [[C_.F, [[0, 65, 6], [6, 64, 2]]], [C_.G, [[0, 62, 6], [6, 67, 2]]], [C_.C, [[0, 64, 4], [4, 60, 4]]], [C_.Am, [[0, 57, 8]]],
+        [C_.Dm, [[0, 62, 4], [4, 65, 4]]], [C_.E, [[0, 68, 4], [4, 71, 4]]], [C_.Am, [[0, 72, 6], [6, 71, 2]]], [C_.E, [[0, 68, 8]]]],
+    leadA: { inst: 'piano', vol: 0.05 },
+    leadB: { inst: 'cello', vol: 0.036 },
+    layer: (c, t) => {
+      if (c.pos === 0 || c.pos === 4) c.ch.n.slice(0, 3).forEach((n, k) => INST.piano(c.g, c.d, n - 12, t + k * 0.03, c.half * 3.5, 0.011));
+      padAt(c, t, { type: 'sawtooth', cut: 600, vol: 0.006, a: 1.2, oct: -12 });
+      bassAt(c, t, { style: 'hold', vol: 0.04 });
+    },
+  }),
+  // ---- エピローグ「その後の日々」（ヘ長調・76）：時が流れ、思い出を抱いて生きていく。ギターの爪弾きとチェレスタ、後半はフルートが穏やかな幸福を歌う
+  epilogue: song({
+    A: [[C_.F, [[0, 72, 2], [2, 77, 2], [4, 81, 4]]], [C_.Am, [[0, 79, 2], [2, 76, 2], [4, 72, 4]]], [C_.Bb, [[0, 74, 2], [2, 77, 2], [4, 82, 4]]], [C_.C, [[0, 79, 6], [6, 76, 2]]],
+        [C_.F, [[0, 77, 2], [2, 81, 2], [4, 84, 4]]], [C_.Am, [[0, 84, 2], [2, 81, 2], [4, 76, 4]]], [C_.Bb, [[0, 77, 4], [4, 74, 4]]], [C_.C, [[0, 76, 8]]]],
+    B: [[C_.Dm, [[0, 81, 6], [6, 77, 2]]], [C_.Am, [[0, 76, 6], [6, 72, 2]]], [C_.Bb, [[0, 74, 4], [4, 77, 4]]], [C_.F, [[0, 81, 8]]],
+        [C_.Gm, [[0, 82, 4], [4, 79, 4]]], [C_.Am, [[0, 81, 4], [4, 84, 4]]], [C_.Bb, [[0, 86, 4], [4, 82, 4]]], [C_.C, [[0, 79, 8]]]],
+    leadA: { inst: 'celesta', vol: 0.042 },
+    leadB: { inst: 'flute', vol: 0.03 },
+    layer: (c, t) => {
+      padAt(c, t, { vol: 0.01, cut: 1600, a: 0.6 });
+      bassAt(c, t, { style: 'half', vol: 0.038 });
+      arpAt(c, t, [0, 1, 2, 3, 2, 1, 2, 3], 'pluck', 0.018, 0);
+    },
+  }),
+};
 
 let MUSIC = null, MUSIC_TIMER = null;
 function bgmTick() {
