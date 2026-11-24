@@ -322,6 +322,6 @@ function skillRowHTML() {
   const s = skillsOf(servantOf(G)).act; if (!s.length) return '';
   return `<div class="mact"><div class="mact-head">${SV()}のスキル <span>1戦闘に各1回・行動と一緒に使う</span></div><div class="mact-row">` +
     `<button class="chip ${B.skill == null ? 'on' : ''}" data-skill="-1" aria-pressed="${B.skill == null}">使わない<small></small></button>` +
-    s.map((x, i) => `<button class="chip ${B.skill === i ? 'on' : ''}" data-skill="${i}" ${B.sk.me[i] ? 'disabled' : ''} aria-pressed="${B.skill === i}">${x.name}<small>${x.rank}・${SKILL_FX[x.code].tag}</small></button>`).join('') +
-    '</div></div>';
+    s.map((x, i) => `<button class="chip ${B.skill === i ? 'on' : ''}" data-skill="${i}" ${B.sk.me[i] ? 'disabled' : ''} aria-pressed="${B.skill === i}">${x.name}<small>${x.rank}・${SKILL_FX[x.code].tag}${B.sk.me[i] ? '（使用済み）' : ''}</small></button>`).join('') +
+    `</div><p class="skill-sel">${B.skill != null && s[B.skill] ? `<b>${s[B.skill].name} ${s[B.skill].rank}</b>：${skillDesc(s[B.skill])}` : 'スキルを選ぶと、ここに効果が表示される'}</p></div>`;
 }

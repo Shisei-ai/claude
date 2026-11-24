@@ -8,6 +8,7 @@ const ICON = {
   servant: '<svg viewBox="0 0 24 24"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.5-.8z"/></svg>',
   rivals: '<svg viewBox="0 0 24 24"><path d="M5 19L19 5M14 5h5v5M19 19L5 5M5 10V5h5"/></svg>',
   log: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>',
+  info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.4"/></svg>',
 };
 const SEAL_PATH = 'M9 1 C 13 6, 15 10, 9 21 C 3 10, 5 6, 9 1 Z';
 
@@ -229,12 +230,14 @@ function viewServant() {
       <dt>真名</dt><dd>${s.exposed ? '<span class="tag red">敵に知られている</span>' : '秘匿中'}</dd>
       <dt>好み</dt><dd>${s.bond >= 20 || isFuji() ? per.likes.map(k => ACTIVITIES[k].name).join('、') : '絆Lv2で判明'}</dd>
       <dt>苦手</dt><dd>${s.bond >= 40 || isFuji() ? per.dislikes.map(k => ACTIVITIES[k].name).join('、') : '絆Lv4で判明'}</dd></dl>
+    <button class="info-btn" data-info="glossary" style="margin-top:14px">${ICON.info}<span>用語の説明</span><small>宝具の種類・効果、スキル、クラススキル、戦闘の基本</small></button>
     <p class="note" style="font-size:12px;color:var(--muted);margin-top:12px">パラメータの「→」はマスター補正後の実効ランク。判定ではランクを数値（E=10〜EX=65）にして使う。</p>
   </section>`;
 }
 function viewRivals() {
   if (!G.rivals.length) return '<section class="panel"><p class="empty">聖杯戦争が始まると、敵陣営の情報がここに表示される。</p></section>';
   return `<section class="panel"><h2>陣営</h2><p class="note" style="font-size:12px;color:var(--muted);margin:0 0 12px">情報段階：①マスター判明 ②拠点判明（襲撃可能） ③真名判明（戦闘有利）</p>
+    <button class="info-btn" data-info="glossary" style="margin:0 0 12px">${ICON.info}<span>用語の説明</span><small>宝具・スキルの効果の意味</small></button>
     <div class="rivals">${G.rivals.map(r => {
       const s = servantOf(r);
       return `<div class="rival ${r.alive ? '' : 'out'}">

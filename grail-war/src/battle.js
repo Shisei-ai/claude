@@ -96,11 +96,11 @@ function battleScene(extra) {
     `<div class="battle-field">
       <div class="fighter" id="f-me" style="--cc:${classColor(me.cls)}"><div class="fighter-top"><span class="fighter-name">${emblem(me.cls, 18)}${me.short}</span><span>${me.cls}　HP ${sv.hp}/${servantHpMax()}　魔力 ${sv.mp}${B.charge ? `　<b>反撃+${B.charge}</b>` : ''}</span></div>
         <div class="bar hp"><i class="lag" style="width:${meFrom}%"></i><i data-w="${meW}" style="width:${meFrom}%"></i></div>
-        <div class="bar mp thin"><i style="width:${sv.mp}%"></i></div></div>
+        <div class="bar mp thin"><i style="width:${sv.mp}%"></i></div>${fxBadgesHTML('me')}</div>
       <div class="vs">VS</div>
       <div class="fighter enemy" id="f-en" style="--cc:${classColor(r.cls)}"><div class="fighter-top"><span class="fighter-name">${emblem(r.cls, 18)}${enemyName()}</span><span>${r.cls}${knowsName(r) ? '' : '（真名不明）'}　HP ${Math.max(0, r.hp)}/${r.hpMax}</span></div>
         <div class="bar enemy"><i class="lag" style="width:${enFrom}%"></i><i data-w="${enW}" style="width:${enFrom}%"></i></div>
-        ${knowsName(r) ? `<div class="enemy-params">${PARAM_NAMES.map((n, i) => `${n}<b>${servantOf(r).p[i]}</b>`).join('')}</div>` : ''}</div>
+        ${knowsName(r) ? `<div class="enemy-params">${PARAM_NAMES.map((n, i) => `${n}<b>${servantOf(r).p[i]}</b>`).join('')}</div>` : ''}${fxBadgesHTML('en')}</div>
     </div>`,
   ];
   if (B.round === 0) {
@@ -119,6 +119,7 @@ function battleScene(extra) {
   }
   if (B.extra) body.push(...B.extra);
   if (B.tell) body.push(`<p class="tell">${B.tell}</p>`);
+  body.push(`<button class="info-btn" data-info="battle">${ICON.info}<span>効果の一覧</span><small>宝具・スキル・いま働いている効果・用語の説明</small></button>`);
   if (isShirou()) return shirouBattleScene(body);
   // マスターの行動（トグル）
   const ACTS = allMasterActs();
