@@ -286,6 +286,7 @@ function startSlot() {
     }
   }
   if (!SLOT.enf) { SLOT.enf = true; const f = enforcerCheck(); if (f) return f(); }   // 封印指定執行者（data_enforcer.js）
+  if (!SLOT.soul) { SLOT.soul = true; const f = soulCheck() || soulDayRaid(); if (f) return f(); }   // 魂喰いの発覚・討伐対象への襲撃（data_soul.js）
   if (G.phase === 'war' && aliveRivals().length === 1) {
     const last = aliveRivals()[0];
     if (isNight() && G.day >= FINAL_DAY) return finalBattleIntro();
@@ -302,6 +303,7 @@ function advance() {
   if (checkGameOver()) return;
   SLOT = {};
   G.slot++;
+  soulSlot();   // 魂喰い：1コマごとの回復（data_soul.js）
   if (G.slot > 1) { G.slot = 0; G.day++; dailyUpdate(); }
   if (G.phase === 'war' && G.day > WAR_DAYS) return deadlineScene();
   slotCard(startSlot);
@@ -316,6 +318,7 @@ function dailyUpdate() {
     mysteryDaily();
     skillDaily();
     magicDaily();
+    soulDaily();
   }
 }
 

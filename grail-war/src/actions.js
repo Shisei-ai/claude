@@ -32,6 +32,7 @@ function statusLine() {
     <div><span>英霊の魔力</span><b>${sv.mp}</b></div>
     <div><span>オド</span><b>${G.master.od}</b><em>/${odMax()}</em></div>
     <div class="wide"><span>陣地</span>Lv${G.workshop}・罠${G.traps}　<span>道具</span>${items}</div>
+    ${soulStatusHTML()}
   </div>`;
 }
 // 行動の結果を表示して、コマを進める
@@ -117,7 +118,7 @@ function warDayActions() {
     { label: 'マスターの鍛錬', hint: '体力・魔力・知力', fn: trainMenu },
   ];
   const allyTargets = hostileRivals().filter(r => r.intel >= 1);
-  if (allyTargets.length && hostileRivals().length >= 3 && !aliveRivals().some(r => r.ally))
+  if (allyTargets.length && hostileRivals().length >= 3 && !aliveRivals().some(r => r.ally) && !(G.soul && G.soul.exposed))
     acts.push({ label: '同盟を持ちかける', hint: '交渉判定・一時休戦', fn: allianceMenu });
   acts.push({ label: '休息', hint: 'HP・魔力・オド回復', fn: () => actResult('休息', () => { hp(25); shp(20); mp(15); od(15);
     return `拠点で体を休めた。（HP+25 ${SV()}のHP+20 魔力+15 オド+15）`; }) });
@@ -195,6 +196,7 @@ function baseMenu() {
       if (c.ok) { mp(40); od(10); return [c.text, `天降山から流れる霊脈を拠点へ引き込んだ。（${SV()}の魔力+40 オド+10）`]; }
       mp(10); return [c.text, '霊脈の流れは気まぐれで、わずかしか汲めなかった。（魔力+10）'];
     }) },
+    ...soulBaseChoices(),   // 魂喰い：痕跡の隠蔽・やめる（data_soul.js）
   ]);
 }
 
@@ -238,6 +240,7 @@ function warNightActions() {
   if (G.used.s_coma && ((!isPure() && !solved() && !so.clues.some(c => c.id === 'stakeout')) || (isPure() && culpritAlive() && !so.culpritKnown)))
     acts.push({ label: '事件現場に張り込む', hint: '昏睡事件の瞬間を押さえる・調査', icon: 'observe', fn: stakeoutMenu });
   if (targets.length) acts.push({ label: '敵の拠点を襲撃する', hint: '作戦を選んで仕掛ける', fn: assaultMenu, cls: 'danger' });
+  if (soulAllowed() && !soulOn()) acts.push({ label: '魂喰いを命じる', hint: '悪・混沌の在り方ゆえの禁じ手。毎コマ回復・発覚の危険', cls: 'danger', icon: 'mag', fn: soulStartScene });
   acts.push(
     { label: '拠点で迎え撃つ', hint: `陣地Lv${G.workshop}・罠${G.traps}で待ち構える`, fn: defendBase },
     { label: `${SV()}と語らう`, hint: G.servant.bond >= 70 && !G.servant.special ? '何かが起きそうだ' : relationEvent() ? `絆↑・「${RELATIONS[G.servant.special].name}」の出来事が起きるかも` : '絆↑', fn: nightTalk },
@@ -248,7 +251,7 @@ function warNightActions() {
   return acts;
 }
 // 夜に拠点にいると襲われることがある
-function baseAttackChance() { return 0.08 + G.day * 0.01 + (G.servant.exposed ? 0.1 : 0); }
+function baseAttackChance() { return 0.08 + G.day * 0.01 + (G.servant.exposed ? 0.1 : 0) + soulRaidBonus(); }
 function maybeRaided(after) {
   if (engageable().length && Math.random() < baseAttackChance()) {
     const r = wpick(engageable(), x => x.aggr);

@@ -111,6 +111,8 @@ function activeFx(side) {
   if (B.evade[side] > 0) out.push({ t: `回避×${B.evade[side]}`, k: 'up', words: `次の攻撃を${B.evade[side]}回無効にする` });
   if (B.guts[side] > 0) out.push({ t: `戦闘続行${B.guts[side] > 1 ? '×' + B.guts[side] : ''}`, k: 'up', words: `HP0から${B.guts[side] > 1 ? B.guts[side] + '回まで' : '一度だけ'}踏みとどまる` });
   if (B.stun[side]) out.push({ t: '行動不能', k: 'down', words: '次の手番、身動きが取れない' });
+  if (side === 'me' && soulOn()) out.push({ t: '魂喰い', k: 'up', words: `毎手番、HP+${SOUL_BATTLE.hp}・魔力+${SOUL_BATTLE.mp}` });
+  if (side === 'en' && G.soul && G.soul.exposed && !B.boss && !B.beast && !B.enforcer) out.push({ t: '討伐令', k: 'up', words: '報酬を狙う戦意。すべての判定+4' });
   return out;
 }
 // HPバーの下の小さな札

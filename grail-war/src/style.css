@@ -544,3 +544,6 @@ body:not(.fx-on) #snow { display: none; }
 .align-shift .tag { margin-right: 8px; }
 .align-shift small { color: var(--muted); font-size: 12px; }
 .dd-note { display: block; font-size: 11px; color: var(--muted); }
+
+/* ---------- 魂喰い（data_soul.js） ---------- */
+.status-box .soul-line { color: #f3b7bd; }

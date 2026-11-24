@@ -237,6 +237,7 @@ function battleRound(cmd) {
   if (B.stun.en) { B.stun.en = false; log.push(`<span class="note">${E}は身動きが取れない！ 守りもおぼつかない。</span>`); et = 'guard'; stunEn = -20; enStunned = true; }
   if (B.stun.me) { B.stun.me = false; stunMe = -12; log.push(`<span class="note">${P}の動きが鈍っている……！</span>`); }
   npTick(log);
+  if (soulOn()) { mp(SOUL_BATTLE.mp); shp(SOUL_BATTLE.hp); log.push(`<span class="note">喰らった魂の魔力が、${P}を満たす。（HP+${SOUL_BATTLE.hp} 魔力+${SOUL_BATTLE.mp}）</span>`); }
 
   // 宝具の宣言
   if (tac === 'np') {
@@ -278,7 +279,7 @@ function battleRound(cmd) {
     + (B.final && G.flags.resolve === 'win' ? 6 : 0) + (B.boss && G.flags.resolve === 'destroy' ? 8 : 0) + (B.boss && G.flags.mudKnown ? 5 : 0) + (B.final && G.flags.resolve === 'pure' ? 5 : 0) + (B.beast ? (G.flags.resolve === 'beast' ? 8 : 0) + (G.flags.grailBeast ? 5 : 0) + (G.flags.serpentKnown ? 4 : 0) : 0) + (G.flags.partnerCombo && sv.special === 'partner' ? 3 : 0)
     + (!B.boss && r.id === mys().culprit && mys().culpritKnown ? 3 + (G.flags.shadowKnown ? 3 : 0) : 0)
     + sealBoost + mBonus + B.charge + skillMod('me', tac, et) + stunMe;
-  const enMod = classAffinity(r.cls, me.cls) + r.power + (sv.exposed ? 6 : 0) + (first && B.opt.enemyFirst ? 12 : 0) + eSeal + B.echarge + skillMod('en', et, tac) + stunEn;
+  const enMod = classAffinity(r.cls, me.cls) + r.power + (sv.exposed ? 6 : 0) + (first && B.opt.enemyFirst ? 12 : 0) + eSeal + B.echarge + skillMod('en', et, tac) + stunEn + soulHuntedBonus();
   B.charge = 0; B.echarge = 0;
 
   const score = (side, t, mod) => {

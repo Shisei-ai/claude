@@ -160,6 +160,8 @@ function ending(kind) {
   if (le) E.text.push(le);
   const ee = enforcerEpilogue(kind);
   if (ee) E.text.push(ee);
+  const so = soulEpilogue(kind);
+  if (so) E.text.push(so);
   const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure', 'saturated', 'sealed'].includes(kind);
   sfx(good ? 'win' : 'lose');
   showCard({ kicker: good ? 'ENDING' : 'BAD END', title: E.title.replace('終幕：', ''), cls: good ? 'dawn' : 'blood', ms: 2200 }, () => {
