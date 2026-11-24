@@ -268,6 +268,7 @@ function startSlot() {
   if (checkGameOver()) return;
   if (G.phase === 'prep' && G.day > PREP_DAYS) { G.phase = 'summon'; return summonScene(); }
   if (G.phase === 'war') {
+    if (needWish()) return wishScene(startSlot);   // 聖杯戦争の始まりに、聖杯への願いを選ぶ（data_align.js）
     if (aliveRivals().length === 0) return victoryScene();
     if (hostileRivals().length === 0) return breakAlliance();
   }

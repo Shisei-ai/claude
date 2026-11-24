@@ -183,7 +183,7 @@ const STORY = [
       ? `召喚から一夜。台所に立つと、${SV()}が窓辺から冬の街を眺めていた。まるで、あの頃の朝のように。<br>${say('askWishFuji')}`
       : `召喚から一夜。台所に立つと、${SV()}が窓辺から冬の街を眺めていた。<br>${say('askWish')}`,
     choices: [
-      { label: () => `「${birthOf().wish}」と答える`, hint: '自分の願いを語る', run: () => {
+      { label: () => `「${masterWish()}」と答える`, hint: '自分の願いを語る', run: () => {
           bond(4); G.flags.toldWish = true;
           return voiceOf(servantOf(G)).reg === 'mute'
             ? [`あなたは自分の願いを、正直に語った。${SV()}は黙って最後まで聞き、それから、大きく一度だけ頷いた。`, '（絆+4）']

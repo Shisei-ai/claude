@@ -2428,7 +2428,7 @@ const STORY = [
       ? `召喚から一夜。台所に立つと、${SV()}が窓辺から冬の街を眺めていた。まるで、あの頃の朝のように。<br>${say('askWishFuji')}`
       : `召喚から一夜。台所に立つと、${SV()}が窓辺から冬の街を眺めていた。<br>${say('askWish')}`,
     choices: [
-      { label: () => `「${birthOf().wish}」と答える`, hint: '自分の願いを語る', run: () => {
+      { label: () => `「${masterWish()}」と答える`, hint: '自分の願いを語る', run: () => {
           bond(4); G.flags.toldWish = true;
           return voiceOf(servantOf(G)).reg === 'mute'
             ? [`あなたは自分の願いを、正直に語った。${SV()}は黙って最後まで聞き、それから、大きく一度だけ頷いた。`, '（絆+4）']
@@ -3130,6 +3130,46 @@ function alignCheck(then) {
       return [c.res];
     } })),
   }, then);
+}
+
+// =============================================================
+//  聖杯への願い：聖杯戦争が始まったとき（最初のコマ）に、属性ごとの6つの願いから1つを選ぶ
+//   秩序・混沌・善・悪の願いはその方向へ3、中立・中庸の願いは中立・中庸の側へ最大3動く
+//   特殊シナリオ（藤丸・士郎・岸波）は、人物像に合わせた願いが決まっているので選ばない
+// =============================================================
+const MASTER_WISHES = [
+  { key: 'law',     tag: '秩序', text: '正しき者が正しく報われる、揺るぎない秩序を', law: 3 },
+  { key: 'neutral', tag: '中立', text: '何者にも与せず、この戦いと聖杯の真実を見届けたい', centerLaw: 3 },
+  { key: 'chaos',   tag: '混沌', text: 'あらゆる枷を断ち切り、何ものにも縛られない自由を', law: -3 },
+  { key: 'good',    tag: '善',   text: '誰も泣かずに済む世界を――苦しむ人々を救いたい', good: 3 },
+  { key: 'mid',     tag: '中庸', text: '大切な人たちとの、ささやかな日々がずっと続くように', centerGood: 3 },
+  { key: 'evil',    tag: '悪',   text: '何者にも屈しない力を。望むものすべてを、この手に', good: -3 },
+];
+function masterWish() { return (G && G.master.wish) || birthOf().wish; }
+function needWish() { return G.phase === 'war' && !G.master.wishKey && !isFuji() && !isKishi() && !isShirou() && !!G.servant; }
+function wishScene(then) {
+  const b = birthOf();
+  scene({ title: '聖杯への願い', sub: '聖杯戦争、開幕', reveal: true, body: paras([
+    `サーヴァントを従え、あなたは正式にこの戦いのマスターとなった。万能の願望機――聖杯。最後の一組になれば、どんな願いも叶う。`,
+    `これまでのあなたなら、迷わず「${b.wish}」と答えただろう。<br>けれど、令呪の刻まれた右手と、隣に立つ英霊を見て、あらためて自分自身に問う。――<b>聖杯に、何を願う？</b>`,
+    `<span class="note">選んだ願いは、あなたの在り方（属性）を動かし、聖杯の前で口にする言葉になる。</span>`,
+  ]), choices: MASTER_WISHES.map(w => ({ label: `「${w.text}」`, hint: `${w.tag}の願い`, fn: () => chooseWish(w, then) })) });
+}
+function chooseWish(w, then) {
+  NOTES = []; const a = G.master.align;
+  G.master.wish = w.text; G.master.wishKey = w.key;
+  const dl = w.law || (w.centerLaw ? -Math.sign(a.law) * Math.min(w.centerLaw, Math.abs(a.law)) : 0);
+  const dg = w.good || (w.centerGood ? -Math.sign(a.good) * Math.min(w.centerGood, Math.abs(a.good)) : 0);
+  alignShift(dl, dg);
+  addLog(`聖杯への願い：「${w.text}」`);
+  // 英霊の受け止め方：属性が近ければ喜び、遠ければ眉をひそめる
+  const sv = servantOf(G); const [order, moral] = sv.align.split('・'); const mute = voiceOf(sv).reg === 'mute';
+  const like = order === w.tag || moral === w.tag;
+  const clash = (w.tag === '善' && moral === '悪') || (w.tag === '悪' && moral === '善') || (w.tag === '秩序' && order === '混沌') || (w.tag === '混沌' && order === '秩序');
+  const line = like ? (bond(3), mute ? `${SV()}は、あなたの願いに応えるように、低く喉を鳴らした。（絆+3）` : `${SV()}は、わずかに口元を緩めた。その願いは、どこか${SV()}の在り方と響き合うものだったらしい。（絆+3）`)
+    : clash ? (bond(-2), mute ? `${SV()}は、黙ってあなたから目を逸らした。（絆-2）` : `${SV()}は何か言いたげにあなたを見て、それから黙って目を伏せた。（絆-2）`)
+    : `${SV()}は、あなたの願いを静かに聞いていた。`;
+  next('聖杯への願い', paras([`「${w.text}」――それが、あなたの願いだ。`, line, ...takeNotes()]), then, '戦いへ');
 }
 
 // =============================================================
@@ -17894,6 +17934,7 @@ function startSlot() {
   if (checkGameOver()) return;
   if (G.phase === 'prep' && G.day > PREP_DAYS) { G.phase = 'summon'; return summonScene(); }
   if (G.phase === 'war') {
+    if (needWish()) return wishScene(startSlot);   // 聖杯戦争の始まりに、聖杯への願いを選ぶ（data_align.js）
     if (aliveRivals().length === 0) return victoryScene();
     if (hostileRivals().length === 0) return breakAlliance();
   }
@@ -19483,7 +19524,7 @@ function victoryScene() {
   else if (!G.flags.grailPure && G.flags.grailHint) choices.push({ label: '聖杯を破壊する', hint: '真相は確かめていない……疑いに賭ける', cls: 'danger', fn: () => isCursed() ? bossIntro() : ending('destroyPure') });
   if (G.servant.special) choices.push({ label: `${sv.short}の受肉を願う`, hint: `「${RELATIONS[G.servant.special].name}」として共に生きる`, cls: 'primary', fn: () => ending('together') });
   if (G.flags.knowWish && !G.flags.grailTruth) choices.push({ label: `${sv.short}に聖杯を託す`, hint: `「${fmt(svWish(sv)).slice(0, 18)}…」`, fn: () => ending('servantWish') });
-  choices.push({ label: `「${b.wish}」を願う`, hint: 'マスターの願い', fn: () => ending(G.flags.grailTruth ? 'wishKnown' : isCursed() ? 'wish' : 'wishPure') });
+  choices.push({ label: `「${masterWish()}」を願う`, hint: 'マスターの願い', fn: () => ending(G.flags.grailTruth ? 'wishKnown' : isCursed() ? 'wish' : 'wishPure') });
   choices.push({ label: '何も願わない', fn: () => ending('none') });
   scene({ title: '聖杯降臨', sub: '第三幕　降臨', body: [
     '<p>最後の敵が消え、天降山の頂に黄金の杯が降りてきた。万能の願望機――聖杯。</p>',
@@ -19538,7 +19579,7 @@ function ending(kind) {
     wish: () => ({ title: '終幕：歪んだ願い', text: ['<p>聖杯は願いを聞き届けた。――最悪の形で。</p>', '<p>溢れ出した黒い泥が天降山を覆い、深見市の夜空が赤く染まる。願いは確かに「叶った」。だが、その代償はあまりにも大きかった。</p>',
       `<p>消えゆく${sv.short}の姿を見送りながら、あなたは悟る。この聖杯は、最初から呪われていたのだと。</p>`, '<p class="note">ヒント：聖杯の真実を知っていれば、別の選択肢があったかもしれない。</p>'] }),
     wishKnown: () => ({ title: '終幕：承知の上の願い', text: ['<p>呪われた聖杯と知りながら、あなたは願った。泥が溢れ、街に災いが降りかかる。</p>', `<p>${sv.short}は何も言わず、ただ悲しげにあなたを見つめていた。</p>`] }),
-    wishPure: () => ({ title: '終幕：叶えられた願い', text: [`<p>「${birthOf().wish}」</p>`, '<p>聖杯は、静かに願いを聞き届けた。歪みも、代償もなく。黄金の光が冬の夜空に広がり、深見市の上に降り注いでいく。</p>',
+    wishPure: () => ({ title: '終幕：叶えられた願い', text: [`<p>「${masterWish()}」</p>`, '<p>聖杯は、静かに願いを聞き届けた。歪みも、代償もなく。黄金の光が冬の夜空に広がり、深見市の上に降り注いでいく。</p>',
       `<p>光の中で、${sv.short}が振り返った。</p>`, `<p class="quote">${farewellLine(sv)}</p>`,
       G.flags.grailPure ? '<p>自分の足で真相を確かめたからこそ、迷わずに願えた。――あの冬の調査は、無駄ではなかったのだ。</p>'
         : '<p class="note">あなたは知らない。この聖杯が、本当に正しいものだったのかどうかを。……結果として、願いは叶ったけれど。</p>'] }),
@@ -19837,7 +19878,7 @@ function viewMaster() {
     <dl class="kv" style="margin-top:10px"><dt>令呪</dt><dd>${m.seals}画</dd><dt>資金</dt><dd>${m.money}万円</dd><dt>魔術回路</dt><dd>${m.circuits}本</dd>
       <dt>オド</dt><dd>${m.od} / ${odMax()}（マスター自身の魔力。戦闘の支援魔術や使い魔に使う）</dd>
       <dt>陣地</dt><dd>Lv ${G.workshop}・罠${G.traps}${G.flags.leyline || m.birth === 'shrine' ? '（霊脈の知識あり）' : ''}</dd>
-      <dt>性別</dt><dd>${GENDERS[m.gender || 'n']}</dd><dt>願い</dt><dd>${b.wish}</dd><dt>特徴</dt><dd>${b.perk}</dd>
+      <dt>性別</dt><dd>${GENDERS[m.gender || 'n']}</dd><dt>願い</dt><dd>${masterWish()}</dd><dt>特徴</dt><dd>${b.perk}</dd>
       <dt>属性</dt><dd>${alignLabel()}<span class="dd-note">これまでの選択で変わっていく</span></dd></dl>
     <h3>能力値</h3>${statBars(m.stats)}
     ${spellListHTML()}

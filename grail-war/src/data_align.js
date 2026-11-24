@@ -160,3 +160,43 @@ function alignCheck(then) {
     } })),
   }, then);
 }
+
+// =============================================================
+//  聖杯への願い：聖杯戦争が始まったとき（最初のコマ）に、属性ごとの6つの願いから1つを選ぶ
+//   秩序・混沌・善・悪の願いはその方向へ3、中立・中庸の願いは中立・中庸の側へ最大3動く
+//   特殊シナリオ（藤丸・士郎・岸波）は、人物像に合わせた願いが決まっているので選ばない
+// =============================================================
+const MASTER_WISHES = [
+  { key: 'law',     tag: '秩序', text: '正しき者が正しく報われる、揺るぎない秩序を', law: 3 },
+  { key: 'neutral', tag: '中立', text: '何者にも与せず、この戦いと聖杯の真実を見届けたい', centerLaw: 3 },
+  { key: 'chaos',   tag: '混沌', text: 'あらゆる枷を断ち切り、何ものにも縛られない自由を', law: -3 },
+  { key: 'good',    tag: '善',   text: '誰も泣かずに済む世界を――苦しむ人々を救いたい', good: 3 },
+  { key: 'mid',     tag: '中庸', text: '大切な人たちとの、ささやかな日々がずっと続くように', centerGood: 3 },
+  { key: 'evil',    tag: '悪',   text: '何者にも屈しない力を。望むものすべてを、この手に', good: -3 },
+];
+function masterWish() { return (G && G.master.wish) || birthOf().wish; }
+function needWish() { return G.phase === 'war' && !G.master.wishKey && !isFuji() && !isKishi() && !isShirou() && !!G.servant; }
+function wishScene(then) {
+  const b = birthOf();
+  scene({ title: '聖杯への願い', sub: '聖杯戦争、開幕', reveal: true, body: paras([
+    `サーヴァントを従え、あなたは正式にこの戦いのマスターとなった。万能の願望機――聖杯。最後の一組になれば、どんな願いも叶う。`,
+    `これまでのあなたなら、迷わず「${b.wish}」と答えただろう。<br>けれど、令呪の刻まれた右手と、隣に立つ英霊を見て、あらためて自分自身に問う。――<b>聖杯に、何を願う？</b>`,
+    `<span class="note">選んだ願いは、あなたの在り方（属性）を動かし、聖杯の前で口にする言葉になる。</span>`,
+  ]), choices: MASTER_WISHES.map(w => ({ label: `「${w.text}」`, hint: `${w.tag}の願い`, fn: () => chooseWish(w, then) })) });
+}
+function chooseWish(w, then) {
+  NOTES = []; const a = G.master.align;
+  G.master.wish = w.text; G.master.wishKey = w.key;
+  const dl = w.law || (w.centerLaw ? -Math.sign(a.law) * Math.min(w.centerLaw, Math.abs(a.law)) : 0);
+  const dg = w.good || (w.centerGood ? -Math.sign(a.good) * Math.min(w.centerGood, Math.abs(a.good)) : 0);
+  alignShift(dl, dg);
+  addLog(`聖杯への願い：「${w.text}」`);
+  // 英霊の受け止め方：属性が近ければ喜び、遠ければ眉をひそめる
+  const sv = servantOf(G); const [order, moral] = sv.align.split('・'); const mute = voiceOf(sv).reg === 'mute';
+  const like = order === w.tag || moral === w.tag;
+  const clash = (w.tag === '善' && moral === '悪') || (w.tag === '悪' && moral === '善') || (w.tag === '秩序' && order === '混沌') || (w.tag === '混沌' && order === '秩序');
+  const line = like ? (bond(3), mute ? `${SV()}は、あなたの願いに応えるように、低く喉を鳴らした。（絆+3）` : `${SV()}は、わずかに口元を緩めた。その願いは、どこか${SV()}の在り方と響き合うものだったらしい。（絆+3）`)
+    : clash ? (bond(-2), mute ? `${SV()}は、黙ってあなたから目を逸らした。（絆-2）` : `${SV()}は何か言いたげにあなたを見て、それから黙って目を伏せた。（絆-2）`)
+    : `${SV()}は、あなたの願いを静かに聞いていた。`;
+  next('聖杯への願い', paras([`「${w.text}」――それが、あなたの願いだ。`, line, ...takeNotes()]), then, '戦いへ');
+}
