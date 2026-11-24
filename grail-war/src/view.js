@@ -48,6 +48,7 @@ function render() {
 }
 // 描画のあと：文章の表示演出の終了時刻を記録
 function afterRender() {
+  try { bgmUpdate(); } catch (e) { }
   const sc = document.querySelector('.scene[data-total]');
   REVEAL_UNTIL = sc ? Date.now() + (+sc.dataset.total) : 0;
 }
@@ -67,7 +68,8 @@ function viewTop() {
     <div class="topbar-row">
       <div class="when"><span class="when-phase">${chapterOf().replace('　', ' ')}</span><span class="when-day">${dayText}</span>
         ${G.phase === 'prep' || G.phase === 'war' ? `<span class="time-chip ${night ? 'night' : 'day'}">${night ? '夜' : '昼'}</span>` : ''}</div>
-      ${G.phase === 'growth' ? '' : `<div class="seals" title="令呪 残り${G.master.seals}画" aria-label="令呪 残り${G.master.seals}画">${seals}${extraSeals}</div>`}
+      <div class="top-right">${G.phase === 'growth' ? '' : `<div class="seals" title="令呪 残り${G.master.seals}画" aria-label="令呪 残り${G.master.seals}画">${seals}${extraSeals}</div>`}
+        <button class="mute-btn ${CFG.sound || CFG.bgm ? 'on' : ''}" data-act="mute" aria-label="音楽と効果音 ${CFG.sound || CFG.bgm ? 'ON' : 'OFF'}" title="音楽と効果音のON/OFF">${SPEAKER_SVG(CFG.sound || CFG.bgm)}</button></div>
     </div>
     <div class="mini"><span>HP <b>${G.master.hp}</b></span><span>資金 <b>${G.master.money}</b>万円</span>
       ${sv ? `<span>${emblem(servantOf(G).cls, 12)}${SV()} <b>${sv.hp}</b>/${servantHpMax()}</span><span>絆Lv <b>${Math.floor(sv.bond / 10)}</b></span>` : `<span>触媒 <b>${G.catalysts.length}</b></span>`}</div>
@@ -115,6 +117,7 @@ function viewTitle() {
         <button class="choice" data-act="gallery">${actIcon('study')}<span class="c-label">エンディング</span><span class="c-hint">${seen}/${ENDING_LIST.length}</span></button>
         <button class="choice" data-act="settings">${actIcon('base')}<span class="c-label">設定</span></button>
       </div>
+      <button class="sound-toggle ${CFG.sound || CFG.bgm ? 'on' : ''}" data-act="mute" aria-pressed="${!!(CFG.sound || CFG.bgm)}">${SPEAKER_SVG(CFG.sound || CFG.bgm)}<span>音楽と効果音：${CFG.sound || CFG.bgm ? 'ON' : 'OFF'}</span></button>
     </div>
   </div>`;
 }
@@ -123,7 +126,9 @@ function viewSettings() {
   return `<h2>設定</h2>
     <div class="setting"><div><b>文字送り</b><span>文章が段落ごとに現れる速さ。表示中に画面をタップすると全文が出る。</span></div>${seg('speed', SPEED_NAMES.map((n, i) => [i, n]))}</div>
     <div class="setting"><div><b>演出</b><span>場面転換カード・宝具カットイン・雪・揺れなど。</span></div>${seg('fx', [[true, 'ON'], [false, 'OFF']])}</div>
-    <div class="setting"><div><b>効果音</b><span>その場で合成する控えめな音。消音モードでは鳴らない場合がある。</span></div>${seg('sound', [[true, 'ON'], [false, 'OFF']])}</div>`;
+    <div class="setting"><div><b>BGM</b><span>場面（生い立ち・昼・夜・戦闘・決戦・結末）に合わせて、その場で生成される音楽。</span></div>${seg('bgm', [[true, 'ON'], [false, 'OFF']])}</div>
+    <div class="setting"><div><b>効果音</b><span>攻撃・防御・宝具・令呪・召喚・章の始まりなどの音。</span></div>${seg('sound', [[true, 'ON'], [false, 'OFF']])}</div>
+    <div class="setting"><div><b>音量</b><span>BGMと効果音の大きさ。端末が消音モードだと鳴らないことがある。</span></div>${seg('vol', [[0, '小'], [1, '中'], [2, '大']])}</div>`;
 }
 function viewGallery() {
   const seen = seenEndings();
@@ -286,8 +291,10 @@ document.addEventListener('click', e => {
   if (!t || t.disabled) return;
   sfx('tick');
   if (t.dataset.cfg) {
-    const [k, v] = t.dataset.cfg.split(':'); CFG[k] = k === 'speed' ? +v : v === 'true'; saveCfg();
+    const [k, v] = t.dataset.cfg.split(':'); CFG[k] = k === 'speed' || k === 'vol' ? +v : v === 'true'; saveCfg(); applyVolume();
     if (k === 'sound' && CFG.sound) sfx('page');
+    if (k === 'vol') sfx('page');
+    if (k === 'bgm') bgmUpdate();
     render(); return;
   }
   if (t.dataset.gender && SCENE && SCENE.kind === 'create') {
@@ -309,6 +316,7 @@ document.addEventListener('click', e => {
   else if (a === 'title' || a === 'totitle') titleScreen();
   else if (a === 'epilogue') startEpilogue(SCENE.endKind);
   else if (a === 'settings') { SCENE = { kind: 'settings' }; render(); }
+  else if (a === 'mute') { toggleAllSound(); render(); }
   else if (a === 'gallery') { SCENE = { kind: 'gallery' }; render(); }
   else if (a === 'start') {
     const name = document.getElementById('mname').value.trim() || SCENE.master.name;

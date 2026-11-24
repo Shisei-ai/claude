@@ -133,7 +133,7 @@ function alignShift(dl, dg) {
     const [o1, m1] = before.split('・'); const [o2, m2] = after.split('・');
     const why = o1 !== o2 ? ALIGN_SHIFT_TEXT[o2] : ALIGN_SHIFT_TEXT[m2];
     note(`<span class="align-shift"><span class="tag gold">属性が変化した</span>${before} → <b>${after}</b><br><small>${why}</small></span>`);
-    addLog(`属性が変化した：${before} → ${after}`);
+    addLog(`属性が変化した：${before} → ${after}`); sfx('align');
   }
 }
 const ALIGN_SHIFT_TEXT = {

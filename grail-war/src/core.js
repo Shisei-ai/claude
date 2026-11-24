@@ -111,7 +111,7 @@ function bond(n) {
   const before = Math.floor(G.servant.bond / 10);
   G.servant.bond = clamp(G.servant.bond + n, 0, 100);
   const after = Math.floor(G.servant.bond / 10);
-  if (after > before) note(`<span class="tag gold">絆Lv ${after} に上昇</span>`);
+  if (after > before) { note(`<span class="tag gold">絆Lv ${after} に上昇</span>`); sfx('bond'); }
   if (before < BOND_LINK / 10 && after >= BOND_LINK / 10) note(`<span class="tag gold">絆の繋がりが強くなった</span> 休息で回復する魔力・HPが増える。`);
 }
 

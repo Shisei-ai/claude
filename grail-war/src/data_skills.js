@@ -266,6 +266,7 @@ function skillActivate(side, idx, log) {
     default: B.buf[side].push({ code: s.code, v: s.code === 'atk' ? Math.ceil(s.v * 0.7) : s.code === 'def' ? Math.ceil(s.v * 0.8) : s.code === 'crit' ? s.v * 3 : s.code === 'pierce' ? Math.ceil(s.v / 2) : s.code === 'master' ? s.v * 2 : s.v, turns: 3 }); t = skillDesc(s);
   }
   log.push(`<span class="skill-use ${side}">【スキル】${who}「${s.name}」${s.rank}――${t}</span>`);
+  if (B.fxq) B.fxq.push({ type: 'sfx', name: s.code === 'heal' ? 'heal' : 'skill' });
 }
 // 敵のスキル：ときどき使う（HPが減ると回復・戦闘続行を優先）
 function enemySkillAI(log) {
@@ -299,7 +300,7 @@ function skillCrit(side) { return buffSum(side, 'crit') + classSkillV(sideSv(sid
 function skillPierce(side) { return buffSum(side, 'pierce') > 0; }
 // 受けるダメージの補正（回避・防御強化・狂化・女神の神核）
 function skillDamage(side, d, log) {
-  if (B.evade[side] > 0 && !B.sureHit) { B.evade[side]--; log.push(`<span class="note">${side === 'me' ? servantOf(G).short : enemyName()}は攻撃を見切ってかわした！</span>`); return 0; }
+  if (B.evade[side] > 0 && !B.sureHit) { B.evade[side]--; if (B.fxq) B.fxq.push({ type: 'sfx', name: 'evade' }); log.push(`<span class="note">${side === 'me' ? servantOf(G).short : enemyName()}は攻撃を見切ってかわした！</span>`); return 0; }
   const sv = sideSv(side);
   d = d + buffSum(side === 'me' ? 'en' : 'me', 'expose') - buffSum(side, 'def') + Math.ceil(classSkillV(sv, '狂化') / 4) - Math.ceil(classSkillV(sv, '女神の神核') / 4) - Math.ceil(classSkillV(sv, '領域外の生命') / 4);
   return Math.max(1, d);

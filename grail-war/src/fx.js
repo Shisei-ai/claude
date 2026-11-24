@@ -1,12 +1,12 @@
 // =============================================================
-//  fx.js … 演出（設定・効果音・カットイン・空と雪・アイコン・エンディング記録）
+//  fx.js … 演出（設定・カットイン・空と雪・アイコン・エンディング記録）。音は audio.js
 // =============================================================
 
 // ---------------- 設定（ブラウザに保存） ----------------
 const CFG_KEY = 'fukami-cfg';
 const END_KEY = 'fukami-endings';
 const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-let CFG = { speed: 1, fx: !REDUCED, sound: false };
+let CFG = { speed: 1, fx: !REDUCED, sound: false, bgm: false, vol: 1 };
 try { Object.assign(CFG, JSON.parse(localStorage.getItem(CFG_KEY) || '{}')); } catch (e) { }
 function saveCfg() { try { localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); } catch (e) { } applyCfg(); }
 function applyCfg() { document.body.classList.toggle('fx-on', !!CFG.fx); }
@@ -101,6 +101,7 @@ function overlayEl() {
 function showCard(c, then) {
   if (!CFG.fx) { if (then) then(); return; }
   const o = overlayEl();
+  const snd = { chapter: 'chapter', day: 'day', night: 'night', blood: 'doom' }[(c.cls || '').split(' ')[0]]; if (snd) sfx(snd);
   o.className = `show ${c.cls || ''}`;
   o.innerHTML = `<div class="ov-inner">${c.kicker ? `<div class="ov-kicker">${c.kicker}</div>` : ''}${c.ruby ? `<div class="ov-ruby">${c.ruby}</div>` : ''}<div class="ov-title">${c.title}</div>${c.sub ? `<div class="ov-sub">${c.sub}</div>` : ''}</div>`;
   if (c.color) o.style.setProperty('--cc', c.color);
@@ -133,42 +134,7 @@ function chapterCard(name, then) {
   showCard({ kicker: 'CHAPTER', title: a, sub: b, cls: 'chapter', ms: 2200 }, then);
 }
 
-// ---------------- 効果音（その場で合成。初期設定はOFF） ----------------
-let AC = null;
-function audio() {
-  if (!AC) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; AC = new C(); }
-  if (AC.state === 'suspended') AC.resume();
-  return AC;
-}
-function beep(ac, freq, t0, dur, type = 'sine', vol = 0.06, endFreq) {
-  const o = ac.createOscillator(), g = ac.createGain();
-  o.type = type; o.frequency.setValueAtTime(freq, t0);
-  if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, t0 + dur);
-  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g).connect(ac.destination); o.start(t0); o.stop(t0 + dur + 0.05);
-}
-function noise(ac, t0, dur, vol = 0.08, freq = 900) {
-  const len = Math.floor(ac.sampleRate * dur); const buf = ac.createBuffer(1, len, ac.sampleRate); const d = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
-  const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
-  s.buffer = buf; f.type = 'lowpass'; f.frequency.value = freq; g.gain.value = vol;
-  s.connect(f).connect(g).connect(ac.destination); s.start(t0);
-}
-function sfx(name) {
-  if (!CFG.sound) return;
-  try {
-    const ac = audio(); if (!ac) return; const t = ac.currentTime;
-    if (name === 'tick') beep(ac, 1200, t, 0.05, 'sine', 0.025);
-    if (name === 'hit') { noise(ac, t, 0.18, 0.12, 700); beep(ac, 120, t, 0.18, 'triangle', 0.08, 60); }
-    if (name === 'crit') { noise(ac, t, 0.3, 0.16, 1500); beep(ac, 220, t, 0.3, 'square', 0.04, 80); }
-    if (name === 'np') { beep(ac, 180, t, 0.9, 'sawtooth', 0.035, 1400); noise(ac, t + 0.6, 0.6, 0.1, 2500); }
-    if (name === 'seal') { beep(ac, 660, t, 1.2, 'sine', 0.05); beep(ac, 990, t + 0.05, 1.2, 'sine', 0.035); beep(ac, 1320, t + 0.1, 1.0, 'sine', 0.02); }
-    if (name === 'summon') { [262, 330, 392, 523].forEach((f, i) => beep(ac, f, t + i * 0.18, 1.8, 'sine', 0.04)); noise(ac, t + 0.9, 0.8, 0.06, 3000); }
-    if (name === 'win') [523, 659, 784, 1047].forEach((f, i) => beep(ac, f, t + i * 0.1, 0.5, 'triangle', 0.04));
-    if (name === 'lose') [392, 330, 262, 196].forEach((f, i) => beep(ac, f, t + i * 0.18, 0.6, 'sine', 0.04));
-    if (name === 'page') beep(ac, 520, t, 0.25, 'sine', 0.02, 780);
-  } catch (e) { }
-}
+// 効果音・BGMは audio.js
 
 // ---------------- 空と雪 ----------------
 let SKY = null;

@@ -224,8 +224,8 @@ function battleRound(cmd) {
   if (isShirou()) mBonus = applyShirouAct(log, E);
   if (ma === 'command') mBonus = 5;
   if (ma === 'boost') { od(-15); mBonus = 14; log.push(`強化魔術で${P}の霊基を後押しした。`); }
-  if (ma === 'heal') { od(-20); shp(25); log.push(`治癒魔術で${P}の傷を塞いだ。（HP+25）`); }
-  if (ma === 'potion') { item('potion', -1); shp(35); log.push(`治癒の霊薬を使った。（HP+35）`); }
+  if (ma === 'heal') { B.fxq.push({ type: 'sfx', name: 'heal' }); od(-20); shp(25); log.push(`治癒魔術で${P}の傷を塞いだ。（HP+25）`); }
+  if (ma === 'potion') { B.fxq.push({ type: 'sfx', name: 'heal' }); item('potion', -1); shp(35); log.push(`治癒の霊薬を使った。（HP+35）`); }
   if (ma === 'gem') { item('gem', -1); mBonus += 12; r.hp -= 10; log.push(`宝石を投げ放つ。炸裂した魔力が${E}を撃った！（10ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: 10 }); }
   if (ma && ma.startsWith('sp_')) mBonus += castSpell(ma.slice(3), log, E);
   if (ma === 'crystal') { item('crystal', -1); mp(40); log.push(`魔力結晶を砕き、${P}に魔力を流し込んだ。（魔力+40）`); }
@@ -344,19 +344,19 @@ function battleRound(cmd) {
     if (pn) log.push(`<span class="note">宝具が、${E}の守りを貫いた！</span>`);
     if (mine >= theirs) hitEnemy(dmgCalc(mine - theirs, tac, rankValue(servantOf(r).p[1]), servantParam(4) + 2 * skillCrit('me'), pn ? 1 : skillPierce('me') || enStunned ? 0.9 : tac === 'np' ? 0.7 : 0.5), tac);
     else if (enStunned) log.push(`${E}は身動きが取れないまま、どうにか攻撃をしのいだ。`);
-    else { B.echarge = 12; log.push(`${E}は攻撃を受け止めきった。反撃の気配がある。`); }
+    else { B.echarge = 12; B.fxq.push({ type: 'sfx', name: 'guard' }); log.push(`${E}は攻撃を受け止めきった。反撃の気配がある。`); }
   } else if (guardT(tac) && atk(et)) {
     const pn = pierceNp('en', et);
     log.push(`<span class="note">${P}：${tac === 'npg' ? '宝具の守り' : '防御'}（${mine}）　対　${E}：${tname(et)}（${theirs}）</span>`);
     if (pn) log.push(`<span class="note">敵の宝具が、${P}の守りを貫いた！</span>`);
     if (theirs > mine) hitMe(dmgCalc(theirs - mine, et, servantParam(1), rivalParam(r, 4) + 2 * skillCrit('en'), pn ? 1 : skillPierce('en') ? 0.9 : et === 'np' ? 0.7 : 0.5, 'en'), et);
-    else { B.charge = 12; log.push(`${P}は攻撃を完全に受け止めた！ 次の手番、反撃の好機だ。（+12）`); }
+    else { B.charge = 12; B.fxq.push({ type: 'sfx', name: 'guard' }); log.push(`${P}は攻撃を完全に受け止めた！ 次の手番、反撃の好機だ。（+12）`); }
   } else if (tac === 'observe') {
     B.sure = true; B.charge = Math.max(B.charge, 8); r.clues = (r.clues || 0) + 1;
     if (atk(et)) {
       log.push(`<span class="note">${P}：見切り（回避${mine}）　対　${E}：${TACTICS[et].name}（${theirs}）</span>`);
       if (theirs > mine) hitMe(dmgCalc(theirs - mine, et, servantParam(1), rivalParam(r, 4) + 2 * skillCrit('en'), 0.8, 'en'), et);
-      else log.push(`${P}は紙一重で攻撃をかわし、${E}の動きを見極めた。`);
+      else { B.fxq.push({ type: 'sfx', name: 'evade' }); log.push(`${P}は紙一重で攻撃をかわし、${E}の動きを見極めた。`); }
     } else log.push(`互いに出方を窺う。${P}は${E}の癖を観察した。`);
     if (!knowsName(r) && !B.boss) {
       const c = chk('int', 82 - r.clues * 6);
@@ -467,14 +467,15 @@ function animateBattle() {
   requestAnimationFrame(() => requestAnimationFrame(() => {
     document.querySelectorAll('[data-w]').forEach(el => { el.style.width = el.dataset.w + '%'; });
     document.querySelectorAll('.bar .lag').forEach(el => { const to = el.nextElementSibling && el.nextElementSibling.dataset.w; if (to) setTimeout(() => { el.style.width = to + '%'; }, 450); });
-    let i = 0;
+    let i = 0, k = 0;
     for (const e of q) {
+      if (e.type === 'sfx') { const n = e.name; setTimeout(() => sfx(n), 120 * k++); continue; }
       if (e.type !== 'hit') continue;
       const box = document.getElementById(e.side === 'me' ? 'f-me' : 'f-en'); if (!box) continue;
       const n = document.createElement('span'); n.className = `dmg ${e.crit ? 'crit' : ''}`; n.textContent = `-${e.dmg}`;
       n.style.animationDelay = `${i * 160}ms`; box.appendChild(n); i++;
       if (CFG.fx) { box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake'); }
-      sfx(e.crit ? 'crit' : 'hit');
+      { const c = e.crit; setTimeout(() => sfx(c ? 'crit' : 'hit'), 160 * (i - 1) + 120 * k); }
     }
   }));
 }

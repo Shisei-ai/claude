@@ -547,3 +547,12 @@ body:not(.fx-on) #snow { display: none; }
 
 /* ---------- 魂喰い（data_soul.js） ---------- */
 .status-box .soul-line { color: #f3b7bd; }
+
+/* ---------- 音のON/OFF（audio.js） ---------- */
+.top-right { display: flex; align-items: center; gap: 10px; }
+.mute-btn { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line); background: var(--bg-2); color: var(--muted); cursor: pointer; padding: 0; }
+.mute-btn.on { color: var(--gold); border-color: #d2ad5f66; }
+.mute-btn svg, .sound-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.mute-btn:focus-visible, .sound-toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.sound-toggle { display: inline-flex; align-self: center; align-items: center; gap: 8px; margin: 14px auto 0; padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg-2); color: var(--muted); font-size: 13px; cursor: pointer; }
+.sound-toggle.on { color: var(--gold); border-color: #d2ad5f66; background: var(--gold-soft); }
