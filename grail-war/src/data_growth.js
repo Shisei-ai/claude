@@ -216,10 +216,10 @@ const GROWTH_EVENTS = [
           return G.friend ? `${friendName()}は何も聞かずに、温かいココアを出してくれた。（交渉+3）` : '寒い夜だった。朝になって、家に帰った。（交渉+3）'; } },
       { label: '思いとどまって家に帰る', hint: '精神↑・秩序', run: () => { tone('law'); gain('spi', 4); return '玄関で待っていた家族に、ぽつりと謝った。（精神+4）'; } },
     ] },
-  { id: 'g_heart', ages: [14, 17], cond: () => !!G.friend, title: '淡い想い',
+  { id: 'g_heart', ages: [14, 17], cond: () => !!G.friend && !frCut() && !frClose(), title: '淡い想い',
     text: () => `放課後の帰り道。夕焼けの中で${friendName()}が振り返った。「ねえ、高校卒業したらさ……どうするの？」<br>その横顔に、なぜか胸がざわついた。`,
     choices: [
-      { label: '素直な気持ちを伝える', hint: '交渉↑・友情', run: () => { friend(20); gain('cha', 5); G.flags.friendHeart = true;
+      { label: '素直な気持ちを伝える', hint: '交渉↑・関係：恋人', run: () => { friend(20); gain('cha', 5); G.flags.friendHeart = true; frSetRel('lover', '想いを伝えた');
           return `${friendName()}は真っ赤になって、それから小さく頷いた。「……知ってたよ、ばか」（交渉+5）`; } },
       { label: '「ずっと友達だよ」と笑う', hint: '精神↑', run: () => { friend(10); gain('spi', 4); return `「……うん。ずっと、ね」${friendName()}は少しだけ寂しそうに笑った。（精神+4）`; } },
     ] },
@@ -239,7 +239,7 @@ const GROWTH_EVENTS = [
         } },
       { label: '自由行動で街を歩き回る', hint: '交渉・幸運↑', run: () => { gain('cha', 4); gain('luk', 2); return '片言の英語で、地元の人たちと笑い合った。（交渉+4 幸運+2）'; } },
     ] },
-  { id: 'g_secret', ages: [16, 17], cond: () => !!G.friend, title: '幼馴染の秘密',
+  { id: 'g_secret', ages: [16, 17], cond: () => !!G.friend && !frCut(), title: '幼馴染の秘密',
     text: () => `夜、${friendName()}から電話がかかってきた。「ねえ……変なこと聞くけど。最近、手の甲が痛くなったりしない？」<br>電話の向こうの声は、かすかに震えていた。`,
     choices: [
       { label: '「何かあったら、必ず力になる」', hint: '友情・善', run: () => { friend(15); tone('good'); G.flags.friendPromise = true; lore(1);

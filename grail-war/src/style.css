@@ -556,3 +556,10 @@ body:not(.fx-on) #snow { display: none; }
 .mute-btn:focus-visible, .sound-toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .sound-toggle { display: inline-flex; align-self: center; align-items: center; gap: 8px; margin: 14px auto 0; padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg-2); color: var(--muted); font-size: 13px; cursor: pointer; }
 .sound-toggle.on { color: var(--gold); border-color: #d2ad5f66; background: var(--gold-soft); }
+
+/* ---------- 幼馴染との関係値（-100〜100。中央が0） ---------- */
+.bar.rel { position: relative; }
+.bar.rel::after { content: ''; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--muted); opacity: .6; }
+.bar.rel i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.bar.rel i.pos { background: linear-gradient(90deg, var(--gold), var(--seal)); }
+.bar.rel i.neg { background: #6b7394; }

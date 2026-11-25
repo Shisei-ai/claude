@@ -409,8 +409,9 @@ function nightTalk() {
 function specialEvent() {
   const per = PERSONAS[servantOf(G).persona];
   const choices = Object.entries(RELATIONS).filter(([k]) => k !== 'lover' || canBeLover(servantOf(G))).map(([k, r]) => ({
-    label: r.verb, hint: `関係：${r.name}`, fn: () => {
+    label: r.verb, hint: k === 'lover' && typeof frLover === 'function' && frLover() ? `関係：${r.name}・幼馴染の${friendName()}とは別れることになる` : `関係：${r.name}`, fn: () => {
       G.servant.special = k; NOTES = []; bond(10);
+      if (k === 'lover' && typeof frLover === 'function' && frLover()) { frSetRel('friend', '別れ'); friend(-35); note(`<span class="note">${friendName()}に、別れを告げた。「……そっか。うん、分かってた」電話の向こうの声は、最後まで泣かなかった。</span>`); }
       addLog(`${servantOf(G).name}と「${r.name}」の関係になる。`);
       next('特別な関係', [`<p>${fmt(r.text)}</p>`, `<p class="note">${SV()}と<b>「${r.name}」</b>になった。戦闘で絆の力が働き、エンディングにも影響する。</p>`,
         ...paras(takeNotes())], advance);
@@ -525,6 +526,7 @@ function setupRivals() {
         : G.friend.bond >= 60 ? 'ごめん。でも、どうしても叶えたい願いがあるんだ。'
           : '……あなたとは、戦いたくなかったな。' });
     fr();   // 幼馴染の願い（data_friend.js）
+    if (frCut()) r.quote = '……あなたとは、もう何の関係もない。'; else if (frLover()) r.quote = 'どうして、よりによってあなたなの。'; else if (frRel() === 'best') r.quote = '親友でも、この願いだけは譲れない。';
   }
 }
 function afterSummon() {

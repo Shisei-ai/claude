@@ -223,26 +223,7 @@ const STORY = [
     id: 's_friend', phase: 'war', day: 3, slot: 0, after: 'hub', cond: () => G.rivals.some(r => r.friend && r.alive && !r.ally),
     title: '幼馴染の令呪', chapter: '第一幕　開幕',
     text: () => { const r = G.rivals.find(x => x.friend); r.intel = Math.max(r.intel, 1); return frReunionText(r); },
-    choices: [
-      { label: '「手を組もう。二人で生き残るんだ」', hint: '交渉判定（友情で易しくなる）', run: () => {
-          const r = G.rivals.find(x => x.friend);
-          const need = Math.max(30, 75 - G.friend.bond / 2); const c = chk('cha', need);
-          if (c.ok || G.friend.bond >= 80) { r.ally = true; r.intel = 3; friend(10); addLog(`幼馴染・${G.friend.name}と同盟を結ぶ。`);
-            return [c.ok ? c.text : '', `${friendName()}は少しだけ泣きそうな顔で笑った。「……うん。あなたとなら」<br>${r.cls}陣営と同盟を結んだ。サーヴァントの真名<b>${servantOf(r).name}</b>も教えてもらった。`]; }
-          return [c.text, `「ごめん。……それは、できない」${friendName()}は目を伏せて、去っていった。`];
-        } },
-      { label: '「戦いから降りてくれ」と説得する', hint: '交渉判定', run: () => {
-          const r = G.rivals.find(x => x.friend);
-          const c = chk('cha', Math.max(35, 80 - G.friend.bond / 2));
-          if (c.ok) { r.alive = false; r.hp = 0; G.flags.friendSaved = true; addLog(`幼馴染・${G.friend.name}、聖杯戦争から降りる。`);
-            return [c.text, `長い沈黙の後、${friendName()}は頷いた。「……分かった。教会に行く。でも、約束して。絶対に、死なないで」<br>${r.cls}陣営は脱落した。誰も傷つかずに。`, `<span class="note">「${frWish().wish}」――${friendName()}は、その願いを、あなたのために手放した。</span>`]; }
-          friend(-5); return [c.text, `「あなたにだけは、それを言われたくなかった」${friendName()}の声は震えていた。`];
-        } },
-      { label: '「正々堂々、戦おう」と約束する', hint: '秩序・大胆', run: () => {
-          tone('law'); tone('bold'); friend(5); G.flags.friendDuel = true;
-          return `「……昔から、そういうとこ変わらないね」${friendName()}は拳を突き出した。あなたはそれに、自分の拳を合わせた。`;
-        } },
-    ],
+    choices: [],   // 選択肢は、幼馴染との関係に合わせて data_friend.js の frReunion() で作る
   },
   {
     id: 's_coma', phase: 'war', day: 4, slot: 0, after: 'hub',

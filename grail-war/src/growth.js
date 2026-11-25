@@ -6,7 +6,7 @@
 // ---- 幼馴染 ----
 function makeFriend() { if (!G.friend) G.friend = { name: pick(NAMES.friend), bond: 0 }; return G.friend.name; }
 function friendName() { return G.friend ? esc(G.friend.name) : ''; }
-function friend(n) { if (G.friend) G.friend.bond = clamp(G.friend.bond + n, 0, 100); }
+function friend(n) { if (G.friend) G.friend.bond = clamp(G.friend.bond + n, -100, 100); }   // 幼馴染との関係値（-100〜100。data_friend.js）
 function hasMagic() { return birthOf().magic || !!G.flags.awakened; }
 function kanjiNum(n) {
   const d = ['〇', '一', '二', '三', '四', '五', '六', '七', '八', '九'];

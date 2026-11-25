@@ -286,6 +286,7 @@ function startSlot() {
       return go();
     }
   }
+  if (!SLOT.frrel && G.phase === 'war') { SLOT.frrel = true; const k = frRelPending(); if (k) return frRelScene(k, startSlot); }   // 幼馴染との関係の変化（data_friend.js）
   if (!SLOT.enf) { SLOT.enf = true; const f = enforcerCheck(); if (f) return f(); }   // 封印指定執行者（data_enforcer.js）
   if (!SLOT.soul) { SLOT.soul = true; const f = soulCheck() || soulDayRaid(); if (f) return f(); }   // 魂喰いの発覚・討伐対象への襲撃（data_soul.js）
   if (G.phase === 'war' && aliveRivals().length === 1) {
