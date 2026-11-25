@@ -325,7 +325,7 @@ function dailyUpdate() {
 
 // ライバル同士の戦い（画面外で進む）
 function simulateRivals() {
-  const alive = aliveRivals();
+  const alive = aliveRivals().filter(r => !r.friend);   // 幼馴染の陣営は、画面の外では脱落しない（data_friend.js）
   if (alive.length < 3 || G.day < 3) return;   // 最後の2陣営はプレイヤーと決着をつける
   const p = 0.1 + G.day * 0.015;
   if (Math.random() > p) return;

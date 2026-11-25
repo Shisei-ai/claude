@@ -18,7 +18,7 @@ let REVEAL_UNTIL = 0;                    // 文章の表示演出が終わる時
 const ENDING_LIST = [
   ['destroySpecial', '夜明けの約束'], ['destroy', '冬の終わり'], ['together', '共に生きる'], ['servantWish', '託された願い'],
   ['wishPure', '叶えられた願い'], ['none', '願いなき勝者'], ['destroyPure', '砕かれた奇跡'], ['abstain', '日常への帰還'], ['wish', '歪んだ願い'], ['wishKnown', '承知の上の願い'], ['devoured', '黒い夜明け'],
-  ['lost', '脱落'], ['dead', '血に染まる冬'], ['beastSlain', '楽園の外で'], ['saturated', '飽和'], ['sealed', '封印指定'], ['avalon', '隠し：Garden of Avalon'],
+  ['friendWish', '友の願い'], ['yield', '譲られた杯'], ['friendRuin', '友の願いの代償'], ['lost', '脱落'], ['dead', '血に染まる冬'], ['beastSlain', '楽園の外で'], ['saturated', '飽和'], ['sealed', '封印指定'], ['avalon', '隠し：Garden of Avalon'],
 ];
 function seenEndings() { try { return JSON.parse(localStorage.getItem(END_KEY) || '[]'); } catch (e) { return []; } }
 function markEnding(k) {

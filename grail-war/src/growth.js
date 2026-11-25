@@ -119,7 +119,7 @@ function growthEvent() {
     if (!ev && G.arc) { ev = GROWTH_EVENTS.find(e => e.arc === G.arc && e.step === (G.arcStep || 0) + 1 && age >= e.ages[0] && ok(e)); if (ev) G.arcStep = ev.step; }
     if (!ev) { const pool = GROWTH_EVENTS.filter(e => !e.fixed && !e.arc && age >= e.ages[0] && age <= e.ages[1] && ok(e)); if (pool.length) ev = pick(pool); }
   }
-  const after = () => alignCheck(nextStage);   // 節目の最後に「心の天秤」（data_align.js）
+  const after = () => friendCheck(() => alignCheck(nextStage));   // 節目の最後に、幼馴染との出来事（data_friend.js）と「心の天秤」（data_align.js）
   if (!ev) return after();
   showEvent({ ...ev, chapter: `${currentStage().band}・${stageLabel()}` }, after);
 }

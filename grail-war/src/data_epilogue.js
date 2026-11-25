@@ -434,7 +434,7 @@ function epiTrackOf(kind) {
   const rel = G.servant.special;
   if (isKishi() && kind !== 'together') return 'kishi_return';
   if (kind === 'together' && rel) return 'together_' + rel;
-  if (['wish', 'wishKnown', 'devoured', 'saturated'].includes(kind)) return 'ruin';
+  if (['wish', 'wishKnown', 'devoured', 'saturated', 'friendRuin'].includes(kind)) return 'ruin';
   if (kind === 'abstain') return 'abstain';
   if (kind === 'lost') return 'lost';
   return 'parted';

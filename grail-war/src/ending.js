@@ -17,6 +17,7 @@ function finalBattleIntro() {
   const r = aliveRivals()[0];
   r.ally = false;
   const choices = [{ label: '最後の戦いへ', cls: 'primary', fn: () => startBattle(r, { final: true }) }];
+  if (r.friend && frNormal()) { r.quote = friendFinalQuote(r); choices.push(...friendFinalChoices(r)); }   // 最後の敵が幼馴染（data_friend.js）
   if (G.items.crystal || G.items.potion) choices.unshift({ label: '道具で万全を期す', hint: '魔力結晶・霊薬を使ってから戦う', fn: () => {
     if (G.items.crystal) { item('crystal', -1); mp(40); }
     if (G.items.potion) { item('potion', -1); shp(35); }
@@ -48,6 +49,7 @@ function victoryScene() {
   // 聖杯を壊す：真相を知っていれば迷いなく。知らなければ、疑いだけを頼りに賭けることになる
   if (G.flags.grailTruth) choices.push({ label: '聖杯を破壊する', hint: '呪いそのものとの戦いになる', cls: 'danger', fn: bossIntro });
   else if (!G.flags.grailPure && G.flags.grailHint) choices.push({ label: '聖杯を破壊する', hint: '真相は確かめていない……疑いに賭ける', cls: 'danger', fn: () => isCursed() ? bossIntro() : ending('destroyPure') });
+  { const fw = friendWishChoice(); if (fw) choices.push(fw); }   // 幼馴染の願い（data_friend.js）
   if (G.servant.special) choices.push({ label: `${sv.short}の受肉を願う`, hint: `「${RELATIONS[G.servant.special].name}」として共に生きる`, cls: 'primary', fn: () => ending('together') });
   if (G.flags.knowWish && !G.flags.grailTruth) choices.push({ label: `${sv.short}に聖杯を託す`, hint: `「${fmt(svWish(sv)).slice(0, 18)}…」`, fn: () => ending('servantWish') });
   choices.push({ label: `「${masterWish()}」を願う`, hint: 'マスターの願い', fn: () => ending(G.flags.grailTruth ? 'wishKnown' : isCursed() ? 'wish' : 'wishPure') });
@@ -144,8 +146,8 @@ function ending(kind) {
       '<p class="note">ヒント：戦う道を選べば、別の結末が待っている。</p>'] }),
     none: () => ({ title: '終幕：願いなき勝者', text: ['<p>あなたは何も願わなかった。聖杯は誰の手にも渡らぬまま、静かに消えていった。</p>', `<p class="quote">${farewellLine(sv)}</p>`,
       '<p>勝者の手に残ったのは、戦いの記憶と、確かに結ばれた絆だけだった。</p>'] }),
-  }[kind]();
-  const ep = friendEpilogue(kind);
+  ...(sv ? friendEndingTexts(sv) : {}) }[kind]();
+  const ep = friendEpilogueText(kind);
   if (ep) E.text.push(ep);
   const fe = fujiEpilogue(kind);
   if (fe) E.text.push(fe);
@@ -162,7 +164,7 @@ function ending(kind) {
   if (ee) E.text.push(ee);
   const so = soulEpilogue(kind);
   if (so) E.text.push(so);
-  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure', 'saturated', 'sealed'].includes(kind);
+  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure', 'saturated', 'sealed', 'friendRuin'].includes(kind);
   sfx(good ? 'win' : 'lose');
   showCard({ kicker: good ? 'ENDING' : 'BAD END', title: E.title.replace('終幕：', ''), cls: good ? 'dawn' : 'blood', ms: 2200 }, () => {
     SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good };
