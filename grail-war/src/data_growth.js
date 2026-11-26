@@ -65,11 +65,11 @@ const GROWTH_EVENTS = [
         } },
     ] },
   { id: 'g_friend', ages: [6, 6], fixed: true, title: '幼馴染',
-    text: () => { const f = makeFriend(); return `${birthOf().id === 'clocktower' ? '母の故郷・深見で過ごした夏。' : birthOf().id === 'mercenary' ? '養父がしばらく身を寄せた深見の街で、' : ''}同い年の子と出会った。名前は<b>${f}</b>。<br>人懐っこい笑顔で「いっしょにあそぼ！」と手を差し出してくる。`; },
+    text: () => { const f = makeFriend(); return `${birthOf().id === 'clocktower' ? '母の故郷・深見で過ごした夏。' : birthOf().id === 'mercenary' ? '養父がしばらく身を寄せた深見の街で、' : ''}同い年の子と出会った。名前は<b>${f}</b>。<br>${fg('日に焼けた顔で「なあ、いっしょにあそぼうぜ！」と手を差し出してくる。', '人懐っこい笑顔で「いっしょにあそぼ！」と手を差し出してくる。')}`; },
     choices: [
       { label: '手を取って一緒に遊ぶ', hint: '交渉↑・友情', run: () => { friend(30); gain('cha', 4); return `日が暮れるまで遊んだ。それから毎日、${friendName()}はあなたの家に来るようになった。（交渉+4）`; } },
       { label: 'つい意地を張って喧嘩する', hint: '体力↑・好敵手', run: () => { friend(20); gain('phy', 4); G.flags.friendRival = true;
-          return `取っ組み合いの喧嘩になった。泥だらけの二人は、なぜか最後には笑っていた。${friendName()}は「次は負けないからな！」と言った。（体力+4）`; } },
+          return `取っ組み合いの喧嘩になった。泥だらけの二人は、なぜか最後には笑っていた。${friendName()}は「${fg('次は負けないからな！', '次は負けないんだから！')}」と言った。（体力+4）`; } },
       { label: '大事な宝物を分けてあげる', hint: '幸運↑・善', run: () => { friend(25); gain('luk', 3); tone('good');
           return `綺麗なビー玉を半分あげると、${friendName()}は目を輝かせた。「ずっと大事にする！」（幸運+3）`; } },
     ] },
@@ -123,7 +123,7 @@ const GROWTH_EVENTS = [
       { label: '誰にも言わずに隠し通す', hint: '精神↑', run: () => { G.flags.awakened = true; lore(2); gain('spi', 5); gain('mag', 3); return '火花はやがて消えた。あなたはそれを、自分だけの秘密にした。（精神+5 魔力+3）<br><span class="note">これ以降、魔術の修行ができるようになった。</span>'; } },
       { label: '図書館で手がかりを探す', hint: '知力・魔力↑', run: () => { G.flags.awakened = true; lore(2); gain('int', 4); gain('mag', 4); return '古いオカルト本の片隅に、「魔術回路」という言葉を見つけた。（知力+4 魔力+4）<br><span class="note">これ以降、魔術の修行ができるようになった。</span>'; } },
       { label: () => G.friend ? `${friendName()}に打ち明ける` : '家族に打ち明ける', hint: '交渉↑', run: () => { G.flags.awakened = true; lore(2); friend(15); gain('cha', 3); gain('mag', 2);
-          return `${G.friend ? friendName() : '家族'}は驚いたけれど、笑わずに聞いてくれた。「すごいじゃん。でも、無理しちゃだめだよ」（交渉+3 魔力+2）<br><span class="note">これ以降、魔術の修行ができるようになった。</span>`; } },
+          return `${G.friend ? friendName() : '家族'}は驚いたけれど、笑わずに聞いてくれた。「${G.friend ? fg('すげえじゃん。でも、無理すんなよ', 'すごいじゃん。でも、無理しちゃだめだよ') : 'すごいじゃない。でも、無理しちゃだめよ'}」（交渉+3 魔力+2）<br><span class="note">これ以降、魔術の修行ができるようになった。</span>`; } },
     ] },
   { id: 'g_crest', ages: [12, 12], fixed: true, births: ['noble'], title: '魔術刻印の継承',
     text: () => '十二歳の誕生日。父の手が、あなたの背中に刻印を移していく。全身の神経が焼けるような激痛。<br>「耐えろ。これが、我が家の数百年だ」',
@@ -217,11 +217,11 @@ const GROWTH_EVENTS = [
       { label: '思いとどまって家に帰る', hint: '精神↑・秩序', run: () => { tone('law'); gain('spi', 4); return '玄関で待っていた家族に、ぽつりと謝った。（精神+4）'; } },
     ] },
   { id: 'g_heart', ages: [14, 17], cond: () => !!G.friend && !frCut() && !frClose(), title: '淡い想い',
-    text: () => `放課後の帰り道。夕焼けの中で${friendName()}が振り返った。「ねえ、高校卒業したらさ……どうするの？」<br>その横顔に、なぜか胸がざわついた。`,
+    text: () => `放課後の帰り道。夕焼けの中で${friendName()}が振り返った。「${fg('なあ、高校卒業したらさ……どうすんの？', 'ねえ、高校卒業したらさ……どうするの？')}」<br>その横顔に、なぜか胸がざわついた。`,
     choices: [
       { label: '素直な気持ちを伝える', hint: '交渉↑・関係：恋人', run: () => { friend(20); gain('cha', 5); G.flags.friendHeart = true; frSetRel('lover', '想いを伝えた');
-          return `${friendName()}は真っ赤になって、それから小さく頷いた。「……知ってたよ、ばか」（交渉+5）`; } },
-      { label: '「ずっと友達だよ」と笑う', hint: '精神↑', run: () => { friend(10); gain('spi', 4); return `「……うん。ずっと、ね」${friendName()}は少しだけ寂しそうに笑った。（精神+4）`; } },
+          return `${friendName()}は真っ赤になって、それから小さく頷いた。「${fg('……知ってたよ、ばか。俺もだ', '……知ってたよ、ばか')}」（交渉+5）`; } },
+      { label: '「ずっと友達だよ」と笑う', hint: '精神↑', run: () => { friend(10); gain('spi', 4); return `「${fg('……ああ。ずっと、な', '……うん。ずっと、ね')}」${friendName()}は少しだけ寂しそうに笑った。（精神+4）`; } },
     ] },
   { id: 'g_heirloom', ages: [14, 17], title: '形見',
     text: () => '祖父の葬儀の後、遺品の整理をしていると、桐箱が出てきた。添えられた手紙には「これは、いつかお前の役に立つ」とだけ書かれている。',
@@ -240,12 +240,12 @@ const GROWTH_EVENTS = [
       { label: '自由行動で街を歩き回る', hint: '交渉・幸運↑', run: () => { gain('cha', 4); gain('luk', 2); return '片言の英語で、地元の人たちと笑い合った。（交渉+4 幸運+2）'; } },
     ] },
   { id: 'g_secret', ages: [16, 17], cond: () => !!G.friend && !frCut(), title: '幼馴染の秘密',
-    text: () => `夜、${friendName()}から電話がかかってきた。「ねえ……変なこと聞くけど。最近、手の甲が痛くなったりしない？」<br>電話の向こうの声は、かすかに震えていた。`,
+    text: () => `夜、${friendName()}から電話がかかってきた。「${fg('なあ……変なこと聞くけど。最近、手の甲が痛くなったりしないか？', 'ねえ……変なこと聞くけど。最近、手の甲が痛くなったりしない？')}」<br>電話の向こうの声は、かすかに震えていた。`,
     choices: [
       { label: '「何かあったら、必ず力になる」', hint: '友情・善', run: () => { friend(15); tone('good'); G.flags.friendPromise = true; lore(1);
           return `「……ありがと。うん、大丈夫。ちょっと聞いてみただけ」${friendName()}はそう言って電話を切った。<br>その夜、あなたの右手の甲も、かすかに疼いた。`; } },
       { label: '自分の秘密も打ち明ける', hint: '友情↑', cond: () => hasMagic(), run: () => { friend(20); gain('cha', 3); lore(1);
-          return `長い沈黙の後、${friendName()}は言った。「……そっか。やっぱり、あなたも『こっち側』なんだ」（交渉+3）`; } },
+          return `長い沈黙の後、${friendName()}は言った。「……そっか。やっぱり、${fYou()}も『こっち側』なんだ${fg('な', '')}」（交渉+3）`; } },
       { label: '「気のせいじゃない？」と流す', hint: '精神↑', run: () => { gain('spi', 3); return `「……そうだよね。ごめん、変なこと言って」（精神+3）`; } },
     ] },
   { id: 'g_parttime', ages: [14, 17], title: '初めてのアルバイト',
@@ -283,7 +283,7 @@ const GROWTH_EVENTS = [
           gain('cha', 3); gain('spi', 2); tone('cautious');
           return '平凡でいい。穏やかな毎日が続けば、それで。（交渉+3 精神+2）'; } },
       { label: () => `${friendName()}と同じ大学を目指す`, hint: '友情↑', cond: () => !!G.friend && !birthOf().magic, run: () => {
-          friend(10); gain('int', 3); return `「ほんと！？ じゃあ一緒に勉強しよ！」${friendName()}は飛び上がって喜んだ。（知力+3）`; } },
+          friend(10); gain('int', 3); return `「${fg('マジか！？ じゃあ一緒に勉強しようぜ！', 'ほんと！？ じゃあ一緒に勉強しよ！')}」${friendName()}は飛び上がって喜んだ。（知力+3）`; } },
     ] },
 ];
 

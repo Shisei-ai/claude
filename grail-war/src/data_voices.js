@@ -311,7 +311,9 @@ function voiceOf(sv) {
   if (sv.id === 'meltryllis' && typeof isFuji === 'function' && isFuji() && G.servant && G.servant.id === 'meltryllis') v = ['melt_c', '私', 'あなた'];   // カルデアのメルト
   const voice = v[0] || PERSONA_VOICE[sv.persona] || 'cool_m';
   const d = VOICE_DEF[voice];
-  return { voice, reg: d.reg, I: v[1] || d.fp, you: v[2] || d.sp, call: v[3] || d.call, label: d.label };
+  let you = v[2] || d.sp, call = v[3] || d.call;
+  if (v === VOICE_OF[sv.id] && typeof genderVoice === 'function') ({ you, call } = genderVoice(sv, call, you));   // マスターの性別で呼び方が変わる英霊（data_gender.js）
+  return { voice, reg: d.reg, I: v[1] || d.fp, you, call, label: d.label };
 }
 // 今のサーヴァント（または指定した英霊）の台詞集
 function V(sv) { return VOICES[voiceOf(sv || servantOf(G)).voice]; }

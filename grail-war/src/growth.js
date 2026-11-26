@@ -4,7 +4,11 @@
 // =============================================================
 
 // ---- 幼馴染 ----
-function makeFriend() { if (!G.friend) G.friend = { name: pick(NAMES.friend), bond: 0 }; return G.friend.name; }
+// 幼馴染は、必ずプレイヤーと異性（性別を指定しない場合は、どちらかになる）
+function makeFriend() {
+  if (!G.friend) { const g = gender() === 'm' ? 'f' : gender() === 'f' ? 'm' : pick(['m', 'f']); G.friend = { name: pick(g === 'm' ? NAMES.friendM : NAMES.friendF), bond: 0, gender: g }; }
+  return G.friend.name;
+}
 function friendName() { return G.friend ? esc(G.friend.name) : ''; }
 function friend(n) { if (G.friend) G.friend.bond = clamp(G.friend.bond + n, -100, 100); }   // 幼馴染との関係値（-100〜100。data_friend.js）
 function hasMagic() { return birthOf().magic || !!G.flags.awakened; }
