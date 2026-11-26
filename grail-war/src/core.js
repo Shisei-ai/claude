@@ -368,7 +368,7 @@ function showEvent(ev, after = advance) {
   const choices = ev.choices
     .filter(c => !c.cond || c.cond())
     .map(c => ({
-      label: typeof c.label === 'function' ? c.label() : c.label, hint: typeof c.hint === 'function' ? c.hint() : c.hint, cls: c.cls,
+      label: typeof c.label === 'function' ? c.label() : c.label, hint: typeof c.hint === 'function' ? c.hint() : c.hint, cls: c.cls, disabled: typeof c.disabled === 'function' ? c.disabled() : !!c.disabled,
       fn: () => {
         NOTES = [];
         const res = c.run();

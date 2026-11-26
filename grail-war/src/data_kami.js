@@ -18,6 +18,13 @@
 //   10日目の昼「祟りの日」  … 決着。何も決めずに迎えると、荒魂がそのまま街を襲う。敗れればエンディング「隠り世」
 //   聖杯の前で「聖杯を山へ還す」… 契りを知っていれば選べる（エンディング「山へ還る杯」）
 //  生い立ちの「神隠し」で山の神と約束していれば神に覚えられていて、「神社の危機」で山を売っていれば神の怒りは深い
+//
+//  特殊シナリオでも起きる。ただし、人物の設定と性格から、選ばない・選べない道がある（KAMI_BAN）
+//   藤丸 立香 … 目の前で消える人を見捨てない（霧の夜・巫女の失踪で「見過ごす」を選べない）。三つの道はすべて選べる
+//   衛宮 士郎 … 考えるより先に体が動く（見過ごせない）。「討つ」は選べない――契りを破られた神もまた被害者で、
+//               一を切り捨てて多を救うのは、切嗣と赤い弓兵の道だから。「契る」は選べるが、セイバーが止めようとする
+//   岸波 白野 … いずれ必ず月へ帰る身なので「契る」（この地に残る守り人）は選べない。観測者として、見過ごすことはできる
+//  特殊シナリオでは、それぞれの物語の出来事と重ならないよう、巫女の失踪・老人の告白の時間をずらしている
 // =============================================================
 
 // ---- 天降大神・荒魂（祟りの日の相手） ----
@@ -29,13 +36,33 @@ const KAMI = {
 };
 // 宝具の性能は data_np.js の NP_DATA.kami
 
-function kamiNormal() { return !!G && !isFuji() && !isKishi() && !isShirou(); }
+function kamiNormal() { return !!G; }   // 通常のシナリオと、三つの特殊シナリオのすべてで起きる
+function kamiRoute() { return isFuji() ? 'fuji' : isKishi() ? 'kishi' : isShirou() ? 'shirou' : 'normal'; }
+const kamiR = o => o[kamiRoute()] ?? o.normal;   // シナリオごとに文章を選ぶ
+// 人物の設定と性格から、選ばない・選べない道（理由）
+const KAMI_BAN = {
+  shirou: { ignore: '目の前で消える人を、見過ごせるはずがない', slay: 'この神もまた、契りを破られた被害者だ。一を切り捨てて多を救う――それは、切嗣と、あの赤い弓兵の道だ' },
+  fuji: { ignore: '目の前で消えていく人を、見捨てたことは一度もない' },
+  kishi: { pact: 'いずれ必ず、月へ帰る身だ。この地に残る守り人には、なれない' },
+};
+function kamiBan(what) { const b = KAMI_BAN[kamiRoute()]; return b && b[what] ? b[what] : null; }
+// 英霊が神霊の類なら、神に思うところがある
+function kamiDivineSv() { const sv = servantOf(G); return classSkillV(sv, '神性') > 0 || classSkillV(sv, '女神の神核') > 0; }
+// 調査・備えの易しさ（人物の力量）
+function kamiEase(kind) {
+  const r = kamiRoute(); let e = (kamiKnown() ? 6 : 0) + (birthOf().id === 'shrine' ? 6 : 0);
+  if (r === 'kishi') e += 8;                                          // 霊子の目で、神の構造を読み解く
+  if (r === 'fuji' && ['hokora', 'kakuriyo', 'talk'].includes(kind)) e += 8;   // 数多の神霊と向き合ってきた
+  if (r === 'shirou' && ['stone', 'purify', 'archive'].includes(kind)) e += 8;  // 構造解析の魔術
+  return e;
+}
 function kami() { if (!G.kami) G.kami = { on: false, ev: 0, clues: [], done: {}, path: null, prep: 0, tasks: {}, outcome: null }; return G.kami; }
 function kamiOn() { return !!(G && G.kami && G.kami.on); }
 function kamiResolved() { return !!(G && G.kami && G.kami.outcome); }
 // 神の怒り：山を売った・要石が掘られた・契りを知らないまま時が過ぎる
 function kamiAnger() { const l = typeof life === 'function' ? life() : {}; return (l.redSell ? 2 : l.redWin ? -1 : 0) + (G.flags.kamiStoneFound ? -1 : 0); }
 // 神に覚えられている（生い立ちで山の神と約束した、または霧に触れた）
+function kamiPactChild() { return !!(typeof life === 'function' && life().kamiPact); }   // 生い立ちで山の神と約束した（通常のシナリオのみ）
 function kamiKnown() { const l = typeof life === 'function' ? life() : {}; return !!(l.kamiPact || G.flags.touchedMist); }
 const KAMI_PATHS = { calm: '鎮める', slay: '討つ', pact: '契る' };
 
@@ -53,45 +80,64 @@ function kamiClue(id, title, text) {
 // =============================================================
 //  物語（STORY に加える）
 // =============================================================
+  const KAMI_BRIDE = {
+    title: '巫女の失踪',
+    text: () => kamiR({ fuji: G.used.f_shrine ? `天降神社の宮司から、電話があった。「雫から、あなたのことは聞いていました。……普通の方ではない、と」<br>` : `監督役の${CAST.sister}から、連絡があった。「藤丸さん。あなたなら、こういう事態に慣れていると思って」<br>`, shirou: `監督役の${CAST.sister}から、連絡があった。「マスターの皆さんに、お伝えすべきか迷ったのですが」<br>`, kishi: `【マトリクス異常】天降神社の霊子反応が一つ、消失した。<br>監督役の${CAST.sister}から、連絡があった。<br>`, normal: '朝早く、天降神社の宮司から電話があった。<br>' }) + `「${CAST.miko}が、昨夜から戻らないのです。……部屋の窓が開いていて、山の方へ、裸足の足跡が続いていた」` +
+      (kamiOn() ? `<br>霧に消えた子どもと同じだ。――ただ、${CAST.miko}の部屋の文机には、一枚の書き置きが残されていた。<br><b>「花嫁に、選ばれました。」</b>` : `<br>昨夜の霧のことを、思い出した。`) +
+      (birthOf().id === 'shrine' ? `<br>幼い頃、神隠しから取り戻したはずの${CAST.miko}が、また山に呼ばれている。` : ''),
+    choices: [
+      { label: () => kamiOn() ? '必ず連れ戻すと、約束する' : `${CAST.miko}を探しに、山へ向かう`, hint: () => kamiOn() ? '分岐を進める' : '分岐「天降の祟り」へ', cls: 'primary', run: () => {
+          G.flags.kamiMikoTaken = true; tone('good');
+          return [kamiOn() ? `電話の向こうで、相手が深く頭を下げる気配がした。「……六十年前にも、同じことがあったと聞いています。どうか」` : `昨夜の霧と、消えた子ども。そして${CAST.miko}。――この街で、何かが起きている。`,
+            kamiClue('miko_bride', '花嫁に選ばれた巫女', `${CAST.miko}が「花嫁に選ばれた」と書き置きを残し、山へ消えた。昨夜の子どもと同じく、裸足で、山の方へ。`), kamiEnter('巫女を探しに向かった')];
+        } },
+      { label: () => kamiR({ kishi: '観測者として、介入しない', normal: '警察に任せる。今は聖杯戦争だ' }), hint: '分岐しない・悪', cond: () => !kamiOn() && !kamiBan('ignore'), run: () => { tone('evil'); G.flags.kamiMikoTaken = true; G.flags.kamiIgnored = true;
+          return [`「……警察に、相談してください」それだけ言って、電話を切った。`, `<span class="note">${CAST.miko}は、それきり戻らなかった。</span>`]; } },
+    ] };
+
+const KAMI_OLD = {
+    title: '老人の告白',
+    text: () => `御影川の河川敷。釣り糸を垂れたまま、${CAST.old}が言った。<br>「……六十年前の花嫁はな、わしの許嫁じゃった」<br>` +
+      `「契りのことは、聖杯戦争を始めた家の者しか知らん。わしは聖杯を取るために、あの子が山へ行くのを止めなんだ。――止めなんだんじゃ」<br>` +
+      `「若いの。神を鎮める道、神を討つ道、神と契り直す道。どれを選んでも、何かを失う。……じゃが、選ばずにおれば、街ごと失う」` +
+      kamiR({ kishi: `<br>老人は、あなたの顔をじっと見た。「……お前さん、この世の者ではないな。いずれ、遠くへ帰る者の目じゃ」`, shirou: `<br>老人は、あなたの手を見た。「……その手は、誰かを助けずにはおれん手じゃな。わしにも、昔、そういう友がおった」`, fuji: `<br>老人は、あなたの背後の${SV()}を見た。「……お前さんは、こういう修羅場を、何度も越えてきた顔をしとる」`, normal: '' }) +
+      `<br><span class="note">10日目「祟りの日」までに、道を選び、備えなければならない。</span>`,
+    choices: [
+      { label: '鎮める ―― 鎮魂の儀で、神を眠りに戻す', hint: '備え：御神酒・神楽・要石／消えた人々が帰る・聖杯戦争は続く', run: () => kamiChoose('calm') },
+      { label: '討つ ―― 神そのものを倒し、六十年の契りを終わらせる', hint: () => kamiBan('slay') ? `選べない：${kamiBan('slay')}` : '備え：神殺しの刃・急所・結界／勝てば「神殺し」の結末', disabled: () => !!kamiBan('slay'), run: () => kamiChoose('slay') },
+      { label: '契る ―― 自分が、山の新しい守り人になる', hint: () => kamiBan('pact') ? `選べない：${kamiBan('pact')}` : '備え：語らい・供物・覚悟／聖杯戦争を降りる「山の守り人」の結末', disabled: () => !!kamiBan('pact'), run: () => kamiChoose('pact') },
+      { label: 'まだ、決められない', hint: '「山の異変を追う」から、後で選べる', run: () => [`「……そうか。じゃが、時間はないぞ」${CAST.old}は、川面から目を離さなかった。`] },
+    ] };
+
 STORY.push(
   // ---- 4日目の夜：霧の夜（分岐） ----
   { id: 'k_mist', phase: 'war', day: 4, slot: 1, after: 'advance', cond: () => kamiNormal(),
     title: '霧の夜',
-    text: () => `深夜。天降山から、<b>黒い霧</b>が街へ流れ下りてきた。<br>${pick(['旧城下町', '駅前', '御影川の土手'])}の路地で、パジャマ姿の小さな子どもが、霧の中を裸足で歩いていた。<br>何かの歌を口ずさんでいる。――古い、神楽の節だった。<br>声をかけようとした瞬間、子どもの姿は、霧ごと掻き消えた。` +
-      (kamiKnown() ? `<br><span class="note">右手の甲の、古い痣が疼いた。――あの夜、山の神と交わした約束の痣だ。霧の奥から、誰かがあなたを呼んでいる。</span>` : '') +
+    text: () => kamiR({ fuji: '――見覚えのある感覚だった。空気が、特異点のそれに似ている。<br>', kishi: '【マトリクス異常】街の霊子分布に、説明のつかない欠落が生じた。<br>', shirou: '', normal: '' }) + `深夜。天降山から、<b>黒い霧</b>が街へ流れ下りてきた。<br>${pick(['旧城下町', '駅前', '御影川の土手'])}の路地で、パジャマ姿の小さな子どもが、霧の中を裸足で歩いていた。<br>何かの歌を口ずさんでいる。――古い、神楽の節だった。<br>声をかけようとした瞬間、子どもの姿は、霧ごと掻き消えた。` +
+      (kamiPactChild() ? `<br><span class="note">右手の甲の、古い痣が疼いた。――あの夜、山の神と交わした約束の痣だ。霧の奥から、誰かがあなたを呼んでいる。</span>` : '') +
       `<br>${SV()}が、霧の流れていく先――天降山を見上げた。${say('warnShadow')}`,
     choices: [
-      { label: '霧を追って、天降山へ入る', hint: '分岐「天降の祟り」へ', cls: 'primary', run: () => {
+      { label: () => kamiR({ shirou: '考えるより先に、走り出していた', normal: '霧を追って、天降山へ入る' }), hint: '分岐「天降の祟り」へ', cls: 'primary', run: () => {
           G.flags.kamiSawMist = true; tone('bold');
-          return [`霧は、山道を這うように登っていく。${SV()}と共に後を追った。`,
+          return [kamiR({ shirou: `「待て――！」叫んだ時には、もう走り出していた。${SV()}が、ため息まじりに後に続く。`, fuji: `「――行こう」${SV()}に声をかけるより早く、足が動いていた。あの旅で、何度もそうしてきたように。`, normal: `霧は、山道を這うように登っていく。${SV()}と共に後を追った。` }),
             `中腹の鳥居の前で、霧は消えた。鳥居の向こうの闇から、獣の吐息のような風が吹き下ろしてくる。<br>そして――鳥居の足元に、さっきの子どものものらしい、小さな片方のスリッパが落ちていた。`,
             kamiClue('mist_child', '霧に消えた子ども', '黒い霧は天降山から下りてきて、神楽の節を口ずさむ子どもを連れ去った。霧は中腹の鳥居で消えた。'), kamiEnter('霧を追った')];
         } },
-      { label: '聖杯戦争に集中する', hint: '分岐しない', run: () => { G.flags.kamiSawMist = true; tone('cautious');
-          return [`あなたは、霧から目を逸らした。今は、聖杯戦争の最中だ。他のことに構っている余裕はない。`, `<span class="note">翌朝のニュースは、市内で子どもが一人、行方不明になったと報じていた。</span>`]; } },
+      { label: () => kamiR({ kishi: '観測に徹する', normal: '聖杯戦争に集中する' }), hint: '分岐しない', cond: () => !kamiBan('ignore'), run: () => { G.flags.kamiSawMist = true; tone('cautious');
+          return [kamiR({ kishi: '月の王は、この世界線に深く干渉しない。――あなたは、霧の行方を記録するだけに留めた。', normal: 'あなたは、霧から目を逸らした。今は、聖杯戦争の最中だ。他のことに構っている余裕はない。' }), `<span class="note">翌朝のニュースは、市内で子どもが一人、行方不明になったと報じていた。</span>`]; } },
     ] },
-  // ---- 5日目の昼：巫女の失踪（二度目の分岐） ／ 分岐の中では、花嫁が選ばれる ----
-  { id: 'k_bride', phase: 'war', day: 5, slot: 0, after: 'hub', cond: () => kamiNormal(),
-    title: '巫女の失踪',
-    text: () => `朝早く、天降神社の宮司から電話があった。<br>「${CAST.miko}が、昨夜から戻らないのです。……部屋の窓が開いていて、山の方へ、裸足の足跡が続いていた」` +
-      (kamiOn() ? `<br>霧に消えた子どもと同じだ。――ただ、${CAST.miko}の部屋の文机には、一枚の書き置きが残されていた。<br><b>「花嫁に、選ばれました。」</b>` : `<br>昨夜の霧のことを、思い出した。`) +
-      (birthOf().id === 'shrine' ? `<br>幼い頃、神隠しから取り戻したはずの${CAST.miko}が、また山に呼ばれている。` : ''),
-    choices: [
-      { label: () => kamiOn() ? '必ず連れ戻すと、宮司に約束する' : `${CAST.miko}を探しに、山へ向かう`, hint: () => kamiOn() ? '分岐を進める' : '分岐「天降の祟り」へ', cls: 'primary', run: () => {
-          G.flags.kamiMikoTaken = true; tone('good');
-          return [kamiOn() ? `宮司は、深く頭を下げた。「……六十年前にも、同じことがあったと聞いています。どうか」` : `昨夜の霧と、消えた子ども。そして${CAST.miko}。――この街で、何かが起きている。`,
-            kamiClue('miko_bride', '花嫁に選ばれた巫女', `${CAST.miko}が「花嫁に選ばれた」と書き置きを残し、山へ消えた。昨夜の子どもと同じく、裸足で、山の方へ。`), kamiEnter('巫女を探しに向かった')];
-        } },
-      { label: '警察に任せる。今は聖杯戦争だ', hint: '分岐しない・悪', cond: () => !kamiOn(), run: () => { tone('evil'); G.flags.kamiMikoTaken = true; G.flags.kamiIgnored = true;
-          return [`「……警察に、相談してください」それだけ言って、電話を切った。`, `<span class="note">${CAST.miko}は、それきり戻らなかった。</span>`]; } },
-    ] },
+  // ---- 5日目：巫女の失踪（通常は昼、特殊シナリオは物語の出来事と重ならないよう夜） ----
+  { ...KAMI_BRIDE, id: 'k_bride', phase: 'war', day: 5, slot: 0, after: 'hub', cond: () => kamiNormal() && kamiRoute() === 'normal' },
+  { ...KAMI_BRIDE, id: 'k_bride_sp', phase: 'war', day: 5, slot: 1, after: 'advance', cond: () => kamiNormal() && kamiRoute() !== 'normal' },
   // ---- 6日目の昼：神の声 ----
   { id: 'k_voice', phase: 'war', day: 6, slot: 0, after: 'hub', cond: () => kamiNormal() && kamiOn(),
     title: '神の声',
     text: () => `天降山の中腹、あの鳥居の前。霧の向こうから、獣とも人ともつかない声が響いた。<br>` +
-      (kamiKnown() ? `「――来たか、約束の童よ。随分と、大きくなった」<br>` : '') +
+      kamiR({ fuji: '「……神を見慣れた目をしている。幾柱の神を、見送ってきた」<br>', kishi: '「月の匂いがする。……天の上の、もう一つの王か」<br>', shirou: '「剣の匂いがする。その身の内に、無数の剣を抱えた童よ」<br>', normal: '' }) +
+      (kamiPactChild() ? `「――来たか、約束の童よ。随分と、大きくなった」<br>` : '') +
       `<p class="quote">「百八十年。我は力を貸し、人は花嫁を捧げた。それが契り。<br>だが、此度は誰も来ぬ。我が身を穿ち、要石を掘り出し、力だけを奪おうとする。<br>――ならば、この地のすべてを、我が懐に隠すまで。」</p>` +
-      `霧の奥に、山ほどもある<b>白い大狼</b>の影が、一瞬だけ見えた。その瞳は、半分が澄み、半分が黒く濁っていた。`,
+      `霧の奥に、山ほどもある<b>白い大狼</b>の影が、一瞬だけ見えた。その瞳は、半分が澄み、半分が黒く濁っていた。` +
+      (kamiDivineSv() ? `<br>${SV()}が、霧の向こうの神を、じっと見据えていた。同じ神の血を引く者として、思うところがあるらしい。` : ''),
     choices: [
       { label: '「契りとは、何だ」と問う', hint: '手がかり', run: () => ['声は、もう答えなかった。けれど、霧の中に、古い文字の刻まれた石碑が浮かび上がっていた。',
           kamiClue('pact', '六十年の契り', '天降山は土地神「天降大神」の体。神は六十年に一度、聖杯に力を貸す。代わりに人は「花嫁」を一人捧げる――それが百八十年続いた契り。今回、契りは果たされず、要石まで掘り出された。')] },
@@ -99,19 +145,9 @@ STORY.push(
           return c.ok ? [c.text, `${SV()}が、霧の流れを読み解いた。「……荒ぶる魂（荒魂）と、穏やかな魂（和魂）が、引き裂かれている」`, kamiClue('split', '裂かれた神の魂', '神の魂は、荒ぶる「荒魂」と穏やかな「和魂」に引き裂かれている。荒魂が霧となって人を攫い、和魂はどこかに封じられているらしい。')]
             : [c.text, '霧が濃すぎて、何も読めなかった。']; } },
     ] },
-  // ---- 7日目の夜：老人の告白 → 選ぶ道 ----
-  { id: 'k_old', phase: 'war', day: 7, slot: 1, after: 'advance', cond: () => kamiNormal() && kamiOn(),
-    title: '老人の告白',
-    text: () => `御影川の河川敷。釣り糸を垂れたまま、${CAST.old}が言った。<br>「……六十年前の花嫁はな、わしの許嫁じゃった」<br>` +
-      `「契りのことは、聖杯戦争を始めた家の者しか知らん。わしは聖杯を取るために、あの子が山へ行くのを止めなんだ。――止めなんだんじゃ」<br>` +
-      `「若いの。神を鎮める道、神を討つ道、神と契り直す道。どれを選んでも、何かを失う。……じゃが、選ばずにおれば、街ごと失う」` +
-      `<br><span class="note">10日目「祟りの日」までに、道を選び、備えなければならない。</span>`,
-    choices: [
-      { label: '鎮める ―― 鎮魂の儀で、神を眠りに戻す', hint: '備え：御神酒・神楽・要石／消えた人々が帰る・聖杯戦争は続く', run: () => kamiChoose('calm') },
-      { label: '討つ ―― 神そのものを倒し、六十年の契りを終わらせる', hint: '備え：神殺しの刃・急所・結界／勝てば「神殺し」の結末', run: () => kamiChoose('slay') },
-      { label: '契る ―― 自分が、山の新しい守り人になる', hint: '備え：語らい・供物・覚悟／聖杯戦争を降りる「山の守り人」の結末', run: () => kamiChoose('pact') },
-      { label: 'まだ、決められない', hint: '「山の異変を追う」から、後で選べる', run: () => [`「……そうか。じゃが、時間はないぞ」${CAST.old}は、川面から目を離さなかった。`] },
-    ] },
+  // ---- 7日目：老人の告白 → 選ぶ道（藤丸シナリオは、物語の出来事と重ならないよう昼） ----
+  { ...KAMI_OLD, id: 'k_old', phase: 'war', day: 7, slot: 1, after: 'advance', cond: () => kamiNormal() && kamiOn() && !isFuji() },
+  { ...KAMI_OLD, id: 'k_old_f', phase: 'war', day: 7, slot: 0, after: 'hub', cond: () => kamiNormal() && kamiOn() && isFuji() },
   // ---- 10日目の昼：祟りの日 ----
   { id: 'k_climax', phase: 'war', day: 10, slot: 0, after: 'hub', cond: () => kamiNormal() && kamiOn() && !kamiResolved(),
     title: '祟りの日',
@@ -134,8 +170,16 @@ STORY.push(
 function kamiChoose(p) {
   const k = kami(); k.path = p; addLog(`天降の祟り：「${KAMI_PATHS[p]}」道を選ぶ。`);
   if (p === 'calm') tone('law'); if (p === 'slay') tone('bold'); if (p === 'pact') tone('good');
+  const extra = {
+    shirou: { calm: `${SV()}が、小さく頷いた。「……シロウらしい答えです。誰も切り捨てない。――ならば、私の剣もそのために」`,
+      pact: `${SV()}の顔色が変わった。「シロウ。あなたはまた、自分を勘定に入れないのですか」<br>「……違うよ、セイバー。俺が残れば、誰も花嫁にならずに済む。それだけだ」<br>${SV()}は、それ以上何も言わなかった。けれど、その手は固く握りしめられていた。` },
+    fuji: { slay: `――また、神を殺すのか。あの旅で、いくつもの世界と、そこに生きた神々を見送ってきた。その重さを、もう一度背負う覚悟はあるか。<br>あなたは、黙って頷いた。`,
+      pact: `この日常を、守ること。――それが、あなたの願いだった。守るのが、自分の日常でなくても。` },
+    kishi: { calm: '霊子の目で、神の魂の裂け目を読み解く。鎮魂の儀に必要なものが、正確に見えた。', slay: '月の王として、この世界線の歪みを一つ、正す。……それが、神であっても。' },
+  }[kamiRoute()] || {};
+  if (kamiDivineSv() && p === 'slay') extra.slay = (extra.slay ? extra.slay + '<br>' : '') + `${SV()}が、静かに言った。${say('withYou')}――神殺しの片棒を担ぐことに、迷いはないらしい。`;
   return [{ calm: `「……鎮魂の儀か。神楽と、御神酒と、要石。三つ揃えば、荒魂も眠りに戻るじゃろう」`, slay: `「神を、討つか。……天降神社の宝物庫に、古い刃が眠っておる。神殺しの刃じゃ」`, pact: `「……お前さんが、花嫁の代わりに？」${CAST.old}は、長いこと黙っていた。「――あの子にも、そう言ってやれたらよかった」` }[p],
-    `<span class="note">道：<b>${KAMI_PATHS[p]}</b>。「山の異変を追う」に、この道の備えが加わった。</span>`];
+    extra[p] || '', `<span class="note">道：<b>${KAMI_PATHS[p]}</b>。「山の異変を追う」に、この道の備えが加わった。</span>`].filter(Boolean);
 }
 function kamiPrepText() { const n = kami().prep; return n >= 3 ? 'すべての備えが整っている。' : n >= 1 ? `備えは、${n}つだけ整っている。` : '備えは、何も整っていない。'; }
 
@@ -151,6 +195,12 @@ function kamiBattle(mode) {
 function kamiWin(mode) {
   const k = kami(); B = null; sfx('win');
   if (mode === 'slay') { k.outcome = 'slain'; return ending('kamiSlain'); }
+  if (mode === 'pact') { k.outcome = 'pact'; addLog('力で覚悟を示し、天降大神と契りを結び直す。');   // 誓いが届かず戦ったが、退けて覚悟を示した
+    return next('覚悟', paras(['荒魂が、霧になって退いていく。大狼は、膝をついたあなたを、長いこと見下ろしていた。', '「……言葉では足りぬと言ったが、撤回しよう。その覚悟、確かに見た」', '契りは、結び直された。']), () => ending('kamiBride'), '誓う'); }
+  if (mode === 'none') { k.outcome = 'repelled'; G.flags.kamiRepelled = true; addLog('荒魂を退けたが、契りは果たされないまま。'); bond(3);   // 備えなく戦い、退けただけ
+    return next('退けた霧', paras(['荒魂は、霧になって山へ退いていった。黒い空に、ようやく薄日が差した。',
+      `夕方、消えていた人々のうち、何人かが山から下りてきた。${CAST.miko}も、その中にいた。――けれど、戻らなかった人もいる。`,
+      '<span class="note">祟りは退けた。だが、神の怒りは鎮まっていない。六十年後、また同じことが起きるだろう。（絆+3）</span>']), advance, '戦いへ戻る'); }
   k.outcome = 'calm'; G.flags.kamiCalm = true; addLog('鎮魂の儀を守り抜き、天降大神を眠りに戻した。');
   bond(5);
   next('鎮魂', paras([
@@ -161,10 +211,10 @@ function kamiWin(mode) {
 }
 function kamiLose() { B = null; kami().outcome = 'taken'; ending('kamiTaken'); }
 function kamiPactClimax() {
-  const k = kami(); const c = chk('spi', Math.max(30, 70 - k.prep * 10 - (kamiKnown() ? 10 : 0)));
+  const k = kami(); const c = chk('spi', Math.max(30, 70 - k.prep * 10 - kamiEase('talk')));
   if (c.ok) {
     k.outcome = 'pact'; addLog('天降大神と契りを結び直し、山の守り人となる。');
-    return { text: [c.text, '祠の前に膝をつき、あなたは誓った。「花嫁はいらない。――これからは、私がこの山を守る」',
+    return { text: [c.text, kamiR({ shirou: '祠の前に膝をつき、誓った。「花嫁はいらない。誰も、山に差し出させない。――これからは、俺がこの山を守る」', fuji: '祠の前に膝をつき、あなたは誓った。「花嫁はいらない。この街の日常は、私が守る。――ここで」', normal: '祠の前に膝をつき、あなたは誓った。「花嫁はいらない。――これからは、私がこの山を守る」' }),
       '長い沈黙の後、大狼は、あなたの額に鼻先を寄せた。「……かつて、同じことを言った童がいた。良かろう。契りを、結び直そう」'], then: () => ending('kamiBride') };
   }
   return { text: [c.text, '誓いの言葉は、霧に呑まれた。荒魂が、牙を剥く。「――足りぬ。人の子の覚悟では、足りぬ」'], then: () => kamiBattle('pact') };
@@ -200,7 +250,7 @@ const KAMI_TASKS = {
   calm: [
     { id: 'sake', name: '御神酒を手に入れる', hint: '資金-2', cost: 2, run: () => '古い酒蔵に頼み込み、神前に供える御神酒を一樽、譲ってもらった。' },
     { id: 'kagura', name: '神楽を舞える者を探す', hint: '交渉判定（巫女が戻らない以上、誰かが舞うしかない）', stat: 'cha', diff: 56, run: (ok) => { const k = kami();
-        if (ok) { k.tasks.kaguraBy = birthOf().id === 'shrine' ? 'あなた' : SV(); return birthOf().id === 'shrine' ? '幼い頃に習った神楽を、夜通し稽古し直した。体が、舞を覚えていた。' : `${SV()}が、意外なほど真剣に神楽の稽古を始めた。「……この国の神への礼節だ。覚えておいて損はない」`; }
+        if (ok) { k.tasks.kaguraBy = birthOf().id === 'shrine' ? 'あなた' : SV(); return birthOf().id === 'shrine' ? '幼い頃に習った神楽を、夜通し稽古し直した。体が、舞を覚えていた。' : `${SV()}が、意外なほど真剣に神楽の稽古を始めた。この国の神への礼節だと、短く言って。鈴を振る手つきは、日に日に澄んでいった。`; }
         return null; } },
     { id: 'purify', name: '要石を据え直す', hint: '体力判定（工事現場へ）', stat: 'phy', diff: 58, run: (ok) => ok ? `${SV()}と二人がかりで、要石を元の場所へ運び、新しい注連縄を張った。霧が、ほんの少し薄くなった。` : null },
   ],
@@ -224,22 +274,22 @@ function kamiMenu() {
     const nm = typeof s.name === 'function' ? s.name() : s.name;
     choices.push({ label: nm, hint: s.night ? '夜だけ調べられる・危険' : '調査（技能を選んで判定）', icon: 'study', fn: () => kamiSiteMenu(s) });
   }
-  if (!k.path && k.ev >= 3 && G.used.k_old) choices.push({ label: '山の神と向き合う道を選ぶ', hint: '鎮める・討つ・契る', cls: 'primary', fn: () => {
+  if (!k.path && k.ev >= 3 && (G.used.k_old || G.used.k_old_f)) choices.push({ label: '山の神と向き合う道を選ぶ', hint: '鎮める・討つ・契る', cls: 'primary', fn: () => {
     scene({ title: '選ぶ道', sub: '天降の祟り', body: ['<p>どの道を選んでも、何かを失う。――けれど、選ばずにおれば、街ごと失う。</p>'], choices: [
-      ...Object.keys(KAMI_PATHS).map(p => ({ label: KAMI_PATHS[p], fn: () => next('選ぶ道', paras(kamiChoose(p)), hub) })), { label: 'やめる', fn: hub }] });
+      ...Object.keys(KAMI_PATHS).map(p => ({ label: KAMI_PATHS[p], hint: kamiBan(p) ? `選べない：${kamiBan(p)}` : '', disabled: !!kamiBan(p), fn: () => next('選ぶ道', paras(kamiChoose(p)), hub) })), { label: 'やめる', fn: hub }] });
   } });
   if (k.path) for (const t of KAMI_TASKS[k.path]) {
     if (k.tasks[t.id]) continue;
     const nm = typeof t.name === 'function' ? t.name() : t.name;
     choices.push({ label: `【備え】${nm}`, hint: typeof t.hint === 'function' ? t.hint() : t.hint, cls: 'primary', disabled: !!t.cost && G.master.money < t.cost, fn: () => kamiTask(t) });
   }
-  const status = `<p class="note">手がかり ${k.ev}／道：${k.path ? `<b>${KAMI_PATHS[k.path]}</b>（備え ${k.prep}/3）` : k.ev >= 3 && G.used.k_old ? 'まだ選んでいない' : '手がかりを集めよう（7日目の夜までに3つ以上）'}／祟りの日まで、あと${Math.max(0, 10 - G.day)}日</p>`;
+  const status = `<p class="note">手がかり ${k.ev}／道：${k.path ? `<b>${KAMI_PATHS[k.path]}</b>（備え ${k.prep}/3）` : k.ev >= 3 && (G.used.k_old || G.used.k_old_f) ? 'まだ選んでいない' : '手がかりを集めよう（7日目の夜までに3つ以上）'}／祟りの日まで、あと${Math.max(0, 10 - G.day)}日</p>`;
   const notes = k.clues.length ? `<ul class="clue-list">${k.clues.map(c => `<li><b>${c.title}</b>　${c.text}</li>`).join('')}</ul>` : '';
   submenu('山の異変を追う', '天降の祟り', [status, notes || '<p>まだ、山の記録は何もない。</p>'], choices);
 }
 function kamiSiteMenu(s) {
   const nm = typeof s.name === 'function' ? s.name() : s.name;
-  const easy = (kamiKnown() ? 6 : 0) + (birthOf().id === 'shrine' ? 6 : 0);
+  const easy = kamiEase(s.id);
   submenu(nm, '天降の祟り', [`<p>${typeof s.lead === 'function' ? s.lead() : s.lead}</p>`], s.ways.map(w => {
     const diff = w.diff - easy; const lab = typeof w.label === 'function' ? w.label() : w.label;
     return { label: lab, hint: `${w.sv !== undefined ? `${SV()}・${PARAM_NAMES[w.sv]}` : STAT_LABEL[w.stat]}判定 目標${diff}`, fn: () => actResult(nm, () => {
@@ -257,7 +307,7 @@ function kamiTask(t) {
     const k = kami();
     if (t.cost) { money(-t.cost); k.tasks[t.id] = true; k.prep++; return [t.run(true), `<span class="note">備え ${k.prep}/3</span>`]; }
     if (!t.stat && t.sv === undefined) { k.tasks[t.id] = true; k.prep++; return [t.run(true), `<span class="note">備え ${k.prep}/3</span>`]; }
-    const c = t.sv !== undefined ? schk(t.sv, t.diff - (kamiKnown() ? 6 : 0)) : chk(t.stat, t.diff - (kamiKnown() ? 6 : 0));
+    const c = t.sv !== undefined ? schk(t.sv, t.diff - kamiEase(t.id)) : chk(t.stat, t.diff - kamiEase(t.id));
     if (!c.ok) return [c.text, 'うまくいかなかった。日を改めて、もう一度。'];
     k.tasks[t.id] = true; k.prep++; return [c.text, t.run(true), `<span class="note">備え ${k.prep}/3</span>`];
   });
@@ -282,14 +332,17 @@ function kamiEndingTexts(sv) {
     kamiSlain: () => ({ title: '終幕：神殺し', text: [`<p>${s}の一撃が、荒魂の黒く濁った右目を貫いた。白い大狼は、長い、長い遠吠えを一つ上げて、霧と共にほどけていった。</p>`,
       '<p>天降山から、霊脈の脈動が消えた。神のいない山に、聖杯が降りることは、もう二度とない。聖杯戦争は、勝者のないまま終わった。</p>',
       `<p>その夕方、山から人々が下りてきた。${CAST.miko}も、消えていた子どもも。――六十年ごとの神隠しは、これで終わる。</p>`,
-      `<p class="quote">${farewellLine(sv)}</p>`, '<p>神を殺した街は、少しだけ、何かを失った。春が来ても、天降山の桜は、例年より少し遅れて咲いた。</p>'] }),
+      `<p class="quote">${farewellLine(sv)}</p>`, '<p>神を殺した街は、少しだけ、何かを失った。春が来ても、天降山の桜は、例年より少し遅れて咲いた。</p>',
+      kamiR({ fuji: '<p>また一柱、神を見送った。あの旅で背負ったものの隣に、この冬の重さも並べて、あなたは歩いていく。</p>', kishi: '<p>月へ帰る前に、あなたはこの世界線の記録に一行を書き加えた。「天降大神、ここに眠る」――月の王が、神を討った最初の記録だった。</p>', normal: '' })] }),
     kamiBride: () => ({ title: '終幕：山の守り人', text: ['<p>あなたは、聖杯戦争を降りた。令呪は教会に預けられ、右手には、山の神の痣だけが残った。</p>',
       `<p>${s}は、去り際に言った。</p><p class="quote">${farewellLine(sv)}</p>`,
       `<p>霧が晴れ、${CAST.miko}と消えた人々が山から帰ってきた。白い大狼は、二度と花嫁を求めなかった。――代わりに、毎朝、祠に参る一人の守り人がいる。</p>`,
-      '<p>聖杯の行方は、誰も知らない。あなたはもう、それを知りたいとも思わなかった。</p>'] }),
+      '<p>聖杯の行方は、誰も知らない。あなたはもう、それを知りたいとも思わなかった。</p>',
+      kamiR({ shirou: '<p>冬木から、遠坂が飛んできた。「この、大馬鹿！ ……あんたって人は、いつもそう！」――怒鳴りながら泣いている遠坂の後ろで、桜が、黙って祠に手を合わせていた。</p>', fuji: '<p>かつての旅の仲間たちに、手紙を書いた。「日常を守ることにした。ちょっと、変わった形で」――返事は、山ほど届いた。</p>', normal: '' })] }),
     kamiReturn: () => ({ title: '終幕：山へ還る杯', text: ['<p>「――この聖杯は、山から借りたものだ。返そう」</p>', '<p>黄金の杯を、天降山の祠に捧げた。杯は光の粒となって、霊脈の中へ溶けていった。</p>',
       '<p>霧の向こうで、白い大狼が静かに頭を垂れた。その瞳は、両方とも澄んでいた。「……契りは、果たされた。もう、花嫁はいらぬ」</p>',
-      `<p>${CAST.miko}と、消えていた人々が、山から帰ってきた。深見市の聖杯戦争は、これで最後になる。</p>`, `<p class="quote">${farewellLine(sv)}</p>`] }),
+      `<p>${CAST.miko}と、消えていた人々が、山から帰ってきた。深見市の聖杯戦争は、これで最後になる。</p>`, `<p class="quote">${farewellLine(sv)}</p>`,
+      kamiR({ kishi: '<p>月へ帰る前に、もう一度だけ天降山を見上げた。この世界線の結末は――悪くないものだった。</p>', shirou: '<p>万能の願望機を、一度も使わずに手放した。……それでいいと、今なら思える。正義の味方の願いは、杯に頼るものじゃない。</p>', normal: '' })] }),
     kamiTaken: () => ({ title: '終幕：隠り世', text: [`<p>${s}が、膝をついた。黒い霧が、あなたを、${s}を、街のすべてを包み込んでいく。</p>`,
       '<p>音が消えた。光が消えた。深見市は、ある冬の日、地図の上から消えた。</p>', '<p>――霧の奥の隠り世で、あなたは長い長い夢を見ている。誰も、目を覚まさない。</p>',
       '<p class="note">ヒント：山の異変を追い、10日目「祟りの日」までに道を選び、備えを整えよう。神の怒りは、山を売った過去があると深くなる。</p>'] }),
@@ -299,6 +352,7 @@ function kamiEndingTexts(sv) {
 function kamiEpilogue(kind) {
   if (!kamiNormal() || !G.flags.kamiSawMist || /^kami/.test(kind) || kind === 'dead') return '';
   if (G.flags.kamiCalm) return `<p class="note">天降山の霧は、あの日を境に二度と下りてこなかった。毎年冬になると、天降神社では、鎮魂の神楽が舞われるようになった。</p>`;
+  if (G.flags.kamiRepelled) return '<p class="note">天降山の霧は、あの日から薄くなった。けれど、神の怒りが鎮まったわけではない。六十年後の冬、誰かがまた、同じ霧を見るのだろう。</p>';
   if (kamiOn()) return '<p class="note">天降山の霧は、聖杯戦争が終わっても晴れなかった。神隠しの噂は、今も街のどこかで囁かれている。</p>';
   return `<p class="note">あの冬、深見市では何人かが行方知れずになった。${G.flags.kamiIgnored ? `その中には、${CAST.miko}の名前もあった。` : ''}六十年後、また同じことが起きるのだろうか。</p>`;
 }
@@ -334,6 +388,12 @@ const EPI_KAMI = [
       { label: () => `${SVN()}の名を呼ぶ`, hint: '最後の言葉', run: () => epiGain({ bond: 3 }, '最後に英霊の名を呼んだ') || `「――${SVN()}」<br>霧の向こうで、誰かが手を差し伸べた。あなたは、その手を取った。` },
     ] },
 ];
+// 衛宮士郎が守り人になった人生：冬木に帰らない代わりに、冬木から人が来る
+const EPI_KAMI_SHIROU = { y: 3, title: '冬木からの客', text: () => '三度目の春。祠への石段を、見慣れた二人が登ってきた。<br>「……本当に、こんな山奥で暮らしてるのね」遠坂が、呆れたように言った。桜は、重箱を抱えて笑っている。<br>霧の中で、白い大狼が、退屈そうに片目を開けた。',
+  choices: [
+    { label: '三人で、祠の前で花見をする', hint: '幸福↑↑', run: () => epiGain({ joy: 3 }, '遠坂と桜を、天降山に迎えた') || '桜の重箱は、相変わらず美味しかった。遠坂は「神様にも分けてあげなさい」と言って、祠にお稲荷さんを一つ供えた。' },
+    { label: '「心配かけて、ごめん」と頭を下げる', hint: '絆↑↑', run: () => epiGain({ bond: 2, joy: 1 }, '遠坂と桜に、心配をかけたことを詫びた') || '「……謝るくらいなら、最初からしないの」遠坂はそう言って、あなたの額を指で弾いた。桜は、少しだけ泣いていた。' },
+  ] };
 // 他の人生に差し込む章：祟りを鎮めた・神を討った・杯を還した人生
 const EPI_KAMI_FEST = { y: 10, title: '天降の祭り', skip: () => !(G.flags.kamiCalm || /^kami(Slain|Return)$/.test(G.epi.kind)),
   text: () => `毎年冬、天降神社では新しい祭りが開かれるようになった。${G.flags.kamiCalm ? '鎮魂の神楽' : /Slain/.test(G.epi.kind) ? '神を送る祭り' : '杯を還した日を祝う祭り'}。${CAST.miko}が舞い、街の人々が山を見上げる。<br>` +

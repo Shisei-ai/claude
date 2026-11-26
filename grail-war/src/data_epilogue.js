@@ -432,9 +432,9 @@ const EPI_KISHI = { y: 0, title: '月か、地上か',
 function epiTrackOf(kind) {
   if (kind === 'dead' || kind === 'sealed' || !G.servant) return null;
   const rel = G.servant.special;
+  if (kind === 'kamiTaken') return null;            // 隠り世：その後はない
+  if (kind === 'kamiBride') return 'kami_keeper';   // 山の守り人として生きる（岸波白野は選べない）
   if (isKishi() && kind !== 'together') return 'kishi_return';
-  if (kind === 'kamiTaken') return null;
-  if (kind === 'kamiBride') return 'kami_keeper';
   if (kind === 'together' && rel) return 'together_' + rel;
   if (['wish', 'wishKnown', 'devoured', 'saturated', 'friendRuin'].includes(kind)) return 'ruin';
   if (kind === 'abstain') return 'abstain';
@@ -452,7 +452,7 @@ function startEpilogue(kind) {
   // 特殊シナリオの章を、年代順に差し込む
   const insert = st => { const i = steps.findIndex(x => x.y > st.y); steps.splice(i < 0 ? steps.length - 1 : i, 0, st); };
   if (isFuji()) { insert(EPI_FUJI); if (typeof trioDreamEligible === 'function' && trioDreamEligible()) insert(EPI_TRIO_DREAM); }   // 藤丸×オベロン／アルトリア・キャスター：レムレムの夢（data_oberon.js）
-  if (isShirou()) { insert(EPI_SHIROU_A); insert(EPI_SHIROU_B); }
+  if (isShirou()) { if (track === 'kami_keeper') insert(EPI_KAMI_SHIROU); else { insert(EPI_SHIROU_A); insert(EPI_SHIROU_B); } }   // 守り人になった士郎は、冬木に帰らない
   if (typeof EPI_SV_CH !== 'undefined' && G.servant && EPI_SV_CH[G.servant.id] && !isKishi()) insert(EPI_SV_CH[G.servant.id]);
   if (typeof EPI_MELT_LOVE !== 'undefined' && isFuji() && G.servant && G.servant.id === 'meltryllis' && track === 'together_lover') insert(EPI_MELT_LOVE);   // 恋人として生きる、カルデアのメルト   // マシュ・アルトリア・キャスター・メルトリリスの章（data_three.js）
   if (isKishi() && kind === 'together') steps.unshift(EPI_KISHI);
