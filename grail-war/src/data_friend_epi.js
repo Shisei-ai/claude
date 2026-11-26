@@ -83,7 +83,7 @@ const FRIEND_EPI = {
           e.steps = e.steps.filter((s, i) => i <= e.i || s.title !== '面影');   // 新しい人と出会う章は、もういらない
           if (!e.steps.some(s => s.title === '二人の未来')) { const i = e.steps.findIndex((s, k) => k > e.i && s.y > 6); e.steps.splice(i < 0 ? e.steps.length - 1 : i, 0, { ...EPI_LOVE, y: 7 }); }
           epiGain({ joy: 3, bond: 1 }, `幼馴染の${G.friend.name}と結婚した`);
-          return `${friendName()}は、泣きながら頷いた。「${frTalk('……遅えよ。でも、ありがとな', '……遅いよ。でも、ありがとう')}」<br>式は、天降神社で挙げた。${fg(`紋付袴の${friendName()}と、白無垢のあなた`, `白無垢の${friendName()}と、紋付袴のあなた`)}。${CAST.miko}が祝詞を上げ、参列した人たちは、二人が九歳の頃から知っている顔ばかりだった。`;
+          return `${friendName()}は、泣きながら頷いた。「${frTalk('……遅えよ。でも、ありがとな', '……遅いよ。でも、ありがとう')}」<br>式は、天降神社で挙げた。${fg(`紋付袴の${friendName()}と、白無垢のあなた`, `白無垢の${friendName()}と、紋付袴のあなた`)}。${mikoHere() ? `${CAST.miko}が祝詞を上げ` : '年老いた宮司が祝詞を上げ'}、参列した人たちは、二人が九歳の頃から知っている顔ばかりだった。`;
         } },
       { label: '「今のままで、いいんだ」', hint: '恋人のまま、それぞれの道を', run: () => { G.epi.frNoMarry = true; epiGain({ legacy: 2 }, '幼馴染と、結婚という形を選ばなかった');
           return `${friendName()}は少し驚いて、それから笑った。「${frTalk('……お前らしいな', '……あなたらしいね')}」<br>二人は、恋人のまま、それぞれの道を歩くことにした。`; } },

@@ -107,7 +107,7 @@ const GROWTH_EVENTS = [
       { label: '舞を極める', hint: '精神・交渉↑', run: () => { gain('spi', 6); gain('cha', 2); return '鈴の音とともに舞い終えると、境内が静まり返り、やがて大きな拍手が湧いた。（精神+6 交渉+2）'; } },
       { label: '舞いながら霊脈を感じ取る', hint: '魔力↑・霊脈の知識', run: () => { gain('mag', 6); G.flags.leyline = true;
           return '足元から、山の鼓動が伝わってきた。この山の下には、とても大きな何かが眠っている。（魔力+6）'; } },
-      { label: '雫と屋台を回る', hint: '交渉↑', run: () => { gain('cha', 4); G.flags.metMiko = true; return `「ねえねえ、次はあっち！」${CAST.miko}に振り回された一日だった。（交渉+4）`; } },
+      { label: '雫と屋台を回る', hint: '交渉↑', run: () => { gain('cha', 4); G.flags.metMiko = true; mk(6); return `「ねえねえ、次はあっち！」${CAST.miko}に振り回された一日だった。（交渉+4）`; } },
     ] },
   { id: 'g_debt', ages: [9, 9], fixed: true, births: ['fallen'], title: '借金取り',
     text: () => '玄関で、母が見知らぬ男たちに頭を下げていた。「先代の借りは、きっちり返してもらいますよ」',

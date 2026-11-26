@@ -66,7 +66,7 @@ const STORY = [
       { label: '天降神社へ向かう', hint: '体力判定', run: () => {
           const r = chk('phy', 50);
           if (r.ok) { G.flags.leyline = true; G.flags.metMiko = true; tone('bold');
-            return [r.text, `夜の石段を駆け上がると、境内に白装束の少女が立っていた。${G.flags.metMiko || birthOf().id === 'shrine' ? '従妹の' : '巫女の'}${CAST.miko}だ。<br>「あなたも感じたんですね。……この山の霊脈、六十年ぶりに目を覚まそうとしています」<br>彼女から霊脈の流れを教わった。（陣地作成が得意になった）`]; }
+            return [r.text, `夜の石段を駆け上がると、境内に白装束の少女が立っていた。${birthOf().id === 'shrine' ? '従妹の' : G.miko && G.miko.met ? '顔なじみの巫女、' : '巫女の'}${CAST.miko}だ。<br>「あなたも感じたんですね。……この山の霊脈、六十年ぶりに目を覚まそうとしています」<br>彼女から霊脈の流れを教わった。（陣地作成が得意になった）`]; }
           hp(-10); return [r.text, '暗い石段で足を滑らせた。今夜は諦めよう。（HP-10）'];
         } },
       { label: '気のせいだと眠る', run: () => { gain('spi', 2); tone('cautious'); return '布団を被り直した。……だが、夢の中でも黒い空が揺れていた。（精神+2）'; } },
@@ -289,7 +289,7 @@ const STORY = [
         } },
       { label: '天降神社の古文書を調べる', hint: '知力判定', cond: () => siteOpen('shrine'), run: () => {
           const c = chk('int', G.flags.metMiko ? 45 : 60);
-          if (c.ok) return [c.text, G.flags.metMiko ? `${CAST.miko}が蔵を開けてくれた。` : '', ...siteResult('shrine', 2)];
+          if (c.ok) return [c.text, G.flags.metMiko ? `${mikoOr('宮司')}が蔵を開けてくれた。` : '', ...siteResult('shrine', 2)];
           return [c.text, '崩し字が読めず、決定的な記述を見つけられなかった。'];
         } },
       { label: '教会の記録庫に忍び込む', hint: '幸運判定（混沌）', cond: () => siteOpen('church'), run: () => {

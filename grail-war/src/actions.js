@@ -122,6 +122,7 @@ function warDayActions() {
   if (allyTargets.length && hostileRivals().length >= 3 && !aliveRivals().some(r => r.ally) && !(G.soul && G.soul.exposed))
     acts.push({ label: '同盟を持ちかける', hint: '交渉判定・一時休戦', fn: allianceMenu });
   if (kamiOn() && !kamiResolved()) acts.push({ label: '山の異変を追う', hint: `天降の祟り・手がかり${kami().ev}${kami().path ? '・' + KAMI_PATHS[kami().path] : ''}`, icon: 'scout', cls: 'primary', fn: kamiMenu });
+  if (mikoVisitable()) acts.push({ label: `${CAST.miko}に会いに行く`, hint: '雫との関係↑・魔力・精神↑', icon: 'bond', fn: mikoVisit });
   if (friendVisitable()) acts.push({ label: `${friendName()}に会いに行く`, hint: '幼馴染との友情↑・精神↑', icon: 'bond', fn: friendVisit });
   acts.push({ label: '休息', hint: 'HP・魔力・オド回復', fn: () => actResult('休息', () => { hp(25); shp(20); mp(15); od(15);
     return `拠点で体を休めた。（HP+25 ${SV()}のHP+20 魔力+15 オド+15）`; }) });

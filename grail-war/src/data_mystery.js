@@ -135,7 +135,7 @@ const MYSTERY_SITES = [
     lead: '古くから霊脈を守ってきた神社。前回の聖杯戦争の記録が残っているかもしれない。',
     ways: [
       { label: '古文書を読み解く', stat: 'int', diff: () => G.flags.metMiko || G.master.birth === 'shrine' ? 45 : 60 },
-      { label: () => `${CAST.miko}に蔵を開けてもらう`, stat: 'cha', diff: () => G.flags.metMiko || G.master.birth === 'shrine' ? 40 : 62 },
+      { label: () => `${mikoOr('宮司')}に蔵を開けてもらう`, stat: 'cha', diff: () => G.flags.metMiko || G.master.birth === 'shrine' ? 40 : 62 },
     ],
     clue: () => isCursed()
       ? ['神社の古文書', '六十年前の記録には、こうあった。「器、呪ひを孕み、黒く染まりぬ。願ひし者、ことごとく災ひに遭ふ」']

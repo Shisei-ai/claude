@@ -99,9 +99,9 @@ const EPI = {
         { label: '「あの日の場所で、もう一度」と外へ連れ出す', hint: '幸福↑↑', run: () => epiGain({ joy: 3 }, '思い出の場所で将来を誓った') || `二人で、天降山の見える丘に登った。聖杯戦争の夜、何度も見上げた空の下で、互いに将来を誓った。` },
       ] },
     { y: 6, title: '結婚式',
-      text: () => `式の日取りが決まった。${friendLine()}${CAST.sister}も、${CAST.miko}も、話を聞いて駆けつけてくれるという。<br>どこで、二人の誓いを立てようか。`,
+      text: () => `式の日取りが決まった。${friendLine()}${CAST.sister}も${mikoHere() ? `、${CAST.miko}も` : ''}、話を聞いて駆けつけてくれるという。<br>どこで、二人の誓いを立てようか。`,
       choices: [
-        { label: '天降神社で式を挙げる', hint: '幸福↑', run: () => epiGain({ joy: 2, legacy: 1 }, '天降神社で結婚式を挙げた') || `${weddingWear('shrine')}。${CAST.miko}が祝詞を上げ、山の神様が見守る中、二人は夫婦になった。${SV()}は、ずっと泣きそうな顔で笑っていた。` },
+        { label: '天降神社で式を挙げる', hint: '幸福↑', run: () => epiGain({ joy: 2, legacy: 1 }, '天降神社で結婚式を挙げた') || `${weddingWear('shrine')}。${mikoHere() ? `${CAST.miko}が祝詞を上げ` : '年老いた宮司が祝詞を上げ'}、山の神様が見守る中、二人は夫婦になった。${SV()}は、ずっと泣きそうな顔で笑っていた。` },
         { label: '聖ヨハネ教会で式を挙げる', hint: '絆↑', run: () => epiGain({ bond: 2, joy: 1 }, '聖ヨハネ教会で結婚式を挙げた') || `ステンドグラスの光の中、${weddingWear('church')}。${CAST.sister}が二人の誓いを聞き届けた。「……監督役として、これほど嬉しい仕事はありません」` },
         { label: '二人きりで、静かに誓う', hint: '絆↑↑', run: () => epiGain({ bond: 3 }, '二人きりで夫婦の誓いを立てた') || `誰も呼ばず、拠点だったあの家で、二人だけの式を挙げた。指輪を交わした手を、${SV()}はいつまでも離さなかった。` },
       ] },
@@ -219,7 +219,7 @@ const EPI = {
     { y: 4, title: '家族の食卓',
       text: () => `四年が過ぎた。食卓には、いつも二人分の茶碗が並ぶ。<br>${SV()}の得意料理も、いつの間にか増えていた。`,
       choices: [
-        { label: '近所の人たちを食卓に招く', hint: '幸福↑↑', run: () => epiGain({ joy: 3 }, '近所の人たちと食卓を囲んだ') || `${friendLine()}${CAST.old}も、${CAST.miko}も、気付けば食卓の常連になっていた。賑やかな夕食に、${SV()}はいつも嬉しそうだった。` },
+        { label: '近所の人たちを食卓に招く', hint: '幸福↑↑', run: () => epiGain({ joy: 3 }, '近所の人たちと食卓を囲んだ') || `${friendLine()}${CAST.old}も${mikoHere() ? `、${CAST.miko}も` : ''}、気付けば食卓の常連になっていた。賑やかな夕食に、${SV()}はいつも嬉しそうだった。` },
         { label: '二人の味を、ノートに書き残す', hint: '遺したもの↑', run: () => epiGain({ legacy: 2, bond: 1 }, '家族の味を書き残した') || `「家族の味」と題したノートは、年を追うごとに厚くなっていった。` },
       ] },
     { y: 10, title: '家族が増える',
@@ -261,7 +261,7 @@ const EPI = {
       choices: [
         { label: '魔術の道を極める', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '魔術の道を歩み始めた') || `時計塔の門を叩いた。聖杯戦争の生き残りという肩書きは、思った以上に重く、そして役に立った。` },
         { label: '普通の暮らしに戻る', hint: '幸福↑↑', run: () => epiGain({ joy: 3 }, '普通の暮らしに戻った') || `大学に通い、働き、友人と笑う。ありふれた日々の中で、時々、空を見上げる癖だけが残った。` },
-        { label: 'この街の守り手になる', hint: '遺したもの・絆↑', run: () => epiGain({ legacy: 2, bond: 1 }, '深見の守り手になった') || `${CAST.sister}と${CAST.miko}に協力し、街の霊脈を見守り続けることにした。${SV()}が守った街だから。` },
+        { label: 'この街の守り手になる', hint: '遺したもの・絆↑', run: () => epiGain({ legacy: 2, bond: 1 }, '深見の守り手になった') || `${CAST.sister}${mikoHere() ? `と${CAST.miko}` : ''}に協力し、街の霊脈を見守り続けることにした。${SV()}が守った街だから。` },
       ] },
     { y: 8, title: '面影',
       text: () => relText({
@@ -304,7 +304,7 @@ const EPI = {
       text: () => `五年が過ぎた。${G.epi.kind === 'saturated' ? '眠り続けていた人々は、一人、また一人と目を覚まし始めている。' : '深見の街は、少しずつ元の姿を取り戻しつつある。'}<br>天降山には、今も立入禁止の看板が立っている。`,
       choices: [
         { label: '再建に力を尽くす', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '街の再建に尽くした') || (G.epi.kind === 'saturated' ? `止まっていた店、閉ざされた学校。目覚めた人々と共に、街に少しずつ声が戻ってきた。` : `新しい公園、新しい学校。泥に呑まれた場所に、少しずつ人の声が戻ってきた。`) },
-        { label: () => G.epi.kind === 'saturated' ? '蛇の眠りを解く研究をする' : '泥の残滓を封じる研究をする', hint: '遺したもの・絆↑', run: () => epiGain({ legacy: 2, bond: 1 }, '聖杯の残滓を封じる研究をした') || `${CAST.miko}と共に、天降山の霊脈に残った${G.epi.kind === 'saturated' ? '獣の眠り' : '呪い'}を、一つずつ解いていった。` },
+        { label: () => G.epi.kind === 'saturated' ? '蛇の眠りを解く研究をする' : '泥の残滓を封じる研究をする', hint: '遺したもの・絆↑', run: () => epiGain({ legacy: 2, bond: 1 }, '聖杯の残滓を封じる研究をした') || `${mikoOr('宮司')}と共に、天降山の霊脈に残った${G.epi.kind === 'saturated' ? '獣の眠り' : '呪い'}を、一つずつ解いていった。` },
       ] },
     { y: 25, title: '償いの日々',
       text: () => `二十五年が過ぎた。あの災厄を覚えている人も、少なくなった。<br>${SV()}の最後の顔を、あなたは今も覚えている。`,
@@ -457,7 +457,8 @@ function startEpilogue(kind) {
   if (typeof EPI_MELT_LOVE !== 'undefined' && isFuji() && G.servant && G.servant.id === 'meltryllis' && track === 'together_lover') insert(EPI_MELT_LOVE);   // 恋人として生きる、カルデアのメルト   // マシュ・アルトリア・キャスター・メルトリリスの章（data_three.js）
   if (isKishi() && kind === 'together') steps.unshift(EPI_KISHI);
   if (typeof friendEpiSteps === 'function') for (const st of friendEpiSteps(track)) insert(st);
-  if (typeof kamiEpiSteps === 'function') for (const st of kamiEpiSteps(track)) insert(st);   // 天降の祭り（data_kami.js）   // 幼馴染の章（data_friend_epi.js）
+  if (typeof kamiEpiSteps === 'function') for (const st of kamiEpiSteps(track)) insert(st);
+  if (typeof mikoEpiSteps === 'function') for (const st of mikoEpiSteps(track)) insert(st);   // 雫の章（data_miko.js）   // 天降の祭り（data_kami.js）   // 幼馴染の章（data_friend_epi.js）
   G.epi = { kind, track, steps, i: -1, year: 0, joy: 0, bond: 0, legacy: 0, marks: [] };
   G.phase = 'epilogue';
   chapterCard('エピローグ　その後の人生', () => epiNext());

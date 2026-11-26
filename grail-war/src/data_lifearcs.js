@@ -344,15 +344,15 @@ GROWTH_EVENTS.push(
     text: () => '森の奥の、苔むした祠の前。白い霧の中から、獣とも人ともつかない声がした。<br>「――この子は、我が花嫁とする。返してほしくば、代わりに何を差し出す」',
     choices: [
       { label: '「一生、この山を守ると約束する」', hint: '精神判定・約束', run: () => { const c = chk('spi', life().kamiAsk ? 35 : 50);
-          if (c.ok) { life().kamiPact = true; G.flags.leyline = true; gain('mag', 4); return [c.text, `霧が晴れた。祠の前で、${CAST.miko}が眠っていた。<br>「……約束じゃぞ」山の神の声が、遠ざかっていった。（魔力+4 霊脈の知識）`]; }
+          if (c.ok) { life().kamiPact = true; G.flags.leyline = true; gain('mag', 4); mk(20); return [c.text, `霧が晴れた。祠の前で、${CAST.miko}が眠っていた。<br>「……約束じゃぞ」山の神の声が、遠ざかっていった。（魔力+4 霊脈の知識）`]; }
           hp(-20); return [c.text, '霧に呑まれ、気を失った。目を覚ますと、二人とも麓の鳥居の前に倒れていた。……神様が、見逃してくれたのかもしれない。（HP-20）']; } },
-      { label: '「自分が代わりになる」', hint: '善・大胆', run: () => { tone('good'); tone('bold'); life().kamiPact = true; gain('spi', 5); G.flags.touchedMist = true;
+      { label: '「自分が代わりになる」', hint: '善・大胆', run: () => { tone('good'); tone('bold'); life().kamiPact = true; gain('spi', 5); G.flags.touchedMist = true; mk(25);
           return `「……面白い童じゃ」霧の中で、何かが笑った。${CAST.miko}は返され、あなたの右手の甲に、小さな痣が残った。（精神+5）`; } },
     ] },
   { arc: 'kamikakushi', step: 3, id: 'a_kam3', ages: [14, 17], title: '神との約束',
     text: () => life().kamiPact ? '天降山の霊脈が、時折あなたを呼んでいる気がする。山の神との約束は、今も続いている。' : 'あの夜のことは、今でもよく分からない。ただ、山の霧を見ると、胸がざわつく。',
     choices: [
-      { label: '毎朝、祠に参る', hint: '幸運↑↑', run: () => { gain('luk', 5); mark('神隠し', '幼馴染を神隠しから取り戻し、山の神と約束を交わした。'); return '毎朝、祠に参った。山の神は、黙ってあなたを見守ってくれている気がした。（幸運+5）'; } },
+      { label: '毎朝、祠に参る', hint: '幸運↑↑', run: () => { gain('luk', 5); mark('神隠し', '従妹の雫を神隠しから取り戻し、山の神と約束を交わした。'); return '毎朝、祠に参った。山の神は、黙ってあなたを見守ってくれている気がした。（幸運+5）'; } },
       { label: '霊脈を学び、山を守る力をつける', hint: '魔力↑↑', run: () => { gain('mag', 5); G.flags.leyline = true; mark('神隠し', '神隠しの夜から、山を守る力を磨き続けた。'); return '霊脈の流れを、隅々まで覚えた。この山は、自分が守る。（魔力+5）'; } },
     ] },
 
