@@ -18,7 +18,7 @@
 const EPI_KEY = 'fukami-grail-war-epilogues';
 const EPI_TITLES = {
   together_lover: '恋人として生きる', together_partner: '相棒として生きる', together_oath: '主従として生きる', together_family: '家族として生きる',
-  parted: '別れの後で', ruin: '災厄の後で', lost: '敗者の春', abstain: '日常の向こう側', kishi_moon: '月の王と英霊', kishi_return: '月の王の観測',
+  parted: '別れの後で', ruin: '災厄の後で', kami_keeper: '山の守り人として生きる', lost: '敗者の春', abstain: '日常の向こう側', kishi_moon: '月の王と英霊', kishi_return: '月の王の観測',
 };
 function seenEpilogues() { try { return JSON.parse(localStorage.getItem(EPI_KEY) || '[]'); } catch (e) { return []; } }
 function markEpilogue(k) { const s = seenEpilogues(); if (s.includes(k)) return; s.push(k); try { localStorage.setItem(EPI_KEY, JSON.stringify(s)); } catch (e) { } }
@@ -433,6 +433,8 @@ function epiTrackOf(kind) {
   if (kind === 'dead' || kind === 'sealed' || !G.servant) return null;
   const rel = G.servant.special;
   if (isKishi() && kind !== 'together') return 'kishi_return';
+  if (kind === 'kamiTaken') return null;
+  if (kind === 'kamiBride') return 'kami_keeper';
   if (kind === 'together' && rel) return 'together_' + rel;
   if (['wish', 'wishKnown', 'devoured', 'saturated', 'friendRuin'].includes(kind)) return 'ruin';
   if (kind === 'abstain') return 'abstain';
@@ -454,7 +456,8 @@ function startEpilogue(kind) {
   if (typeof EPI_SV_CH !== 'undefined' && G.servant && EPI_SV_CH[G.servant.id] && !isKishi()) insert(EPI_SV_CH[G.servant.id]);
   if (typeof EPI_MELT_LOVE !== 'undefined' && isFuji() && G.servant && G.servant.id === 'meltryllis' && track === 'together_lover') insert(EPI_MELT_LOVE);   // 恋人として生きる、カルデアのメルト   // マシュ・アルトリア・キャスター・メルトリリスの章（data_three.js）
   if (isKishi() && kind === 'together') steps.unshift(EPI_KISHI);
-  if (typeof friendEpiSteps === 'function') for (const st of friendEpiSteps(track)) insert(st);   // 幼馴染の章（data_friend_epi.js）
+  if (typeof friendEpiSteps === 'function') for (const st of friendEpiSteps(track)) insert(st);
+  if (typeof kamiEpiSteps === 'function') for (const st of kamiEpiSteps(track)) insert(st);   // 天降の祭り（data_kami.js）   // 幼馴染の章（data_friend_epi.js）
   G.epi = { kind, track, steps, i: -1, year: 0, joy: 0, bond: 0, legacy: 0, marks: [] };
   G.phase = 'epilogue';
   chapterCard('エピローグ　その後の人生', () => epiNext());

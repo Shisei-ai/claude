@@ -46,7 +46,7 @@ function wpick(items, wf) {
   return items[items.length - 1];
 }
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS, BEAST8], ENFORCERS).map(s => [s.id, s]));
+const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS, BEAST8, KAMI], ENFORCERS).map(s => [s.id, s]));
 
 // ---------------- 名前・参照 ----------------
 function M() { return esc(G.master.name); }
@@ -368,7 +368,7 @@ function showEvent(ev, after = advance) {
   const choices = ev.choices
     .filter(c => !c.cond || c.cond())
     .map(c => ({
-      label: typeof c.label === 'function' ? c.label() : c.label, hint: c.hint, cls: c.cls,
+      label: typeof c.label === 'function' ? c.label() : c.label, hint: typeof c.hint === 'function' ? c.hint() : c.hint, cls: c.cls,
       fn: () => {
         NOTES = [];
         const res = c.run();

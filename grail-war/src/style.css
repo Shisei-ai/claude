@@ -563,3 +563,7 @@ body:not(.fx-on) #snow { display: none; }
 .bar.rel i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
 .bar.rel i.pos { background: linear-gradient(90deg, var(--gold), var(--seal)); }
 .bar.rel i.neg { background: #6b7394; }
+
+/* ---------- 天降の祟り（data_kami.js） ---------- */
+.truth.kami { border-color: #8fb3d966; background: #8fb3d914; }
+.status-box .kami-line { color: #b7d2ee; }
