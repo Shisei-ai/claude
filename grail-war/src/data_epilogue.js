@@ -454,6 +454,7 @@ function startEpilogue(kind) {
   if (typeof EPI_SV_CH !== 'undefined' && G.servant && EPI_SV_CH[G.servant.id] && !isKishi()) insert(EPI_SV_CH[G.servant.id]);
   if (typeof EPI_MELT_LOVE !== 'undefined' && isFuji() && G.servant && G.servant.id === 'meltryllis' && track === 'together_lover') insert(EPI_MELT_LOVE);   // 恋人として生きる、カルデアのメルト   // マシュ・アルトリア・キャスター・メルトリリスの章（data_three.js）
   if (isKishi() && kind === 'together') steps.unshift(EPI_KISHI);
+  if (typeof friendEpiSteps === 'function') for (const st of friendEpiSteps(track)) insert(st);   // 幼馴染の章（data_friend_epi.js）
   G.epi = { kind, track, steps, i: -1, year: 0, joy: 0, bond: 0, legacy: 0, marks: [] };
   G.phase = 'epilogue';
   chapterCard('エピローグ　その後の人生', () => epiNext());
@@ -462,6 +463,7 @@ function epiNext() {
   const e = G.epi; e.i++;
   if (e.i >= e.steps.length) return epiFinale();
   let st = e.steps[e.i];
+  if (st.skip && st.skip()) return epiNext();   // その人生では起きない章（幼馴染の章など）
   if (st.final && typeof avalonEligible === 'function' && avalonEligible()) st = e.steps[e.i] = EPI_MERLIN;   // 隠しエンディングへの分岐
   e.year = st.y;
   const go = () => scene({ title: st.title, sub: `エピローグ・${epiAgeLabel()}`, reveal: true,
