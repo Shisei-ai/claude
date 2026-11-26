@@ -65,9 +65,17 @@ function victoryScene() {
     '<p>あなたが願うのは――</p>',
   ], choices });
 }
+// 連戦の前の一息：マスターが残る魔力を注ぎ込み、英霊をHP半分までは立て直す
+function finalBreath() {
+  const sv = G.servant; const half = Math.round(servantHpMax() * 0.5);
+  if (sv.hp >= half && sv.mp >= 50) return '';
+  sv.hp = Math.max(sv.hp, half); sv.mp = Math.max(sv.mp, 50);
+  return `<p>あなたは右手を${SV()}の背に当て、魔術回路に残る魔力のすべてを、パスへ流し込んだ。膝が笑う。それでも、${SV()}は再び立ち上がった。（英霊のHPと魔力が、半分まで戻った）</p>`;
+}
 // ---- 人類悪：ビーストⅧ「アダム=サーペント」 ----
 function beastReveal() {
   G.phase = 'end';
+  const breath = finalBreath();
   next('聖杯降臨', [
     '<p>最後の敵が消え、天降山の頂に黄金の杯が降りてきた。――はずだった。</p>',
     '<p>杯は、<b>空っぽ</b>だった。六十年かけて満ちるはずだった魔力は、一滴も残っていない。</p>',
@@ -76,7 +84,7 @@ function beastReveal() {
     G.flags.grailBeast ? '<p>知っている。これが、聖杯に巣食っていたもの。聖杯の魔力を吸い尽くし、孵化の時を待っていた――<b>人類悪</b>。</p>'
       : '<p>なんだ、これは。英霊ではない。呪いでもない。もっと古く、もっと根源的な、何か。</p>',
     '<p class="quote">「我が名はアダム=サーペント。理は【飽和】。満たされよ、人の子。汝らの願い、すべて叶えよう。――その果てに、もう何一つ、望まぬように」</p>',
-    `<p>${SV()}が、あなたの前に立った。${say('stayBack')}</p>`,
+    `<p>${SV()}が、あなたの前に立った。${say('stayBack')}</p>`, breath,
     `<p class="note">ビーストⅧとの決戦。${SV()} HP ${G.servant.hp}/${servantHpMax()}・魔力 ${G.servant.mp}　令呪 ${G.master.seals}画。撤退はできない。${G.flags.grailBeast ? '<br>正体を突き止めている。聖杯との繋がりを断ち、戦いを有利に進められる。' : '<br>正体を知らないまま戦う。獣は聖杯の残り香から、しばらく魔力を吸い上げ続けるだろう。'}</p>`,
   ], () => startBattle({ id: 'beast', cls: 'ビーストⅧ', servantId: 'beast8', master: '―', type: '', quote: '', power: 9, aggr: 1, alive: true,
     hp: 240, hpMax: 240, mp: 100, intel: 3, clues: 0, seals: 1, ally: false, named: true }, { boss: true, beast: true }), '人類悪に挑む', 'BEAST');
@@ -84,11 +92,12 @@ function beastReveal() {
 function bossIntro() {
   const boss = { id: 'boss', cls: '聖杯', servantId: 'ori', master: '―', type: '', quote: '', power: 7, aggr: 1, alive: true,
     hp: 190, hpMax: 190, mp: 100, intel: 3, clues: 0, seals: 1, ally: false };
+  const breath = finalBreath();
   next('黒き聖杯', [
     `<p>「${SV()}、聖杯を――壊して」</p>`,
     '<p>その言葉に応えるように、黄金の杯がひび割れた。溢れ出したのは、六十年分の呪い。黒い泥が渦を巻き、巨大な影となって立ち上がる。</p>',
     '<p class="quote">「ネガイヲ……ネガイヲ、ヨコセ……」</p>',
-    G.flags.resolve === 'destroy' ? `<p>${SV()}が構えを取る。${say('withYou')}</p>` : `<p>${SV()}が前に出る。${say('stayBack')}</p>`,
+    G.flags.resolve === 'destroy' ? `<p>${SV()}が構えを取る。${say('withYou')}</p>` : `<p>${SV()}が前に出る。${say('stayBack')}</p>`, breath,
     `<p class="note">${SV()} HP ${G.servant.hp}/${servantHpMax()}・魔力 ${G.servant.mp}　令呪 ${G.master.seals}画。撤退はできない。</p>`,
   ], () => startBattle(boss, { boss: true }), '聖杯に挑む', 'FINAL');
 }

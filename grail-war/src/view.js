@@ -86,7 +86,8 @@ function viewScene() {
     ${s.sub ? `<div class="scene-sub">${s.sub}</div>` : ''}
     <h1 class="scene-title">${s.title}</h1>
     <div class="scene-body">${body.map((h, i) => step ? `<div class="rv" style="--d:${i * step}ms">${h}</div>` : h).join('')}</div>
-    <div class="choices ${s.grid ? 'grid' : ''} ${step ? 'rv' : ''}" style="--d:${body.length * step}ms">${s.choices.map((c, i) => {
+    <div class="choices ${s.grid ? 'grid' : ''} ${step ? 'rv' : ''}" style="--d:${body.length * step}ms">${s.choices.map((c0, i) => {
+      const c = Object.assign({}, c0); for (const k of ['label', 'hint', 'disabled']) if (typeof c[k] === 'function') c[k] = c[k]();   // 関数で渡された表示も評価する
       const ic = c.icon || guessIcon(String(c.label));
       return `<button class="choice ${c.cls || ''}" data-choice="${i}" ${c.disabled ? 'disabled' : ''}>
       ${ic ? actIcon(ic) : ''}<span class="c-label">${c.label}</span>${c.hint ? `<span class="c-hint">${c.hint}</span>` : ''}</button>`;

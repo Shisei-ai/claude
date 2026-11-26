@@ -4955,7 +4955,7 @@ function coreMenu() {
     '天降山の頂、霊脈の集う古社。聖杯が降臨するはずの場所だ。強い結界が張られ、近づくだけで肌が粟立つ。',
     '器そのものを調べれば、真相は分かる。だが、無事で済む保証はない。',
   ]), choices: [
-    { label: () => `${SV()}と共に結界を破る`, hint: `${SV()}の魔力判定 目標${d}`, cls: 'danger', fn: () => coreTry(schk(3, d)) },
+    { label: `${SV()}と共に結界を破る`, hint: `${SV()}の魔力判定 目標${d}`, cls: 'danger', fn: () => coreTry(schk(3, d)) },
     { label: '結界の綻びを探して忍び込む', hint: `知力判定 目標${d + 5}`, fn: () => coreTry(chk('int', d + 5)) },
     { label: 'やめる', fn: mysteryMenu },
   ] });
@@ -5068,15 +5068,26 @@ function stakeout(c, mode) {
 function mysteryDaily() {
   if (G.phase !== 'war' || !G.used.s_coma) return;
   const m = mys();
+  // 同じ文面が続かないよう、続報は順番に言い回しを変え、被害者の数も積み上がっていく
+  const push = (list) => { if (Math.random() >= 0.5) return; m.newsN = (m.newsN || 0) + 1; m.victims = (m.victims || 12) + rand(2, 5);
+    G.news.push(`${list[(m.newsN - 1) % list.length]}（被害者は、これで${m.victims}人）`); };
   if (isBeast()) {
-    if (Math.random() < 0.5) G.news.push('昏睡事件の被害者が、また見つかった。医師によれば、被害者は皆<b>穏やかに微笑んだまま</b>眠り続けており、「まるで幸せな夢を見ているようだ」という。');
+    push(['昏睡事件の被害者が、また見つかった。医師によれば、被害者は皆<b>穏やかに微笑んだまま</b>眠り続けており、「まるで幸せな夢を見ているようだ」という。',
+      '昏睡事件の続報。眠り続ける患者の家族が、口を揃えて言う。「寝言で、何度も『もう、いいの』と――満ち足りた声で」',
+      '市民病院の病床が足りなくなり始めた。眠る人々の顔は、どれも安らかだった。<b>まるで、何もかも叶ってしまったかのように</b>。',
+      '昏睡事件の被害者が、また見つかった。枕元に、なぜか<b>熟れた林檎の甘い香り</b>が残っていたという。']);
     return;
   }
   if (isCursed()) {
-    if (Math.random() < 0.5) G.news.push(`昏睡事件の被害者が、また見つかった。発見現場は<b>天降山の麓</b>から、川沿いに街の中心へと広がっているという。`);
+    push(['昏睡事件の被害者が、また見つかった。発見現場は<b>天降山の麓</b>から、川沿いに街の中心へと広がっているという。',
+      '昏睡事件の続報。被害者の皮膚に、<b>黒い痣</b>のようなものが浮かんでいるという。医師は「原因不明」とだけ答えた。',
+      '御影川の水が、夜になると黒く濁るという噂が広がっている。昏睡事件との関係は、分かっていない。',
+      '昏睡事件の被害者が、また見つかった。うなされるように「熱い、熱い」と繰り返しているという。']);
     return;
   }
-  if (culpritAlive()) { if (Math.random() < 0.5) G.news.push(`昏睡事件の被害者が、また見つかった。現場は<b>${m.area}</b>の周辺に集中しているという。`); return; }
+  if (culpritAlive()) { push([`昏睡事件の被害者が、また見つかった。現場は<b>${m.area}</b>の周辺に集中しているという。`,
+    `昏睡事件の続報。警察は<b>${m.area}</b>周辺の夜間の巡回を強化すると発表した。`,
+    `昏睡事件の被害者が、また見つかった。目撃者は「人影が、すっと消えた」と話している。現場は<b>${m.area}</b>の近くだった。`]); return; }
   if (!m.stopped) {
     m.stopped = true;
     G.news.push('ここ数日、昏睡事件の新たな被害者が出ていない。ニュースは「事件は収束に向かっている」と報じていた。');
@@ -5747,18 +5758,18 @@ const EPI = {
   ruin: [
     { y: 0, title: '災厄の朝',
       text: () => G.epi.kind === 'saturated'
-        ? '夜が明けた。あなたは、甘い夢から目を覚ました――街でただ一人。<br>深見の人々は、皆、微笑んだまま眠り続けている。白い大蛇は、満ち足りたように天降山の奥へ沈んでいった。'
+        ? '夜が明けた。あなたは、甘い夢から目を覚ました。<br>深見の人々の多くは、微笑んだまま眠り続けている。目を覚ませたのは、魔術の素養を持つ、ほんの一握りの者だけだった。白い大蛇は、満ち足りたように天降山の奥へ沈んでいった。'
         : `夜が明けた。天降山から溢れた黒い泥は、街の北側を呑み込んで止まった。<br>あなたは生き延びた。だが、その代償は、あまりにも大きかった。`,
       choices: [
-        { label: '救助に加わる', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '災厄の救助に加わった') || `瓦礫の中から、何人もの人を助け出した。誰も、あなたがこの災厄の原因に関わっていたことを知らない。` },
+        { label: '救助に加わる', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '災厄の救助に加わった') || (G.epi.kind === 'saturated' ? `眠り続ける人々を、一人ずつ病院へ運んだ。誰も、あなたがこの災厄の原因に関わっていたことを知らない。` : `瓦礫の中から、何人もの人を助け出した。誰も、あなたがこの災厄の原因に関わっていたことを知らない。`) },
         { label: '真実を、教会に告白する', hint: '絆・遺したもの↑', run: () => epiGain({ legacy: 2, bond: 1 }, '災厄の真実を告白した') || `${CAST.sister}は、長い沈黙の後で言った。「……罪を背負うと言うのなら、その命で、この街に償いなさい」` },
-        { label: '街を離れる', hint: '幸福↑', run: () => epiGain({ joy: 2 }, '深見の街を離れた') || `逃げるように街を出た。けれど、どこへ行っても、あの黒い泥の夢を見た。` },
+        { label: '街を離れる', hint: '幸福↑', run: () => epiGain({ joy: 2 }, '深見の街を離れた') || `逃げるように街を出た。けれど、どこへ行っても、${G.epi.kind === 'saturated' ? 'あの甘い夢' : 'あの黒い泥の夢'}を見た。` },
       ] },
     { y: 5, title: '街の再建',
-      text: () => `五年が過ぎた。深見の街は、少しずつ元の姿を取り戻しつつある。<br>天降山には、今も立入禁止の看板が立っている。`,
+      text: () => `五年が過ぎた。${G.epi.kind === 'saturated' ? '眠り続けていた人々は、一人、また一人と目を覚まし始めている。' : '深見の街は、少しずつ元の姿を取り戻しつつある。'}<br>天降山には、今も立入禁止の看板が立っている。`,
       choices: [
-        { label: '再建に力を尽くす', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '街の再建に尽くした') || `新しい公園、新しい学校。泥に呑まれた場所に、少しずつ人の声が戻ってきた。` },
-        { label: '泥の残滓を封じる研究をする', hint: '遺したもの・絆↑', run: () => epiGain({ legacy: 2, bond: 1 }, '聖杯の残滓を封じる研究をした') || `${CAST.miko}と共に、天降山の霊脈に残った呪いを、一つずつ封じていった。` },
+        { label: '再建に力を尽くす', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '街の再建に尽くした') || (G.epi.kind === 'saturated' ? `止まっていた店、閉ざされた学校。目覚めた人々と共に、街に少しずつ声が戻ってきた。` : `新しい公園、新しい学校。泥に呑まれた場所に、少しずつ人の声が戻ってきた。`) },
+        { label: () => G.epi.kind === 'saturated' ? '蛇の眠りを解く研究をする' : '泥の残滓を封じる研究をする', hint: '遺したもの・絆↑', run: () => epiGain({ legacy: 2, bond: 1 }, '聖杯の残滓を封じる研究をした') || `${CAST.miko}と共に、天降山の霊脈に残った${G.epi.kind === 'saturated' ? '獣の眠り' : '呪い'}を、一つずつ解いていった。` },
       ] },
     { y: 25, title: '償いの日々',
       text: () => `二十五年が過ぎた。あの災厄を覚えている人も、少なくなった。<br>${SV()}の最後の顔を、あなたは今も覚えている。`,
@@ -5767,7 +5778,7 @@ const EPI = {
         { label: '静かに、慰霊を続ける', hint: '絆↑', run: () => epiGain({ bond: 2, joy: 1 }, '慰霊を続けた') || `毎年、災厄の日に、天降山の麓に花を手向けた。` },
       ] },
     { y: 55, title: '最期の日', final: true,
-      text: () => `${epiAgeLabel()}。あなたは、償いの人生を終えようとしていた。<br>窓の外に、再建された深見の街の灯りが見える。あの夜の泥はもう、どこにもない。`,
+      text: () => `${epiAgeLabel()}。あなたは、償いの人生を終えようとしていた。<br>窓の外に、${G.epi.kind === 'saturated' ? '目を覚ました深見の街の灯りが見える。あの白い眠りはもう' : '再建された深見の街の灯りが見える。あの夜の泥はもう'}、どこにもない。`,
       choices: [
         { label: '「少しは、償えただろうか」', hint: '最後の言葉', run: () => epiGain({ legacy: 2, bond: 1 }, '償いの生涯を終えた') || `答える者はいない。けれど、窓の外の灯りが、それに応えているように見えた。` },
         { label: () => `${SVN()}の名を呼ぶ`, hint: '最後の言葉', run: () => epiGain({ bond: 3 }, '最後に英霊の名を呼んだ') || `遠くで、${SV()}の声が聞こえた気がした。${sq({ ob: '「……呼んだ？ ――もういいよ。君はよくやった。……これ以上は言わない」', jeanne: '「……もういいんです。あなたは、よく頑張りました」', amakusa: '「……もういいのです。あなたは、よく頑張りました」', martha_ruler: '「……もういいのよ。アンタは、よく頑張ったわ」', holmes: '「……もういいんだ。君は、よく頑張った」', jalter: '「……もういいのよ。アンタは、よく頑張ったわ」', edmond: '「……もういい。お前は、よく戦った」', gorgon: '「……もういい。お前は、よく生きた」', salieri: '「……もう良い。お前は、よく生きた」', passionlip: '「……もう、いいんです。マスターは、よく頑張りました」', okita_alter: '「……もういい。マスターは、よく頑張った」', doman: '「……もう、よろしいのです。マスター殿は、よう頑張られました」', bb: '「……もういいんですよ、センパイ。よく、頑張りました」', abigail: '「……もういいのよ、マスター。よく、頑張ったわね」', hokusai: '「……もういいんだよ。あんたは、よく頑張った」', heracles: '{s}が、あなたの手を、両手で包み込んだ。……もう、休んでいい。そう、言っているようだった。', lancelot: '{s}が、あなたの手を、両手で包み込んだ。……もう、休んでいい。そう、言っているようだった。', lubu: '{s}が、あなたの手を、大きな手で包み込んだ。……もう、休め。そう、言っているようだった。', frankenstein: '{s}が、あなたの手を、両手で包み込んだ。「……ウ……」……もう、休んでいい。', caligula: '{s}が、あなたの手を、両手で包み込んだ。「……もう……よい……」', darius: '{s}が、あなたの手を、両手で包み込んだ。……もう、休んでいい。', kintoki: '「……もういいんだ、大将。よく頑張った」', spartacus: '「……もうよい、同志よ。君は、よく戦った」', kiyohime: '「……もう、よろしいのですよ。ますたぁは、よく頑張りました」', tamamo_cat: '「……もういいのだワン。ご主人は、よく頑張ったのだナ」', beowulf: '「……もういいんだ、マスター。お前は、よく戦った」', vlad_berserker: '「……もう良い。お前は、よく生きた」', ibaraki: '「……もうよい。汝は、よく頑張った」', raikou: '「……もう、よいのですよ。あなたは、よく頑張りました」', hijikata: '「……もういい。お前は、よく戦った」', nightingale: '「……もう、いいのです。あなたは、よく頑張りました」', penthesilea: '「……もういい。お前は、よく戦った」', kojiro: '「……もうよい。よく戦われた」', hassan: '「……もう、よいのです。よく戦われました」', jack: '「……もう、いいんだよ、おかあさん。がんばったね」', jingke: '「……もういい。よく頑張った」', shiki: '「……もういい。よく頑張った」', serenity: '「……もう、いいのです。マスターは、よく頑張りました」', hundred: '「……もうよい。よく戦われた」', carmilla: '「……もういいのよ。よく頑張ったわ」', shuten: '「……もうええんよ、旦那はん。よう頑張りはったわぁ」', kotaro: '「……もう、よいのです。主殿は、よく頑張られました」', danzo: '「……もう、よいのです。主殿は、よく頑張られました」', izo: '「……もうええ。よう頑張ったのう」', mata_hari: '「……もういいのよ。よく頑張ったわ」', yan_qing: '「……もういいんだ。主は、よく頑張った」', wu_zetian: '「……もうよいのじゃ。よく頑張ったな」', medea: '「……もういいのよ。よく頑張ったわ」', gilles: '「……もう、よいのです、我が主よ。よく戦われました」', tamamo: '「……もう、いいのですよ、ご主人様。よく頑張られました」', merlin: '「……もういいんだよ。キミは、よく頑張った」', zhuge: '「……もういい。よく頑張った」', andersen: '「……もういい。よく頑張ったな」', cu_caster: '「……もういい。よく頑張ったな」', shakespeare: '「……もう、幕を下ろしてよいのです。あなたは、よく演じきられました」', nursery: '「……もういいのよ、マスター。素敵なお話だったわ」', blavatsky: '「……もういいのよ。よく頑張ったわ」', murasaki: '「……もう、筆を置いてよいのです。あなたは、よく頑張られました」', paracelsus: '「……もう十分です。あなたは、よく頑張りました」', avicebron: '「……もういい。よく頑張った」', sanzang: '「……もういいのよ、弟子。よく頑張ったわ」', skadi: '「……もうよい。よく頑張った」', medea_lily: '「……もう、いいんですよ。マスターは、よく頑張りました」', mozart: '「……もういいよ。君は、よく頑張った。……レクイエムは、まだ早いけどね」', davinci: '「……もういいんだよ。君は、よく頑張った」', medusa: '「……もう、いいのです。あなたは、よく頑張りました」', iskandar: '「……もうよい。よく戦ったな、朋友よ」', astolfo: '「……もういいんだよ。マスターは、よく頑張ったよ」', ushiwakamaru: '「……もう、いいのです。主殿は、よく頑張られました」', drake: '「……もういいんだよ。よく頑張ったね」', marie: '「……もういいのよ。マスターは、よく頑張ったわ」', achilles: '「……もういい。よく頑張ったな」', ozymandias: '「……もうよい。よくやったな、盟友よ」', georgios: '「……もう十分です。あなたは、よく頑張りました」', teach: '「……もういいでござるよ。マスター氏は、よく頑張ったでござる」', columbus: '「……もういい。よく頑張ったな」', medb: '「……もういいのよ。よく頑張ったわ」', boudica: '「……もういいんだよ。あんたは、よく頑張った」', taikobo: '「……もういいよ。君は、よく頑張った」', ryoma: '「……もういいよ。君は、よく頑張った」', nemo: '「……もういい。よく頑張った」', cuchulainn: '「……もういい。よく頑張ったな」', diarmuid: '「……もう十分です、主。よく戦われました」', scathach: '「……もういい。よく、頑張った」', karna: '「……もういい。よく頑張った」', leonidas: '「……もう十分です。あなたは、よく戦われました」', elizabeth: '「……もういいのよ、子イヌ。よく頑張ったわ」', hector: '「……もういいよ。あんたは、よく頑張った」', brynhild: '「……もう、いいのです。あなたは、よく頑張りました」', inshun: '「……もうよい。よく戦われた」', shobun: '「……もうよい。よう頑張った」', romulus: '「……もうよい。よく頑張ったな、我が子よ」', vlad_lancer: '「……もうよい。よく戦った」', kagetora: '「……もう、いいのです。マスターは、よく戦いました」', parvati: '「……もう、いいんですよ。マスターは、よく頑張りました」', finn: '「……もういい。よく戦った」', emiya: '「……もういい。よく、頑張った」', gilgamesh: '「……もうよい。よくやった、雑種」', atalante: '「……もういい。よく頑張った」', robin: '「……もういいっすよ。アンタは、よく頑張った」', nobunaga: '「……もうよい。よく頑張ったな」', arash: '「……もういいんだ。お前は、よく頑張った！」', tristan: '「……もう十分です。あなたは、よく戦われました」', euryale: '「……もういいのよ。よく頑張ったわ」', arjuna: '「……もう十分です。あなたは、よく戦われました」', napoleon: '「……もういい。君は、よく戦った！」', ishtar: '「……もういいのよ。よく頑張ったわ」', tomoe: '「……もう、いいのです。主殿は、よく頑張られました」', billy: '「……もういいよ。よく頑張ったね」', chiron: '「……もう十分です。あなたは、よく頑張りました」', tesla: '「……もういい。君は、よく頑張った」', tawara: '「……もういいんだ。お主は、よく頑張った」', artoria: '「……もう、十分です。貴方は、よく戦いました」', nero: '「……もうよい。そなたは、十分に頑張った。余が、褒めて遣わす」', siegfried: '「……もういい。君は、よく頑張った」', mordred: '「……もういい。お前は、よく頑張った」', okita: '「……もう、いいんですよ。マスターは、よく頑張りました」', musashi: '「……もう、いいのよ。あなたは、よく頑張った」', gawain: '「……もう十分です、マスター。よく戦われました」', deon: '「……もう、十分です。あなたは、よく戦われました」', rama: '「……もうよい。そなたは、十分に戦った」', bedivere: '「……もう十分です。あなたは、よく頑張りました」', lancelot_saber: '「……もう十分です。よく戦われました」', munenori: '「……もうよい。よく戦われた」', suzuka: '「……もういいよ。マスター、マジで頑張った」', tsuna: '「……もういい。よく頑張った」', artoria_alter: '「……もういい。よく戦った」', fergus: '「……もういい。よく頑張ったな」', charlemagne: '「……もういいよ。マスターは、よく頑張った」', muramasa: '「……もういい。よく頑張った」', saito: '「……もういいよ。マスターは、よく頑張った」', altera: '「……もういい。よく、頑張った」', mash: '「……もう、いいんです、先輩。先輩は、本当によく頑張りました」', meltryllis: '「……もういいのよ。あなたは、十分に踊りきったわ」', meltryllis_c: '「……もういいの。あなたは、十分に踊りきったわ。――最後まで、見てたわよ」', artoria_caster: '「……もう、いいんだよ。マスターは、すっごく頑張った。わたし、ちゃんと見てたから」', p: '「……もう、いいのです。よく頑張りましたね」', r: '「……もういい。よく頑張ったな」', c: '「……もういい。よく頑張った」', g: '「……もうよい。よく励んだ」', b: '「……もういいよ。よく頑張ったね」', m: '（それは言葉ではなかった。けれど、確かに、許しの気配だった）' })}` },
@@ -6982,7 +6993,7 @@ insertChapters('parted', [
 // =================================================================
 insertChapters('ruin', [
   { y: 15, title: '再建の祭り',
-    text: () => '災厄から十五年。街の北側の再建が終わり、記念の祭りが開かれた。<br>人々が笑っている。その笑顔の中に、あの夜に失われたものを知る人は、もうほとんどいない。',
+    text: () => (G.epi.kind === 'saturated' ? '災厄から十五年。眠り続けていた最後の一人が目を覚まし、記念の祭りが開かれた。' : '災厄から十五年。街の北側の再建が終わり、記念の祭りが開かれた。') + '<br>人々が笑っている。その笑顔の中に、あの夜に失われたものを知る人は、もうほとんどいない。',
     choices: [
       { label: '祭りの片隅で、静かに手を合わせる', hint: '絆↑・遺したもの↑', run: () => epiGain({ bond: 2, legacy: 1 }, '再建の祭りで、静かに手を合わせた') || '提灯の明かりの下で、あの夜に失われたすべてのために、手を合わせた。' },
       { label: '祭りの実行委員として走り回る', hint: '幸福↑↑', run: () => epiGain({ joy: 3 }, '再建の祭りを、実行委員として支えた') || '準備から片付けまで、一日中走り回った。祭りの終わりに、誰かが「ありがとう」と言ってくれた。' },
@@ -15515,7 +15526,7 @@ STORY.push(
     cond: () => frNormal() && frAlive() && !!frAttacker() && !G.flags.frBetrayed,
     title: '友の危機',
     text: () => { const a = G.tmpRival = frAttacker(); const r = frRival();
-      return `深夜。${SV()}が、鋭く顔を上げた。${say('warnShadow')}<br>旧城下町の方角――${friendName()}の拠点がある辺りで、魔力がぶつかり合っている。<br>使い魔の目に映ったのは、${rivalLabel(a)}陣営に追い詰められていく${r.cls}のサーヴァントと、その後ろで必死に令呪を握りしめる${friendName()}の姿だった。<br><span class="note">このままでは、${friendName()}の陣営は落ちる。${frCut() ? '――絶縁した相手だ。助ける義理はない。それでも。' : frLover() ? '――恋人が、殺されようとしている。' : ''}</span>`; },
+      return `深夜。${SV()}が、鋭く顔を上げた。サーヴァント同士がぶつかり合う気配だ。<br>旧城下町の方角――${friendName()}の拠点がある辺りで、魔力がぶつかり合っている。<br>使い魔の目に映ったのは、${rivalLabel(a)}陣営に追い詰められていく${r.cls}のサーヴァントと、その後ろで必死に令呪を握りしめる${friendName()}の姿だった。<br><span class="note">このままでは、${friendName()}の陣営は落ちる。${frCut() ? '――絶縁した相手だ。助ける義理はない。それでも。' : frLover() ? '――恋人が、殺されようとしている。' : ''}</span>`; },
     choices: [
       { label: () => `「${SV()}、行くぞ！」助けに飛び込む`, hint: '戦闘（奇襲）・友情↑↑', run: () => {
           const a = G.tmpRival; const r = frRival(); friend(frCut() ? 30 : 20); G.flags.frRescued = true; tone('good');
@@ -15562,7 +15573,7 @@ STORY.push(
     title: '異変の兆し',
     text: () => { const n = friendName(); const r = frRival();
       return `${frLover() ? `恋人からの` : `${n}からの`}メッセージが、ここ数日、妙に短い。<br>会いに行くと、${n}は笑って迎えてくれた。けれど、その笑顔はどこか張り詰めていて、${r.cls}のサーヴァントの気配は、ひどく弱っていた。<br>` +
-        `${frWish().worse}。――${n}はそれを、あなたに話していなかった。<br>帰り際、${n}がぽつりと呟いた。「……${fg('なあ', 'ねえ')}。眠ってる人から、少しだけ力を借りるのって、そんなに悪いことかな」<br><span class="note">――このままでは、${n}は取り返しのつかないことをする。</span>`; },
+        `${G.used && G.used.fr_hospital ? `あの病室の日から、${frWish().who === '自分自身' ? n + '自身の' : frWish().who + 'の'}容体はさらに悪くなっていたらしい。――それなのに${n}は、あなたには「大丈夫」としか言っていなかった。` : `${frWish().worse}。――${n}はそれを、あなたに話していなかった。`}<br>帰り際、${n}がぽつりと呟いた。「……${fg('なあ', 'ねえ')}。眠ってる人から、少しだけ力を借りるのって、そんなに悪いことかな」<br><span class="note">――このままでは、${n}は取り返しのつかないことをする。</span>`; },
     choices: [
       { label: '「話を聞かせて。全部」', hint: '説得（恋人なら必ず届く・関係が深いほど易しい）', run: () => {
           const n = friendName(); const c = frLover() ? { ok: true, text: '' } : chk('cha', Math.max(25, (frRel() === 'best' ? 60 : 70) - G.friend.bond / 3));
@@ -15888,6 +15899,8 @@ const KAMI = {
 function kamiNormal() { return !!G; }   // 通常のシナリオと、三つの特殊シナリオのすべてで起きる
 function kamiRoute() { return isFuji() ? 'fuji' : isKishi() ? 'kishi' : isShirou() ? 'shirou' : 'normal'; }
 const kamiR = o => o[kamiRoute()] ?? o.normal;   // シナリオごとに文章を選ぶ
+// 天降神社に生まれた主人公：神社は「自分の家」、巫女は従妹、宮司は叔父
+function kamiHome() { return kamiRoute() === 'normal' && birthOf().id === 'shrine'; }
 // 人物の設定と性格から、選ばない・選べない道（理由）
 const KAMI_BAN = {
   shirou: { slay: 'この神もまた、契りを破られた被害者だ。一を切り捨てて多を救う――それは、切嗣と、あの赤い弓兵の道だ' },
@@ -15930,20 +15943,20 @@ function kamiClue(id, title, text) {
 // =============================================================
   const KAMI_BRIDE = {
     title: '巫女の失踪',
-    text: () => kamiR({ fuji: G.used.f_shrine ? `天降神社の宮司から、電話があった。「雫から、あなたのことは聞いていました。……普通の方ではない、と」<br>` : `監督役の${CAST.sister}から、連絡があった。「藤丸さん。あなたなら、こういう事態に慣れていると思って」<br>`, shirou: `監督役の${CAST.sister}から、連絡があった。「マスターの皆さんに、お伝えすべきか迷ったのですが」<br>`, kishi: `【マトリクス異常】天降神社の霊子反応が一つ、消失した。<br>監督役の${CAST.sister}から、連絡があった。<br>`, normal: '朝早く、天降神社の宮司から電話があった。<br>' }) + `「${CAST.miko}が、昨夜から戻らないのです。……部屋の窓が開いていて、山の方へ、裸足の足跡が続いていた」` +
+    text: () => kamiR({ fuji: G.used.f_shrine ? `天降神社の宮司から、電話があった。「雫から、あなたのことは聞いていました。……普通の方ではない、と」<br>` : `監督役の${CAST.sister}から、連絡があった。「藤丸さん。あなたなら、こういう事態に慣れていると思って」<br>`, shirou: `監督役の${CAST.sister}から、連絡があった。「マスターの皆さんに、お伝えすべきか迷ったのですが」<br>`, kishi: `【マトリクス異常】天降神社の霊子反応が一つ、消失した。<br>監督役の${CAST.sister}から、連絡があった。<br>`, normal: kamiHome() ? '朝早く、母屋から叔父――天降神社の宮司が、血相を変えて工房に駆け込んできた。<br>' : '朝早く、天降神社の宮司から電話があった。<br>' }) + (kamiHome() ? `「${CAST.miko.split(" ").pop()}が、昨夜から戻らないんだ。……部屋の窓が開いていて、山の方へ、裸足の足跡が続いていた」` : `「${CAST.miko}が、昨夜から戻らないのです。……部屋の窓が開いていて、山の方へ、裸足の足跡が続いていた」`) +
       (kamiOn() ? `<br>霧に消えた子どもと同じだ。――ただ、${CAST.miko}の部屋の文机には、一枚の書き置きが残されていた。<br><b>「花嫁に、選ばれました。」</b>` : `<br>昨夜の霧のことを、思い出した。`) +
       (birthOf().id === 'shrine' ? `<br>幼い頃、神隠しから取り戻したはずの${CAST.miko}が、また山に呼ばれている。` : ''),
     choices: [
       { label: () => kamiOn() ? '必ず連れ戻すと、約束する' : `${CAST.miko}を探しに、山へ向かう`, hint: () => kamiOn() ? '分岐を進める' : '分岐「天降の祟り」へ', cls: 'primary', run: () => {
           G.flags.kamiMikoTaken = true; tone('good');
-          return [kamiOn() ? `電話の向こうで、相手が深く頭を下げる気配がした。「……六十年前にも、同じことがあったと聞いています。どうか」` : `昨夜の霧と、消えた子ども。そして${CAST.miko}。――この街で、何かが起きている。`,
+          return [kamiOn() ? (kamiHome() ? `叔父は、あなたに深く頭を下げた。「……六十年前にも、同じことがあったと聞いている。頼む。あの子を」` : `電話の向こうで、相手が深く頭を下げる気配がした。「……六十年前にも、同じことがあったと聞いています。どうか」`) : `昨夜の霧と、消えた子ども。そして${CAST.miko}。――この街で、何かが起きている。`,
             kamiClue('miko_bride', '花嫁に選ばれた巫女', `${CAST.miko}が「花嫁に選ばれた」と書き置きを残し、山へ消えた。昨夜の子どもと同じく、裸足で、山の方へ。`), kamiEnter('巫女を探しに向かった')];
         } },
       { label: () => kamiR({ kishi: '観測者として、介入しない', fuji: '捜索は教会に託し、聖杯戦争を終わらせる', shirou: '監督役に捜索を託し、聖杯戦争を終わらせる', normal: '警察に任せる。今は聖杯戦争だ' }), hint: () => kamiR({ fuji: '分岐しない', shirou: '分岐しない', normal: '分岐しない・悪' }), cond: () => !kamiOn(), run: () => { if (kamiRoute() === 'normal' || kamiRoute() === 'kishi') tone('evil'); else tone('law'); G.flags.kamiMikoTaken = true; G.flags.kamiIgnored = true;
           return [kamiR({ kishi: '「……捜索は、そちらにお任せします」観測者は、この世界線に深く干渉しない。そう決めたはずだった。',
             fuji: `「教会の方で、捜索をお願いできますか。……私は、この戦争を一日でも早く終わらせます」<br>電話を切った後も、手の震えは、しばらく止まらなかった。`,
             shirou: `「監督役、捜索を頼みます。……俺は、この戦争を終わらせる。それが一番、誰も傷つかない道のはずだ」<br>${SV()}が、黙ってあなたの肩に手を置いた。`,
-            normal: '「……警察に、相談してください」それだけ言って、電話を切った。' }), `<span class="note">${CAST.miko}は、それきり戻らなかった。</span>`]; } },
+            normal: kamiHome() ? '「……警察に届けて。今は、動けないんだ」叔父の顔を、まともに見られなかった。' : '「……警察に、相談してください」それだけ言って、電話を切った。' }), `<span class="note">${CAST.miko}は、それきり戻らなかった。</span>`]; } },
     ] };
 
 const KAMI_OLD = {
@@ -15966,7 +15979,7 @@ STORY.push(
     title: '霧の夜',
     text: () => kamiR({ fuji: '――見覚えのある感覚だった。空気が、特異点のそれに似ている。<br>', kishi: '【マトリクス異常】街の霊子分布に、説明のつかない欠落が生じた。<br>', shirou: '', normal: '' }) + `深夜。天降山から、<b>黒い霧</b>が街へ流れ下りてきた。<br>${pick(['旧城下町', '駅前', '御影川の土手'])}の路地で、パジャマ姿の小さな子どもが、霧の中を裸足で歩いていた。<br>何かの歌を口ずさんでいる。――古い、神楽の節だった。<br>声をかけようとした瞬間、子どもの姿は、霧ごと掻き消えた。` +
       (kamiPactChild() ? `<br><span class="note">右手の甲の、古い痣が疼いた。――あの夜、山の神と交わした約束の痣だ。霧の奥から、誰かがあなたを呼んでいる。</span>` : '') +
-      `<br>${SV()}が、霧の流れていく先――天降山を見上げた。${say('warnShadow')}`,
+      `<br>${SV()}が、霧の流れていく先――天降山を見上げた。英霊の目にも、あれが何なのかは測りかねるらしい。その横顔は、ひどく険しかった。`,
     choices: [
       { label: () => kamiR({ shirou: '考えるより先に、走り出していた', normal: '霧を追って、天降山へ入る' }), hint: '分岐「天降の祟り」へ', cls: 'primary', run: () => {
           G.flags.kamiSawMist = true; tone('bold');
@@ -15996,7 +16009,7 @@ STORY.push(
       { label: '「契りとは、何だ」と問う', hint: '手がかり', run: () => ['声は、もう答えなかった。けれど、霧の中に、古い文字の刻まれた石碑が浮かび上がっていた。',
           kamiClue('pact', '六十年の契り', '天降山は土地神「天降大神」の体。神は六十年に一度、聖杯に力を貸す。代わりに人は「花嫁」を一人捧げる――それが百八十年続いた契り。今回、契りは果たされず、要石まで掘り出された。')] },
       { label: () => `${SV()}に、神の気配を探らせる`, hint: () => `${SV()}の魔力判定`, run: () => { const c = schk(3, 58);
-          return c.ok ? [c.text, `${SV()}が、霧の流れを読み解いた。「……荒ぶる魂（荒魂）と、穏やかな魂（和魂）が、引き裂かれている」`, kamiClue('split', '裂かれた神の魂', '神の魂は、荒ぶる「荒魂」と穏やかな「和魂」に引き裂かれている。荒魂が霧となって人を攫い、和魂はどこかに封じられているらしい。')]
+          return c.ok ? [c.text, `${SV()}が、霧の流れを読み解いた。荒ぶる魂（荒魂）と、穏やかな魂（和魂）――この霧の主は、二つに引き裂かれている。`, kamiClue('split', '裂かれた神の魂', '神の魂は、荒ぶる「荒魂」と穏やかな「和魂」に引き裂かれている。荒魂が霧となって人を攫い、和魂はどこかに封じられているらしい。')]
             : [c.text, '霧が濃すぎて、何も読めなかった。']; } },
     ] },
   // ---- 7日目：老人の告白 → 選ぶ道（藤丸シナリオは、物語の出来事と重ならないよう昼） ----
@@ -16078,7 +16091,7 @@ function kamiPactClimax() {
 //  昼の行動「山の異変を追う」
 // =============================================================
 const KAMI_SITES = [
-  { id: 'archive', name: '天降神社の古文書', lead: '神社の蔵に、山の神の縁起を記した古文書があるという。',
+  { id: 'archive', name: () => kamiHome() ? '実家の蔵の古文書' : '天降神社の古文書', lead: () => kamiHome() ? '実家の蔵の奥に、山の神の縁起を記した古文書が眠っている。子どもの頃、祖母が「お前にはまだ早い」と、決して開けさせなかった箱だ。' : '神社の蔵に、山の神の縁起を記した古文書があるという。',
     ways: [{ label: '古文書を読み解く', stat: 'int', diff: 56 }, { label: '霊視で、文字に残る想いを読む', stat: 'mag', diff: 60 }],
     clue: ['天降大神の縁起', '天降山の神は「天降大神（あまふりのおおかみ）」。白い大狼の姿で、霊脈そのものを体とする。古文書の最後の頁は、百八十年前に墨で塗り潰されていた。'] },
   { id: 'missing', name: '消えた人々の家', lead: '霧の夜に姿を消した人々の家族に、話を聞く。',
@@ -16096,7 +16109,7 @@ const KAMI_SITES = [
     clue: ['隠り世の人々', '霧の奥は、この世ではない場所――隠り世に通じていた。消えた人々は、そこで眠っている。まだ、生きている。'] },
   { id: 'miko', name: () => `${CAST.miko}の部屋`, lead: () => `${CAST.miko}が消えた部屋。巫女として、何かを知っていたのかもしれない。`,
     ways: [{ label: '日記を読ませてもらう', stat: 'cha', diff: 50 }, { label: '部屋の結界を読み解く', stat: 'mag', diff: 54 }],
-    clue: ['巫女の日記', () => `${CAST.miko}は知っていた。天降の巫女の家には、六十年ごとに「花嫁」を出す務めがあることを。日記の最後の頁には、「怖くない。わたしが行けば、皆が助かる」と書かれていた。`],
+    clue: ['巫女の日記', () => `${CAST.miko}は知っていた。${kamiHome() ? '天降の家――あなたの家には、六十年ごとに「花嫁」を出す務めがあることを。あなたには、誰も教えてくれなかった。' : '天降の巫女の家には、六十年ごとに「花嫁」を出す務めがあることを。'}日記の最後の頁には、「怖くない。わたしが行けば、皆が助かる」と書かれていた。`],
     cond: () => !!G.flags.kamiMikoTaken },
 ];
 // 選んだ道ごとの備え
@@ -16110,7 +16123,7 @@ const KAMI_TASKS = {
   ],
   slay: [
     { id: 'blade', name: '神殺しの刃を探す', hint: '知力判定（神社の宝物庫）', stat: 'int', diff: 58, run: (ok) => ok ? '宝物庫の奥、封印札に覆われた木箱の中に、刃こぼれした古い太刀があった。触れただけで、指先が冷たくなる。――神殺しの刃だ。' : null },
-    { id: 'weak', name: '荒魂の急所を探る', hint: () => `${SV()}の敏捷判定（霧の中へ）`, sv: 2, diff: 60, run: (ok) => ok ? `${SV()}が霧の中で、荒魂の気配を読み切った。「黒く濁った右目だ。あそこだけ、神の守りが薄い」` : null },
+    { id: 'weak', name: '荒魂の急所を探る', hint: () => `${SV()}の敏捷判定（霧の中へ）`, sv: 2, diff: 60, run: (ok) => ok ? `${SV()}が霧の中で、荒魂の気配を読み切った。狙うべきは、黒く濁った右目。あそこだけ、神の守りが薄い。` : null },
     { id: 'bind', name: '霊脈を断つ結界を張る', hint: '魔力判定', stat: 'mag', diff: 60, run: (ok) => ok ? '山の四方に杭を打ち、霊脈を一時的に断つ結界を張った。神は、山から力を汲み上げられなくなる。' : null },
   ],
   pact: [
@@ -16152,7 +16165,7 @@ function kamiSiteMenu(s) {
     const diff = w.diff - easy; const lab = typeof w.label === 'function' ? w.label() : w.label;
     return { label: lab, hint: `${w.sv !== undefined ? `${SV()}・${PARAM_NAMES[w.sv]}` : STAT_LABEL[w.stat]}判定 目標${diff}`, fn: () => actResult(nm, () => {
       const c = w.sv !== undefined ? schk(w.sv, diff) : chk(w.stat, diff);
-      if (!c.ok) { if (c.margin <= -25) { shp(-12); return [c.text, '霧に足を取られ、深い傷を負った。（英霊のHP-12）']; } return [c.text, '何も掴めなかった。日を改めよう。']; }
+      if (!c.ok) { if (c.margin <= -25) { shp(-12); return [c.text, `${({ archive: '古文書に残る呪詛に触れ、跳ね返された力を英霊が受け止めた。', miko: '部屋に残された結界が、侵入者を拒んで弾けた。英霊が身を挺して庇った。', missing: '家の奥から、霧が噴き出した。英霊が身を挺して庇った。' })[s.id] || '霧に足を取られ、深い傷を負った。'}（英霊のHP-12）`]; } return [c.text, '何も掴めなかった。日を改めよう。']; }
       kami().done[s.id] = true; if (s.after) s.after();
       const [t, body] = s.clue; const text = typeof body === 'function' ? body() : body;
       return [c.text, text, kamiClue(s.id, t, text)];
@@ -16269,7 +16282,7 @@ EPI.kami_keeper = EPI_KAMI;
 EVENTS.push(
   { id: 'k_ev_pup', phase: 'war', time: 'day', once: true, weight: 4, cond: () => kamiOn() && !kamiResolved(),
     title: '白い仔狼',
-    text: () => `拠点の庭に、真っ白な仔狼が迷い込んでいた。足を怪我している。<br>${SV()}が、怪訝な顔で見下ろした。「……ただの獣ではないな。山の気配がする」`,
+    text: () => `拠点の庭に、真っ白な仔狼が迷い込んでいた。足を怪我している。<br>${SV()}が、怪訝な顔で見下ろした。ただの獣ではない。山の気配がする――その目が、そう告げていた。`,
     choices: [
       { label: '手当てをして、山へ帰す', hint: '善・山の神の心証', run: () => { tone('good'); G.flags.kamiPup = true;
           return ['包帯を巻いてやると、仔狼はあなたの指を一度だけ舐めて、山の方へ駆けていった。', '<span class="note">その夜、霧の中から、礼を言うような遠吠えが聞こえた。（祟りの日の戦いで、神の力が少し弱まる）</span>']; } },
@@ -19503,7 +19516,7 @@ function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } 
 // scene({ title, sub, body:[段落...], choices:[{label, hint, fn, cls, disabled}] })
 function scene(s) { SCENE = s; TAB = 'story'; render(); const m = document.querySelector('.main'); if (m) m.scrollTop = 0; }
 function next(title, body, fn, label = '次へ', sub) {
-  scene({ title, sub, body, reveal: true, choices: [{ label, fn, cls: 'primary', icon: 'next' }] });
+  scene({ title, sub, body: Array.isArray(body) ? body.filter(x => x !== '' && x != null) : body, reveal: true, choices: [{ label, fn, cls: 'primary', icon: 'next' }] });
 }
 function takeNotes() { const n = NOTES; NOTES = []; return n; }
 function paras(list) { return list.filter(Boolean).map(p => p.startsWith('<p') || p.startsWith('<div') ? p : `<div class="para">${p}</div>`); }
@@ -20144,21 +20157,28 @@ function doSummon(catalystId, opt = {}) {
   if (reunion) addLog(`夢に見た英霊「${sv.name}」と再会する。`);
   SCENE = { kind: 'summon', sv: servantOf(G), emergency: !!opt.emergency, failed, reunion }; TAB = 'story'; render(); sfx('summon');
 }
+// 敵マスターの名前：同じ戦争に、名字や名前が重なる者が出ないように
+function uniqueMasterName(foreign, made) {
+  const used = new Set();
+  for (const n of [G.master && G.master.name, G.friend && G.friend.name, ...made]) if (n) for (const w of n.split(/[・ ]/)) used.add(w);
+  for (let k = 0; k < 40; k++) { const n = randomName(foreign); if (!n.split(/[・ ]/).some(w => used.has(w))) return n; }
+  return randomName(foreign);
+}
 function setupRivals() {
   // 召喚前（巻き込まれルート）は7陣営すべてを用意し、召喚後に1つ減らす
   const mine = G.servant ? servantOf(G).cls : null;
   let classes = BASE_CLASSES.filter(c => c !== mine);
   if (mine && classes.length > 6) classes = shuffle(classes).slice(0, 6);
-  const types = shuffle(RIVAL_TYPES);
+  const types = shuffle(RIVAL_TYPES); const made = [];
   G.rivals = classes.map((cls, i) => {
     const pool = SERVANTS.filter(s => s.cls === cls && !s.chaldea && (!G.servant || s.id !== G.servant.id) && !(isKishi() && kishiLineup().includes(s.id)));
     let s = pick(pool); const t = types[i];
     // 衛宮士郎：第五次聖杯戦争で見た英霊が現れやすい（赤い外套のアーチャーは必ず）
     if (isShirou() && FIFTH_WAR[cls] && (cls === 'アーチャー' || Math.random() < 0.6)) s = SV_BY_ID[FIFTH_WAR[cls]];
-    const r = { id: 'r' + i, cls, servantId: s.id, master: randomName(t.foreign), type: t.type, power: t.power + rand(-1, 1),
+    const r = { id: 'r' + i, cls, servantId: s.id, master: uniqueMasterName(t.foreign, made), type: t.type, power: t.power + rand(-1, 1),
       aggr: t.aggr, quote: t.quote, alive: true, hp: 0, hpMax: 0, mp: 100, intel: 0, clues: 0, seals: 2 + rand(0, 1),
       ally: false, bounty: false, masterDead: false };
-    r.hpMax = r.hp = 70 + rankValue(s.p[1]);
+    r.hpMax = r.hp = 70 + rankValue(s.p[1]); made.push(r.master);
     return r;
   });
   if (typeof biasRivalsByBond === 'function') biasRivalsByBond();   // 縁ある英霊が、1騎だけ現れやすい（data_pairtalk.js）
@@ -21146,9 +21166,17 @@ function victoryScene() {
     '<p>あなたが願うのは――</p>',
   ], choices });
 }
+// 連戦の前の一息：マスターが残る魔力を注ぎ込み、英霊をHP半分までは立て直す
+function finalBreath() {
+  const sv = G.servant; const half = Math.round(servantHpMax() * 0.5);
+  if (sv.hp >= half && sv.mp >= 50) return '';
+  sv.hp = Math.max(sv.hp, half); sv.mp = Math.max(sv.mp, 50);
+  return `<p>あなたは右手を${SV()}の背に当て、魔術回路に残る魔力のすべてを、パスへ流し込んだ。膝が笑う。それでも、${SV()}は再び立ち上がった。（英霊のHPと魔力が、半分まで戻った）</p>`;
+}
 // ---- 人類悪：ビーストⅧ「アダム=サーペント」 ----
 function beastReveal() {
   G.phase = 'end';
+  const breath = finalBreath();
   next('聖杯降臨', [
     '<p>最後の敵が消え、天降山の頂に黄金の杯が降りてきた。――はずだった。</p>',
     '<p>杯は、<b>空っぽ</b>だった。六十年かけて満ちるはずだった魔力は、一滴も残っていない。</p>',
@@ -21157,7 +21185,7 @@ function beastReveal() {
     G.flags.grailBeast ? '<p>知っている。これが、聖杯に巣食っていたもの。聖杯の魔力を吸い尽くし、孵化の時を待っていた――<b>人類悪</b>。</p>'
       : '<p>なんだ、これは。英霊ではない。呪いでもない。もっと古く、もっと根源的な、何か。</p>',
     '<p class="quote">「我が名はアダム=サーペント。理は【飽和】。満たされよ、人の子。汝らの願い、すべて叶えよう。――その果てに、もう何一つ、望まぬように」</p>',
-    `<p>${SV()}が、あなたの前に立った。${say('stayBack')}</p>`,
+    `<p>${SV()}が、あなたの前に立った。${say('stayBack')}</p>`, breath,
     `<p class="note">ビーストⅧとの決戦。${SV()} HP ${G.servant.hp}/${servantHpMax()}・魔力 ${G.servant.mp}　令呪 ${G.master.seals}画。撤退はできない。${G.flags.grailBeast ? '<br>正体を突き止めている。聖杯との繋がりを断ち、戦いを有利に進められる。' : '<br>正体を知らないまま戦う。獣は聖杯の残り香から、しばらく魔力を吸い上げ続けるだろう。'}</p>`,
   ], () => startBattle({ id: 'beast', cls: 'ビーストⅧ', servantId: 'beast8', master: '―', type: '', quote: '', power: 9, aggr: 1, alive: true,
     hp: 240, hpMax: 240, mp: 100, intel: 3, clues: 0, seals: 1, ally: false, named: true }, { boss: true, beast: true }), '人類悪に挑む', 'BEAST');
@@ -21165,11 +21193,12 @@ function beastReveal() {
 function bossIntro() {
   const boss = { id: 'boss', cls: '聖杯', servantId: 'ori', master: '―', type: '', quote: '', power: 7, aggr: 1, alive: true,
     hp: 190, hpMax: 190, mp: 100, intel: 3, clues: 0, seals: 1, ally: false };
+  const breath = finalBreath();
   next('黒き聖杯', [
     `<p>「${SV()}、聖杯を――壊して」</p>`,
     '<p>その言葉に応えるように、黄金の杯がひび割れた。溢れ出したのは、六十年分の呪い。黒い泥が渦を巻き、巨大な影となって立ち上がる。</p>',
     '<p class="quote">「ネガイヲ……ネガイヲ、ヨコセ……」</p>',
-    G.flags.resolve === 'destroy' ? `<p>${SV()}が構えを取る。${say('withYou')}</p>` : `<p>${SV()}が前に出る。${say('stayBack')}</p>`,
+    G.flags.resolve === 'destroy' ? `<p>${SV()}が構えを取る。${say('withYou')}</p>` : `<p>${SV()}が前に出る。${say('stayBack')}</p>`, breath,
     `<p class="note">${SV()} HP ${G.servant.hp}/${servantHpMax()}・魔力 ${G.servant.mp}　令呪 ${G.master.seals}画。撤退はできない。</p>`,
   ], () => startBattle(boss, { boss: true }), '聖杯に挑む', 'FINAL');
 }
@@ -21376,7 +21405,8 @@ function viewScene() {
     ${s.sub ? `<div class="scene-sub">${s.sub}</div>` : ''}
     <h1 class="scene-title">${s.title}</h1>
     <div class="scene-body">${body.map((h, i) => step ? `<div class="rv" style="--d:${i * step}ms">${h}</div>` : h).join('')}</div>
-    <div class="choices ${s.grid ? 'grid' : ''} ${step ? 'rv' : ''}" style="--d:${body.length * step}ms">${s.choices.map((c, i) => {
+    <div class="choices ${s.grid ? 'grid' : ''} ${step ? 'rv' : ''}" style="--d:${body.length * step}ms">${s.choices.map((c0, i) => {
+      const c = Object.assign({}, c0); for (const k of ['label', 'hint', 'disabled']) if (typeof c[k] === 'function') c[k] = c[k]();   // 関数で渡された表示も評価する
       const ic = c.icon || guessIcon(String(c.label));
       return `<button class="choice ${c.cls || ''}" data-choice="${i}" ${c.disabled ? 'disabled' : ''}>
       ${ic ? actIcon(ic) : ''}<span class="c-label">${c.label}</span>${c.hint ? `<span class="c-hint">${c.hint}</span>` : ''}</button>`;

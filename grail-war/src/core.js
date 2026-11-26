@@ -245,7 +245,7 @@ function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } 
 // scene({ title, sub, body:[段落...], choices:[{label, hint, fn, cls, disabled}] })
 function scene(s) { SCENE = s; TAB = 'story'; render(); const m = document.querySelector('.main'); if (m) m.scrollTop = 0; }
 function next(title, body, fn, label = '次へ', sub) {
-  scene({ title, sub, body, reveal: true, choices: [{ label, fn, cls: 'primary', icon: 'next' }] });
+  scene({ title, sub, body: Array.isArray(body) ? body.filter(x => x !== '' && x != null) : body, reveal: true, choices: [{ label, fn, cls: 'primary', icon: 'next' }] });
 }
 function takeNotes() { const n = NOTES; NOTES = []; return n; }
 function paras(list) { return list.filter(Boolean).map(p => p.startsWith('<p') || p.startsWith('<div') ? p : `<div class="para">${p}</div>`); }

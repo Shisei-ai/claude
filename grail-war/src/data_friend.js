@@ -235,7 +235,7 @@ STORY.push(
     cond: () => frNormal() && frAlive() && !!frAttacker() && !G.flags.frBetrayed,
     title: '友の危機',
     text: () => { const a = G.tmpRival = frAttacker(); const r = frRival();
-      return `深夜。${SV()}が、鋭く顔を上げた。${say('warnShadow')}<br>旧城下町の方角――${friendName()}の拠点がある辺りで、魔力がぶつかり合っている。<br>使い魔の目に映ったのは、${rivalLabel(a)}陣営に追い詰められていく${r.cls}のサーヴァントと、その後ろで必死に令呪を握りしめる${friendName()}の姿だった。<br><span class="note">このままでは、${friendName()}の陣営は落ちる。${frCut() ? '――絶縁した相手だ。助ける義理はない。それでも。' : frLover() ? '――恋人が、殺されようとしている。' : ''}</span>`; },
+      return `深夜。${SV()}が、鋭く顔を上げた。サーヴァント同士がぶつかり合う気配だ。<br>旧城下町の方角――${friendName()}の拠点がある辺りで、魔力がぶつかり合っている。<br>使い魔の目に映ったのは、${rivalLabel(a)}陣営に追い詰められていく${r.cls}のサーヴァントと、その後ろで必死に令呪を握りしめる${friendName()}の姿だった。<br><span class="note">このままでは、${friendName()}の陣営は落ちる。${frCut() ? '――絶縁した相手だ。助ける義理はない。それでも。' : frLover() ? '――恋人が、殺されようとしている。' : ''}</span>`; },
     choices: [
       { label: () => `「${SV()}、行くぞ！」助けに飛び込む`, hint: '戦闘（奇襲）・友情↑↑', run: () => {
           const a = G.tmpRival; const r = frRival(); friend(frCut() ? 30 : 20); G.flags.frRescued = true; tone('good');
@@ -282,7 +282,7 @@ STORY.push(
     title: '異変の兆し',
     text: () => { const n = friendName(); const r = frRival();
       return `${frLover() ? `恋人からの` : `${n}からの`}メッセージが、ここ数日、妙に短い。<br>会いに行くと、${n}は笑って迎えてくれた。けれど、その笑顔はどこか張り詰めていて、${r.cls}のサーヴァントの気配は、ひどく弱っていた。<br>` +
-        `${frWish().worse}。――${n}はそれを、あなたに話していなかった。<br>帰り際、${n}がぽつりと呟いた。「……${fg('なあ', 'ねえ')}。眠ってる人から、少しだけ力を借りるのって、そんなに悪いことかな」<br><span class="note">――このままでは、${n}は取り返しのつかないことをする。</span>`; },
+        `${G.used && G.used.fr_hospital ? `あの病室の日から、${frWish().who === '自分自身' ? n + '自身の' : frWish().who + 'の'}容体はさらに悪くなっていたらしい。――それなのに${n}は、あなたには「大丈夫」としか言っていなかった。` : `${frWish().worse}。――${n}はそれを、あなたに話していなかった。`}<br>帰り際、${n}がぽつりと呟いた。「……${fg('なあ', 'ねえ')}。眠ってる人から、少しだけ力を借りるのって、そんなに悪いことかな」<br><span class="note">――このままでは、${n}は取り返しのつかないことをする。</span>`; },
     choices: [
       { label: '「話を聞かせて。全部」', hint: '説得（恋人なら必ず届く・関係が深いほど易しい）', run: () => {
           const n = friendName(); const c = frLover() ? { ok: true, text: '' } : chk('cha', Math.max(25, (frRel() === 'best' ? 60 : 70) - G.friend.bond / 3));

@@ -502,21 +502,28 @@ function doSummon(catalystId, opt = {}) {
   if (reunion) addLog(`夢に見た英霊「${sv.name}」と再会する。`);
   SCENE = { kind: 'summon', sv: servantOf(G), emergency: !!opt.emergency, failed, reunion }; TAB = 'story'; render(); sfx('summon');
 }
+// 敵マスターの名前：同じ戦争に、名字や名前が重なる者が出ないように
+function uniqueMasterName(foreign, made) {
+  const used = new Set();
+  for (const n of [G.master && G.master.name, G.friend && G.friend.name, ...made]) if (n) for (const w of n.split(/[・ ]/)) used.add(w);
+  for (let k = 0; k < 40; k++) { const n = randomName(foreign); if (!n.split(/[・ ]/).some(w => used.has(w))) return n; }
+  return randomName(foreign);
+}
 function setupRivals() {
   // 召喚前（巻き込まれルート）は7陣営すべてを用意し、召喚後に1つ減らす
   const mine = G.servant ? servantOf(G).cls : null;
   let classes = BASE_CLASSES.filter(c => c !== mine);
   if (mine && classes.length > 6) classes = shuffle(classes).slice(0, 6);
-  const types = shuffle(RIVAL_TYPES);
+  const types = shuffle(RIVAL_TYPES); const made = [];
   G.rivals = classes.map((cls, i) => {
     const pool = SERVANTS.filter(s => s.cls === cls && !s.chaldea && (!G.servant || s.id !== G.servant.id) && !(isKishi() && kishiLineup().includes(s.id)));
     let s = pick(pool); const t = types[i];
     // 衛宮士郎：第五次聖杯戦争で見た英霊が現れやすい（赤い外套のアーチャーは必ず）
     if (isShirou() && FIFTH_WAR[cls] && (cls === 'アーチャー' || Math.random() < 0.6)) s = SV_BY_ID[FIFTH_WAR[cls]];
-    const r = { id: 'r' + i, cls, servantId: s.id, master: randomName(t.foreign), type: t.type, power: t.power + rand(-1, 1),
+    const r = { id: 'r' + i, cls, servantId: s.id, master: uniqueMasterName(t.foreign, made), type: t.type, power: t.power + rand(-1, 1),
       aggr: t.aggr, quote: t.quote, alive: true, hp: 0, hpMax: 0, mp: 100, intel: 0, clues: 0, seals: 2 + rand(0, 1),
       ally: false, bounty: false, masterDead: false };
-    r.hpMax = r.hp = 70 + rankValue(s.p[1]);
+    r.hpMax = r.hp = 70 + rankValue(s.p[1]); made.push(r.master);
     return r;
   });
   if (typeof biasRivalsByBond === 'function') biasRivalsByBond();   // 縁ある英霊が、1騎だけ現れやすい（data_pairtalk.js）
