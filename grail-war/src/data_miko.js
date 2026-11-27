@@ -95,7 +95,8 @@ function mkRelScene(kind, then) {
       `それだけだった。けれど、その声は、昔と同じ響きをしていた。`,
     ]), choices: [{ label: '次へ', fn: () => { mkSetRel('known', '雪解け'); next('雪解け', paras([`${CAST.miko}との関係が「${mkRelName()}」に戻った。`]), then); } }] });
   }
-  // choose：妹分か、相棒か
+  // choose：恋人か、妹分か、相棒か（続いていく会話は data_dialog.js）
+  if (typeof mikoConfession === 'function') return mikoConfession(then);
   return scene({ title: `${s}という存在`, sub, reveal: true, body: paras([
     war ? `戦いの合間の昼下がり。神社の境内で、${s}と並んで石段に腰かけた。冬の陽が、白い息を照らしている。` : `例大祭の後片付けを終えて、${s}と並んで石段に腰かけた。夜の境内に、虫の声だけが響いている。`,
     `「……${mkCall()}にとって、わたしって、何なんでしょうね」${s}は冗談めかして笑った。けれど、その目は真剣だった。`,

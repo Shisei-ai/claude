@@ -567,3 +567,5 @@ body:not(.fx-on) #snow { display: none; }
 /* ---------- 天降の祟り（data_kami.js） ---------- */
 .truth.kami { border-color: #8fb3d966; background: #8fb3d914; }
 .status-box .kami-line { color: #b7d2ee; }
+/* 会話：主人公の台詞（data_dialog.js） */
+.scene-body .quote.me { border-left: none; border-right: 2px solid var(--muted); background: var(--bg-2); border-radius: 6px 0 0 6px; text-align: right; margin-left: 24px; }

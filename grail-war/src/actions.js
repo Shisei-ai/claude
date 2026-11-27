@@ -411,6 +411,7 @@ function nightTalk() {
   });
 }
 function specialEvent() {
+  if (typeof moonConfession === 'function') return moonConfession();   // 続いていく会話（data_dialog.js）
   const per = PERSONAS[servantOf(G).persona];
   const choices = Object.entries(RELATIONS).filter(([k]) => k !== 'lover' || canBeLover(servantOf(G))).map(([k, r]) => ({
     label: relationText(k, servantOf(G)).verb, hint: k === 'lover' && typeof frLover === 'function' && frLover() ? `関係：${r.name}・幼馴染の${friendName()}とは別れることになる` : k === 'lover' && typeof mkLover === 'function' && mkLover() ? `関係：${r.name}・${CAST.miko}とは別れることになる` : `関係：${r.name}`, fn: () => {

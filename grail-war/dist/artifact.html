@@ -571,6 +571,8 @@ body:not(.fx-on) #snow { display: none; }
 /* ---------- 天降の祟り（data_kami.js） ---------- */
 .truth.kami { border-color: #8fb3d966; background: #8fb3d914; }
 .status-box .kami-line { color: #b7d2ee; }
+/* 会話：主人公の台詞（data_dialog.js） */
+.scene-body .quote.me { border-left: none; border-right: 2px solid var(--muted); background: var(--bg-2); border-radius: 6px 0 0 6px; text-align: right; margin-left: 24px; }
 
 </style>
 <div id="app"></div>
@@ -15384,7 +15386,8 @@ function frRelScene(kind, then) {
       { label: '「おかえり」', fn: () => { frSetRel('friend', '雪解け'); friend(5); done('雪解け', [`${n}は、昔と同じ顔で、泣きながら笑った。`]); } },
     ] });
   }
-  // choose：恋人か親友か
+  // choose：恋人か親友か（続いていく会話は data_dialog.js）
+  if (typeof friendConfession === 'function') return friendConfession(then);
   const heart = !!G.flags.friendHeart;
   const choices = [];
   choices.push(svLover
@@ -16431,7 +16434,8 @@ function mkRelScene(kind, then) {
       `それだけだった。けれど、その声は、昔と同じ響きをしていた。`,
     ]), choices: [{ label: '次へ', fn: () => { mkSetRel('known', '雪解け'); next('雪解け', paras([`${CAST.miko}との関係が「${mkRelName()}」に戻った。`]), then); } }] });
   }
-  // choose：妹分か、相棒か
+  // choose：恋人か、妹分か、相棒か（続いていく会話は data_dialog.js）
+  if (typeof mikoConfession === 'function') return mikoConfession(then);
   return scene({ title: `${s}という存在`, sub, reveal: true, body: paras([
     war ? `戦いの合間の昼下がり。神社の境内で、${s}と並んで石段に腰かけた。冬の陽が、白い息を照らしている。` : `例大祭の後片付けを終えて、${s}と並んで石段に腰かけた。夜の境内に、虫の声だけが響いている。`,
     `「……${mkCall()}にとって、わたしって、何なんでしょうね」${s}は冗談めかして笑った。けれど、その目は真剣だった。`,
@@ -16756,6 +16760,292 @@ function mikoEpiSteps(track) {
   if (track === 'kami_keeper') return [];   // 山の守り人の人生には、専用の「巫女の祝言」がある
   if (!mikoHere()) return G.kami && G.kami.outcome === 'offered' ? [MIKO_EPI.shrine, MIKO_EPI.mist] : [MIKO_EPI.empty, MIKO_EPI.mist];
   return [MIKO_EPI.spring, MIKO_EPI.propose, MIKO_EPI.grown, MIKO_EPI.old];
+}
+
+// =============================================================
+//  data_dialog.js … 続いていく会話（心の機微が大事な場面）
+//
+//  選択肢を一度選んで終わりではなく、言葉を交わしながら場面が進む「会話」の仕組みと、その場面たち。
+//   ・英霊「月下の告白」   … 昔語り → 返す言葉 → 「あなたにとって、何なのか」 → 関係を告げる → 英霊の答え → 余韻
+//   ・幼馴染の告白          … 思い出 → 返す言葉 → 「俺たち／わたしたちって、何なんだろう」 → 答え → 余韻
+//   ・雫の告白              … 思い出 → 返す言葉 → 「わたしって、何なんでしょうね」 → 答え → 余韻
+//   ・最後の会話（結末）     … 英霊が去る結末の前に、別れの言葉を交わす（関係・属性で、言える言葉と答えが変わる）
+//
+//  書き分け
+//   ・英霊の台詞は口調（丁寧・王・気さく・冷静・明朗・古風）ごとに書き、{I}{you}{call}{m} で一人称・呼び方を合わせる
+//     言葉を話さない英霊（狂化）は、仕草で描く
+//   ・主人公の言葉は、属性（秩序／混沌・善／悪）で選べる言葉が変わる
+//   ・描写は、主人公と相手の性別の組み合わせ（data_gender.js の bondPair）で変わる
+// =============================================================
+
+// ---- 会話の仕組み ----
+// steps：[{ text: 文章（関数可）, choices?: [{ label, hint, cond, disabled, run, reply, end }] }]
+//   選んだ選択肢の reply は、次の場面の冒頭に続けて表示される。end なら、その返事で会話を終える
+function dialog(o) {
+  const { title, sub, steps, then } = o; let carry = [];
+  const val = v => typeof v === 'function' ? v() : v;
+  const go = i => {
+    if (i >= steps.length) {
+      if (!carry.length) return then();
+      const body = carry; carry = [];
+      return scene({ title: val(title), sub, reveal: true, body: paras(body), choices: [{ label: o.last || '次へ', cls: 'primary', icon: 'next', fn: then }] });
+    }
+    const st = steps[i]; if (st.skip && st.skip()) return go(i + 1);
+    const body = [...carry, ...[].concat(val(st.text) || [])]; carry = [];
+    const choices = st.choices
+      ? st.choices.filter(c => !c.cond || c.cond()).map(c => ({ label: val(c.label), hint: val(c.hint), cls: c.cls, disabled: !!val(c.disabled), fn: () => {
+          NOTES = []; if (c.run) c.run(); carry = [...[].concat(val(c.reply) || []), ...takeNotes()]; go(c.end ? steps.length : i + 1); } }))
+      : [{ label: st.next || '次へ', cls: 'primary', icon: 'next', fn: () => go(i + 1) }];
+    scene({ title: val(st.title || title), sub, reveal: true, body: paras(body), choices });
+  };
+  go(0);
+}
+// 主人公の台詞（右寄せの吹き出し）
+const meSay = t => `<p class="quote me">「${t}」</p>`;
+const svSay = t => `<p class="quote">${t}</p>`;
+// 属性の傾向
+function myLaw() { const a = G.master.align; return a.law >= ALIGN_LINE ? 'law' : a.law <= -ALIGN_LINE ? 'chaos' : 'mid'; }
+function myGood() { const a = G.master.align; return a.good >= ALIGN_LINE ? 'good' : a.good <= -ALIGN_LINE ? 'evil' : 'mid'; }
+// 英霊の口調で、台詞を選ぶ（o：{ polite, regal, rough, cool, bright, old, mute }）
+function svReg(sv) { return voiceOf(sv || servantOf(G)).reg; }
+function vl(o, sv) {
+  const r = svReg(sv); const t = o[r] ?? (r === 'old' ? o.cool : r === 'mute' ? null : o.cool);
+  if (r === 'mute') return o.mute ? (typeof o.mute === 'function' ? o.mute() : o.mute).replaceAll('{s}', SV()) : '';
+  return svSay(applyTic(fmt(t), sv));
+}
+const isMute = () => svReg() === 'mute';
+
+// =============================================================
+//  英霊「月下の告白」
+// =============================================================
+const MOON = {
+  open: { polite: '「……少しだけ、昔の話をしてもよろしいですか。誰にも、話したことのない話です」', regal: '「……今宵は月が良い。少し、昔語りに付き合え。誰にも語ったことのない話だ」',
+    rough: '「……なあ。ちょっと、昔の話してもいいか。誰にも話したことねえんだけどよ」', cool: '「……少し、昔の話をしてもいいだろうか。誰にも話したことのない話だ」',
+    bright: '「……ねえ、ちょっとだけ、昔の話してもいい？ 誰にも話したこと、ないんだけど」', old: '「……少し、昔語りをしてもよいかの。誰にも話したことのない話じゃ」',
+    mute: '{s}は、しばらくそのまま動かなかった。それから、大きな手を、あなたの手の甲に、そっと重ねた。' },
+  past: { polite: '「生前の{I}には、守るべきものがありました。そして――守れなかったものも。英霊になってからも、その重さだけは、ずっと胸の内にあったのです」<br>「……けれど、不思議ですね。{you}の隣にいると、その重さを、少しだけ忘れていられる」',
+    regal: '「{I}は多くを手に入れ、多くを失った。王とはそういうものだ。悔いはない。……ないはずだった」<br>「だが、{you}と過ごすこの冬は、玉座のどの夜よりも、温かい」',
+    rough: '「生きてた頃はよ、置いてきたもんばっかりだった。仲間も、約束も、帰る場所も。英霊になったって、そいつは消えやしねえ」<br>「……でもな。お前といると、なんか、それでもいいかって思えちまうんだ」',
+    cool: '「生前の{I}は、多くを選び、多くを切り捨ててきた。正しかったのかどうか、今でも分からない」<br>「……ただ、{you}と過ごした日々だけは、迷わずに『正しかった』と言える」',
+    bright: '「生きてた頃ね、ほんとは、もっといろんなことしたかったんだ。でも、できなかった。英霊になっても、そのことだけは、ずっと覚えてる」<br>「……でもね、{you}と一緒だと、なんか、取り戻してるみたいな気がするの」',
+    old: '「長く生きた。いや、長く戦った、と言うべきかの。見送った者の顔を、今でも一つ一つ覚えておる」<br>「……じゃがな、{you}といると、また誰かの行く末を見たいと、思うてしまうのじゃ」',
+    mute: '重ねられた手が、かすかに震えていた。その手が、どれほどのものを掴み、どれほどのものを取りこぼしてきたのか――言葉がなくとも、伝わってくる気がした。' },
+  // 返す言葉ごとの英霊の答え
+  rep: {
+    hear: { polite: '「……聞いてくださって、ありがとうございます。誰かに話せたのは、初めてです」', regal: '「……ふ。王の弱音を聞いたのは、{you}が初めてだ。光栄に思え」', rough: '「……へっ。柄にもねえこと、喋っちまったな」', cool: '「……聞いてくれて、ありがとう。少し、軽くなった」', bright: '「……えへへ。聞いてくれて、ありがと」', old: '「……ふふ。年寄りの昔話に、よう付き合うてくれた」', mute: '{s}は、小さく、本当に小さく、頷いた。' },
+    law: { polite: '「……{you}は、本当に真っ直ぐな方ですね。その言葉、契約よりも重く受け取ります」', regal: '「変わらぬ、か。……その約、確かに聞いたぞ」', rough: '「……変わらねえ、か。お前が言うと、本当にそう思えるから困る」', cool: '「契約は変わらない、か。……君らしい言葉だ。だから、信じられる」', bright: '「……うん。{you}がそう言うなら、絶対だね」', old: '「約を違えぬ者の目じゃな。……信じよう」', mute: '{s}の手に、ぎゅっと力がこもった。' },
+    chaos: { polite: '「……まったく、{you}という人は。英霊に向かって、過去などどうでもいい、ですか」<br>呆れたように言いながら、その目元は、ひどく柔らかかった。', regal: '「過去などどうでもいい、だと？ ……は、は。王の歴史を、そう切り捨てる者がいるとはな」', rough: '「どうでもいいって、お前なあ……。――ははっ。そうだな。今の方が、ずっといい」', cool: '「……そう言い切れるのは、君の強さだな。少し、羨ましい」', bright: '「あはは！ どうでもいいって！ ……うん。今の{I}を見てくれるの、嬉しい」', old: '「ほっほ。過去を気にせぬとは、若いのう。……じゃが、悪くない」', mute: '{s}は、驚いたように目を瞬かせ、それから、喉の奥で、笑うような音を立てた。' },
+    mid: { polite: '「……ありがとうございます。では、もう少しだけ、このままで」', regal: '「……ふん。気の利くことだ」', rough: '「……おう。わりいな」', cool: '「……ああ。ありがとう」', bright: '「……うん。もうちょっと、このままでいて」', old: '「……うむ。もう少し、月を見ていようかの」', mute: '{s}は、目を閉じて、あなたの肩に、そっと頭を預けた。' },
+    good: { polite: '「英霊の荷を、人の身で背負うと？ ……{you}は、優しすぎます。――でも、ありがとうございます」', regal: '「王の荷を分けよと？ 不遜な。……だが、その不遜、嫌いではない」', rough: '「……お前、本気で言ってんのか。――ったく。お人好しにも、ほどがあるぜ」', cool: '「……君は、そういう人だったな。分かっていたのに、胸に来る」', bright: '「……ほんとに？ じゃあ、ちょっとだけ、甘えちゃおうかな」', old: '「……背負うてくれるか。ふふ、そうか、そうか」', mute: '{s}の目に、月明かりが滲んだ。' },
+    evil: { polite: '「……欲しい、ですか。英霊を相手に、随分と欲深いことを仰る」<br>咎めるような言葉とは裏腹に、その声は、少しだけ震えていた。', regal: '「{I}を欲するか。……良い。強欲は、王の器だ」', rough: '「欲しいって……お前、言い方ってもんがあるだろ。――ま、嫌いじゃねえけどな」', cool: '「欲しい、か。……正直だな。そういうところに、惹かれたのかもしれない」', bright: '「ほ、欲しいって……！ ……もう。そういうこと、さらっと言わないでよ」', old: '「ほっほ。欲深い主じゃ。……じゃが、求められるのも、悪くないのう」', mute: '{s}が、あなたの手を、逃がさないように握り返した。' },
+  },
+  ask: { polite: '「……{call}。一つだけ、お聞かせください。{you}にとって、{I}は――何なのですか」', regal: '「{m}。答えよ。{you}にとって、{I}は何だ」', rough: '「……なあ、{call}。{you}にとって、{I}って、何なんだ？」',
+    cool: '「……{call}。{you}にとって、{I}は何なのだろうか」', bright: '「ねえ、{call}。{you}にとって、{I}って……なに？」', old: '「……{call}よ。{you}にとって、{I}は何じゃ」',
+    mute: '{s}が、じっとあなたを見ている。言葉はなくとも、問われていることは分かった。――あなたにとって、{s}は何なのか、と。' },
+  // 関係を告げた後の、英霊の答え
+  ans: {
+    lover: { polite: '「……ずるい方です。そんなことを言われたら、{I}はもう、ただの英霊ではいられません」<br>「――はい。{I}も、{you}をお慕いしています。ずっと、前から」', regal: '「……ふ。{I}に、そのような言葉を向けた者は初めてだ。許す。――いや、違うな」<br>「……嬉しいのだ、{m}」',
+      rough: '「……ばっ、お前、そういうのは……。――ああ、くそ。{I}もだよ。ずっと、そうだった」', cool: '「……そうか。予想はしていた。していたのに――こんなに嬉しいものなんだな」<br>「{I}も、{you}が好きだ」',
+      bright: '「……ほんとに？ ほんとのほんとに？ ……えへへ。{I}も。{I}も、{you}が大好き」', old: '「……やれやれ。今になって、このような想いをするとはの。――{I}もじゃよ、{m}」',
+      mute: '{s}は、言葉の代わりに、あなたの手を強く握った。狂気に濁っていたはずの瞳が、その一瞬だけ、確かに澄んでいた。' },
+    partner: { polite: '「相棒、ですか。……ええ。{I}の背中は、{you}にお預けします。{you}の背中は、{I}が」', regal: '「相棒か。王に向かって対等を名乗るとは。――良い。その不遜、気に入った」',
+      rough: '「へっ、相棒か。……いいじゃねえか。お前の背中は{I}が守る。だから、{I}の背中は任せたぜ」', cool: '「相棒……か。悪くない響きだ。{I}も、そう呼べる相手を、ずっと探していたのかもしれない」',
+      bright: '「相棒！ うん、相棒！ ……えへへ、なんかいいね、それ。最強のコンビだよ、{I}たち」', old: '「ほう、相棒とな。……良かろう。最後まで、背中を預け合おうぞ」',
+      mute: '{s}は、低く、満足げに唸った。' },
+    oath: { polite: '「……{I}の剣は、今宵より{you}だけのもの。この誓い、座に還っても忘れません」', regal: '「誓いか。ならば{I}も誓おう。この身が在る限り、{you}の盾となり、剣となると」',
+      rough: '「誓い、ねえ。柄じゃねえが……いいぜ。この命、お前に預ける」', cool: '「誓おう。{I}は、{you}の英霊だ。この契約が終わっても、それは変わらない」',
+      bright: '「誓う！ {I}は、ずーっと{you}の味方。……指切りも、する？」', old: '「誓いとな。……良かろう。この身、{you}の行く末を見届けるまで、傍を離れぬ」',
+      mute: '{s}は、あなたの前に膝をつき、頭を垂れた。獣のような唸り声が、その時だけは、祈りのように聞こえた。' },
+    family: { polite: '「家族……。{I}にも、帰る場所ができたのですね」', regal: '「家族、か。玉座には無かったものだ。……悪くない。いや、良いものだな」',
+      rough: '「家族って……お前なあ。……ったく。――ありがとよ」', cool: '「家族、か。……そうか。こういう気持ちを、そう呼ぶのか」',
+      bright: '「家族！ ……えへへ、じゃあ、{I}たち、ずっと一緒だね」', old: '「家族とな。……ふふ。帰る場所があるというのは、良いものじゃの」',
+      mute: '{s}は、しばらく動かなかった。それから、ぎこちなく、あなたの頭に大きな手を置いた。' },
+    stay: { polite: '「……そうですか。いえ、急ぐことはありません。{I}は、ここにいますから」', regal: '「……ふん。答えを焦らすとは、良い度胸だ。待ってやろう」', rough: '「……そっか。ま、急ぐこたねえよな」', cool: '「……そうか。答えは、急がなくていい」', bright: '「……そっか。うん、待ってる」', old: '「……うむ。答えは、いずれでよい」', mute: '{s}は、少しだけ目を伏せて、また月を見上げた。' },
+  },
+};
+// 主人公が告げる言葉（関係ごと・属性で言い方が変わる）
+function moonVow(k) {
+  const sv = servantOf(G); const L = myLaw();
+  if (k === 'lover') return L === 'law' ? `${gw('好きだ', '好き', '好きだよ')}。マスターとしてじゃなく、一人の人間として` : L === 'chaos' ? `英霊とか、人間とか、どうでもいい。${gw('好きだ', '好き', '好きだよ')}` : `……${gw('好きだ', '好き', '好きだよ')}。ずっと、言えなかった`;
+  if (k === 'partner') return myGood() === 'evil' ? '背中を預けられるのは、君だけだ。他の誰にも、任せる気はない' : '君は、かけがえのない相棒だ。この先、どんな戦いになっても';
+  if (k === 'oath') return L === 'chaos' ? '主とか従とか、本当は柄じゃない。でも――君の主であり続けることだけは、誓う' : 'この先、何があっても、君の主であり続ける。誓うよ';
+  const v = relationText('family', sv).verb.match(/^(.)のような/);
+  return v ? `君は、${v[1]}みたいなものだ。……帰る場所、みたいな` : '君は、家族みたいなものだ。……帰る場所、みたいな';
+}
+// 結びの描写
+function moonClose(k) {
+  const s = SV(); const p = bondPair(servantOf(G));
+  if (k === 'lover') return { mf: `月が、雲に隠れた。縁側に並んだ二つの影は、いつまでも離れなかった。${s}の髪が、夜風にあなたの頬をくすぐっていた。`, fm: `月が、雲に隠れた。肩に掛けられた外套の中で、あなたは、${s}の鼓動を聞いていた。英霊の胸にも、ちゃんと鼓動があった。`, mm: `月が、雲に隠れた。重ねた手を、どちらからも離そうとはしなかった。それで、十分だった。`, ff: `月が、雲に隠れた。一つの毛布の中で、二人は額を寄せ合って、小さく笑った。`, n: `月が、雲に隠れた。重ねた手のぬくもりだけが、確かだった。` }[p];
+  if (k === 'partner') return `その夜は、明け方まで二人で作戦を練った。どちらが言い出したわけでもなかった。地図の上で、二人の指が何度もぶつかった。`;
+  if (k === 'oath') return `月が沈むまで、二人は黙って並んでいた。言葉はもう、必要なかった。右手の令呪が、いつもより温かかった。`;
+  return `気がつくと、縁側に湯呑みが二つ並んでいた。……いつの間にか、それが当たり前の光景になっていた。`;
+}
+// 関係を結ぶ（ほかのヒロインとの別れを含む）
+function applyRelation(k) {
+  const r = RELATIONS[k]; G.servant.special = k; bond(10);
+  if (k === 'lover' && typeof frLover === 'function' && frLover()) { frSetRel('friend', '別れ'); friend(-35); note(`<span class="note">${friendName()}に、別れを告げた。「${fg('……そっか。ああ、分かってた', '……そっか。うん、分かってた')}」電話の向こうの声は、最後まで泣かなかった。</span>`); }
+  if (k === 'lover' && typeof mkLover === 'function' && mkLover()) { mkSetRel('known', '別れ'); mk(-35); note(`<span class="note">${CAST.miko}に、別れを告げた。「……そっか。分かってました。${mkCall()}の目、ずっと、あの人を追いかけてたから」鈴の音が、一度だけ、震えるように鳴った。</span>`); }
+  addLog(`${servantOf(G).name}と「${r.name}」の関係になる。`);
+}
+function moonConfession() {
+  const sv = servantOf(G);
+  const relChoices = Object.entries(RELATIONS).filter(([k]) => k !== 'lover' || canBeLover(sv)).map(([k, r]) => ({
+    label: relationText(k, sv).verb,
+    hint: k === 'lover' && typeof frLover === 'function' && frLover() ? `関係：${r.name}・幼馴染の${friendName()}とは別れることになる` : k === 'lover' && typeof mkLover === 'function' && mkLover() ? `関係：${r.name}・${CAST.miko}とは別れることになる` : `関係：${r.name}`,
+    run: () => applyRelation(k),
+    reply: () => [isMute() ? '' : meSay(moonVow(k)), `<p>${fmt(relationText(k, sv).text)}</p>`, vl(MOON.ans[k])],
+  }));
+  const L = myLaw(), Gd = myGood();
+  dialog({ title: '月下の告白', sub: 'SPECIAL', then: advance, steps: [
+    { text: () => [`<p>${specialIntro(sv)}</p>`, svSay(specialLine()), vl(MOON.open)],
+      choices: [
+        { label: '「聞かせて」', reply: () => [vl(MOON.past), vl(MOON.rep.hear)] },
+        { label: L === 'law' ? '「どんな過去でも、君は君だ。この契約は変わらない」' : L === 'chaos' ? '「過去なんてどうでもいい。今ここにいる君がいい」' : '「無理に話さなくていい。ここにいるから」', hint: L === 'mid' ? '' : `${L === 'law' ? '秩序' : '混沌'}の言葉`,
+          reply: () => [vl(MOON.rep[L])] },
+        { label: Gd === 'good' ? '「君が背負ってきたもの、少し分けてほしい」' : '「英霊の過去なんて知らない。欲しいのは、今の君だ」', hint: `${Gd === 'good' ? '善' : '悪'}の言葉`, cond: () => Gd !== 'mid',
+          reply: () => Gd === 'good' ? [vl(MOON.past), vl(MOON.rep.good)] : [vl(MOON.rep.evil)] },
+      ] },
+    { text: () => [vl(MOON.ask), '<p>あなたは――</p>'],
+      choices: [...relChoices, { label: '今は、この関係のままで', hint: 'さらに絆が深まれば、また機会が訪れる', run: () => { G.flags.specialNext = G.servant.bond + 10; },
+        reply: () => [`<p>あなたは微笑んで、首を横に振った。</p>`, vl(MOON.ans.stay)], end: true }] },
+    { text: () => { const k = G.servant.special; return [`<p>${moonClose(k)}</p>`, `<p class="note">${SV()}と<b>「${RELATIONS[k].name}」</b>になった。戦闘で絆の力が働き、エンディングにも影響する。</p>`]; } },
+  ] });
+}
+
+// =============================================================
+//  幼馴染の告白（data_friend.js の frRelScene の「choose」から）
+// =============================================================
+function friendConfession(then) {
+  const n = friendName(); const war = G.phase === 'war';
+  const other = typeof otherLover === 'function' ? otherLover('friend') : null;
+  const memory = G.flags.frSakura ? fg('「……覚えてるか。九歳の春。毎年ここで桜を見ようって、指切りしたの」', '「……覚えてる？ 九歳の春。毎年ここで桜を見ようって、指切りしたの」')
+    : G.flags.frMended ? fg('「あの喧嘩のこと、さ。……まだ、謝り足りない気がしてる」', '「あの喧嘩のこと。……まだ、謝り足りない気がしてるんだ」')
+      : fg('「六歳の夏にさ、ビー玉、半分こしたよな。……あれ、まだ持ってる」', '「六歳の夏に、ビー玉、半分こしたよね。……あれ、まだ持ってるんだ」');
+  const L = myLaw();
+  dialog({ title: war ? '冬の夜に' : '二人の距離', sub: war ? 'WAR' : `${G.master.age}歳`, then, steps: [
+    { text: () => [war ? `戦いの合間の、静かな夜。${n}が、あなたの隣に腰を下ろした。「……こんな時なのに、${fYou()}といると、ほっとする」`
+        : `${G.master.age}歳の冬。帰り道、${n}がふと立ち止まった。夕焼けが、二人の影を長く伸ばしている。`, svSay(memory)],
+      choices: [
+        { label: '「覚えてるよ。全部」', reply: () => [svSay(fg('「……そっか。お前、そういうとこ、ずるいよな」', '「……そっか。あなたって、そういうところ、ずるいよね」')), `<p>${n}は、照れたように前を向いた。耳の先が、赤かった。</p>`] },
+        { label: L === 'law' ? '「約束は、一つも忘れてない」' : L === 'chaos' ? '「昔の話より、これからの話がしたい」' : '「急に、どうしたの」', hint: L === 'mid' ? '' : `${L === 'law' ? '秩序' : '混沌'}の言葉`,
+          reply: () => [svSay(L === 'law' ? fg('「……律儀すぎ。だから、困るんだよ」', '「……律儀すぎ。だから、困るんだよ」') : L === 'chaos' ? fg('「……これから、か。お前らしいな」', '「……これから、かあ。あなたらしいね」') : fg('「……どうもしねえよ。ただ、聞いてみたくなっただけ」', '「……どうもしないよ。ただ、聞いてみたくなっただけ」'))] },
+      ] },
+    { text: () => [svSay(fg('「なあ。俺たちって……何なんだろうな」', '「ねえ。わたしたちって……何なんだろうね」')), `<p>${n}は、まっすぐにあなたを見た。冗談にして逃げる気は、もうないらしい。</p>`, '<p>あなたは――</p>'],
+      choices: [
+        other ? { label: '想いを伝える', hint: `心はもう、${other}に向いている`, disabled: true }
+          : { label: G.flags.friendHeart ? '「あの日の答え、ちゃんと言わせて」' : '想いを伝える', hint: '関係：恋人', run: () => { frSetRel('lover'); friend(10); },
+            reply: () => [meSay(`${gw('好きだ', '好き', '好きだよ')}。……ずっと、前から`),
+              fg(`<p>${n}は真っ赤になって目を逸らし、それから、あなたの手を強く握った。</p>${svSay('「……遅えよ、ばか。俺から言おうと思ってたのに」')}`, `<p>${n}は真っ赤になって、それから、あなたの胸に額を押し当てた。</p>${svSay('「……遅いよ、ばか」')}`),
+              svSay(fg('「……なあ。もう一回、言って」', '「……ねえ。もう一回、言って」')), meSay('何回でも言うよ'), `<p>${n}は、泣き笑いの顔で、あなたの肩を小突いた。</p>`,
+              `<span class="note">${n}と<b>「恋人」</b>になった。</span>`] },
+        { label: '「ずっと、親友でいよう」', hint: '関係：親友', run: () => { frSetRel('best'); friend(5); },
+          reply: () => [meSay('ずっと、親友でいよう'), `<p>${n}は少しだけ目を瞬かせて、それから拳を突き出した。</p>`, svSay(fg('「……おう。一生、親友だからな。途中解約なしだぞ」', '「……うん。一生、親友だからね。途中で辞めるの、なしだよ」')),
+            '<p>二人の拳が、こつんとぶつかった。痛いくらいの強さだった。</p>', `<span class="note">${n}と<b>「親友」</b>になった。</span>`] },
+        { label: '今の関係のままでいる', hint: '関係：幼馴染', run: () => { G.flags.frRelNext = G.friend.bond + 15; },
+          reply: () => [`<p>言いかけた言葉を、飲み込んだ。${n}は「なに？」と首を傾げて、いつも通りに笑った。</p>`, svSay(fg('「……ま、いいや。また今度な」', '「……ま、いっか。また今度ね」')), '<span class="note">さらに関係が深まれば、また機会が訪れるだろう。</span>'], end: true },
+      ] },
+    { text: () => [war ? `<p>遠くで、サーヴァント同士の戦いの音がした。それでも、二人のいる場所だけは、静かだった。</p>`
+        : frLover() ? `<p>帰り道は、いつもより少しだけ遠回りをした。つないだ手を、どちらも離そうとしなかった。</p>` : `<p>帰り道、二人は昔みたいに、くだらない話で笑い合った。夕焼けが、いつまでも沈まない気がした。</p>`] },
+  ] });
+}
+
+// =============================================================
+//  雫の告白（data_miko.js の mkRelScene の「choose」から）
+// =============================================================
+function mikoConfession(then) {
+  const s = SHIZUKU(); const c = mkCall(); const war = G.phase === 'war';
+  const other = otherLover('miko'); const L = myLaw();
+  const memory = G.flags.mkBell ? `「その鈴、まだつけてくれてるんですね。……もう、紐、ぼろぼろじゃないですか」` : G.flags.mkBelieved ? `「山の声のこと。……信じてくれたの、${c}だけでした」` : `「……${c}は、昔から、ずっと変わりませんね」`;
+  dialog({ title: `${s}という存在`, sub: war ? 'WAR' : `${G.master.age}歳`, then, steps: [
+    { text: () => [war ? `戦いの合間の昼下がり。神社の境内で、${s}と並んで石段に腰かけた。冬の陽が、白い息を照らしている。` : `例大祭の後片付けを終えて、${s}と並んで石段に腰かけた。夜の境内に、虫の声だけが響いている。`, svSay(memory)],
+      choices: [
+        { label: '「雫こそ、どうしたの？」', reply: () => [svSay(`「……別に。ただ、今日の${c}が、なんだかいつもより大人に見えたから」`), `<p>${s}は、膝の上で指を組んだり解いたりしている。</p>`] },
+        { label: L === 'law' ? '「雫が何者でも、守ると決めてる」' : L === 'chaos' ? '「巫女とか、務めとか関係ない。雫は雫だ」' : '「何か、あったの？」', hint: L === 'mid' ? '' : `${L === 'law' ? '秩序' : '混沌'}の言葉`,
+          reply: () => [svSay(L === 'law' ? `「……${c}は、ずるいです。そういうこと、真顔で言うんですから」` : L === 'chaos' ? `「……そんなこと言ってくれるの、${c}だけですよ。おばあさまに聞かれたら、怒られます」` : `「……何もないです。何もないから、困ってるんです」`)] },
+      ] },
+    { text: () => [svSay(`「……${c}にとって、わたしって、何なんでしょうね」`), `<p>${s}は冗談めかして笑った。けれど、鈴を握る指が、白くなっていた。</p>`, '<p>あなたにとって、雫は――</p>'],
+      choices: [
+        other ? { label: '想いを伝える', hint: `心はもう、${other}に向いている`, disabled: true }
+          : { label: '想いを伝える', hint: '関係：恋人', run: () => { mkSetRel('lover'); mk(5); },
+            reply: () => [meSay(`${gw('好きだ', '好き', '好きだよ')}。${s}のことが`),
+              `<p>${s}は、鈴を落とした。拾おうともせずに、真っ赤な顔であなたを見上げた。</p>`, svSay('「……ずるいです。わたしの方が、ずっと前から好きだったのに」'),
+              svSay(`「${mkCousin() ? '神楽殿で、泣いてたわたしに付き合ってくれた夜' : '九歳の、あの秋祭りの夜'}から。……ううん、たぶん、もっと前から」`),
+              svSay('「……もう一回、言ってくれますか。今度は、鈴を落とさないように、ちゃんと聞きますから」'), meSay(`好きだよ、${s}`),
+              `<p>${s}は、両手で顔を覆って、それから、指の隙間から笑った。落ちた鈴が、石段の上で、ちりんと鳴った。</p>`, `<span class="note">${CAST.miko}と<b>「恋人」</b>になった。</span>`] },
+        { label: '「守りたい。妹みたいな、大事な存在だよ」', hint: '関係：妹分（雫は、あなたを頼りにする）', run: () => mkSetRel('sister'),
+          reply: () => [meSay('守りたい。妹みたいな、大事な存在だよ'), svSay(`「……妹、かあ」`), `<p>${s}は、くすぐったそうに笑った。少しだけ、寂しそうにも見えた。</p>`,
+            svSay(`「――うん。じゃあ、ずっと守ってくださいね、${c}。その代わり、${c}が困ったときは、妹が助けに行きますから」`), `<span class="note">${CAST.miko}が<b>「妹分」</b>になった。</span>`] },
+        { label: '「背中を預けられる、相棒だと思ってる」', hint: '関係：相棒（雫は、自分の力で戦おうとする）', run: () => mkSetRel('ally'),
+          reply: () => [meSay('背中を預けられる、相棒だと思ってる'), `<p>${s}は目を丸くして、それから、ぱっと顔を輝かせた。</p>`,
+            svSay('「相棒……。はい！ 守られるだけなんて、天降の巫女の名折れですから」'), svSay(`「その代わり、相棒なら隠し事はなしですよ、${c}。一人で無茶したら、怒りますからね」`), `<span class="note">${CAST.miko}が<b>「相棒」</b>になった。</span>`] },
+        { label: () => mkCousin() ? '「大事な従妹だよ」とだけ答える' : '「大事な友達だよ」とだけ答える', hint: '関係は変わらない', run: () => { G.flags.mkRelNext = miko().bond + 15; },
+          reply: () => [svSay('「……そっか。そうですよね」'), `<p>${s}は、少しだけ寂しそうに、でも嬉しそうに笑った。</p>`], end: true },
+      ] },
+    { text: () => [mkLover() ? `<p>帰り際、${s}は、鳥居の下で一度だけ振り返った。手首の鈴が、ちりんと鳴った。その音が、いつもより、ずっと近くに聞こえた。</p>`
+        : `<p>境内の灯籠に、${s}が一つずつ火を入れていく。その背中を、あなたはしばらく眺めていた。</p>`] },
+  ] });
+}
+
+// =============================================================
+//  最後の会話（英霊が去る結末の前に）
+// =============================================================
+const LAST_TALK_KINDS = ['none', 'wishPure', 'servantWish', 'destroy', 'destroySpecial', 'destroyPure', 'beastSlain', 'abstain', 'friendWish', 'yield', 'kamiSlain', 'kamiReturn', 'kamiBride'];
+const LAST = {
+  open: { polite: '「……どうやら、ここまでのようです。{call}、最後に少しだけ、お話ししてもよろしいですか」', regal: '「……時間か。{m}、最後だ。少し付き合え」',
+    rough: '「……あー、時間切れみてえだな。最後に、ちょっとだけ話そうぜ」', cool: '「……もう、時間がないらしい。最後に、少しだけ話をしよう」',
+    bright: '「……あはは、もう時間みたい。ねえ、最後に、ちょっとだけお話しよ？」', old: '「……そろそろ刻限かの。最後に、少し話をさせておくれ」',
+    mute: '{s}が、ゆっくりとこちらを振り返った。光の粒が、その輪郭から、少しずつこぼれ落ちていく。' },
+  rep: {
+    thanks: { polite: '「お礼を言うのは、{I}の方です。{you}に呼ばれて、本当によかった」', regal: '「礼など要らぬ。……と言いたいところだが、受け取っておこう。{I}も、楽しかったぞ」', rough: '「よせよ、照れるだろ。……ああ、{I}もだ。お前でよかった」', cool: '「こちらこそ。{you}がマスターで、よかった」', bright: '「ううん、{I}の方こそ！ ありがとう、{call}。ほんとに、ほんとに楽しかった！」', old: '「礼を言うのは、こちらの方じゃよ。良い冬じゃった」', mute: '{s}は、答える代わりに、あなたの頭に、ぽんと手を置いた。' },
+    stay: { polite: '「……困った方ですね。そんな顔をされたら、行けなくなってしまいます」<br>「ですが、行かなくては。{you}の明日は、{you}のものですから」', regal: '「……引き留めるか。王を。――ふ、それも良い。だが、{I}は行く。お前の明日に、{I}の席はない」', rough: '「……ばか。そういうこと言うなよ。――行きたくねえのは、{I}だって同じなんだからよ」', cool: '「……すまない。その願いだけは、聞いてやれない」<br>「でも、引き留めてくれたことは、ずっと覚えている」', bright: '「……やだなあ、もう。そんなこと言われたら、泣いちゃうじゃん」<br>「でも、だめ。{call}は、ちゃんと明日に行かなきゃ」', old: '「……そうか、そうか。引き留めてくれるか。それだけで、十分じゃよ」', mute: '{s}の手が、あなたの手を握り返した。ほどけていく指先が、それでも、離すまいとしていた。' },
+    promise: { polite: '「……はい。{you}なら、きっと。{I}は、どこかの空の下から、見ています」', regal: '「その約、王が聞き届けた。違えるなよ」', rough: '「おう。約束だぜ。……破ったら、化けて出てやる」', cool: '「ああ。君なら、そうするだろう。……信じている」', bright: '「うん、約束！ {I}、ちゃんと見てるからね！」', old: '「うむ。その言葉、確かに聞いた。……達者でな」', mute: '{s}は、小指を、あなたの小指に、ぎこちなく絡めた。' },
+    again: { polite: '「……ええ。またいつか、どこかで。その時は、また{I}を呼んでくださいね」', regal: '「また会おう、か。――良い。次の召喚でも、{I}を呼べ」', rough: '「さよならは言わねえ、か。……へっ、いいな、それ。またな、{call}」', cool: '「さよならは言わない、か。……ああ。また、どこかで」', bright: '「うん！ またね、だね。さよならじゃなくて、またね！」', old: '「ほっほ。またいずれ、か。楽しみにしておこう」', mute: '{s}は、片手を上げた。それは、別れの挨拶ではなく、「またな」の仕草に見えた。' },
+    order: { polite: '「……命令、ですか。最後まで、{you}らしい」<br>「ですが、それだけは聞けません。――ごめんなさい」', regal: '「王に命じるか。……最後まで不遜な奴よ。だが、その命だけは、聞けぬ」', rough: '「命令かよ。……ははっ、お前らしいや。悪い、そいつだけは聞けねえ」', cool: '「……命令か。令呪を使ってでも、止めたいのか。――すまない」', bright: '「……ずるいよ、命令なんて。でも、ごめんね。それだけは、聞けないの」', old: '「命令とな。……すまぬ。それだけは、聞いてやれぬのじゃ」', mute: '{s}は、困ったように首を横に振った。その顔は、どこか笑っているようにも見えた。' },
+    lover: { polite: '「……{I}も、です。この想いは、座に還っても、決して消えません」', regal: '「……{I}もだ。王の言葉に、二言はない。――ずっとだ」', rough: '「……ああ。{I}もだよ。ずっと、ずっとな」', cool: '「……{I}もだ。どこにいても、これからも」', bright: '「……{I}も。{I}も、ずっとずっと、大好き」', old: '「……{I}もじゃよ。この想いだけは、持っていく」', mute: '{s}は、最後の力で、あなたを抱き寄せた。' },
+    partner: { polite: '「最高の相棒……。{I}にとっても、そうでした」', regal: '「当然だ。{I}が認めた相棒だからな」', rough: '「へっ、当たり前だろ。最強のコンビだったぜ」', cool: '「ああ。最高の相棒だった」', bright: '「でしょ？ 最強のコンビだったもん！」', old: '「うむ。良い相棒じゃった」', mute: '{s}は、拳をあなたの胸に、軽く当てた。' },
+    oath: { polite: '「……光栄です。{you}も、最高の主でした」', regal: '「当然だ。そして、{you}も――悪くない主だった。いや、最高の主だった」', rough: '「……そうかよ。お前も、最高のマスターだったぜ」', cool: '「君も、最高のマスターだった」', bright: '「{call}も、最高のマスターだったよ！」', old: '「お主も、良い主じゃった」', mute: '{s}は、膝をつき、深く頭を垂れた。' },
+    family: { polite: '「……はい。いってきます」', regal: '「……ああ。行ってくる」', rough: '「……おう。行ってくる」', cool: '「……行ってくる」', bright: '「……うん。いってきます！」', old: '「……うむ。行ってくるでな」', mute: '{s}は、少しだけ笑ったように見えた。' },
+  },
+};
+// 結末ごとの、場面のはじまり
+function lastTalkLead(kind) {
+  const s = SV(); const fn = typeof friendName === 'function' ? friendName() : '';
+  return ({
+    destroy: '黒き聖杯が砕け、天降山の頂に、朝の光が差し始めていた。', destroySpecial: '二人で選んだ答えが、黒き聖杯を砕いた。天降山の頂に、朝の光が差し始めていた。',
+    destroyPure: '砕けた杯の欠片から、澄んだ光がこぼれていた。', wishPure: '願いは聞き届けられた。黄金の光が、冬の夜空に広がっていく。',
+    servantWish: `${s}の願いを乗せた光が、夜空へ昇っていく。`, none: '聖杯は、誰の手にも渡らぬまま、静かに光を失っていく。',
+    beastSlain: '白い大蛇が崩れ去り、天降山の頂には、空っぽの杯だけが残された。', abstain: '教会の前で、令呪を預ける時が来た。',
+    friendWish: `聖杯の光が、${fn}の願いを乗せて昇っていく。`, yield: `聖杯は、${fn}の手に渡った。もう、戦う理由はない。`,
+    kamiSlain: '白い大狼の遠吠えが、霧と共に消えていった。', kamiReturn: '黄金の杯が、光の粒になって霊脈に溶けていく。',
+    kamiBride: '聖杯戦争を降りると決めた。令呪を返す前の、最後の夜明け。',
+  })[kind] + (['abstain', 'kamiBride', 'yield'].includes(kind) ? `<br>契約が解かれれば、${s}はこの世に留まれない。` : `<br>${s}の体が、足元から、少しずつ光の粒にほどけ始めていた。`);
+}
+function lastTouch() {
+  const s = SV(); const k = G.servant.special; const p = bondPair(servantOf(G)); const child = CHILDREN.has(G.servant.id);
+  if (k === 'lover') return { mf: `${s}は、最後にもう一度だけ、あなたの胸に額を預けた。`, fm: `${s}は、あなたの頬に手を添えて、額をこつんと合わせた。`, mm: `${s}は、あなたを強く抱き寄せた。肩越しに、朝日が見えた。`, ff: `${s}は、あなたを抱きしめた。指先から、少しずつ温もりが消えていく。`, n: `${s}は、あなたの手を、両手で包み込んだ。` }[p];
+  if (k === 'partner') return `${s}は、拳を、あなたの胸に軽く当てた。あの月の夜と、同じように。`;
+  if (k === 'oath') return `${s}は片膝をつき、あなたの右手――令呪のあった場所に、額を押し当てた。`;
+  if (k === 'family') return child ? `${s}は、あなたの腰にぎゅっと抱きついて、それから、ぱっと離れた。` : `${s}は、あなたの頭を、くしゃりと撫でた。`;
+  return `${s}は、少しだけ笑って、あなたに背を向けた。`;
+}
+function lastTalkEligible(kind) { return LAST_TALK_KINDS.includes(kind) && !!G.servant && G.servant.hp > 0 && !G.flags.lastTalkDone; }
+function lastTalk(kind, then) {
+  G.flags.lastTalkDone = kind;
+  const k = G.servant.special; const L = myLaw(), Gd = myGood();
+  const choices = [
+    { label: '「ありがとう。君がいてくれて、よかった」', reply: () => [meSay('ありがとう。君がいてくれて、よかった'), vl(LAST.rep.thanks)] },
+    { label: '「……行かないで」', reply: () => [meSay('……行かないで'), vl(LAST.rep.stay)] },
+  ];
+  if (L === 'law' || Gd === 'good') choices.push({ label: Gd === 'good' ? '「君が守ったものを、今度は自分が守っていく」' : '「君に恥じない生き方をする。約束だ」', hint: `${Gd === 'good' ? '善' : '秩序'}の言葉`,
+    reply: () => [meSay(Gd === 'good' ? '君が守ったものを、今度は自分が守っていく' : '君に恥じない生き方をする。約束だ'), vl(LAST.rep.promise)] });
+  if (L === 'chaos') choices.push({ label: '「さよならは言わない。また、どこかで会おう」', hint: '混沌の言葉', reply: () => [meSay('さよならは言わない。また、どこかで会おう'), vl(LAST.rep.again)] });
+  if (Gd === 'evil') choices.push({ label: '「……勝手にいなくなるな。命令だ」', hint: '悪の言葉', reply: () => [meSay('……勝手にいなくなるな。命令だ'), vl(LAST.rep.order)] });
+  if (k) choices.push({ label: { lover: `「${gw('好きだ', '好き', '好きだよ')}。これからも、ずっと」`, partner: '「最高の相棒だった」', oath: '「君は、最高の英霊だった」', family: '「……いってらっしゃい」' }[k], hint: `「${RELATIONS[k].name}」として`, cls: 'primary',
+    reply: () => [meSay({ lover: `${gw('好きだ', '好き', '好きだよ')}。これからも、ずっと`, partner: '最高の相棒だった', oath: '君は、最高の英霊だった', family: '……いってらっしゃい' }[k]), vl(LAST.rep[k])] });
+  dialog({ title: '最後の会話', sub: 'FAREWELL', then, last: '結末へ', steps: [
+    { text: () => [`<p>${lastTalkLead(kind)}</p>`, vl(LAST.open)], choices },
+    { next: '結末へ', text: () => [`<p>${lastTouch()}</p>`, svSay(farewellLine()), `<p>光が、朝の空へ溶けていった。<br>右手の甲に残った痣だけが、まだ、ほんのりと温かかった。</p>`] },
+  ] });
 }
 
 // =============================================================
@@ -20515,6 +20805,7 @@ function nightTalk() {
   });
 }
 function specialEvent() {
+  if (typeof moonConfession === 'function') return moonConfession();   // 続いていく会話（data_dialog.js）
   const per = PERSONAS[servantOf(G).persona];
   const choices = Object.entries(RELATIONS).filter(([k]) => k !== 'lover' || canBeLover(servantOf(G))).map(([k, r]) => ({
     label: relationText(k, servantOf(G)).verb, hint: k === 'lover' && typeof frLover === 'function' && frLover() ? `関係：${r.name}・幼馴染の${friendName()}とは別れることになる` : k === 'lover' && typeof mkLover === 'function' && mkLover() ? `関係：${r.name}・${CAST.miko}とは別れることになる` : `関係：${r.name}`, fn: () => {
@@ -21655,6 +21946,7 @@ function bossIntro() {
 }
 
 function ending(kind) {
+  if (typeof lastTalkEligible === 'function' && lastTalkEligible(kind)) return lastTalk(kind, () => ending(kind));   // 英霊が去る前の、最後の会話（data_dialog.js）
   G.phase = 'end'; clearSave();
   const sv = G.servant ? servantOf(G) : null; const rel = G.servant && G.servant.special ? RELATIONS[G.servant.special] : null;
   const per = sv ? V(sv) : null;
@@ -21709,6 +22001,7 @@ function ending(kind) {
     none: () => ({ title: '終幕：願いなき勝者', text: ['<p>あなたは何も願わなかった。聖杯は誰の手にも渡らぬまま、静かに消えていった。</p>', `<p class="quote">${farewellLine(sv)}</p>`,
       '<p>勝者の手に残ったのは、戦いの記憶と、確かに結ばれた絆だけだった。</p>'] }),
   ...(sv ? friendEndingTexts(sv) : {}), ...kamiEndingTexts(sv) }[kind]();
+  if (G.flags.lastTalkDone === kind && sv) { const fw = `<p class="quote">${farewellLine(sv)}</p>`; E.text = E.text.filter(t => t !== fw); }   // 最後の言葉は、会話の中で交わした
   const ep = friendEpilogueText(kind);
   if (ep) E.text.push(ep);
   const fe = fujiEpilogue(kind);

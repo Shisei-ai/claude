@@ -93,7 +93,8 @@ function frRelScene(kind, then) {
       { label: '「おかえり」', fn: () => { frSetRel('friend', '雪解け'); friend(5); done('雪解け', [`${n}は、昔と同じ顔で、泣きながら笑った。`]); } },
     ] });
   }
-  // choose：恋人か親友か
+  // choose：恋人か親友か（続いていく会話は data_dialog.js）
+  if (typeof friendConfession === 'function') return friendConfession(then);
   const heart = !!G.flags.friendHeart;
   const choices = [];
   choices.push(svLover

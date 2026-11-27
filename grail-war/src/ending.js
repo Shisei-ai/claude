@@ -103,6 +103,7 @@ function bossIntro() {
 }
 
 function ending(kind) {
+  if (typeof lastTalkEligible === 'function' && lastTalkEligible(kind)) return lastTalk(kind, () => ending(kind));   // 英霊が去る前の、最後の会話（data_dialog.js）
   G.phase = 'end'; clearSave();
   const sv = G.servant ? servantOf(G) : null; const rel = G.servant && G.servant.special ? RELATIONS[G.servant.special] : null;
   const per = sv ? V(sv) : null;
@@ -157,6 +158,7 @@ function ending(kind) {
     none: () => ({ title: '終幕：願いなき勝者', text: ['<p>あなたは何も願わなかった。聖杯は誰の手にも渡らぬまま、静かに消えていった。</p>', `<p class="quote">${farewellLine(sv)}</p>`,
       '<p>勝者の手に残ったのは、戦いの記憶と、確かに結ばれた絆だけだった。</p>'] }),
   ...(sv ? friendEndingTexts(sv) : {}), ...kamiEndingTexts(sv) }[kind]();
+  if (G.flags.lastTalkDone === kind && sv) { const fw = `<p class="quote">${farewellLine(sv)}</p>`; E.text = E.text.filter(t => t !== fw); }   // 最後の言葉は、会話の中で交わした
   const ep = friendEpilogueText(kind);
   if (ep) E.text.push(ep);
   const fe = fujiEpilogue(kind);
