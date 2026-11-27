@@ -219,20 +219,20 @@ function kamiBattle(mode) {
 }
 function kamiWin(mode) {
   const k = kami(); B = null; sfx('win');
-  if (mode === 'slay') { k.outcome = 'slain'; return ending('kamiSlain'); }
+  if (mode === 'slay') { k.outcome = 'slain'; return counterRoute() ? counterStart('slain') : ending('kamiSlain'); }   // 雫ルートでは、この後に抑止の守護者が来る（data_counter.js）
   if (mode === 'pact') { k.outcome = 'pact'; addLog('力で覚悟を示し、天降大神と契りを結び直す。');   // 誓いが届かず戦ったが、退けて覚悟を示した
-    return next('覚悟', paras(['荒魂が、霧になって退いていく。大狼は、膝をついたあなたを、長いこと見下ろしていた。', '「……言葉では足りぬと言ったが、撤回しよう。その覚悟、確かに見た」', '契りは、結び直された。']), () => ending('kamiBride'), '誓う'); }
+    return next('覚悟', paras(['荒魂が、霧になって退いていく。大狼は、膝をついたあなたを、長いこと見下ろしていた。', '「……言葉では足りぬと言ったが、撤回しよう。その覚悟、確かに見た」', '契りは、結び直された。']), () => counterRoute() ? counterStart('pact') : ending('kamiBride'), '誓う'); }
   if (mode === 'none') { k.outcome = 'repelled'; G.flags.kamiRepelled = true; addLog('荒魂を退けたが、契りは果たされないまま。'); bond(3);   // 備えなく戦い、退けただけ
     return next('退けた霧', paras(['荒魂は、霧になって山へ退いていった。黒い空に、ようやく薄日が差した。',
       `夕方、消えていた人々のうち、何人かが山から下りてきた。${CAST.miko}も、その中にいた。――けれど、戻らなかった人もいる。`, typeof mikoReunion === 'function' && kamiRoute() === 'normal' ? mikoReunion('none') : '',
-      '<span class="note">祟りは退けた。だが、神の怒りは鎮まっていない。六十年後、また同じことが起きるだろう。（絆+3）</span>']), advance, '戦いへ戻る'); }
+      '<span class="note">祟りは退けた。だが、神の怒りは鎮まっていない。六十年後、また同じことが起きるだろう。（絆+3）</span>']), counterRoute() ? () => counterStart('repelled') : advance, counterRoute() ? '次へ' : '戦いへ戻る'); }
   k.outcome = 'calm'; G.flags.kamiCalm = true; addLog('鎮魂の儀を守り抜き、天降大神を眠りに戻した。');
   bond(5);
   next('鎮魂', paras([
     '荒魂の化身が、霧になってほどけていった。神楽の鈴が、最後に一つ、澄んだ音を立てた。',
     '霧の晴れた天降山の頂に、白い大狼が静かに座っていた。その瞳は、両方とも澄んでいた。<br>「……永く、眠りすぎた。人の子よ、礼を言う」',
     `その夕方、山から人々が下りてきた。消えていた子ども、${CAST.miko}、そして名前も知らない何人もの人たち。皆、長い夢を見ていたような顔をしていた。`, typeof mikoReunion === 'function' && kamiRoute() === 'normal' ? mikoReunion('calm') : '',
-    `<span class="note">天降の祟りは鎮まった。――聖杯戦争は、まだ終わっていない。（絆+5）</span>`]), advance, '戦いへ戻る');
+    `<span class="note">天降の祟りは鎮まった。${counterRoute() ? '' : '――聖杯戦争は、まだ終わっていない。'}（絆+5）</span>`]), counterRoute() ? () => counterStart('calm') : advance, counterRoute() ? '次へ' : '戦いへ戻る');
 }
 function kamiLose() { B = null; kami().outcome = 'taken'; ending('kamiTaken'); }
 function kamiPactClimax() {
@@ -240,7 +240,7 @@ function kamiPactClimax() {
   if (c.ok) {
     k.outcome = 'pact'; addLog('天降大神と契りを結び直し、山の守り人となる。');
     return { text: [c.text, kamiR({ shirou: '祠の前に膝をつき、誓った。「花嫁はいらない。誰も、山に差し出させない。――これからは、俺がこの山を守る」', fuji: '祠の前に膝をつき、あなたは誓った。「花嫁はいらない。この街の日常は、私が守る。――ここで」', normal: '祠の前に膝をつき、あなたは誓った。「花嫁はいらない。――これからは、私がこの山を守る」' }),
-      '長い沈黙の後、大狼は、あなたの額に鼻先を寄せた。「……かつて、同じことを言った童がいた。良かろう。契りを、結び直そう」'], then: () => ending('kamiBride') };
+      '長い沈黙の後、大狼は、あなたの額に鼻先を寄せた。「……かつて、同じことを言った童がいた。良かろう。契りを、結び直そう」'], then: () => counterRoute() ? counterStart('pact') : ending('kamiBride') };
   }
   return { text: [c.text, '誓いの言葉は、霧に呑まれた。荒魂が、牙を剥く。「――足りぬ。人の子の覚悟では、足りぬ」'], then: () => kamiBattle('pact') };
 }
@@ -367,7 +367,7 @@ function kamiEndingTexts(sv) {
     kamiBride: () => ({ title: '終幕：山の守り人', text: ['<p>あなたは、聖杯戦争を降りた。令呪は教会に預けられ、右手には、山の神の痣だけが残った。</p>',
       `<p>${s}は、去り際に言った。</p><p class="quote">${farewellLine(sv)}</p>`,
       `<p>霧が晴れ、${CAST.miko}と消えた人々が山から帰ってきた。白い大狼は、二度と花嫁を求めなかった。――代わりに、毎朝、祠に参る一人の守り人がいる。</p>`,
-      kamiRoute() === 'normal' && typeof mikoReunion === 'function' ? mikoReunion('bride') : '',
+      kamiRoute() === 'normal' && typeof mikoReunion === 'function' && !G.flags.counter ? mikoReunion('bride') : '', typeof counterBrideLine === 'function' ? counterBrideLine() : '',
       '<p>聖杯の行方は、誰も知らない。あなたはもう、それを知りたいとも思わなかった。</p>',
       kamiR({ shirou: '<p>冬木から、遠坂が飛んできた。「この、大馬鹿！ ……あんたって人は、いつもそう！」――怒鳴りながら泣いている遠坂の後ろで、桜が、黙って祠に手を合わせていた。</p>', fuji: '<p>かつての旅の仲間たちに、手紙を書いた。「日常を守ることにした。ちょっと、変わった形で」――返事は、山ほど届いた。</p>', normal: '' })] }),
     kamiReturn: () => ({ title: '終幕：山へ還る杯', text: ['<p>「――この聖杯は、山から借りたものだ。返そう」</p>', '<p>黄金の杯を、天降山の祠に捧げた。杯は光の粒となって、霊脈の中へ溶けていった。</p>',
@@ -434,14 +434,14 @@ const EPI_KAMI_SHIROU = { y: 3, title: '冬木からの客', text: () => '三度
     { label: '「心配かけて、ごめん」と頭を下げる', hint: '絆↑↑', run: () => epiGain({ bond: 2, joy: 1 }, '遠坂と桜に、心配をかけたことを詫びた') || '「……謝るくらいなら、最初からしないの」遠坂はそう言って、あなたの額を指で弾いた。桜は、少しだけ泣いていた。' },
   ] };
 // 他の人生に差し込む章：祟りを鎮めた・神を討った・杯を還した人生
-const EPI_KAMI_FEST = { y: 10, title: '天降の祭り', skip: () => !(G.flags.kamiCalm || /^kami(Slain|Return)$/.test(G.epi.kind)),
+const EPI_KAMI_FEST = { y: 10, title: '天降の祭り', skip: () => !(G.flags.kamiCalm || /^kami(Slain|Return|Wedge)$/.test(G.epi.kind)),
   text: () => `毎年冬、天降神社では新しい祭りが開かれるようになった。${G.flags.kamiCalm ? '鎮魂の神楽' : /Slain/.test(G.epi.kind) ? '神を送る祭り' : '杯を還した日を祝う祭り'}。${CAST.miko}が舞い、街の人々が山を見上げる。<br>` +
     (G.flags.kamiCalm || /Return/.test(G.epi.kind) ? '霧の向こうで、白い大狼が、退屈そうに欠伸をしている気がした。' : '山は静かだ。もう、誰の声もしない。'),
   choices: [
     { label: '祭りの手伝いをする', hint: '遺したもの↑', run: () => epiGain({ legacy: 2, joy: 1 }, '天降の祭りを手伝った') || '屋台を組み、提灯を吊るし、子どもたちに山の神の昔話を聞かせた。' },
     { label: '祠に、一人で参る', hint: '絆↑', run: () => epiGain({ bond: 2, joy: 1 }, '天降の祠に参った') || '祭りの喧騒から離れて、祠の前で手を合わせた。冷たい風が、頬を撫でていった。' },
   ] };
-function kamiEpiSteps(track) { if (!kamiNormal() || /^kishi_|^kami_/.test(track)) return []; if (!(G.flags.kamiCalm || (G.epi && /^kami(Slain|Return)$/.test(G.epi.kind)))) return []; return [EPI_KAMI_FEST]; }
+function kamiEpiSteps(track, kind) { if (!kamiNormal() || /^kishi_|^kami_/.test(track)) return []; if (kind === 'kamiFray') return [EPI_KAMI_FRAY]; if (!(G.flags.kamiCalm || /^kami(Slain|Return|Wedge)$/.test(kind || ''))) return []; return [EPI_KAMI_FEST]; }
 
 EPI.kami_keeper = EPI_KAMI;
 

@@ -33,7 +33,7 @@ function statusLine() {
     <div><span>オド</span><b>${G.master.od}</b><em>/${odMax()}</em></div>
     <div class="wide"><span>陣地</span>Lv${G.workshop}・罠${G.traps}　<span>道具</span>${items}</div>
     ${soulStatusHTML()}
-    ${kamiStatusHTML()}${typeof skStatusHTML === 'function' ? skStatusHTML() : ''}
+    ${kamiStatusHTML()}${typeof skStatusHTML === 'function' ? skStatusHTML() : ''}${typeof counterStatusHTML === 'function' ? counterStatusHTML() : ''}
   </div>`;
 }
 // 行動の結果を表示して、コマを進める
@@ -122,6 +122,7 @@ function warDayActions() {
   const allyTargets = hostileRivals().filter(r => r.intel >= 1);
   if (allyTargets.length && hostileRivals().length >= 3 && !aliveRivals().some(r => r.ally) && !(G.soul && G.soul.exposed))
     acts.push({ label: '同盟を持ちかける', hint: '交渉判定・一時休戦', fn: allianceMenu });
+  if (typeof counterOn === 'function' && counterOn()) acts.push({ label: '存在の楔を打つ', hint: `抑止の守護者まで・楔${wedgeCount()}/4`, icon: 'ritual', cls: 'primary', fn: wedgeMenu });
   if (kamiOn() && !kamiResolved()) acts.push({ label: '山の異変を追う', hint: `天降の祟り・手がかり${kami().ev}${kami().path ? '・' + KAMI_PATHS[kami().path] : ''}`, icon: 'scout', cls: 'primary', fn: kamiMenu });
   if (mikoVisitable()) acts.push({ label: `${CAST.miko}に会いに行く`, hint: '雫との関係↑・魔力・精神↑', icon: 'bond', fn: mikoVisit });
   if (friendVisitable()) acts.push({ label: `${friendName()}に会いに行く`, hint: skOn() ? '心の灯↑・精神↑' : '幼馴染との友情↑・精神↑', icon: 'bond', fn: skOn() ? skVisit : friendVisit });
@@ -248,6 +249,7 @@ function warNightActions() {
   if (soulAllowed() && !soulOn()) acts.push({ label: '魂喰いを命じる', hint: '悪・混沌の在り方ゆえの禁じ手。毎コマ回復・発覚の危険', cls: 'danger', icon: 'mag', fn: soulStartScene });
   acts.push(
     ...(kamiOn() && !kamiResolved() ? [{ label: '山の異変を追う', hint: '夜だけ踏み込める場所がある', icon: 'scout', fn: kamiMenu }] : []),
+    ...(typeof counterOn === 'function' && counterOn() ? [{ label: '存在の楔を打つ', hint: `抑止の守護者まで・楔${wedgeCount()}/4`, icon: 'ritual', cls: 'primary', fn: wedgeMenu }] : []),
     { label: '拠点で迎え撃つ', hint: `陣地Lv${G.workshop}・罠${G.traps}で待ち構える`, fn: defendBase },
     { label: `${SV()}と語らう`, hint: G.servant.bond >= 70 && !G.servant.special ? '何かが起きそうだ' : relationEvent() ? `絆↑・「${RELATIONS[G.servant.special].name}」の出来事が起きるかも` : '絆↑', fn: nightTalk },
     bondLinked()

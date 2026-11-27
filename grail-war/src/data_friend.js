@@ -300,7 +300,7 @@ STORY.push(
     ] },
   // ---- 10日目の夜：堕ちる友 ----
   { id: 'fr_fall', phase: 'war', day: 10, slot: 1, after: 'advance',
-    cond: () => !(typeof skOn === 'function' && skOn()) && frNormal() && frAlive() && !G.flags.frKnowsTruth && !G.flags.frOtherWay && !G.flags.frPrevented,
+    cond: () => !G.flags.counter && !(typeof skOn === 'function' && skOn()) && frNormal() && frAlive() && !G.flags.frKnowsTruth && !G.flags.frOtherWay && !G.flags.frPrevented,
     title: '堕ちる友',
     text: () => { const r = frRival();
       return `${frWish().worse.replace(/。$/, '')}――あの知らせから、${friendName()}は変わってしまった。<br>深夜の病院の裏手。眠る人々の窓の下で、${r.cls}のサーヴァントが、生命力を吸い上げていた。<b>魂喰い</b>だ。<br>その傍らで、${friendName()}が振り返った。目の下には、深い隈が刻まれている。<br>` +

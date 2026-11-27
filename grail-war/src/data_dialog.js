@@ -225,7 +225,7 @@ function mikoConfession(then) {
 // =============================================================
 //  最後の会話（英霊が去る結末の前に）
 // =============================================================
-const LAST_TALK_KINDS = ['skCut', 'skBear', 'skReturn', 'skKill', 'none', 'wishPure', 'servantWish', 'destroy', 'destroySpecial', 'destroyPure', 'beastSlain', 'abstain', 'friendWish', 'yield', 'kamiSlain', 'kamiReturn', 'kamiBride'];
+const LAST_TALK_KINDS = ['kamiWedge', 'skCut', 'skBear', 'skReturn', 'skKill', 'none', 'wishPure', 'servantWish', 'destroy', 'destroySpecial', 'destroyPure', 'beastSlain', 'abstain', 'friendWish', 'yield', 'kamiSlain', 'kamiReturn', 'kamiBride'];
 const LAST = {
   open: { polite: '「……どうやら、ここまでのようです。{call}、最後に少しだけ、お話ししてもよろしいですか」', regal: '「……時間か。{m}、最後だ。少し付き合え」',
     rough: '「……あー、時間切れみてえだな。最後に、ちょっとだけ話そうぜ」', cool: '「……もう、時間がないらしい。最後に、少しだけ話をしよう」',
@@ -253,7 +253,7 @@ function lastTalkLead(kind) {
     servantWish: `${s}の願いを乗せた光が、夜空へ昇っていく。`, none: '聖杯は、誰の手にも渡らぬまま、静かに光を失っていく。',
     beastSlain: '白い大蛇が崩れ去り、天降山の頂には、空っぽの杯だけが残された。', abstain: '教会の前で、令呪を預ける時が来た。',
     friendWish: `聖杯の光が、${fn}の願いを乗せて昇っていく。`, yield: `聖杯は、${fn}の手に渡った。もう、戦う理由はない。`,
-    kamiSlain: '白い大狼の遠吠えが、霧と共に消えていった。', kamiReturn: '黄金の杯が、光の粒になって霊脈に溶けていく。',
+    kamiSlain: '白い大狼の遠吠えが、霧と共に消えていった。', kamiWedge: '空の亀裂が閉じていく。天降山の頂に、正しく降りた聖杯の光が満ちていた。', kamiReturn: '黄金の杯が、光の粒になって霊脈に溶けていく。',
     kamiBride: '聖杯戦争を降りると決めた。令呪を返す前の、最後の夜明け。',
   })[kind] + (['abstain', 'kamiBride', 'yield'].includes(kind) ? `<br>契約が解かれれば、${s}はこの世に留まれない。` : `<br>${s}の体が、足元から、少しずつ光の粒にほどけ始めていた。`);
 }

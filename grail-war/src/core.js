@@ -46,7 +46,7 @@ function wpick(items, wf) {
   return items[items.length - 1];
 }
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS, BEAST8, KAMI, SAKURA_CUP], ENFORCERS).map(s => [s.id, s]));
+const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS, BEAST8, KAMI, SAKURA_CUP, COUNTER_GUARDIAN], ENFORCERS).map(s => [s.id, s]));
 
 // ---------------- 名前・参照 ----------------
 function M() { return esc(G.master.name); }
@@ -270,8 +270,9 @@ function startSlot() {
   if (G.phase === 'war') {
     if (needWish()) return wishScene(startSlot);   // 聖杯戦争の始まりに、聖杯への願いを選ぶ（data_align.js）
     if (typeof skOn === 'function' && skOn() && frRival() && frRival().alive && hostileRivals().length === 0) skDevour();   // 幼馴染ルート：残るのが幼馴染の陣営だけなら、桜に呑まれる
-    if (aliveRivals().length === 0) return victoryScene();
-    if (hostileRivals().length === 0) return breakAlliance();
+    const hold = typeof counterHold === 'function' && counterHold();   // 雫ルート：抑止の守護者との決戦までは終わらない（data_counter.js）
+    if (aliveRivals().length === 0 && !hold) return victoryScene();
+    if (hostileRivals().length === 0 && !hold) return breakAlliance();
   }
   if (!SLOT.news && G.news.length && G.slot === 0) {
     SLOT.news = true;

@@ -349,7 +349,7 @@ const STORY = [
 
   // ===================== 第三幕「降臨」 =====================
   {
-    id: 's_eveFinal', phase: 'war', day: 10, slot: 1, after: 'hub',
+    id: 's_eveFinal', phase: 'war', day: 10, slot: 1, after: 'hub', cond: () => !G.flags.counter,
     title: '決戦前夜', chapter: '第三幕　降臨',
     text: () => `天降山の頂が、夜空にうっすらと光っている。聖杯の降臨が近い。<br>拠点の屋根の上で、${SV()}が月を見上げていた。隣に座ると、${SV()}はぽつりと言った。<br><p class="quote">${tierLine()}</p>${say('askResolve')}`,
     choices: [
