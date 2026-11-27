@@ -413,9 +413,10 @@ function nightTalk() {
 function specialEvent() {
   const per = PERSONAS[servantOf(G).persona];
   const choices = Object.entries(RELATIONS).filter(([k]) => k !== 'lover' || canBeLover(servantOf(G))).map(([k, r]) => ({
-    label: relationText(k, servantOf(G)).verb, hint: k === 'lover' && typeof frLover === 'function' && frLover() ? `関係：${r.name}・幼馴染の${friendName()}とは別れることになる` : `関係：${r.name}`, fn: () => {
+    label: relationText(k, servantOf(G)).verb, hint: k === 'lover' && typeof frLover === 'function' && frLover() ? `関係：${r.name}・幼馴染の${friendName()}とは別れることになる` : k === 'lover' && typeof mkLover === 'function' && mkLover() ? `関係：${r.name}・${CAST.miko}とは別れることになる` : `関係：${r.name}`, fn: () => {
       G.servant.special = k; NOTES = []; bond(10);
       if (k === 'lover' && typeof frLover === 'function' && frLover()) { frSetRel('friend', '別れ'); friend(-35); note(`<span class="note">${friendName()}に、別れを告げた。「${fg('……そっか。ああ、分かってた', '……そっか。うん、分かってた')}」電話の向こうの声は、最後まで泣かなかった。</span>`); }
+      if (k === 'lover' && typeof mkLover === 'function' && mkLover()) { mkSetRel('known', '別れ'); mk(-35); note(`<span class="note">${CAST.miko}に、別れを告げた。「……そっか。分かってました。${mkCall()}の目、ずっと、あの人を追いかけてたから」鈴の音が、一度だけ、震えるように鳴った。</span>`); }
       addLog(`${servantOf(G).name}と「${r.name}」の関係になる。`);
       next('特別な関係', [`<p>${fmt(relationText(k, servantOf(G)).text)}</p>`, `<p class="note">${SV()}と<b>「${r.name}」</b>になった。戦闘で絆の力が働き、エンディングにも影響する。</p>`,
         ...paras(takeNotes())], advance);

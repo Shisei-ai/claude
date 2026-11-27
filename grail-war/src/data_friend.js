@@ -72,7 +72,7 @@ function frRelPending() {
 }
 function frRelCheck(then) { const k = frRelPending(); if (!k) return then(); frRelScene(k, then); }
 function frRelScene(kind, then) {
-  const n = friendName(); const war = G.phase === 'war'; const svLover = !!(G.servant && G.servant.special === 'lover');
+  const n = friendName(); const war = G.phase === 'war'; const svLover = typeof otherLover === 'function' ? otherLover('friend') : (G.servant && G.servant.special === 'lover' ? SV() : null);   // ほかのヒロイン（英霊・雫）と恋人なら、想いは伝えられない
   const done = (title, lines) => { NOTES = []; next(title, paras([...lines, ...takeNotes()]), then); };
   if (kind === 'cut') {
     const was = frRel();
@@ -97,7 +97,7 @@ function frRelScene(kind, then) {
   const heart = !!G.flags.friendHeart;
   const choices = [];
   choices.push(svLover
-    ? { label: '想いを伝える', hint: `心はもう、${SV()}に向いている`, disabled: true, fn: () => {} }
+    ? { label: '想いを伝える', hint: `心はもう、${svLover}に向いている`, disabled: true, fn: () => {} }
     : { label: heart ? '「あの日の答え、ちゃんと言わせて」' : '想いを伝える', hint: '関係：恋人', fn: () => { frSetRel('lover'); friend(10); done('想い', [
         `「好きだ」――その一言を言うのに、ずいぶん遠回りをした。`, fg(`${n}は真っ赤になって目を逸らし、それから、あなたの手を強く握った。「……遅えよ、ばか。俺から言おうと思ってたのに」`, `${n}は真っ赤になって、それから、あなたの胸に額を押し当てた。「……遅いよ、ばか」`),
         `<span class="note">${n}と<b>「恋人」</b>になった。</span>`]); } });

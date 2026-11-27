@@ -400,11 +400,15 @@ const EPI_KAMI = [
       { label: '神に、街の話を聞かせる', hint: '絆↑', run: () => epiGain({ bond: 2, joy: 1 }, '山の神に、街の話を聞かせた') || '商店街の福引のこと、新しくできたパン屋のこと。大狼は、退屈そうな顔で、最後まで聞いていた。' },
       { label: '山の手入れをする', hint: '遺したもの↑', run: () => epiGain({ legacy: 2 }, '山の手入れを続けた') || '倒木を片付け、獣道を整え、削られた森に苗木を植えた。百年後、ここは森に戻るだろう。' },
     ] },
-  { y: 5, title: '巫女の祝言', text: () => `${CAST.miko}が、結婚することになった。花嫁衣装で祠に挨拶に来た${CAST.miko}は、少し泣いていた。「……あなたが代わってくれなかったら、わたしは、この日を迎えられなかった」` +
-      (G.flags.mkKeeper ? `<br>「でも、結婚しても、巫女はやめませんから。――相棒の守り人を、一人にはしません」` : typeof mkMet === 'function' && mkMet() && mkRel() === 'sister' ? `<br>「${mkCall()}。……今度は、ちゃんと人のお嫁さんになるね」` : ''),
+  { y: 5, title: '巫女の祝言', text: () => (typeof mkLover === 'function' && mkLover()
+      ? `祠の前で、${CAST.miko}と祝言を挙げた。参列したのは、麓から登ってきた数人と、霧の中で寝そべる白い大狼だけだった。<br>白無垢の${CAST.miko.split(' ').pop()}が、大狼に向かって頭を下げた。「……あの冬は、あなたの花嫁になりかけましたけど。ごめんなさい。わたし、この人のお嫁さんになります」<br>大狼は、鼻を鳴らした。「――好きにせよ。守り人の連れ合いなら、山の身内だ」`
+      : `${CAST.miko}が、結婚することになった。花嫁衣装で祠に挨拶に来た${CAST.miko}は、少し泣いていた。「……あなたが代わってくれなかったら、わたしは、この日を迎えられなかった」`) +
+      (typeof mkLover === 'function' && mkLover() ? '' : G.flags.mkKeeper ? `<br>「でも、結婚しても、巫女はやめませんから。――相棒の守り人を、一人にはしません」` : typeof mkMet === 'function' && mkMet() && mkRel() === 'sister' ? `<br>「${mkCall()}。……今度は、ちゃんと人のお嫁さんになるね」` : ''),
     choices: [
-      { label: '神と共に、祝福を贈る', hint: '幸福↑↑', run: () => epiGain({ joy: 3 }, '巫女の祝言を、山の神と共に祝った') || '霧の中から、白い花びらが降ってきた。季節外れの、山桜だった。' },
-      { label: '「幸せに」とだけ伝える', hint: '絆↑', run: () => epiGain({ bond: 2, joy: 1 }, '巫女の門出を見送った') || `${CAST.miko}は、何度も振り返りながら、石段を下りていった。` },
+      { label: () => typeof mkLover === 'function' && mkLover() ? '二人で、神に誓う' : '神と共に、祝福を贈る', hint: '幸福↑↑', run: () => { if (typeof mkLover === 'function' && mkLover()) { G.epi.mkSpouse = true; G.epi.newLove = true; }
+          return epiGain({ joy: 3 }, typeof mkLover === 'function' && mkLover() ? `${CAST.miko}と、祠の前で結婚した` : '巫女の祝言を、山の神と共に祝った') || '霧の中から、白い花びらが降ってきた。季節外れの、山桜だった。'; } },
+      { label: () => typeof mkLover === 'function' && mkLover() ? '「これからも、二人で山を守ろう」' : '「幸せに」とだけ伝える', hint: '絆↑', run: () => { if (typeof mkLover === 'function' && mkLover()) { G.epi.mkSpouse = true; G.epi.newLove = true; }
+          return epiGain({ bond: 2, joy: 1 }, typeof mkLover === 'function' && mkLover() ? `${CAST.miko}と、二人で山を守ると誓った` : '巫女の門出を見送った') || (typeof mkLover === 'function' && mkLover() ? `「はい。……ずっと、二人で」${CAST.miko.split(' ').pop()}の手首で、古い鈴が、ちりんと鳴った。` : `${CAST.miko}は、何度も振り返りながら、石段を下りていった。`); } },
     ] },
   { y: 20, title: '若い魔術師', text: () => '山に、迷い込んだ若い魔術師がいた。霊脈を盗もうとしていたらしい。<br>大狼が、低く唸った。「……守り人。どうする」',
     choices: [
