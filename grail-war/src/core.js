@@ -364,6 +364,7 @@ function drawEvent(forceTime) {
 }
 // after：結果を読んだ後に進む先（advance＝コマを使い切る / startSlot＝行動選択へ）
 function showEvent(ev, after = advance) {
+  if (ev.dialog) return ev.dialog(after);   // 会話で進む出来事（data_dialog.js）
   G.used[ev.id] = true;
   const text = typeof ev.text === 'function' ? ev.text() : ev.text;
   const choices = ev.choices

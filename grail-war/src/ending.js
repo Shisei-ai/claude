@@ -16,6 +16,7 @@ function siegeScene(r) {
 function finalBattleIntro() {
   const r = aliveRivals()[0];
   r.ally = false;
+  if (r.friend && frNormal() && !G.flags.frShowdown && typeof friendShowdown === 'function') return friendShowdown(r, finalBattleIntro);   // 幼馴染と言葉を交わしてから（data_dialog.js）
   const choices = [{ label: '最後の戦いへ', cls: 'primary', fn: () => startBattle(r, { final: true }) }];
   if (r.friend && frNormal()) { r.quote = friendFinalQuote(r); choices.push(...friendFinalChoices(r)); }   // 最後の敵が幼馴染（data_friend.js）
   if (G.items.crystal || G.items.potion) choices.unshift({ label: '道具で万全を期す', hint: '魔力結晶・霊薬を使ってから戦う', fn: () => {
@@ -26,7 +27,7 @@ function finalBattleIntro() {
   scene({ title: '天降山', sub: '第三幕　降臨', body: [
     '<p>残る陣営は、あと一つ。天降山の頂、霊脈の集う古社の境内に、聖杯の器が姿を現しつつある。</p>',
     `<p>雪の舞う石段を登りきると、最後の敵が待っていた。${rivalLabel(r)}陣営――マスター、${esc(r.master)}。</p>`,
-    `<p class="quote">「${r.quote}」</p>`,
+    r.friend && G.flags.frShowdown ? `<p>言葉は、もう尽きた。${friendName()}が、令呪の刻まれた右手を掲げる。</p>` : `<p class="quote">「${r.quote}」</p>`,
     `<p class="quote">${highLine()}</p>`,
     `<p class="note">${SV()} HP ${G.servant.hp}/${servantHpMax()}・魔力 ${G.servant.mp}　敵HP ${r.hp}/${r.hpMax}　撤退はできない。</p>`,
   ], choices });
@@ -44,6 +45,7 @@ function deadlineScene() {
 function victoryScene() {
   if (isBeast()) return beastReveal();   // 第三の真相：聖杯に寄生していた人類悪が姿を現す
   G.phase = 'end';
+  if (G.servant && !G.flags.grailTalkDone && typeof grailTalk === 'function') return grailTalk(victoryScene);   // 願う前に、英霊と言葉を交わす（data_dialog.js）
   const sv = servantOf(G); const b = birthOf();
   const choices = [];
   // 聖杯を壊す：真相を知っていれば迷いなく。知らなければ、疑いだけを頼りに賭けることになる
@@ -56,7 +58,7 @@ function victoryScene() {
   choices.push({ label: `「${masterWish()}」を願う`, hint: 'マスターの願い', fn: () => ending(G.flags.grailTruth ? 'wishKnown' : isCursed() ? 'wish' : 'wishPure') });
   choices.push({ label: '何も願わない', fn: () => ending('none') });
   scene({ title: '聖杯降臨', sub: '第三幕　降臨', body: [
-    '<p>最後の敵が消え、天降山の頂に黄金の杯が降りてきた。万能の願望機――聖杯。</p>',
+    G.flags.grailTalkDone ? '<p>黄金の杯が、目の前にある。手を伸ばせば、届く距離に。</p>' : '<p>最後の敵が消え、天降山の頂に黄金の杯が降りてきた。万能の願望機――聖杯。</p>',
     G.flags.grailTruth ? '<p>だが、あなたは知っている。その黄金の内側には、六十年分の呪いが渦巻いていることを。</p>'
       : G.flags.grailPure ? '<p>澄みきった光だった。調べ上げた真実が、この杯に偽りはないと告げている。</p>'
         : G.flags.grailHint ? '<p>その輝きは眩い。……けれど、杯の底に何が眠っているのか、あなたは確かめていない。</p>'

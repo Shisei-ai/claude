@@ -17049,6 +17049,117 @@ function lastTalk(kind, then) {
 }
 
 // =============================================================
+//  決戦前夜（data_story.js の s_eveFinal を、会話で進める）
+// =============================================================
+const EVE = {
+  open: { polite: '「……明日で、すべてが決まりますね」', regal: '「……明日で終いか。長いようで、短い冬だった」', rough: '「……明日で、全部終わりか。なんか、あっという間だったな」',
+    cool: '「……明日で、すべてが終わる。不思議と、静かな気分だ」', bright: '「……明日で、終わりなんだね。なんか、変な感じ」', old: '「……明日で終いじゃな。良い冬じゃった。――いや、まだ終わってはおらんか」',
+    mute: '{s}は、天降山の光を、じっと見つめていた。その横顔が、いつもより静かだった。' },
+  rep: {
+    fear: { polite: '「……それでいいのです。恐れを知る者だけが、本当の勇気を持てる。{I}が、隣にいます」', regal: '「恐れるか。それで良い。恐れを知らぬ者は、ただの愚者だ。――案ずるな、{I}がいる」',
+      rough: '「へっ、正直でいいじゃねえか。怖えのは当たり前だ。だから、{I}がいるんだろ」', cool: '「……恐れは、生きたいという意志の裏返しだ。それがある限り、{you}は負けない」',
+      bright: '「……うん。{I}も、ちょっとだけ怖い。だから、手、つないでてもいい？」', old: '「怖れてよい。怖れを抱えたまま、それでも進む。それを勇気と呼ぶのじゃ」',
+      mute: '{s}は、あなたの肩に、大きな手を置いた。その重さが、不思議と心強かった。' },
+    law: { polite: '「……ええ。{you}は最初から、ずっとそうでした。だから、{I}は{you}の剣でいられたのです」', regal: '「筋か。王の前でそれを言える者は少ない。……最後まで通してみせよ」',
+      rough: '「筋、ねえ。……お前らしいや。最後まで付き合ってやるよ」', cool: '「最後まで筋を通す、か。……{you}がそう言うなら、{I}も迷わずに済む」',
+      bright: '「うん。{call}は、ずっとまっすぐだったもんね」', old: '「うむ。筋を通す者は、最後に強い。……見ておるぞ」', mute: '{s}が、深く、ゆっくりと頷いた。' },
+    chaos: { polite: '「……ふふ。{you}という人は、最後の夜まで変わりませんね」', regal: '「明日のことは明日、か。豪胆だな。――良い。今宵は、月を肴にしよう」',
+      rough: '「ははっ、違いねえ。今夜くらい、明日のことは忘れようぜ」', cool: '「……そうだな。今夜は、ここにいよう」',
+      bright: '「さんせー！ 今夜は、明日の話禁止ね！」', old: '「ほっほ。若い者はそれで良い。今宵は、ただ月を見よう」', mute: '{s}は、ごろりと屋根に寝転がって、夜空を見上げた。' },
+    mid: { polite: '「……ええ。とても」', regal: '「……ああ。悪くない月だ」', rough: '「……だな」', cool: '「……ああ。きれいだ」', bright: '「……うん。きれい」', old: '「……うむ。良い月じゃ」', mute: '{s}は、目を細めて、月を見上げた。' },
+    good: { polite: '「……{you}は、最後まで誰かのために戦うのですね。ならば{I}は、その願いを守る盾になりましょう」', regal: '「誰も泣かぬように、か。甘い。……だが、その甘さを通すのが王の器というものだ」',
+      rough: '「……ったく、お人好しめ。いいぜ、誰も泣かせねえように、暴れてやる」', cool: '「誰も泣かずに済むように……。難しい願いだ。だが、{you}となら、届く気がする」',
+      bright: '「うん！ みんな笑って終われるように、がんばろ！」', old: '「誰も泣かぬように、か。……優しい主に仕えたものじゃ」', mute: '{s}の瞳に、静かな炎が灯った。' },
+    evil: { polite: '「……全部、ですか。欲深いことを。――ですが、{I}は{you}の剣。望むなら、すべてを切り拓きましょう」', regal: '「全てを手に入れる、か。良い。それでこそ{I}の主だ」',
+      rough: '「全部かよ。……へっ、いいね。欲張りなマスターは嫌いじゃねえ」', cool: '「全部、か。……正直だな。いいだろう。{I}が、それを掴ませる」',
+      bright: '「全部！ 欲張りだなあ。……でも、いいよ。{I}が、取ってきてあげる」', old: '「ほっほ、欲深いことよ。……じゃが、その欲が、明日の力になろう」', mute: '{s}が、獰猛に笑ったように見えた。' },
+  },
+};
+function eveClose() {
+  const s = SV(); const k = G.servant.special; const p = bondPair(servantOf(G)); const child = CHILDREN.has(G.servant.id);
+  if (k === 'lover') return { mf: `屋根の上で、${s}があなたの肩に頭を預けてきた。そのまま、二人で夜明けを待った。`, fm: `${s}の外套の中で、あなたは少しだけ眠った。目を覚ますと、${s}は一晩中、同じ姿勢のまま月を見ていたらしかった。`, mm: '二人は背中合わせに座って、夜を越した。背中の温もりだけで、十分だった。', ff: '一枚の毛布を分け合って、二人で夜明けを待った。', n: '肩を寄せ合って、夜明けを待った。' }[p];
+  if (k === 'partner') return '明日の作戦を、もう一度だけ確かめ合った。言葉より先に、互いの考えが分かった。';
+  if (k === 'oath') return `${s}は、一晩中、あなたの傍らで見張りに立っていた。振り返るたびに、目が合った。`;
+  if (k === 'family') return child ? `${s}は、あなたの膝の上で丸くなって、いつの間にか眠ってしまった。` : `「早く寝ろ」と言われて、子どものように毛布を掛けられた。`;
+  return '夜明けまで、二人は黙って月を見ていた。';
+}
+function eveTalk(ev, after) {
+  G.used[ev.id] = true;
+  const L = myLaw(), Gd = myGood();
+  const first = [{ label: '「怖くないって言ったら、嘘になる」', reply: () => [vl(EVE.rep.fear)] },
+    { label: L === 'law' ? '「最後まで、筋は通す」' : L === 'chaos' ? '「明日のことは、明日考える。今夜は、ここにいよう」' : '「……月、きれいだね」', hint: L === 'mid' ? '' : `${L === 'law' ? '秩序' : '混沌'}の言葉`, reply: () => [vl(EVE.rep[L])] }];
+  if (Gd !== 'mid') first.push({ label: Gd === 'good' ? '「明日、誰も泣かずに済むようにしたい」' : '「明日、全部手に入れる」', hint: `${Gd === 'good' ? '善' : '悪'}の言葉`, reply: () => [vl(EVE.rep[Gd])] });
+  const resolve = ev.choices.map(c => ({ ...c, reply: () => { const r = c.run(); return [/^「/.test(c.label) ? meSay(c.label.replace(/^「|」$/g, '')) : '', ...[].concat(r && r.text !== undefined ? r.text : r)]; }, run: undefined }));
+  dialog({ title: ev.title, sub: ev.chapter, then: after, steps: [
+    { text: () => [`天降山の頂が、夜空にうっすらと光っている。聖杯の降臨が近い。<br>拠点の屋根の上で、${SV()}が月を見上げていた。隣に座ると、${SV()}はぽつりと言った。`, svSay(tierLine()), vl(EVE.open)], choices: first },
+    { text: () => [say('askResolve') || `<p>${SV()}が、あなたを見た。――覚悟を、問われている。</p>`], choices: resolve },
+    { text: () => [`<p>${eveClose()}</p>`] },
+  ] });
+}
+{ const ev = STORY.find(s => s.id === 's_eveFinal'); if (ev) ev.dialog = after => eveTalk(ev, after); }
+
+// =============================================================
+//  幼馴染との決着（ending.js の finalBattleIntro から、戦いの前に）
+// =============================================================
+function friendShowdown(r, then) {
+  G.flags.frShowdown = true;
+  const n = friendName(); const rel = frRel(); const L = myLaw(), Gd = myGood(); const w = frWish();
+  const by = o => G.flags.frBetrayed ? (o.cut || o.friend) : (o[rel] ?? o.friend);
+  const choices = [
+    { label: '「……戦いたくない」', reply: () => [meSay('……戦いたくない'), svSay(by({ lover: fg('「……俺だって、戦いたくねえよ」', '「……わたしだって、戦いたくないよ」'), best: fg('「……知ってる。お前は、昔からそうだ」', '「……知ってる。あなたは、昔からそうだった」'), cut: '「……今さら、何。……そういうところが、嫌いだった」', friend: fg('「……ああ。でも、ここまで来ちまったから」', '「……うん。でも、ここまで来ちゃったから」') })),
+      `<p>${n}の声は、${rel === 'cut' || G.flags.frBetrayed ? 'ほんの少しだけ、揺れていた' : '震えていた'}。</p>`] },
+    { label: '「全力で来い。こっちも、全力で行く」', reply: () => [meSay('全力で来い。こっちも、全力で行く'), svSay(by({ lover: fg('「……ばか。そういうとこが、好きなんだよ」', '「……ばか。そういうところが、好きなんだよ」'), best: fg('「……おう。それでこそ、親友だ」', '「……うん。それでこそ、親友だね」'), cut: '「……上等」', friend: fg('「……ああ。手加減しねえからな」', '「……うん。手加減しないから」') }))] },
+  ];
+  if (L !== 'mid') choices.push(L === 'law'
+    ? { label: '「約束したよな。正々堂々、って」', hint: '秩序の言葉', reply: () => [meSay('約束したよな。正々堂々、って'), svSay(fg('「……覚えてたのか。ああ、正々堂々だ」', '「……覚えてたんだ。うん、正々堂々ね」'))] }
+    : { label: '「聖杯なんかどうでもいい。君と話がしたい」', hint: '混沌の言葉', reply: () => [meSay('聖杯なんかどうでもいい。君と話がしたい'), svSay(fg('「……どうでもいいって、お前なあ。――俺には、どうでもよくねえんだよ」', '「……どうでもいいって。――わたしには、どうでもよくないの」')), `<p>${n}は、泣きそうな顔で笑った。</p>`] });
+  if (Gd !== 'mid') choices.push(Gd === 'good'
+    ? { label: '「君の願いを、諦めさせたくない」', hint: '善の言葉', reply: () => [meSay('君の願いを、諦めさせたくない'), svSay(fg(`「……${w.who === '自分自身' ? '俺の命' : w.who}のこと、ずっと気にしてくれてたもんな」`, `「……${w.who === '自分自身' ? 'わたしの命' : w.who}のこと、ずっと気にしてくれてたもんね」`)), `<p>${n}の目から、涙が一粒こぼれた。</p>`] }
+    : { label: '「悪いけど、聖杯は渡さない」', hint: '悪の言葉', reply: () => [meSay('悪いけど、聖杯は渡さない'), svSay(fg('「……そうかよ。なら、奪うまでだ」', '「……そっか。なら、奪うまでだよ」')), `<p>${n}の右手で、令呪が赤く光った。</p>`] });
+  dialog({ title: '天降山', sub: '第三幕　降臨', then, steps: [
+    { text: () => [`雪の舞う石段を登りきると、${n}が待っていた。背後に、${r.cls}のサーヴァントが静かに控えている。`, svSay(`「${friendFinalQuote(r).replace(/。$/, '')}」`)], choices },
+    { text: () => [svSay(G.flags.frSakura ? fg('「……なあ。春になったら、また桜、見に行けるかな」', '「……ねえ。春になったら、また桜、見に行けるかな」') : fg('「……なあ。全部終わったら、また前みたいに笑えるかな」', '「……ねえ。全部終わったら、また前みたいに笑えるかな」'))],
+      choices: [
+        { label: '「行こう。どっちが勝っても、必ず」', run: () => friend(5), reply: () => [meSay('行こう。どっちが勝っても、必ず'), `<p>${n}は、子どもの頃と同じ顔で、小指を差し出しかけて――それから、ぎゅっと拳を握った。</p>`, svSay(fg('「……約束だぞ」', '「……約束だよ」'))] },
+        { label: '何も答えられない', reply: () => [`<p>答えの代わりに、白い息だけが、二人のあいだに漂った。</p>`, svSay(fg('「……そっか。お前は、嘘つけねえもんな」', '「……そっか。あなたは、嘘つけないもんね」'))] },
+      ] },
+  ] });
+}
+
+// =============================================================
+//  聖杯の前で（ending.js の victoryScene から、願いを選ぶ前に）
+// =============================================================
+const GRAIL = {
+  open: { polite: '「……これが、聖杯。{I}たちが、追い求めてきたもの」', regal: '「……これが聖杯か。思っていたより、小さいものだな」', rough: '「……これが、聖杯かよ。案外、あっけねえもんだな」',
+    cool: '「……これが、聖杯か。こうして見ると、ただの杯にも見える」', bright: '「……わあ。これが、聖杯……」', old: '「……ほう。これが、皆が命を懸けたものか」', mute: '{s}が、黄金の杯を見上げ、低く唸った。' },
+  ask: { polite: '「{call}。{you}は、何を願うのですか」', regal: '「さあ、{m}。何を望む」', rough: '「で、{call}。何を願うんだ？」', cool: '「{call}。{you}は、何を願う？」', bright: '「ねえ、{call}。何をお願いするの？」', old: '「さて、{call}よ。何を願う」', mute: '{s}が、あなたを振り返った。――問われている。' },
+  rep: {
+    wish: { polite: '「……はい。{you}の願いなら、{I}はそれを見届けます」', regal: '「……そうか。それが、お前の答えか」', rough: '「……へっ、ぶれねえな。お前らしいや」', cool: '「……ああ。最初の朝に聞いた答えと、同じだな」', bright: '「……うん。{call}らしい」', old: '「……うむ。最初から、変わらんのう」', mute: '{s}は、静かに頷いた。' },
+    doubt: { polite: '「迷っても、いいのです。決めるのは{you}です。どんな答えでも、{I}は責めません」', regal: '「迷え。王とて迷う。だが、最後に決めるのは、お前だ」', rough: '「迷ってもいいだろ。ここまで来たんだ、ゆっくり決めろよ」', cool: '「……迷うのは、選べる道があるからだ。急がなくていい」', bright: '「迷ってもいいよ。{I}、待ってるから」', old: '「迷うてよい。迷うて選んだ道なら、悔いは少ない」', mute: '{s}は、急かすこともなく、ただ隣に立っていた。' },
+    you: { polite: '「{I}、ですか。……{you}と「{rel}」として過ごせた。それだけで、もう十分すぎるほどです。――けれど、もし許されるなら」<br>その先は、言葉にならなかった。', regal: '「{I}が、か。……{I}は、{you}と「{rel}」として在れた。それで満ちている。――だが、もし欲を言えば」<br>王は、その先を言わなかった。',
+      rough: '「{I}か？ ……「{rel}」になれただけで、もう十分だよ。――いや、嘘だ。本当は、もうちょっとだけ」<br>そこで、口をつぐんだ。', cool: '「{I}は……「{rel}」として、{you}の隣にいられた。それ以上は望まない。――そう言えたら、よかったんだが」',
+      bright: '「{I}？ ……「{rel}」になれて、すっごく嬉しかった。……ほんとはね、もっと一緒にいたいよ」', old: '「{I}か。……「{rel}」として過ごした冬は、良いものじゃった。――欲を言えば、もう少し、見ていたかったがの」',
+      mute: '{s}は、あなたの手を、そっと握った。それが、答えだった。' },
+    yours: { polite: '「……覚えていてくださったのですね。{I}の、あの願いを」', regal: '「……{I}の願いを、か。――ふ。お前は、最後まで{I}を驚かせる」', rough: '「……{I}の願い、覚えてたのかよ。……ったく」', cool: '「……{I}の願いを。覚えていたのか」', bright: '「……{I}の、願い？ ……覚えててくれたんだ」', old: '「……わしの願いを、か。覚えておったか」', mute: '{s}の目が、大きく見開かれた。' },
+    curse: { polite: '「ええ。……{I}にも分かります。あの底に、黒いものが渦巻いている」', regal: '「ああ。王の目は誤魔化せぬ。あれは、願いを喰らうものだ」', rough: '「ああ。……ありゃあ、ヤバい代物だ。気配で分かる」', cool: '「ああ。……杯の底から、呪いの気配がする」', bright: '「うん……。なんか、すごく、嫌な感じがする」', old: '「うむ。……あれは、願いを歪める器じゃ」', mute: '{s}が、杯に向かって、低く唸り声を上げた。' },
+  },
+};
+function grailTalk(then) {
+  G.flags.grailTalkDone = true;
+  const k = G.servant.special; const rel = k ? RELATIONS[k].name : '';
+  const choices = [
+    { label: '「ずっと決めていた願いがある」', reply: () => [meSay(`ずっと決めていた願いがある。――「${masterWish()}」`), vl(GRAIL.rep.wish)] },
+    { label: '「……正直、迷ってる」', reply: () => [meSay('……正直、迷ってる'), vl(GRAIL.rep.doubt)] },
+  ];
+  if (k) choices.push({ label: '「願いより先に、君に聞きたい。君は、どうしたい？」', hint: `「${rel}」として`, cls: 'primary', reply: () => [meSay('願いより先に、君に聞きたい。君は、どうしたい？'), vl(Object.fromEntries(Object.entries(GRAIL.rep.you).map(([r, t]) => [r, t.replaceAll('{rel}', rel)])))] });
+  if (G.flags.knowWish && !G.flags.grailTruth) choices.push({ label: '「君の願いを、叶えたい」', hint: 'あの夜に聞いた願い', reply: () => [meSay('君の願いを、叶えたい'), vl(GRAIL.rep.yours)] });
+  if (G.flags.grailTruth) choices.push({ label: '「この杯は、呪われている」', hint: '真実を知っている', reply: () => [meSay('この杯は、呪われている'), vl(GRAIL.rep.curse)] });
+  dialog({ title: '聖杯降臨', sub: '第三幕　降臨', then, last: '杯の前へ', steps: [
+    { text: () => ['最後の敵が消え、天降山の頂に、黄金の杯が降りてきた。万能の願望機――聖杯。<br>七騎の英霊が命を懸け、七人のマスターが願いを懸けたものが、今、目の前にある。', vl(GRAIL.open), vl(GRAIL.ask)], choices },
+  ] });
+}
+
+// =============================================================
 //  data_svtalk1.js … 英霊ごとの日常の会話（口調の固有化）
 //
 //  SV_TALK[英霊ID] = { low: [初対面〜], mid: [打ち解けて], high: [絆が深い], talk: [藤丸シナリオ：カルデアの思い出] }
@@ -20373,6 +20484,7 @@ function drawEvent(forceTime) {
 }
 // after：結果を読んだ後に進む先（advance＝コマを使い切る / startSlot＝行動選択へ）
 function showEvent(ev, after = advance) {
+  if (ev.dialog) return ev.dialog(after);   // 会話で進む出来事（data_dialog.js）
   G.used[ev.id] = true;
   const text = typeof ev.text === 'function' ? ev.text() : ev.text;
   const choices = ev.choices
@@ -21859,6 +21971,7 @@ function siegeScene(r) {
 function finalBattleIntro() {
   const r = aliveRivals()[0];
   r.ally = false;
+  if (r.friend && frNormal() && !G.flags.frShowdown && typeof friendShowdown === 'function') return friendShowdown(r, finalBattleIntro);   // 幼馴染と言葉を交わしてから（data_dialog.js）
   const choices = [{ label: '最後の戦いへ', cls: 'primary', fn: () => startBattle(r, { final: true }) }];
   if (r.friend && frNormal()) { r.quote = friendFinalQuote(r); choices.push(...friendFinalChoices(r)); }   // 最後の敵が幼馴染（data_friend.js）
   if (G.items.crystal || G.items.potion) choices.unshift({ label: '道具で万全を期す', hint: '魔力結晶・霊薬を使ってから戦う', fn: () => {
@@ -21869,7 +21982,7 @@ function finalBattleIntro() {
   scene({ title: '天降山', sub: '第三幕　降臨', body: [
     '<p>残る陣営は、あと一つ。天降山の頂、霊脈の集う古社の境内に、聖杯の器が姿を現しつつある。</p>',
     `<p>雪の舞う石段を登りきると、最後の敵が待っていた。${rivalLabel(r)}陣営――マスター、${esc(r.master)}。</p>`,
-    `<p class="quote">「${r.quote}」</p>`,
+    r.friend && G.flags.frShowdown ? `<p>言葉は、もう尽きた。${friendName()}が、令呪の刻まれた右手を掲げる。</p>` : `<p class="quote">「${r.quote}」</p>`,
     `<p class="quote">${highLine()}</p>`,
     `<p class="note">${SV()} HP ${G.servant.hp}/${servantHpMax()}・魔力 ${G.servant.mp}　敵HP ${r.hp}/${r.hpMax}　撤退はできない。</p>`,
   ], choices });
@@ -21887,6 +22000,7 @@ function deadlineScene() {
 function victoryScene() {
   if (isBeast()) return beastReveal();   // 第三の真相：聖杯に寄生していた人類悪が姿を現す
   G.phase = 'end';
+  if (G.servant && !G.flags.grailTalkDone && typeof grailTalk === 'function') return grailTalk(victoryScene);   // 願う前に、英霊と言葉を交わす（data_dialog.js）
   const sv = servantOf(G); const b = birthOf();
   const choices = [];
   // 聖杯を壊す：真相を知っていれば迷いなく。知らなければ、疑いだけを頼りに賭けることになる
@@ -21899,7 +22013,7 @@ function victoryScene() {
   choices.push({ label: `「${masterWish()}」を願う`, hint: 'マスターの願い', fn: () => ending(G.flags.grailTruth ? 'wishKnown' : isCursed() ? 'wish' : 'wishPure') });
   choices.push({ label: '何も願わない', fn: () => ending('none') });
   scene({ title: '聖杯降臨', sub: '第三幕　降臨', body: [
-    '<p>最後の敵が消え、天降山の頂に黄金の杯が降りてきた。万能の願望機――聖杯。</p>',
+    G.flags.grailTalkDone ? '<p>黄金の杯が、目の前にある。手を伸ばせば、届く距離に。</p>' : '<p>最後の敵が消え、天降山の頂に黄金の杯が降りてきた。万能の願望機――聖杯。</p>',
     G.flags.grailTruth ? '<p>だが、あなたは知っている。その黄金の内側には、六十年分の呪いが渦巻いていることを。</p>'
       : G.flags.grailPure ? '<p>澄みきった光だった。調べ上げた真実が、この杯に偽りはないと告げている。</p>'
         : G.flags.grailHint ? '<p>その輝きは眩い。……けれど、杯の底に何が眠っているのか、あなたは確かめていない。</p>'
