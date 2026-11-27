@@ -107,7 +107,8 @@ function bossIntro() {
 }
 
 function ending(kind) {
-  if (typeof lastTalkEligible === 'function' && lastTalkEligible(kind)) return lastTalk(kind, () => ending(kind));   // 英霊が去る前の、最後の会話（data_dialog.js）
+  // 結末の後に続く会話（data_dialog.js）：結末の画面のあと、エピローグの前に、時間の順に流れる
+  const talks = typeof endTalksFor === 'function' ? endTalksFor(kind) : [];
   G.phase = 'end'; clearSave();
   const sv = G.servant ? servantOf(G) : null; const rel = G.servant && G.servant.special ? RELATIONS[G.servant.special] : null;
   const per = sv ? V(sv) : null;
@@ -163,29 +164,31 @@ function ending(kind) {
       '<p>勝者の手に残ったのは、戦いの記憶と、確かに結ばれた絆だけだった。</p>'] }),
   ...(sv ? friendEndingTexts(sv) : {}), ...kamiEndingTexts(sv), ...(typeof skEndingTexts === 'function' ? skEndingTexts(sv) : {}), ...(typeof counterEndingTexts === 'function' ? counterEndingTexts(sv) : {}) }[kind]();
   if (G.flags.lastTalkDone === kind && sv) { const fw = `<p class="quote">${farewellLine(sv)}</p>`; E.text = E.text.filter(t => t !== fw); }   // 最後の言葉は、会話の中で交わした
+  // 世界そのものが呑まれる・消える結末では、その後の人々の一文は添えない（誰も、その春を迎えていないから）
+  const noAfter = ['kamiTaken', 'kamiErased', 'skSleep', 'saturated', 'sealed', 'dead'].includes(kind);
   const ep = friendEpilogueText(kind);
-  if (ep) E.text.push(ep);
+  if (!noAfter && ep) E.text.push(ep);
   const fe = fujiEpilogue(kind);
-  if (fe) E.text.push(fe);
+  if (!noAfter && fe) E.text.push(fe);
   const ke = kishiEpilogue(kind);
-  if (ke) E.text.push(ke);
+  if (!noAfter && ke) E.text.push(ke);
   const se = shirouEpilogue(kind);
-  if (se) E.text.push(se);
-  addLog(E.title); markEnding(kind);
+  if (!noAfter && se) E.text.push(se);
   const me = mysteryEpilogue(kind);
-  if (me) E.text.push(me);
+  if (!noAfter && me) E.text.push(me);
   const le = lifeEpilogue(kind);
-  if (le) E.text.push(le);
+  if (!noAfter && le) E.text.push(le);
   const ee = enforcerEpilogue(kind);
-  if (ee) E.text.push(ee);
+  if (!noAfter && ee) E.text.push(ee);
   const so = soulEpilogue(kind);
-  if (so) E.text.push(so);
+  if (!noAfter && so) E.text.push(so);
   const ke2 = kamiEpilogue(kind);
-  if (ke2) E.text.push(ke2);
+  if (!noAfter && ke2) E.text.push(ke2);
+  addLog(E.title); markEnding(kind);
   const good = !['kamiErased', 'kamiFray', 'skSleep', 'skKill', 'dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure', 'saturated', 'sealed', 'friendRuin', 'kamiTaken'].includes(kind);
   sfx(good ? 'win' : 'lose');
   showCard({ kicker: good ? 'ENDING' : 'BAD END', title: E.title.replace('終幕：', ''), cls: good ? 'dawn' : 'blood', ms: 2200 }, () => {
-    SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good };
+    SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good, talks };
     TAB = 'story'; render();
   });
 }

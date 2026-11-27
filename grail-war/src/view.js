@@ -283,7 +283,7 @@ function viewEnding() {
       <div>残った令呪<b>${G.master.seals}画</b></div>
       <div>絆<b>${G.servant ? `Lv${Math.floor(G.servant.bond / 10)}` : '―'}${G.servant && G.servant.special ? `・${RELATIONS[G.servant.special].name}` : ''}</b></div>
     </div>`}
-    <div class="choices">${!s.epilogue && hasEpilogue(s.endKind) ? `<button class="choice primary" data-act="epilogue">${actIcon('next')}<span class="c-label">その後の人生へ</span><span class="c-hint">エピローグ：${EPI_TITLES[epiTrackOf(s.endKind)] || ''}</span></button>` : ''}<button class="choice${!s.epilogue && hasEpilogue(s.endKind) ? '' : ' primary'}" data-act="totitle"><span class="c-label">タイトルへ</span></button></div>
+    <div class="choices">${!s.epilogue && s.talks && s.talks.length ? `<button class="choice primary" data-act="endtalk">${actIcon('next')}<span class="c-label">${endTalkLabel(s.talks)}</span><span class="c-hint">結末の、その後の夜明け</span></button>` : !s.epilogue && hasEpilogue(s.endKind) ? `<button class="choice primary" data-act="epilogue">${actIcon('next')}<span class="c-label">その後の人生へ</span><span class="c-hint">エピローグ：${EPI_TITLES[epiTrackOf(s.endKind)] || ''}</span></button>` : ''}<button class="choice${!s.epilogue && hasEpilogue(s.endKind) ? '' : ' primary'}" data-act="totitle"><span class="c-label">タイトルへ</span></button></div>
   </article>`;
 }
 
@@ -318,6 +318,7 @@ document.addEventListener('click', e => {
   else if (a === 'reroll') { const name = document.getElementById('mname').value.trim(); const m = rollMaster(null, SCENE.master.gender); if (name) m.name = name; createScreen(m); }
   else if (a === 'title' || a === 'totitle') titleScreen();
   else if (a === 'epilogue') startEpilogue(SCENE.endKind);
+  else if (a === 'endtalk') runEndTalks(SCENE);
   else if (a === 'settings') { SCENE = { kind: 'settings' }; render(); }
   else if (a === 'mute') { toggleAllSound(); render(); }
   else if (a === 'gallery') { SCENE = { kind: 'gallery' }; render(); }

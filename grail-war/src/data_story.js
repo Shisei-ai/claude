@@ -226,7 +226,7 @@ const STORY = [
     choices: [],   // 選択肢は、幼馴染との関係に合わせて data_friend.js の frReunion() で作る
   },
   {
-    id: 's_coma', phase: 'war', day: 4, slot: 0, after: 'hub', cond: () => !(typeof skOn === 'function' && skOn()),
+    id: 's_coma', phase: 'war', day: 4, slot: 0, after: 'hub', cond: () => !(typeof altRoute === 'function' && altRoute()),
     title: '昏睡事件', chapter: '第二幕　侵蝕',
     text: () => `朝のニュースが、市内で原因不明の昏睡事件が相次いでいると報じていた。被害者はこの三日で十二人。全員、夜の街で倒れているのを発見されたという。<br>昼過ぎ、${CAST.sister}から連絡が入った。<br>「魂喰い――魔力の略奪の可能性があります。ですが、痕跡は奇妙に乱れていて、何の仕業なのかすら分からないのです」`,
     choices: [
@@ -242,7 +242,7 @@ const STORY = [
     ],
   },
   {
-    id: 's_shadow', phase: 'war', day: 6, slot: 1, after: 'advance', cond: () => !(typeof skOn === 'function' && skOn()),
+    id: 's_shadow', phase: 'war', day: 6, slot: 1, after: 'advance', cond: () => !(typeof altRoute === 'function' && altRoute()),
     title: '黒い影', chapter: '第二幕　侵蝕',
     // 見た目はどちらの真相でも同じ。何を見抜けるかは、選んだ行動と判定次第
     text: () => `${G.flags.investigate ? '昏睡事件を追って' : '偶然通りかかった'}港の倉庫街で、あなたは見た。<br>路地に倒れた男の上に、<b>黒い泥のような影</b>が覆いかぶさっている。影は男から何かを吸い上げ、脈打つように膨らんでいく。<br>${say('warnShadow')}${SV()}の声が、かすかに張り詰めていた。`,
@@ -278,7 +278,7 @@ const STORY = [
     ],
   },
   {
-    id: 's_past', phase: 'war', day: 8, slot: 0, after: 'hub', cond: () => !solved() && !(typeof skOn === 'function' && skOn()),
+    id: 's_past', phase: 'war', day: 8, slot: 0, after: 'hub', cond: () => !solved() && !(typeof altRoute === 'function' && altRoute()),
     title: '六十年前の真実', chapter: '第二幕　侵蝕',
     text: () => `${G.flags.grailHint ? '黒い影、霊脈の異変、六十年前の戦争。' : '街の異変が、何かと繋がっている気がする。'}点と点を繋ぐために、どこを調べるべきだろうか。<br><span class="note">ここで得られる手がかりは、普段の調査よりも重い（手がかり+2）。</span>`,
     choices: [
@@ -310,7 +310,7 @@ const STORY = [
     ],
   },
   {
-    id: 's_devoured', phase: 'war', day: 9, slot: 1, after: 'advance', cond: () => !(typeof skOn === 'function' && skOn()) && hostileRivals().length >= 3 && (!isPure() || culpritAlive()),
+    id: 's_devoured', phase: 'war', day: 9, slot: 1, after: 'advance', cond: () => !(typeof altRoute === 'function' && altRoute()) && hostileRivals().length >= 3 && (!isPure() || culpritAlive()),
     title: '呑まれた陣営', chapter: '第二幕　侵蝕',
     text: () => {
       const cu = culprit();

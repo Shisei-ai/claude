@@ -2590,7 +2590,7 @@ const STORY = [
     choices: [],   // 選択肢は、幼馴染との関係に合わせて data_friend.js の frReunion() で作る
   },
   {
-    id: 's_coma', phase: 'war', day: 4, slot: 0, after: 'hub', cond: () => !(typeof skOn === 'function' && skOn()),
+    id: 's_coma', phase: 'war', day: 4, slot: 0, after: 'hub', cond: () => !(typeof altRoute === 'function' && altRoute()),
     title: '昏睡事件', chapter: '第二幕　侵蝕',
     text: () => `朝のニュースが、市内で原因不明の昏睡事件が相次いでいると報じていた。被害者はこの三日で十二人。全員、夜の街で倒れているのを発見されたという。<br>昼過ぎ、${CAST.sister}から連絡が入った。<br>「魂喰い――魔力の略奪の可能性があります。ですが、痕跡は奇妙に乱れていて、何の仕業なのかすら分からないのです」`,
     choices: [
@@ -2606,7 +2606,7 @@ const STORY = [
     ],
   },
   {
-    id: 's_shadow', phase: 'war', day: 6, slot: 1, after: 'advance', cond: () => !(typeof skOn === 'function' && skOn()),
+    id: 's_shadow', phase: 'war', day: 6, slot: 1, after: 'advance', cond: () => !(typeof altRoute === 'function' && altRoute()),
     title: '黒い影', chapter: '第二幕　侵蝕',
     // 見た目はどちらの真相でも同じ。何を見抜けるかは、選んだ行動と判定次第
     text: () => `${G.flags.investigate ? '昏睡事件を追って' : '偶然通りかかった'}港の倉庫街で、あなたは見た。<br>路地に倒れた男の上に、<b>黒い泥のような影</b>が覆いかぶさっている。影は男から何かを吸い上げ、脈打つように膨らんでいく。<br>${say('warnShadow')}${SV()}の声が、かすかに張り詰めていた。`,
@@ -2642,7 +2642,7 @@ const STORY = [
     ],
   },
   {
-    id: 's_past', phase: 'war', day: 8, slot: 0, after: 'hub', cond: () => !solved() && !(typeof skOn === 'function' && skOn()),
+    id: 's_past', phase: 'war', day: 8, slot: 0, after: 'hub', cond: () => !solved() && !(typeof altRoute === 'function' && altRoute()),
     title: '六十年前の真実', chapter: '第二幕　侵蝕',
     text: () => `${G.flags.grailHint ? '黒い影、霊脈の異変、六十年前の戦争。' : '街の異変が、何かと繋がっている気がする。'}点と点を繋ぐために、どこを調べるべきだろうか。<br><span class="note">ここで得られる手がかりは、普段の調査よりも重い（手がかり+2）。</span>`,
     choices: [
@@ -2674,7 +2674,7 @@ const STORY = [
     ],
   },
   {
-    id: 's_devoured', phase: 'war', day: 9, slot: 1, after: 'advance', cond: () => !(typeof skOn === 'function' && skOn()) && hostileRivals().length >= 3 && (!isPure() || culpritAlive()),
+    id: 's_devoured', phase: 'war', day: 9, slot: 1, after: 'advance', cond: () => !(typeof altRoute === 'function' && altRoute()) && hostileRivals().length >= 3 && (!isPure() || culpritAlive()),
     title: '呑まれた陣営', chapter: '第二幕　侵蝕',
     text: () => {
       const cu = culprit();
@@ -15427,7 +15427,7 @@ const FRIEND_GROWTH = [
   { id: 'fr_shadow', age: 12, title: '影',
     text: () => (fr().wish === 'sister' ? `学校の帰り道、${friendName()}の携帯が鳴った。${fr().sis}ちゃんが、また倒れたらしい。<br>病院の廊下で、${friendName()}は膝を抱えて座り込んでいた。「……あの子の心臓、治らないんだって」` :
        fr().wish === 'mother' ? `その知らせは、突然だった。${friendName()}のお母さんが、交通事故に遭った。命は助かった。けれど――目を覚まさない。<br>病院の待合室で、${friendName()}は一言も喋らなかった。` :
-       `体育の授業中、${friendName()}が倒れた。救急車の中で、その手は火傷しそうなほど熱かった。<br>検査の結果は「原因不明」。それから${friendName()}は、時々、ひどい熱を出すようになった。`),
+       `その春、${friendName()}のおばあさんが亡くなった。葬儀から一月ほど経ったある日、体育の授業中に、${friendName()}が倒れた。救急車の中で、その手は火傷しそうなほど熱かった。<br>検査の結果は「原因不明」。それから${friendName()}は、時々、ひどい熱を出すようになった。`),
     choices: [
       { label: '毎日、病院に通う', hint: '友情↑↑・精神↑', run: () => { friend(20); gain('spi', 3); G.flags.frStayed = true; return `何を話すでもなく、ただ隣に座った。ある日、${friendName()}がぽつりと言った。「……来てくれて、ありがと」（精神+3）`; } },
       { label: '「大丈夫。きっと良くなる」と励ます', hint: '友情↑・交渉↑', run: () => { friend(10); gain('cha', 3); return `${friendName()}は無理に笑って頷いた。その笑顔が、少しだけ痛かった。（交渉+3）`; } },
@@ -15577,7 +15577,7 @@ STORY.push(
     ] },
   // ---- 9日目の昼：異変の兆し（関係が育っていれば、魂喰いを未然に防げる） ----
   { id: 'fr_omen', phase: 'war', day: 9, slot: 0, after: 'hub',
-    cond: () => !(typeof skOn === 'function' && skOn()) && frNormal() && frAlive() && !frCut() && (frClose() || G.friend.bond >= 50) && !G.flags.frKnowsTruth && !G.flags.frOtherWay,
+    cond: () => !(typeof altRoute === 'function' && altRoute()) && !(typeof skOn === 'function' && skOn()) && frNormal() && frAlive() && !frCut() && (frClose() || G.friend.bond >= 50) && !G.flags.frKnowsTruth && !G.flags.frOtherWay,
     title: '異変の兆し',
     text: () => { const n = friendName(); const r = frRival();
       return `${frLover() ? `恋人からの` : `${n}からの`}メッセージが、ここ数日、妙に短い。<br>会いに行くと、${n}は笑って迎えてくれた。けれど、その笑顔はどこか張り詰めていて、${r.cls}のサーヴァントの気配は、ひどく弱っていた。<br>` +
@@ -15597,7 +15597,7 @@ STORY.push(
     ] },
   // ---- 10日目の夜：堕ちる友 ----
   { id: 'fr_fall', phase: 'war', day: 10, slot: 1, after: 'advance',
-    cond: () => !G.flags.counter && !(typeof skOn === 'function' && skOn()) && frNormal() && frAlive() && !G.flags.frKnowsTruth && !G.flags.frOtherWay && !G.flags.frPrevented,
+    cond: () => !(typeof altRoute === 'function' && altRoute()) && !G.flags.counter && !(typeof skOn === 'function' && skOn()) && frNormal() && frAlive() && !G.flags.frKnowsTruth && !G.flags.frOtherWay && !G.flags.frPrevented,
     title: '堕ちる友',
     text: () => { const r = frRival();
       return `${frWish().worse.replace(/。$/, '')}――あの知らせから、${friendName()}は変わってしまった。<br>深夜の病院の裏手。眠る人々の窓の下で、${r.cls}のサーヴァントが、生命力を吸い上げていた。<b>魂喰い</b>だ。<br>その傍らで、${friendName()}が振り返った。目の下には、深い隈が刻まれている。<br>` +
@@ -15769,7 +15769,7 @@ const FRIEND_EPI = {
     ] },
   // ---- 2年後：残された時間（恋人で、命の願いが叶わなかった場合） ----
   lastTime: { y: 2, title: '残された時間', skip: () => frEpiCut(),
-    text: () => `${friendName()}の熱は、日に日に高くなっていった。医師は、残された時間を「二年」と言った。<br>病室の窓から桜を見ながら、${friendName()}が言った。「${frTalk('……なあ。俺、お前と、ちゃんと家族になりたかった', '……ねえ。わたし、あなたと、ちゃんと家族になりたかった')}」`,
+    text: () => `${friendName()}の熱は、日に日に高くなっていった。不思議なことに、熱がいちばん高くなるのは、決まって城跡公園の大桜が咲く頃だった。医師は、残された時間を「二年」と言った。<br>病室の窓から桜を見ながら、${friendName()}が言った。「${frTalk('……なあ。俺、お前と、ちゃんと家族になりたかった', '……ねえ。わたし、あなたと、ちゃんと家族になりたかった')}」`,
     choices: [
       { label: '病室で、二人だけの式を挙げる', hint: '絆↑↑', run: () => { G.epi.frMarriedLate = true; epiGain({ bond: 3, joy: 1 }, '病室で、幼馴染と二人だけの式を挙げた');
           return `看護師さんがこっそり用意してくれた花と、指輪が二つ。${fg('白いシャツ', '白いワンピース')}の${friendName()}は、「${frTalk('世界一の結婚式だな', '世界一の結婚式だね')}」と笑った。`; } },
@@ -17001,7 +17001,7 @@ function mikoConfession(then) {
 // =============================================================
 //  最後の会話（英霊が去る結末の前に）
 // =============================================================
-const LAST_TALK_KINDS = ['kamiWedge', 'skCut', 'skBear', 'skReturn', 'skKill', 'none', 'wishPure', 'servantWish', 'destroy', 'destroySpecial', 'destroyPure', 'beastSlain', 'abstain', 'friendWish', 'yield', 'kamiSlain', 'kamiReturn', 'kamiBride'];
+const LAST_TALK_KINDS = ['kamiWedge', 'kamiFray', 'skCut', 'skBear', 'skReturn', 'skKill', 'none', 'wishPure', 'servantWish', 'destroy', 'destroySpecial', 'destroyPure', 'beastSlain', 'abstain', 'friendWish', 'yield', 'kamiSlain', 'kamiReturn', 'kamiBride'];
 const LAST = {
   open: { polite: '「……どうやら、ここまでのようです。{call}、最後に少しだけ、お話ししてもよろしいですか」', regal: '「……時間か。{m}、最後だ。少し付き合え」',
     rough: '「……あー、時間切れみてえだな。最後に、ちょっとだけ話そうぜ」', cool: '「……もう、時間がないらしい。最後に、少しだけ話をしよう」',
@@ -17029,7 +17029,7 @@ function lastTalkLead(kind) {
     servantWish: `${s}の願いを乗せた光が、夜空へ昇っていく。`, none: '聖杯は、誰の手にも渡らぬまま、静かに光を失っていく。',
     beastSlain: '白い大蛇が崩れ去り、天降山の頂には、空っぽの杯だけが残された。', abstain: '教会の前で、令呪を預ける時が来た。',
     friendWish: `聖杯の光が、${fn}の願いを乗せて昇っていく。`, yield: `聖杯は、${fn}の手に渡った。もう、戦う理由はない。`,
-    kamiSlain: '白い大狼の遠吠えが、霧と共に消えていった。', kamiWedge: '空の亀裂が閉じていく。天降山の頂に、正しく降りた聖杯の光が満ちていた。', kamiReturn: '黄金の杯が、光の粒になって霊脈に溶けていく。',
+    kamiSlain: '白い大狼の遠吠えが、霧と共に消えていった。', kamiWedge: '空の亀裂が閉じていく。天降山の頂に、正しく降りた聖杯の光が満ちていた。', kamiFray: '白い人影は崩れ落ちた。――けれど、空の亀裂は閉じなかった。楔が、足りない。世界の修正は、止まらない。', kamiReturn: '黄金の杯が、光の粒になって霊脈に溶けていく。',
     kamiBride: '聖杯戦争を降りると決めた。令呪を返す前の、最後の夜明け。',
   })[kind] + (['abstain', 'kamiBride', 'yield'].includes(kind) ? `<br>契約が解かれれば、${s}はこの世に留まれない。` : `<br>${s}の体が、足元から、少しずつ光の粒にほどけ始めていた。`);
 }
@@ -17043,7 +17043,6 @@ function lastTouch() {
 }
 function lastTalkEligible(kind) { return LAST_TALK_KINDS.includes(kind) && !!G.servant && G.servant.hp > 0 && !G.flags.lastTalkDone; }
 function lastTalk(kind, then) {
-  G.flags.lastTalkDone = kind;
   const k = G.servant.special; const L = myLaw(), Gd = myGood();
   const choices = [
     { label: '「ありがとう。君がいてくれて、よかった」', reply: () => [meSay('ありがとう。君がいてくれて、よかった'), vl(LAST.rep.thanks)] },
@@ -17055,11 +17054,36 @@ function lastTalk(kind, then) {
   if (Gd === 'evil') choices.push({ label: '「……勝手にいなくなるな。命令だ」', hint: '悪の言葉', reply: () => [meSay('……勝手にいなくなるな。命令だ'), vl(LAST.rep.order)] });
   if (k) choices.push({ label: { lover: `「${gw('好きだ', '好き', '好きだよ')}。これからも、ずっと」`, partner: '「最高の相棒だった」', oath: '「君は、最高の英霊だった」', family: '「……いってらっしゃい」' }[k], hint: `「${RELATIONS[k].name}」として`, cls: 'primary',
     reply: () => [meSay({ lover: `${gw('好きだ', '好き', '好きだよ')}。これからも、ずっと`, partner: '最高の相棒だった', oath: '君は、最高の英霊だった', family: '……いってらっしゃい' }[k]), vl(LAST.rep[k])] });
+  // 思い出：英霊の方から、この冬で一番覚えていることを問う
+  const mem = [
+    { label: '「最初に会った、召喚の夜のこと」', reply: () => [meSay('最初に会った、召喚の夜のこと'), vl(LAST.mem.summon)] },
+    { label: () => `「${SV()}と、街を歩いた日のこと」`, reply: () => [meSay('街を、一緒に歩いた日のこと'), vl(LAST.mem.daily)] },
+  ];
+  if (k) mem.push({ label: '「あの月の夜のこと」', hint: `「${RELATIONS[k].name}」になった夜`, cls: 'primary', reply: () => [meSay('あの月の夜のこと'), vl(LAST.mem.moon)] });
+  if (G.flags.resolve) mem.push({ label: '「決戦前夜の、屋根の上のこと」', reply: () => [meSay('決戦前夜の、屋根の上のこと'), vl(LAST.mem.eve)] });
   dialog({ title: '最後の会話', sub: 'FAREWELL', then, last: '結末へ', steps: [
     { text: () => [`<p>${lastTalkLead(kind)}</p>`, vl(LAST.open)], choices },
-    { next: '結末へ', text: () => [`<p>${lastTouch()}</p>`, svSay(farewellLine()), `<p>光が、朝の空へ溶けていった。<br>右手の甲に残った痣だけが、まだ、ほんのりと温かかった。</p>`] },
+    { text: () => [vl(LAST.ask)], choices: mem },
+    { next: '結末へ', text: () => [`<p>${lastTouch()}</p>`, svSay(farewellLine()), kind === 'kamiFray' ? `<p>${SV()}は、要石に手を当てた。霊基が、光の楔になって、霊脈の奥へ沈んでいく。<br>空の亀裂が、ゆっくりと閉じていった。</p>` : `<p>光が、朝の空へ溶けていった。<br>右手の甲に残った痣だけが、まだ、ほんのりと温かかった。</p>`] },
   ] });
 }
+LAST.ask = { polite: '「……{call}。最後に、一つだけ。この冬で、{you}が一番覚えていることは、何ですか」', regal: '「{m}。最後に答えよ。この冬で、何が一番、心に残った」', rough: '「……なあ。この冬で、お前が一番覚えてることって、何だ？」',
+  cool: '「……最後に、聞かせてくれ。この冬で、{you}が一番覚えていることは、何だ」', bright: '「ねえ、{call}。この冬で、一番覚えてること、なに？」', old: '「……最後にの。この冬で、一番心に残ったのは、何じゃ」',
+  mute: '{s}が、何かを問うように、あなたの顔をじっと見つめた。――この冬で、一番覚えていることは、と。' };
+LAST.mem = {
+  summon: { polite: '「……召喚の夜。{you}は、ひどく緊張した顔をしていました。ですが、手は震えていなかった。――あの時から、{I}は、{you}を信じていたのかもしれません」', regal: '「召喚の夜か。震える声で{I}を呼んだ、あの未熟なマスターが、よくぞここまで来たものだ」',
+    rough: '「召喚の夜な。……お前、最初、ちょっと引いてただろ。覚えてるぜ」', cool: '「召喚の夜……。陣の中で、{you}は真っ直ぐに{I}を見ていた。あの目は、今も変わらない」',
+    bright: '「召喚の夜！ {call}、すっごく緊張してたよね。……{I}も、ちょっとだけ緊張してたんだよ」', old: '「召喚の夜か。……良い目をした童じゃと思うたよ。あの時から、の」', mute: '{s}は、召喚陣の描かれていた方角を、ゆっくりと振り返った。' },
+  daily: { polite: '「街を歩いた日……。英霊になって、あんなに穏やかな時間を過ごせるとは思いませんでした。――あれは、{I}の宝物です」', regal: '「街か。王が庶民の暮らしを見て回るのも、悪くなかった。……いや、悪くないどころではなかったな」',
+    rough: '「ああ、あれな。戦争の最中だってのに、のんきなもんだったぜ。――でも、ああいうのが、一番よかった」', cool: '「街を歩いた日か。……何でもない日が、一番覚えているものなんだな」',
+    bright: '「うん！ あの日、楽しかった！ ……戦いのことより、そういう日のこと、覚えてるの」', old: '「何でもない日、か。……長く生きた者ほど、そういう日を覚えておるものじゃ」', mute: '{s}の口元が、かすかに緩んだ。' },
+  moon: { polite: '「……あの夜のことは、忘れません。座に還っても、何度生まれ変わっても」', regal: '「……あの夜か。王が、言葉に詰まった唯一の夜だ。忘れるものか」',
+    rough: '「……っ、そこ持ち出すかよ。――忘れるわけねえだろ」', cool: '「あの夜か。……ああ。{I}も、同じことを考えていた」',
+    bright: '「……えへへ。{I}も。{I}も、あの夜が一番」', old: '「……ふふ。年甲斐もなく、胸が鳴った夜じゃったのう」', mute: '{s}は、あの夜と同じように、月の名残の空を見上げた。' },
+  eve: { polite: '「屋根の上で、月を見ましたね。……{you}の覚悟を聞いたあの夜、{I}は、この人のために戦えて幸せだと思いました」', regal: '「屋根の上か。覚悟を語った{you}の顔は、王の目から見ても、悪くなかった」',
+    rough: '「屋根の上な。寒かったよな、あれ。……でも、悪くなかった」', cool: '「決戦前夜か。……あの夜、{you}の隣にいられてよかった」',
+    bright: '「屋根の上！ 寒かったけど、あったかかったね」', old: '「屋根の上で、月を見たのう。……良い夜じゃった」', mute: '{s}は、小さく頷いた。' },
+};
 
 // =============================================================
 //  決戦前夜（data_story.js の s_eveFinal を、会話で進める）
@@ -17173,6 +17197,106 @@ function grailTalk(then) {
 }
 
 // =============================================================
+//  受肉の結末：英霊と共に、これからを語る（ending.js の ending('together') の前に）
+// =============================================================
+const TOG = {
+  open: { polite: '「……温かい。心臓の音が、聞こえます。――{I}は、本当に、ここにいるのですね」', regal: '「……ふむ。肉の体とは、かくも重いものだったか。――悪くない」', rough: '「……うわ、腹減った。受肉って、こういうことかよ」',
+    cool: '「……寒い。そうか、寒さを感じるのか。――生きているんだな、{I}は」', bright: '「……わ、わ、心臓どきどきしてる！ {call}、{I}、生きてるよ！」', old: '「……ほう。この身に、もう一度、生の重みを与えるか」',
+    mute: '{s}は、自分の胸に手を当て、それから、あなたの手を取って、同じ場所に押し当てた。鼓動が、伝わってきた。' },
+  rep: {
+    home: { polite: '「……ただいま、帰りました」', regal: '「……ただいま、と言えばよいのか。――ふ。ただいま」', rough: '「……おう。ただいま」', cool: '「……ただいま」', bright: '「ただいま！」', old: '「……うむ。ただいま」', mute: '{s}は、低く、確かに、何かを言った。「――タダイマ」と聞こえた。' },
+    want: { polite: '「まずは……温かいご飯を。{you}と、一緒に」', regal: '「決まっておろう。この時代の美食を、余すところなく味わう」', rough: '「とりあえず、腹いっぱい食いてえ！ それから寝る！」', cool: '「……朝日を、ちゃんと見たい。英霊の目ではなく、この目で」', bright: '「いっぱいある！ 遊園地でしょ、海でしょ、それから――」', old: '「茶を一杯。それから、ゆっくり、街を歩きたいのう」', mute: '{s}は、朝日の方角を指さした。' },
+    lover: { polite: '「……はい。ずっと」', regal: '「当然だ。{I}の隣は、もう誰にも渡さぬ」', rough: '「……ああ。ずっとだ」', cool: '「ああ。今度は、時間を気にしなくていい」', bright: '「うん！ ずっと、ずーっと！」', old: '「……ふふ。この先は、長いぞ」', mute: '{s}は、あなたを抱き寄せた。' },
+    partner: { polite: '「ええ。{you}の背中は、これからも{I}が」', regal: '「当然だ。相棒を、退屈させはせぬ」', rough: '「任せとけ、相棒」', cool: '「ああ。これからも、背中は預かる」', bright: '「任せて！ 最強のコンビ、続行だね！」', old: '「うむ。まだまだ、背中は預け合おうぞ」', mute: '{s}は、拳をあなたの拳にぶつけた。' },
+    oath: { polite: '「……令呪はなくとも、{I}の誓いは消えません。{you}は、これからも{I}の主です」', regal: '「令呪なき今、それでも誓いを守る。――それこそが、真の主従だ」', rough: '「令呪がなくたって、関係ねえよ。お前が、{I}のマスターだ」', cool: '「令呪は消えた。だが、誓いは残っている。これからも、{you}が{I}の主だ」', bright: '「もちろん！ {call}は、ずっと{I}のマスターだよ！」', old: '「誓いは、令呪より重い。……これからも、仕えよう」', mute: '{s}は、膝をつき、頭を垂れた。' },
+    family: { polite: '「……はい。帰りましょう、{I}たちの家に」', regal: '「家か。……良い響きだ。帰ろう」', rough: '「おう。帰ろうぜ、家に」', cool: '「……ああ。帰ろう」', bright: '「うん！ 帰ろ！」', old: '「うむ。帰ろうかの、家に」', mute: '{s}は、あなたの手を引いて、歩き出した。' },
+  },
+};
+function togetherClose() {
+  const s = SV(); const k = G.servant.special; const p = bondPair(servantOf(G));
+  if (k === 'lover') return { mf: `朝焼けの石段を、二人で下りた。${s}が、ためらいがちに、あなたの指に自分の指を絡めてきた。`, fm: `朝焼けの石段を、二人で下りた。${s}は、あなたの歩幅に合わせて、いつもよりゆっくり歩いた。`, mm: '朝焼けの石段を、二人で並んで下りた。肩が触れるたびに、どちらからともなく笑った。', ff: '朝焼けの石段を、二人で手をつないで下りた。', n: '朝焼けの石段を、二人で並んで下りた。' }[p];
+  return `朝焼けの石段を、二人で下りた。${s}の足音が、ちゃんと聞こえた。――それが、何より嬉しかった。`;
+}
+function togetherTalk(then) {
+  const k = G.servant.special;
+  const relLabel = { lover: '「これからは、ずっと一緒だね」', partner: '「これからも、背中は任せた」', oath: '「令呪がなくても、主従は続く？」', family: '「家に、帰ろう」' }[k];
+  dialog({ title: '夜明けの石段', sub: 'ENDING', then, last: '結末へ', steps: [
+    { text: () => [`<p>――あの夜明け。聖杯の光が収まった時、${SV()}は、自分の手を不思議そうに見つめていた。指先に、冬の冷たさが沁みる。英霊の霊基ではない――生身の、手だった。</p>`, vl(TOG.open)],
+      choices: [
+        { label: '「おかえり」', reply: () => [meSay('おかえり'), vl(TOG.rep.home)] },
+        { label: '「まず、何がしたい？」', reply: () => [meSay('まず、何がしたい？'), vl(TOG.rep.want)] },
+        ...(k ? [{ label: relLabel, hint: `「${RELATIONS[k].name}」として`, cls: 'primary', reply: () => [meSay(relLabel.replace(/^「|」$/g, '')), vl(TOG.rep[k])] }] : []),
+      ] },
+    { next: '結末へ', text: () => [`<p>${togetherClose()}</p>`] },
+  ] });
+}
+
+// =============================================================
+//  ヒロインとの夜明けの会話（雫ルート・幼馴染ルートの結末の後）
+// =============================================================
+const HERO_TALK_KINDS = ['kamiWedge', 'kamiFray', 'kamiBride', 'skReturn', 'skBear'];
+function heroineTalkEligible(kind) {
+  if (!HERO_TALK_KINDS.includes(kind) || G.flags.heroTalkDone === kind) return false;
+  if (/^kami/.test(kind)) return typeof counterRoute === 'function' && counterRoute() && mkMet() && mikoHere();
+  return typeof skOn === 'function' && skOn() && !!G.friend;
+}
+function heroineTalk(kind, then) {
+  return /^kami/.test(kind) ? mikoAfterTalk(kind, then) : friendAfterTalk(kind, then);
+}
+function mikoAfterTalk(kind, then) {
+  const s = SHIZUKU(); const c = mkCall();
+  const lead = { kamiWedge: `夜が明けた。神楽殿の縁側で、${s}が、石段で拾った古い鈴を、両手で包んでいた。白妙の鈴だった。`, kamiFray: `夜が明けた。街は、何事もなかったように動き出している。誰も、この冬のことを覚えていない。<br>神楽殿の縁側で、${s}が、膝を抱えていた。`, kamiBride: `夜が明けた。祠の前で、守り人としての最初の朝を迎えた。石段を登ってきた${s}が、黙って、あなたの隣に座った。` }[kind];
+  const first = kind === 'kamiFray' ? svSay(`「……みんな、忘れちゃいましたね。英霊のことも、聖杯戦争のことも。――でも、わたしたちが覚えていれば、なかったことにはなりません」`)
+    : kind === 'kamiBride' ? svSay(mkR({ lover: `「……守り人の隣は、わたしの場所ですから。今日から、毎朝ここに来ます」`, ally: `「相棒が守り人なら、わたしは巫女として、その隣を守ります」`, sister: `「……${c}が、山の人になっちゃった。でも、毎日会いに来ますから」`, far: `「……毎朝、ここに来てもいいですか。今まで、ずっと避けてた分」`, known: `「……毎朝、お供え物を持ってきます。守り人さんに」` }))
+      : svSay(mkR({ lover: `「……白妙さん、最後に笑ってましたね。わたし、あの人の分まで、ちゃんと幸せになります。――${c}と、一緒に」`, ally: `「……相棒。わたしたち、勝ちましたね。世界を相手に」`, sister: `「……あの人、わたしのご先祖さまだったんですね。百八十年も、ひとりで……」`, far: `「……ありがとう、ございました。${c}がいなかったら、わたし」`, known: `「……この鈴、神楽殿にお祀りしようと思います。あの人が、ちゃんと帰ってこられるように」` }));
+  const choices = [
+    { label: `「${s}が無事で、よかった」`, reply: () => [meSay(`${s}が無事で、よかった`), svSay(mkR({ lover: `「……もう。そういうこと、真顔で言わないでください」`, ally: `「お互いさまです。……${c}も、無事でよかった」`, sister: `「……うん。${c}が、迎えに来てくれたから」`, far: `「……今さら、優しくしないでください。泣いちゃうじゃないですか」`, known: `「……はい。おかげさまで」` })), `<p>${s}は、鈴を胸に抱いて、少しだけ泣いた。</p>`] },
+    { label: kind === 'kamiFray' ? '「二人で、覚えていよう」' : '「これからも、よろしく」', reply: () => [meSay(kind === 'kamiFray' ? '二人で、覚えていよう' : 'これからも、よろしく'), svSay(kind === 'kamiFray' ? '「……はい。二人だけの、大事な冬です」' : mkR({ lover: '「……はい。これからも、ずっと」', ally: '「こちらこそ。相棒」', sister: `「……こちらこそ、${c}」`, far: '「……はい。今度は、ちゃんと」', known: '「こちらこそ、よろしくお願いします」' }))] },
+  ];
+  if (mkLover()) choices.push({ label: '「ずっと、一緒にいよう」', hint: '恋人として', cls: 'primary', reply: () => [meSay('ずっと、一緒にいよう'), svSay(`「……はい。今度は、誰の花嫁でもなく、${c}の隣に」`), `<p>${s}が、あなたの肩に頭を預けた。手首の鈴が、ちりんと鳴った。</p>`] });
+  dialog({ title: '夜明けの神楽殿', sub: 'ENDING', then, last: '結末へ', steps: [
+    { text: () => [`<p>${lead}</p>`, first], choices },
+    { next: '結末へ', text: () => [`<p>${kind === 'kamiBride' ? '朝の霧の中で、白い大狼が、退屈そうに欠伸をした。' : '朝の境内に、鈴の音が、二つ、重なって響いた。'}</p>`] },
+  ] });
+}
+function friendAfterTalk(kind, then) {
+  const n = friendName();
+  const lead = kind === 'skReturn' ? `春を待つ病室で、${n}が目を覚ました。窓の外で、枯れた大桜の枝が揺れている。` : `鎮まった大桜の下で、${n}が、あなたの手の甲に浮かんだ薄紅色の痣を、指でなぞっていた。`;
+  const first = kind === 'skReturn' ? svSay(fg('「……なあ。俺、全部覚えてるよ。花冠になってたことも、お前が来てくれたことも」', '「……ねえ。わたし、全部覚えてるよ。花冠になってたことも、あなたが来てくれたことも」'))
+    : svSay(fg('「……ばあちゃんにも、こんな痣があったんだ。――お前に、背負わせちまった」', '「……おばあちゃんにも、こんな痣があったんだ。――あなたに、背負わせちゃった」'));
+  const choices = kind === 'skReturn' ? [
+    { label: '「おかえり」', reply: () => [meSay('おかえり'), svSay(fg('「……ただいま。――ただいま、だな」', '「……ただいま。――ただいま、だね」')), `<p>${n}は、泣きながら笑った。</p>`] },
+    { label: '「春になったら、新しい桜を植えよう」', reply: () => [meSay('春になったら、新しい桜を植えよう'), svSay(fg('「……ああ。今度は、願いなんかかけないでさ」', '「……うん。今度は、願いなんかかけないで」'))] },
+  ] : [
+    { label: '「一緒にいるためだよ」', reply: () => [meSay('一緒にいるためだよ'), svSay(fg('「……ずるいんだよ、お前は。昔から」', '「……ずるいよ、あなたは。昔から」'))] },
+    { label: '「その分、長生きして」', reply: () => [meSay('その分、長生きして'), svSay(fg('「……お前の分まで、か。――分かった。約束する」', '「……あなたの分まで、だね。――分かった。約束する」'))] },
+  ];
+  if (frLover()) choices.push({ label: kind === 'skReturn' ? `「${gw('好きだ', '好き', '好きだよ')}。おかえり」` : '「その分、そばにいて」', hint: '恋人として', cls: 'primary', reply: () => [meSay(kind === 'skReturn' ? `${gw('好きだ', '好き', '好きだよ')}。おかえり` : 'その分、そばにいて'), svSay(fg('「……ああ。ずっと、いる」', '「……うん。ずっと、いる」')), `<p>${n}が、あなたの手を、両手で包み込んだ。</p>`] });
+  dialog({ title: kind === 'skReturn' ? '春を待つ病室' : '桜守の痣', sub: 'ENDING', then, last: '結末へ', steps: [
+    { text: () => [`<p>${lead}</p>`, first], choices },
+    { next: '結末へ', text: () => [`<p>${kind === 'skReturn' ? '窓の外で、冬の終わりの風が吹いた。もうすぐ、春が来る。' : '大桜の枝の先に、季節外れの蕾が、一つだけついていた。'}</p>`] },
+  ] });
+}
+
+// ---- 結末の後に続く会話の順番（ending.js から） ----
+// 結末の画面（その夜に起きたこと）→ 英霊との最後の会話 → ヒロインとの夜明けの会話 → エピローグ
+function endTalksFor(kind) {
+  const t = [];
+  if (lastTalkEligible(kind)) { G.flags.lastTalkDone = kind; t.push('last'); }   // 最後の言葉は会話の中で交わすので、結末の画面では繰り返さない
+  if (kind === 'together' && G.servant && !G.flags.togetherTalkDone) { G.flags.togetherTalkDone = true; t.push('together'); }
+  if (heroineTalkEligible(kind)) { G.flags.heroTalkDone = kind; t.push('heroine'); }
+  return t;
+}
+function endTalkLabel(talks) { return talks[0] === 'last' ? '最後の会話へ' : talks[0] === 'together' ? '夜明けの石段へ' : '夜明けへ'; }
+function runEndTalks(sc) {
+  const kind = sc.endKind; const list = sc.talks.slice(); sc.talks = [];
+  const done = () => { if (hasEpilogue(kind)) return startEpilogue(kind); SCENE = sc; render(); };
+  const step = () => { const k = list.shift(); if (!k) return done();
+    if (k === 'last') return lastTalk(kind, step); if (k === 'together') return togetherTalk(step); return heroineTalk(kind, step); };
+  step();
+}
+
+// =============================================================
 //  data_route.js … 三つのルート（通常のシナリオのみ）
 //
 //  聖杯戦争2日目の昼「胸騒ぎ」で、三人のヒロインそれぞれの物語へ分かれる。
@@ -17193,6 +17317,8 @@ const ROUTE_FRIEND_READY = true;   // 幼馴染ルート（data_sakura.js）
 function route3Normal() { return !!G && G.phase === 'war' && !!G.servant && !isFuji() && !isKishi() && !isShirou(); }
 function routeMikoOpen() { return typeof mkMet === 'function' && mkMet() && !mkFar() && miko().bond >= ROUTE_MIKO_BOND; }
 function routeFriendOpen() { return typeof frNormal === 'function' && frNormal() && !frCut() && G.friend.bond >= ROUTE_FRIEND_BOND; }
+// 雫ルート・幼馴染ルート：聖杯の真相（昏睡事件・黒い影）の物語は起きず、それぞれの物語に置き換わる
+function altRoute() { return !!G && (G.route3 === 'friend' || G.route3 === 'miko'); }
 function setRoute3(k) { G.route3 = k; addLog(`物語の分岐：${ROUTE3[k].name}（${ROUTE3[k].desc}）`); }
 
 STORY.push(
@@ -17203,7 +17329,11 @@ STORY.push(
       { label: '城跡公園の、桜の木', hint: () => !routeFriendOpen() ? `足が向かない……（${friendName() || '幼馴染'}との関係が、とても深ければ）` : !ROUTE_FRIEND_READY ? '幼馴染ルート（準備中）' : `幼馴染ルートへ（${ROUTE3.friend.desc}）`,
         disabled: () => !routeFriendOpen() || !ROUTE_FRIEND_READY, cond: () => typeof frNormal === 'function' && frNormal(),
         run: () => { setRoute3('friend'); friend(5); skStart();
-          return [`冬枯れの桜の下に、${friendName()}が立っていた。まるで、あなたが来るのを知っていたみたいに。`,
+          const n = friendName();
+          return [`城跡公園の、いちばん大きな桜の木。二人の「秘密の場所」。<br>冬枯れの枝の先に、<b>一輪だけ</b>、薄紅色の花が咲いていた。真冬なのに。`,
+            `その下に、${n}が立っていた。まるで、あなたが来るのを知っていたみたいに。`,
+            `<p class="quote">「${fg('……お前も、来たのか。なんか、呼ばれた気がしてさ', '……あなたも、来たんだ。なんか、呼ばれた気がして')}」</p>${n}は、手袋を外した右手を、そっと幹に当てた。その指先が、かすかに薄紅色に光った気がした。`,
+            `<p class="quote">「${fg('……変だよな。この木に触ってると、体の熱が、少しだけ楽になるんだ', '……変だよね。この木に触ってると、体の熱が、少しだけ楽になるの')}」</p>`,
             `<span class="note">「${ROUTE3.friend.name}」に入った。${ROUTE3.friend.desc}。</span>`]; } },
       { label: '天降神社の奥の、静かな祠', hint: () => routeMikoOpen() ? `雫ルートへ（${ROUTE3.miko.desc}）` : `胸の奥で、何かが引っかかる……（${CAST.miko}との関係が深ければ）`,
         disabled: () => !routeMikoOpen(), cond: () => typeof mkMet === 'function' && mkMet(),
@@ -17342,7 +17472,7 @@ STORY.push(
         `${friendName()}の髪の一房が、白く染まっていた。見開いた瞳の奥に、薄紅色の光が揺れていた。`; },
     choices: [
       { label: () => `${friendName()}を、抱きしめる`, hint: '心の灯↑↑', cls: 'primary', run: () => { skDevour(); return [`花びらの嵐の中で、${friendName()}を抱きしめた。熱い。それでも、離さなかった。`, `「${fg('……ばか。危ないだろ', '……ばか。危ないよ')}」――震える声が、少しだけ、いつもの${friendName()}に戻った。`, skHeart(12)]; } },
-      { label: () => gw('「しっかりしろ！ 自分の名前を言え！」', '「しっかりして！ 自分の名前を言って！」', '「しっかりして！ 自分の名前を言って！」'), hint: '心の灯↑', run: () => { skDevour(); return [`「${friendName()}だろ！」何度も、名前を呼んだ。`, `${friendName()}は、うわごとのように自分の名前を繰り返し、やがて、ぐったりと目を閉じた。`, skHeart(8)]; } },
+      { label: () => gw('「しっかりしろ！ 自分の名前を言え！」', '「しっかりして！ 自分の名前を言って！」', '「しっかりして！ 自分の名前を言って！」'), hint: '心の灯↑', run: () => { skDevour(); return [`「${friendName()}${gw('だろ', 'でしょ', 'だよ')}！」何度も、名前を呼んだ。`, `${friendName()}は、うわごとのように自分の名前を繰り返し、やがて、ぐったりと目を閉じた。`, skHeart(8)]; } },
       { label: () => `${SV()}に、根を断ち切らせる`, hint: '英霊の判定・心の灯↓', run: () => { skDevour(); const c = schk(0, 60);
           return [c.text, c.ok ? `${SV()}の一撃が、根を断ち切った。けれど、もう遅かった。サーヴァントは消え、${friendName()}は、怯えたように${SV()}を見ていた。` : '根は、斬っても斬っても伸びてきた。', skHeart(-6)]; } },
     ] },
@@ -17414,7 +17544,7 @@ function skVoiceTalk(after) {
     { text: () => [svSay(G.flags.frSakura ? fg('「……なあ。九歳の春に、桜の下で、約束したよな。毎年ここで桜を見ようって」', '「……ねえ。九歳の春に、桜の下で、約束したよね。毎年ここで桜を見ようって」') : fg('「……なあ。六歳の夏のビー玉、まだ持ってるか」', '「……ねえ。六歳の夏のビー玉、まだ持ってる？」')),
         svSay(fg('「あの桜が、あの時の願いも、ちゃんと覚えてるんだ。……だから、俺がこうなっても、あの約束だけは、まだ俺の中にある」', '「あの桜が、あの時の願いも、ちゃんと覚えてるの。……だから、わたしがこうなっても、あの約束だけは、まだわたしの中にある」'))],
       choices: [
-        { label: '「覚えてる。全部」', run: () => skHeart(6), reply: () => [meSay('覚えてる。全部'), svSay(fg('「……そっか」', '「……そっか」')), `<p>${n}は、目を閉じた。その横顔は、九歳の春と、何も変わっていなかった。</p>`] },
+        { label: '「覚えてる。全部」', run: () => skHeart(6), reply: () => [meSay('覚えてる。全部'), svSay(fg('「……そっか」', '「……そっか」')), `<p>${n}は、目を閉じた。その横顔は、${G.flags.frSakura ? '九歳の春' : '六歳の夏'}と、何も変わっていなかった。</p>`] },
         { label: '「その約束で、必ず引き戻す」', hint: '還す道への手がかり', run: () => { skHeart(6); G.flags.skPromiseKey = true; }, reply: () => [meSay('その約束で、必ず引き戻す'), svSay(fg('「……ばか。そういうの、ずるいって言ってんだよ」', '「……ばか。そういうの、ずるいって言ってるの」')), skClue('promise', '約束の残り香', '桜は、二人が幼い頃に交わした願いも覚えている。その約束だけは、変わりゆく幼馴染の中にも残っている。')] },
       ] },
   ] });
@@ -17799,8 +17929,7 @@ function counterEndingTexts(sv) {
       `<p>天降山の頂に、黄金の杯が静かに浮かんでいた。神が、自らの手で降ろした、本物の聖杯。${m}は、しばらくそれを見上げてから、あなたを振り返った。</p><p class="quote">「……もう、わたしたちには要りませんね。願いは、自分たちで叶えますから」</p>` + `<p>天降山に降りた聖杯を、あなたは${m}と二人で、山へ還した。「もう、花嫁はいらない」――白い大狼が、霧の向こうで静かに頭を垂れた。</p>`,
       `<p class="quote">${farewellLine(sv)}</p>`, `<p>深見の聖杯戦争は、これで最後になる。この冬に生きた人々の名前は、何一つ消えなかった。</p>`] }),
     kamiFray: () => ({ title: '終幕：綻びの朝', text: [`<p>${s}の一撃が、霧の面を砕いた。白い人影は崩れ落ちた。――けれど、空の亀裂は、閉じなかった。楔が、足りない。世界の修正は、止まらない。</p>`,
-      `<p>${s}が、あなたを振り返った。その体が、足元から光にほどけ始めていた。</p><p class="quote">${farewellLine(sv)}</p>`,
-      `<p>${s}は、自らの霊基を砕いて、要石の上に注ぎ込んだ。英霊の存在そのものが、楔になる。亀裂が、ゆっくりと閉じていく。</p>`,
+      G.flags.lastTalkDone === 'kamiFray' ? `<p>――その夜、${s}が何を選んだのかを、あなたは生涯忘れない。英霊の存在そのものが、この地を世界に縫い止めた。</p>` : `<p>${s}が、あなたを振り返った。その体が、足元から光にほどけ始めていた。</p><p class="quote">${farewellLine(sv)}</p><p>${s}は、自らの霊基を砕いて、要石の上に注ぎ込んだ。英霊の存在そのものが、楔になる。亀裂が、ゆっくりと閉じていく。</p>`,
       `<p>夜が明けると、街の人々は、この冬に起きたことを、何一つ覚えていなかった。英霊の名も、聖杯戦争という言葉も、すべて綻びの向こうに消えた。</p>`,
       `<p>覚えているのは、あなたと、${m}だけだった。右手の令呪の痕を、${m}が、そっと指でなぞった。</p>`] }),
     kamiErased: () => ({ title: '終幕：抹消', text: [`<p>${s}が、膝をついた。白い人影の刃が、静かに振り下ろされる。</p>`,
@@ -21189,6 +21318,7 @@ function hub() {
     body.push(statusLine());
     const last = aliveRivals().find(r => r.siege);
     if (last) body.push(`<p class="note">最後の敵・${rivalLabel(last)}陣営は天降山に籠城している。決戦は<b>${FINAL_DAY}日目の夜</b>。それまでに力を蓄えよう。</p>`);
+    else if (typeof counterOn === 'function' && counterOn()) body.push(`<p class="note">抑止の守護者が来るのは<b>12日目の夜</b>。それまでに「存在の楔を打つ」で、楔を揃えよう。</p>`);
     else if (G.day >= FINAL_DAY - 2) body.push(`<p class="note">聖杯の降臨が近い。残り一陣営になれば、${FINAL_DAY}日目以降の夜に天降山で決戦となる。</p>`);
     acts = isNight() ? warNightActions() : warDayActions();
   }
@@ -21282,7 +21412,7 @@ function warDayActions() {
   const acts = [
     { label: `${SV()}と過ごす`, hint: '絆↑（好みに合わせると大きく上がる）', fn: hangoutMenu },
     { label: '情報を集める', hint: '敵の正体・拠点・真名を探る', fn: intelMenu },
-    ...(typeof skOn === 'function' && skOn() ? (G.used.f_bloom && !sk().outcome ? [{ label: '桜の謎を追う', hint: `願い桜・手がかり${sk().ev}${sk().path ? '・' + SK_PATHS[sk().path] : ''}・心の灯${sk().heart}`, icon: 'scout', cls: 'primary', fn: skMenu }] : []) : [
+    ...(typeof skOn === 'function' && skOn() ? (G.used.f_bloom && !sk().outcome ? [{ label: '桜の謎を追う', hint: `願い桜・手がかり${sk().ev}${sk().path ? '・' + SK_PATHS[sk().path] : ''}・心の灯${sk().heart}`, icon: 'scout', cls: 'primary', fn: skMenu }] : []) : typeof altRoute === 'function' && altRoute() ? [] : [
     { label: '真相を調べる', hint: solved() ? `真相は判明済み・手がかり${mys().ev}` : `街の謎と聖杯の秘密・手がかり${mys().ev}`, icon: 'study', fn: mysteryMenu }, ]),
     { label: '拠点を整える', hint: '結界・罠・霊脈', fn: baseMenu },
     { label: '買い出し', hint: '戦闘用の道具', fn: shopMenu },
@@ -22734,7 +22864,8 @@ function bossIntro() {
 }
 
 function ending(kind) {
-  if (typeof lastTalkEligible === 'function' && lastTalkEligible(kind)) return lastTalk(kind, () => ending(kind));   // 英霊が去る前の、最後の会話（data_dialog.js）
+  // 結末の後に続く会話（data_dialog.js）：結末の画面のあと、エピローグの前に、時間の順に流れる
+  const talks = typeof endTalksFor === 'function' ? endTalksFor(kind) : [];
   G.phase = 'end'; clearSave();
   const sv = G.servant ? servantOf(G) : null; const rel = G.servant && G.servant.special ? RELATIONS[G.servant.special] : null;
   const per = sv ? V(sv) : null;
@@ -22790,29 +22921,31 @@ function ending(kind) {
       '<p>勝者の手に残ったのは、戦いの記憶と、確かに結ばれた絆だけだった。</p>'] }),
   ...(sv ? friendEndingTexts(sv) : {}), ...kamiEndingTexts(sv), ...(typeof skEndingTexts === 'function' ? skEndingTexts(sv) : {}), ...(typeof counterEndingTexts === 'function' ? counterEndingTexts(sv) : {}) }[kind]();
   if (G.flags.lastTalkDone === kind && sv) { const fw = `<p class="quote">${farewellLine(sv)}</p>`; E.text = E.text.filter(t => t !== fw); }   // 最後の言葉は、会話の中で交わした
+  // 世界そのものが呑まれる・消える結末では、その後の人々の一文は添えない（誰も、その春を迎えていないから）
+  const noAfter = ['kamiTaken', 'kamiErased', 'skSleep', 'saturated', 'sealed', 'dead'].includes(kind);
   const ep = friendEpilogueText(kind);
-  if (ep) E.text.push(ep);
+  if (!noAfter && ep) E.text.push(ep);
   const fe = fujiEpilogue(kind);
-  if (fe) E.text.push(fe);
+  if (!noAfter && fe) E.text.push(fe);
   const ke = kishiEpilogue(kind);
-  if (ke) E.text.push(ke);
+  if (!noAfter && ke) E.text.push(ke);
   const se = shirouEpilogue(kind);
-  if (se) E.text.push(se);
-  addLog(E.title); markEnding(kind);
+  if (!noAfter && se) E.text.push(se);
   const me = mysteryEpilogue(kind);
-  if (me) E.text.push(me);
+  if (!noAfter && me) E.text.push(me);
   const le = lifeEpilogue(kind);
-  if (le) E.text.push(le);
+  if (!noAfter && le) E.text.push(le);
   const ee = enforcerEpilogue(kind);
-  if (ee) E.text.push(ee);
+  if (!noAfter && ee) E.text.push(ee);
   const so = soulEpilogue(kind);
-  if (so) E.text.push(so);
+  if (!noAfter && so) E.text.push(so);
   const ke2 = kamiEpilogue(kind);
-  if (ke2) E.text.push(ke2);
+  if (!noAfter && ke2) E.text.push(ke2);
+  addLog(E.title); markEnding(kind);
   const good = !['kamiErased', 'kamiFray', 'skSleep', 'skKill', 'dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure', 'saturated', 'sealed', 'friendRuin', 'kamiTaken'].includes(kind);
   sfx(good ? 'win' : 'lose');
   showCard({ kicker: good ? 'ENDING' : 'BAD END', title: E.title.replace('終幕：', ''), cls: good ? 'dawn' : 'blood', ms: 2200 }, () => {
-    SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good };
+    SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good, talks };
     TAB = 'story'; render();
   });
 }
@@ -23134,7 +23267,7 @@ function viewEnding() {
       <div>残った令呪<b>${G.master.seals}画</b></div>
       <div>絆<b>${G.servant ? `Lv${Math.floor(G.servant.bond / 10)}` : '―'}${G.servant && G.servant.special ? `・${RELATIONS[G.servant.special].name}` : ''}</b></div>
     </div>`}
-    <div class="choices">${!s.epilogue && hasEpilogue(s.endKind) ? `<button class="choice primary" data-act="epilogue">${actIcon('next')}<span class="c-label">その後の人生へ</span><span class="c-hint">エピローグ：${EPI_TITLES[epiTrackOf(s.endKind)] || ''}</span></button>` : ''}<button class="choice${!s.epilogue && hasEpilogue(s.endKind) ? '' : ' primary'}" data-act="totitle"><span class="c-label">タイトルへ</span></button></div>
+    <div class="choices">${!s.epilogue && s.talks && s.talks.length ? `<button class="choice primary" data-act="endtalk">${actIcon('next')}<span class="c-label">${endTalkLabel(s.talks)}</span><span class="c-hint">結末の、その後の夜明け</span></button>` : !s.epilogue && hasEpilogue(s.endKind) ? `<button class="choice primary" data-act="epilogue">${actIcon('next')}<span class="c-label">その後の人生へ</span><span class="c-hint">エピローグ：${EPI_TITLES[epiTrackOf(s.endKind)] || ''}</span></button>` : ''}<button class="choice${!s.epilogue && hasEpilogue(s.endKind) ? '' : ' primary'}" data-act="totitle"><span class="c-label">タイトルへ</span></button></div>
   </article>`;
 }
 
@@ -23169,6 +23302,7 @@ document.addEventListener('click', e => {
   else if (a === 'reroll') { const name = document.getElementById('mname').value.trim(); const m = rollMaster(null, SCENE.master.gender); if (name) m.name = name; createScreen(m); }
   else if (a === 'title' || a === 'totitle') titleScreen();
   else if (a === 'epilogue') startEpilogue(SCENE.endKind);
+  else if (a === 'endtalk') runEndTalks(SCENE);
   else if (a === 'settings') { SCENE = { kind: 'settings' }; render(); }
   else if (a === 'mute') { toggleAllSound(); render(); }
   else if (a === 'gallery') { SCENE = { kind: 'gallery' }; render(); }

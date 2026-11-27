@@ -130,7 +130,7 @@ const FRIEND_GROWTH = [
   { id: 'fr_shadow', age: 12, title: '影',
     text: () => (fr().wish === 'sister' ? `学校の帰り道、${friendName()}の携帯が鳴った。${fr().sis}ちゃんが、また倒れたらしい。<br>病院の廊下で、${friendName()}は膝を抱えて座り込んでいた。「……あの子の心臓、治らないんだって」` :
        fr().wish === 'mother' ? `その知らせは、突然だった。${friendName()}のお母さんが、交通事故に遭った。命は助かった。けれど――目を覚まさない。<br>病院の待合室で、${friendName()}は一言も喋らなかった。` :
-       `体育の授業中、${friendName()}が倒れた。救急車の中で、その手は火傷しそうなほど熱かった。<br>検査の結果は「原因不明」。それから${friendName()}は、時々、ひどい熱を出すようになった。`),
+       `その春、${friendName()}のおばあさんが亡くなった。葬儀から一月ほど経ったある日、体育の授業中に、${friendName()}が倒れた。救急車の中で、その手は火傷しそうなほど熱かった。<br>検査の結果は「原因不明」。それから${friendName()}は、時々、ひどい熱を出すようになった。`),
     choices: [
       { label: '毎日、病院に通う', hint: '友情↑↑・精神↑', run: () => { friend(20); gain('spi', 3); G.flags.frStayed = true; return `何を話すでもなく、ただ隣に座った。ある日、${friendName()}がぽつりと言った。「……来てくれて、ありがと」（精神+3）`; } },
       { label: '「大丈夫。きっと良くなる」と励ます', hint: '友情↑・交渉↑', run: () => { friend(10); gain('cha', 3); return `${friendName()}は無理に笑って頷いた。その笑顔が、少しだけ痛かった。（交渉+3）`; } },
@@ -280,7 +280,7 @@ STORY.push(
     ] },
   // ---- 9日目の昼：異変の兆し（関係が育っていれば、魂喰いを未然に防げる） ----
   { id: 'fr_omen', phase: 'war', day: 9, slot: 0, after: 'hub',
-    cond: () => !(typeof skOn === 'function' && skOn()) && frNormal() && frAlive() && !frCut() && (frClose() || G.friend.bond >= 50) && !G.flags.frKnowsTruth && !G.flags.frOtherWay,
+    cond: () => !(typeof altRoute === 'function' && altRoute()) && !(typeof skOn === 'function' && skOn()) && frNormal() && frAlive() && !frCut() && (frClose() || G.friend.bond >= 50) && !G.flags.frKnowsTruth && !G.flags.frOtherWay,
     title: '異変の兆し',
     text: () => { const n = friendName(); const r = frRival();
       return `${frLover() ? `恋人からの` : `${n}からの`}メッセージが、ここ数日、妙に短い。<br>会いに行くと、${n}は笑って迎えてくれた。けれど、その笑顔はどこか張り詰めていて、${r.cls}のサーヴァントの気配は、ひどく弱っていた。<br>` +
@@ -300,7 +300,7 @@ STORY.push(
     ] },
   // ---- 10日目の夜：堕ちる友 ----
   { id: 'fr_fall', phase: 'war', day: 10, slot: 1, after: 'advance',
-    cond: () => !G.flags.counter && !(typeof skOn === 'function' && skOn()) && frNormal() && frAlive() && !G.flags.frKnowsTruth && !G.flags.frOtherWay && !G.flags.frPrevented,
+    cond: () => !(typeof altRoute === 'function' && altRoute()) && !G.flags.counter && !(typeof skOn === 'function' && skOn()) && frNormal() && frAlive() && !G.flags.frKnowsTruth && !G.flags.frOtherWay && !G.flags.frPrevented,
     title: '堕ちる友',
     text: () => { const r = frRival();
       return `${frWish().worse.replace(/。$/, '')}――あの知らせから、${friendName()}は変わってしまった。<br>深夜の病院の裏手。眠る人々の窓の下で、${r.cls}のサーヴァントが、生命力を吸い上げていた。<b>魂喰い</b>だ。<br>その傍らで、${friendName()}が振り返った。目の下には、深い隈が刻まれている。<br>` +

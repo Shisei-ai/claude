@@ -18,6 +18,7 @@ function hub() {
     body.push(statusLine());
     const last = aliveRivals().find(r => r.siege);
     if (last) body.push(`<p class="note">最後の敵・${rivalLabel(last)}陣営は天降山に籠城している。決戦は<b>${FINAL_DAY}日目の夜</b>。それまでに力を蓄えよう。</p>`);
+    else if (typeof counterOn === 'function' && counterOn()) body.push(`<p class="note">抑止の守護者が来るのは<b>12日目の夜</b>。それまでに「存在の楔を打つ」で、楔を揃えよう。</p>`);
     else if (G.day >= FINAL_DAY - 2) body.push(`<p class="note">聖杯の降臨が近い。残り一陣営になれば、${FINAL_DAY}日目以降の夜に天降山で決戦となる。</p>`);
     acts = isNight() ? warNightActions() : warDayActions();
   }
@@ -111,7 +112,7 @@ function warDayActions() {
   const acts = [
     { label: `${SV()}と過ごす`, hint: '絆↑（好みに合わせると大きく上がる）', fn: hangoutMenu },
     { label: '情報を集める', hint: '敵の正体・拠点・真名を探る', fn: intelMenu },
-    ...(typeof skOn === 'function' && skOn() ? (G.used.f_bloom && !sk().outcome ? [{ label: '桜の謎を追う', hint: `願い桜・手がかり${sk().ev}${sk().path ? '・' + SK_PATHS[sk().path] : ''}・心の灯${sk().heart}`, icon: 'scout', cls: 'primary', fn: skMenu }] : []) : [
+    ...(typeof skOn === 'function' && skOn() ? (G.used.f_bloom && !sk().outcome ? [{ label: '桜の謎を追う', hint: `願い桜・手がかり${sk().ev}${sk().path ? '・' + SK_PATHS[sk().path] : ''}・心の灯${sk().heart}`, icon: 'scout', cls: 'primary', fn: skMenu }] : []) : typeof altRoute === 'function' && altRoute() ? [] : [
     { label: '真相を調べる', hint: solved() ? `真相は判明済み・手がかり${mys().ev}` : `街の謎と聖杯の秘密・手がかり${mys().ev}`, icon: 'study', fn: mysteryMenu }, ]),
     { label: '拠点を整える', hint: '結界・罠・霊脈', fn: baseMenu },
     { label: '買い出し', hint: '戦闘用の道具', fn: shopMenu },

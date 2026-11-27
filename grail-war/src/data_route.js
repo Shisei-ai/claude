@@ -19,6 +19,8 @@ const ROUTE_FRIEND_READY = true;   // 幼馴染ルート（data_sakura.js）
 function route3Normal() { return !!G && G.phase === 'war' && !!G.servant && !isFuji() && !isKishi() && !isShirou(); }
 function routeMikoOpen() { return typeof mkMet === 'function' && mkMet() && !mkFar() && miko().bond >= ROUTE_MIKO_BOND; }
 function routeFriendOpen() { return typeof frNormal === 'function' && frNormal() && !frCut() && G.friend.bond >= ROUTE_FRIEND_BOND; }
+// 雫ルート・幼馴染ルート：聖杯の真相（昏睡事件・黒い影）の物語は起きず、それぞれの物語に置き換わる
+function altRoute() { return !!G && (G.route3 === 'friend' || G.route3 === 'miko'); }
 function setRoute3(k) { G.route3 = k; addLog(`物語の分岐：${ROUTE3[k].name}（${ROUTE3[k].desc}）`); }
 
 STORY.push(
@@ -29,7 +31,11 @@ STORY.push(
       { label: '城跡公園の、桜の木', hint: () => !routeFriendOpen() ? `足が向かない……（${friendName() || '幼馴染'}との関係が、とても深ければ）` : !ROUTE_FRIEND_READY ? '幼馴染ルート（準備中）' : `幼馴染ルートへ（${ROUTE3.friend.desc}）`,
         disabled: () => !routeFriendOpen() || !ROUTE_FRIEND_READY, cond: () => typeof frNormal === 'function' && frNormal(),
         run: () => { setRoute3('friend'); friend(5); skStart();
-          return [`冬枯れの桜の下に、${friendName()}が立っていた。まるで、あなたが来るのを知っていたみたいに。`,
+          const n = friendName();
+          return [`城跡公園の、いちばん大きな桜の木。二人の「秘密の場所」。<br>冬枯れの枝の先に、<b>一輪だけ</b>、薄紅色の花が咲いていた。真冬なのに。`,
+            `その下に、${n}が立っていた。まるで、あなたが来るのを知っていたみたいに。`,
+            `<p class="quote">「${fg('……お前も、来たのか。なんか、呼ばれた気がしてさ', '……あなたも、来たんだ。なんか、呼ばれた気がして')}」</p>${n}は、手袋を外した右手を、そっと幹に当てた。その指先が、かすかに薄紅色に光った気がした。`,
+            `<p class="quote">「${fg('……変だよな。この木に触ってると、体の熱が、少しだけ楽になるんだ', '……変だよね。この木に触ってると、体の熱が、少しだけ楽になるの')}」</p>`,
             `<span class="note">「${ROUTE3.friend.name}」に入った。${ROUTE3.friend.desc}。</span>`]; } },
       { label: '天降神社の奥の、静かな祠', hint: () => routeMikoOpen() ? `雫ルートへ（${ROUTE3.miko.desc}）` : `胸の奥で、何かが引っかかる……（${CAST.miko}との関係が深ければ）`,
         disabled: () => !routeMikoOpen(), cond: () => typeof mkMet === 'function' && mkMet(),
