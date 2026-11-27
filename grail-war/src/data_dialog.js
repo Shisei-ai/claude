@@ -17,14 +17,18 @@
 // ---- 会話の仕組み ----
 // steps：[{ text: 文章（関数可）, choices?: [{ label, hint, cond, disabled, run, reply, end }] }]
 //   選んだ選択肢の reply は、次の場面の冒頭に続けて表示される。end なら、その返事で会話を終える
+// 会話ごとの曲調（audio.js の bgmMood）
+const DIALOG_MOOD = { '月下の告白': 'confession', '冬の夜に': 'confession', '二人の距離': 'confession', '花還し': 'confession', '最後の会話': 'farewell', '夜明けの石段': 'dawn', '夜明けの神楽殿': 'dawn', '春を待つ病室': 'dawn', '桜守の痣': 'dawn',
+  '決戦前夜': 'eve', '天降山': 'eve', '聖杯降臨': 'title', '花の声': 'sakura', '花の夢': 'sakura' };
 function dialog(o) {
   const { title, sub, steps, then } = o; let carry = [];
+  const t0 = typeof title === 'function' ? title() : title; const mood = o.mood || DIALOG_MOOD[t0] || (/という存在$/.test(t0) ? 'confession' : undefined);
   const val = v => typeof v === 'function' ? v() : v;
   const go = i => {
     if (i >= steps.length) {
       if (!carry.length) return then();
       const body = carry; carry = [];
-      return scene({ title: val(title), sub, reveal: true, body: paras(body), choices: [{ label: o.last || '次へ', cls: 'primary', icon: 'next', fn: then }] });
+      return scene({ title: val(title), sub, reveal: true, body: paras(body), choices: [{ label: o.last || '次へ', cls: 'primary', icon: 'next', fn: then }], mood });
     }
     const st = steps[i]; if (st.skip && st.skip()) return go(i + 1);
     const body = [...carry, ...[].concat(val(st.text) || [])]; carry = [];
@@ -32,7 +36,7 @@ function dialog(o) {
       ? st.choices.filter(c => !c.cond || c.cond()).map(c => ({ label: val(c.label), hint: val(c.hint), cls: c.cls, disabled: !!val(c.disabled), fn: () => {
           NOTES = []; if (c.run) c.run(); carry = [...[].concat(val(c.reply) || []), ...takeNotes()]; go(c.end ? steps.length : i + 1); } }))
       : [{ label: st.next || '次へ', cls: 'primary', icon: 'next', fn: () => go(i + 1) }];
-    scene({ title: val(st.title || title), sub, reveal: true, body: paras(body), choices });
+    scene({ title: val(st.title || title), sub, reveal: true, body: paras(body), choices, mood });
   };
   go(0);
 }

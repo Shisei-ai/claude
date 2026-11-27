@@ -16802,14 +16802,18 @@ function mikoEpiSteps(track) {
 // ---- 会話の仕組み ----
 // steps：[{ text: 文章（関数可）, choices?: [{ label, hint, cond, disabled, run, reply, end }] }]
 //   選んだ選択肢の reply は、次の場面の冒頭に続けて表示される。end なら、その返事で会話を終える
+// 会話ごとの曲調（audio.js の bgmMood）
+const DIALOG_MOOD = { '月下の告白': 'confession', '冬の夜に': 'confession', '二人の距離': 'confession', '花還し': 'confession', '最後の会話': 'farewell', '夜明けの石段': 'dawn', '夜明けの神楽殿': 'dawn', '春を待つ病室': 'dawn', '桜守の痣': 'dawn',
+  '決戦前夜': 'eve', '天降山': 'eve', '聖杯降臨': 'title', '花の声': 'sakura', '花の夢': 'sakura' };
 function dialog(o) {
   const { title, sub, steps, then } = o; let carry = [];
+  const t0 = typeof title === 'function' ? title() : title; const mood = o.mood || DIALOG_MOOD[t0] || (/という存在$/.test(t0) ? 'confession' : undefined);
   const val = v => typeof v === 'function' ? v() : v;
   const go = i => {
     if (i >= steps.length) {
       if (!carry.length) return then();
       const body = carry; carry = [];
-      return scene({ title: val(title), sub, reveal: true, body: paras(body), choices: [{ label: o.last || '次へ', cls: 'primary', icon: 'next', fn: then }] });
+      return scene({ title: val(title), sub, reveal: true, body: paras(body), choices: [{ label: o.last || '次へ', cls: 'primary', icon: 'next', fn: then }], mood });
     }
     const st = steps[i]; if (st.skip && st.skip()) return go(i + 1);
     const body = [...carry, ...[].concat(val(st.text) || [])]; carry = [];
@@ -16817,7 +16821,7 @@ function dialog(o) {
       ? st.choices.filter(c => !c.cond || c.cond()).map(c => ({ label: val(c.label), hint: val(c.hint), cls: c.cls, disabled: !!val(c.disabled), fn: () => {
           NOTES = []; if (c.run) c.run(); carry = [...[].concat(val(c.reply) || []), ...takeNotes()]; go(c.end ? steps.length : i + 1); } }))
       : [{ label: st.next || '次へ', cls: 'primary', icon: 'next', fn: () => go(i + 1) }];
-    scene({ title: val(st.title || title), sub, reveal: true, body: paras(body), choices });
+    scene({ title: val(st.title || title), sub, reveal: true, body: paras(body), choices, mood });
   };
   go(0);
 }
@@ -17956,6 +17960,14 @@ const EPI_KAMI_FRAY = { y: 2, title: '誰も知らない冬', skip: () => !(G.ep
     { label: '「忘れるわけがない」', hint: '絆↑↑', run: () => epiGain({ bond: 3 }, '誰も知らない冬を、覚え続けた') || `${CAST.miko}は、ほっとしたように笑った。二人だけが知っている英霊の話を、その夜は遅くまで続けた。` },
     { label: 'あの冬のことを、書き残す', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '誰も知らない冬を、書き残した') || 'いつか、誰かが読むかもしれない。読まれなくても、いい。ここに確かに在ったことを、書き残しておく。' },
   ] };
+
+// ---- 場面ごとの曲調（audio.js）：雫ルート＝霧の神楽、抑止の終章＝綻ぶ世界、幼馴染ルート＝願い桜 ----
+for (const st of STORY) {
+  if (['k_mist', 'k_bride', 'k_bride_sp', 'k_voice', 'k_old', 'k_old_f', 'k_climax', 'mk_dream', 'mk_call'].includes(st.id)) st.mood = 'kagura';
+  if (st.id === 'k_counter') st.mood = 'counter';
+  if (/^f_/.test(st.id)) st.mood = 'sakura';
+  if (st.id === 'r_route') st.mood = 'unease';
+}
 
 // =============================================================
 //  data_svtalk1.js … 英霊ごとの日常の会話（口調の固有化）
@@ -20525,6 +20537,8 @@ function drum(g, dest, t, vol = 0.3, hi = 140, lo = 48, dur = 0.35) {
 }
 function snare(g, dest, t, vol = 0.12) { noiseHit(g, dest, { t, dur: 0.16, vol, f: 1800, ftype: 'bandpass', q: 0.6, send: 0.15 }); voice(g, dest, { f: 210, endF: 160, t, dur: 0.02, r: 0.1, vol: vol * 0.6, type: 'triangle' }); }
 function hat(g, dest, t, vol = 0.03, pan = 0.2) { noiseHit(g, dest, { t, dur: 0.04, vol: vol * 1.3, f: 8500, ftype: 'bandpass', q: 0.9, pan }); }   // ハイハット（高域だけを通したノイズ）
+function suzu(g, dest, t, vol = 0.02) { [98, 101, 103].forEach((m, i) => bell(g, dest, mtof(m), t + i * 0.025, 0.9, vol, 0.6, (i - 1) * 0.4)); }   // 神楽鈴
+function taiko(g, dest, t, vol = 0.25) { drum(g, dest, t, vol, 95, 36, 0.6); noiseHit(g, dest, { t, dur: 0.12, vol: vol * 0.3, f: 300, send: 0.2 }); }   // 和太鼓
 
 // ---------------- 効果音 ----------------
 const SFX = {
@@ -20581,6 +20595,16 @@ const MOODS = {
   dawn:     { bpm: 70, gain: 1.1, score: (mu, t, st, half) => SONGS.dawn(mu, t, st, half) },       // 「夜明け」
   sorrow:   { bpm: 56, gain: 1.2, score: (mu, t, st, half) => SONGS.sorrow(mu, t, st, half) },     // 「喪失」
   epilogue: { bpm: 76, gain: 1.2, score: (mu, t, st, half) => SONGS.epilogue(mu, t, st, half) },   // 「その後の日々」
+  unease:     { bpm: 72, gain: 1.7, score: (mu, t, st, half) => SONGS.unease(mu, t, st, half) },        // 「名前のない予感」（胸騒ぎ）
+  kagura:     { bpm: 80, gain: 1.35, score: (mu, t, st, half) => SONGS.kagura(mu, t, st, half) },       // 「霧の神楽」（雫ルート）
+  kamiBattle: { bpm: 132, gain: 0.9, score: (mu, t, st, half) => SONGS.kamiBattle(mu, t, st, half) },   // 「荒魂」（天降大神との戦い）
+  counter:    { bpm: 76, gain: 1.65, score: (mu, t, st, half) => SONGS.counter(mu, t, st, half) },       // 「綻ぶ世界」（抑止の終章）
+  guardian:   { bpm: 144, gain: 1.15, score: (mu, t, st, half) => SONGS.guardian(mu, t, st, half) },    // 「白妙」（抑止の守護者との戦い）
+  sakura:     { bpm: 66, gain: 1.3, score: (mu, t, st, half) => SONGS.sakura(mu, t, st, half) },        // 「願い桜」（幼馴染ルート）
+  sakuraBoss: { bpm: 150, gain: 1.0, score: (mu, t, st, half) => SONGS.sakuraBoss(mu, t, st, half) },   // 「花冠の杯」（花冠の杯との戦い）
+  confession: { bpm: 68, gain: 1.2, score: (mu, t, st, half) => SONGS.confession(mu, t, st, half) },    // 「月下の告白」（告白）
+  farewell:   { bpm: 64, gain: 1.2, score: (mu, t, st, half) => SONGS.farewell(mu, t, st, half) },      // 「さよならの朝」（最後の会話）
+  eve:        { bpm: 70, gain: 1.25, score: (mu, t, st, half) => SONGS.eve(mu, t, st, half) },          // 「屋根の上の誓い」（決戦前夜）
 };
 class Music {
   constructor(g, mood) {
@@ -20746,6 +20770,10 @@ const INST = {
   cello:   (g, d, n, t, dur, v) => voice(g, d, { f: mtof(n), t, dur, a: 0.15, r: 0.5, vol: v, type: 'sawtooth', det: 6, cut: 1300, send: 0.4, vib: 0.007 }),
   horn:    (g, d, n, t, dur, v) => voice(g, d, { f: mtof(n), t, dur, a: 0.09, r: 0.4, vol: v, type: 'sawtooth', det: 5, cut: 1300, q: 1.2, send: 0.45, vib: 0.004 }),
   choir:   (g, d, n, t, dur, v) => choir(g, d, n, t, dur, v),
+  // 和の楽器（雫ルート・抑止の終章）
+  shino:   (g, d, n, t, dur, v) => { const f = mtof(n); voice(g, d, { f, t, dur, a: 0.05, r: 0.28, vol: v, type: 'sine', vib: 0.012, vibRate: 5.8, send: 0.55 }); voice(g, d, { f: f * 2, t, dur, a: 0.06, r: 0.2, vol: v * 0.12, type: 'triangle', send: 0.5 }); noiseHit(g, d, { t, dur: 0.12, vol: v * 0.35, f: Math.min(9000, f * 1.5), ftype: 'bandpass', q: 2, send: 0.4 }); },   // 篠笛（息の音を少し混ぜる）
+  koto:    (g, d, n, t, dur, v) => { const f = mtof(n); voice(g, d, { f, endF: f * 0.996, glide: 0.4, t, dur: 0.02, a: 0.002, r: 0.9, vol: v, type: 'triangle', cut: 3200, send: 0.45 }); voice(g, d, { f: f * 2, t, dur: 0.01, a: 0.002, r: 0.3, vol: v * 0.3, type: 'sine' }); },   // 箏
+  glass:   (g, d, n, t, dur, v) => { const f = mtof(n); voice(g, d, { f, t, dur: 0.02, a: 0.003, r: Math.max(1.6, dur), vol: v, type: 'sine', send: 0.7 }); voice(g, d, { f: f * 2.01, t, dur: 0.01, a: 0.003, r: 1.1, vol: v * 0.3, type: 'sine', send: 0.7 }); },   // 玻璃（冷たく澄んだ音）
 };
 // 曲の骨組み：和音と旋律を鳴らし、伴奏（layer）は曲ごとに書く
 function song(def) {
@@ -20774,6 +20802,10 @@ function arpAt(c, t, pat, inst, vol, oct = 12) { const i = pat[c.pos % pat.lengt
 const C_ = {
   Dm: CH(38, 57, 62, 65, 69), Bb: CH(34, 58, 62, 65, 70), Gm: CH(43, 58, 62, 67, 70), A: CH(33, 57, 61, 64, 69), F: CH(41, 57, 60, 65, 69), C: CH(36, 55, 60, 64, 67),
   Em: CH(40, 55, 59, 64, 67), B: CH(35, 54, 59, 63, 66), Am: CH(33, 57, 60, 64, 69), G: CH(31, 55, 59, 62, 67), D: CH(38, 54, 57, 62, 66), E: CH(40, 56, 59, 64, 68),
+  Cm: CH(36, 55, 60, 63, 67), Fm: CH(41, 56, 60, 65, 68), Ab: CH(44, 56, 60, 63, 68), Eb: CH(39, 55, 58, 63, 67), G7: CH(31, 55, 59, 62, 65), Db: CH(37, 56, 61, 65, 68),
+  Bm: CH(35, 54, 59, 62, 66), Fsm: CH(42, 57, 61, 66, 69),
+  // 和の響き（空虚五度。都節の音階 レ・ミ♭・ソ・ラ・シ♭ に合う）
+  kD: CH(38, 50, 57, 62, 69), kG: CH(43, 55, 62, 67, 74), kEb: CH(39, 51, 58, 63, 70), kA: CH(45, 57, 64, 69, 76), kBb: CH(34, 46, 53, 58, 65),
 };
 const SONGS = {
   // ---- タイトル・召喚「聖杯の呼び声」（ニ短調・60）：運命の始まり。前半は鐘と合唱が「運命の主題」を告げ、後半で弦とホルンが英霊たちの気配を広げる
@@ -20880,6 +20912,164 @@ const SONGS = {
       arpAt(c, t, [0, 1, 2, 3, 2, 1, 2, 3], 'pluck', 0.018, 0);
     },
   }),
+  // ---- 胸騒ぎ「名前のない予感」（ホ短調・72）：2日目、三つの道の分かれ目。時計の刻みと鼓動の上で、チェレスタが答えの出ない問いを繰り返す
+  unease: song({
+    A: [[C_.Em, [[0, 71, 4], [4, 74, 4]]], [C_.C, [[0, 76, 6], [6, 75, 2]]], [C_.Am, [[0, 72, 4], [4, 69, 4]]], [C_.B, [[0, 75, 8]]],
+        [C_.Em, [[0, 79, 4], [4, 78, 4]]], [C_.C, [[0, 76, 4], [4, 72, 4]]], [C_.Am, [[0, 69, 2], [2, 72, 2], [4, 76, 4]]], [C_.B, [[0, 75, 4], [4, 71, 4]]]],
+    B: [[C_.C, [[0, 72, 4], [4, 76, 4]]], [C_.B, [[0, 78, 8]]], [C_.Am, [[0, 81, 4], [4, 77, 4]]], [C_.B, [[0, 75, 8]]],
+        [C_.Em, [[0, 71, 6], [6, 74, 2]]], [C_.C, [[0, 72, 4], [4, 67, 4]]], [C_.Am, [[0, 69, 4], [4, 72, 4]]], [C_.B, [[0, 71, 8]]]],
+    leadA: { inst: 'celesta', vol: 0.038 },
+    leadB: { inst: 'strings', oct: -12, vol: 0.022 },
+    layer: (c, t) => {
+      if (c.pos === 0) voice(c.g, c.d, { f: mtof(28), t, dur: c.barDur, a: 1.0, r: 1.2, vol: 0.028 });
+      padAt(c, t, { type: 'sawtooth', cut: 700, vol: 0.008, a: 1.0, oct: -12 });
+      if (c.pos % 2 === 0) hat(c.g, c.d, t, 0.007, c.pos % 4 ? 0.3 : -0.3);   // 時計の刻み
+      if (c.pos === 0) { drum(c.g, c.d, t, 0.05, 70, 40, 0.35); drum(c.g, c.d, t + c.half * 0.8, 0.03, 70, 40, 0.3); }   // 鼓動
+    },
+  }),
+  // ---- 雫ルート「霧の神楽」（都節・80）：天降山の霧と、花嫁に選ばれた巫女。篠笛が神楽の節を歌い、箏と神楽鈴、遠い太鼓が山の気配を運ぶ
+  kagura: song({
+    A: [[C_.kD, [[0, 81, 3], [3, 79, 1], [4, 81, 4]]], [C_.kD, [[0, 82, 2], [2, 81, 2], [4, 79, 2], [6, 75, 2]]], [C_.kG, [[0, 74, 6], [6, 75, 2]]], [C_.kD, [[0, 74, 8]]],
+        [C_.kEb, [[0, 75, 3], [3, 79, 1], [4, 81, 4]]], [C_.kA, [[0, 82, 4], [4, 81, 2], [6, 79, 2]]], [C_.kG, [[0, 79, 4], [4, 75, 4]]], [C_.kD, [[0, 74, 8]]]],
+    B: [[C_.kBb, [[0, 86, 4], [4, 87, 4]]], [C_.kD, [[0, 86, 6], [6, 82, 2]]], [C_.kG, [[0, 79, 4], [4, 81, 4]]], [C_.kA, [[0, 81, 8]]],
+        [C_.kBb, [[0, 82, 2], [2, 86, 2], [4, 87, 4]]], [C_.kEb, [[0, 87, 4], [4, 86, 2], [6, 82, 2]]], [C_.kG, [[0, 81, 4], [4, 79, 4]]], [C_.kD, [[0, 74, 8]]]],
+    leadA: { inst: 'shino', vol: 0.03 },
+    leadB: { inst: 'shino', vol: 0.032, dbl: { inst: 'koto', oct: -12, vol: 0.02 } },
+    layer: (c, t) => {
+      if (c.pos === 0) voice(c.g, c.d, { f: mtof(26), t, dur: c.barDur, a: 1.2, r: 1.4, vol: 0.03 });
+      arpAt(c, t, [0, null, 2, null, 1, null, 3, 2], 'koto', 0.016, 0);
+      if (c.bar % 2 === 0 && c.pos === 0) suzu(c.g, c.d, t, 0.016);
+      if (c.pos === 0) taiko(c.g, c.d, t, c.B2 ? 0.16 : 0.1);
+      if (c.B2 && c.pos === 6) taiko(c.g, c.d, t, 0.08);
+      if (c.bar % 4 === 3 && c.pos === 0) noiseHit(c.g, c.d, { t, dur: c.barDur, vol: 0.015, f: 400, endF: 900, ftype: 'bandpass', a: c.barDur * 0.5, send: 0.6 });   // 霧の風
+    },
+  }),
+  // ---- 天降大神との戦い「荒魂」（都節・132）：山そのものとの戦い。和太鼓が地を揺らし、篠笛と金管が荒ぶる神と人の意地をぶつけ合う
+  kamiBattle: song({
+    A: [[C_.kD, [[0, 74, 2], [2, 75, 2], [4, 79, 2], [6, 81, 2]]], [C_.kD, [[0, 82, 3], [3, 81, 1], [4, 79, 4]]], [C_.kEb, [[0, 75, 2], [2, 79, 2], [4, 81, 2], [6, 82, 2]]], [C_.kD, [[0, 81, 8]]],
+        [C_.kG, [[0, 86, 2], [2, 87, 2], [4, 86, 2], [6, 82, 2]]], [C_.kBb, [[0, 81, 3], [3, 82, 1], [4, 81, 2], [6, 79, 2]]], [C_.kEb, [[0, 75, 4], [4, 79, 4]]], [C_.kD, [[0, 74, 8]]]],
+    B: [[C_.kBb, [[0, 82, 4], [4, 86, 4]]], [C_.kA, [[0, 81, 4], [4, 79, 4]]], [C_.kG, [[0, 79, 2], [2, 81, 2], [4, 82, 4]]], [C_.kD, [[0, 86, 8]]],
+        [C_.kBb, [[0, 87, 4], [4, 86, 4]]], [C_.kEb, [[0, 82, 4], [4, 79, 4]]], [C_.kA, [[0, 81, 4], [4, 82, 2], [6, 81, 2]]], [C_.kD, [[0, 74, 8]]]],
+    leadA: { inst: 'shino', vol: 0.03 },
+    leadB: { inst: 'horn', oct: -12, vol: 0.032, dbl: { inst: 'shino', vol: 0.022 } },
+    layer: (c, t) => {
+      if ([0, 3, 4, 6].includes(c.pos)) taiko(c.g, c.d, t, c.pos === 0 ? 0.3 : 0.18);
+      if (c.pos === 2 || c.pos === 6) noiseHit(c.g, c.d, { t, dur: 0.06, vol: 0.05, f: 2200, ftype: 'bandpass', q: 1.2 });   // 縁打ち
+      if (c.pos % 2 === 0) voice(c.g, c.d, { f: mtof(c.ch.r - 12 + (c.pos === 4 ? 7 : 0)), t, dur: c.half * 0.8, a: 0.004, r: 0.08, vol: 0.05, type: 'sawtooth', cut: 600, cutEnd: 280, q: 2 });
+      if (c.pos === 0) suzu(c.g, c.d, t, 0.014);
+      if ((c.bar === 0 || c.bar === 8) && c.pos === 0) crash(c.g, c.d, t, 0.05);
+      padAt(c, t, { type: 'sawtooth', cut: 1100, vol: 0.008, a: 0.3 });
+    },
+  }),
+  // ---- 抑止の終章「綻ぶ世界」（イ短調・76）：空に入ったひび。止まらない時計の刻み、玻璃のように冷たい旋律、時折走る亀裂の音――世界そのものが、こちらを見ている
+  counter: song({
+    A: [[C_.Am, [[0, 81, 2], [2, 76, 2], [4, 83, 4]]], [C_.F, [[0, 84, 6], [6, 83, 2]]], [C_.Am, [[0, 81, 2], [2, 76, 2], [4, 72, 4]]], [C_.E, [[0, 80, 8]]],
+        [C_.Dm, [[0, 81, 4], [4, 77, 4]]], [C_.Am, [[0, 76, 2], [2, 81, 2], [4, 88, 4]]], [C_.F, [[0, 84, 4], [4, 81, 4]]], [C_.E, [[0, 83, 4], [4, 80, 4]]]],
+    B: [[C_.F, [[0, 77, 4], [4, 81, 4]]], [C_.G, [[0, 79, 4], [4, 83, 4]]], [C_.Em, [[0, 79, 6], [6, 76, 2]]], [C_.Am, [[0, 81, 8]]],
+        [C_.F, [[0, 84, 4], [4, 88, 4]]], [C_.Dm, [[0, 86, 4], [4, 81, 4]]], [C_.E, [[0, 83, 4], [4, 80, 4]]], [C_.E, [[0, 76, 8]]]],
+    leadA: { inst: 'glass', vol: 0.04 },
+    leadB: { inst: 'strings', vol: 0.02, dbl: { inst: 'glass', vol: 0.025 } },
+    layer: (c, t) => {
+      hat(c.g, c.d, t, 0.006, c.pos % 2 ? 0.35 : -0.35);   // 止まらない時計
+      if (c.pos === 0 || c.pos === 4) voice(c.g, c.d, { f: mtof(c.pos ? 79 : 84), t, dur: 0.01, a: 0.002, r: 0.12, vol: 0.012, type: 'square', cut: 3000 });
+      if (c.pos === 0) voice(c.g, c.d, { f: mtof(c.ch.r - 12), t, dur: c.barDur, a: 1.5, r: 1.5, vol: 0.03 });
+      padAt(c, t, { type: 'sine', vol: 0.012, a: 1.2, oct: 12 });
+      if (c.bar % 4 === 1 && c.pos === 4) noiseHit(c.g, c.d, { t, dur: 0.9, vol: 0.03, f: 900, endF: 9000, ftype: 'bandpass', q: 3, send: 0.6 });   // 亀裂
+    },
+  }),
+  // ---- 抑止の守護者との戦い「白妙」（ハ短調・144）：世界の掃除屋となった、最初の花嫁。容赦のない刻みの上で、弦が哀しみを、神楽鈴が遠い祈りを鳴らす
+  guardian: song({
+    A: [[C_.Cm, [[0, 72, 2], [2, 75, 2], [4, 79, 4]]], [C_.Ab, [[0, 80, 2], [2, 79, 2], [4, 75, 4]]], [C_.Eb, [[0, 79, 2], [2, 82, 2], [4, 84, 4]]], [C_.Bb, [[0, 82, 8]]],
+        [C_.Fm, [[0, 80, 2], [2, 84, 2], [4, 87, 4]]], [C_.Cm, [[0, 84, 3], [3, 82, 1], [4, 79, 4]]], [C_.Db, [[0, 80, 4], [4, 77, 4]]], [C_.G7, [[0, 79, 4], [4, 83, 4]]]],
+    B: [[C_.Ab, [[0, 84, 4], [4, 87, 4]]], [C_.Bb, [[0, 86, 4], [4, 82, 4]]], [C_.Eb, [[0, 87, 6], [6, 86, 2]]], [C_.Cm, [[0, 84, 8]]],
+        [C_.Ab, [[0, 84, 2], [2, 87, 2], [4, 91, 4]]], [C_.Fm, [[0, 89, 4], [4, 87, 4]]], [C_.Db, [[0, 85, 4], [4, 84, 4]]], [C_.G7, [[0, 83, 8]]]],
+    leadA: { inst: 'strings', vol: 0.028, dbl: { inst: 'bell', vol: 0.016 } },
+    leadB: { inst: 'horn', oct: -12, vol: 0.03, dbl: { inst: 'strings', vol: 0.022 } },
+    layer: (c, t) => {
+      if ([0, 3, 4, 7].includes(c.pos)) drum(c.g, c.d, t, c.pos === 0 ? 0.26 : 0.18, 110, 45, 0.3);
+      if (c.pos === 2 || c.pos === 6) snare(c.g, c.d, t, 0.08);
+      hat(c.g, c.d, t, c.pos % 2 ? 0.014 : 0.022);
+      voice(c.g, c.d, { f: mtof(c.ch.r - 12 + [0, 0, 12, 0, 7, 0, 12, 10][c.pos]), t, dur: c.half * 0.6, a: 0.004, r: 0.06, vol: 0.045, type: 'sawtooth', cut: 700, cutEnd: 300, q: 2 });
+      if (c.pos === 0 && c.bar % 2 === 0) suzu(c.g, c.d, t, 0.014);
+      if ((c.bar === 0 || c.bar === 8) && c.pos === 0) crash(c.g, c.d, t, 0.05);
+    },
+  }),
+  // ---- 幼馴染ルート「願い桜」（ハ短調・66）：真冬に一輪だけ咲く桜。オルゴールが幼い日の約束をなぞり、後半は弦とピアノが、届かない手を伸ばす
+  sakura: song({
+    A: [[C_.Cm, [[0, 75, 3], [3, 74, 1], [4, 72, 4]]], [C_.Ab, [[0, 72, 3], [3, 75, 1], [4, 80, 4]]], [C_.Eb, [[0, 79, 3], [3, 77, 1], [4, 75, 4]]], [C_.Bb, [[0, 74, 8]]],
+        [C_.Cm, [[0, 75, 3], [3, 79, 1], [4, 84, 4]]], [C_.Fm, [[0, 84, 3], [3, 80, 1], [4, 77, 4]]], [C_.Ab, [[0, 75, 2], [2, 77, 2], [4, 79, 4]]], [C_.G7, [[0, 79, 8]]]],
+    B: [[C_.Ab, [[0, 84, 4], [4, 80, 4]]], [C_.Eb, [[0, 82, 4], [4, 79, 4]]], [C_.Fm, [[0, 80, 4], [4, 84, 4]]], [C_.Cm, [[0, 79, 8]]],
+        [C_.Ab, [[0, 84, 2], [2, 87, 2], [4, 86, 4]]], [C_.Bb, [[0, 84, 2], [2, 82, 2], [4, 77, 4]]], [C_.Eb, [[0, 79, 4], [4, 75, 4]]], [C_.G7, [[0, 74, 8]]]],
+    leadA: { inst: 'box', oct: 12, vol: 0.038 },
+    leadB: { inst: 'strings', vol: 0.022, dbl: { inst: 'piano', vol: 0.03 } },
+    layer: (c, t) => {
+      padAt(c, t, { vol: 0.01, cut: 1500, a: 0.8 });
+      bassAt(c, t, { style: 'hold', vol: 0.04 });
+      arpAt(c, t, [0, 2, 4, 1, 3, 4, 2, 3], 'harp', 0.012, 0);   // 3＋3＋2 の揺れ
+      if (c.pos === 4 && Math.random() < 0.3) bell(c.g, c.d, mtof(pick([91, 94, 96])), t, 2.2, 0.012, 0.7, Math.random() - 0.5);   // 舞い落ちる花びら
+    },
+  }),
+  // ---- 花冠の杯との戦い「花冠の杯」（ハ・フリギア・150）：聖杯そのものになった幼馴染。歪んだオルゴールと合唱、狂い咲く桜のように止まらない打楽器
+  sakuraBoss: song({
+    A: [[C_.Cm, [[0, 72, 1], [1, 73, 1], [2, 72, 2], [4, 79, 2], [6, 80, 2]]], [C_.Db, [[0, 80, 2], [2, 77, 2], [4, 73, 4]]], [C_.Cm, [[0, 75, 2], [2, 79, 2], [4, 84, 4]]], [C_.Bb, [[0, 82, 4], [4, 77, 4]]],
+        [C_.Ab, [[0, 80, 2], [2, 84, 2], [4, 87, 4]]], [C_.Db, [[0, 85, 4], [4, 80, 4]]], [C_.Fm, [[0, 84, 2], [2, 80, 2], [4, 77, 4]]], [C_.G7, [[0, 79, 8]]]],
+    B: [[C_.Ab, [[0, 87, 4], [4, 84, 4]]], [C_.Db, [[0, 85, 6], [6, 84, 2]]], [C_.Cm, [[0, 84, 4], [4, 79, 4]]], [C_.Cm, [[0, 75, 8]]],
+        [C_.Fm, [[0, 77, 2], [2, 80, 2], [4, 84, 4]]], [C_.Db, [[0, 85, 4], [4, 89, 4]]], [C_.Ab, [[0, 87, 4], [4, 84, 4]]], [C_.G7, [[0, 83, 8]]]],
+    leadA: { inst: 'box', oct: 12, vol: 0.034, dbl: { inst: 'choir', oct: -12, vol: 0.02 } },
+    leadB: { inst: 'choir', vol: 0.028, dbl: { inst: 'strings', vol: 0.02 } },
+    layer: (c, t) => {
+      if ([0, 2, 3, 4, 6, 7].includes(c.pos)) drum(c.g, c.d, t, c.pos % 4 === 0 ? 0.26 : 0.15, 100, 40, 0.3);
+      if (c.pos === 2 || c.pos === 6) snare(c.g, c.d, t, 0.09);
+      hat(c.g, c.d, t, 0.022);
+      if (c.pos % 2 === 0) voice(c.g, c.d, { f: mtof(c.ch.r - 12), t, dur: c.half * 0.8, a: 0.004, r: 0.08, vol: 0.05, type: 'sawtooth', cut: 650, cutEnd: 280, q: 2 });
+      arpAt(c, t, [4, 3, 2, 1, 2, 3, 4, 3], 'box', 0.012, 24);
+      if ((c.bar === 0 || c.bar === 8) && c.pos === 0) crash(c.g, c.d, t, 0.05);
+    },
+  }),
+  // ---- 告白「月下の告白」（変ホ長調・68）：英霊・幼馴染・雫と、想いを確かめ合う夜。ピアノが言葉を探し、後半で弦とホルンが、言葉にならない想いを満たす
+  confession: song({
+    A: [[C_.Eb, [[0, 79, 4], [4, 82, 2], [6, 80, 2]]], [C_.Bb, [[0, 77, 6], [6, 74, 2]]], [C_.Cm, [[0, 75, 4], [4, 79, 4]]], [C_.Ab, [[0, 80, 6], [6, 79, 2]]],
+        [C_.Eb, [[0, 79, 2], [2, 80, 2], [4, 82, 4]]], [C_.Bb, [[0, 86, 4], [4, 82, 4]]], [C_.Ab, [[0, 84, 4], [4, 80, 4]]], [C_.Bb, [[0, 82, 8]]]],
+    B: [[C_.Ab, [[0, 84, 6], [6, 82, 2]]], [C_.Bb, [[0, 82, 6], [6, 79, 2]]], [C_.Gm, [[0, 79, 4], [4, 82, 4]]], [C_.Cm, [[0, 84, 8]]],
+        [C_.Ab, [[0, 87, 4], [4, 84, 4]]], [C_.Bb, [[0, 86, 4], [4, 82, 4]]], [C_.Fm, [[0, 80, 4], [4, 84, 4]]], [C_.Bb, [[0, 82, 8]]]],
+    leadA: { inst: 'piano', vol: 0.045 },
+    leadB: { inst: 'strings', vol: 0.024, dbl: { inst: 'horn', oct: -12, vol: 0.014 } },
+    layer: (c, t) => {
+      padAt(c, t, { vol: c.B2 ? 0.013 : 0.009, cut: 1800, a: 0.8 });
+      bassAt(c, t, { style: 'hold', vol: 0.042 });
+      arpAt(c, t, [0, 2, 1, 3, 2, 1, 3, 2], 'piano', 0.011, 0);
+    },
+  }),
+  // ---- 別れ「さよならの朝」（ニ長調・64）：消えていく英霊と、最後に交わす言葉。温かいのに、少しだけ胸が痛い。後半はチェロが、もう会えない人の背中を見送る
+  farewell: song({
+    A: [[C_.D, [[0, 78, 4], [4, 76, 2], [6, 74, 2]]], [C_.A, [[0, 73, 6], [6, 76, 2]]], [C_.Bm, [[0, 74, 4], [4, 78, 4]]], [C_.G, [[0, 79, 6], [6, 78, 2]]],
+        [C_.D, [[0, 78, 2], [2, 79, 2], [4, 81, 4]]], [C_.Fsm, [[0, 81, 4], [4, 78, 4]]], [C_.G, [[0, 79, 4], [4, 76, 4]]], [C_.A, [[0, 76, 8]]]],
+    B: [[C_.G, [[0, 83, 6], [6, 81, 2]]], [C_.A, [[0, 81, 6], [6, 78, 2]]], [C_.Fsm, [[0, 78, 4], [4, 81, 4]]], [C_.Bm, [[0, 83, 8]]],
+        [C_.G, [[0, 86, 4], [4, 83, 4]]], [C_.A, [[0, 85, 4], [4, 81, 4]]], [C_.Em, [[0, 79, 4], [4, 83, 4]]], [C_.A, [[0, 81, 8]]]],
+    leadA: { inst: 'piano', vol: 0.045 },
+    leadB: { inst: 'cello', vol: 0.034, dbl: { inst: 'strings', oct: 12, vol: 0.014 } },
+    layer: (c, t) => {
+      padAt(c, t, { vol: 0.01, cut: 1700, a: 0.9 });
+      bassAt(c, t, { style: 'hold', vol: 0.04 });
+      arpAt(c, t, [0, null, 2, null, 1, null, 3, null], 'harp', 0.012, 12);
+      if (c.bar === 15 && c.pos === 4) bell(c.g, c.d, mtof(86), t, 3, 0.02, 0.7);
+    },
+  }),
+  // ---- 決戦前夜「屋根の上の誓い」（イ短調・70）：最後の戦いの前の、静かな夜。ホルンが覚悟を歌い、鼓動のような太鼓が、明日へ向けて少しずつ高まっていく
+  eve: song({
+    A: [[C_.Am, [[0, 69, 4], [4, 72, 2], [6, 76, 2]]], [C_.F, [[0, 77, 6], [6, 76, 2]]], [C_.C, [[0, 72, 4], [4, 79, 4]]], [C_.G, [[0, 79, 6], [6, 74, 2]]],
+        [C_.Am, [[0, 76, 4], [4, 81, 4]]], [C_.F, [[0, 81, 4], [4, 77, 4]]], [C_.Dm, [[0, 74, 4], [4, 77, 4]]], [C_.E, [[0, 76, 8]]]],
+    B: [[C_.F, [[0, 81, 6], [6, 79, 2]]], [C_.G, [[0, 79, 6], [6, 74, 2]]], [C_.C, [[0, 76, 4], [4, 79, 4]]], [C_.Am, [[0, 81, 8]]],
+        [C_.F, [[0, 84, 4], [4, 81, 4]]], [C_.G, [[0, 83, 4], [4, 79, 4]]], [C_.Dm, [[0, 77, 4], [4, 81, 4]]], [C_.E, [[0, 80, 8]]]],
+    leadA: { inst: 'horn', vol: 0.03 },
+    leadB: { inst: 'strings', vol: 0.026, dbl: { inst: 'horn', oct: -12, vol: 0.016 } },
+    layer: (c, t) => {
+      padAt(c, t, { type: 'sawtooth', cut: 1000, vol: 0.009, a: 1.0, oct: -12 });
+      bassAt(c, t, { style: 'half', vol: 0.04 });
+      if (c.pos === 0) { drum(c.g, c.d, t, 0.06, 70, 40, 0.35); drum(c.g, c.d, t + c.half * 0.8, 0.035, 70, 40, 0.3); }
+      if ((c.bar === 7 || c.bar === 15) && c.pos >= 4) snare(c.g, c.d, t, 0.02 + (c.pos - 4) * 0.012);   // 明日へ高まるロール
+    },
+  }),
 };
 
 let MUSIC = null, MUSIC_TIMER = null;
@@ -20889,14 +21079,31 @@ function bgmTick() {
   MUSIC.scheduleUntil(SND.ctx.currentTime + 0.35);
 }
 // 今の場面にふさわしい曲調
+//  場面が自分の曲調を持っていれば（SCENE.mood）それを使い、その続きの場面（結果の画面など）でも、行動の選択に戻るまで保つ
+let MOOD_HOLD = null;
+const MOOD_BY_SUB = { '天降の祟り': 'kagura', '願い桜': 'sakura', '終章　抑止': 'counter' };
+const MOOD_BY_TITLE = { '胸騒ぎ': 'unease', '綻び': 'counter', '抑止の守護者': 'counter', '花冠の杯': 'sakuraBoss', '花還し': 'confession' };
 function bgmMood() {
   const k = SCENE && SCENE.kind;
-  if (!G || ['title', 'create', 'settings', 'gallery'].includes(k)) return 'title';
-  if (k === 'ending') return SCENE.good ? 'dawn' : 'sorrow';
-  if (SCENE && SCENE.battle) return B && (B.final || B.boss || B.beast || B.enforcer) ? 'final' : 'battle';
-  if (G.phase === 'epilogue') return 'epilogue';
-  if (G.phase === 'growth') return 'growth';
+  if (!G || ['title', 'create', 'settings', 'gallery'].includes(k)) { MOOD_HOLD = null; return 'title'; }
+  if (k === 'ending') { MOOD_HOLD = null; return SCENE.good ? 'dawn' : 'sorrow'; }
+  if (SCENE && SCENE.battle && B) {
+    MOOD_HOLD = null;
+    if (B.opt && B.opt.kami) return 'kamiBattle';
+    if (B.opt && B.opt.guardian) return 'guardian';
+    if (B.opt && B.opt.sakura) return 'sakuraBoss';
+    return B.final || B.boss || B.beast || B.enforcer ? 'final' : 'battle';
+  }
+  if (G.phase === 'epilogue') { MOOD_HOLD = null; return 'epilogue'; }
+  if (G.phase === 'growth') { MOOD_HOLD = null; return SCENE && SCENE.mood === 'confession' ? 'confession' : 'growth'; }
+  const own = SCENE && (SCENE.mood || MOOD_BY_SUB[SCENE.sub] || MOOD_BY_TITLE[SCENE.title]);
+  if (own) { MOOD_HOLD = own; return own; }
+  const hubScene = SCENE && (SCENE.title === '昼の行動' || SCENE.title === '夜の行動');
+  if (hubScene) MOOD_HOLD = null;
+  if (MOOD_HOLD) return MOOD_HOLD;
   if (G.phase === 'summon' || k === 'summon' || G.phase === 'end') return 'title';
+  if (G.phase === 'war' && typeof counterOn === 'function' && counterOn()) return 'counter';   // 抑止の終章のあいだは、世界が綻び続けている
+  if (G.phase === 'war' && typeof skOn === 'function' && skOn() && G.flags.skGone) return 'sakura';   // 幼馴染が桜の中へ消えた後
   return isNight() ? 'night' : 'day';
 }
 function bgmUpdate() {
@@ -20905,7 +21112,7 @@ function bgmUpdate() {
   const mood = bgmMood();
   if (MUSIC && MUSIC.mood === mood) return;
   if (MUSIC) MUSIC.fadeOut(2);
-  MUSIC = new Music(g, mood); MUSIC.fadeIn(MUSIC.mood === 'battle' || MUSIC.mood === 'final' ? 0.8 : 2.5);
+  MUSIC = new Music(g, mood); MUSIC.fadeIn(['battle', 'final', 'kamiBattle', 'guardian', 'sakuraBoss'].includes(MUSIC.mood) ? 0.8 : 2.5);
   if (!MUSIC_TIMER) MUSIC_TIMER = setInterval(bgmTick, 90);
   bgmTick();
 }
@@ -21304,7 +21511,7 @@ function showEvent(ev, after = advance) {
       },
     }));
   if (!choices.length) choices.push({ label: '次へ', fn: after });
-  scene({ title: ev.title, sub: ev.chapter || 'EVENT', body: paras([text]), choices, reveal: true });
+  scene({ title: ev.title, sub: ev.chapter || 'EVENT', body: paras([text]), choices, reveal: true, mood: ev.mood });   // mood：その場面の曲調（audio.js）
 }
 
 // =============================================================

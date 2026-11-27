@@ -384,5 +384,5 @@ function showEvent(ev, after = advance) {
       },
     }));
   if (!choices.length) choices.push({ label: '次へ', fn: after });
-  scene({ title: ev.title, sub: ev.chapter || 'EVENT', body: paras([text]), choices, reveal: true });
+  scene({ title: ev.title, sub: ev.chapter || 'EVENT', body: paras([text]), choices, reveal: true, mood: ev.mood });   // mood：その場面の曲調（audio.js）
 }

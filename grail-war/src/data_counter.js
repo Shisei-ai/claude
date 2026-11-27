@@ -156,3 +156,11 @@ const EPI_KAMI_FRAY = { y: 2, title: '誰も知らない冬', skip: () => !(G.ep
     { label: '「忘れるわけがない」', hint: '絆↑↑', run: () => epiGain({ bond: 3 }, '誰も知らない冬を、覚え続けた') || `${CAST.miko}は、ほっとしたように笑った。二人だけが知っている英霊の話を、その夜は遅くまで続けた。` },
     { label: 'あの冬のことを、書き残す', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '誰も知らない冬を、書き残した') || 'いつか、誰かが読むかもしれない。読まれなくても、いい。ここに確かに在ったことを、書き残しておく。' },
   ] };
+
+// ---- 場面ごとの曲調（audio.js）：雫ルート＝霧の神楽、抑止の終章＝綻ぶ世界、幼馴染ルート＝願い桜 ----
+for (const st of STORY) {
+  if (['k_mist', 'k_bride', 'k_bride_sp', 'k_voice', 'k_old', 'k_old_f', 'k_climax', 'mk_dream', 'mk_call'].includes(st.id)) st.mood = 'kagura';
+  if (st.id === 'k_counter') st.mood = 'counter';
+  if (/^f_/.test(st.id)) st.mood = 'sakura';
+  if (st.id === 'r_route') st.mood = 'unease';
+}
