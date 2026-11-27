@@ -46,7 +46,7 @@ function wpick(items, wf) {
   return items[items.length - 1];
 }
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS, BEAST8, KAMI], ENFORCERS).map(s => [s.id, s]));
+const SV_BY_ID = Object.fromEntries(SERVANTS.concat([BOSS, BEAST8, KAMI, SAKURA_CUP], ENFORCERS).map(s => [s.id, s]));
 
 // ---------------- 名前・参照 ----------------
 function M() { return esc(G.master.name); }
@@ -269,6 +269,7 @@ function startSlot() {
   if (G.phase === 'prep' && G.day > PREP_DAYS) { G.phase = 'summon'; return summonScene(); }
   if (G.phase === 'war') {
     if (needWish()) return wishScene(startSlot);   // 聖杯戦争の始まりに、聖杯への願いを選ぶ（data_align.js）
+    if (typeof skOn === 'function' && skOn() && frRival() && frRival().alive && hostileRivals().length === 0) skDevour();   // 幼馴染ルート：残るのが幼馴染の陣営だけなら、桜に呑まれる
     if (aliveRivals().length === 0) return victoryScene();
     if (hostileRivals().length === 0) return breakAlliance();
   }
@@ -319,6 +320,7 @@ function dailyUpdate() {
     for (const r of aliveRivals()) { r.hp = Math.min(r.hpMax, r.hp + 18); r.mp = Math.min(100, r.mp + 30); }
     simulateRivals();
     mysteryDaily();
+    if (typeof skDaily === 'function') skDaily();   // 幼馴染ルート：倒れた英霊の魂が桜へ（data_sakura.js）
     skillDaily();
     magicDaily();
     soulDaily();

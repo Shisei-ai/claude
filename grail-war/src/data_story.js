@@ -220,13 +220,13 @@ const STORY = [
     ],
   },
   {
-    id: 's_friend', phase: 'war', day: 3, slot: 0, after: 'hub', cond: () => G.rivals.some(r => r.friend && r.alive && !r.ally),
+    id: 's_friend', phase: 'war', day: 3, slot: 0, after: 'hub', cond: () => !(typeof skOn === 'function' && skOn()) && G.rivals.some(r => r.friend && r.alive && !r.ally),
     title: '幼馴染の令呪', chapter: '第一幕　開幕',
     text: () => { const r = G.rivals.find(x => x.friend); r.intel = Math.max(r.intel, 1); return frReunionText(r); },
     choices: [],   // 選択肢は、幼馴染との関係に合わせて data_friend.js の frReunion() で作る
   },
   {
-    id: 's_coma', phase: 'war', day: 4, slot: 0, after: 'hub',
+    id: 's_coma', phase: 'war', day: 4, slot: 0, after: 'hub', cond: () => !(typeof skOn === 'function' && skOn()),
     title: '昏睡事件', chapter: '第二幕　侵蝕',
     text: () => `朝のニュースが、市内で原因不明の昏睡事件が相次いでいると報じていた。被害者はこの三日で十二人。全員、夜の街で倒れているのを発見されたという。<br>昼過ぎ、${CAST.sister}から連絡が入った。<br>「魂喰い――魔力の略奪の可能性があります。ですが、痕跡は奇妙に乱れていて、何の仕業なのかすら分からないのです」`,
     choices: [
@@ -242,7 +242,7 @@ const STORY = [
     ],
   },
   {
-    id: 's_shadow', phase: 'war', day: 6, slot: 1, after: 'advance',
+    id: 's_shadow', phase: 'war', day: 6, slot: 1, after: 'advance', cond: () => !(typeof skOn === 'function' && skOn()),
     title: '黒い影', chapter: '第二幕　侵蝕',
     // 見た目はどちらの真相でも同じ。何を見抜けるかは、選んだ行動と判定次第
     text: () => `${G.flags.investigate ? '昏睡事件を追って' : '偶然通りかかった'}港の倉庫街で、あなたは見た。<br>路地に倒れた男の上に、<b>黒い泥のような影</b>が覆いかぶさっている。影は男から何かを吸い上げ、脈打つように膨らんでいく。<br>${say('warnShadow')}${SV()}の声が、かすかに張り詰めていた。`,
@@ -278,7 +278,7 @@ const STORY = [
     ],
   },
   {
-    id: 's_past', phase: 'war', day: 8, slot: 0, after: 'hub', cond: () => !solved(),
+    id: 's_past', phase: 'war', day: 8, slot: 0, after: 'hub', cond: () => !solved() && !(typeof skOn === 'function' && skOn()),
     title: '六十年前の真実', chapter: '第二幕　侵蝕',
     text: () => `${G.flags.grailHint ? '黒い影、霊脈の異変、六十年前の戦争。' : '街の異変が、何かと繋がっている気がする。'}点と点を繋ぐために、どこを調べるべきだろうか。<br><span class="note">ここで得られる手がかりは、普段の調査よりも重い（手がかり+2）。</span>`,
     choices: [
@@ -310,7 +310,7 @@ const STORY = [
     ],
   },
   {
-    id: 's_devoured', phase: 'war', day: 9, slot: 1, after: 'advance', cond: () => hostileRivals().length >= 3 && (!isPure() || culpritAlive()),
+    id: 's_devoured', phase: 'war', day: 9, slot: 1, after: 'advance', cond: () => !(typeof skOn === 'function' && skOn()) && hostileRivals().length >= 3 && (!isPure() || culpritAlive()),
     title: '呑まれた陣営', chapter: '第二幕　侵蝕',
     text: () => {
       const cu = culprit();
@@ -361,6 +361,8 @@ const STORY = [
           return `${SV()}は、静かに頷いた。${say('withYou')}（絆+5 人類悪との戦いで能力補正）`; } },
       { label: '「この聖杯になら、願いを託せる」', hint: '聖杯が正規のものだと知っている時のみ', cond: () => G.flags.grailPure, run: () => { G.flags.resolve = 'pure'; bond(5); tone('law');
           return `${SV()}は天降山の澄んだ光を見上げ、静かに頷いた。${say('promise')}（絆+5 決戦で能力補正）`; } },
+      { label: '「幼馴染を、必ず連れ戻す」', hint: '幼馴染ルート・花冠の杯との戦いで有利に', cond: () => typeof skOn === 'function' && skOn(), run: () => { G.flags.resolve = 'friend'; bond(5); tone('good');
+          return `${SV()}は、大桜の方角を見て、静かに頷いた。${say('withYou')}（絆+5 花冠の杯との戦いで有利に）`; } },
       { label: '「聖杯を壊そう」', hint: '聖杯の真実を知っている時のみ', cond: () => G.flags.grailTruth, run: () => { G.flags.resolve = 'destroy'; bond(5); tone('good');
           return `${SV()}は長い沈黙の後、頷いた。${say('withYou')}（絆+5 聖杯との戦いで能力補正）`; } },
     ],

@@ -225,7 +225,7 @@ function mikoConfession(then) {
 // =============================================================
 //  最後の会話（英霊が去る結末の前に）
 // =============================================================
-const LAST_TALK_KINDS = ['none', 'wishPure', 'servantWish', 'destroy', 'destroySpecial', 'destroyPure', 'beastSlain', 'abstain', 'friendWish', 'yield', 'kamiSlain', 'kamiReturn', 'kamiBride'];
+const LAST_TALK_KINDS = ['skCut', 'skBear', 'skReturn', 'skKill', 'none', 'wishPure', 'servantWish', 'destroy', 'destroySpecial', 'destroyPure', 'beastSlain', 'abstain', 'friendWish', 'yield', 'kamiSlain', 'kamiReturn', 'kamiBride'];
 const LAST = {
   open: { polite: '「……どうやら、ここまでのようです。{call}、最後に少しだけ、お話ししてもよろしいですか」', regal: '「……時間か。{m}、最後だ。少し付き合え」',
     rough: '「……あー、時間切れみてえだな。最後に、ちょっとだけ話そうぜ」', cool: '「……もう、時間がないらしい。最後に、少しだけ話をしよう」',
@@ -246,6 +246,7 @@ const LAST = {
 // 結末ごとの、場面のはじまり
 function lastTalkLead(kind) {
   const s = SV(); const fn = typeof friendName === 'function' ? friendName() : '';
+  if (typeof SK_LEADS !== 'undefined' && SK_LEADS[kind]) return SK_LEADS[kind] + `<br>${s}の体が、足元から、少しずつ光の粒にほどけ始めていた。`;
   return ({
     destroy: '黒き聖杯が砕け、天降山の頂に、朝の光が差し始めていた。', destroySpecial: '二人で選んだ答えが、黒き聖杯を砕いた。天降山の頂に、朝の光が差し始めていた。',
     destroyPure: '砕けた杯の欠片から、澄んだ光がこぼれていた。', wishPure: '願いは聞き届けられた。黄金の光が、冬の夜空に広がっていく。',

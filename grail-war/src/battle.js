@@ -147,7 +147,7 @@ function battleScene(extra) {
   if (!B.boss && !B.enforcer) choices.push({ label: '敵マスターを狙う', hint: `${isAssassin() ? '気配遮断で有利' : '成功率低'}・悪`, cls: 'danger', fn: () => battleRound('master'), icon: 'target' });
   choices.push({ label: `令呪（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu, icon: 'seal' });
   if (!B.final && !B.enforcer) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
-  scene({ title: B.enforcer ? '封印指定執行者' : B.beast ? 'ビーストⅧ' : B.opt.kami ? '天降大神' : B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
+  scene({ title: B.enforcer ? '封印指定執行者' : B.beast ? 'ビーストⅧ' : B.opt.kami ? '天降大神' : B.opt.sakura ? '花冠の杯' : B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
   animateBattle();
 }
 // 衛宮士郎の戦闘画面：士郎の行動を選ぶ。セイバーは自分の判断で戦う
@@ -172,7 +172,7 @@ function shirouBattleScene(body) {
   choices.push({ label: 'セイバーに指示を出す', hint: '次の手番の戦い方を決める', icon: 'observe', fn: saberOrderMenu });
   choices.push({ label: `令呪（残${G.master.seals}）`, hint: '4種の命令', disabled: G.master.seals < 1, cls: 'danger', fn: sealMenu, icon: 'seal' });
   if (!B.final && !B.enforcer) choices.push({ label: '撤退', hint: G.items.smoke ? '煙幕の護符で確実' : '敏捷・幸運で判定', fn: () => battleRound('flee'), icon: 'flee' });
-  scene({ title: B.enforcer ? '封印指定執行者' : B.beast ? 'ビーストⅧ' : B.opt.kami ? '天降大神' : B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
+  scene({ title: B.enforcer ? '封印指定執行者' : B.beast ? 'ビーストⅧ' : B.opt.kami ? '天降大神' : B.opt.sakura ? '花冠の杯' : B.boss ? '黒き聖杯' : B.final ? '最終決戦' : '戦闘', sub: `ROUND ${B.round + 1}`, body, choices, grid: true, battle: true });
   animateBattle();
 }
 function sealMenu() {
@@ -419,6 +419,7 @@ function battleLoseChoice(extra) {
   if (G.items.potion > 0 && !B.final) choices.push({ label: '霊薬を飲ませて退く', hint: '霊薬-1・撤退', fn: () => {
     item('potion', -1); G.servant.hp = 15; escape([`霊薬で辛うじて霊基を保ち、${SV()}は最後の力であなたを抱えて退いた。`]);
   } });
+  if (B.opt && B.opt.sakura) { choices.push({ label: '……ここまでか', fn: () => skLose() }); sfx('lose'); return scene({ title: '霊核の危機', sub: 'CRISIS', body: [...extra, `<p>${SV()}が膝をつく。降りしきる花びらが、すべてを埋めようとしている――！</p>`], choices }); }
   if (B.opt && B.opt.kami) { choices.push({ label: '……ここまでか', fn: () => kamiLose() }); sfx('lose'); return scene({ title: '霊核の危機', sub: 'CRISIS', body: [...extra, `<p>${SV()}が膝をつく。黒い霧が、すべてを呑み込もうとしている――！</p>`], choices }); }
   choices.push({ label: '……ここまでか', fn: () => { const boss = B.boss, beast = B.beast, enf = B.enforcer; B = null; ending(enf ? 'sealed' : beast ? 'saturated' : boss ? 'devoured' : 'lost'); } });
   sfx('lose');
@@ -427,6 +428,7 @@ function battleLoseChoice(extra) {
 function battleWin(extra) {
   if (B.enforcer) return enforcerWin();
   if (B.opt && B.opt.kami) return kamiWin(B.opt.kami);   // 天降の祟り（data_kami.js）
+  if (B.opt && B.opt.sakura) return skWin(B.opt.sakura);   // 幼馴染ルート（data_sakura.js）
   const r = B.r; const wasFinal = B.final; const boss = B.boss; const beast = B.beast; B = null;
   sfx('win');
   if (!boss) showCard({ kicker: 'VICTORY', title: '勝利', sub: `${rivalLabel(r)}陣営を撃破`, cls: 'victory', ms: 1300 });

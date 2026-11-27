@@ -33,7 +33,7 @@ function statusLine() {
     <div><span>オド</span><b>${G.master.od}</b><em>/${odMax()}</em></div>
     <div class="wide"><span>陣地</span>Lv${G.workshop}・罠${G.traps}　<span>道具</span>${items}</div>
     ${soulStatusHTML()}
-    ${kamiStatusHTML()}
+    ${kamiStatusHTML()}${typeof skStatusHTML === 'function' ? skStatusHTML() : ''}
   </div>`;
 }
 // 行動の結果を表示して、コマを進める
@@ -111,7 +111,8 @@ function warDayActions() {
   const acts = [
     { label: `${SV()}と過ごす`, hint: '絆↑（好みに合わせると大きく上がる）', fn: hangoutMenu },
     { label: '情報を集める', hint: '敵の正体・拠点・真名を探る', fn: intelMenu },
-    { label: '真相を調べる', hint: solved() ? `真相は判明済み・手がかり${mys().ev}` : `街の謎と聖杯の秘密・手がかり${mys().ev}`, icon: 'study', fn: mysteryMenu },
+    ...(typeof skOn === 'function' && skOn() ? (G.used.f_bloom && !sk().outcome ? [{ label: '桜の謎を追う', hint: `願い桜・手がかり${sk().ev}${sk().path ? '・' + SK_PATHS[sk().path] : ''}・心の灯${sk().heart}`, icon: 'scout', cls: 'primary', fn: skMenu }] : []) : [
+    { label: '真相を調べる', hint: solved() ? `真相は判明済み・手がかり${mys().ev}` : `街の謎と聖杯の秘密・手がかり${mys().ev}`, icon: 'study', fn: mysteryMenu }, ]),
     { label: '拠点を整える', hint: '結界・罠・霊脈', fn: baseMenu },
     { label: '買い出し', hint: '戦闘用の道具', fn: shopMenu },
     ...(isShirou() ? [{ label: 'セイバーに食事を作る', hint: '絆↑・英霊の魔力↑（魔力供給の代わり）', icon: 'bond', fn: cookForSaber },
@@ -123,7 +124,7 @@ function warDayActions() {
     acts.push({ label: '同盟を持ちかける', hint: '交渉判定・一時休戦', fn: allianceMenu });
   if (kamiOn() && !kamiResolved()) acts.push({ label: '山の異変を追う', hint: `天降の祟り・手がかり${kami().ev}${kami().path ? '・' + KAMI_PATHS[kami().path] : ''}`, icon: 'scout', cls: 'primary', fn: kamiMenu });
   if (mikoVisitable()) acts.push({ label: `${CAST.miko}に会いに行く`, hint: '雫との関係↑・魔力・精神↑', icon: 'bond', fn: mikoVisit });
-  if (friendVisitable()) acts.push({ label: `${friendName()}に会いに行く`, hint: '幼馴染との友情↑・精神↑', icon: 'bond', fn: friendVisit });
+  if (friendVisitable()) acts.push({ label: `${friendName()}に会いに行く`, hint: skOn() ? '心の灯↑・精神↑' : '幼馴染との友情↑・精神↑', icon: 'bond', fn: skOn() ? skVisit : friendVisit });
   acts.push({ label: '休息', hint: 'HP・魔力・オド回復', fn: () => actResult('休息', () => { hp(25); shp(20); mp(15); od(15);
     return `拠点で体を休めた。（HP+25 ${SV()}のHP+20 魔力+15 オド+15）`; }) });
   return acts;

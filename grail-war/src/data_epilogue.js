@@ -432,7 +432,7 @@ const EPI_KISHI = { y: 0, title: '月か、地上か',
 function epiTrackOf(kind) {
   if (kind === 'dead' || kind === 'sealed' || !G.servant) return null;
   const rel = G.servant.special;
-  if (kind === 'kamiTaken') return null;            // 隠り世：その後はない
+  if (kind === 'kamiTaken' || kind === 'skSleep') return null;            // 隠り世・桜の眠り：その後はない
   if (kind === 'kamiBride') return 'kami_keeper';   // 山の守り人として生きる（岸波白野は選べない）
   if (isKishi() && kind !== 'together') return 'kishi_return';
   if (kind === 'together' && rel) return 'together_' + rel;
@@ -456,9 +456,10 @@ function startEpilogue(kind) {
   if (typeof EPI_SV_CH !== 'undefined' && G.servant && EPI_SV_CH[G.servant.id] && !isKishi()) insert(EPI_SV_CH[G.servant.id]);
   if (typeof EPI_MELT_LOVE !== 'undefined' && isFuji() && G.servant && G.servant.id === 'meltryllis' && track === 'together_lover') insert(EPI_MELT_LOVE);   // 恋人として生きる、カルデアのメルト   // マシュ・アルトリア・キャスター・メルトリリスの章（data_three.js）
   if (isKishi() && kind === 'together') steps.unshift(EPI_KISHI);
-  if (typeof friendEpiSteps === 'function') for (const st of friendEpiSteps(track)) insert(st);
+  if (typeof friendEpiSteps === 'function') for (const st of friendEpiSteps(track, kind)) insert(st);
   if (typeof kamiEpiSteps === 'function') for (const st of kamiEpiSteps(track)) insert(st);
-  if (typeof mikoEpiSteps === 'function') for (const st of mikoEpiSteps(track)) insert(st);   // 雫の章（data_miko.js）   // 天降の祭り（data_kami.js）   // 幼馴染の章（data_friend_epi.js）
+  if (typeof mikoEpiSteps === 'function') for (const st of mikoEpiSteps(track)) insert(st);   // 雫の章（data_miko.js）
+  if (typeof skEpiAdjust === 'function') skEpiAdjust(kind, steps);   // 代価の人：人生が短くなる（data_sakura.js）   // 天降の祭り（data_kami.js）   // 幼馴染の章（data_friend_epi.js）
   G.epi = { kind, track, steps, i: -1, year: 0, joy: 0, bond: 0, legacy: 0, marks: [] };
   G.phase = 'epilogue';
   chapterCard('エピローグ　その後の人生', () => epiNext());

@@ -43,6 +43,7 @@ function deadlineScene() {
 }
 
 function victoryScene() {
+  if (typeof skOn === 'function' && skOn() && !sk().outcome) return skFinale();   // 幼馴染ルート：聖杯は大桜に降りる（data_sakura.js）
   if (isBeast()) return beastReveal();   // 第三の真相：聖杯に寄生していた人類悪が姿を現す
   G.phase = 'end';
   if (G.servant && !G.flags.grailTalkDone && typeof grailTalk === 'function') return grailTalk(victoryScene);   // 願う前に、英霊と言葉を交わす（data_dialog.js）
@@ -159,7 +160,7 @@ function ending(kind) {
       '<p class="note">ヒント：戦う道を選べば、別の結末が待っている。</p>'] }),
     none: () => ({ title: '終幕：願いなき勝者', text: ['<p>あなたは何も願わなかった。聖杯は誰の手にも渡らぬまま、静かに消えていった。</p>', `<p class="quote">${farewellLine(sv)}</p>`,
       '<p>勝者の手に残ったのは、戦いの記憶と、確かに結ばれた絆だけだった。</p>'] }),
-  ...(sv ? friendEndingTexts(sv) : {}), ...kamiEndingTexts(sv) }[kind]();
+  ...(sv ? friendEndingTexts(sv) : {}), ...kamiEndingTexts(sv), ...(typeof skEndingTexts === 'function' ? skEndingTexts(sv) : {}) }[kind]();
   if (G.flags.lastTalkDone === kind && sv) { const fw = `<p class="quote">${farewellLine(sv)}</p>`; E.text = E.text.filter(t => t !== fw); }   // 最後の言葉は、会話の中で交わした
   const ep = friendEpilogueText(kind);
   if (ep) E.text.push(ep);
@@ -180,7 +181,7 @@ function ending(kind) {
   if (so) E.text.push(so);
   const ke2 = kamiEpilogue(kind);
   if (ke2) E.text.push(ke2);
-  const good = !['dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure', 'saturated', 'sealed', 'friendRuin', 'kamiTaken'].includes(kind);
+  const good = !['skSleep', 'skKill', 'dead', 'lost', 'wish', 'wishKnown', 'devoured', 'abstain', 'destroyPure', 'saturated', 'sealed', 'friendRuin', 'kamiTaken'].includes(kind);
   sfx(good ? 'win' : 'lose');
   showCard({ kicker: good ? 'ENDING' : 'BAD END', title: E.title.replace('終幕：', ''), cls: good ? 'dawn' : 'blood', ms: 2200 }, () => {
     SCENE = { kind: 'ending', endKind: kind, title: E.title, text: E.text.filter(Boolean), good };

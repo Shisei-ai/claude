@@ -4,7 +4,7 @@
 //  聖杯戦争2日目の昼「胸騒ぎ」で、三人のヒロインそれぞれの物語へ分かれる。
 //   ・商店街   → 英霊ルート（通常の聖杯戦争）……最初から選べる
 //   ・静かな祠 → 雫ルート（分岐「天降の祟り」）……雫との関係値が50以上
-//   ・桜の木   → 幼馴染ルート ……幼馴染との関係値が75以上（設計中のため、まだ選べない）
+//   ・桜の木   → 幼馴染ルート（願い桜。data_sakura.js）……幼馴染との関係値が75以上
 //  雫ルート以外では、山の神の事件（霧の夜・巫女の失踪）は起きず、雫は神社で無事に過ごす。
 //  特殊シナリオ（藤丸・士郎・岸波）には分岐はなく、天降の祟りはこれまで通り霧の夜から入れる。
 // =============================================================
@@ -15,7 +15,7 @@ const ROUTE3 = {
   friend: { name: '幼馴染ルート', desc: '幼馴染の願いと、桜の木に眠る秘密の物語' },
 };
 const ROUTE_MIKO_BOND = 50, ROUTE_FRIEND_BOND = 75;
-const ROUTE_FRIEND_READY = false;   // 幼馴染ルートは設計中（設計が決まったら true にする）
+const ROUTE_FRIEND_READY = true;   // 幼馴染ルート（data_sakura.js）
 function route3Normal() { return !!G && G.phase === 'war' && !!G.servant && !isFuji() && !isKishi() && !isShirou(); }
 function routeMikoOpen() { return typeof mkMet === 'function' && mkMet() && !mkFar() && miko().bond >= ROUTE_MIKO_BOND; }
 function routeFriendOpen() { return typeof frNormal === 'function' && frNormal() && !frCut() && G.friend.bond >= ROUTE_FRIEND_BOND; }
@@ -28,7 +28,7 @@ STORY.push(
     choices: [
       { label: '城跡公園の、桜の木', hint: () => !routeFriendOpen() ? `足が向かない……（${friendName() || '幼馴染'}との関係が、とても深ければ）` : !ROUTE_FRIEND_READY ? '幼馴染ルート（準備中）' : `幼馴染ルートへ（${ROUTE3.friend.desc}）`,
         disabled: () => !routeFriendOpen() || !ROUTE_FRIEND_READY, cond: () => typeof frNormal === 'function' && frNormal(),
-        run: () => { setRoute3('friend'); friend(5);
+        run: () => { setRoute3('friend'); friend(5); skStart();
           return [`冬枯れの桜の下に、${friendName()}が立っていた。まるで、あなたが来るのを知っていたみたいに。`,
             `<span class="note">「${ROUTE3.friend.name}」に入った。${ROUTE3.friend.desc}。</span>`]; } },
       { label: '天降神社の奥の、静かな祠', hint: () => routeMikoOpen() ? `雫ルートへ（${ROUTE3.miko.desc}）` : `胸の奥で、何かが引っかかる……（${CAST.miko}との関係が深ければ）`,

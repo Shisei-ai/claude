@@ -179,6 +179,7 @@ const NP_DATA = {
   ori:            '対軍|50|@dot=5|六十年分の呪いが、泥となって押し寄せる',
   beast8:         '結界|60|drain=30 debuff=15 heal=28|満ち足りた楽園。望むことを、忘れさせる',
   kami:           '結界|60|debuff=12 dot=6 heal=20|山そのものが牙を剥く。霧に呑まれた者は、この世から隠される',
+  sakura_cup:     '対軍|60|drain=20 debuff=10 heal=15|千年分の夜桜が咲き乱れる。花びらの一枚一枚が、叶わなかった願い',
   enf_chain:      '弱体|40|stun=60 debuff=9:2|千の鎖が絡みつき、動きを縛る',
   enf_specimen:   '弱体|45|dot=9 debuff=12|永遠の檻に閉じ込め、生きたまま標本にする',
   enf_hound:      '対人|40|sure crit=25:1|獲物を決して逃さない、灰色の魔弾',

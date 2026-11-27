@@ -2,7 +2,7 @@
 //  data_friend.js … 幼馴染の物語
 //
 //  幼馴染は、6歳の「幼馴染」の出来事で出会う（通常のシナリオのみ）。
-//  幼馴染には、どうしても叶えたい切実な願いがある（妹の病・眠り続ける母・自分自身の命のどれか）。
+//  幼馴染には、どうしても叶えたい切実な願いがある（自分の体の中で暴れ出す魔術回路――生きたい、という願い。幼馴染ルート「願い桜」の真相に繋がる）。
 //
 //  ・生い立ち：9・12・14・16・17歳の節目に、幼馴染との出来事が起きる（関係を築き、願いの根が明かされる）
 //  ・聖杯戦争：幼馴染もマスターとして参戦している。3日目に再会し、その後も苦しい選択が続く
@@ -26,7 +26,7 @@ const FRIEND_SIS = ['ひなた', '菜々', '美羽', '小雪'];
 // 幼馴染の情報（古いセーブにも、足りない項目を補う）
 function fr() {
   const f = G.friend; if (!f) return null;
-  if (!f.wish) f.wish = pick(['sister', 'mother', 'self']);
+  f.wish = 'self';   // 幼馴染の願いは「自分の、暴れ出す魔術回路」に固定（幼馴染ルート：桜守の血と、願い桜に繋がる回路。data_sakura.js）
   if (!f.sis) f.sis = pick(FRIEND_SIS);
   return f;
 }
@@ -234,7 +234,7 @@ function frAttacker() { const c = engageable().filter(r => !r.friend); return c.
 STORY.push(
   // ---- 5日目の夜：友の危機 ----
   { id: 'fr_rescue', phase: 'war', day: 5, slot: 1, after: 'advance',
-    cond: () => frNormal() && frAlive() && !!frAttacker() && !G.flags.frBetrayed,
+    cond: () => !(typeof skOn === 'function' && skOn()) && frNormal() && frAlive() && !!frAttacker() && !G.flags.frBetrayed,
     title: '友の危機',
     text: () => { const a = G.tmpRival = frAttacker(); const r = frRival();
       return `深夜。${SV()}が、鋭く顔を上げた。サーヴァント同士がぶつかり合う気配だ。<br>旧城下町の方角――${friendName()}の拠点がある辺りで、魔力がぶつかり合っている。<br>使い魔の目に映ったのは、${rivalLabel(a)}陣営に追い詰められていく${r.cls}のサーヴァントと、その後ろで必死に令呪を握りしめる${friendName()}の姿だった。<br><span class="note">このままでは、${friendName()}の陣営は落ちる。${frCut() ? '――絶縁した相手だ。助ける義理はない。それでも。' : frLover() ? '――恋人が、殺されようとしている。' : ''}</span>`; },
@@ -261,7 +261,7 @@ STORY.push(
     ] },
   // ---- 7日目の昼：病室 ----
   { id: 'fr_hospital', phase: 'war', day: 7, slot: 0, after: 'hub',
-    cond: () => frNormal() && frSafe() && !!G.used.s_friend && !G.flags.frAbandoned && !G.flags.frBetrayed && !frCut(),
+    cond: () => !(typeof skOn === 'function' && skOn()) && frNormal() && frSafe() && !!G.used.s_friend && !G.flags.frAbandoned && !G.flags.frBetrayed && !frCut(),
     title: '病室',
     text: () => `${friendName()}から呼び出されたのは、市立病院だった。<br>${frWish().worse}。<br>${fr().wish === 'self' ? '病室のベッドの上で' : '病室の前の長椅子で'}、${friendName()}は小さく笑った。<br>` +
       `「${fg('なあ。頼みがあるんだ。……もし、お前が聖杯を手にしたら。<b>俺の願いを、叶えてくれないか？</b>', 'ねえ。お願いがあるの。……もし、あなたが聖杯を手にしたら。<b>わたしの願いを、叶えてくれない？</b>')}」`,
@@ -280,7 +280,7 @@ STORY.push(
     ] },
   // ---- 9日目の昼：異変の兆し（関係が育っていれば、魂喰いを未然に防げる） ----
   { id: 'fr_omen', phase: 'war', day: 9, slot: 0, after: 'hub',
-    cond: () => frNormal() && frAlive() && !frCut() && (frClose() || G.friend.bond >= 50) && !G.flags.frKnowsTruth && !G.flags.frOtherWay,
+    cond: () => !(typeof skOn === 'function' && skOn()) && frNormal() && frAlive() && !frCut() && (frClose() || G.friend.bond >= 50) && !G.flags.frKnowsTruth && !G.flags.frOtherWay,
     title: '異変の兆し',
     text: () => { const n = friendName(); const r = frRival();
       return `${frLover() ? `恋人からの` : `${n}からの`}メッセージが、ここ数日、妙に短い。<br>会いに行くと、${n}は笑って迎えてくれた。けれど、その笑顔はどこか張り詰めていて、${r.cls}のサーヴァントの気配は、ひどく弱っていた。<br>` +
@@ -300,7 +300,7 @@ STORY.push(
     ] },
   // ---- 10日目の夜：堕ちる友 ----
   { id: 'fr_fall', phase: 'war', day: 10, slot: 1, after: 'advance',
-    cond: () => frNormal() && frAlive() && !G.flags.frKnowsTruth && !G.flags.frOtherWay && !G.flags.frPrevented,
+    cond: () => !(typeof skOn === 'function' && skOn()) && frNormal() && frAlive() && !G.flags.frKnowsTruth && !G.flags.frOtherWay && !G.flags.frPrevented,
     title: '堕ちる友',
     text: () => { const r = frRival();
       return `${frWish().worse.replace(/。$/, '')}――あの知らせから、${friendName()}は変わってしまった。<br>深夜の病院の裏手。眠る人々の窓の下で、${r.cls}のサーヴァントが、生命力を吸い上げていた。<b>魂喰い</b>だ。<br>その傍らで、${friendName()}が振り返った。目の下には、深い隈が刻まれている。<br>` +
@@ -326,7 +326,7 @@ STORY.push(
 // =============================================================
 //  昼の行動：幼馴染に会いに行く
 // =============================================================
-function friendVisitable() { return frNormal() && G.phase === 'war' && !!G.used.s_friend && frSafe() && !G.flags.frBetrayed && !G.flags.frAbandoned && !frCut(); }
+function friendVisitable() { return frNormal() && !G.flags.skGone && G.phase === 'war' && !!G.used.s_friend && frSafe() && !G.flags.frBetrayed && !G.flags.frAbandoned && !frCut(); }
 function friendVisit() {
   actResult('幼馴染', () => {
     const r = frRival(); const n = friendName(); friend(6); gain('spi', 2);

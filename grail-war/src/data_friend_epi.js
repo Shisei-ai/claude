@@ -14,7 +14,7 @@
 //  戦いで命を落とした幼馴染は、1年後「墓前の桜」で偲ぶ。
 // =============================================================
 
-const frDone = () => G.epi && ['friendWish', 'yield', 'friendRuin'].includes(G.epi.kind);                 // 聖杯が幼馴染の願いを叶えた
+const frDone = () => G.epi && ['friendWish', 'yield', 'friendRuin', 'skCut', 'skBear', 'skReturn'].includes(G.epi.kind);                 // 聖杯が幼馴染の願いを叶えた
 const frDying = () => fr().wish === 'self' && !frDone() && !G.flags.frOtherWay;             // 自分の命の願いが、叶わなかった
 const frEpiCut = () => frCut() && !G.epi.frMended;                                           // 絶縁したまま
 const frTogether = () => G.epi && /^together_/.test(G.epi.track);                            // 英霊がそばにいる人生
@@ -136,7 +136,8 @@ const FRIEND_EPI = {
     ] },
 };
 // このプレイの幼馴染の章（startEpilogue から、年代順に差し込む）
-function friendEpiSteps(track) {
+function friendEpiSteps(track, kind) {
+  { const sf = typeof skFriendEpi === 'function' ? skFriendEpi(kind) : null; if (sf) return sf; }   // 幼馴染ルートの結末（data_sakura.js）
   if (!frNormal() || !G.rivals || !G.rivals.length || /^kishi_/.test(track)) return [];
   const r = frRival(); if (!r) return [];
   if (r.killed) return [FRIEND_EPI.grave];
