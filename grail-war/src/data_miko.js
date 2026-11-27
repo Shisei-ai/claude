@@ -243,7 +243,8 @@ function mikoBrideNote() {
 
 STORY.push(
   // ---- 2日目の昼：令呪と巫女 ----
-  { id: 'mk_seal', phase: 'war', day: 2, slot: 0, after: 'hub', cond: () => mkMet(),
+  // （2日目の昼は「胸騒ぎ」＝三つのルートの分岐なので、1日目の夜に）
+  { id: 'mk_seal', phase: 'war', day: 1, slot: 1, after: 'hub', cond: () => mkMet(),
     title: '令呪と巫女',
     text: () => { const s = SHIZUKU(); const c = mkCall();
       return `${mkCousin() ? '母屋の台所で' : '天降神社の前を通りかかると、石段の上から'}、${s}に呼び止められた。視線は、あなたの右手に注がれている。<br>` + mkR({

@@ -15901,7 +15901,8 @@ const KAMI = {
 };
 // 宝具の性能は data_np.js の NP_DATA.kami
 
-function kamiNormal() { return !!G; }   // 通常のシナリオと、三つの特殊シナリオのすべてで起きる
+// 通常のシナリオでは「雫ルート」だけで起きる（2日目の「胸騒ぎ」で選ぶ。data_route.js）。三つの特殊シナリオでは、これまで通り霧の夜から入れる
+function kamiNormal() { return !!G && (kamiRoute() !== 'normal' || !G.route3 || G.route3 === 'miko'); }
 function kamiRoute() { return isFuji() ? 'fuji' : isKishi() ? 'kishi' : isShirou() ? 'shirou' : 'normal'; }
 const kamiR = o => o[kamiRoute()] ?? o.normal;   // シナリオごとに文章を選ぶ
 // 天降神社に生まれた主人公：神社は「自分の家」、巫女は従妹、宮司は叔父
@@ -15997,7 +15998,7 @@ STORY.push(
             `中腹の鳥居の前で、霧は消えた。鳥居の向こうの闇から、獣の吐息のような風が吹き下ろしてくる。<br>そして――鳥居の足元に、さっきの子どものものらしい、小さな片方のスリッパが落ちていた。`,
             kamiClue('mist_child', '霧に消えた子ども', '黒い霧は天降山から下りてきて、神楽の節を口ずさむ子どもを連れ去った。霧は中腹の鳥居で消えた。'), kamiEnter('霧を追った')];
         } },
-      { label: () => kamiR({ kishi: '観測に徹する', fuji: '深追いせず、聖杯戦争を終わらせることを優先する', shirou: 'セイバーに止められ、聖杯戦争を優先する', normal: '聖杯戦争に集中する' }), hint: '分岐しない（聖杯戦争を続ける）', run: () => { G.flags.kamiSawMist = true; tone('cautious');
+      { cond: () => G.route3 !== 'miko', label: () => kamiR({ kishi: '観測に徹する', fuji: '深追いせず、聖杯戦争を終わらせることを優先する', shirou: 'セイバーに止められ、聖杯戦争を優先する', normal: '聖杯戦争に集中する' }), hint: '分岐しない（聖杯戦争を続ける）', run: () => { G.flags.kamiSawMist = true; tone('cautious');
           return [kamiR({ kishi: '月の王は、この世界線に深く干渉しない。――あなたは、霧の行方を記録するだけに留めた。',
             fuji: 'あの旅で学んだことがある。異変の根が一つとは限らない。――霧の正体が聖杯戦争と繋がっているのなら、戦争を終わらせることが、一番の近道のはずだ。',
             shirou: `走り出そうとした腕を、${SV()}が掴んだ。「シロウ、罠かもしれません。今は、聖杯戦争の夜です」<br>悔しさを噛み殺して、頷いた。この戦争を終わらせることが、街を守ることにも繋がるはずだ。`,
@@ -16169,7 +16170,7 @@ function kamiMenu() {
     const nm = typeof t.name === 'function' ? t.name() : t.name;
     choices.push({ label: `【備え】${nm}`, hint: typeof t.hint === 'function' ? t.hint() : t.hint, cls: 'primary', disabled: !!t.cost && G.master.money < t.cost, fn: () => kamiTask(t) });
   }
-  choices.push({ label: '山の異変から手を引く', hint: '聖杯戦争に専念する（祟りの日は起きず、消えた人々は戻らない）', fn: () => scene({ title: '手を引く', sub: '天降の祟り', body: ['<p>山の異変から手を引き、聖杯戦争に専念する。――祟りの日は訪れない。けれど、霧に消えた人々は、もう戻らないだろう。</p>'], choices: [
+  if (G.route3 !== 'miko') choices.push({ label: '山の異変から手を引く', hint: '聖杯戦争に専念する（祟りの日は起きず、消えた人々は戻らない）', fn: () => scene({ title: '手を引く', sub: '天降の祟り', body: ['<p>山の異変から手を引き、聖杯戦争に専念する。――祟りの日は訪れない。けれど、霧に消えた人々は、もう戻らないだろう。</p>'], choices: [
     { label: '手を引く', cls: 'danger', fn: () => { const k2 = kami(); k2.on = false; k2.left = true; G.flags.kamiLeft = true; addLog('天降の祟りから手を引き、聖杯戦争に専念する。');
       next('手を引く', paras([kamiR({ shirou: '……悔しさを、飲み込んだ。今は、この戦争を終わらせることだけを考える。', fuji: 'すべてを救えるわけじゃない。――それも、あの旅で知ったことだった。', kishi: '観測者に戻る。この世界線の結末を、ただ見届けるために。', normal: '霧の向こうの山から、目を逸らした。今は、聖杯戦争に専念する。' }), '<span class="note">分岐「天降の祟り」から外れた。聖杯戦争は、このまま続く。</span>']), hub); } },
     { label: 'やはり、続ける', fn: kamiMenu }] }) });
@@ -16583,7 +16584,8 @@ function mikoBrideNote() {
 
 STORY.push(
   // ---- 2日目の昼：令呪と巫女 ----
-  { id: 'mk_seal', phase: 'war', day: 2, slot: 0, after: 'hub', cond: () => mkMet(),
+  // （2日目の昼は「胸騒ぎ」＝三つのルートの分岐なので、1日目の夜に）
+  { id: 'mk_seal', phase: 'war', day: 1, slot: 1, after: 'hub', cond: () => mkMet(),
     title: '令呪と巫女',
     text: () => { const s = SHIZUKU(); const c = mkCall();
       return `${mkCousin() ? '母屋の台所で' : '天降神社の前を通りかかると、石段の上から'}、${s}に呼び止められた。視線は、あなたの右手に注がれている。<br>` + mkR({
@@ -17164,6 +17166,56 @@ function grailTalk(then) {
     { text: () => ['最後の敵が消え、天降山の頂に、黄金の杯が降りてきた。万能の願望機――聖杯。<br>七騎の英霊が命を懸け、七人のマスターが願いを懸けたものが、今、目の前にある。', vl(GRAIL.open), vl(GRAIL.ask)], choices },
   ] });
 }
+
+// =============================================================
+//  data_route.js … 三つのルート（通常のシナリオのみ）
+//
+//  聖杯戦争2日目の昼「胸騒ぎ」で、三人のヒロインそれぞれの物語へ分かれる。
+//   ・商店街   → 英霊ルート（通常の聖杯戦争）……最初から選べる
+//   ・静かな祠 → 雫ルート（分岐「天降の祟り」）……雫との関係値が50以上
+//   ・桜の木   → 幼馴染ルート ……幼馴染との関係値が75以上（設計中のため、まだ選べない）
+//  雫ルート以外では、山の神の事件（霧の夜・巫女の失踪）は起きず、雫は神社で無事に過ごす。
+//  特殊シナリオ（藤丸・士郎・岸波）には分岐はなく、天降の祟りはこれまで通り霧の夜から入れる。
+// =============================================================
+
+const ROUTE3 = {
+  servant: { name: '英霊ルート', desc: '英霊と共に、聖杯戦争を戦い抜く物語' },
+  miko: { name: '雫ルート', desc: '天降山の神と、花嫁に選ばれる少女の物語' },
+  friend: { name: '幼馴染ルート', desc: '幼馴染の願いと、桜の木に眠る秘密の物語' },
+};
+const ROUTE_MIKO_BOND = 50, ROUTE_FRIEND_BOND = 75;
+const ROUTE_FRIEND_READY = false;   // 幼馴染ルートは設計中（設計が決まったら true にする）
+function route3Normal() { return !!G && G.phase === 'war' && !!G.servant && !isFuji() && !isKishi() && !isShirou(); }
+function routeMikoOpen() { return typeof mkMet === 'function' && mkMet() && !mkFar() && miko().bond >= ROUTE_MIKO_BOND; }
+function routeFriendOpen() { return typeof frNormal === 'function' && frNormal() && !frCut() && G.friend.bond >= ROUTE_FRIEND_BOND; }
+function setRoute3(k) { G.route3 = k; addLog(`物語の分岐：${ROUTE3[k].name}（${ROUTE3[k].desc}）`); }
+
+STORY.push(
+  { id: 'r_route', phase: 'war', day: 2, slot: 0, after: 'hub', cond: () => route3Normal() && !G.route3,
+    title: '胸騒ぎ',
+    text: () => `目を覚ました時から、胸の奥がざわついていた。<br>何か、とても大きな胸騒ぎを感じる。聖杯戦争のせいだけではない、もっと別の――名前のつけられない何か。<br>${SV()}が、窓辺からこちらを見ている。「顔色が悪い」とでも言いたげだった。<br>気晴らしに、散策に出たい。……どこに行こうか。`,
+    choices: [
+      { label: '城跡公園の、桜の木', hint: () => !routeFriendOpen() ? `足が向かない……（${friendName() || '幼馴染'}との関係が、とても深ければ）` : !ROUTE_FRIEND_READY ? '幼馴染ルート（準備中）' : `幼馴染ルートへ（${ROUTE3.friend.desc}）`,
+        disabled: () => !routeFriendOpen() || !ROUTE_FRIEND_READY, cond: () => typeof frNormal === 'function' && frNormal(),
+        run: () => { setRoute3('friend'); friend(5);
+          return [`冬枯れの桜の下に、${friendName()}が立っていた。まるで、あなたが来るのを知っていたみたいに。`,
+            `<span class="note">「${ROUTE3.friend.name}」に入った。${ROUTE3.friend.desc}。</span>`]; } },
+      { label: '天降神社の奥の、静かな祠', hint: () => routeMikoOpen() ? `雫ルートへ（${ROUTE3.miko.desc}）` : `胸の奥で、何かが引っかかる……（${CAST.miko}との関係が深ければ）`,
+        disabled: () => !routeMikoOpen(), cond: () => typeof mkMet === 'function' && mkMet(),
+        run: () => { setRoute3('miko'); mk(5); const s = SHIZUKU(); const c = mkCall();
+          return [`天降神社の石段を登り、本殿の裏の細い道を抜けた先。苔むした小さな祠の前に、巫女装束の${s}が立っていた。`,
+            `<p class="quote">「……${c}も、聞こえたんですか」</p>${s}は、山の頂を見上げたまま言った。<p class="quote">「山が、ずっと鳴いてるんです。子どもの頃に聞いた、あの寂しい声が。――今年は、何かが違う」</p>`,
+            mkR({ lover: `${s}は、あなたの袖をそっと掴んだ。その指が、冷たかった。`, sister: `${s}は、心細そうに、あなたの袖を掴んだ。`, ally: `${s}は、あなたの顔を見て、少しだけ安心したように笑った。「……${c}が来てくれて、よかった」`, known: `${s}は、あなたに小さく頭を下げた。` }),
+            `祠の奥の鏡が、一瞬だけ、白く光った気がした。`,
+            `<span class="note">「${ROUTE3.miko.name}」に入った。${ROUTE3.miko.desc}。</span>`]; } },
+      { label: '駅前の商店街', hint: `英霊ルートへ（${ROUTE3.servant.desc}）`, cls: 'primary',
+        run: () => { setRoute3('servant'); bond(3);
+          return [`冬の商店街は、聖杯戦争などどこ吹く風で賑わっていた。焼き芋の匂い、福引の鐘の音、呼び込みの声。`,
+            `${SV()}が、物珍しそうにあたりを見回している。その横顔を見ているうちに、胸のざわつきは、少しずつ静まっていった。`,
+            `――この戦いを、${SV()}と共に、最後まで戦い抜く。それだけを考えればいい。`,
+            `<span class="note">「${ROUTE3.servant.name}」に入った。${ROUTE3.servant.desc}。（絆+3）</span>`]; } },
+    ] },
+);
 
 // =============================================================
 //  data_svtalk1.js … 英霊ごとの日常の会話（口調の固有化）
@@ -22388,6 +22440,7 @@ function viewMaster() {
       <div class="bar-row"><span>HP</span><div class="bar hp"><i style="width:${m.hp}%"></i></div><span class="num">${m.hp}</span></div></div>
     <dl class="kv" style="margin-top:10px"><dt>令呪</dt><dd>${m.seals}画</dd><dt>資金</dt><dd>${m.money}万円</dd><dt>魔術回路</dt><dd>${m.circuits}本</dd>
       <dt>オド</dt><dd>${m.od} / ${odMax()}（マスター自身の魔力。戦闘の支援魔術や使い魔に使う）</dd>
+      ${G.route3 ? `<dt>物語</dt><dd>${ROUTE3[G.route3].name}</dd>` : ''}
       <dt>陣地</dt><dd>Lv ${G.workshop}・罠${G.traps}${G.flags.leyline || m.birth === 'shrine' ? '（霊脈の知識あり）' : ''}</dd>
       <dt>性別</dt><dd>${GENDERS[m.gender || 'n']}</dd><dt>願い</dt><dd>${masterWish()}</dd><dt>特徴</dt><dd>${b.perk}</dd>
       <dt>属性</dt><dd>${alignLabel()}<span class="dd-note">これまでの選択で変わっていく</span></dd></dl>

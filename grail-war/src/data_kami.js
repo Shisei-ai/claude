@@ -39,7 +39,8 @@ const KAMI = {
 };
 // 宝具の性能は data_np.js の NP_DATA.kami
 
-function kamiNormal() { return !!G; }   // 通常のシナリオと、三つの特殊シナリオのすべてで起きる
+// 通常のシナリオでは「雫ルート」だけで起きる（2日目の「胸騒ぎ」で選ぶ。data_route.js）。三つの特殊シナリオでは、これまで通り霧の夜から入れる
+function kamiNormal() { return !!G && (kamiRoute() !== 'normal' || !G.route3 || G.route3 === 'miko'); }
 function kamiRoute() { return isFuji() ? 'fuji' : isKishi() ? 'kishi' : isShirou() ? 'shirou' : 'normal'; }
 const kamiR = o => o[kamiRoute()] ?? o.normal;   // シナリオごとに文章を選ぶ
 // 天降神社に生まれた主人公：神社は「自分の家」、巫女は従妹、宮司は叔父
@@ -135,7 +136,7 @@ STORY.push(
             `中腹の鳥居の前で、霧は消えた。鳥居の向こうの闇から、獣の吐息のような風が吹き下ろしてくる。<br>そして――鳥居の足元に、さっきの子どものものらしい、小さな片方のスリッパが落ちていた。`,
             kamiClue('mist_child', '霧に消えた子ども', '黒い霧は天降山から下りてきて、神楽の節を口ずさむ子どもを連れ去った。霧は中腹の鳥居で消えた。'), kamiEnter('霧を追った')];
         } },
-      { label: () => kamiR({ kishi: '観測に徹する', fuji: '深追いせず、聖杯戦争を終わらせることを優先する', shirou: 'セイバーに止められ、聖杯戦争を優先する', normal: '聖杯戦争に集中する' }), hint: '分岐しない（聖杯戦争を続ける）', run: () => { G.flags.kamiSawMist = true; tone('cautious');
+      { cond: () => G.route3 !== 'miko', label: () => kamiR({ kishi: '観測に徹する', fuji: '深追いせず、聖杯戦争を終わらせることを優先する', shirou: 'セイバーに止められ、聖杯戦争を優先する', normal: '聖杯戦争に集中する' }), hint: '分岐しない（聖杯戦争を続ける）', run: () => { G.flags.kamiSawMist = true; tone('cautious');
           return [kamiR({ kishi: '月の王は、この世界線に深く干渉しない。――あなたは、霧の行方を記録するだけに留めた。',
             fuji: 'あの旅で学んだことがある。異変の根が一つとは限らない。――霧の正体が聖杯戦争と繋がっているのなら、戦争を終わらせることが、一番の近道のはずだ。',
             shirou: `走り出そうとした腕を、${SV()}が掴んだ。「シロウ、罠かもしれません。今は、聖杯戦争の夜です」<br>悔しさを噛み殺して、頷いた。この戦争を終わらせることが、街を守ることにも繋がるはずだ。`,
@@ -307,7 +308,7 @@ function kamiMenu() {
     const nm = typeof t.name === 'function' ? t.name() : t.name;
     choices.push({ label: `【備え】${nm}`, hint: typeof t.hint === 'function' ? t.hint() : t.hint, cls: 'primary', disabled: !!t.cost && G.master.money < t.cost, fn: () => kamiTask(t) });
   }
-  choices.push({ label: '山の異変から手を引く', hint: '聖杯戦争に専念する（祟りの日は起きず、消えた人々は戻らない）', fn: () => scene({ title: '手を引く', sub: '天降の祟り', body: ['<p>山の異変から手を引き、聖杯戦争に専念する。――祟りの日は訪れない。けれど、霧に消えた人々は、もう戻らないだろう。</p>'], choices: [
+  if (G.route3 !== 'miko') choices.push({ label: '山の異変から手を引く', hint: '聖杯戦争に専念する（祟りの日は起きず、消えた人々は戻らない）', fn: () => scene({ title: '手を引く', sub: '天降の祟り', body: ['<p>山の異変から手を引き、聖杯戦争に専念する。――祟りの日は訪れない。けれど、霧に消えた人々は、もう戻らないだろう。</p>'], choices: [
     { label: '手を引く', cls: 'danger', fn: () => { const k2 = kami(); k2.on = false; k2.left = true; G.flags.kamiLeft = true; addLog('天降の祟りから手を引き、聖杯戦争に専念する。');
       next('手を引く', paras([kamiR({ shirou: '……悔しさを、飲み込んだ。今は、この戦争を終わらせることだけを考える。', fuji: 'すべてを救えるわけじゃない。――それも、あの旅で知ったことだった。', kishi: '観測者に戻る。この世界線の結末を、ただ見届けるために。', normal: '霧の向こうの山から、目を逸らした。今は、聖杯戦争に専念する。' }), '<span class="note">分岐「天降の祟り」から外れた。聖杯戦争は、このまま続く。</span>']), hub); } },
     { label: 'やはり、続ける', fn: kamiMenu }] }) });
