@@ -416,6 +416,11 @@ const MIKO_EPI = {
       { label: '黙って、頭を下げる', hint: '遺したもの↑', run: () => epiGain({ legacy: 2 }, '霧の中の少女に、頭を下げた') || '霧が晴れた石段に、朝日が差していた。' },
     ] },
 };
+// 守り人の人生で、恋人の雫と祠の前で結ばれる（data_kami.js の「巫女の祝言」から）：その後に「二人の未来」が続く
+function mikoKeeperMarry() {
+  const e = G.epi; if (e.mkSpouse) return; e.mkSpouse = true; e.newLove = true;
+  if (typeof EPI_LOVE !== 'undefined' && !e.steps.some(st => st.title === '二人の未来')) { const i = e.steps.findIndex((st, k) => k > e.i && st.y > 7); e.steps.splice(i < 0 ? e.steps.length - 1 : i, 0, { ...EPI_LOVE, y: 7 }); }   // 年の順に
+}
 function mikoEpiSteps(track) {
   if (!mkMet() || /^kishi_/.test(track)) return [];
   if (track === 'kami_keeper') return [];   // 山の守り人の人生には、専用の「巫女の祝言」がある

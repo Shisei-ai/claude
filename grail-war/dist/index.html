@@ -5730,7 +5730,7 @@ const EPI = {
         { label: '普通の暮らしに戻る', hint: '幸福↑↑', run: () => epiGain({ joy: 3 }, '普通の暮らしに戻った') || `大学に通い、働き、友人と笑う。ありふれた日々の中で、時々、空を見上げる癖だけが残った。` },
         { label: 'この街の守り手になる', hint: '遺したもの・絆↑', run: () => epiGain({ legacy: 2, bond: 1 }, '深見の守り手になった') || `${CAST.sister}${mikoHere() ? `と${CAST.miko}` : ''}に協力し、街の霊脈を見守り続けることにした。${SV()}が守った街だから。` },
       ] },
-    { y: 8, title: '面影',
+    { y: 8, title: '面影', skip: () => (typeof mkLover === 'function' && mkLover() && mikoHere()) || (typeof frLover === 'function' && G.friend && frLover() && !G.epi.frDead && !(frRival() && frRival().killed)),   // 恋人の雫・幼馴染がそばにいる人生では起きない
       text: () => relText({
         lover: `八年が過ぎた。誰かに、交際を申し込まれた。優しい人だった。<br>けれど、目を閉じると、今も${SV()}の顔が浮かぶ。`,
         partner: `八年が過ぎた。魔術絡みの事件に、一人で首を突っ込むことが増えた。<br>背中ががら空きだと、時々思う。${SV()}がいた場所だ。`,
@@ -5962,6 +5962,7 @@ function epiFinale() {
       `<p>${M()}と${SV()}の物語は、こうして幕を下ろした。</p>`,
       `<div class="epi-scores"><div><span>幸福</span><b>${e.joy}</b></div><div><span>絆</span><b>${e.bond}</b></div><div><span>遺したもの</span><b>${e.legacy}</b></div></div>`,
       `<p><b>${kind}</b>${grade}</p>`,
+      e.mkSpouse || e.frSpouse ? `<p class="note">生涯の伴侶：${partnerName()}${e.mkSpouse ? '――山の花嫁になるはずだった少女は、あなたの花嫁として生きた。' : '――桜の木の下で始まった二人の時間は、最後まで続いた。'}</p>` : '',
       e.child ? `<p class="note">子：${e.child.name}――その血と想いは、次の世代へ受け継がれていく。</p>` : e.twoOnly ? '<p class="note">二人きりで歩み抜いた、穏やかな一生だった。</p>' : '',
       `<h3>生涯の記録</h3><ul class="clue-list">${e.marks.map(m => `<li>${m}</li>`).join('')}</ul>`,
     ] };
@@ -6661,7 +6662,7 @@ function kidLooks() {
 const EPI_LOVE = { y: 8, title: '二人の未来',
   text: () => {
     const p = partnerName(); const t = G.epi.track;
-    const lead = G.epi.mkSpouse ? `${p}と結婚して二年。神楽殿の縁側で、${p}がぽつりと言った。「……${mkCall()}。わたしたちの、これからのことなんですけど」`
+    const lead = G.epi.mkSpouse ? `${p}と結婚して二年。${t === 'kami_keeper' ? '祠へ続く石段に並んで腰かけていると' : '神楽殿の縁側で'}、${p}がぽつりと言った。「……${mkCall()}。わたしたちの、これからのことなんですけど」`
       : G.epi.frSpouse ? `${p}と結婚して二年。城跡公園の桜の木の下で、${p}がぽつりと言った。「${fg('……なあ。俺たちの、これからのことなんだけど', '……ねえ。わたしたちの、これからのことなんだけど')}」`
       : t === 'shirou_rin' ? '結婚して二年。遠坂家の書斎で、遠坂が珍しく言葉を選んでいた。「……ねえ、士郎。私たちの、これからのことなんだけど」'
       : t === 'shirou_sakura' ? '結婚して二年。夕食の後片付けをしながら、桜が小さな声で言った。「先輩。……私、いつか、家族が増えたらいいなって」'
@@ -16274,9 +16275,9 @@ const EPI_KAMI = [
       : `${CAST.miko}が、結婚することになった。花嫁衣装で祠に挨拶に来た${CAST.miko}は、少し泣いていた。「……あなたが代わってくれなかったら、わたしは、この日を迎えられなかった」`) +
       (typeof mkLover === 'function' && mkLover() ? '' : G.flags.mkKeeper ? `<br>「でも、結婚しても、巫女はやめませんから。――相棒の守り人を、一人にはしません」` : typeof mkMet === 'function' && mkMet() && mkRel() === 'sister' ? `<br>「${mkCall()}。……今度は、ちゃんと人のお嫁さんになるね」` : ''),
     choices: [
-      { label: () => typeof mkLover === 'function' && mkLover() ? '二人で、神に誓う' : '神と共に、祝福を贈る', hint: '幸福↑↑', run: () => { if (typeof mkLover === 'function' && mkLover()) { G.epi.mkSpouse = true; G.epi.newLove = true; }
+      { label: () => typeof mkLover === 'function' && mkLover() ? '二人で、神に誓う' : '神と共に、祝福を贈る', hint: '幸福↑↑', run: () => { if (typeof mkLover === 'function' && mkLover()) mikoKeeperMarry();
           return epiGain({ joy: 3 }, typeof mkLover === 'function' && mkLover() ? `${CAST.miko}と、祠の前で結婚した` : '巫女の祝言を、山の神と共に祝った') || '霧の中から、白い花びらが降ってきた。季節外れの、山桜だった。'; } },
-      { label: () => typeof mkLover === 'function' && mkLover() ? '「これからも、二人で山を守ろう」' : '「幸せに」とだけ伝える', hint: '絆↑', run: () => { if (typeof mkLover === 'function' && mkLover()) { G.epi.mkSpouse = true; G.epi.newLove = true; }
+      { label: () => typeof mkLover === 'function' && mkLover() ? '「これからも、二人で山を守ろう」' : '「幸せに」とだけ伝える', hint: '絆↑', run: () => { if (typeof mkLover === 'function' && mkLover()) mikoKeeperMarry();
           return epiGain({ bond: 2, joy: 1 }, typeof mkLover === 'function' && mkLover() ? `${CAST.miko}と、二人で山を守ると誓った` : '巫女の門出を見送った') || (typeof mkLover === 'function' && mkLover() ? `「はい。……ずっと、二人で」${CAST.miko.split(' ').pop()}の手首で、古い鈴が、ちりんと鳴った。` : `${CAST.miko}は、何度も振り返りながら、石段を下りていった。`); } },
     ] },
   { y: 20, title: '若い魔術師', text: () => '山に、迷い込んだ若い魔術師がいた。霊脈を盗もうとしていたらしい。<br>大狼が、低く唸った。「……守り人。どうする」',
@@ -16284,12 +16285,12 @@ const EPI_KAMI = [
       { label: '叱って、山を下ろす', hint: '遺したもの↑', run: () => epiGain({ legacy: 2 }, '霊脈を狙う魔術師を諭した') || '「この山には、神様がいる。……二度と来るな。来るなら、手土産を持ってこい」若者は、なぜか毎年、手土産を持って来るようになった。' },
       { label: '神の怒りを、そのまま見せる', hint: '絆↑', run: () => epiGain({ bond: 2 }, '山の神の威を示した') || '霧の中から現れた大狼の姿に、若者は腰を抜かして逃げていった。大狼は、少しだけ愉快そうだった。' },
     ] },
-  { y: 45, title: '次の守り人', text: () => '年を取った。石段を登るのが、少しつらくなった。<br>ある朝、祠の前に、小さな子どもが座っていた。「……神様と、お話ししてみたいの」',
+  { y: 45, title: '次の守り人', text: () => (G.epi && G.epi.mkSpouse ? `年を取った。石段を登るのが、少しつらくなった。隣を歩く${CAST.miko.split(' ').pop()}の髪も、すっかり白くなった。<br>ある朝、祠の前に、小さな子どもが座っていた。${typeof kid === 'function' && kid() ? `${kid()}の子――孫だった。` : ''}「……神様と、お話ししてみたいの」` : '年を取った。石段を登るのが、少しつらくなった。<br>ある朝、祠の前に、小さな子どもが座っていた。「……神様と、お話ししてみたいの」'),
     choices: [
       { label: '守り人の務めを教える', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '次の守り人を育てた') || '神への礼、山の手入れ、霧の読み方。子どもは、目を輝かせて全部を覚えた。' },
       { label: '神に、その子を引き合わせる', hint: '幸福↑・絆↑', run: () => epiGain({ joy: 2, bond: 1 }, '次の守り人を、山の神に引き合わせた') || '大狼は、子どもの頬を、大きな舌でべろりと舐めた。子どもは、大笑いした。' },
     ] },
-  { y: 60, title: '山に還る', final: true, text: () => `最後の朝。祠の前で、目を閉じた。霧の中で、白い大狼が、あなたの隣に寝そべった。<br>「……長い付き合いだった。人の子よ。――お前は、良い守り人だった」<br>遠くで、あの冬の英霊の声が聞こえた気がした。${SV()}の声だった。`,
+  { y: 60, title: '山に還る', final: true, text: () => `最後の朝。祠の前で、目を閉じた。霧の中で、白い大狼が、あなたの隣に寝そべった。<br>「……長い付き合いだった。人の子よ。――お前は、良い守り人だった」<br>${G.epi && G.epi.mkSpouse ? `反対側の手を、${CAST.miko.split(' ').pop()}が握っていた。皺だらけの、温かい手だった。「……先に行って、待っててください。わたしも、すぐに行きますから。――また、この山で」<br>` : ''}遠くで、あの冬の英霊の声が聞こえた気がした。${SV()}の声だった。`,
     choices: [
       { label: '「この山を、頼む」', hint: '最後の言葉', run: () => epiGain({ legacy: 3 }, '山に還った') || '霧が、優しくあなたを包んだ。――その日から、天降山には、二柱の守り神がいると言われるようになった。' },
       { label: () => `${SVN()}の名を呼ぶ`, hint: '最後の言葉', run: () => epiGain({ bond: 3 }, '最後に英霊の名を呼んだ') || `「――${SVN()}」<br>霧の向こうで、誰かが手を差し伸べた。あなたは、その手を取った。` },
@@ -16763,6 +16764,11 @@ const MIKO_EPI = {
       { label: '黙って、頭を下げる', hint: '遺したもの↑', run: () => epiGain({ legacy: 2 }, '霧の中の少女に、頭を下げた') || '霧が晴れた石段に、朝日が差していた。' },
     ] },
 };
+// 守り人の人生で、恋人の雫と祠の前で結ばれる（data_kami.js の「巫女の祝言」から）：その後に「二人の未来」が続く
+function mikoKeeperMarry() {
+  const e = G.epi; if (e.mkSpouse) return; e.mkSpouse = true; e.newLove = true;
+  if (typeof EPI_LOVE !== 'undefined' && !e.steps.some(st => st.title === '二人の未来')) { const i = e.steps.findIndex((st, k) => k > e.i && st.y > 7); e.steps.splice(i < 0 ? e.steps.length - 1 : i, 0, { ...EPI_LOVE, y: 7 }); }   // 年の順に
+}
 function mikoEpiSteps(track) {
   if (!mkMet() || /^kishi_/.test(track)) return [];
   if (track === 'kami_keeper') return [];   // 山の守り人の人生には、専用の「巫女の祝言」がある

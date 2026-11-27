@@ -263,7 +263,7 @@ const EPI = {
         { label: '普通の暮らしに戻る', hint: '幸福↑↑', run: () => epiGain({ joy: 3 }, '普通の暮らしに戻った') || `大学に通い、働き、友人と笑う。ありふれた日々の中で、時々、空を見上げる癖だけが残った。` },
         { label: 'この街の守り手になる', hint: '遺したもの・絆↑', run: () => epiGain({ legacy: 2, bond: 1 }, '深見の守り手になった') || `${CAST.sister}${mikoHere() ? `と${CAST.miko}` : ''}に協力し、街の霊脈を見守り続けることにした。${SV()}が守った街だから。` },
       ] },
-    { y: 8, title: '面影',
+    { y: 8, title: '面影', skip: () => (typeof mkLover === 'function' && mkLover() && mikoHere()) || (typeof frLover === 'function' && G.friend && frLover() && !G.epi.frDead && !(frRival() && frRival().killed)),   // 恋人の雫・幼馴染がそばにいる人生では起きない
       text: () => relText({
         lover: `八年が過ぎた。誰かに、交際を申し込まれた。優しい人だった。<br>けれど、目を閉じると、今も${SV()}の顔が浮かぶ。`,
         partner: `八年が過ぎた。魔術絡みの事件に、一人で首を突っ込むことが増えた。<br>背中ががら空きだと、時々思う。${SV()}がいた場所だ。`,
@@ -495,6 +495,7 @@ function epiFinale() {
       `<p>${M()}と${SV()}の物語は、こうして幕を下ろした。</p>`,
       `<div class="epi-scores"><div><span>幸福</span><b>${e.joy}</b></div><div><span>絆</span><b>${e.bond}</b></div><div><span>遺したもの</span><b>${e.legacy}</b></div></div>`,
       `<p><b>${kind}</b>${grade}</p>`,
+      e.mkSpouse || e.frSpouse ? `<p class="note">生涯の伴侶：${partnerName()}${e.mkSpouse ? '――山の花嫁になるはずだった少女は、あなたの花嫁として生きた。' : '――桜の木の下で始まった二人の時間は、最後まで続いた。'}</p>` : '',
       e.child ? `<p class="note">子：${e.child.name}――その血と想いは、次の世代へ受け継がれていく。</p>` : e.twoOnly ? '<p class="note">二人きりで歩み抜いた、穏やかな一生だった。</p>' : '',
       `<h3>生涯の記録</h3><ul class="clue-list">${e.marks.map(m => `<li>${m}</li>`).join('')}</ul>`,
     ] };

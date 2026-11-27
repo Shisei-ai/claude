@@ -405,9 +405,9 @@ const EPI_KAMI = [
       : `${CAST.miko}が、結婚することになった。花嫁衣装で祠に挨拶に来た${CAST.miko}は、少し泣いていた。「……あなたが代わってくれなかったら、わたしは、この日を迎えられなかった」`) +
       (typeof mkLover === 'function' && mkLover() ? '' : G.flags.mkKeeper ? `<br>「でも、結婚しても、巫女はやめませんから。――相棒の守り人を、一人にはしません」` : typeof mkMet === 'function' && mkMet() && mkRel() === 'sister' ? `<br>「${mkCall()}。……今度は、ちゃんと人のお嫁さんになるね」` : ''),
     choices: [
-      { label: () => typeof mkLover === 'function' && mkLover() ? '二人で、神に誓う' : '神と共に、祝福を贈る', hint: '幸福↑↑', run: () => { if (typeof mkLover === 'function' && mkLover()) { G.epi.mkSpouse = true; G.epi.newLove = true; }
+      { label: () => typeof mkLover === 'function' && mkLover() ? '二人で、神に誓う' : '神と共に、祝福を贈る', hint: '幸福↑↑', run: () => { if (typeof mkLover === 'function' && mkLover()) mikoKeeperMarry();
           return epiGain({ joy: 3 }, typeof mkLover === 'function' && mkLover() ? `${CAST.miko}と、祠の前で結婚した` : '巫女の祝言を、山の神と共に祝った') || '霧の中から、白い花びらが降ってきた。季節外れの、山桜だった。'; } },
-      { label: () => typeof mkLover === 'function' && mkLover() ? '「これからも、二人で山を守ろう」' : '「幸せに」とだけ伝える', hint: '絆↑', run: () => { if (typeof mkLover === 'function' && mkLover()) { G.epi.mkSpouse = true; G.epi.newLove = true; }
+      { label: () => typeof mkLover === 'function' && mkLover() ? '「これからも、二人で山を守ろう」' : '「幸せに」とだけ伝える', hint: '絆↑', run: () => { if (typeof mkLover === 'function' && mkLover()) mikoKeeperMarry();
           return epiGain({ bond: 2, joy: 1 }, typeof mkLover === 'function' && mkLover() ? `${CAST.miko}と、二人で山を守ると誓った` : '巫女の門出を見送った') || (typeof mkLover === 'function' && mkLover() ? `「はい。……ずっと、二人で」${CAST.miko.split(' ').pop()}の手首で、古い鈴が、ちりんと鳴った。` : `${CAST.miko}は、何度も振り返りながら、石段を下りていった。`); } },
     ] },
   { y: 20, title: '若い魔術師', text: () => '山に、迷い込んだ若い魔術師がいた。霊脈を盗もうとしていたらしい。<br>大狼が、低く唸った。「……守り人。どうする」',
@@ -415,12 +415,12 @@ const EPI_KAMI = [
       { label: '叱って、山を下ろす', hint: '遺したもの↑', run: () => epiGain({ legacy: 2 }, '霊脈を狙う魔術師を諭した') || '「この山には、神様がいる。……二度と来るな。来るなら、手土産を持ってこい」若者は、なぜか毎年、手土産を持って来るようになった。' },
       { label: '神の怒りを、そのまま見せる', hint: '絆↑', run: () => epiGain({ bond: 2 }, '山の神の威を示した') || '霧の中から現れた大狼の姿に、若者は腰を抜かして逃げていった。大狼は、少しだけ愉快そうだった。' },
     ] },
-  { y: 45, title: '次の守り人', text: () => '年を取った。石段を登るのが、少しつらくなった。<br>ある朝、祠の前に、小さな子どもが座っていた。「……神様と、お話ししてみたいの」',
+  { y: 45, title: '次の守り人', text: () => (G.epi && G.epi.mkSpouse ? `年を取った。石段を登るのが、少しつらくなった。隣を歩く${CAST.miko.split(' ').pop()}の髪も、すっかり白くなった。<br>ある朝、祠の前に、小さな子どもが座っていた。${typeof kid === 'function' && kid() ? `${kid()}の子――孫だった。` : ''}「……神様と、お話ししてみたいの」` : '年を取った。石段を登るのが、少しつらくなった。<br>ある朝、祠の前に、小さな子どもが座っていた。「……神様と、お話ししてみたいの」'),
     choices: [
       { label: '守り人の務めを教える', hint: '遺したもの↑↑', run: () => epiGain({ legacy: 3 }, '次の守り人を育てた') || '神への礼、山の手入れ、霧の読み方。子どもは、目を輝かせて全部を覚えた。' },
       { label: '神に、その子を引き合わせる', hint: '幸福↑・絆↑', run: () => epiGain({ joy: 2, bond: 1 }, '次の守り人を、山の神に引き合わせた') || '大狼は、子どもの頬を、大きな舌でべろりと舐めた。子どもは、大笑いした。' },
     ] },
-  { y: 60, title: '山に還る', final: true, text: () => `最後の朝。祠の前で、目を閉じた。霧の中で、白い大狼が、あなたの隣に寝そべった。<br>「……長い付き合いだった。人の子よ。――お前は、良い守り人だった」<br>遠くで、あの冬の英霊の声が聞こえた気がした。${SV()}の声だった。`,
+  { y: 60, title: '山に還る', final: true, text: () => `最後の朝。祠の前で、目を閉じた。霧の中で、白い大狼が、あなたの隣に寝そべった。<br>「……長い付き合いだった。人の子よ。――お前は、良い守り人だった」<br>${G.epi && G.epi.mkSpouse ? `反対側の手を、${CAST.miko.split(' ').pop()}が握っていた。皺だらけの、温かい手だった。「……先に行って、待っててください。わたしも、すぐに行きますから。――また、この山で」<br>` : ''}遠くで、あの冬の英霊の声が聞こえた気がした。${SV()}の声だった。`,
     choices: [
       { label: '「この山を、頼む」', hint: '最後の言葉', run: () => epiGain({ legacy: 3 }, '山に還った') || '霧が、優しくあなたを包んだ。――その日から、天降山には、二柱の守り神がいると言われるようになった。' },
       { label: () => `${SVN()}の名を呼ぶ`, hint: '最後の言葉', run: () => epiGain({ bond: 3 }, '最後に英霊の名を呼んだ') || `「――${SVN()}」<br>霧の向こうで、誰かが手を差し伸べた。あなたは、その手を取った。` },
