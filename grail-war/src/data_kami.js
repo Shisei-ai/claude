@@ -76,7 +76,7 @@ function kamiEnter(how) {
   const k = kami(); if (k.on) return '';
   k.on = true; G.flags.kamiRoute = true; addLog(`分岐「天降の祟り」に入る（${how}）。`);
   const mc = typeof mikoEnterClues === 'function' ? mikoEnterClues() : '';   // 雫から聞いていたこと（data_miko.js）
-  return mc + `<div class="truth kami"><b>分岐：天降の祟り</b><br>深見市の秘密は、聖杯だけではなかった。天降山で、何かが目覚めようとしている。<br><span class="note">昼の行動に「山の異変を追う」が加わった。10日目までに、山の神と向き合う道を決めなければならない。</span></div>`;
+  return mc + `<div class="truth kami"><b>${G.route3 === 'miko' ? '天降の祟り' : '分岐：天降の祟り'}</b><br>深見市の秘密は、聖杯だけではなかった。天降山で、何かが目覚めようとしている。<br><span class="note">昼の行動に「山の異変を追う」が加わった。10日目までに、山の神と向き合う道を決めなければならない。</span></div>`;
 }
 function kamiClue(id, title, text) {
   const k = kami(); if (k.clues.some(c => c.id === id)) return '';
@@ -94,7 +94,7 @@ function kamiClue(id, title, text) {
       (birthOf().id === 'shrine' && kamiPactChild() ? `<br>幼い頃、神隠しから取り戻したはずの${CAST.miko}が、また山に呼ばれている。` : '') +
       (kamiRoute() === 'normal' && typeof mikoBrideNote === 'function' ? mikoBrideNote() : ''),
     choices: [
-      { label: () => kamiOn() ? '必ず連れ戻すと、約束する' : `${CAST.miko}を探しに、山へ向かう`, hint: () => kamiOn() ? '分岐を進める' : '分岐「天降の祟り」へ', cls: 'primary', run: () => {
+      { label: () => kamiOn() ? '必ず連れ戻すと、約束する' : `${CAST.miko}を探しに、山へ向かう`, hint: () => G.route3 === 'miko' ? '' : kamiOn() ? '分岐を進める' : '分岐「天降の祟り」へ', cls: 'primary', run: () => {
           G.flags.kamiMikoTaken = true; tone('good'); if (kamiRoute() === 'normal' && typeof mkMet === 'function' && mkMet()) { mk(5); if (mkRel() === 'ally') G.flags.mkAllyPlan = true; }
           return [G.flags.mkPromise && kamiRoute() === 'normal' ? 'あの冬の約束を、果たしに行く。' : '', kamiOn() ? (kamiHome() ? `叔父は、あなたに深く頭を下げた。「……六十年前にも、同じことがあったと聞いている。頼む。あの子を」` : `電話の向こうで、相手が深く頭を下げる気配がした。「……六十年前にも、同じことがあったと聞いています。どうか」`) : `昨夜の霧と、消えた子ども。そして${CAST.miko}。――この街で、何かが起きている。`,
             kamiClue('miko_bride', '花嫁に選ばれた巫女', `${CAST.miko}が「花嫁に選ばれた」と書き置きを残し、山へ消えた。昨夜の子どもと同じく、裸足で、山の方へ。`), kamiEnter('巫女を探しに向かった')];
@@ -130,7 +130,7 @@ STORY.push(
       (kamiPactChild() ? `<br><span class="note">右手の甲の、古い痣が疼いた。――あの夜、山の神と交わした約束の痣だ。霧の奥から、誰かがあなたを呼んでいる。</span>` : '') +
       `<br>${SV()}が、霧の流れていく先――天降山を見上げた。英霊の目にも、あれが何なのかは測りかねるらしい。その横顔は、ひどく険しかった。`,
     choices: [
-      { label: () => kamiR({ shirou: '考えるより先に、走り出していた', normal: '霧を追って、天降山へ入る' }), hint: '分岐「天降の祟り」へ', cls: 'primary', run: () => {
+      { label: () => kamiR({ shirou: '考えるより先に、走り出していた', normal: '霧を追って、天降山へ入る' }), hint: () => G.route3 === 'miko' ? '' : '分岐「天降の祟り」へ', cls: 'primary', run: () => {
           G.flags.kamiSawMist = true; tone('bold');
           return [kamiR({ shirou: `「待て――！」叫んだ時には、もう走り出していた。${SV()}が、ため息まじりに後に続く。`, fuji: `「――行こう」${SV()}に声をかけるより早く、足が動いていた。あの旅で、何度もそうしてきたように。`, normal: `霧は、山道を這うように登っていく。${SV()}と共に後を追った。` }),
             `中腹の鳥居の前で、霧は消えた。鳥居の向こうの闇から、獣の吐息のような風が吹き下ろしてくる。<br>そして――鳥居の足元に、さっきの子どものものらしい、小さな片方のスリッパが落ちていた。`,

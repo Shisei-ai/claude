@@ -205,7 +205,6 @@ function viewMaster() {
       <div class="bar-row"><span>HP</span><div class="bar hp"><i style="width:${m.hp}%"></i></div><span class="num">${m.hp}</span></div></div>
     <dl class="kv" style="margin-top:10px"><dt>令呪</dt><dd>${m.seals}画</dd><dt>資金</dt><dd>${m.money}万円</dd><dt>魔術回路</dt><dd>${m.circuits}本</dd>
       <dt>オド</dt><dd>${m.od} / ${odMax()}（マスター自身の魔力。戦闘の支援魔術や使い魔に使う）</dd>
-      ${G.route3 ? `<dt>物語</dt><dd>${ROUTE3[G.route3].name}</dd>` : ''}
       <dt>陣地</dt><dd>Lv ${G.workshop}・罠${G.traps}${G.flags.leyline || m.birth === 'shrine' ? '（霊脈の知識あり）' : ''}</dd>
       <dt>性別</dt><dd>${GENDERS[m.gender || 'n']}</dd><dt>願い</dt><dd>${masterWish()}</dd><dt>特徴</dt><dd>${b.perk}</dd>
       <dt>属性</dt><dd>${alignLabel()}<span class="dd-note">これまでの選択で変わっていく</span></dd></dl>
