@@ -18,6 +18,7 @@
 const EPI_KEY = 'fukami-grail-war-epilogues';
 const EPI_TITLES = {
   together_lover: '恋人として生きる', together_partner: '相棒として生きる', together_oath: '主従として生きる', together_family: '家族として生きる',
+  route_miko: '巫女と歩む人生', route_friend: '桜の木の下で生きる',
   parted: '別れの後で', ruin: '災厄の後で', kami_keeper: '山の守り人として生きる', lost: '敗者の春', abstain: '日常の向こう側', kishi_moon: '月の王と英霊', kishi_return: '月の王の観測',
 };
 function seenEpilogues() { try { return JSON.parse(localStorage.getItem(EPI_KEY) || '[]'); } catch (e) { return []; } }
@@ -448,7 +449,7 @@ function hasEpilogue(kind) { return !!epiTrackOf(kind); }
 // =============================================================
 function startEpilogue(kind) {
   const track = epiTrackOf(kind); if (!track) return titleScreen();
-  const steps = EPI[track].slice();
+  let steps = EPI[track].slice();
   // 特殊シナリオの章を、年代順に差し込む
   const insert = st => { const i = steps.findIndex(x => x.y > st.y); steps.splice(i < 0 ? steps.length - 1 : i, 0, st); };
   if (isFuji()) { insert(EPI_FUJI); if (typeof trioDreamEligible === 'function' && trioDreamEligible()) insert(EPI_TRIO_DREAM); }   // 藤丸×オベロン／アルトリア・キャスター：レムレムの夢（data_oberon.js）
@@ -459,6 +460,7 @@ function startEpilogue(kind) {
   if (typeof friendEpiSteps === 'function') for (const st of friendEpiSteps(track, kind)) insert(st);
   if (typeof kamiEpiSteps === 'function') for (const st of kamiEpiSteps(track, kind)) insert(st);
   if (typeof mikoEpiSteps === 'function') for (const st of mikoEpiSteps(track)) insert(st);   // 雫の章（data_miko.js）
+  if (typeof routeEpiCompose === 'function') steps = routeEpiCompose(kind, track, steps);   // ルートのヒロインを主役に組み直す（data_route_epi.js）
   if (typeof skEpiAdjust === 'function') skEpiAdjust(kind, steps);   // 代価の人：人生が短くなる（data_sakura.js）   // 天降の祭り（data_kami.js）   // 幼馴染の章（data_friend_epi.js）
   G.epi = { kind, track, steps, i: -1, year: 0, joy: 0, bond: 0, legacy: 0, marks: [] };
   G.phase = 'epilogue';
@@ -488,12 +490,14 @@ function epiFinale() {
   const kind = { joy: '幸福に満ちた生涯', bond: '絆に生きた生涯', legacy: '多くを遺した生涯' }[best];
   const n = Math.max(1, e.steps.length);   // 章が増えても評価が釣り合うよう、章数に比例させる
   const grade = total >= n * 3.05 ? '――満ち足りた、と言える一生だった。' : total >= n * 2.6 ? '――悔いはある。けれど、良い一生だった。' : '――決して平坦な道ではなかった。それでも、生き抜いた。';
-  const title = `${EPI_TITLES[e.track] || 'その後の人生'}：${kind}`;
-  markEpilogue(e.track); addLog(`エピローグ「${title}」`);
+  const rt = typeof routeEpiTitle === 'function' ? routeEpiTitle(e.track) : null;   // ルートのヒロインが主役の人生（data_route_epi.js）
+  const head = rt || EPI_TITLES[e.track] || 'その後の人生';
+  const title = `${head}：${kind}`;
+  markEpilogue(e.track); if (rt) markEpilogue('route_' + G.route3); addLog(`エピローグ「${title}」`);
   sfx('win');
   showCard({ kicker: 'EPILOGUE', title: kind, cls: 'dawn', ms: 2000 }, () => {
-    SCENE = { kind: 'ending', endKind: 'epilogue', epilogue: true, title: `エピローグ：${EPI_TITLES[e.track] || 'その後の人生'}`, good: true, text: [
-      `<p>${M()}と${SV()}の物語は、こうして幕を下ろした。</p>`,
+    SCENE = { kind: 'ending', endKind: 'epilogue', epilogue: true, title: `エピローグ：${head}`, good: true, text: [
+      `<p>${(typeof routeEpiLead === 'function' && routeEpiLead()) || `${M()}と${SV()}の物語は、こうして幕を下ろした。`}</p>`,
       `<div class="epi-scores"><div><span>幸福</span><b>${e.joy}</b></div><div><span>絆</span><b>${e.bond}</b></div><div><span>遺したもの</span><b>${e.legacy}</b></div></div>`,
       `<p><b>${kind}</b>${grade}</p>`,
       e.mkSpouse || e.frSpouse ? `<p class="note">生涯の伴侶：${partnerName()}${e.mkSpouse ? '――山の花嫁になるはずだった少女は、あなたの花嫁として生きた。' : '――桜の木の下で始まった二人の時間は、最後まで続いた。'}</p>` : '',

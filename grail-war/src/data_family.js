@@ -85,4 +85,4 @@ for (const [track, after] of [['shirou_rin', '遠坂家の結婚式'], ['shirou_
 // 別れの後に、新しい人の手を取った場合：その後に
 { const st = (EPI.parted || []).find(s => s.title === '面影');
   if (st) { const c = st.choices[0]; const run = c.run;
-    c.run = () => { const r = run(); if (G.servant && G.servant.special === 'lover') { G.epi.newLove = true; G.epi.steps.splice(G.epi.i + 1, 0, { ...EPI_LOVE, y: 12 }); } return r; }; } }
+    c.run = () => { const r = run(); if (G.servant && G.servant.special === 'lover') { G.epi.newLove = true; { const e = G.epi, y = e.year + 1; const i = e.steps.findIndex((st, k) => k > e.i && (st.y > y || st.final)); e.steps.splice(i < 0 ? e.steps.length : i, 0, { ...EPI_LOVE, y }); } } return r; }; } }
