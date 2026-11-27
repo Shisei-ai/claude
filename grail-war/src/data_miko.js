@@ -305,7 +305,7 @@ STORY.push(
         mkR({ lover: `<p class="quote">「……${c}。来てくれないの？ ……会いたいよ」</p>`, sister: `<p class="quote">「……${c}。来てくれないの？」</p>`, ally: `<p class="quote">「${c}。……一人じゃ、ちょっと、きついです」</p>` }) +
         `手首の鈴が、夢の中で、ちりんと鳴った。――まだ、間に合うかもしれない。`; },
     choices: [
-      { label: '霧の奥へ、手を伸ばす', hint: '分岐「天降の祟り」へ（祟りの日まで、あと2日）', cls: 'primary', run: () => { G.flags.kamiLate = true; G.flags.mkResolve = true; mk(10); tone('good');
+      { label: '霧の奥へ、手を伸ばす', hint: '祟りの日まで、あと2日', cls: 'primary', run: () => { G.flags.kamiLate = true; G.flags.mkResolve = true; mk(10); tone('good');
           return [`「――${SHIZUKU()}！」<br>叫んだ瞬間、霧の中で、${SHIZUKU()}の手がこちらへ伸びた。指先が触れる。冷たい手だった。`,
             `<p class="quote">「……百八十年の契りなの。六十年ごとに、花嫁を一人。今年は、わたしの番。――でも、来てくれるなら、わたしは中から神楽を舞う」</p>`,
             kamiClue('miko_bride', '花嫁に選ばれた巫女', `${CAST.miko}が「花嫁に選ばれた」と書き置きを残し、山へ消えた。`),
@@ -313,7 +313,7 @@ STORY.push(
             kamiClue('pact', '六十年の契り', '天降山は土地神「天降大神」の体。神は六十年に一度、聖杯に力を貸す。代わりに人は「花嫁」を一人捧げる――それが百八十年続いた契り。'),
             kamiEnter('雫の声に応えた'), '<span class="note">「山の異変を追う」から、神と向き合う道を選べる。祟りの日は、10日目だ。</span>'];
         } },
-      { label: '目を覚ます', hint: '分岐しない', run: () => { mk(-10); return `夢の中の背中は、霧に溶けて消えた。目を覚ましても、手首の鈴の音が、耳から離れなかった。`; } },
+      { label: '目を覚ます', run: () => { mk(-10); return `夢の中の背中は、霧に溶けて消えた。目を覚ましても、手首の鈴の音が、耳から離れなかった。`; } },
     ] },
 );
 
