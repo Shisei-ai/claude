@@ -27,10 +27,12 @@ const TACTICS = {
 const MASTER_ACTS = {
   command: { name: '指揮に専念', hint: '+5' },
   boost:   { name: '強化魔術', hint: 'オド15・+14', od: 15 },
-  heal:    { name: '治癒魔術', hint: 'オド20・HP+25', od: 20 },
-  potion:  { name: '治癒の霊薬', hint: 'HP+35', item: 'potion' },
+  heal:    { name: '治癒魔術', hint: 'オド20・英霊のHP+25', od: 20 },
+  potion:  { name: '治癒の霊薬', hint: '英霊のHP+35', item: 'potion' },
   gem:     { name: '宝石魔術', hint: '+12・敵に10', item: 'gem' },
   crystal: { name: '魔力結晶', hint: '魔力+40', item: 'crystal' },
+  salve:   { name: '止血の軟膏', hint: 'あなたのHP+30', item: 'salve' },
+  elixir:  { name: '練気の丸薬', hint: 'オド+25', item: 'elixir' },
 };
 let B = null; // 戦闘中の状態（セーブしない）
 
@@ -127,7 +129,7 @@ function battleScene(extra) {
   const ACTS = allMasterActs();
   const mk = Object.keys(ACTS).filter(k => !ACTS[k].item || G.items[ACTS[k].item] > 0);
   if (!mactAvailable(B.mact)) B.mact = 'command';
-  body.push(`<div class="mact"><div class="mact-head">マスターの行動 <span>オド ${G.master.od}/${odMax()}</span></div><div class="mact-row">${mk.map(k => {
+  body.push(`<div class="mact"><div class="mact-head">マスターの行動 <span>HP ${G.master.hp}/${G.master.hpMax}　オド ${G.master.od}/${odMax()}</span></div><div class="mact-row">${mk.map(k => {
     const a = ACTS[k]; const cnt = a.item ? `×${G.items[a.item]}` : '';
     return `<button class="chip ${B.mact === k ? 'on' : ''}" data-mact="${k}" ${mactAvailable(k) ? '' : 'disabled'} aria-pressed="${B.mact === k}">${a.name}${cnt}<small>${a.hint}</small></button>`;
   }).join('')}</div></div>`);
@@ -158,7 +160,7 @@ function shirouBattleScene(body) {
   body.push(`<div class="mact"><div class="mact-head">士郎 <span>HP ${G.master.hp}/${G.master.hpMax}　オド ${G.master.od}/${odMax()}${B.shirouDown ? '　<b>満身創痍</b>' : ''}</span></div>
     <p class="note" style="margin:4px 0 0">セイバーの構え：<b>${TACTICS[auto].name}</b>${B.forceTac ? '（指示）' : '（自分の判断）'}</p></div>`);
   // 道具（他のシナリオと同じく、行動と一緒に使う）
-  const ik = ['command', 'potion', 'gem', 'crystal'].filter(k => k === 'command' || G.items[MASTER_ACTS[k].item] > 0);
+  const ik = ['command', 'potion', 'gem', 'crystal', 'salve', 'elixir'].filter(k => k === 'command' || G.items[MASTER_ACTS[k].item] > 0);
   if (!ik.includes(B.mact)) B.mact = 'command';
   if (ik.length > 1) body.push(`<div class="mact"><div class="mact-head">道具 <span>行動と一緒に使う</span></div><div class="mact-row">${ik.map(k => {
     const a = MASTER_ACTS[k]; const name = k === 'command' ? '使わない' : `${a.name}×${G.items[a.item]}`; const hint = k === 'command' ? '' : a.hint;
@@ -222,7 +224,7 @@ function battleRound(cmd) {
   }
 
   // マスターの行動
-  let mBonus = 0; const ma = isShirou() ? (['potion', 'gem', 'crystal'].includes(B.mact) ? B.mact : null) : B.mact; B.mact = 'command';
+  let mBonus = 0; const ma = isShirou() ? (['potion', 'gem', 'crystal', 'salve', 'elixir'].includes(B.mact) ? B.mact : null) : B.mact; B.mact = 'command';
   if (isShirou()) mBonus = applyShirouAct(log, E);
   if (ma === 'command') mBonus = 5;
   if (ma === 'boost') { od(-15); mBonus = 14; log.push(`強化魔術で${P}の霊基を後押しした。`); }
@@ -231,6 +233,8 @@ function battleRound(cmd) {
   if (ma === 'gem') { item('gem', -1); mBonus += 12; r.hp -= 10; log.push(`宝石を投げ放つ。炸裂した魔力が${E}を撃った！（10ダメージ）`); B.fxq.push({ type: 'hit', side: 'en', dmg: 10 }); }
   if (ma && ma.startsWith('sp_')) mBonus += castSpell(ma.slice(3), log, E);
   if (ma === 'crystal') { item('crystal', -1); mp(40); log.push(`魔力結晶を砕き、${P}に魔力を流し込んだ。（魔力+40）`); }
+  if (ma === 'salve') { B.fxq.push({ type: 'sfx', name: 'heal' }); item('salve', -1); const h0 = G.master.hp; hp(30); log.push(`止血の軟膏を傷口に塗り込んだ。痛みが引き、血が止まる。（あなたのHP+${G.master.hp - h0}）`); }
+  if (ma === 'elixir') { item('elixir', -1); const o0 = G.master.od; od(25); log.push(`練気の丸薬を噛み砕いた。苦い薬草の味と一緒に、魔術回路に熱が戻ってくる。（オド+${G.master.od - o0}）`); }
 
   // スキル（自分が選んだもの・敵のAI）と、行動封じ
   if (B.skill != null) { skillActivate('me', B.skill, log); B.skill = null; }

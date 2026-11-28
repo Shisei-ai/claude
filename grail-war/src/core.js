@@ -23,6 +23,8 @@ const ITEMS = {
   gem:     { name: '魔力を込めた宝石', cost: 3, desc: '戦闘中、宝石魔術で援護（その手番+12・敵に10ダメージ）' },
   crystal: { name: '魔力結晶', cost: 2, desc: 'サーヴァントの魔力を40回復（戦闘中も使える）' },
   smoke:   { name: '煙幕の護符', cost: 1, desc: '戦闘から確実に撤退できる' },
+  salve:   { name: '止血の軟膏', cost: 1, desc: '戦闘中、マスター（あなた）のHPを30回復' },
+  elixir:  { name: '練気の丸薬', cost: 2, desc: '戦闘中、マスター（あなた）のオドを25回復' },
 };
 const ITEM_MAX = 3;
 
@@ -202,7 +204,7 @@ function rollMaster(name, gen) {
 function newGame(master) {
   G = {
     v: 3, phase: 'growth', day: 1, slot: 0, master, servant: null, growth: { stage: 0 }, friend: null,
-    catalysts: [], items: { potion: 1, gem: 0, crystal: 0, smoke: 1 }, flags: {}, used: {}, rivals: [], log: [], news: [],
+    catalysts: [], items: { potion: 1, gem: 0, crystal: 0, smoke: 1, salve: 1, elixir: 0 }, flags: {}, used: {}, rivals: [], log: [], news: [],
     ritual: 0, workshop: 0, traps: 0, kills: 0, battles: 0, tmpRival: null, storyRival: null,
     truth: pick(['cursed', 'pure', 'beast']),   // 聖杯の真相（プレイヤーには見えない。data_mystery.js）：呪い／正規／人類悪の寄生
   };
