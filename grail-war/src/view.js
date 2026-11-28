@@ -252,6 +252,7 @@ function viewRivals() {
           <span>${!r.alive ? '<span class="tag">脱落</span>' : r.ally ? '<span class="tag green">同盟</span>' : ''}${r.bounty && r.alive ? '<span class="tag red">討伐令</span>' : ''}
           <span class="intel" aria-label="情報段階${r.intel}">${[1, 2, 3].map(i => `<i class="${r.intel >= i ? 'on' : ''}"></i>`).join('')}</span></span></div>
         <p>${r.cls}　マスター：${r.intel >= 1 ? `${esc(r.master)}（${r.type}）` : '不明'}</p>
+        ${typeof rvViewHTML === 'function' ? rvViewHTML(r) : ''}
         ${r.intel >= 2 && r.alive ? `<div class="bar-row" style="margin-top:6px"><span>HP</span><div class="bar enemy"><i style="width:${(r.hp / r.hpMax) * 100}%"></i></div><span class="num">${r.hp}</span></div>` : ''}
         ${knowsName(r) ? `<div style="margin-top:8px">${paramGrid(s.p)}</div><p>宝具：${s.np}（${s.npRuby}）</p>${npDetailHTML(s)}${skillListHTML(s)}` : ''}
       </div>`;

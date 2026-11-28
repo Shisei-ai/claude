@@ -150,6 +150,11 @@ b { color: var(--gold); font-weight: 700; }
 .rival-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .rival-cls { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
 .rival p { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+.rival .rv-bb { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.rival .rv-bb p { font-size: 12.5px; line-height: 1.7; }
+.rival .rv-title { color: var(--fg); font-weight: 700; }
+.rival .rv-fit { font-style: italic; }
+.rival .rv-link, .rival .rv-after { color: var(--gold); }
 .intel { display: flex; gap: 3px; }
 .intel i { width: 14px; height: 4px; border-radius: 2px; background: #ffffff1a; }
 .intel i.on { background: var(--gold); }

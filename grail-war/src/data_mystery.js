@@ -44,7 +44,7 @@ function culprit() {
     const pool = G.rivals.filter(r => r.alive && !r.friend);
     if (!pool.length) return null;
     // 魂喰いをするのは、好戦的で悪辣な陣営ほどありえる
-    const r = wpick(pool, x => 0.4 + x.aggr);
+    const r = wpick(pool, x => (0.4 + x.aggr) * (typeof rvDarkW === 'function' ? rvDarkW(x) : 1));   // 来歴が魂喰いに手を染めそうなマスターほど（data_rivals.js）
     m.culprit = r.id; m.area = pick(['旧城下町', '港の倉庫街', '駅前の再開発地区', '御影川の下流', '城跡公園の北側']);
   }
   return G.rivals.find(r => r.id === m.culprit) || null;
@@ -69,7 +69,7 @@ function revealCulprit(how) {
   const m = mys(); if (m.culpritKnown) return '';
   m.culpritKnown = true; r.intel = Math.max(r.intel, 1);
   addLog(`昏睡事件の犯人は${r.cls}陣営と判明（${how}）。`);
-  return `<b>昏睡事件の犯人は、${rivalLabel(r)}陣営だ。</b>マスターは${esc(r.master)}――${r.type}。`;
+  return `<b>昏睡事件の犯人は、${rivalLabel(r)}陣営だ。</b>マスターは${esc(r.master)}――${r.type}。` + (typeof rvWhyLine === 'function' ? rvWhyLine(r) : '');
 }
 
 // ---- 真相が確定する ----

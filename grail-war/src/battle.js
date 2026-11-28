@@ -441,6 +441,7 @@ function battleWin(extra) {
   const body = [...extra, `<p>${rivalLabel(r)}の霊基が砕け、光の粒となって夜空に溶けていく。<b>勝利だ。</b></p>`];
   if (r.friend) { G.flags.friendDefeated = true; body.push(`<p class="quote">「${fg('……負けたよ。強くなったな', '……負けちゃった。強くなったね')}」</p><p>${friendName()}は泣きながら笑っていた。</p>`); }
   addLog(`${rivalLabel(r)}陣営（${servantOf(r).name}）を撃破。`);
+  if (typeof rvLoseLine === 'function') { const l = rvLoseLine(r); if (l) body.push(l); body.push(...rvCheckFalls()); }   // 敵マスターの最後の言葉と、因縁の相手の変化（data_rivals.js）
   if (r.bounty) { G.master.seals++; body.push('<p>教会からの討伐令を果たした。報酬として令呪が一画、右手に刻まれた。（令呪+1）</p>'); }
   const spoils = rand(1, 3); money(spoils); body.push(`<p class="note">敵の拠点から資金を回収した。（+${spoils}万円）</p>`);
   body.push(...paras(takeNotes()));

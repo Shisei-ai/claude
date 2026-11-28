@@ -183,7 +183,7 @@ function intelRandom(n) {
   return intelText(r);
 }
 function intelText(r) {
-  if (r.intel === 1) return `${r.cls}陣営のマスターは<b>${esc(r.master)}</b>――${r.type}だと分かった。`;
+  if (r.intel === 1) return `${r.cls}陣営のマスターは<b>${esc(r.master)}</b>――${r.type}だと分かった。` + (typeof rvIntelLine === 'function' ? rvIntelLine(r) : '');
   if (r.intel === 2) return `${r.cls}陣営の拠点を突き止めた。夜に襲撃を仕掛けられる。`;
   addLog(`${r.cls}の真名「${servantOf(r).name}」を看破。`);
   return `${r.cls}の真名は<b>${servantOf(r).name}</b>だ！ 伝承から弱点が見えてきた。（戦闘で有利になる）`;
@@ -545,6 +545,7 @@ function setupRivals() {
     fr();   // 幼馴染の願い（data_friend.js）
     if (frCut()) r.quote = `……${fYou()}とは、もう何の関係もない。`; else if (frLover()) r.quote = fg('なんで、よりによってお前なんだよ。', 'どうして、よりによってあなたなの。'); else if (frRel() === 'best') r.quote = '親友でも、この願いだけは譲れない。';
   }
+  if (typeof rvAssign === 'function') rvAssign();   // 敵マスターの来歴と、マスター同士の因縁（data_rivals.js）
 }
 function afterSummon() {
   if (G.route === 'caught' && G.day === 0) return caughtFirstFight();

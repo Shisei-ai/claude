@@ -320,6 +320,7 @@ function dailyUpdate() {
     shp(10 + G.workshop * 3);
     for (const r of aliveRivals()) { r.hp = Math.min(r.hpMax, r.hp + 18); r.mp = Math.min(100, r.mp + 30); }
     simulateRivals();
+    if (typeof rvDaily === 'function') rvDaily();   // 因縁の相手が倒れていたら（data_rivals.js）
     mysteryDaily();
     if (typeof skDaily === 'function') skDaily();   // 幼馴染ルート：倒れた英霊の魂が桜へ（data_sakura.js）
     skillDaily();
@@ -334,7 +335,7 @@ function simulateRivals() {
   if (alive.length < 3 || G.day < 3) return;   // 最後の2陣営はプレイヤーと決着をつける
   const p = 0.1 + G.day * 0.015;
   if (Math.random() > p) return;
-  const [a, b] = shuffle(alive).slice(0, 2);
+  const [a, b] = typeof rvClashPair === 'function' ? rvClashPair(alive) : shuffle(alive).slice(0, 2);   // 因縁のある陣営同士は戦いやすい（data_rivals.js）
   const power = r => [0, 1, 2, 3, 5].reduce((s, i) => s + rivalParam(r, i), 0) / 5 + r.power + r.hp / 8 + rand(0, 30);
   const [win, lose] = power(a) >= power(b) ? [a, b] : [b, a];
   lose.alive = false; lose.hp = 0;
