@@ -341,8 +341,7 @@ function simulateRivals() {
   lose.alive = false; lose.hp = 0;
   win.hp = Math.max(20, win.hp - rand(20, 50)); win.clues = (win.clues || 0) + (Math.random() < 0.5 ? 1 : 0);
   const place = pick(['港の倉庫街', '城跡公園', '御影川の河川敷', '天降山の山道', '駅前の再開発地区']);
-  G.news.push(`昨夜、${place}で激しい戦闘があった。<b>${rivalLabel(lose)}陣営</b>が脱落したようだ。` +
-    (win.intel >= 1 ? `勝ったのは${rivalLabel(win)}陣営らしい。手負いのはずだ。` : ''));
+  G.news.push(pickFresh('news', VAR_NEWS)(place, lose, win));   // 言い換え（data_variety.js）
   addLog(`${rivalLabel(lose)}陣営が${rivalLabel(win)}陣営に敗れ脱落。`);
 }
 

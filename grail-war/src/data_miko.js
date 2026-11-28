@@ -334,7 +334,8 @@ function mikoVisit() {
         ally: [`${s}が、天降山の霊脈の流れを教えてくれた。「陣地を作るなら、この線を使ってください。山の力が、少しだけ味方してくれます」`, `${s}と二人で、神社の結界を張り直した。「相棒の拠点も、ついでに守っておきますね」`],
         known: [`${s}が、社務所でお守りを授けてくれた。「……ご武運を」`, `${s}は、神楽の稽古中だった。邪魔をしないように、しばらく舞を眺めて帰った。`],
       });
-    return [pick(lines), `<span class="note">（${CAST.miko}との関係+6・魔力+1・精神+1）</span>`];
+    const all = typeof mkVisitMore === 'function' ? lines.concat(mkVisitMore(back)) : lines;   // 言い換え（data_variety.js）
+    return [pickFresh('mkv' + (back ? 'b' : '') + mkRel(), all), `<span class="note">（${CAST.miko}との関係+6・魔力+1・精神+1）</span>`];
   });
 }
 

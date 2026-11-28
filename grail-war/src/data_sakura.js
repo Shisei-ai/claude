@@ -88,7 +88,7 @@ STORY.push(
   { id: 'f_reaper', phase: 'war', day: 5, slot: 1, after: 'advance', cond: () => skOn() && hostileRivals().some(r => !r.friend),
     title: '刈り取る者',
     text: () => { const r = skReaper(); G.tmpRival = r;
-      return `夜の城跡公園。大桜の根元に、見知らぬ術式が描かれていた。<br>術式の中心に立っていたのは、${rivalLabel(r)}陣営のマスター、${esc(r.master)}だった。<p class="quote">「六十年分の願いが、この木に溜まっている。聖杯など待つまでもない。――刈り取らせてもらう」</p>` +
+      return `夜の城跡公園。大桜の根元に、見知らぬ術式が描かれていた。<br>術式の中心に立っていたのは、${rivalLabel(r)}陣営のマスター、${esc(r.master)}だった。${(typeof rvReaperLine === 'function' && rvReaperLine(r)) || '<p class="quote">「六十年分の願いが、この木に溜まっている。聖杯など待つまでもない。――刈り取らせてもらう」</p>'}` +
         `${friendName()}が、胸を押さえて膝をついた。術式が、桜を通じて${friendName()}の回路まで吸い上げようとしている。`; },
     choices: [
       { label: '迎え撃つ', hint: '戦闘', cls: 'danger', run: () => { const r = G.tmpRival; return { text: [`${SV()}が前に出る。${friendName()}を背に庇って、あなたは右手を掲げた。`], then: () => startBattle(r, {}) }; } },
@@ -138,7 +138,7 @@ STORY.push(
   // ---- 10日目の昼：花の夢（会話で進む） ----
   { id: 'f_dream', phase: 'war', day: 10, slot: 0, after: 'hub', cond: () => skOn() && !!G.used.f_letter, title: '花の夢' },
 );
-function skReaper() { const list = hostileRivals().filter(r => !r.friend); return list.reduce((a, b) => (a.power >= b.power ? a : b)); }
+function skReaper() { let list = hostileRivals().filter(r => !r.friend); if (typeof rvReaperPick === 'function') list = rvReaperPick(list); return list.reduce((a, b) => (a.power >= b.power ? a : b)); }   // 六十年分の願いを欲しがる来歴のマスターが来やすい（data_rivals.js）
 function skMenuNote() { return '<span class="note">昼の行動に「桜の謎を追う」が加わった。最後の夜までに、幼馴染を救う道を選び、備えよう。</span>'; }
 function skAlly(h, extra) {
   const r = frRival(); r.ally = true; r.intel = 3; G.used.s_friend = true;

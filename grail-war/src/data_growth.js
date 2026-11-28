@@ -313,6 +313,7 @@ function focusScene(k) {
   const seen = (G.flags.focusSeen = G.flags.focusSeen || {});
   let i = G.master.age < 12 ? 0 : 1;
   if (seen[k + i]) i = 1 - i;
+  if (seen[k + i] && typeof FOCUS_MORE !== 'undefined' && FOCUS_MORE[k]) { const rest = FOCUS_MORE[k].filter((_, j) => !seen[k + 'm' + j]); if (rest.length) { const j = FOCUS_MORE[k].indexOf(rest[0]); seen[k + 'm' + j] = true; return rest[0]; } }   // 三つ目・四つ目の文（data_variety.js）
   seen[k + i] = true;
   return s[i];
 }

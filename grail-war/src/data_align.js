@@ -152,7 +152,7 @@ function alignCheck(then) {
   const e = pick(pool);
   showEvent({
     id: e.id, title: e.title, chapter: `心の天秤　${age}歳`,
-    text: `${e.text}<br><span class="note">――あなたの在り方が、静かに問われている。</span>`,
+    text: `${e.text}<br><span class="note">${pickFresh('align', VAR_ALIGN)}</span>`,
     choices: e.choices.map(c => ({ label: c.label, run: () => {
       if (c.mid) alignCenter(); else alignShift(c.law || 0, c.good || 0);
       addLog(`${age}歳「${e.title}」：${c.label.replace(/[「」]/g, '')}`);

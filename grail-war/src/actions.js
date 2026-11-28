@@ -184,7 +184,7 @@ function intelRandom(n) {
 }
 function intelText(r) {
   if (r.intel === 1) return `${r.cls}陣営のマスターは<b>${esc(r.master)}</b>――${r.type}だと分かった。` + (typeof rvIntelLine === 'function' ? rvIntelLine(r) : '');
-  if (r.intel === 2) return `${r.cls}陣営の拠点を突き止めた。夜に襲撃を仕掛けられる。`;
+  if (r.intel === 2) return pickFresh('base', VAR_BASE)(r);
   addLog(`${r.cls}の真名「${servantOf(r).name}」を看破。`);
   return `${r.cls}の真名は<b>${servantOf(r).name}</b>だ！ 伝承から弱点が見えてきた。（戦闘で有利になる）`;
 }

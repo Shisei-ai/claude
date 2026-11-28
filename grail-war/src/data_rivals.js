@@ -434,7 +434,8 @@ function rvViewHTML(r) {
   const links = rvLinks().filter(l => (l.A === r || l.B === r) && l.A.intel >= 1 && l.B.intel >= 1).map(l => { const o = l.A === r ? l.B : l.A;
     return `<p class="rv-link">🔗 ${l.L.label(l.A, l.B)}：${o.cls}陣営の${rvN(o)}${o.alive ? '' : '（脱落）'}</p>`; }).join('');
   const fall = r.rvAfter ? `<p class="rv-after">${r.rvAfter}</p>` : '';
-  return `<div class="rv-bb"><p class="rv-title">来歴：${bb.title}</p><p>${rvT(bb.story(r))}</p>${knowsName(r) ? `<p class="rv-fit">${rvT(bb.fit[fit](r))}</p>` : ''}${links}${fall ? rvT(fall) : ''}</div>`;
+  const sty = rvStyleOf(r); const style = sty && r.intel >= 2 ? `<p class="rv-fit">戦い方：${sty.name}（${sty.note}）</p>` : '';
+  return `<div class="rv-bb"><p class="rv-title">来歴：${bb.title}</p><p>${rvT(bb.story(r))}</p>${knowsName(r) ? `<p class="rv-fit">${rvT(bb.fit[fit](r))}</p>` : ''}${style}${links}${fall ? rvT(fall) : ''}</div>`;
 }
 // ---- 倒れた時の最後の言葉（battleWin から） ----
 function rvLoseLine(r) { const bb = rvBB(r); return bb && !r.masterDead ? `<p class="quote">「${bb.lose(r)}」</p><p>${rvN(r)}が、膝をついたまま呟いた。</p>` : ''; }
@@ -495,10 +496,252 @@ EVENTS.push({ id: 'rv_glimpse', phase: 'war', time: 'day', once: false, weight: 
   choices: [
     { label: '少しだけ、話をする', hint: '交渉判定（相手の敵意が和らぐ・来歴が分かる）', run: () => { const r = G.rvTmpR; const c = chk('cha', 50);
         if (!c.ok) return [c.text, `「……馴れ合うつもりはない」${rvN(r)}は、そう言って去っていった。`, `<span class="note">来歴：${rvBB(r).title}</span>`];
-        r.aggr = Math.max(0.15, r.aggr - 0.2); tone('good');
+        r.aggr = Math.max(0.15, r.aggr - 0.2); tone('good'); G.rvGlimpseOk = true;
         return [c.text, `夜には敵同士だ。それでも、昼の光の下で、少しだけ言葉を交わした。`, rvT(`<span class="note">来歴：${rvBB(r).title}――${rvBB(r).story(r)}</span>`), `<span class="note">（${r.cls}陣営の敵意が和らいだ）</span>`, rvRevealLinks()].filter(Boolean); } },
     { label: '気付かれないように、後をつける', hint: '幸運判定（拠点が分かる）', run: () => { const r = G.rvTmpR; const c = chk('luk', 55);
         if (c.ok) r.intel = Math.max(r.intel, 2);
         return [c.text, c.ok ? `${rvN(r)}は、人通りの少ない道を選んで帰っていった。${r.cls}陣営の拠点を突き止めた。` : '角を曲がったところで、見失った。', rvRevealLinks()].filter(Boolean); } },
     { label: '見なかったことにする', hint: '慎重', run: () => { tone('cautious'); return '昼の街で、敵と関わるべきではない。あなたは、人混みに紛れた。'; } },
   ] });
+
+// =================================================================
+//  ルートの物語と来歴をつなぐ
+// =================================================================
+// 幼馴染ルート「刈り取る者」：六十年分の願いを欲しがるのは、こういう来歴のマスター
+const RV_REAPER = {
+  noble_root: '「六十年分の願いが、一本の木に溜まっている。……これほどの観測対象を、見逃せるものか」',
+  noble_collector: '「願いを溜め込んだ桜。そして、それに繋がった娘。――どちらも、私の硝子のケースに相応しい」',
+  alch_prodigy: '「六十年分の願いの魔力。人の手で聖杯を造る材料として、これ以上のものはないわ」',
+  mad_revive: '「ヒヒ……六十年分の願いがあれば、あの子を呼び戻せる。聖杯なんて、待っていられない」',
+  mad_cult: '「ヒヒ……この木もまた、街を聖杯に捧げるための祭具だ。完成させてやらなくちゃねえ」',
+  mad_exile: '「六十年分の願いの魔力……禁術の実証には、十分すぎる量だ」',
+  merc_pro: '「依頼主の注文は、聖杯の中身だ。木に溜まっているなら、木から刈り取るまでだ」',
+  head_grudge: '「六十年前、祖父から聖杯を奪った戦いの残り滓が、この木に溜まっている。――ならば、それは我が家のものだ」',
+};
+function rvReaperPick(list) { const fit = list.filter(r => rvBB(r) && RV_REAPER[r.bb]); return fit.length ? fit : list; }
+function rvReaperLine(r) { const bb = rvBB(r); return bb && RV_REAPER[r.bb] ? `<p class="quote">${RV_REAPER[r.bb]}</p><p class="note">${rvT(`${rvN(r)}――${bb.title}。`)}</p>` : ''; }
+// 雫ルート「残された者たちを集める」：英霊を失ったマスターたちの言葉（型ごと）
+const RV_RALLY = {
+  noble: '「……英霊を失った魔術師など、ただの人間だ。だが、ただの人間にも、ここに在る権利はある」',
+  head: '「この土地の者として、黙っているわけにはいかない。深見は、消させない」',
+  merc: '「戦場で消えるのは慣れてる。……だが、存在ごと消されるのは、さすがに御免だ」',
+  alch: '「私は、まだ何も残していない。……ここで消えるなんて、嫌」',
+  mad: '「ヒヒ……世界に消される？ 冗談じゃない。……あの子の思い出まで、消させるものか」',
+  exec: '「主の御業か、世界の理か。……どちらにせよ、人が在ったことまで消すのは、間違っている」',
+  stu: '「あいつと過ごした十日間が、なかったことになるなんて……そんなの、絶対に嫌だ！」',
+  old: '「六十年前に消えた者たちの分まで、わしはここに在ると、言ってやらねばならん」',
+};
+function rvRallyLines() {
+  const ms = (G.rivals || []).filter(r => rvBB(r) && !r.masterDead && !r.killed && RV_RALLY[rvKey(r)]);
+  return shuffle(ms).slice(0, 2).map(r => rvT(`<p>${r.cls}陣営のマスターだった${rvN(r)}――${rvBB(r).title}――も、礼拝堂に来ていた。</p><p class="quote">${RV_RALLY[rvKey(r)]}</p>`)).join('');
+}
+// 英霊ルート「呑まれた陣営」：助け出したマスターの言葉（型ごと）
+const RV_SAVED = {
+  noble: '「……借りができたな。時計塔の名にかけて、知っていることは全部話そう」',
+  head: '「……この土地の者を、余所者に救われるとはな。借りは返す。知っていることを話そう」',
+  merc: '「……借りは作らない主義なんだがな。情報で返す。それで貸し借りなしだ」',
+  alch: '「……ありがとう。お礼に、私が調べたことを全部教えるわ」',
+  mad: '「ヒヒ……助けたのか、この私を。……いいだろう。見たものを、全部話してやる」',
+  exec: '「……主の導きか。恩は、情報で返そう」',
+  stu: '「た、助かった……！ ありがとう！ 知ってること、全部話すから！」',
+  old: '「……若いのに、借りができたわい。年寄りの知っておることを、全部話そう」',
+};
+function rvSavedLine(r) { const k = rvBB(r) ? rvKey(r) : null; return k && RV_SAVED[k] ? RV_SAVED[k] : '「……借りができた。知っていることは全部話す」'; }
+
+// =================================================================
+//  同盟の中身（情報の提供・共闘・裏切り／筋を通す別れ）
+// =================================================================
+const RV_TREACHERY = ['merc_pro', 'merc_hired', 'noble_root', 'noble_collector', 'mad_revive', 'mad_cult', 'mad_exile', 'alch_prodigy', 'head_patron'];   // 裏切りうる来歴
+const RV_BETRAY = {
+  noble: '「悪く思わないでくれたまえ。……敵が減れば、同盟は終わる。少し早く終わらせるだけだ」',
+  head: '「家のためだ。……許せとは言わん」',
+  merc: '「契約の範囲内だ。同盟は、いつ切ってもいいことになってる」',
+  alch: '「……ごめんなさい。でも、私には、聖杯が必要なの」',
+  mad: '「ヒヒ……同盟？ 最初から、君の英霊の魂が欲しかったんだよ」',
+};
+const rvAllies = () => aliveRivals().filter(r => r.ally && !r.friend && !r.lifeRival);
+const RV_ALLY_TALK = {
+  noble: '「時計塔の流儀では、同盟相手への情報は対価なしで渡すものではないのだが……今回は特別だ」',
+  head: '「この街のことなら、うちの者が一番よく知っている。――使え」',
+  merc: '「偵察は、仕事のうちだ。……代金は、次の戦いで返してもらう」',
+  alch: '「使い魔に見張らせておいたの。……べ、別に、あなたのためじゃないから」',
+  mad: '「ヒヒ……面白いものを見たよ。教えてあげようか？」',
+  exec: '「教会の情報網に、引っかかったものがある。同盟の誼だ」',
+  stu: '「あのさ、昨日、変なもの見ちゃって……。一応、伝えといた方がいいかなって」',
+  old: '「年寄りは、夜が早くて朝が早い。……おかげで、いろいろ見えるものよ」',
+};
+EVENTS.push(
+  { id: 'rv_ally_intel', phase: 'war', time: 'day', once: false, weight: 3,
+    cond: () => (G.rvAllyIntel || 0) < 2 && rvAllies().length > 0 && hostileRivals().some(r => r.intel < 3),
+    title: '同盟相手からの知らせ',
+    text: () => { const a = G.rvTmpA = pick(rvAllies()); G.rvAllyIntel = (G.rvAllyIntel || 0) + 1; const k = rvKey(a);
+      return rvT(`${a.cls}陣営の${rvN(a)}から、連絡があった。<p class="quote">${(rvBB(a) && RV_ALLY_TALK[k]) || '「同盟の誼だ。見たものを伝えておく」'}</p>`); },
+    choices: [
+      { label: '話を聞く', run: () => { const t = pick(hostileRivals().filter(r => r.intel < 3)); t.intel = Math.min(3, t.intel + 1);
+          return [`${G.rvTmpA.cls}陣営からの情報で、${t.cls}陣営のことが分かった。`, intelText(t)]; } },
+      { label: '見返りに、こちらの情報も渡す', hint: '秩序（同盟が固くなる）', run: () => { tone('law'); const a = G.rvTmpA; a.rvLoyal = (a.rvLoyal || 0) + 1;
+          const t = pick(hostileRivals().filter(r => r.intel < 3)); t.intel = Math.min(3, t.intel + 1);
+          return [`互いの調べたことを、包み隠さず突き合わせた。${rvT(`${rvN(a)}は、少しだけ表情を緩めた`)}。「……信用していいらしいな」`, intelText(t), '<span class="note">（同盟が固くなった）</span>']; } },
+    ] },
+  { id: 'rv_ally_joint', phase: 'war', time: 'night', once: true, weight: 3,
+    cond: () => rvAllies().length > 0 && engageable().length > 0 && G.day >= 3,
+    title: '挟み撃ちの夜',
+    text: () => { const a = G.rvTmpA = pick(rvAllies()); const t = G.rvTmpT = engageable().reduce((x, y) => (x.hp / x.hpMax) <= (y.hp / y.hpMax) ? x : y);
+      return rvT(`深夜、${a.cls}陣営の${rvN(a)}から使い魔が届いた。<br>「今夜、${rivalLabel(t)}陣営の拠点を挟み撃ちにする。そちらは正面から来てくれ。――こちらは、裏から回る」`); },
+    choices: [
+      { label: '共闘する', hint: '戦闘（敵は手負い・不意を突ける）', cls: 'danger', run: () => { const a = G.rvTmpA, t = G.rvTmpT; t.hp = Math.max(1, t.hp - 25); t.intel = Math.max(t.intel, 2); a.rvLoyal = (a.rvLoyal || 0) + 1;
+          return { text: [`${a.cls}陣営の英霊が、敵の拠点の裏手から仕掛けた。慌てて振り向いた${rivalLabel(t)}の背に、${SV()}が正面から迫る。`, `<span class="note">（敵HP-25・不意を突いた）</span>`], then: () => startBattle(t, { ambush: true }) }; } },
+      { label: '今夜は見送る', hint: '慎重', run: () => { tone('cautious'); return '「……そうか。なら、今夜は様子見だ」使い魔は、すぐに飛び去った。'; } },
+    ] },
+  { id: 'rv_ally_end', phase: 'war', time: 'any', once: true, weight: 6,
+    cond: () => G.day >= 7 && hostileRivals().length <= 2 && rvAllies().some(r => rvBB(r)),
+    title: '同盟の行方',
+    text: () => { const a = G.rvTmpA = pick(rvAllies().filter(r => rvBB(r))); const bad = RV_TREACHERY.includes(a.bb) && !(a.rvLoyal >= 2);
+      G.rvTmpBad = bad;
+      return rvT(bad ? `その夜、拠点の結界が、内側から軋んだ。<br>結界の合鍵を知っているのは、同盟相手だけだ。――闇の中から、${a.cls}陣営の英霊が姿を現した。その後ろに、${rvN(a)}が立っている。<p class="quote">${RV_BETRAY[rvKey(a)] || RV_BETRAY.noble}</p>`
+        : `${a.cls}陣営の${rvN(a)}が、昼の公園で、あなたを待っていた。<p class="quote">「残る敵は、もう少ない。……いずれ、私たちも戦うことになる。だから、今のうちに言っておく」</p>${rvN(a)}は、小さな包みを差し出した。「同盟の礼だ。――その時が来たら、正面から来い。こちらも、正面から行く」`); },
+    choices: [
+      { label: '裏切りを読んでいた。先に仕掛ける', hint: '知力判定（不意を突けば有利）', cls: 'danger', cond: () => G.rvTmpBad, run: () => { const a = G.rvTmpA; a.ally = false; a.intel = Math.max(a.intel, 2); const c = chk('int', 55); addLog(`${a.cls}陣営の${a.master}が、同盟を裏切った。`);
+          return { text: [c.text, c.ok ? '結界の綻びは、わざと残しておいたものだった。裏切りの気配は、とうに読んでいた。' : '読みは、半歩遅れた。'], then: () => startBattle(a, c.ok ? { ambush: true } : { enemyFirst: true }) }; } },
+      { label: '「同盟を続けよう」と説得する', hint: '交渉判定（失敗すると、そのまま戦闘）', cond: () => G.rvTmpBad, run: () => { const a = G.rvTmpA; const c = chk('cha', 62);
+          if (c.ok) { a.rvLoyal = 2; return [c.text, rvT(`「……ふん。君は、思ったより使える」${rvN(a)}は、英霊を下がらせた。「いいだろう。最後の一組になるまでは、手を組んでいてやる」`)]; }
+          a.ally = false; addLog(`${a.cls}陣営の${a.master}が、同盟を裏切った。`); return { text: [c.text, '言葉は、届かなかった。'], then: () => startBattle(a, { enemyFirst: true }) }; } },
+      { label: '包みを受け取る', cond: () => !G.rvTmpBad, run: () => { const a = G.rvTmpA; a.rvHonor = true; item('potion', 1); a.quote = '約束通り、正面から来たな。――始めよう。';
+          return [rvT(`包みの中身は、上等な霊薬だった。（霊薬+1）<br>${rvN(a)}は、それ以上何も言わずに去っていった。`), '<span class="note">同盟は、最後の一組になるまで続く。</span>']; } },
+    ] },
+);
+// 同盟の終わり（ending.js の breakAlliance から）：来歴ごとの別れの言葉
+function rvAllianceEndLine() {
+  const a = aliveRivals().find(r => rvBB(r)); if (!a) return '';
+  return rvT(a.rvHonor ? `<p>${rvN(a)}は、約束どおり、正面から使い魔を寄越した。「同盟は、ここまでだ。――礼は、もう済ませた。あとは、悔いのない戦いを」</p>`
+    : `<p class="quote">「${rvBB(a).quote(a)}」</p><p>${rvN(a)}の声は、同盟を結んでいた頃と、まるで違って聞こえた。</p>`);
+}
+
+// =================================================================
+//  来歴ごとの戦い方（battle.js から）
+// =================================================================
+const RV_STYLE = {
+  noble: { id: 'seal', name: '令呪を惜しまない', pre: r => `${rvN(r)}の右手で、令呪が鈍く光った。名門の魔術師は、勝つためなら令呪を惜しまない。`, note: '敵は早めに令呪を使う' },
+  head: { id: 'home', name: '土地の加護', pre: r => `${rvN(r)}の足元で、深見の霊脈がざわめいている。この土地に根を張る家の加護だ。`, note: '序盤の3手番、敵の力が増す' },
+  merc: { id: 'gun', name: 'マスター狙い', pre: r => `${rvN(r)}が、英霊の陰から銃口を覗かせた。狙いは英霊ではない。――あなただ。`, note: '毎手番、あなたが狙い撃たれることがある' },
+  alch: { id: 'guard', name: '錬金術の守り', pre: r => `${rvN(r)}の錬金術が、敵の英霊を、硝子のような薄い守りで包んでいる。`, note: '敵は守りを固めやすい' },
+  mad: { id: 'frenzy', name: '狂気の魔力', pre: r => `${rvN(r)}の令呪が、不気味に脈打っている。英霊に、無茶な量の魔力を注ぎ込んでいる。`, note: '敵は宝具を使いやすく、攻めが荒い' },
+  exec: { id: 'anti', name: '秘蹟の詠唱', pre: r => `${rvN(r)}が、黒鍵を構えて詠唱を始めた。魔術を打ち消す、教会の秘蹟だ。`, note: 'あなたの英霊の魔術戦が弱まる' },
+  stu: { id: 'novice', name: '不慣れな指示', pre: r => `${rvN(r)}の指示は、どこかぎこちない。英霊も、主の声を待って一瞬遅れる。`, note: '敵の構えを読みやすい' },
+  old: { id: 'read', name: '老練な読み', pre: r => `${rvN(r)}は、こちらの動きを、黙ってじっと観察している。六十年分の戦いの勘だ。`, note: '敵の構えを読みにくい・敵の力がわずかに増す' },
+};
+function rvStyleOf(r) { return rvBB(r) ? RV_STYLE[rvKey(r)] || null : null; }
+function rvBattleInit(r) {
+  if (!B || B.boss || B.beast || B.enforcer) return '';
+  const st = rvStyleOf(r); if (!st) return '';
+  B.rvStyle = st.id; if (st.id === 'seal') B.rvSealAt = 0.5; if (st.id === 'novice') B.rvSealAt = 0.2;
+  return rvT(`<p>${st.pre(r)}</p><p class="note">戦い方：${st.name}（${st.note}）</p>`);
+}
+function rvPlanTweak(t) {
+  if (!B || !B.rvStyle || t === 'np') return t;
+  if (B.rvStyle === 'frenzy' && typeof npUsable === 'function' && npUsable('en') && Math.random() < 0.2) return 'np';
+  if (B.rvStyle === 'guard' && B.echarge === 0 && Math.random() < 0.15) return 'guard';
+  return t;
+}
+function rvSeeMod() { return !B || !B.rvStyle ? 0 : B.rvStyle === 'novice' ? 0.15 : B.rvStyle === 'read' ? -0.15 : 0; }
+function rvMyMod(tac) { return B && B.rvStyle === 'anti' && tac === 'mag' ? -8 : 0; }
+function rvEnMod() { if (!B || !B.rvStyle) return 0; if (B.rvStyle === 'home' && B.round <= 3) return 4; if (B.rvStyle === 'frenzy') return 3; if (B.rvStyle === 'read') return 2; return 0; }
+function rvRoundFx(log) {
+  if (!B || B.rvStyle !== 'gun' || G.master.hp <= 12 || Math.random() > 0.2) return;
+  hp(-5); log.push(rvT(`<span class="note">${rvN(B.r)}の銃弾が、あなたの肩を掠めた。（HP-5）</span>`));
+}
+
+// =================================================================
+//  敵マスターとの会話（出来事「因縁の二人」「敵マスターの素顔」を、言葉を交わす会話にする）
+// =================================================================
+// 願いを語る言葉（来歴ごと）
+const RV_TALK = {
+  noble_fall: '「家名など、くだらないと思うかね。……だが、父はそれを取り戻せないまま死んだ。私が取り戻さなければ、父の一生は何だったことになる」',
+  noble_root: '「根源に至れば、魔術師の千年の問いに答えが出る。……君は、答えを知りたいと思ったことはないのかね」',
+  noble_lecturer: '「あいつは、天才だった。私より、ずっと。……だから、止めるのは私でなければならない」',
+  noble_collector: '「美しいものは、いずれ壊れる。だから私は、壊れる前に手に入れて、永遠に閉じ込めておきたいのだよ」',
+  head_grudge: '「負けた家、と呼ばれ続けるのは、もう終わりにしたい。……祖父のためにも、子どもたちのためにも」',
+  head_keeper: '「聖杯なんて、この街には過ぎたものだ。誰の手にも渡さず、静かに眠らせてやりたい」',
+  head_young: '「当主として認められたい……いや、違うな。本当は、弟妹たちが胸を張れる家にしたいだけだ」',
+  head_patron: '「才能がないことは、子どもの頃から知っていた。だから、持っているものは全部使う。それが、私のやり方だ」',
+  merc_pro: '「願い？ 報酬の話なら、いくらでもできるがな。……それ以外の話は、とうの昔に忘れた」',
+  merc_sister: '「妹が目を覚ましたら、真っ先に謝るつもりだ。……ずっと、そばにいてやれなかったからな」',
+  merc_hired: '「自分の願いがない人間は、他人の願いのために戦うしかないんだよ。……そういう生き方も、あるだろう」',
+  merc_ex: '「教会を捨てた日から、祈る相手がいない。……聖杯なら、何か答えてくれるかと思ってな」',
+  alch_last: '「千年分の夢を、私一人で終わらせるわけにはいかないの。……たとえ、私が最後の一人でも」',
+  alch_prodigy: '「人の手で聖杯を造れたら、誰も、願いのために殺し合わなくて済む。……そう思わない？」',
+  alch_vessel: '「器になったら、私は消える。だから、消える前に、一度でいいから、自分のために何かを選んでみたかったの」',
+  alch_grand: '「おばあさまが、最後に何を見たのか知りたいの。恨むためじゃない。……ちゃんと、お別れを言うために」',
+  mad_revive: '「ヒヒ……おかしいだろう？ でも、あの子のいない朝が、もう三年も続いているんだ。……耐えられるわけが、ないだろう」',
+  mad_cult: '「ヒヒ……この街は、完成するために造られたんだよ。私は、それを手伝っているだけさ」',
+  mad_exile: '「真理に近づいた者を、時計塔は追放した。……なら、時計塔の外で、真理に辿り着いてやる」',
+  exec_relic: '「聖杯は、人の手に余る。願いを叶える杯など、争いしか生まない。だから、誰にも使わせない」',
+  exec_hunt: '「あの異端に、魂を喰われた人々がいる。……彼らの無念を晴らすまで、私の巡礼は終わらない」',
+  exec_vendetta: '「斬りたくはない。……だが、斬らなければ、私が信じてきたものが、全部嘘になる」',
+  exec_doubt: '「主が答えてくださらないのなら、せめて、願望機の沈黙を聞いてみたい。……愚かだと思うか」',
+  stu_accident: '「願いなんて、まだ分からないよ。……でも、こいつと出会えたことだけは、後悔してない」',
+  stu_wish: '「あいつ、走るのが大好きだったんだ。……もう一回、走ってるところを見たい。それだけ」',
+  stu_brother: '「才能がないのは分かってる。でも、家族が一人で戦ってるのを、黙って見てるなんてできないだろ」',
+  old_sixty: '「六十年前、わしらは何のために戦ったのか。……その答えを見届けんと、死ぬに死ねん」',
+  old_heir: '「わしの魔術は、わしが死ねば消える。……せめて、誰かの記憶の中にでも、残っておってほしいのじゃ」',
+  old_feud: '「わしは六十年前、一度逃げた。……二度目は、逃げずにおりたい。それが、わしの願いじゃ」',
+};
+// 共感した時／譲らないと告げた時の返事（型ごと）
+const RV_SOFT = {
+  noble: '「……君に分かられても、困るのだがね」そう言いながら、その口元は、少しだけ緩んでいた。',
+  head: '「……そうか。この土地の人間に言われると、少しは救われる」',
+  merc: '「……甘い奴だ。だが、嫌いじゃない」',
+  alch: '「……っ、あなたに分かるわけ、ないでしょ」そう言って、目を逸らした。けれど、声は柔らかかった。',
+  mad: '「ヒヒ……分かる、だって？ ……そんなこと言われたのは、三年ぶりだよ」',
+  exec: '「……あなたに、主の祝福がありますように。――敵であっても」',
+  stu: '「……へへ。なんか、ちょっと元気出た。ありがとう」',
+  old: '「……若いのに、年寄りの話を最後まで聞くとはな。良い主に、仕えておる英霊じゃ」',
+};
+const RV_HARD = {
+  noble: '「当然だ。譲られた聖杯に、価値などない。――次は、夜に会おう」',
+  head: '「それでいい。……手加減は、しないぞ」',
+  merc: '「それでいい。情けをかけられるより、ずっと話が早い」',
+  alch: '「……ええ。それでこそ、倒しがいがあるわ」',
+  mad: '「ヒヒ……いいねえ。その英霊の魂、きっと美味しいよ」',
+  exec: '「ならば、主の御前で、正しき方が勝つまでだ」',
+  stu: '「……分かってる。こっちだって、負けないから！」',
+  old: '「ほっほ。それでよい。……全力で来い。年寄りも、全力で応えよう」',
+};
+// 因縁の二人の片方が、あなたに向ける言葉
+const RV_WORD = {
+  employ: (A, B) => [B, '「……今夜のことは、忘れろ。雇い主に知られたら、面倒なことになる」'],
+  hunt: (A, B) => [A, '「異端を追う者として、忠告しておく。……あれに、英霊の魂を喰わせるな。喰わせれば、手がつけられなくなる」'],
+  kin: (A, B) => [B, `「……${rg(A, '兄さん', '姉さん')}には、内緒にして。お願い。${rg(A, '兄さん', '姉さん')}、一人で全部背負っちゃうから」`],
+  rivalry: (A, B) => [A, '「……見苦しいところを見せたな。あれは、私の兄弟弟子だ。――昔は、あんな目をする奴ではなかった」'],
+  chase: (A, B) => [B, '「……私のことは、放っておいて。あなたまで、あの人に目をつけられる」'],
+  oldfeud: (A, B) => [A, '「……若いの。見届けてくれて、礼を言う。わしひとりでは、あの子の目を、最後まで見られんかった」'],
+  vendetta: (A, B) => [B, `「……お前、あいつの知り合いか？ なら、伝えておいてくれ。${rg(B, '俺', '私')}は、逃げも隠れもしないってな」`],
+};
+function rvReply(r, soft) { const t = (soft ? RV_SOFT : RV_HARD)[rvKey(r)] || ''; const m = t.match(/^(「[^」]*」)(.*)$/); return m ? `<p class="quote">${m[1]}</p>` + (m[2] ? `<p>${m[2]}</p>` : '') : `<p>${t}</p>`; }
+function rvTalkChoices(r) {
+  return [
+    { label: '「その気持ち、分かる気がする」', run: () => { r.aggr = Math.max(0.15, r.aggr - 0.1); tone('good'); }, reply: () => [meSay('その気持ち、分かる気がする'), rvReply(r, true), `<span class="note">（${r.cls}陣営の敵意が和らいだ）</span>`] },
+    { label: '「それでも、聖杯は譲らない」', run: () => tone('bold'), reply: () => [meSay('それでも、聖杯は譲らない'), rvReply(r, false)] },
+  ];
+}
+// 因縁の二人
+for (const ev of EVENTS.filter(e => /^rv_link_/.test(e.id))) {
+  const id = ev.id.replace('rv_link_', '');
+  ev.dialog = after => { G.used[ev.id] = true; const l = G.rvTmp = rvLinks().find(x => x.id === id && x.A.alive && x.B.alive); let left = false;
+    const choices = ev.choices.filter(c => !c.cond || c.cond()).map((c, k) => ({ label: c.label, hint: c.hint, disabled: c.disabled,
+      run: () => { left = c.label === '関わらずに、立ち去る'; G.rvRes = c.run(); }, reply: () => [].concat(G.rvRes || []) }));
+    const word = RV_WORD[id] ? RV_WORD[id](l.A, l.B) : null;
+    dialog({ title: ev.title, sub: 'EVENT', then: after, steps: [
+      { text: () => [rvT(l.L.scene(l.A, l.B))], choices },
+      { skip: () => left || !word || !word[0].alive, text: () => [rvT(`二人が去り際、${rvN(word[0])}が、あなたの方を振り返った。`), `<p class="quote">${rvT(word[1])}</p>`], choices: rvTalkChoices(word[0]) },
+    ] }); };
+}
+// 敵マスターの素顔
+{ const ev = EVENTS.find(e => e.id === 'rv_glimpse');
+  ev.dialog = after => { G.used[ev.id] = true; const intro = ev.text(); const r = G.rvTmpR; let talked = false;
+    const ch = ev.choices.map((c, k) => ({ label: c.label, hint: c.hint, run: () => { G.rvGlimpseOk = false; G.rvRes = [].concat(c.run()); talked = k === 0 && G.rvGlimpseOk; }, reply: () => G.rvRes }));
+    dialog({ title: ev.title, sub: 'EVENT', then: after, steps: [
+      { text: () => [intro], choices: ch },
+      { skip: () => !talked || !RV_TALK[r.bb], text: () => [rvT(`${rvN(r)}は、少し迷ってから、ぽつりと言った。`), `<p class="quote">${RV_TALK[r.bb]}</p>`], choices: rvTalkChoices(r) },
+    ] }); };
+}

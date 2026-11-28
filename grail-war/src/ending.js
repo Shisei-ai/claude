@@ -4,7 +4,8 @@
 
 function breakAlliance() {
   for (const r of aliveRivals()) r.ally = false;
-  next('同盟の終わり', ['<p>残るは、同盟を結んだ陣営とあなたたちだけになった。電話の向こうで、相手が静かに告げる。「――ここまでだ。次に会う時は、敵同士だ」</p>'], startSlot);
+  const extra = typeof rvAllianceEndLine === 'function' ? rvAllianceEndLine() : '';   // 来歴ごとの別れの言葉（data_rivals.js）
+  next('同盟の終わり', ['<p>残るは、同盟を結んだ陣営とあなたたちだけになった。電話の向こうで、相手が静かに告げる。「――ここまでだ。次に会う時は、敵同士だ」</p>', extra].filter(Boolean), startSlot);
 }
 function siegeScene(r) {
   r.siege = true; r.ally = false; r.intel = Math.max(r.intel, 2);

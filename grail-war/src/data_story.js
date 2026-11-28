@@ -322,7 +322,7 @@ const STORY = [
           tone('good'); const r = G.storyRival; const c = schk(0, 62);
           r.alive = false; r.hp = 0; addLog(`${rivalLabel(r)}陣営、黒い影に呑まれて脱落。`);
           if (c.ok) { for (const x of aliveRivals()) x.intel = Math.min(3, x.intel + 1);
-            return [c.text, `${SV()}が影を断ち切った。サーヴァントは救えなかったが、${esc(r.master)}は助け出せた。<br>「……借りができた。知っていることは全部話す」<br>彼の情報で、<b>残る全陣営の情報が一段階進んだ。</b>`,
+            return [c.text, `${SV()}が影を断ち切った。サーヴァントは救えなかったが、${esc(r.master)}は助け出せた。<br>${typeof rvSavedLine === 'function' ? rvSavedLine(r) : '「……借りができた。知っていることは全部話す」'}<br>その証言で、<b>残る全陣営の情報が一段階進んだ。</b>`,
               isPure() ? revealCulprit('助けたマスターの証言') : '']; }
           shp(-20); return [c.text, `${SV()}の刃は届かなかった。${rivalLabel(r)}陣営は、跡形もなく呑み込まれた。（サーヴァントHP-20）`];
         } },

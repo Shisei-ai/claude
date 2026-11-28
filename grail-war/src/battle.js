@@ -57,6 +57,7 @@ function startBattle(rival, opt = {}) {
     G.traps--; rival.hp = Math.max(1, rival.hp - 20);
     pre.push(`<p>仕掛けておいた罠が炸裂した！ ${enemyName()}に20ダメージ。（残りの罠 ${G.traps}）</p>`);
   }
+  if (typeof rvBattleInit === 'function') { const t = rvBattleInit(rival); if (t) pre.push(t); }   // 敵マスターの来歴ごとの戦い方（data_rivals.js）
   planEnemy();
   battleScene(pre);
 }
@@ -69,10 +70,11 @@ function planEnemy() {
   if (enemyWantsNp()) t = 'np';
   else if (B.echarge === 0 && Math.random() < (r.hp < r.hpMax * 0.35 ? 0.25 : 0.1)) t = 'guard';
   else t = wpick(['str', 'agi', 'mag'], k => Math.pow(rivalParam(r, TACTICS[k].stat), 1.5));
+  if (typeof rvPlanTweak === 'function') t = rvPlanTweak(t);
   B.enemyNext = t;
   if (B.sure) { B.tell = `【見切り】${enemyName()}は${TACTICS[t].tell}`; B.tellKey = t; B.sure = false; return; }
   if (isKishi()) { B.tell = `【戦略眼】${enemyName()}は${TACTICS[t].tell}`; B.tellKey = t; return; }   // 岸波白野：敵の手を必ず読む
-  const seeChance = t === 'np' ? 0.9 : 0.3 + G.master.stats.int / 200 + (knowsName(r) ? 0.2 : 0);
+  const seeChance = t === 'np' ? 0.9 : 0.3 + G.master.stats.int / 200 + (knowsName(r) ? 0.2 : 0) + (typeof rvSeeMod === 'function' ? rvSeeMod() : 0);
   if (Math.random() < seeChance) {
     const shown = t === 'np' || Math.random() < 0.75 ? t : pick(['str', 'agi', 'mag', 'guard']);
     B.tell = `${enemyName()}は${TACTICS[shown].tell}`; B.tellKey = shown;
@@ -210,7 +212,7 @@ function battleRound(cmd) {
 
   // 撤退
   if (cmd === 'flee') {
-    if (G.items.smoke > 0) { item('smoke', -1); return escape(log.concat(['煙幕の護符を地面に叩きつけた。濃い霧に紛れて離脱する。'])); }
+    if (G.items.smoke > 0) { item('smoke', -1); return escape(log.concat([pickFresh('smoke', VAR_SMOKE)])); }
     const mine = (servantParam(2) + servantParam(4)) / 2 + rand(1, 40) + 5;
     const theirs = rivalParam(r, 2) + rand(1, 40);
     if (mine >= theirs) return escape(log.concat([`${P}があなたを抱えて跳んだ。どうにか逃げ切れた。`]));
@@ -263,11 +265,12 @@ function battleRound(cmd) {
 
   // 敵マスターの令呪（追い詰められると使う）
   let eSeal = 0;
-  if (!B.enemySeal && r.seals > 0 && r.hp < r.hpMax * 0.35 && Math.random() < 0.6) {
+  if (!B.enemySeal && r.seals > 0 && r.hp < r.hpMax * (B.rvSealAt || 0.35) && Math.random() < (B.rvSealAt === 0.5 ? 0.85 : 0.6)) {
     B.enemySeal = true; r.seals--; eSeal = 25; r.hp = Math.min(r.hpMax, r.hp + 25);
     log.push(`<span class="note">${B.beast ? '白い鱗が脈打ち、傷が満たされていく。' : B.boss ? '泥が脈打ち、傷が塞がっていく。' : `敵マスターの令呪が輝いた！ ${E}の傷が癒え、力が増す。`}（敵HP+25）</span>`);
   }
 
+  if (typeof rvRoundFx === 'function') rvRoundFx(log);   // 傭兵のマスター狙い（data_rivals.js）
   // 人類悪：正体を知らなければ、聖杯の残り香から魔力を吸い上げる
   if (B.beast && !G.flags.grailBeast && B.round <= 4) { r.hp = Math.min(r.hpMax, r.hp + 10); log.push('<span class="note">獣が、空の杯から最後の魔力を吸い上げた。（敵HP+10）</span>'); }
 
@@ -278,8 +281,8 @@ function battleRound(cmd) {
     + (first && B.opt.ambush ? 15 : 0) + (first && B.opt.duel ? 6 : 0) + (B.opt.defend ? G.workshop * 3 : 0)
     + (B.final && G.flags.resolve === 'win' ? 6 : 0) + (B.boss && G.flags.resolve === 'destroy' ? 8 : 0) + (B.boss && G.flags.mudKnown ? 5 : 0) + (B.final && G.flags.resolve === 'pure' ? 5 : 0) + (B.beast ? (G.flags.resolve === 'beast' ? 8 : 0) + (G.flags.grailBeast ? 5 : 0) + (G.flags.serpentKnown ? 4 : 0) : 0) + (G.flags.partnerCombo && sv.special === 'partner' ? 3 : 0)
     + (!B.boss && r.id === mys().culprit && mys().culpritKnown ? 3 + (G.flags.shadowKnown ? 3 : 0) : 0)
-    + sealBoost + mBonus + B.charge + skillMod('me', tac, et) + stunMe;
-  const enMod = classAffinity(r.cls, me.cls) + r.power + (sv.exposed ? 6 : 0) + (first && B.opt.enemyFirst ? 12 : 0) + eSeal + B.echarge + skillMod('en', et, tac) + stunEn + soulHuntedBonus();
+    + sealBoost + mBonus + B.charge + skillMod('me', tac, et) + stunMe + (typeof rvMyMod === 'function' ? rvMyMod(tac) : 0);
+  const enMod = classAffinity(r.cls, me.cls) + r.power + (sv.exposed ? 6 : 0) + (first && B.opt.enemyFirst ? 12 : 0) + eSeal + B.echarge + skillMod('en', et, tac) + stunEn + soulHuntedBonus() + (typeof rvEnMod === 'function' ? rvEnMod() : 0);
   B.charge = 0; B.echarge = 0;
 
   const score = (side, t, mod) => {
@@ -438,7 +441,7 @@ function battleWin(extra) {
   if (boss) return ending(G.servant.special ? 'destroySpecial' : 'destroy');
   r.alive = false; r.hp = 0; G.kills++;
   NOTES = []; bond(5);
-  const body = [...extra, `<p>${rivalLabel(r)}の霊基が砕け、光の粒となって夜空に溶けていく。<b>勝利だ。</b></p>`];
+  const body = [...extra, typeof varWin === 'function' ? varWin(r) : `<p>${rivalLabel(r)}の霊基が砕け、光の粒となって夜空に溶けていく。<b>勝利だ。</b></p>`];
   if (r.friend) { G.flags.friendDefeated = true; body.push(`<p class="quote">「${fg('……負けたよ。強くなったな', '……負けちゃった。強くなったね')}」</p><p>${friendName()}は泣きながら笑っていた。</p>`); }
   addLog(`${rivalLabel(r)}陣営（${servantOf(r).name}）を撃破。`);
   if (typeof rvLoseLine === 'function') { const l = rvLoseLine(r); if (l) body.push(l); body.push(...rvCheckFalls()); }   // 敵マスターの最後の言葉と、因縁の相手の変化（data_rivals.js）
@@ -449,11 +452,11 @@ function battleWin(extra) {
   if (r.masterDead) return next('勝利', body, finish);
   const choices = [
     { label: 'マスターを教会へ送る', hint: '秩序・善', fn: () => { NOTES = []; tone('law'); tone('good');
-      next('戦いの後', paras([`${esc(r.master)}は力なく頷き、教会へと去っていった。`, ...takeNotes()]), finish); } },
+      next('戦いの後', paras([pickFresh('church', VAR_CHURCH)(r), ...takeNotes()]), finish); } },
     { label: '残った令呪を奪う', hint: '悪 / 令呪+1', disabled: r.seals < 1, fn: () => { NOTES = []; tone('evil'); G.master.seals++; r.masterDead = true;
-      next('戦いの後', paras([`${esc(r.master)}の腕から令呪を奪い取った。（令呪+1）`, ...takeNotes()]), finish); } },
+      next('戦いの後', paras([pickFresh('sealtake', VAR_SEAL)(r), ...takeNotes()]), finish); } },
     { label: '何も言わず立ち去る', hint: '混沌', fn: () => { NOTES = []; tone('chaos');
-      next('戦いの後', paras(['敗者に掛ける言葉はない。あなたは振り返らずに、その場を後にした。', ...takeNotes()]), finish); } },
+      next('戦いの後', paras([pickFresh('leave', VAR_LEAVE)(), ...takeNotes()]), finish); } },
   ];
   scene({ title: '勝利', sub: 'VICTORY', body, choices });
 }
